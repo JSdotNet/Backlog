@@ -51,6 +51,26 @@ public sealed class ImportPlanRoadmapIntakeTests
         Assert.Equal(1, result.Roadmap!.Created);
     }
 
+    /// <summary>A task naming a repository the registry could not keep stops the
+    /// whole document, roadmap half included: the roadmap would otherwise lay out
+    /// an item whose tasks were never written.</summary>
+    [Fact]
+    public async Task A_failed_repository_registration_hands_nothing_to_the_roadmap()
+    {
+        var store = new InMemoryTaskRepository();
+        var intake = new RecordingIntake(store);
+        var directory = new FakeRepositoryDirectory { FailsWith = "The registry could not be written." };
+
+        var result = await new ImportPlanCommandHandler(store, directory, intake)
+            .Handle(new ImportPlanCommand(MixedDocument.Replace("`effort:3`", "`effort:3` `repo:newcomer`", StringComparison.Ordinal)),
+                TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("The registry could not be written.", result.Error.Message);
+        Assert.Empty(intake.Requests);
+        Assert.Empty(store.Entries);
+    }
+
     /// <summary>The effort handed across is what the store now holds under the tag,
     /// not only what this document wrote: work already under way there counts, and
     /// so does a task with no estimate.</summary>

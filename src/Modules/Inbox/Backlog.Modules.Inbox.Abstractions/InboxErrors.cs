@@ -103,4 +103,82 @@ public static class InboxErrors
     public static Error PlanUnknownRepository(string repoId) => Error.Validation(
         "inbox.plan.unknown_repository",
         $"The plan names a repository this item is not assigned to: {repoId}.");
+
+    /// <summary>The code of <see cref="BatchRefused"/>, which wraps another
+    /// error's message and so cannot be compared whole.</summary>
+    public const string BatchRefusedCode = "inbox.batch.refused";
+
+    /// <summary>A batch is one import, and Tasks takes a document whole or not
+    /// at all — so a refusal is every item's. Wraps the reason it gave, and says
+    /// plainly what the person most needs to know: nothing moved.</summary>
+    public static Error BatchRefused(Error reason) => new(
+        BatchRefusedCode,
+        $"The whole batch was refused, so nothing was routed and every item is still in the Inbox. {reason.Message}",
+        reason.Type);
+
+    /// <summary>One item of a batch whose notes hold a top-level heading or an
+    /// unclosed code fence. On its own that is prose; inside a batch's one
+    /// document the heading would start an entry of its own and the fence would
+    /// swallow the next item's, so this item is left out — named, not rewritten —
+    /// and the rest of the batch still goes.</summary>
+    public static readonly Error BatchItemNotSeparable = Error.Validation(
+        "inbox.batch.item_not_separable",
+        "Its notes have a top-level heading or an unclosed code fence, which would run into the other items of a batch. Move it to the backlog on its own.");
+
+    /// <summary>One item of a batch names a repository the workspace does not
+    /// know. Tasks' import registers a repository it has never seen, and a
+    /// batch must not add one to the workspace behind a person's back — the
+    /// single route leaves such a name unresolved instead — so this item is left
+    /// out and the rest still go.</summary>
+    public static Error BatchUnknownRepository(string repoId) => Error.Validation(
+        "inbox.batch.unknown_repository",
+        $"{repoId} is not a known repository any more; reassign it or route the item on its own.");
+
+    /// <summary>Tasks imported the batch but answered without every entry one
+    /// item should have become. Not expected — a fresh plan tag matches nothing
+    /// to skip — and not a refusal either: the import happened, the other items
+    /// are routed, and whatever Tasks did make for this one is named so nothing
+    /// is silently orphaned.</summary>
+    public static Error BatchItemMissing(IReadOnlyList<Guid> made) => Error.Unexpected(
+        "inbox.batch.item_missing",
+        made.Count == 0
+            ? "Tasks made no entry for it, so it was not marked routed."
+            : $"Tasks made only some of its entries, so it was not marked routed. The {made.Count} it made are in the backlog: "
+                + string.Join(", ", made.Select(id => id.ToString("D"))) + ".");
+
+    /// <summary>The dependencies confirmed for a batch go round in a loop — an
+    /// item that, through the others, waits on itself — so no item of the loop
+    /// could ever start. Refused whole, before Tasks is asked: the panel names the
+    /// same loops and keeps Confirm off, and this is the command not taking the
+    /// panel's word for it. Each loop is named by its titles, <c>A → B → A</c>.</summary>
+    public static Error BatchDependencyLoop(IReadOnlyList<string> loops) => Error.Validation(
+        "inbox.batch.dependency_loop",
+        $"These dependencies go round in a loop, so no item in it could start first: {string.Join("; ", loops)}. "
+            + "Turn one of them off and route again; nothing was routed.");
+
+    /// <summary>The plan tag handed back from the proposal is not one: a
+    /// <c>+</c> and a word, as <see cref="InboxPlanTag.For"/> writes it. Nothing
+    /// in the pane can type one, so this is a caller's mistake rather than a
+    /// person's, and it is refused rather than written on every entry.</summary>
+    public static Error BatchPlanTagInvalid(string planTag) => Error.Validation(
+        "inbox.batch.plan_tag_invalid",
+        $"{planTag} is not a plan tag; a plan tag is a + and a word, such as +reading-1a2b3c4d. Nothing was routed.");
+
+    /// <summary>A confirmed dependency on a task whose value cannot be written as
+    /// one <c>after:</c> token — empty, or holding a space or a backtick, either
+    /// of which would end the token early and leave the rest to read as
+    /// something else. Nothing in the pane produces one; the command refuses it
+    /// rather than write a token that means something else.</summary>
+    public static Error BatchDependencyInvalid(string taskTitle) => Error.Validation(
+        "inbox.batch.dependency_invalid",
+        $"The dependency on \"{taskTitle}\" cannot be written as an after: token. Nothing was routed.");
+
+    /// <summary>The batch was imported and this item's entries exist, but the
+    /// item could not be saved as routed. Named with the entries, because the
+    /// item still looks unrouted and routing it again would make them twice.</summary>
+    public static Error BatchSaveFailed(IReadOnlyList<Guid> taskIds, string detail) => Error.Unexpected(
+        "inbox.batch.save_failed",
+        $"Its entries are in the backlog but it could not be marked routed ({detail}). "
+            + $"Routing it again would make them twice; the {taskIds.Count} made for it: "
+            + string.Join(", ", taskIds.Select(id => id.ToString("D"))) + ".");
 }

@@ -25,6 +25,13 @@
     what is picked. The chosen row (the detail) and the picked rows (the bar)
     are independent, as they are in the Tasks list.
 
+    A list open in the column has one act of its own beside Select: Move list
+    to backlog, which routes every open row of the list as one batch. Two or
+    more rows open the Before you route panel (InboxRoutePanel), the same one
+    the bulk bar's Move to backlog opens; a list of one asks a plain confirm,
+    because there is nothing to order. The list is left standing; only what it
+    held goes.
+
     The rows also hear the digits that take the chosen item's suggestions, so a
     reader who has just clicked a row can take "2" without moving focus to the
     detail. Only the rows: the bulk bar above them has fields of its own.
@@ -107,6 +114,21 @@
                                   CssClass="btn--small inbox-pane__select-toggle"
                                   Title="@(State.SelectionMode ? "Stop picking items" : "Pick items to act on together (x)")"
                                   TestId="inbox-select-toggle">Select</ToggleButton>
+                    @if (State.SelectedListId is not null && !State.DeferredSelected)
+                    {
+                        @* A list's own act: route what it still holds open as one
+                           batch, one plan named after it. Asks first, because it
+                           acts on every open row at once and cannot be undone. *@
+                        var open = State.ListOpenItems.Count;
+                        <AppButton Size="ButtonSize.Small"
+                                   CssClass="inbox-pane__list-to-backlog"
+                                   Disabled="@(open == 0 || State.RoutingInFlight)"
+                                   Title="@(open == 0
+                                       ? $"Nothing open in {State.SliceName} to move."
+                                       : $"Route the {InboxDesktopState.Counted(open, "open item", "open items")} here to the backlog as one plan")"
+                                   OnClick="() => State.AskListRouteAsync()"
+                                   TestId="inbox-list-to-backlog">Move list to backlog</AppButton>
+                    }
                 </div>
             </div>
         }
@@ -115,6 +137,18 @@
         {
             <InboxBulkBar State="@State" />
         }
+
+        <ConfirmDialog Open="@State.ListRouteConfirmOpen"
+                       Title="Move this list to the backlog?"
+                       Message="@ListRouteMessage"
+                       ConfirmText="Move to backlog"
+                       OnConfirm="OnListRouteConfirmedAsync"
+                       OnCancel="State.CancelListRouteConfirm"
+                       TestId="inbox-list-to-backlog-dialog"
+                       ConfirmTestId="inbox-list-to-backlog-confirm"
+                       CancelTestId="inbox-list-to-backlog-cancel" />
+
+        <InboxRoutePanel State="@State" />
 
         var rows = State.VisibleItems;
 
@@ -238,6 +272,22 @@
 @code {
     [Parameter, EditorRequired]
     public InboxDesktopState State { get; set; } = default!;
+
+    /// <summary>The count and the plan the batch will become. The tag's digits
+    /// are minted by the module when it routes, so the preview shows the slug
+    /// and leaves them out. Deferred items stay behind in the list, and when
+    /// there are any the sentence says so.</summary>
+    private string ListRouteMessage =>
+        $"Move {InboxDesktopState.Counted(State.ListOpenItems.Count, "open item", "open items")} of {State.SliceName} "
+        + $"to the backlog as one plan tagged {InboxPlanTag.Preview(State.SliceName)}? The list stays"
+        + State.ListDeferredCount switch
+        {
+            0 => ".",
+            1 => "; its 1 deferred item stays with it.",
+            var deferred => $"; its {deferred} deferred items stay with it.",
+        };
+
+    private Task OnListRouteConfirmedAsync() => State.RouteListToBacklogAsync();
 
     /// <summary>A bare digit takes the chosen item's suggestion with that number,
     /// as it does in the detail.</summary>

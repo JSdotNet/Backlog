@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.Services;
 
@@ -47,19 +48,25 @@ internal sealed class RepositoryIdResolver(IRepositoryDirectory repositories)
     /// rule for a name nothing recognises.
     /// </para>
     /// </summary>
-    public IReadOnlyList<string> Resolve(IEnumerable<string>? names) => Canonicalise(names, matches: null, register: false);
+    public IReadOnlyList<string> Resolve(IEnumerable<string>? names) => Canonicalise(names, matches: null, register: false).Value;
 
     /// <summary>
     /// The same rule, plus the one thing Import may do that nothing else may: a
     /// name nothing recognises is registered on the spot, per ADR 0007, so a plan
     /// can introduce a repository to the workspace just by mentioning it.
+    /// <para>
+    /// A failure when a registration failed, carrying the registry's error. The
+    /// only way this can fail, and the reason it can: an id handed back for a
+    /// repository the registry could not keep would be filed on an entry and
+    /// point at nothing after a restart.
+    /// </para>
     /// </summary>
     /// <param name="matches">What the reader said in the Import dialog: the name
     /// as the plan wrote it, mapped to the repository they meant. A person having
     /// looked at a name is the strongest signal there is about what it means,
     /// which is why it is consulted before the registry rather than after
     /// it.</param>
-    public IReadOnlyList<string> ResolveOrRegister(IEnumerable<string>? names, IReadOnlyDictionary<string, string>? matches) =>
+    public Result<IReadOnlyList<string>> ResolveOrRegister(IEnumerable<string>? names, IReadOnlyDictionary<string, string>? matches) =>
         Canonicalise(names, matches, register: true);
 
     /// <summary>
@@ -74,31 +81,37 @@ internal sealed class RepositoryIdResolver(IRepositoryDirectory repositories)
     /// two targets because there is no authority to collapse them against.
     /// </para>
     /// </summary>
-    private List<string> Canonicalise(
+    private Result<IReadOnlyList<string>> Canonicalise(
         IEnumerable<string>? names,
         IReadOnlyDictionary<string, string>? matches,
         bool register)
     {
-        if (names is null) return [];
+        if (names is null) return Result.Success<IReadOnlyList<string>>([]);
 
-        return
-        [
-            .. names
-                .Select(name => One(name, matches, register))
-                .Distinct(StringComparer.Ordinal)
-        ];
+        var ids = new List<string>();
+        foreach (var name in names)
+        {
+            var id = One(name, matches, register);
+            if (id.IsFailure) return id.Error;
+
+            ids.Add(id.Value);
+        }
+
+        return Result.Success<IReadOnlyList<string>>([.. ids.Distinct(StringComparer.Ordinal)]);
     }
 
-    private string One(string name, IReadOnlyDictionary<string, string>? matches, bool register)
+    private Result<string> One(string name, IReadOnlyDictionary<string, string>? matches, bool register)
     {
         if (_resolved.TryGetValue(name, out var already)) return already;
 
+        // A failure is not remembered: it is not an answer about the name, and
+        // the run it belongs to stops here anyway.
         var id = Answer(name, matches, register);
-        _resolved[name] = id;
+        if (id.IsSuccess) _resolved[name] = id.Value;
         return id;
     }
 
-    private string Answer(string name, IReadOnlyDictionary<string, string>? matches, bool register)
+    private Result<string> Answer(string name, IReadOnlyDictionary<string, string>? matches, bool register)
     {
         // The reader's own answer, resolved through the directory like any other
         // name so that both branches end at an id rather than one ending at
@@ -113,6 +126,9 @@ internal sealed class RepositoryIdResolver(IRepositoryDirectory repositories)
 
         if (repositories.Resolve(name) is { } known) return known.Id;
 
-        return register ? repositories.Register(name).Id : name;
+        if (!register) return name;
+
+        var registered = repositories.Register(name);
+        return registered.IsSuccess ? registered.Value.Id : registered.Error;
     }
 }

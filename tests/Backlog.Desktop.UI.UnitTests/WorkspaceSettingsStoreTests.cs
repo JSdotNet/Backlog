@@ -205,6 +205,22 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
 #endif
     }
 
+    /// <summary>
+    /// The folder the desktop head composes its sync credential, sync progress,
+    /// sync URL and backup state under. It has to be the same isolated folder the
+    /// workspace uses, or a Debug head would pair, sync and back up as the
+    /// installed app on the same PC.
+    /// </summary>
+    [Fact]
+    public void The_default_app_data_directory_is_the_default_folder_under_local_app_data()
+    {
+        Assert.Equal(
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                WorkspaceSettingsStore.DefaultAppDataFolderName),
+            WorkspaceSettingsStore.DefaultAppDataDirectory);
+    }
+
     [Fact]
     public void A_chosen_folder_is_not_the_default()
     {

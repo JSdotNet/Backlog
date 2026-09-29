@@ -31,6 +31,11 @@ internal static class DevbookRuleText
 
     public static string Annotations { get; } = Read("devbook-annotations.md");
 
+    /// <summary>The contract the vendored copies were taken at, as their
+    /// <c>README.md</c> records it beside the commit.</summary>
+    public static int VendoredContract() =>
+        int.Parse(Capture(Read("README.md"), @"\(`plugins/devbook/rules/`\), contract (\d+):"), System.Globalization.CultureInfo.InvariantCulture);
+
     /// <summary>The <c>type</c> table in <c>devbook-chapter-metadata.md</c>: the
     /// chapter and file cells of one folder's row.</summary>
     public static (IReadOnlyList<string> Chapter, IReadOnlyList<string> File) TypeRow(string folder)

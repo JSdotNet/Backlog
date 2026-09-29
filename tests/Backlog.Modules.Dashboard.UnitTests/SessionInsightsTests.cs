@@ -2683,6 +2683,76 @@ public class SessionInsightsTests
     }
 
     /// <summary>
+    /// A Claude session records no repository; the product places it by the registered
+    /// clone its folder lies in, and the seam hands that across as the session's
+    /// repository — spelled the way the clone's remote spells it, not the way the
+    /// workspace configured it. Placed, it sits in the configured band in every chart cut
+    /// by repository, a placement outside the configured ones folds into the other band
+    /// like a recorded one would, and only the session nobody could place — blank,
+    /// not merely absent — is left in the unrecorded band.
+    /// </summary>
+    [Fact]
+    public async Task A_session_placed_by_its_clone_alone_is_banded_like_a_recorded_one()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", ran.Item1, ran.Item2, "placed") with
+                    {
+                        Repository = "Acme/Backlog",
+                        ModelUsage = [Usage("opus", output: 400)],
+                        PullRequests = [Pr("Acme/Backlog", 598, "https://github.com/acme/backlog/pull/598", Now.AddHours(-2))]
+                    },
+                    Session(Tower, "Claude", ran.Item1, ran.Item2, "elsewhere") with
+                    {
+                        Repository = "someone/else",
+                        ModelUsage = [Usage("opus", output: 100)]
+                    },
+                    Session(Tower, "Claude", ran.Item1, ran.Item2, "unplaced") with
+                    {
+                        Repository = "  ",
+                        ModelUsage = [Usage("opus", output: 900)]
+                    })
+            },
+            Activity(
+                Ran("placed", Tower, "Claude", ran),
+                Ran("elsewhere", Tower, "Claude", (ran.Item1, ran.Item1.AddHours(1))),
+                Ran("unplaced", Tower, "Claude", (ran.Item1, ran.Item1.AddMinutes(30)))));
+
+        var all = await ValueOf(insights, DashboardScope.Default);
+        var focused = await ValueOf(insights, DashboardScope.Default with { Repositories = RepositoryFocus.Of("backlog") });
+
+        Assert.Equal(
+            [
+                ("backlog", RepositoryBandKind.Configured, 2m),
+                (RepositoryWeekly.OtherName, RepositoryBandKind.Other, 1m),
+                (RepositoryWeekly.UnrecordedName, RepositoryBandKind.Unrecorded, 0.5m)
+            ],
+            all.ByRepository.Select(row => (row.Name, row.Kind, row.ActiveTimePerWeek[^1].Value)));
+
+        Assert.Equal(
+            [
+                (RepositoryWeekly.UnrecordedName, (RepositoryBandKind?)RepositoryBandKind.Unrecorded, 900m),
+                ("backlog", RepositoryBandKind.Configured, 400m),
+                (RepositoryWeekly.OtherName, RepositoryBandKind.Other, 100m)
+            ],
+            all.TokensByRepository.Select(band => (band.Name, band.Kind, band.Total)));
+
+        Assert.Equal(
+            [("backlog", (RepositoryBandKind?)RepositoryBandKind.Configured, 1m)],
+            all.PullRequestsByRepository.Select(band => (band.Name, band.Kind, band.Total)));
+
+        // Scoped to the repository it was placed in, the session is counted in its row.
+        var row = Assert.Single(focused.ByRepository);
+        Assert.Equal(("backlog", 1m, 2m), (row.Name, row.SessionsPerWeek[^1].Value, row.ActiveTimePerWeek[^1].Value));
+        Assert.Equal([("backlog", 400m)], focused.TokensByRepository.Select(band => (band.Name, band.Total)));
+        Assert.Equal([("backlog", 1m)], focused.PullRequestsByRepository.Select(band => (band.Name, band.Total)));
+    }
+
+    /// <summary>
     /// What overage did about each refusal: a fall-back, a wall for a named reason, a
     /// bare "rejected", or nothing said. Nothing said is its own count and never a wall.
     /// </summary>

@@ -1,5 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks;
+using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
@@ -79,6 +80,11 @@ public static class RoadmapCrossContextAdapterRegistration
         // reads through to the store on every call, so a pace changed on the roadmap
         // is live without a restart.
         services.AddSingleton<IPlanningVelocitySettings, PlanningVelocitySource>();
+
+        // The same file is the pace document that travels between devices (local ADR
+        // 0018): Roadmap's replication port reads and writes it through its store
+        // port. A singleton over the singleton store, for the reason the line above is.
+        services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<PlanningVelocitySettingsStore>());
 
         // Singleton for the same reason: it holds only the task signal, itself a
         // singleton, and a write in one window has to reach a band open in another.

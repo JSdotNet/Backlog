@@ -2,6 +2,7 @@ using System.Runtime.ExceptionServices;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using static Backlog.Infrastructure.IsoTimestamps;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -1034,9 +1035,6 @@ public sealed class GitHubActivityClient(
         return null;
     }
 
-    private static string Rfc3339(DateTimeOffset instant) =>
-        instant.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
-
     private static string? String(JsonElement element, string name) =>
         element.ValueKind == JsonValueKind.Object
         && element.TryGetProperty(name, out var value)
@@ -1051,10 +1049,4 @@ public sealed class GitHubActivityClient(
         && value.TryGetInt32(out var parsed)
             ? parsed
             : 0;
-
-    private static DateTimeOffset? Timestamp(JsonElement element, string name) =>
-        String(element, name) is { } text
-        && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
-            ? parsed
-            : null;
 }

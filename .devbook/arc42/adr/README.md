@@ -44,6 +44,7 @@ between inherited ADRs 0005 and 0009.
 - **[0015 — The devbook database lives in the app's storage, one per repository path, and the app builds it](0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md)** *(accepted; supersedes parts of 0004)*
 - **[0016 — The knowledge folders adopt the devbook convention under `.devbook/`; the derived layer stays a local build output](0016-knowledge-folders-adopt-the-devbook-convention.md)** *(accepted, partly built)*
 - **[0017 — Inbox import is a capture source; its manifest is Markdown with front matter, not entry text](0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md)** *(accepted, not yet built)*
+- **[0018 — The roadmap plan and the planning pace ride the task feed as two whole documents](0018-roadmap-plan-and-pace-ride-the-task-feed.md)** *(answers an open question in 0005, amends 0013)*
 
 ## Inherited decisions
 

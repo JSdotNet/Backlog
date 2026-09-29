@@ -1,5 +1,6 @@
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
 using ModelContextProtocol;
@@ -59,6 +60,56 @@ public class RoadmapToolsTests
         var contradiction = Assert.Single(answer.Contradictions);
         Assert.Equal(mine, contradiction.NodeId);
         Assert.Equal(release, contradiction.DependsOnId);
+    }
+
+    /// <summary>A window sized by effort is answered as the roadmap draws it — its
+    /// gathered effort at the pace in use from its planned start — not with the end
+    /// stored when the import placed it (local ADR 0018). A hand-placed one is
+    /// answered as stored.</summary>
+    [Fact]
+    public async Task A_window_sized_by_effort_is_answered_at_the_pace_in_use()
+    {
+        var sized = Item(Guid.NewGuid(), "Sized", ["backlog"]) with { PlacedByImport = ImportPlacement.Effort };
+        var placed = Item(Guid.NewGuid(), "Placed", ["backlog"]);
+        var plan = new RoadmapPlanDto([sized, placed], [], []);
+
+        var tools = new RoadmapTools(
+            new FakeRoadmapPlanning(plan),
+            new FakeRepositoryDirectory([Backlog]),
+            new EveryItemGathers(14),
+            new GlobalPace(7m));
+
+        var answer = await tools.GetRoadmapAsync("JSdotNet/Backlog", TestContext.Current.CancellationToken);
+
+        // 14 points at 7 a week: two weeks from 1 September.
+        var drawn = Assert.Single(answer.Items, item => item.Title == "Sized");
+        Assert.Equal(new DateOnly(2026, 9, 1), drawn.Start);
+        Assert.Equal(new DateOnly(2026, 9, 14), drawn.End);
+        Assert.Equal(new DateOnly(2026, 9, 30), Assert.Single(answer.Items, item => item.Title == "Placed").End);
+    }
+
+    private sealed class EveryItemGathers(int effort) : IRoadmapItemRollup
+    {
+        private RoadmapItemRollupDto Rollup => new([new RoadmapGatheredLink("task-1", "Task", effort, RollupOrigin.Tag)], []);
+
+        public Task<RoadmapItemRollupDto> GatherAsync(RoadmapItemDto item, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Rollup);
+
+        public Task<IReadOnlyDictionary<Guid, RoadmapItemRollupDto>> GatherPlanAsync(
+            RoadmapPlanDto plan,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, RoadmapItemRollupDto>>(plan.Items.ToDictionary(item => item.Id, _ => Rollup));
+    }
+
+    private sealed class GlobalPace(decimal pointsPerWeek) : IPlanningVelocity
+    {
+        public Task<PacesInUseDto> ReadPacesInUseAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PacesInUseDto(pointsPerWeek, new Dictionary<string, decimal>()));
+
+        public Task<decimal> GetStoryPointsPerWeekAsync(
+            IReadOnlyCollection<string> repositoryAliases,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(pointsPerWeek);
     }
 
     /// <summary>The same as every other scoped tool: the mapping is one helper

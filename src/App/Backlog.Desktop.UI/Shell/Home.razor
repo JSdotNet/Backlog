@@ -718,6 +718,7 @@
         State.WrittenElsewhere += HandleTasksWrittenElsewhere;
         InboxState.Changed += HandleStateChanged;
         InboxState.Routed += HandleInboxRouted;
+        InboxState.BatchRouted += HandleInboxBatchRouted;
         Features.Changed += HandleFeaturesChanged;
 
         // Optional, the way Settings resolves it: a host without task sync
@@ -1713,7 +1714,13 @@
     /// database — which is exactly the case its store reload already handles.
     /// The shell knows both panes exist and nothing about what either holds.
     /// </para></summary>
-    private void HandleInboxRouted(InboxRoutedDto routed) => _ = InvokeAsync(async () =>
+    private void HandleInboxRouted(InboxRoutedDto routed) => RefreshTasksAfterRouting();
+
+    /// <summary>The same, once for a whole batch: one import made every entry,
+    /// so one reload shows them all.</summary>
+    private void HandleInboxBatchRouted(InboxBatchRoutedDto batch) => RefreshTasksAfterRouting();
+
+    private void RefreshTasksAfterRouting() => _ = InvokeAsync(async () =>
     {
         _globalPanes.TryOpenAlongside(GlobalPane.Tasks);
         PersistPaneSelection();
@@ -1891,6 +1898,7 @@
         State.WrittenElsewhere -= HandleTasksWrittenElsewhere;
         InboxState.Changed -= HandleStateChanged;
         InboxState.Routed -= HandleInboxRouted;
+        InboxState.BatchRouted -= HandleInboxBatchRouted;
         Features.Changed -= HandleFeaturesChanged;
         if (_taskSync is not null) _taskSync.Changed -= HandleTaskSyncChanged;
 

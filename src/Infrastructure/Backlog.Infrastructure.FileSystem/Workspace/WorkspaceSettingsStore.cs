@@ -61,6 +61,15 @@ public sealed class WorkspaceSettingsStore
     public const string DefaultAppDataFolderName = "Backlog";
 #endif
 
+    /// <summary>The per-user folder <see cref="DefaultAppDataFolderName"/> names
+    /// under LocalApplicationData. Where a host composes the per-machine files
+    /// whose stores cannot see this one — the sync credential, the sync URL,
+    /// each replica's progress — so a Debug head never reads the installed
+    /// app's.</summary>
+    public static string DefaultAppDataDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        DefaultAppDataFolderName);
+
     public WorkspaceSettingsStore()
         : this(null)
     {

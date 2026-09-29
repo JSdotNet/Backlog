@@ -7,8 +7,8 @@ public enum RepositoryBandKind
     /// name the header's scope chips and the roadmap already use for it.</summary>
     Configured,
 
-    /// <summary>Every recorded repository the workspace has not configured, folded
-    /// into one row. Real work, but nothing here has a name or a colour for it.</summary>
+    /// <summary>Every repository, recorded or placed, the workspace has not configured,
+    /// folded into one row. Real work, but nothing here has a name or a colour for it.</summary>
     Other,
 
     /// <summary>Every session with no repository at all: the agent recorded none and
@@ -20,9 +20,10 @@ public enum RepositoryBandKind
 
 /// <summary>
 /// One row of the sessions part's weekly series cut by repository: the measures
-/// <see cref="AssistantSessionsInsight"/> already cuts by week, cut again by where the
-/// sessions were recorded as working, and named the way the rest of the product names
-/// a repository.
+/// <see cref="AssistantSessionsInsight"/> already cuts by week, cut again by the
+/// repository the sessions worked in — the one the agent recorded, else the registered
+/// clone the product placed the working folder in — and named the way the rest of the
+/// product names a repository.
 /// </summary>
 /// <param name="Name">
 /// The configured alias for a <see cref="RepositoryBandKind.Configured"/> row, and
@@ -59,6 +60,8 @@ public sealed record RepositoryWeekly(
     /// string, here, so the service and every surface agree on it.</summary>
     public const string OtherName = "Other repositories";
 
-    /// <summary>What the row of sessions with no recorded repository is called.</summary>
+    /// <summary>What the row of sessions with no repository known is called: the agent
+    /// recorded none and the product placed the working folder in no registered clone.
+    /// A session placed by its clone alone is not in it; it sits in that clone's row.</summary>
     public const string UnrecordedName = "No repository recorded";
 }

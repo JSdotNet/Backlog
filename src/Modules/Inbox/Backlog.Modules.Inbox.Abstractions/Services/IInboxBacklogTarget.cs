@@ -25,6 +25,27 @@ public interface IInboxBacklogTarget
     /// failure are named in the error so nothing is silently orphaned.</summary>
     Task<Result<IReadOnlyList<Guid>>> CreateTasksAsync(InboxRouteRequestDto request, CancellationToken cancellationToken = default);
 
+    /// <summary>A batch of items as one plan import: the entries
+    /// <see cref="CreateTasksAsync"/> would make for each item, all under the
+    /// batch's shared plan tag and each stamped with its own item as its source.
+    /// <para>
+    /// Decided per item first, by the one side that knows the grammar: an item
+    /// whose notes would split or merge the document, or that names a repository
+    /// the workspace does not know, is left out and comes back refused with its
+    /// reason. The rest go as one document, and that part is all or nothing —
+    /// Tasks takes it whole or refuses it, and its refusal comes back as
+    /// <see cref="InboxBatchTargetResultDto.DocumentRefused"/> with no entry
+    /// made. With every item refused, Tasks is not asked at all.
+    /// </para>
+    /// <para>
+    /// Imported items come back in the order of the request, each carrying only
+    /// its own task ids in the order of its repositories. No repository is ever
+    /// registered by a batch.
+    /// </para></summary>
+    Task<InboxBatchTargetResultDto> CreateBatchTasksAsync(
+        InboxBatchRouteRequestDto request,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Hands a drafted plan to Tasks' import, stamping every entry it
     /// creates with <paramref name="sourceInboxId"/>. A plan that names a
     /// repository outside <paramref name="allowedRepoIds"/> — the item's own,

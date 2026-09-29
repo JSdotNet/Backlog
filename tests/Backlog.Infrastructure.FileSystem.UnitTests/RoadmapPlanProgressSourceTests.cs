@@ -39,6 +39,45 @@ public class RoadmapPlanProgressSourceTests
     }
 
     [Fact]
+    public void An_item_sized_by_its_effort_may_reach_the_window_whatever_its_stored_end_says()
+    {
+        var items = RoadmapPlanProgressSource.MayReach(
+            [
+                Item("Stored before, sized by effort", new DateOnly(2026, 8, 1), From.AddDays(-1), placement: ImportPlacement.Effort),
+                Item("Stored before, placed by hand", new DateOnly(2026, 8, 1), From.AddDays(-1)),
+                Item("Starts after, sized by effort", To.AddDays(1), To.AddDays(5), placement: ImportPlacement.Effort),
+                Item("Spans it", new DateOnly(2026, 8, 1), new DateOnly(2026, 12, 1))
+            ],
+            From,
+            To);
+
+        Assert.Equal(["Stored before, sized by effort", "Spans it"], items.Select(item => item.Title));
+    }
+
+    /// <summary>The end reported for a window sized by effort is the one the roadmap
+    /// draws: its gathered effort at its pace in use from its planned start — not the
+    /// end stored when the import placed it, which a pace change leaves as it was
+    /// (local ADR 0018).</summary>
+    [Fact]
+    public void An_item_sized_by_its_effort_crosses_with_the_end_its_effort_reaches_at_its_pace()
+    {
+        var sized = Item("Sized", new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5), ["backlog"], ImportPlacement.Effort);
+        var placed = Item("Placed", new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5), ["backlog"]);
+        var rollup = new RoadmapItemRollupDto([Link("a", 18, RoadmapProgress.Ready)], []);
+
+        var reading = RoadmapPlanProgressSource.Map(
+            [sized, placed],
+            new Dictionary<Guid, RoadmapItemRollupDto> { [sized.Id] = rollup, [placed.Id] = rollup },
+            TwoWeeks,
+            Paces);
+
+        // 18 points at the backlog repository's 9 a week: two weeks, the 1st to the 14th.
+        Assert.Equal(new DateOnly(2026, 9, 1), reading.Items[0].Start);
+        Assert.Equal(new DateOnly(2026, 9, 14), reading.Items[0].End);
+        Assert.Equal(new DateOnly(2026, 9, 5), reading.Items[1].End);
+    }
+
+    [Fact]
     public void Each_item_carries_its_own_pace_the_lowest_across_its_repositories()
     {
         var reading = RoadmapPlanProgressSource.Map(

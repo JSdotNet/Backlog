@@ -29,8 +29,16 @@ internal sealed class InMemoryInboxStore : IInboxItemRepository, IInboxOrganizer
 
     public void Seed(InboxGroup group) => Groups[group.Id] = group;
 
+    /// <summary>Which item save, counted from one, throws instead — the way a
+    /// test makes the store fail part way through a batch.</summary>
+    public int? FailOnSave { get; set; }
+
+    private int _saves;
+
     public Task SaveAsync(InboxItem item, CancellationToken cancellationToken = default)
     {
+        if (++_saves == FailOnSave) throw new IOException("The disk is full.");
+
         ItemWrites.Add(item.Id);
         Items[item.Id] = item;
         return Task.CompletedTask;

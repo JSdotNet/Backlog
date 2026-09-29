@@ -18,12 +18,11 @@ namespace Backlog.Modules.Roadmap.Services;
 /// </summary>
 public static class ImportedPlanPlacement
 {
-    /// <summary>The shortest window a length can make: a window is at least a day.</summary>
-    public const int MinimumSpanDays = 1;
+    /// <inheritdoc cref="EffortWindow.MinimumSpanDays"/>
+    public const int MinimumSpanDays = EffortWindow.MinimumSpanDays;
 
-    /// <summary>The span when the total would be a number invented from nothing — a
-    /// working week, the smallest span that reads as a plan rather than a day.</summary>
-    public const int DefaultSpanDays = 5;
+    /// <inheritdoc cref="EffortWindow.DefaultSpanDays"/>
+    public const int DefaultSpanDays = EffortWindow.DefaultSpanDays;
 
     /// <summary>The day after the latest of <paramref name="predecessorEnds"/>, or
     /// <paramref name="today"/> when the item waits on nothing.</summary>
@@ -57,27 +56,11 @@ public static class ImportedPlanPlacement
             return (end < start ? PlannedWindow.Of(end, end) : PlannedWindow.Of(start, end), ImportPlacement.DueDate);
         }
 
-        var days = Days(gatheredEffort, velocity);
-
-        // Clamped so an absurd total cannot run the window off the calendar.
-        var lastDay = Math.Min((long)start.DayNumber + days - 1, DateOnly.MaxValue.DayNumber);
-        return (PlannedWindow.Of(start, DateOnly.FromDayNumber((int)lastDay)), ImportPlacement.Effort);
+        // The one formula every reader derives such a window with, so what the import
+        // stores is what the roadmap draws until the effort or the pace changes.
+        return (PlannedWindow.Of(start, EffortWindow.EndFrom(start, gatheredEffort, velocity)), ImportPlacement.Effort);
     }
 
-    /// <summary>How many calendar days a gathered total spans at a velocity in story
-    /// points a week.
-    /// <para>
-    /// Multiplied by seven before dividing, never divided by a per-day figure: 4 a
-    /// week is 0.571428… a day, which no decimal holds exactly, and 4 points over it
-    /// would come to a hair over 7 days and round up to 8.
-    /// </para>
-    /// </summary>
-    public static int Days(int gatheredEffort, decimal velocity)
-    {
-        if (gatheredEffort <= 0) return DefaultSpanDays;
-        if (velocity <= 0) throw new ArgumentOutOfRangeException(nameof(velocity), velocity, "Velocity is always positive.");
-
-        var days = Math.Ceiling(gatheredEffort * 7m / velocity);
-        return days >= int.MaxValue ? int.MaxValue : Math.Max(MinimumSpanDays, (int)days);
-    }
+    /// <inheritdoc cref="EffortWindow.Days"/>
+    public static int Days(int gatheredEffort, decimal velocity) => EffortWindow.Days(gatheredEffort, velocity);
 }

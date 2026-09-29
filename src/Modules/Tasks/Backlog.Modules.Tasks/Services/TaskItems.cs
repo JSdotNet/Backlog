@@ -69,7 +69,8 @@ internal sealed class TaskItems(
         string? defaultRepo = null,
         IReadOnlyDictionary<string, string>? repoMatches = null,
         string? sourceInboxId = null,
+        IReadOnlyDictionary<string, string>? sourceInboxIds = null,
         bool layOutOnRoadmap = false,
         CancellationToken cancellationToken = default) =>
-        importPlan.Handle(new ImportPlanCommand(rawText, defaultRepo, repoMatches, sourceInboxId, layOutOnRoadmap), cancellationToken);
+        importPlan.Handle(new ImportPlanCommand(rawText, defaultRepo, repoMatches, sourceInboxId, layOutOnRoadmap, sourceInboxIds), cancellationToken);
 }

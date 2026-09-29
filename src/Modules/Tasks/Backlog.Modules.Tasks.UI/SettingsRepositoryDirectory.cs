@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Desktop.UI.Tasks;
 
@@ -25,6 +26,8 @@ namespace Backlog.Desktop.UI.Tasks;
 /// </remarks>
 internal sealed class SettingsRepositoryDirectory(GitHubSettingsStore settings) : IRepositoryDirectory
 {
+    private const string RegistrationFailed = "repositories.registration_failed";
+
     public IReadOnlyList<TasksRepositoryRef> Repositories =>
         [.. settings.Current.Repositories.Select(repository =>
             new TasksRepositoryRef(repository.Alias, repository.Owner, repository.Name))];
@@ -49,7 +52,7 @@ internal sealed class SettingsRepositoryDirectory(GitHubSettingsStore settings) 
         return match is null ? null : new TasksRepositoryRef(match.Alias, match.Owner, match.Name);
     }
 
-    public TasksRepositoryRef Register(string name)
+    public Result<TasksRepositoryRef> Register(string name)
     {
         // Idempotent by asking the same question Resolve does: a plan naming a
         // repository that already exists is not a request to create a second one.
@@ -77,16 +80,26 @@ internal sealed class SettingsRepositoryDirectory(GitHubSettingsStore settings) 
             // would have to be special-cased everywhere a repository is drawn.
             : Placeholder(GitHubRepositoryRef.NormalizeAlias(name));
 
-        // The store takes the whole list; there is no narrower "add one", which is
-        // the same bargain the Repositories screen already makes when it saves.
-        //
         // Nothing machine-local is stated: no clone directory, no token, knowledge
         // folders left at their defaults. A repository somebody registered on
         // another install arrives here exactly this way, so a directory-less entry
         // is the ordinary shape of a registered repository rather than a lesser
         // one — DevbookFolderSource already answers a blank clone directory with
         // "Add a local clone directory ... in Settings".
-        _ = settings.SetRepositories([.. settings.Current.Repositories, registered]);
+        //
+        // A save that failed is a registration that failed. AddRepository rather
+        // than SetRepositories, because the latter keeps a change whose write did
+        // not land in memory for the session: the next Resolve of this name would
+        // find that row and the early return above would report success, so a
+        // retried import, or the reconcile pass meeting the same id on a second
+        // entry, would file entries against a repository gone after a restart.
+        // An unreadable registry refuses the change before it reaches memory at
+        // all. The store's sentence is the one the Repositories screen shows for
+        // the same failure, so it is passed on as it is.
+        if (settings.AddRepository(registered) is { } error)
+        {
+            return new Error(RegistrationFailed, error);
+        }
 
         return new TasksRepositoryRef(registered.Alias, registered.Owner, registered.Name);
     }

@@ -2,6 +2,7 @@ using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
@@ -180,6 +181,13 @@ public static class SyncClientRegistration
         // cycles its own guard exists to prevent. It takes the provider rather
         // than the session for the reason the two lines above are transient.
         services.TryAddSingleton<TaskSyncWorker>();
+
+        // The roadmap's first read waits for this loop's first pull (local ADR 0018).
+        // Here because the loop is: a head without task replication has no pull to
+        // wait for and registers none, and the roadmap reads at once. The replication
+        // port the merge and the session take is Roadmap's own, registered by
+        // AddRoadmapModule, and both take it as optional.
+        services.TryAddSingleton<IRoadmapCatchUp, TaskSyncRoadmapCatchUp>();
 
         return services;
     }

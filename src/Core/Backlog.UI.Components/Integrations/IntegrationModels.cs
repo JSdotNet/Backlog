@@ -54,6 +54,25 @@ public enum IntegrationArtifactState
 }
 
 /// <summary>
+/// How a pull request's checks stand — the roll-up of every check on its head
+/// commit, as the host read it.
+/// <para>
+/// <see cref="None"/> is the default and draws nothing. It covers both "this
+/// repository runs no checks" and "nobody has read them", and the link has nothing
+/// true to say about either: a mark for "no checks" would be a mark on most
+/// references in a repository without CI, and one for "not read" is the host's
+/// freshness line's job rather than every link's.
+/// </para>
+/// </summary>
+public enum IntegrationCheckState
+{
+    None,
+    Pending,
+    Passing,
+    Failing
+}
+
+/// <summary>
 /// The state of an agent session — a Copilot CLI run, a Claude session.
 /// </summary>
 public enum IntegrationSessionState
@@ -358,6 +377,13 @@ public sealed record IntegrationRepositoryRef(
 /// the default is too general to act on.</param>
 /// <param name="Repository">Where it lives. Drives grouping, and only becomes a
 /// heading when there is more than one.</param>
+/// <param name="Checks">A pull request's check roll-up, drawn as a small mark after
+/// the label. <see cref="IntegrationCheckState.None"/> draws nothing.</param>
+/// <param name="AutoMerge">Whether GitHub is holding the pull request to merge by
+/// itself once its requirements are met, drawn as a mark of its own after the
+/// checks. Last among the parameters, like <paramref name="Checks"/>, so every
+/// positional construction written before either existed still means what it
+/// did.</param>
 public sealed record IntegrationLinkRef(
     string Id,
     IntegrationProvider Provider,
@@ -369,7 +395,9 @@ public sealed record IntegrationLinkRef(
     IntegrationSessionState? SessionState = null,
     IntegrationDrift Drift = IntegrationDrift.None,
     string? DriftNote = null,
-    IntegrationRepositoryRef? Repository = null)
+    IntegrationRepositoryRef? Repository = null,
+    IntegrationCheckState Checks = IntegrationCheckState.None,
+    bool AutoMerge = false)
 {
     public static IntegrationLinkRef Issue(
         string id,
