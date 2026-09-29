@@ -118,7 +118,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// whoever is typing and read-modified by every callback that fires, which
     /// are different threads, so it is only ever touched under its own lock.
     /// </summary>
-    private readonly Dictionary<Guid, Timer> _debounceTimers = new();
+    private readonly Dictionary<Guid, ITimer> _debounceTimers = new();
+
+    /// <summary>What the debounce, the save flash and the "Saved" dwell are
+    /// measured on: the system clock in a host, a clock a test moves by hand.
+    /// </summary>
+    private readonly TimeProvider _timeProvider;
 
     /// <summary>Cancelled when this state is disposed. Every callback it left in
     /// flight — an elapsed debounce, a save flash, a reload somebody else asked
@@ -170,9 +175,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         TasksCopilotCli? copilot = null,
         IRoadmapTagSource? roadmapTags = null,
         IToastChannel? toasts = null,
-        ITaskChangeSignal? taskWrites = null)
+        ITaskChangeSignal? taskWrites = null,
+        TimeProvider? timeProvider = null)
     {
         _store = store;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _entryUseCases = new SelfAttributedTaskItems(entryUseCases, _writingHere);
         _gitHub = gitHub;
         _issues = new TasksIssues(gitHub);
@@ -2206,7 +2213,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// in flight.
     /// <para>
     /// The cancellation matters as much as the timer disposal, and is why the
-    /// order here is cancel-then-dispose. Disposing a <see cref="Timer"/> does
+    /// order here is cancel-then-dispose. Disposing an <see cref="ITimer"/> does
     /// not stop a callback that has already begun, and the save flash is a bare
     /// delay with no timer to dispose at all — so both read the token instead,
     /// and see a cancellation that was raised before this method took the lock.
@@ -2888,16 +2895,22 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             // put a timer in a map nothing will ever empty again.
             if (_untilDisposed.IsCancellationRequested) return;
 
-            // The timer is its own callback's state, so the callback can tell
-            // whether it is still the arm this row is waiting on. See
-            // OnDebounceElapsed.
-            var timer = new Timer(state => OnDebounceElapsed(row, (Timer)state!));
+            // The callback is handed its own timer, so it can tell whether it is
+            // still the arm this row is waiting on. See OnDebounceElapsed. It is
+            // created unarmed and armed once it is in the map, so the callback
+            // never runs before the timer it is handed exists.
+            ITimer? timer = null;
+            timer = _timeProvider.CreateTimer(
+                _ => OnDebounceElapsed(row, timer!),
+                null,
+                Timeout.InfiniteTimeSpan,
+                Timeout.InfiniteTimeSpan);
             _debounceTimers[row.Key] = timer;
-            timer.Change(DebounceMilliseconds, Timeout.Infinite);
+            timer.Change(TimeSpan.FromMilliseconds(DebounceMilliseconds), Timeout.InfiniteTimeSpan);
         }
     }
 
-    private async void OnDebounceElapsed(EntryRow row, Timer timer)
+    private async void OnDebounceElapsed(EntryRow row, ITimer timer)
     {
         lock (_debounceTimers)
         {
@@ -2927,7 +2940,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private void CancelDebounce(EntryRow row)
     {
-        Timer? timer;
+        ITimer? timer;
 
         lock (_debounceTimers)
         {
@@ -3172,7 +3185,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         try
         {
-            await Task.Delay(FlashMilliseconds, _untilDisposed);
+            await Task.Delay(TimeSpan.FromMilliseconds(FlashMilliseconds), _timeProvider, _untilDisposed);
         }
         catch (TaskCanceledException)
         {
@@ -3257,7 +3270,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         try
         {
-            await Task.Delay(SavedDwellMilliseconds, token);
+            await Task.Delay(TimeSpan.FromMilliseconds(SavedDwellMilliseconds), _timeProvider, token);
         }
         catch (TaskCanceledException)
         {

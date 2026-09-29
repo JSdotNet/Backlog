@@ -31,12 +31,24 @@ public sealed class DebouncedSave : IDisposable
 {
     private readonly TimeSpan _delay;
     private readonly Func<Task> _save;
+    private readonly TimeProvider _timeProvider;
     private CancellationTokenSource? _pending;
+
+    /// <summary>The save that was started last, debounced or immediate, which
+    /// may still be running. Every save waits for it before it writes, because two
+    /// writes to one document at once land in whatever order they finish, and the
+    /// loser may be the newer text. Each save is published here before it is
+    /// started, so a save asked for while another is only just beginning still
+    /// finds it.</summary>
+    private Task _lastSave = Task.CompletedTask;
+
     private bool _disposed;
 
     /// <param name="delay">How long the edits have to stop for before the save runs.</param>
     /// <param name="save">The save itself. Runs on whichever context touched last.</param>
-    public DebouncedSave(TimeSpan delay, Func<Task> save)
+    /// <param name="timeProvider">What the delay is measured on; the system clock
+    /// unless a test wants to move time by hand.</param>
+    public DebouncedSave(TimeSpan delay, Func<Task> save, TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(save);
         if (delay < TimeSpan.Zero)
@@ -46,11 +58,12 @@ public sealed class DebouncedSave : IDisposable
 
         _delay = delay;
         _save = save;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>The same, for a save with nothing to await.</summary>
-    public DebouncedSave(TimeSpan delay, Action save)
-        : this(delay, Wrap(save))
+    public DebouncedSave(TimeSpan delay, Action save, TimeProvider? timeProvider = null)
+        : this(delay, Wrap(save), timeProvider)
     {
     }
 
@@ -71,15 +84,21 @@ public sealed class DebouncedSave : IDisposable
         _ = RunAfterDelayAsync(token);
     }
 
-    /// <summary>Saves without waiting, and drops any debounced save still in
-    /// flight — the change it was waiting to write is written by this one.</summary>
+    /// <summary>Saves without waiting for the delay, and drops any debounced save
+    /// still pending — the change it was waiting to write is written by this one.
+    /// A save that has already started writing, of either kind, is let finish
+    /// first, so no two ever write at once.</summary>
     public Task SaveNowAsync()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        return SaveAsync(Restart(), propagate: true);
+        return StartSave(Restart(), propagate: true);
     }
 
+    /// <summary>Cancels a save still waiting on its delay, or queued behind one
+    /// that is writing. One already writing is not stopped — its write is in the
+    /// store's hands — but it no longer reports. Nothing here waits on a save, so
+    /// disposing from inside one cannot deadlock.</summary>
     public void Dispose()
     {
         if (_disposed) return;
@@ -114,7 +133,7 @@ public sealed class DebouncedSave : IDisposable
     {
         try
         {
-            await Task.Delay(_delay, token);
+            await Task.Delay(_delay, _timeProvider, token);
         }
         catch (OperationCanceledException)
         {
@@ -123,7 +142,38 @@ public sealed class DebouncedSave : IDisposable
             return;
         }
 
-        await SaveAsync(token, propagate: false);
+        await StartSave(token, propagate: false);
+    }
+
+    /// <summary>
+    /// Queues a save behind the one started last and publishes it as the new
+    /// last, before any of it runs. Built unstarted and then run inline, so the
+    /// write begins on the caller's context exactly as a direct call would — but
+    /// only once <see cref="_lastSave"/> already names it.
+    /// </summary>
+    private Task StartSave(CancellationToken token, bool propagate)
+    {
+        var previous = _lastSave;
+        var start = new Task<Task>(() => SaveAfterAsync(previous, token, propagate));
+        var saving = start.Unwrap();
+        _lastSave = saving;
+        start.RunSynchronously(TaskScheduler.Default);
+        return saving;
+    }
+
+    private async Task SaveAfterAsync(Task previous, CancellationToken token, bool propagate)
+    {
+        // Its failure is its own caller's, or its own state's, to report; the
+        // save behind it only needs it to be over.
+        await previous.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
+
+        // A debounced save that was superseded while it queued — by a touch, a
+        // save now, or disposal — has nothing to write: whatever replaced it
+        // writes the same document, later. An immediate save has a caller
+        // awaiting it, so it always writes.
+        if (!propagate && token.IsCancellationRequested) return;
+
+        await SaveAsync(token, propagate);
     }
 
     private async Task SaveAsync(CancellationToken token, bool propagate)
