@@ -92,7 +92,7 @@ public sealed class GitHubIntegration(
     {
         ArgumentNullException.ThrowIfNull(repository);
 
-        var issue = await client.CreateIssueAsync(repository, title, body, labels, cancellationToken);
+        var issue = await client.CreateIssueAsync(repository, title, body, labels, cancellationToken).ConfigureAwait(false);
         return new GitHubIssueLink(repository.FullName, issue.Number);
     }
 

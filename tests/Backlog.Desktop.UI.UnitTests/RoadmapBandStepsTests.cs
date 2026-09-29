@@ -55,8 +55,8 @@ public sealed class RoadmapBandStepsTests : RoadmapBandHarness
         var rollup = new CountingRollup(Gathered);
         context.Services.AddSingleton<IRoadmapItemRollup>(rollup);
 
-        await Planning.AddItemAsync("One", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 30), repositoryAliases: ["backlog"]);
-        await Planning.AddItemAsync("Two", new DateOnly(2026, 2, 2), new DateOnly(2026, 2, 27), repositoryAliases: ["backlog"]);
+        await Planning.AddItemAsync("One", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 30), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        await Planning.AddItemAsync("Two", new DateOnly(2026, 2, 2), new DateOnly(2026, 2, 27), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
 
         var band = Drawn(context);
 
@@ -71,7 +71,7 @@ public sealed class RoadmapBandStepsTests : RoadmapBandHarness
         using var context = Context();
         context.Services.AddSingleton<IRoadmapItemRollup>(new CountingRollup(Gathered));
 
-        await Planning.AddItemAsync("Plan", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 30), repositoryAliases: ["backlog"]);
+        await Planning.AddItemAsync("Plan", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 30), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
 
         var band = Drawn(context);
 

@@ -94,7 +94,7 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
     /// </para>
     /// </summary>
     public async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default) =>
-        await _cli.IsAvailableAsync(cancellationToken) || _credentials.HasAnyCredential;
+        await _cli.IsAvailableAsync(cancellationToken).ConfigureAwait(false) || _credentials.HasAnyCredential;
 
     /// <summary>Re-checks the CLI and forgets any token extracted from it, so a
     /// <c>gh auth login</c>, a <c>gh auth logout</c> or a rotated credential is
@@ -108,7 +108,7 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
     /// <summary>Describes the current connection for Settings.</summary>
     public async Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default)
     {
-        if (await _cli.IsAvailableAsync(cancellationToken))
+        if (await _cli.IsAvailableAsync(cancellationToken).ConfigureAwait(false))
         {
             return new GitHubConnection(
                 true,
@@ -118,7 +118,7 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
                 _cli.Account);
         }
 
-        if (await _token.IsAvailableAsync(cancellationToken))
+        if (await _token.IsAvailableAsync(cancellationToken).ConfigureAwait(false))
         {
             return new GitHubConnection(true, "Connected with a repository personal access token.");
         }
@@ -141,7 +141,7 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
         GitHubCredential? credential;
         try
         {
-            credential = await _credentials.ResolveAsync($"users/{account.Login}", cancellationToken);
+            credential = await _credentials.ResolveAsync($"users/{account.Login}", cancellationToken).ConfigureAwait(false);
         }
         catch (GitHubNotConfiguredException ex)
         {
@@ -156,7 +156,7 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
         JsonElement user;
         try
         {
-            user = await _token.SendAsAsync(credential, HttpMethod.Get, "user", cancellationToken: cancellationToken);
+            user = await _token.SendAsAsync(credential, HttpMethod.Get, "user", cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (GitHubException ex)
         {
@@ -203,11 +203,11 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
         string? apiVersion = null,
         CancellationToken cancellationToken = default)
     {
-        var transport = await ResolveForAsync(path, cancellationToken)
+        var transport = await ResolveForAsync(path, cancellationToken).ConfigureAwait(false)
             ?? throw new GitHubNotConfiguredException(
                 "No way to reach GitHub. Sign in with `gh auth login`, or add a personal access token in repository settings.");
 
-        return await transport.SendAsync(method, path, body, apiVersion, cancellationToken);
+        return await transport.SendAsync(method, path, body, apiVersion, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -228,10 +228,10 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
     /// </summary>
     private async Task<IGitHubTransport?> ResolveForAsync(string? path, CancellationToken cancellationToken)
     {
-        var credential = await _credentials.ResolveAsync(path, cancellationToken);
+        var credential = await _credentials.ResolveAsync(path, cancellationToken).ConfigureAwait(false);
 
         if (credential is { IsBound: true }) return _token;
-        if (await _cli.IsAvailableAsync(cancellationToken)) return _cli;
+        if (await _cli.IsAvailableAsync(cancellationToken).ConfigureAwait(false)) return _cli;
         if (credential is not null || _credentials.HasAnyCredential) return _token;
 
         return null;

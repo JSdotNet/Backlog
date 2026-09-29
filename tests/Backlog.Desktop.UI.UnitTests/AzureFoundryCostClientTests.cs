@@ -277,14 +277,14 @@ public sealed class AzureFoundryCostClientTests : IDisposable
     {
         public int Calls { get; private set; }
 
-        public override AccessToken GetToken(TokenRequestContext requestContext, CancellationToken cancellationToken) =>
-            GetTokenAsync(requestContext, cancellationToken).Result;
-
-        public override ValueTask<AccessToken> GetTokenAsync(TokenRequestContext requestContext, CancellationToken cancellationToken)
+        public override AccessToken GetToken(TokenRequestContext requestContext, CancellationToken cancellationToken)
         {
             Calls++;
-            return ValueTask.FromResult(new AccessToken($"token-{Calls}", expiresOn));
+            return new AccessToken($"token-{Calls}", expiresOn);
         }
+
+        public override ValueTask<AccessToken> GetTokenAsync(TokenRequestContext requestContext, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(GetToken(requestContext, cancellationToken));
     }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider

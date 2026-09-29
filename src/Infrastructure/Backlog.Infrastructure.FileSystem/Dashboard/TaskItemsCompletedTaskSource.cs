@@ -22,7 +22,7 @@ public sealed class TaskItemsCompletedTaskSource(ITaskItems entries, TasksReposi
         DateOnly since,
         CancellationToken cancellationToken = default)
     {
-        var backlog = await entries.ListAsync(cancellationToken);
+        var backlog = await entries.ListAsync(cancellationToken).ConfigureAwait(false);
         return Completed(backlog, since, repositories);
     }
 

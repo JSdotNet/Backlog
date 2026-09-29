@@ -467,7 +467,7 @@ public sealed class HarnessDevToolServiceTests
 
         Assert.True(cleared.Succeeded);
         Assert.Contains("2 stale versions", cleared.Message, StringComparison.Ordinal);
-        var catalog = await tools.ListAsync();
+        var catalog = await tools.ListAsync(TestContext.Current.CancellationToken);
         Assert.Empty(catalog.Tools.SelectMany(tool => tool.StaleCachedVersions));
         Assert.Equal(["1.0.0", "1.0.1"], (await FindAsync(tools, "plugin:devbook")).CachedVersions.Select(cached => cached.Version));
         Assert.Equal(["0.5.0"], (await FindAsync(tools, "plugin:architecture")).CachedVersions.Select(cached => cached.Version));

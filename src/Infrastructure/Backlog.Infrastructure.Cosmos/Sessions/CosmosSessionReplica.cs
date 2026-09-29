@@ -94,7 +94,7 @@ internal sealed class CosmosSessionReplica : ISessionReplica
                 await container.UpsertItemAsync(
                     SessionDocumentFactory.From(scope, record),
                     partition,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 accepted++;
             }
@@ -151,7 +151,7 @@ internal sealed class CosmosSessionReplica : ISessionReplica
         ResponseMessage response;
         try
         {
-            response = await iterator.ReadNextAsync(cancellationToken);
+            response = await iterator.ReadNextAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (CosmosException failure)
         {

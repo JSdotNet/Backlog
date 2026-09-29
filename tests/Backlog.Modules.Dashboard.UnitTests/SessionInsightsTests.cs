@@ -42,7 +42,7 @@ public class SessionInsightsTests
             Availability = InsightAvailability.Unavailable("No agent folder was found.")
         });
 
-        var result = await insights.GetSessionsAsync(DashboardScope.Default);
+        var result = await insights.GetSessionsAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.False(result.HasValue);
         Assert.Equal("No agent folder was found.", result.Availability.Reason);
@@ -56,7 +56,7 @@ public class SessionInsightsTests
             Throw = new InvalidOperationException("The profile could not be read.")
         });
 
-        var result = await insights.GetSessionsAsync(DashboardScope.Default);
+        var result = await insights.GetSessionsAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.False(result.HasValue);
         Assert.Equal("The profile could not be read.", result.Availability.Reason);
@@ -75,7 +75,7 @@ public class SessionInsightsTests
         });
 
         _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => insights.GetSessionsAsync(DashboardScope.Default));
+            () => insights.GetSessionsAsync(DashboardScope.Default, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -225,7 +225,7 @@ public class SessionInsightsTests
 
         // And the grid says the same thing about the same hour, because it is the same
         // sweep: two at once, and two agent-hours.
-        var cell = Assert.Single(value.ActivityByHour.Where(hour => hour.Active > TimeSpan.Zero));
+        var cell = Assert.Single(value.ActivityByHour, hour => hour.Active > TimeSpan.Zero);
         Assert.Equal(2, cell.PeakSessions);
         Assert.Equal(TimeSpan.FromHours(2), cell.Active);
     }
@@ -323,7 +323,7 @@ public class SessionInsightsTests
 
         Assert.Equal(2, everywhere.ActivityByHour.Count(hour => hour.Active > TimeSpan.Zero));
 
-        var cell = Assert.Single(focused.ActivityByHour.Where(hour => hour.Active > TimeSpan.Zero));
+        var cell = Assert.Single(focused.ActivityByHour, hour => hour.Active > TimeSpan.Zero);
         Assert.Equal(Now.AddHours(-9).Hour, cell.Hour);
     }
 
@@ -765,7 +765,7 @@ public class SessionInsightsTests
         var activity = new StubAssistantActivitySource();
         var insights = Insights(source, activity);
 
-        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks), TestContext.Current.CancellationToken);
 
         Assert.Equal(Now - DashboardScope.Horizon, Assert.Single(source.Horizons));
         Assert.Equal(Assert.Single(activity.Horizons), Assert.Single(source.Horizons));
@@ -812,9 +812,9 @@ public class SessionInsightsTests
         var source = new StubAssistantSessionSource();
         var insights = Insights(source);
 
-        _ = await insights.GetSessionsAsync(DashboardScope.Default);
-        _ = await insights.GetSessionsAsync(DashboardScope.Default with { MachineId = Tower });
-        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        _ = await insights.GetSessionsAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        _ = await insights.GetSessionsAsync(DashboardScope.Default with { MachineId = Tower }, TestContext.Current.CancellationToken);
+        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks), TestContext.Current.CancellationToken);
 
         Assert.Equal(1, source.Calls);
         Assert.Equal(1, source.AvailabilityCalls);
@@ -826,9 +826,9 @@ public class SessionInsightsTests
         var source = new StubAssistantSessionSource();
         var insights = Insights(source);
 
-        _ = await insights.GetSessionsAsync(DashboardScope.Default);
+        _ = await insights.GetSessionsAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
         insights.Invalidate();
-        _ = await insights.GetSessionsAsync(DashboardScope.Default);
+        _ = await insights.GetSessionsAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, source.Calls);
         Assert.Equal(2, source.AvailabilityCalls);
@@ -849,8 +849,8 @@ public class SessionInsightsTests
 
         var insights = Insights(source);
 
-        _ = await insights.GetSessionsAsync(DashboardScope.Default);
-        var second = await insights.GetSessionsAsync(DashboardScope.Default with { MachineId = Tower });
+        _ = await insights.GetSessionsAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        var second = await insights.GetSessionsAsync(DashboardScope.Default with { MachineId = Tower }, TestContext.Current.CancellationToken);
 
         Assert.False(second.HasValue);
         Assert.Equal("No agent folder was found.", second.Availability.Reason);
@@ -1203,8 +1203,8 @@ public class SessionInsightsTests
         var activity = new StubAssistantActivitySource();
         var insights = Insights(new StubAssistantSessionSource(), activity);
 
-        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks));
-        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks), TestContext.Current.CancellationToken);
+        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.TwelveWeeks), TestContext.Current.CancellationToken);
 
         Assert.Equal(1, activity.Calls);
     }
@@ -1220,7 +1220,7 @@ public class SessionInsightsTests
         var activity = new StubAssistantActivitySource();
         var insights = Insights(new StubAssistantSessionSource(), activity);
 
-        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks), TestContext.Current.CancellationToken);
 
         Assert.Equal(Now.AddDays(-7 * 12), Assert.Single(activity.Horizons));
     }
@@ -1236,7 +1236,7 @@ public class SessionInsightsTests
             new StubAssistantSessionSource(),
             new StubAssistantActivitySource { Throw = new InvalidOperationException("The transcripts could not be read.") });
 
-        var result = await insights.GetSessionsAsync(DashboardScope.Default);
+        var result = await insights.GetSessionsAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.False(result.HasValue);
         Assert.Equal("The transcripts could not be read.", result.Availability.Reason);
@@ -2119,8 +2119,8 @@ public class SessionInsightsTests
 
         var value = await ValueOf(insights, DashboardScope.Default);
 
-        var backlog = Assert.Single(value.ByRepository.Where(row => row.Name == "backlog"));
-        var unrecorded = Assert.Single(value.ByRepository.Where(row => row.Kind == RepositoryBandKind.Unrecorded));
+        var backlog = Assert.Single(value.ByRepository, row => row.Name == "backlog");
+        var unrecorded = Assert.Single(value.ByRepository, row => row.Kind == RepositoryBandKind.Unrecorded);
 
         Assert.Equal(2m, backlog.SessionsPerWeek[^1].Value);
         Assert.Equal(2m, unrecorded.SessionsPerWeek[^1].Value);
@@ -2361,7 +2361,7 @@ public class SessionInsightsTests
         Assert.Equal(24, grid.Hours.Count(hour => hour.Day == new DateOnly(2026, 8, 18)));
 
         // The run at 02:00 Tuesday is on Tuesday's row, and Tuesday's row counts it.
-        var worked = Assert.Single(grid.Hours.Where(hour => hour.Active > TimeSpan.Zero));
+        var worked = Assert.Single(grid.Hours, hour => hour.Active > TimeSpan.Zero);
         Assert.Equal((new DateOnly(2026, 8, 18), 2), (worked.Day, worked.Hour));
         Assert.Equal(1, grid.Days.Single(day => day.Day == new DateOnly(2026, 8, 18)).Sessions);
 
@@ -2447,10 +2447,10 @@ public class SessionInsightsTests
 
         var marks = value.Grids[^1].Limits;
 
-        var fiveHour = Assert.Single(marks.Where(mark => mark.Kind == AssistantLimitKind.FiveHour));
+        var fiveHour = Assert.Single(marks, mark => mark.Kind == AssistantLimitKind.FiveHour);
         Assert.Equal((new DateOnly(2026, 8, 23), 23), (fiveHour.UntilDay, fiveHour.UntilHour));
 
-        var weekly = Assert.Single(marks.Where(mark => mark.Kind == AssistantLimitKind.SevenDay));
+        var weekly = Assert.Single(marks, mark => mark.Kind == AssistantLimitKind.SevenDay);
         Assert.Null(weekly.UntilDay);
     }
 
@@ -2760,10 +2760,10 @@ public class SessionInsightsTests
     /// rather than on arithmetic in the test itself.
     /// </summary>
     private static ActivityHour Worked(AssistantSessionsInsight value) =>
-        Assert.Single(value.ActivityByHour.Where(hour => hour.Active > TimeSpan.Zero));
+        Assert.Single(value.ActivityByHour, hour => hour.Active > TimeSpan.Zero);
 
     private static AssistantSessionRow Row(AssistantSessionsInsight value, string name) =>
-        Assert.Single(value.Breakdown.Where(row => row.Name == name));
+        Assert.Single(value.Breakdown, row => row.Name == name);
 
     /// <summary>
     /// A fixed two-hour zone rather than a real one, for the reason

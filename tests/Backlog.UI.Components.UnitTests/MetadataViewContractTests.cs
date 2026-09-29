@@ -263,7 +263,8 @@ public sealed class MetadataViewContractTests
                 .Add(view => view.FileName, name));
 
         Assert.Single(File(".devbook/domain/orders/domain.md").FindAll(".devbook-findings__item"));
-        Assert.Empty(File(".devbook/domain/orders/context.md").FindAll(".devbook-findings__item")
-            .Where(item => item.QuerySelector("code")!.TextContent == "deployment"));
+        Assert.DoesNotContain(
+            File(".devbook/domain/orders/context.md").FindAll(".devbook-findings__item"),
+            item => item.QuerySelector("code")!.TextContent == "deployment");
     }
 }

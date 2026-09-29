@@ -107,7 +107,7 @@ public sealed class RenameRepositoryTests
     {
         var store = new InMemoryInboxStore();
 
-        var result = await new RenameRepositoryCommandHandler(store).Handle(new RenameRepositoryCommand(" ", NewId));
+        var result = await new RenameRepositoryCommandHandler(store).Handle(new RenameRepositoryCommand(" ", NewId), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
         Assert.Equal(RenameRepositoryCommand.BlankId, result.Error);

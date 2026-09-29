@@ -66,7 +66,7 @@ internal sealed class CosmosPairingCodeStore : IPairingCodeStore
             await Container().UpsertItemAsync(
                 document,
                 new PartitionKey(document.Id),
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (CosmosException failure)
         {
@@ -76,7 +76,7 @@ internal sealed class CosmosPairingCodeStore : IPairingCodeStore
 
     public async Task<PairingCode?> FindByHash(string codeHash, CancellationToken cancellationToken = default)
     {
-        var document = await Read(codeHash, cancellationToken);
+        var document = await Read(codeHash, cancellationToken).ConfigureAwait(false);
 
         return document is null ? null : PairingCodeDocumentFactory.ToPairingCode(document);
     }
@@ -91,7 +91,7 @@ internal sealed class CosmosPairingCodeStore : IPairingCodeStore
     /// </summary>
     public async Task<bool> TryBurn(string codeHash, CancellationToken cancellationToken = default)
     {
-        var document = await Read(codeHash, cancellationToken);
+        var document = await Read(codeHash, cancellationToken).ConfigureAwait(false);
 
         if (document is null || document.Redeemed || string.IsNullOrEmpty(document.ETag))
         {
@@ -113,7 +113,7 @@ internal sealed class CosmosPairingCodeStore : IPairingCodeStore
                 document.Id,
                 new PartitionKey(document.Id),
                 new ItemRequestOptions { IfMatchEtag = document.ETag },
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
 
             return true;
         }
@@ -134,7 +134,7 @@ internal sealed class CosmosPairingCodeStore : IPairingCodeStore
             var response = await Container().ReadItemAsync<PairingCodeDocument>(
                 codeHash,
                 new PartitionKey(codeHash),
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             return response.Resource;
         }

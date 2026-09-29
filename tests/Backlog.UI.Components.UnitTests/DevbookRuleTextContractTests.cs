@@ -63,7 +63,7 @@ public sealed class DevbookRuleTextContractTests
             Assert.Equal(required.Contains(name), DevbookSchema.RequiresStatus(folder));
         }
 
-        Assert.Equal(DevbookRuleText.RestingValue(), DevbookSchema.RestingStatus);
+        Assert.Equal(DevbookSchema.RestingStatus, DevbookRuleText.RestingValue());
     }
 
     [Fact]

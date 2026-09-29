@@ -78,7 +78,8 @@ public sealed class WorkspaceInboxAttachmentFiles(Func<string> inboxDirectory) :
     {
         if (!IsOurs(path) || !File.Exists(path)) return false;
 
-        await using var stream = File.OpenRead(path);
+        var stream = File.OpenRead(path);
+        await using var _ = stream.ConfigureAwait(false);
         var digest = Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false));
 
         return string.Equals(digest, sha256, StringComparison.OrdinalIgnoreCase);

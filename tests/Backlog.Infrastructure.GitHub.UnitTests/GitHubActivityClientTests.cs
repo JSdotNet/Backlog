@@ -680,7 +680,7 @@ public class GitHubActivityClientTests
 
         // And the issues walk asks GitHub for what changed since the mark, minus the
         // slack, rather than since the window opened.
-        var issues = Assert.Single(transport.Paths.Where(path => path.Contains("/issues?", StringComparison.Ordinal)));
+        var issues = Assert.Single(transport.Paths, path => path.Contains("/issues?", StringComparison.Ordinal));
         Assert.Contains("since=2026-08-01T11%3A55%3A00Z", issues, StringComparison.Ordinal);
         Assert.Contains("state=all", issues, StringComparison.Ordinal);
     }
@@ -866,7 +866,7 @@ public class GitHubActivityClientTests
         _ = await new GitHubActivityClient(transport)
             .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
 
-        var issues = Assert.Single(transport.Paths.Where(path => path.Contains("/issues?", StringComparison.Ordinal)));
+        var issues = Assert.Single(transport.Paths, path => path.Contains("/issues?", StringComparison.Ordinal));
         Assert.Contains("since=2026-06-01T00%3A00%3A00Z", issues, StringComparison.Ordinal);
     }
 

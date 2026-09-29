@@ -37,7 +37,7 @@ public sealed class RoadmapPlanIntake : IRoadmapPlanIntake
             [.. request.Entries.Select(ToRoadmap)],
             [.. request.GatheredEffort.Select(effort => new PlanTagEffortDto(Lift(effort.Tag), effort.TotalEffort, effort.UnestimatedCount))],
             [.. request.LayOutIfMissing.Select(ToRoadmap)],
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         // All or nothing on the roadmap's side: a refusal left the plan as it was.
         if (imported.IsFailure) return RoadmapIntakeResultDto.Refused(imported.Error.Message);

@@ -116,7 +116,7 @@ public class RenameRepositoryTests
     {
         var store = StoreWith(Entry([OldId]));
 
-        var result = await new RenameRepositoryCommandHandler(store).Handle(new RenameRepositoryCommand(OldId, "jsdotnet/backlog"));
+        var result = await new RenameRepositoryCommandHandler(store).Handle(new RenameRepositoryCommand(OldId, "jsdotnet/backlog"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, result.Value);
@@ -128,7 +128,7 @@ public class RenameRepositoryTests
     {
         var store = StoreWith(Entry([OldId]));
 
-        var result = await new RenameRepositoryCommandHandler(store).Handle(new RenameRepositoryCommand(OldId, " "));
+        var result = await new RenameRepositoryCommandHandler(store).Handle(new RenameRepositoryCommand(OldId, " "), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
         Assert.Equal(RenameRepositoryCommand.BlankId, result.Error);
