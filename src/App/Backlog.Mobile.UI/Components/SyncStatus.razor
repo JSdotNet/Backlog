@@ -54,7 +54,7 @@ else
     {
         get
         {
-            const string Stops = "This phone stops syncing and asks for a pairing code. The desktop lists it until you forget it there too.";
+            const string Stops = "This phone forgets its credential, stops syncing and asks for a pairing code. Nothing on the sync service is deleted.";
             var waiting = Outbox.Entries.Count(entry => !entry.Refused);
 
             return waiting switch
