@@ -147,12 +147,17 @@ public sealed class DevbookSnapshotAutoFetch
             // fire-and-forget task is a crash nobody asked for.
             failure = exception.Message;
         }
-
-        lock (entry)
+        finally
         {
-            entry.InFlight = null;
-            entry.Failure = failure;
-            entry.LastAttemptUtc = _time.GetUtcNow();
+            // Whatever ended the fetch — a cancellation included, which the catch
+            // lets through — frees the slot, or the branch says "fetching" for
+            // the rest of the session.
+            lock (entry)
+            {
+                entry.InFlight = null;
+                entry.Failure = failure;
+                entry.LastAttemptUtc = _time.GetUtcNow();
+            }
         }
 
         // Announced when a tree landed, and also when the first attempt failed:

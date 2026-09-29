@@ -97,12 +97,18 @@ public sealed class DevbookDatabaseRefresher : IDisposable
     /// <summary>
     /// Checks <paramref name="repositoryRoot"/> now and rebuilds its database if
     /// it is not current, waiting for the answer. Returns whether a build ran.
-    /// For a caller that must have the database — a test, a command.
+    /// For a caller that must have the database — a test, a command. The walk and
+    /// the build run on the pool, so a caller on the UI thread waits without
+    /// blocking it.
     /// </summary>
-    public Task<bool> RefreshAsync(string repositoryRoot, CancellationToken cancellationToken = default)
+    public async Task<bool> RefreshAsync(string repositoryRoot, CancellationToken cancellationToken = default)
     {
+        // Disposed only once the check has finished: the build asks this token
+        // whether to stop for as long as it runs.
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(_stopping.Token, cancellationToken);
-        return Task.FromResult(Refresh(repositoryRoot, linked.Token));
+        var token = linked.Token;
+
+        return await Task.Run(() => Refresh(repositoryRoot, token), token);
     }
 
     /// <summary>The check in flight or last run for a repository, for a caller
