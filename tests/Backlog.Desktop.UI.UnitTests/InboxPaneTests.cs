@@ -2211,6 +2211,214 @@ public sealed class InboxPaneTests
         });
     }
 
+    // --- Related ------------------------------------------------------------------
+
+    [Fact]
+    public async Task The_detail_lists_related_items_and_tasks_with_their_reasons_and_offers_the_two_acts()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Read the design doc", sourceUrl: "https://example.com/design");
+        var twin = harness.Inbox.Seed("Read the design docs", status: InboxStatus.Archived);
+        var routed = Guid.NewGuid();
+        var done = Guid.NewGuid();
+        harness.Inbox.SeedRelations(
+            item.Id,
+            [new InboxRelatedItemDto(twin.Id, twin.Title, InboxStatus.Archived, InboxRelationKind.SimilarTitle, "Nearly the same title")],
+            [
+                new InboxRelatedTaskDto(routed, "Write up the design", true, InboxRelationKind.SameLink, "Same link"),
+                new InboxRelatedTaskDto(done, "Fix the crash", false, InboxRelationKind.SameIssue, "Links issue JSdotNet/Backlog#12"),
+            ]);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        pane.WaitForElement("[data-testid='inbox-detail-related']");
+        var relatedItem = pane.Find($"[data-testid='inbox-related-item-{twin.Id:N}']");
+        Assert.Contains("Read the design docs", relatedItem.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Nearly the same title · Archived", relatedItem.TextContent, StringComparison.Ordinal);
+
+        var openTask = pane.Find($"[data-testid='inbox-related-task-{routed:N}']");
+        Assert.Contains("Write up the design", openTask.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Open", openTask.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Same link", openTask.TextContent, StringComparison.Ordinal);
+        var doneTask = pane.Find($"[data-testid='inbox-related-task-{done:N}']");
+        Assert.Contains("Done", doneTask.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Links issue JSdotNet/Backlog#12", doneTask.TextContent, StringComparison.Ordinal);
+
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-archive-duplicate']"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-link-task']"));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-related-none']"));
+
+        // Choosing a related item opens it.
+        await pane.Find($"[data-testid='inbox-related-open-{twin.Id:N}']").ClickAsync(new());
+        Assert.Equal(twin.Id, harness.State.SelectedItemId);
+    }
+
+    [Fact]
+    public async Task An_open_item_with_nothing_related_says_so_and_a_decided_one_offers_neither_act()
+    {
+        using var harness = Harness.Create();
+        var lonely = harness.Inbox.Seed("Buy milk");
+        var archived = harness.Inbox.Seed("Read the design doc", status: InboxStatus.Archived);
+        harness.Inbox.SeedRelations(archived.Id, [new InboxRelatedItemDto(lonely.Id, lonely.Title, InboxStatus.Unprocessed, InboxRelationKind.SameSite, "Same site")]);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, lonely.Id);
+
+        pane.WaitForElement("[data-testid='inbox-related-none']");
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-archive-duplicate']"));
+
+        await pane.InvokeAsync(() => harness.State.SelectItem(archived.Id));
+
+        pane.WaitForElement($"[data-testid='inbox-related-item-{lonely.Id:N}']");
+        Assert.Empty(pane.FindAll("[data-testid='inbox-archive-duplicate']"));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-link-task']"));
+    }
+
+    [Fact]
+    public async Task The_duplicate_picker_lists_related_items_first_filters_by_search_and_archives_the_item_as_a_duplicate()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "Read the design doc", "Buy milk", "Read the design docs", "Plan the talk");
+        var item = items[0];
+        var twin = items[2];
+        harness.Inbox.SeedRelations(item.Id, [new InboxRelatedItemDto(twin.Id, twin.Title, InboxStatus.Unprocessed, InboxRelationKind.SimilarTitle, "Nearly the same title")]);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-archive-duplicate']");
+
+        await pane.Find("[data-testid='inbox-archive-duplicate']").ClickAsync(new());
+
+        var choices = pane.FindAll("[data-testid='inbox-duplicate-choices'] [role='menuitem']");
+        Assert.Equal(
+            ["Read the design docs · Nearly the same title", "Buy milk", "Plan the talk"],
+            choices.Select(choice => choice.TextContent.Trim()));
+
+        await pane.Find("[data-testid='inbox-duplicate-search'] input").InputAsync(new ChangeEventArgs { Value = "MILK" });
+
+        var filtered = Assert.Single(pane.FindAll("[data-testid='inbox-duplicate-choices'] [role='menuitem']"));
+        Assert.Equal("Buy milk", filtered.TextContent.Trim());
+
+        await pane.Find("[data-testid='inbox-duplicate-search'] input").InputAsync(new ChangeEventArgs { Value = "nothing like it" });
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-duplicate-none']"));
+
+        await pane.Find("[data-testid='inbox-duplicate-search'] input").InputAsync(new ChangeEventArgs { Value = "docs" });
+        await pane.Find($"[data-testid='inbox-duplicate-choices-{twin.Id:N}']").ClickAsync(new());
+
+        var archived = harness.Inbox.Find(item.Id)!;
+        Assert.Equal(InboxStatus.Archived, archived.Status);
+        Assert.Equal(twin.Id, archived.DuplicateOf);
+    }
+
+    [Fact]
+    public async Task An_item_archived_as_a_duplicate_says_which_item_it_duplicates()
+    {
+        using var harness = Harness.Create();
+        var original = harness.Inbox.Seed("Read the design doc");
+        var duplicate = harness.Inbox.Seed("Read the design docs");
+        await harness.Inbox.ArchiveAsDuplicateAsync(duplicate.Id, original.Id, TestContext.Current.CancellationToken);
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SelectItem(duplicate.Id));
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            "Archived as a duplicate of “Read the design doc”.",
+            pane.Find("[data-testid='inbox-detail-state']").TextContent.Trim()));
+    }
+
+    [Fact]
+    public async Task The_link_picker_lists_related_tasks_first_then_open_tasks_filters_by_search_and_links_the_item()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Read the design doc");
+        var related = Guid.NewGuid();
+        var open = Guid.NewGuid();
+        harness.Inbox.SeedRelations(item.Id, tasks: [new InboxRelatedTaskDto(related, "Write up the design", true, InboxRelationKind.SameLink, "Same link")]);
+        harness.Inbox.OpenTasks.AddRange([new InboxTaskOptionDto(open, "Ship the parser"), new InboxTaskOptionDto(related, "Write up the design")]);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-link-task']");
+
+        await pane.Find("[data-testid='inbox-link-task']").ClickAsync(new());
+
+        Assert.Equal(
+            ["Write up the design · Same link", "Ship the parser"],
+            pane.FindAll("[data-testid='inbox-link-choices'] [role='menuitem']").Select(choice => choice.TextContent.Trim()));
+
+        await pane.Find("[data-testid='inbox-link-search'] input").InputAsync(new ChangeEventArgs { Value = "parser" });
+        Assert.Equal("Ship the parser", Assert.Single(pane.FindAll("[data-testid='inbox-link-choices'] [role='menuitem']")).TextContent.Trim());
+
+        await pane.Find($"[data-testid='inbox-link-choices-{open:N}']").ClickAsync(new());
+
+        Assert.Equal((item.Id, open), Assert.Single(harness.Inbox.Links));
+        var linked = harness.Inbox.Find(item.Id)!;
+        Assert.Equal([open], linked.Routing!.TaskIds);
+        Assert.Equal(InboxStatus.Triaged, linked.Status);
+    }
+
+    // --- Hints ----------------------------------------------------------------------
+
+    [Fact]
+    public async Task The_panel_lists_hints_in_their_own_section_and_a_merge_turned_on_is_sent_with_the_route()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "Read the design doc", "Read the design docs", "Set up the pipeline");
+        harness.Inbox.ProposedHints.Add(new OrderingHint(OrderingHintKind.Duplicate, [items[0].Id, items[1].Id], "Nearly the same title"));
+        harness.Inbox.ProposedHints.Add(new OrderingHint(OrderingHintKind.SetupFirst, [items[2].Id], "Reads like setup, so it may belong ahead of the rest"));
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+
+        var section = pane.Find("[data-testid='inbox-route-panel-hints']");
+        Assert.Contains("Hint — doesn’t block anything", section.TextContent, StringComparison.Ordinal);
+        var hints = pane.FindAll("[data-testid='inbox-route-panel-hint']");
+        Assert.Equal(["Duplicate", "SetupFirst"], hints.Select(hint => hint.GetAttribute("data-hint-kind")));
+        Assert.Contains("“Set up the pipeline” reads like setup", hints[1].TextContent, StringComparison.Ordinal);
+
+        // Said, not done: the order is the one asked, and nothing is a dependency.
+        Assert.Equal(
+            ["Read the design doc", "Read the design docs", "Set up the pipeline"],
+            pane.FindAll("[data-testid='inbox-route-panel-order-item']").Select(item => item.TextContent.Trim()));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-route-panel-edge']"));
+
+        var merge = pane.Find("[data-testid='inbox-route-panel-merge-toggle-0'] [role='switch']");
+        Assert.Equal("false", merge.GetAttribute("aria-checked"));
+        Assert.Contains("Keep “Read the design doc”, archive “Read the design docs”", hints[0].TextContent, StringComparison.Ordinal);
+
+        await merge.ClickAsync(new());
+
+        Assert.Equal(
+            ["Read the design doc", "Set up the pipeline"],
+            pane.FindAll("[data-testid='inbox-route-panel-order-item']").Select(item => item.TextContent.Trim()));
+        Assert.Contains("Route 2 items", pane.Find("[data-testid='inbox-route-panel-confirm']").TextContent, StringComparison.Ordinal);
+
+        await pane.Find("[data-testid='inbox-route-panel-confirm']").ClickAsync(new());
+
+        var choices = Assert.IsType<InboxBatchRouteChoicesDto>(Assert.Single(harness.Inbox.BatchRoutes).Choices);
+        Assert.Equal([items[1].Id], choices.Merges![items[0].Id]);
+        var duplicate = harness.Inbox.Find(items[1].Id)!;
+        Assert.Equal(InboxStatus.Archived, duplicate.Status);
+        Assert.Equal(items[0].Id, duplicate.DuplicateOf);
+        Assert.NotNull(harness.Inbox.Find(items[0].Id)!.Routing);
+    }
+
+    [Fact]
+    public async Task A_batch_with_no_hints_shows_no_hints_section()
+    {
+        using var harness = Harness.Create();
+        SeedNewestFirst(harness, "Deploy the preview", "Set up the pipeline");
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-route-panel']"));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-route-panel-hints']"));
+    }
+
     private static IReadOnlyList<string> MenuIds(IRenderedComponent<InboxPane> pane) =>
         [.. pane.FindAll("[data-testid='inbox-nav-menu'] [role='menuitem']")
             .Select(item => item.GetAttribute("data-testid")!.Replace("inbox-nav-menu-item-", string.Empty, StringComparison.Ordinal))];

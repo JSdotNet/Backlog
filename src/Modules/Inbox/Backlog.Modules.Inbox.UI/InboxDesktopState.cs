@@ -402,7 +402,9 @@ public sealed class InboxDesktopState
         // Whatever the item now carries — a tag just accepted, a suggestion just
         // turned down, a rule the backlog's tags now meet — the suggestions are
         // asked for again on the next render rather than trusted from before.
+        // So are the relations: any change may be the one that made or broke one.
         _suggestionsFor = null;
+        _relationsFor = null;
 
         if (SelectedListId is { } listId && FindList(listId) is null)
         {
@@ -690,6 +692,129 @@ public sealed class InboxDesktopState
         Suggestions = [.. Suggestions.Where(other => other.Key != suggestion.Key)];
         await ReloadAsync();
     }
+
+    // --- Relations ------------------------------------------------------------
+    //
+    // What the item on screen already has to do with the rest of the backlog —
+    // other items that look like the same capture, tasks that already carry it.
+    // Asked of the module, which holds the join through its task port, and read
+    // the way the suggestions are: once per item, again after any reload. The
+    // Inbox never acts on one; the two acts below are the person's.
+
+    /// <summary>The item the relations on screen were asked for, as the DTO
+    /// instance it was then — cleared by a reload, like the suggestions'.</summary>
+    private InboxItemDto? _relationsFor;
+
+    /// <summary>What the selected item relates to, or null before the first
+    /// answer or when it could not be read. Its <see cref="InboxRelationsDto.ItemId"/>
+    /// says which item it is for, so a render between two items can tell.</summary>
+    public InboxRelationsDto? Relations { get; private set; }
+
+    /// <summary>Asks for the selected item's relations when the ones on screen
+    /// were asked for another item, or before the last reload. Called on every
+    /// render of the detail and a no-op when nothing changed. A failure leaves
+    /// none rather than a toast, for the reason a suggestion's does: a relation
+    /// is information, and one that could not be read is not an error to deal
+    /// with.</summary>
+    public async Task LoadRelationsAsync()
+    {
+        var item = SelectedItem;
+        if (ReferenceEquals(item, _relationsFor)) return;
+
+        _relationsFor = item;
+
+        if (item is null)
+        {
+            if (Relations is null) return;
+
+            Relations = null;
+            Changed?.Invoke();
+            return;
+        }
+
+        var answer = await _inbox.RelatedAsync(item.Id);
+
+        // Another item was chosen, or a reload landed, while this was asked.
+        if (!ReferenceEquals(item, _relationsFor)) return;
+
+        Relations = answer.IsSuccess ? answer.Value : null;
+        Changed?.Invoke();
+    }
+
+    /// <summary>The relations of <paramref name="item"/>, when the ones on
+    /// screen are its; otherwise null.</summary>
+    public InboxRelationsDto? RelationsOf(InboxItemDto item) =>
+        Relations is { } relations && item is not null && relations.ItemId == item.Id ? relations : null;
+
+    /// <summary>What "Archive as duplicate of…" offers for the selected item:
+    /// the related items first, in the order they relate, then every other item,
+    /// newest capture first — narrowed to the titles that hold
+    /// <paramref name="query"/>, without regard to case. Never the item itself,
+    /// and never an item already archived as a duplicate of it, directly or down
+    /// a chain: the module refuses those as circular, so they are not offered.</summary>
+    public IReadOnlyList<InboxItemDto> DuplicateCandidates(string? query)
+    {
+        if (SelectedItem is not { } item) return [];
+
+        var byId = Items.ToDictionary(other => other.Id);
+        var related = (RelationsOf(item)?.Items ?? [])
+            .Select(relation => byId.GetValueOrDefault(relation.Id))
+            .OfType<InboxItemDto>();
+        var rest = Items.OrderByDescending(other => other.CapturedAt);
+
+        return [.. related.Concat(rest)
+            .Where(other => other.Id != item.Id && !LeadsTo(other, item.Id, byId))
+            .DistinctBy(other => other.Id)
+            .Where(other => Matches(other.Title, query))];
+    }
+
+    /// <summary>Whether <paramref name="other"/>'s duplicate chain reaches
+    /// <paramref name="itemId"/>, as far as the items on screen show it.</summary>
+    private static bool LeadsTo(InboxItemDto other, Guid itemId, Dictionary<Guid, InboxItemDto> byId)
+    {
+        var seen = new HashSet<Guid>();
+
+        for (var next = other.DuplicateOf; next is { } id && seen.Add(id); next = byId.GetValueOrDefault(id)?.DuplicateOf)
+        {
+            if (id == itemId) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>The reason an item relates to the selected one, or null for
+    /// one that does not — the note a picker row carries.</summary>
+    public string? RelationReason(Guid otherId) =>
+        SelectedItem is { } item ? RelationsOf(item)?.Items.FirstOrDefault(relation => relation.Id == otherId)?.Reason : null;
+
+    /// <summary>What "Link to task…" offers for the selected item: the related
+    /// tasks first, each with its reason, then the backlog's open tasks, each
+    /// once — narrowed to the titles that hold <paramref name="query"/>.</summary>
+    public IReadOnlyList<InboxTaskChoice> LinkCandidates(string? query)
+    {
+        if (SelectedItem is not { } item || RelationsOf(item) is not { } relations) return [];
+
+        return [.. relations.Tasks
+            .Select(task => new InboxTaskChoice(task.Id, task.Title, task.Reason, task.IsOpen))
+            .Concat(relations.OpenTasks.Select(task => new InboxTaskChoice(task.Id, task.Title, null, true)))
+            .DistinctBy(task => task.Id)
+            .Where(task => Matches(task.Title, query))];
+    }
+
+    /// <summary>"Archive as duplicate of…": dismisses the selected item as the
+    /// same capture as <paramref name="duplicateOf"/>. A decision like Archive,
+    /// so triage moves on from it.</summary>
+    public Task ArchiveAsDuplicateAsync(Guid duplicateOf) =>
+        DecideAsync(item => _inbox.ArchiveAsDuplicateAsync(item.Id, duplicateOf));
+
+    /// <summary>"Link to task…": records that the selected item is already the
+    /// task <paramref name="taskId"/>, so it leaves the queue routed to it and no
+    /// new task is made.</summary>
+    public Task LinkToTaskAsync(Guid taskId) =>
+        DecideAsync(item => _inbox.LinkToTaskAsync(item.Id, taskId));
+
+    private static bool Matches(string title, string? query) =>
+        string.IsNullOrWhiteSpace(query) || (title ?? string.Empty).Contains(query.Trim(), StringComparison.OrdinalIgnoreCase);
 
     // --- Attachments --------------------------------------------------------
 
@@ -1766,6 +1891,10 @@ public sealed class InboxDesktopState
         return true;
     }
 }
+
+/// <summary>A task "Link to task…" can offer: its reason when it relates to the
+/// item, and whether it is still open.</summary>
+public sealed record InboxTaskChoice(Guid Id, string Title, string? Reason, bool IsOpen);
 
 /// <summary>What the queue health strip shows: the unprocessed count, when the
 /// oldest of them was captured (null with none), and how many have waited too

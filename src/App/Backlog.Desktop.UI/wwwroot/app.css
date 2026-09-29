@@ -4245,6 +4245,73 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
+/* Related: the items and tasks this one already has to do with, under the same
+   small heading the suggestions wear, one line each — the title first, then the
+   reason in the secondary ink so the eye reads what before why. The two acts sit
+   at the foot of the section rather than in the header, which is at its budget. */
+.inbox-pane__related {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pane__related-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.inbox-pane__related-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.inbox-pane__related-title {
+    overflow-wrap: anywhere;
+}
+
+/* A related item's title is a button, so selecting it opens that item; it
+   reads as the title a related task shows beside it, not as a small action. */
+.inbox-pane__related-open {
+    font-size: inherit;
+    color: var(--color-text-primary);
+    text-align: start;
+    justify-content: flex-start;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+.inbox-pane__related-reason {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pane__related-actions {
+    justify-self: start;
+}
+
+/* A relation picker: the search above the menu, the menu scrolling on its own
+   once the inbox is long, so the search never leaves the dialog. */
+.inbox-pane__picker-dialog {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.inbox-pane__picker-menu {
+    max-height: 22rem;
+    overflow-y: auto;
+}
+
+.inbox-route-panel__hint {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 /* --- Narrow ---------------------------------------------------------------- */
 
 /* Beside the backlog the pane is a column, not a page. The side menu goes

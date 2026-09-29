@@ -36,6 +36,28 @@ public sealed class TaskItemDtoCreatedAtTests
         Assert.Equal(Stamped, entry.ToDto().CreatedAt);
     }
 
+    /// <summary>The Inbox item an entry was routed from is published on the same
+    /// terms as the stamp: its own column, read by the Inbox to show an item the
+    /// tasks routed from it.</summary>
+    [Fact]
+    public void ToDto_carries_the_inbox_item_it_was_routed_from()
+    {
+        var source = Guid.NewGuid().ToString("D");
+        var entry = new TaskItem(
+            Guid.NewGuid(),
+            "Write release notes",
+            "body",
+            EntryType.Task,
+            EntryStatus.Draft,
+            Priority.Medium,
+            repoIds: null,
+            tags: null,
+            sourceInboxId: source,
+            createdAt: Stamped);
+
+        Assert.Equal(source, entry.ToDto().SourceInboxId);
+    }
+
     /// <summary>A save reloads the aggregate and applies the parsed text on top,
     /// and the stamp is a column rather than a token, so an edit cannot move it.
     /// This pins that from the DTO's side: the same entry, renamed, still says it

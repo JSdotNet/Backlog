@@ -9,6 +9,12 @@
     and how many tasks will that make? The order is re-read from the switches on
     every render, so turning a dependency off moves the list at once.
 
+    Beneath the dependencies are the hints: what the Inbox noticed about the
+    order — same list, same repository, capture order, setup first — said and
+    never written, so they change neither the order nor the loops. A duplicate
+    group is the one hint with a switch: off by default, and on it keeps the
+    first item and archives the rest as its duplicates once it is routed.
+
     A loop is named in an alert and Confirm stays off until a switch breaks it:
     items that wait on each other could never start. Cancel — the button, the
     close mark, Escape — puts the panel down and changes nothing.
@@ -72,6 +78,40 @@
                 }
             </section>
 
+            @if (draft.Hints.Count > 0)
+            {
+                <section class="inbox-route-panel__section" aria-label="Hints" data-testid="inbox-route-panel-hints">
+                    <h3 class="inbox-route-panel__heading">Hints</h3>
+                    <Alert BaseClass="inbox-pane__note"
+                           Role="status"
+                           Message="Hint — doesn’t block anything. The order above stays as it is."
+                           TestId="inbox-route-panel-hints-note" />
+                    <ul class="inbox-route-panel__edges">
+                        @for (var index = 0; index < draft.Hints.Count; index++)
+                        {
+                            var at = index;
+                            var hint = draft.Hints[at];
+                            <li class="inbox-route-panel__hint"
+                                data-testid="inbox-route-panel-hint"
+                                data-hint-kind="@hint.Kind">
+                                @if (hint.Kind == OrderingHintKind.Duplicate)
+                                {
+                                    <Toggle Checked="@draft.IsMerged(at)"
+                                            CheckedChanged="on => draft.SetMerged(at, on)"
+                                            Label="@draft.DescribeMerge(hint)"
+                                            Description="@($"{hint.Reason}. On, the first is routed and the rest are archived as its duplicates.")"
+                                            TestId="@($"inbox-route-panel-merge-toggle-{at}")" />
+                                }
+                                else
+                                {
+                                    @draft.DescribeHint(hint)
+                                }
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
             <section class="inbox-route-panel__section" aria-label="Repositories" data-testid="inbox-route-panel-repositories">
                 <h3 class="inbox-route-panel__heading">Repositories</h3>
                 <Toggle Checked="@draft.OneForAll"
@@ -91,7 +131,7 @@
                 }
                 else
                 {
-                    @foreach (var item in draft.Proposal.Items)
+                    @foreach (var item in draft.GoingItems)
                     {
                         <TagMultiSelect @key="item.Id"
                                         Label="@TitleOf(item.Title)"
@@ -142,7 +182,7 @@
                        Disabled="@(!draft.CanConfirm || State.RoutingInFlight)"
                        Title="@(draft.CanConfirm ? "Route every item as one plan" : "Turn a dependency off to break the loop first")"
                        OnClick="() => State.ConfirmRouteAsync()"
-                       TestId="inbox-route-panel-confirm">Route @InboxDesktopState.Counted(draft.Proposal.Items.Count, "item", "items")</AppButton>
+                       TestId="inbox-route-panel-confirm">Route @InboxDesktopState.Counted(draft.GoingItems.Count, "item", "items")</AppButton>
         </Footer>
     </Modal>
 }

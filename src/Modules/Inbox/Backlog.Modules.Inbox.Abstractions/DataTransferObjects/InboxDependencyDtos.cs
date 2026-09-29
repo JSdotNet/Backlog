@@ -12,10 +12,13 @@ public enum DependencyTargetKind
 }
 
 /// <summary>
-/// How sure the Inbox is of a dependency it proposes. One tier today:
+/// How sure the Inbox is of a dependency it proposes. One tier:
 /// <see cref="Stated"/>, where the item's own text names the other thing — its
-/// link, its title, its issue. A guess from similar wording would be a second
-/// tier, and is not built.
+/// link, its title, its issue. What would be a second tier — two items in the
+/// same list or repository, the order they were captured in, one that reads like
+/// setup — is not a dependency at all but an <see cref="OrderingHint"/>: said,
+/// never written as an <c>after:</c> token, and never part of the order or of a
+/// loop.
 /// </summary>
 public enum DependencyTier
 {
@@ -107,6 +110,52 @@ public sealed record ProposedDependency(
     string Reason,
     DependencyTier Tier = DependencyTier.Stated);
 
+/// <summary>What an <see cref="OrderingHint"/> noticed about some of a batch's
+/// items.</summary>
+public enum OrderingHintKind
+{
+    /// <summary>They are filed in the same list.</summary>
+    SameList,
+
+    /// <summary>They go to the same repository.</summary>
+    SameRepository,
+
+    /// <summary>They were captured in another order than the one proposed.</summary>
+    CaptureOrder,
+
+    /// <summary>It reads like setup — set up, install, configure, scaffold… —
+    /// and is not ahead of the rest.</summary>
+    SetupFirst,
+
+    /// <summary>They are the same capture: the same link, or nearly the same
+    /// title. The one hint the panel can act on, as a merge the person turns on.</summary>
+    Duplicate
+}
+
+/// <summary>
+/// Something the Inbox noticed about the order a batch could go in, said and
+/// nothing more — the tier below <see cref="DependencyTier.Stated"/>.
+/// <para>
+/// A separate type from <see cref="ProposedDependency"/> so that it cannot reach
+/// what a dependency reaches: it is never an <c>after:</c> token, never an edge
+/// of <see cref="InboxBatchOrder"/>, never counted as a loop, and never changes
+/// the order. The one hint that can do anything is <see cref="OrderingHintKind.Duplicate"/>,
+/// and only through the merge the person turns on
+/// (<see cref="InboxBatchRouteChoicesDto.Merges"/>).
+/// </para>
+/// </summary>
+/// <param name="Kind">What was noticed.</param>
+/// <param name="Items">The items it is about, in the order the hint means —
+/// the batch's order, or for <see cref="OrderingHintKind.CaptureOrder"/> the
+/// order they were captured in. For a duplicate the first is the one a merge
+/// keeps.</param>
+/// <param name="Reason">What the panel says: "Same list: Reading", "Captured
+/// in another order".</param>
+public sealed record OrderingHint(
+    OrderingHintKind Kind,
+    IReadOnlyList<Guid> Items,
+    string Reason);
+
 /// <summary>One item of a proposed batch, as the panel lists it.</summary>
 /// <param name="RepoIds">The repositories the item is assigned today, which the
 /// panel offers as the starting choice.</param>
@@ -134,7 +183,14 @@ public sealed record InboxBatchProposalDto(
     IReadOnlyList<InboxBatchProposalItemDto> Items,
     IReadOnlyList<ProposedDependency> Dependencies,
     IReadOnlyList<InboxBatchFailureDto> Refused,
-    int? Deferred = null);
+    int? Deferred = null)
+{
+    /// <summary>The ordering hints — tier two, said and never written. Empty
+    /// for a batch of fewer than two items. A member rather than a positional
+    /// parameter so every caller that builds a proposal without hints builds it
+    /// as it always did.</summary>
+    public IReadOnlyList<OrderingHint> Hints { get; init; } = [];
+}
 
 /// <summary>
 /// What the person decided in the panel before the batch goes. Every part is
@@ -148,7 +204,11 @@ public sealed record InboxBatchProposalDto(
 /// is one entry with no repository.</param>
 /// <param name="Dependencies">The dependencies left on. Checked again for a loop
 /// before anything is sent.</param>
+/// <param name="Merges">The duplicate merges turned on: per kept item, the items
+/// that are the same capture. The kept item is routed; the others are not sent,
+/// and are archived as duplicates of it once it is routed.</param>
 public sealed record InboxBatchRouteChoicesDto(
     string? PlanTag = null,
     IReadOnlyDictionary<Guid, IReadOnlyList<string>>? Repositories = null,
-    IReadOnlyList<ProposedDependency>? Dependencies = null);
+    IReadOnlyList<ProposedDependency>? Dependencies = null,
+    IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>? Merges = null);

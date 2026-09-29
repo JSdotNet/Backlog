@@ -95,6 +95,46 @@ public static class InboxBatchOrder
         return loops;
     }
 
+    /// <summary>
+    /// <paramref name="dependencies"/> with a merge applied: every dependency
+    /// from an item folded into another (<paramref name="keptFor"/>, merged item
+    /// to the one kept) is the kept item's, and every dependency on one is on the
+    /// kept item — the same thought still waits on, and is waited on by, the same
+    /// things. One that would then run from the kept item to itself is dropped,
+    /// and each (item, target) pair is kept once, the first given. A carried
+    /// target keeps the title it was proposed with.
+    /// <para>
+    /// Published here for the reason the order is: the panel orders and checks
+    /// for loops with it, and the route does the same before sending, so the two
+    /// cannot disagree about what a merge does to the order.
+    /// </para>
+    /// </summary>
+    public static IReadOnlyList<ProposedDependency> Carry(
+        IEnumerable<ProposedDependency> dependencies,
+        IReadOnlyDictionary<Guid, Guid> keptFor)
+    {
+        ArgumentNullException.ThrowIfNull(dependencies);
+        ArgumentNullException.ThrowIfNull(keptFor);
+
+        var carried = new List<ProposedDependency>();
+        var seen = new HashSet<(Guid, DependencyTargetKind, Guid)>();
+
+        foreach (var dependency in dependencies)
+        {
+            var from = keptFor.TryGetValue(dependency.From, out var keptFrom) ? keptFrom : dependency.From;
+            var to = dependency.To.Kind == DependencyTargetKind.Item && keptFor.TryGetValue(dependency.To.Id, out var keptTo)
+                ? dependency.To with { Id = keptTo }
+                : dependency.To;
+
+            if (to.Kind == DependencyTargetKind.Item && to.Id == from) continue;
+            if (!seen.Add((from, to.Kind, to.Id))) continue;
+
+            carried.Add(from == dependency.From && ReferenceEquals(to, dependency.To) ? dependency : dependency with { From = from, To = to });
+        }
+
+        return carried;
+    }
+
     /// <summary>A loop named by its items' titles, back to where it started:
     /// <c>Write the docs → Ship the release → Write the docs</c>.</summary>
     public static string Name(IReadOnlyList<Guid> loop, Func<Guid, string> title)

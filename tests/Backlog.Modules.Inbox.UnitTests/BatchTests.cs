@@ -161,5 +161,7 @@ public sealed class BatchTests
             readAttachment: null!,
             openAttachment: null!,
             suggest: null!,
-            dismissSuggestion: null!);
+            dismissSuggestion: null!,
+            related: null!,
+            linkToTask: null!);
 }

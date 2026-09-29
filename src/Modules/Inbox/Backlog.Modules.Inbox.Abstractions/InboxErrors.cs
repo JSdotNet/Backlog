@@ -181,4 +181,44 @@ public static class InboxErrors
         $"Its entries are in the backlog but it could not be marked routed ({detail}). "
             + $"Routing it again would make them twice; the {taskIds.Count} made for it: "
             + string.Join(", ", taskIds.Select(id => id.ToString("D"))) + ".");
+
+    /// <summary>"Archive as duplicate of…" named the item itself. Nothing in the
+    /// pane offers it, so this is a caller's mistake, refused rather than stored
+    /// as an item that points at itself.</summary>
+    public static readonly Error DuplicateOfItself = Error.Validation(
+        "inbox.duplicate.itself",
+        "An item cannot be a duplicate of itself.");
+
+    /// <summary>The item named as the one this duplicates is gone — deleted
+    /// while the picker was open.</summary>
+    public static readonly Error DuplicateTargetNotFound = Error.NotFound(
+        "inbox.duplicate.not_found",
+        "The item it duplicates no longer exists, so nothing was archived.");
+
+    /// <summary>"Archive as duplicate of…" named an item that is itself — through
+    /// one step or several — archived as a duplicate of this one. Taking it would
+    /// archive every copy of the thought and keep none.</summary>
+    public static readonly Error DuplicateCircular = Error.Validation(
+        "inbox.duplicate.circular",
+        "That item is already archived as a duplicate of this one, so archiving this one too would keep neither.");
+
+    /// <summary>"Link to task…" named a task the backlog no longer has, or has
+    /// archived. The item is left as it was.</summary>
+    public static readonly Error TaskNotFound = Error.NotFound(
+        "inbox.link.task_not_found",
+        "That task is no longer in the backlog, so the item was not linked.");
+
+    /// <summary>A merge in a batch: the item it was kept in favour of was not
+    /// routed, so this one was not archived as its duplicate either — it is
+    /// still in the Inbox, where the kept one is.</summary>
+    public static readonly Error BatchMergeNotRouted = Error.Validation(
+        "inbox.batch.merge_not_routed",
+        "Not archived: the item it duplicates was not routed, so both are still in the Inbox.");
+
+    /// <summary>A merge in a batch: the kept item was routed, but this one could
+    /// not be saved as its archived duplicate. Nothing was made for it, so it is
+    /// simply still in the Inbox.</summary>
+    public static Error BatchMergeSaveFailed(string detail) => Error.Unexpected(
+        "inbox.batch.merge_save_failed",
+        $"The item it duplicates was routed, but this one could not be archived ({detail}). It is still in the Inbox.");
 }

@@ -13,12 +13,14 @@ using Backlog.Modules.Inbox.Features.DeleteList;
 using Backlog.Modules.Inbox.Features.DismissSuggestion;
 using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
+using Backlog.Modules.Inbox.Features.LinkToTask;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
 using Backlog.Modules.Inbox.Features.ProposeBatch;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.ReceiveCapture;
+using Backlog.Modules.Inbox.Features.Related;
 using Backlog.Modules.Inbox.Features.RenameGroup;
 using Backlog.Modules.Inbox.Features.RenameList;
 using Backlog.Modules.Inbox.Features.RetryAttachment;
@@ -103,6 +105,13 @@ public static class InboxModuleRegistration
         // supports.
         services.AddScoped<IQueryHandler<SuggestQuery, Result<IReadOnlyList<InboxSuggestionDto>>>, SuggestQueryHandler>();
         services.AddScoped<ICommandHandler<DismissSuggestionCommand, Result>, DismissSuggestionCommandHandler>();
+
+        // What an item already has to do with the rest of the backlog, and the
+        // two acts that follow from it. The task references both read are an
+        // optional constructor parameter, like the proposal's: a host without
+        // them relates items to items and takes a linked task's id as given.
+        services.AddScoped<IQueryHandler<RelatedQuery, Result<InboxRelationsDto>>, RelatedQueryHandler>();
+        services.AddScoped<ICommandHandler<LinkToTaskCommand, Result>, LinkToTaskCommandHandler>();
 
         services.AddScoped<IInboxItems, InboxItems>();
 

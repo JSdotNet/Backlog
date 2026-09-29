@@ -55,6 +55,26 @@ public interface IInboxItems
     /// item reaches without leaving anything behind in another context.</summary>
     Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Dismisses the item as the same capture as
+    /// <paramref name="duplicateOf"/>, and records which — "Archive as duplicate
+    /// of…". Only an open item; never itself. When the other item is itself a
+    /// duplicate, the root of its chain is recorded instead. Fails with
+    /// <c>inbox.duplicate.not_found</c> when the other item is gone, and with
+    /// <c>inbox.duplicate.circular</c> when its chain leads back to this one.</summary>
+    Task<Result> ArchiveAsDuplicateAsync(Guid id, Guid duplicateOf, CancellationToken cancellationToken = default);
+
+    /// <summary>Records that the item is already the task
+    /// <paramref name="taskId"/> — "Link to task…": the item is routed to that
+    /// task and nothing is created. Only an open item. Fails with
+    /// <c>inbox.link.task_not_found</c> for a task the backlog no longer has.</summary>
+    Task<Result> LinkToTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default);
+
+    /// <summary>What the item already has to do with the rest of the backlog:
+    /// the other items that look like the same capture and the tasks that carry
+    /// it, each with the reason, and the open tasks "Link to task…" can offer.
+    /// Asked for any item, decided ones included.</summary>
+    Task<Result<InboxRelationsDto>> RelatedAsync(Guid id, CancellationToken cancellationToken = default);
+
     /// <summary>Deletes the item for good, from any state. Unlike archiving
     /// nothing is kept, except — for an item from the replica the phone may
     /// still be offering — the acknowledgement that tells it to stop.</summary>
