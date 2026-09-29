@@ -430,6 +430,9 @@ internal sealed class FakeInboxItems : IInboxItems
 
     public async Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        SingleRouteCalls++;
+        if (BeforeRoute is { } gate) await gate();
+
         if (Find(id) is not { } item) return Result.Failure<InboxRoutedDto>(InboxErrors.ItemNotFound);
         if (item.Routing is not null) return Result.Failure<InboxRoutedDto>(InboxErrors.InvalidTransition("Already routed."));
 
@@ -443,6 +446,84 @@ internal sealed class FakeInboxItems : IInboxItems
         });
 
         return new InboxRoutedDto(id, taskIds);
+    }
+
+    /// <summary>What Tasks refuses the next batch's document with, if anything:
+    /// every item the batch would have routed is then named with the module's
+    /// batch-refused error and none is routed.</summary>
+    public Error? RefuseBatch { get; set; }
+
+    /// <summary>Items the adapter would leave out of a batch's document, and
+    /// why: named with their own reason while the rest still go.</summary>
+    public Dictionary<Guid, Error> LeaveOutOfBatch { get; } = [];
+
+    /// <summary>Awaited at the start of every route, single or batch, so a test
+    /// can hold one in flight. Null routes straight through.</summary>
+    public Func<Task>? BeforeRoute { get; set; }
+
+    /// <summary>How many single routes were asked of the port.</summary>
+    public int SingleRouteCalls { get; private set; }
+
+    /// <summary>Every batch routed, with the ids it named, the list it was
+    /// named after, and the plan tag the fake minted for it.</summary>
+    public List<(IReadOnlyList<Guid> Ids, Guid? ListId, string PlanTag)> BatchRoutes { get; } = [];
+
+    /// <summary>The module's batch route, restated: a new tag per batch named
+    /// after the list or <c>inbox-batch</c>, decided items refused up front, and
+    /// the rest routed together or — on <see cref="RefuseBatch"/> — not at all.</summary>
+    public async Task<Result<InboxBatchRoutedDto>> RouteToBacklogAsync(
+        IReadOnlyList<Guid> ids,
+        Guid? listId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var stem = "inbox-batch";
+        if (listId is { } named)
+        {
+            if (_lists.FirstOrDefault(list => list.Id == named) is not { } list)
+            {
+                return Result.Failure<InboxBatchRoutedDto>(InboxErrors.ListNotFound);
+            }
+
+            stem = list.Name;
+        }
+
+        var tag = "+" + InboxPlanTag.For(stem, Guid.NewGuid());
+        BatchRoutes.Add((ids, listId, tag));
+        if (BeforeRoute is { } gate) await gate();
+
+        var failed = new List<InboxBatchFailureDto>();
+        var routable = new List<InboxItemDto>();
+
+        foreach (var id in ids)
+        {
+            if (Find(id) is not { } item) failed.Add(new InboxBatchFailureDto(id, InboxErrors.ItemNotFound));
+            else if (item.Routing is not null || item.Status == InboxStatus.Archived) failed.Add(new InboxBatchFailureDto(id, InboxErrors.InvalidTransition("Already routed.")));
+            else if (LeaveOutOfBatch.TryGetValue(id, out var reason)) failed.Add(new InboxBatchFailureDto(id, reason));
+            else routable.Add(item);
+        }
+
+        if (RefuseBatch is { } refusal)
+        {
+            failed.AddRange(routable.Select(item => new InboxBatchFailureDto(item.Id, InboxErrors.BatchRefused(refusal))));
+            return new InboxBatchRoutedDto(tag, [], failed);
+        }
+
+        var routed = new List<InboxRoutedDto>();
+        foreach (var item in routable)
+        {
+            var taskIds = Enumerable.Range(0, Math.Max(1, item.RepoIds.Count)).Select(_ => Guid.NewGuid()).ToList();
+            OnRouted?.Invoke(item, taskIds);
+
+            await Update(item.Id, current => current with
+            {
+                Status = InboxStatus.Triaged,
+                Routing = new InboxRoutingDto(RoutingDomain.Tasks, current.RepoIds, taskIds, Now)
+            });
+
+            routed.Add(new InboxRoutedDto(item.Id, taskIds));
+        }
+
+        return new InboxBatchRoutedDto(tag, routed, failed);
     }
 
     public async Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default)

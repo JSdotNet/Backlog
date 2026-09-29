@@ -140,7 +140,7 @@ public sealed class RoadmapItemRollupServiceSessionTests : IDisposable
         public Task<Result<SavedTaskDto>> SaveFromTextAsync(Guid? id, string rawText, int order, string? sourceInboxId = null, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<Result<ImportPlanResultDto>> ImportPlanAsync(string rawText, string? defaultRepo = null, IReadOnlyDictionary<string, string>? repoMatches = null, string? sourceInboxId = null, bool layOutOnRoadmap = false, CancellationToken cancellationToken = default) =>
+        public Task<Result<ImportPlanResultDto>> ImportPlanAsync(string rawText, string? defaultRepo = null, IReadOnlyDictionary<string, string>? repoMatches = null, string? sourceInboxId = null, IReadOnlyDictionary<string, string>? sourceInboxIds = null, bool layOutOnRoadmap = false, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
         public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();

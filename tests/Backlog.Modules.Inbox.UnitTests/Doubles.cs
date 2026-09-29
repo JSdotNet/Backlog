@@ -59,6 +59,36 @@ internal sealed class FakeBacklogTarget : IInboxBacklogTarget
             [.. Enumerable.Range(0, count).Select(_ => Guid.CreateVersion7())]));
     }
 
+    public List<InboxBatchRouteRequestDto> BatchRequests { get; } = [];
+
+    /// <summary>Items the adapter leaves out of a batch, and why — standing in
+    /// for its per-item checks.</summary>
+    public Dictionary<Guid, Error> RefuseItems { get; } = [];
+
+    public Task<InboxBatchTargetResultDto> CreateBatchTasksAsync(
+        InboxBatchRouteRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        BatchRequests.Add(request);
+
+        var refused = request.Items
+            .Where(item => RefuseItems.ContainsKey(item.InboxItemId))
+            .Select(item => new InboxBatchFailureDto(item.InboxItemId, RefuseItems[item.InboxItemId]))
+            .ToList();
+        var sent = request.Items.Where(item => !RefuseItems.ContainsKey(item.InboxItemId)).ToList();
+
+        if (FailWith is { } error) return Task.FromResult(new InboxBatchTargetResultDto([], refused, error));
+
+        // The same one-per-repository rule, item by item.
+        return Task.FromResult(new InboxBatchTargetResultDto(
+            [
+                .. sent.Select(item => new InboxRoutedDto(
+                    item.InboxItemId,
+                    [.. Enumerable.Range(0, Math.Max(item.RepoIds.Count, 1)).Select(_ => Guid.CreateVersion7())])),
+            ],
+            refused));
+    }
+
     public Task<Result<IReadOnlyList<Guid>>> ImportPlanAsync(
         string planMarkdown,
         Guid sourceInboxId,

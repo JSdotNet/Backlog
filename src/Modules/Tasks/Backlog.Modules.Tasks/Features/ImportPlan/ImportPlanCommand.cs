@@ -51,12 +51,19 @@ namespace Backlog.Modules.Tasks.Features.ImportPlan;
 /// roadmap item per plan tag its tasks carry where none exists yet (ADR 0013,
 /// ruling 3). Off, a plan re-imported for its tasks grows no item nobody asked
 /// for.</param>
+/// <param name="SourceInboxIds">Per-entry provenance, for a document made of
+/// several inbox items routed together as a batch: an entry's <c>id:</c> mapped to
+/// the inbox item it came from. A created entry whose <c>id:</c> is a key here is
+/// stamped with that item — and so born Draft, by the same rule — and any other
+/// takes <paramref name="SourceInboxId"/> as before. One source for the whole
+/// document cannot say which of five items an entry was made from.</param>
 public sealed record ImportPlanCommand(
     string RawText,
     string? DefaultRepo = null,
     IReadOnlyDictionary<string, string>? RepoMatches = null,
     string? SourceInboxId = null,
-    bool LayOutOnRoadmap = false);
+    bool LayOutOnRoadmap = false,
+    IReadOnlyDictionary<string, string>? SourceInboxIds = null);
 
 /// <param name="roadmap">Where <c>plan</c> entries cross to the roadmap. Optional
 /// because a host may compose Tasks without Roadmap; a document with <c>plan</c>
@@ -139,7 +146,7 @@ public sealed class ImportPlanCommandHandler(
         // just gathered rather than the previous version's.
         var tasks = parsedEntries.Count == 0
             ? TaskHalf.None
-            : await ImportTasksAsync(parsedEntries, command.SourceInboxId, cancellationToken);
+            : await ImportTasksAsync(parsedEntries, command.SourceInboxId, command.SourceInboxIds, cancellationToken);
 
         var roadmap = await LayOutOnRoadmapAsync(planEntries, parsedEntries, levels, command, cancellationToken);
 
@@ -161,9 +168,17 @@ public sealed class ImportPlanCommandHandler(
     private async Task<TaskHalf> ImportTasksAsync(
         List<EntryTextParser.ParsedEntry> parsedEntries,
         string? sourceInboxId,
+        IReadOnlyDictionary<string, string>? sourceInboxIds,
         CancellationToken cancellationToken)
     {
         var sharedTag = SharedTag(parsedEntries);
+
+        string? SourceOf(EntryTextParser.ParsedEntry parsed) =>
+            sourceInboxIds is not null
+            && parsed.ImportItemId is { } itemId
+            && sourceInboxIds.TryGetValue(itemId, out var own)
+                ? own
+                : sourceInboxId;
         string? PlanIdOf(EntryTextParser.ParsedEntry parsed) => sharedTag ?? OwnPlanTag(parsed);
 
         var existing = await entries.ListAsync(cancellationToken);
@@ -208,7 +223,7 @@ public sealed class ImportPlanCommandHandler(
             {
                 // The prompt as this version of the plan writes it: either new,
                 // or written again in place of the copy just cleared.
-                outcomes.Add(Outcome.ForCreate(parsed, CreateEntry(parsed, nextOrder++, sourceInboxId)));
+                outcomes.Add(Outcome.ForCreate(parsed, CreateEntry(parsed, nextOrder++, SourceOf(parsed))));
             }
             else if (match.IsCompleted || match.Status is EntryStatus.Done or EntryStatus.Archived)
             {
