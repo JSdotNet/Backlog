@@ -25,4 +25,8 @@
     <PackageReference Include="Azure.Storage.Blobs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Infrastructure.BlobStorage.UnitTests" />
+  </ItemGroup>
+
 </Project>
