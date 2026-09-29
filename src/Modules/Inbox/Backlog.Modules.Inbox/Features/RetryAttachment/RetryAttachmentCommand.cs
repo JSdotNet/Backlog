@@ -4,6 +4,9 @@ using Backlog.Modules.Inbox.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace Backlog.Modules.Inbox.Features.RetryAttachment;
 
 /// <summary>Fetches one of an item's files again — Retry on a row whose
@@ -24,9 +27,12 @@ public sealed class RetryAttachmentCommandHandler(
     IInboxItemRepository items,
     TimeProvider clock,
     IInboxAttachmentSource? attachmentSource = null,
-    IInboxAttachmentFiles? attachmentFiles = null)
+    IInboxAttachmentFiles? attachmentFiles = null,
+    ILogger<RetryAttachmentCommandHandler>? logger = null)
     : ICommandHandler<RetryAttachmentCommand, Result>
 {
+    private readonly ILogger _logger = logger ?? NullLogger<RetryAttachmentCommandHandler>.Instance;
+
     public async Task<Result> Handle(RetryAttachmentCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -37,7 +43,7 @@ public sealed class RetryAttachmentCommandHandler(
         if (attachmentSource is null || attachmentFiles is null) return Result.Failure(InboxErrors.AttachmentsUnavailable);
 
         var error = await InboxAttachmentDownloads
-            .DownloadAsync(item, command.AttachmentId, attachmentSource, attachmentFiles, clock, cancellationToken)
+            .DownloadAsync(item, command.AttachmentId, attachmentSource, attachmentFiles, clock, _logger, cancellationToken)
             .ConfigureAwait(false);
 
         await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);

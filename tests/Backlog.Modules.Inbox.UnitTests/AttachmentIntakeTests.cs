@@ -8,6 +8,7 @@ using Backlog.Modules.Inbox.Features.RetryAttachment;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.SharedKernel.Results;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Inbox.UnitTests;
@@ -195,6 +196,90 @@ public sealed class AttachmentIntakeTests
 
         Assert.Empty(files.Writes);
         Assert.Contains("does not match", Assert.Single(Assert.Single(store.Items.Values).Attachments).LastError);
+    }
+
+    [Fact]
+    public async Task A_failed_fetch_is_logged_once_as_a_warning_with_its_ids_and_reason()
+    {
+        var store = new InMemoryInboxStore();
+        var jpeg = TestFile.Jpeg();
+        var pdf = TestFile.Pdf();
+        var logger = new RecordingLogger<ReceiveCaptureCommandHandler>();
+        var capture = Capture(jpeg, pdf);
+
+        // The PDF has aged out of the store; the JPEG arrives and logs nothing.
+        await Receive(store, capture, new FakeAttachmentSource().Holding(jpeg), new FakeAttachmentFiles(), logger);
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal(pdf.Id, entry.Fields["AttachmentId"]);
+        Assert.Equal(capture.Id, entry.Fields["ItemId"]);
+        Assert.Equal("The file is no longer on the sync service.", entry.Fields["Reason"]);
+
+        // The ids and the reason, and nothing else: no name, no bytes.
+        Assert.Equal(["AttachmentId", "ItemId", "Reason", "{OriginalFormat}"], entry.Fields.Keys.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_fetch_that_throws_is_logged_with_its_exception()
+    {
+        var store = new InMemoryInboxStore();
+        var jpeg = TestFile.Jpeg();
+        var thrown = new HttpRequestException("Connection reset.");
+        var logger = new RecordingLogger<ReceiveCaptureCommandHandler>();
+
+        await Receive(store, Capture(jpeg), new FakeAttachmentSource { ThrowWith = thrown }, new FakeAttachmentFiles(), logger);
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal("The file could not be downloaded: Connection reset.", entry.Fields["Reason"]);
+        Assert.Same(thrown, entry.Exception);
+    }
+
+    [Fact]
+    public async Task A_replayed_page_does_not_log_a_failed_file_again()
+    {
+        var store = new InMemoryInboxStore();
+        var jpeg = TestFile.Jpeg();
+        var logger = new RecordingLogger<ReceiveCaptureCommandHandler>();
+        var capture = Capture(jpeg);
+
+        await Receive(store, capture, new FakeAttachmentSource(), new FakeAttachmentFiles(), logger);
+        await Receive(store, capture, new FakeAttachmentSource(), new FakeAttachmentFiles(), logger);
+
+        Assert.Single(logger.Entries);
+    }
+
+    [Fact]
+    public async Task A_retry_that_fails_again_is_logged()
+    {
+        var store = new InMemoryInboxStore();
+        var pdf = TestFile.Pdf();
+        var source = new FakeAttachmentSource();
+        var capture = Capture(pdf);
+        var logger = new RecordingLogger<RetryAttachmentCommandHandler>();
+
+        await Receive(store, capture, source, new FakeAttachmentFiles());
+        source.FailWith = Error.Unexpected("sync.unreachable", "The sync service could not be reached.");
+
+        await new RetryAttachmentCommandHandler(store, new FakeTimeProvider(Arrival), source, new FakeAttachmentFiles(), logger)
+            .Handle(new RetryAttachmentCommand(capture.Id, pdf.Id), TestContext.Current.CancellationToken);
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal(pdf.Id, entry.Fields["AttachmentId"]);
+        Assert.Equal(capture.Id, entry.Fields["ItemId"]);
+        Assert.Equal("The sync service could not be reached.", entry.Fields["Reason"]);
+    }
+
+    [Fact]
+    public async Task A_file_that_arrives_logs_nothing()
+    {
+        var jpeg = TestFile.Jpeg();
+        var logger = new RecordingLogger<ReceiveCaptureCommandHandler>();
+
+        await Receive(new InMemoryInboxStore(), Capture(jpeg), new FakeAttachmentSource().Holding(jpeg), new FakeAttachmentFiles(), logger);
+
+        Assert.Empty(logger.Entries);
     }
 
     [Fact]
@@ -394,9 +479,10 @@ public sealed class AttachmentIntakeTests
         InMemoryInboxStore store,
         InboxCaptureDto capture,
         IInboxAttachmentSource source,
-        IInboxAttachmentFiles files)
+        IInboxAttachmentFiles files,
+        ILogger<ReceiveCaptureCommandHandler>? logger = null)
     {
-        var handler = new ReceiveCaptureCommandHandler(store, new FakeTimeProvider(Arrival), source, files);
+        var handler = new ReceiveCaptureCommandHandler(store, new FakeTimeProvider(Arrival), source, files, logger);
         var result = await handler.Handle(new ReceiveCaptureCommand(capture), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
