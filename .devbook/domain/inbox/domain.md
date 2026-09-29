@@ -270,7 +270,7 @@ and then removes the group, so no list is ever deleted by deleting its group.
 type: domain-service
 status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#import, .devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Creating_a_plan_hands_the_items_folder_to_the_import_as_its_attachment]
 aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, ArchiveItemCommand]
 ```
 
@@ -304,8 +304,8 @@ Three doors lead to Tasks and all end in the same `Routing Target`:
   A batch never registers a repository.
 
 An item with attachments hands its [attachment folder](#attachment-folder) to
-every task Route to backlog or Route a batch creates, as that task's
-attachment. The file goes where the work goes. Create plan does not hand the folder on yet.
+every task Route to backlog, Route a batch or Create plan creates, as that
+task's attachment. The file goes where the work goes.
 
 Routing to Devbook is modelled and not built.
 

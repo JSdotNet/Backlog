@@ -1,6 +1,7 @@
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Inbox.Features.CreatePlan;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.ReceiveCapture;
@@ -376,6 +377,39 @@ public sealed class AttachmentIntakeTests
             .Handle(new RouteToBacklogCommand(item.Id), TestContext.Current.CancellationToken);
 
         Assert.Null(Assert.Single(target.Requests).AttachmentPath);
+    }
+
+    [Fact]
+    public async Task Creating_a_plan_hands_the_items_folder_to_the_import_as_its_attachment()
+    {
+        var store = new InMemoryInboxStore();
+        var jpeg = TestFile.Jpeg();
+        var pdf = TestFile.Pdf();
+        var files = new FakeAttachmentFiles();
+        var capture = Capture(jpeg, pdf);
+        await Receive(store, capture, new FakeAttachmentSource().Holding(jpeg, pdf), files);
+
+        var target = new FakeBacklogTarget();
+        var drafter = new FakePlanDrafter();
+        await new CreatePlanCommandHandler(store, target, new FakeTimeProvider(Arrival), drafter, files)
+            .Handle(new CreatePlanCommand(capture.Id), TestContext.Current.CancellationToken);
+
+        Assert.Equal(files.FolderFor(capture.Id), Assert.Single(target.Imports).AttachmentPath);
+        Assert.DoesNotContain(files.FolderFor(capture.Id), Assert.Single(drafter.Requests).BodyMd, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Creating_a_plan_from_an_item_without_files_hands_on_no_attachment()
+    {
+        var store = new InMemoryInboxStore();
+        var item = Items.FromPhone();
+        store.Seed(item);
+
+        var target = new FakeBacklogTarget();
+        await new CreatePlanCommandHandler(store, target, new FakeTimeProvider(Arrival), new FakePlanDrafter(), new FakeAttachmentFiles())
+            .Handle(new CreatePlanCommand(item.Id), TestContext.Current.CancellationToken);
+
+        Assert.Null(Assert.Single(target.Imports).AttachmentPath);
     }
 
     // --- Helpers --------------------------------------------------------------

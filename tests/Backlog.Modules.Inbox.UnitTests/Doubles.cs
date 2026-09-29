@@ -42,7 +42,7 @@ internal sealed class FakeBacklogTarget : IInboxBacklogTarget
 {
     public List<InboxRouteRequestDto> Requests { get; } = [];
 
-    public List<(string Plan, Guid SourceInboxId, IReadOnlyList<string> AllowedRepoIds)> Imports { get; } = [];
+    public List<(string Plan, Guid SourceInboxId, IReadOnlyList<string> AllowedRepoIds, string? AttachmentPath)> Imports { get; } = [];
 
     public Error? FailWith { get; set; }
 
@@ -93,9 +93,10 @@ internal sealed class FakeBacklogTarget : IInboxBacklogTarget
         string planMarkdown,
         Guid sourceInboxId,
         IReadOnlyList<string> allowedRepoIds,
+        string? attachmentPath = null,
         CancellationToken cancellationToken = default)
     {
-        Imports.Add((planMarkdown, sourceInboxId, allowedRepoIds));
+        Imports.Add((planMarkdown, sourceInboxId, allowedRepoIds, attachmentPath));
 
         if (FailWith is { } error) return Task.FromResult(Result.Failure<IReadOnlyList<Guid>>(error));
 

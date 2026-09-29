@@ -406,6 +406,12 @@ item's attachment folder as that task's attachment.
 - **When** the person routes it to Tasks
 - **Then** the new task's attachment is the item's attachment folder
 
+#### Scenario: Create plan
+
+- **Given** an item with a downloaded picture and a downloaded PDF
+- **When** the person creates a plan from it
+- **Then** every task the plan creates has the item's attachment folder as its attachment
+
 #### Scenario: No files
 
 - **Given** an item with no attachments
