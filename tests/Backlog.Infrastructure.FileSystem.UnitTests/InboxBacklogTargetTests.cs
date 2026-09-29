@@ -182,6 +182,68 @@ public sealed class InboxBacklogTargetTests
         Assert.Empty(tasks.Saves);
     }
 
+    /// <summary>A drafter's order for a batch is read, never imported: each
+    /// entry's <c>id:</c> is the item that waits and each <c>after:</c> the item
+    /// it waits on, whether written bare or with the <c>/repo</c> a batch uses
+    /// for an item with several repositories.</summary>
+    [Fact]
+    public void A_drafted_order_is_read_as_edges_between_the_items_and_tasks_is_not_asked()
+    {
+        var tasks = new RecordingTaskItems(existing: 0);
+        var a = Guid.CreateVersion7();
+        var b = Guid.CreateVersion7();
+        var c = Guid.CreateVersion7();
+        var plan =
+            $"# A\n`prompt` `!draft` `+inbox-batch-1a2b3c4d` `id:{a:D}` `repo:JSdotNet/Backlog`\n\n" +
+            $"# B\n`prompt` `!draft` `+inbox-batch-1a2b3c4d` `id:{b:D}/JSdotNet/Backlog` `after:{a:D}`\n\n" +
+            $"# C\n`prompt` `!draft` `+inbox-batch-1a2b3c4d` `id:{c:D}` `after:{b:D}/JSdotNet/Backlog` `after:{a:D}` `after:{c:D}`\n";
+
+        var result = new InboxBacklogTarget(tasks, Known()).ReadDraftedOrder(plan, [a, b, c], ["jsdotnet/backlog"]);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal([new InboxBatchEdge(b, a), new InboxBatchEdge(c, b), new InboxBatchEdge(c, a)], result.Value);
+        Assert.Empty(tasks.Imports);
+        Assert.Empty(tasks.Saves);
+    }
+
+    /// <summary>The drafted plan's rule, held for an order too: a repository
+    /// none of the batch's items goes to is refused, and so is the whole
+    /// answer — none of its edges comes back.</summary>
+    [Fact]
+    public void A_drafted_order_naming_a_repository_outside_the_batch_is_refused_whole()
+    {
+        var a = Guid.CreateVersion7();
+        var b = Guid.CreateVersion7();
+        var plan =
+            $"# A\n`prompt` `id:{a:D}`\n\n" +
+            $"# B\n`prompt` `id:{b:D}` `after:{a:D}` `repo:evil/x`\n";
+
+        var result = new InboxBacklogTarget(new RecordingTaskItems(existing: 0), Known()).ReadDraftedOrder(plan, [a, b], ["JSdotNet/Backlog"]);
+
+        Assert.Equal("inbox.order.unknown_repository", result.Error.Code);
+        Assert.Contains("evil/x", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("step-1", null)]
+    [InlineData(null, "step-1")]
+    [InlineData(null, "00000000-0000-0000-0000-000000000001")]
+    [InlineData("", null)]
+    public void A_drafted_order_naming_an_entry_outside_the_batch_is_refused_whole(string? idOverride, string? afterOverride)
+    {
+        var a = Guid.CreateVersion7();
+        var b = Guid.CreateVersion7();
+        var id = idOverride is null ? $" `id:{b:D}`" : idOverride.Length == 0 ? string.Empty : $" `id:{idOverride}`";
+        var after = $" `after:{afterOverride ?? a.ToString("D")}`";
+        var plan =
+            $"# A\n`prompt` `id:{a:D}`\n\n" +
+            $"# B\n`prompt`{id}{after}\n";
+
+        var result = new InboxBacklogTarget(new RecordingTaskItems(existing: 0), Known()).ReadDraftedOrder(plan, [a, b], []);
+
+        Assert.Equal("inbox.order.unknown_item", result.Error.Code);
+    }
+
     [Fact]
     public async Task A_plan_naming_only_the_items_repositories_is_imported_whatever_their_case()
     {

@@ -507,6 +507,36 @@ internal sealed class FakeInboxItems : IInboxItems
             listId is { } named ? _items.Count(item => item.ListId == named && item.Status == InboxStatus.Deferred) : null)));
     }
 
+    /// <summary>What the drafter's order says, as the module would hand it back
+    /// — which edges it infers is the module's and the adapter's business.</summary>
+    public List<ProposedDependency> InferredDependencies { get; } = [];
+
+    /// <summary>When set, the order is refused with this error instead.</summary>
+    public Error? InferFailsWith { get; set; }
+
+    /// <summary>Every order asked of the port, with the tag and the repositories.</summary>
+    public List<(IReadOnlyList<Guid> Ids, string PlanTag, IReadOnlyDictionary<Guid, IReadOnlyList<string>>? Repositories)> OrderRequests { get; } = [];
+
+    /// <summary>Held open until completed, so a test can look at the panel
+    /// while the order is out. Null answers at once.</summary>
+    public TaskCompletionSource? HoldInfer { get; set; }
+
+    public async Task<Result<IReadOnlyList<ProposedDependency>>> InferBatchOrderAsync(
+        IReadOnlyList<Guid> ids,
+        string planTag,
+        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? repositories = null,
+        CancellationToken cancellationToken = default)
+    {
+        OrderRequests.Add((ids, planTag, repositories));
+
+        if (HoldInfer is { } hold) await hold.Task;
+
+        if (!PlanDrafterAvailability.Available) return InboxErrors.PlanNotConfigured(PlanDrafterAvailability.Reason);
+        if (InferFailsWith is { } error) return error;
+
+        return Result.Success<IReadOnlyList<ProposedDependency>>([.. InferredDependencies]);
+    }
+
     /// <summary>A new tag named after the list or <c>inbox-batch</c>, or null
     /// for a list that is gone.</summary>
     private string? PlanTagFor(Guid? listId)

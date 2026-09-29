@@ -153,6 +153,23 @@ public interface IInboxItems
         Guid? listId = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Asks the plan drafter for the order it reads into a batch, as
+    /// dependencies between its items (<see cref="DependencyTier.Inferred"/>)
+    /// the person keeps or turns off in the panel. Nothing is routed; asked only
+    /// when the person asks, since every ask is a model call.
+    /// <paramref name="planTag"/> is the tag <see cref="ProposeBatchAsync"/>
+    /// minted and <paramref name="repositories"/> the panel's per-item choices —
+    /// the repositories the answer may name. Fails with
+    /// <c>inbox.plan.not_configured</c> when <see cref="PlanDrafterAvailability"/>
+    /// says so, <c>inbox.plan.failed</c> when the drafter could not answer, and
+    /// <c>inbox.order.unknown_repository</c> or <c>inbox.order.unknown_item</c>
+    /// when its answer named something outside the batch — refused whole.</summary>
+    Task<Result<IReadOnlyList<ProposedDependency>>> InferBatchOrderAsync(
+        IReadOnlyList<Guid> ids,
+        string planTag,
+        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? repositories = null,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Asks the plan drafter for an import plan about the item, hands
     /// the plan to Tasks' import, and records the entries it produced as the
     /// item's routing. Fails with <c>inbox.plan.not_configured</c> when

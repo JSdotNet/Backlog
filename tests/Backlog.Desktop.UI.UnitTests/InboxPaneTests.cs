@@ -1731,6 +1731,92 @@ public sealed class InboxPaneTests
     }
 
     [Fact]
+    public async Task Ask_the_AI_to_order_is_shown_disabled_with_its_reason_when_no_drafter_is_configured()
+    {
+        using var harness = Harness.Create();
+        SeedNewestFirst(harness, "Deploy the preview", "Set up the pipeline");
+        harness.Inbox.PlanDrafterAvailability = (false, "Configure Azure Foundry in Settings to create plans.");
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+
+        var ask = pane.Find("[data-testid='inbox-route-panel-infer']");
+        Assert.True(ask.HasAttribute("disabled"));
+        Assert.Equal("Configure Azure Foundry in Settings to create plans.", ask.GetAttribute("title"));
+
+        // Opt-in: opening the panel asked nothing, and a keyboard reaching the
+        // act anyway asks nothing either.
+        await pane.InvokeAsync(() => harness.State.InferRouteOrderAsync());
+        Assert.Empty(harness.Inbox.OrderRequests);
+    }
+
+    [Fact]
+    public async Task Asking_the_AI_adds_its_order_as_switches_marked_inferred_and_confirm_routes_them()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "Deploy the preview", "Set up the pipeline");
+        harness.Inbox.PlanDrafterAvailability = (true, null);
+        harness.Inbox.InferredDependencies.Add(new ProposedDependency(
+            items[0].Id, DependencyTarget.ForItem(items[1].Id, "Set up the pipeline"), "The AI read the batch and put this one after it.", DependencyTier.Inferred));
+        harness.Inbox.HoldInfer = new TaskCompletionSource();
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+
+        Assert.Empty(harness.Inbox.OrderRequests);
+        Assert.Equal(
+            ["Deploy the preview", "Set up the pipeline"],
+            pane.FindAll("[data-testid='inbox-route-panel-order-item']").Select(item => item.TextContent.Trim()));
+
+        var asking = pane.Find("[data-testid='inbox-route-panel-infer']").ClickAsync(new());
+        pane.WaitForAssertion(() => Assert.True(pane.Find("[data-testid='inbox-route-panel-confirm']").HasAttribute("disabled")));
+        var request = Assert.Single(harness.Inbox.OrderRequests);
+        Assert.Equal(pane.Find("[data-testid='inbox-route-panel-tag']").TextContent.Trim(), request.PlanTag);
+
+        harness.Inbox.HoldInfer.SetResult();
+        await asking;
+
+        pane.WaitForAssertion(() =>
+        {
+            var edge = Assert.Single(pane.FindAll("[data-testid='inbox-route-panel-edge']"));
+            Assert.Equal("inferred", edge.GetAttribute("data-tier"));
+            Assert.Contains("AI-inferred.", edge.TextContent, StringComparison.Ordinal);
+        });
+        Assert.Equal(
+            ["Set up the pipeline", "Deploy the preview"],
+            pane.FindAll("[data-testid='inbox-route-panel-order-item']").Select(item => item.TextContent.Trim()));
+        Assert.Contains("The AI added 1 dependency.", pane.Find("[data-testid='inbox-route-panel-infer-note']").TextContent, StringComparison.Ordinal);
+
+        await pane.Find("[data-testid='inbox-route-panel-confirm']").ClickAsync(new());
+
+        var choices = Assert.IsType<InboxBatchRouteChoicesDto>(Assert.Single(harness.Inbox.BatchRoutes).Choices);
+        Assert.Equal(DependencyTier.Inferred, Assert.Single(choices.Dependencies!).Tier);
+    }
+
+    [Fact]
+    public async Task A_refused_order_is_named_in_the_panel_and_adds_no_switch()
+    {
+        using var harness = Harness.Create();
+        SeedNewestFirst(harness, "Deploy the preview", "Set up the pipeline");
+        harness.Inbox.PlanDrafterAvailability = (true, null);
+        harness.Inbox.InferFailsWith = InboxErrors.OrderUnknownRepository("made-up/repository");
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-route-panel-infer']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Contains(
+            "made-up/repository",
+            pane.Find("[data-testid='inbox-route-panel-infer-note']").TextContent,
+            StringComparison.Ordinal));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-route-panel-edge']"));
+        Assert.False(pane.Find("[data-testid='inbox-route-panel-confirm']").HasAttribute("disabled"));
+    }
+
+    [Fact]
     public async Task A_loop_is_named_and_holds_confirm_until_a_switch_breaks_it()
     {
         using var harness = Harness.Create();

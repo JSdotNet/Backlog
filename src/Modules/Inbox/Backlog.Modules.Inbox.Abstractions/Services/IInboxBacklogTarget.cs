@@ -68,4 +68,25 @@ public interface IInboxBacklogTarget
         IReadOnlyList<string> allowedRepoIds,
         string? attachmentPath = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads the order a drafter proposed for a batch: every <c>after:</c> in
+    /// <paramref name="planMarkdown"/> as an edge between two of
+    /// <paramref name="itemIds"/>, the entry's own <c>id:</c> being the item
+    /// that waits. An id may carry a <c>/repo</c> suffix, the shape a batch
+    /// writes for an item with several repositories.
+    /// <para>
+    /// Read, never imported: the edges go back to the person as proposals and
+    /// the batch is routed as it always is. Refused whole — no edge at all —
+    /// when the answer names a repository outside
+    /// <paramref name="allowedRepoIds"/> (<c>inbox.order.unknown_repository</c>,
+    /// the rule <see cref="ImportPlanAsync"/> applies to a drafted plan) or an
+    /// entry that is not one of the items (<c>inbox.order.unknown_item</c>):
+    /// an answer that made one thing up is not trusted for the rest.
+    /// </para>
+    /// </summary>
+    Result<IReadOnlyList<InboxBatchEdge>> ReadDraftedOrder(
+        string planMarkdown,
+        IReadOnlyCollection<Guid> itemIds,
+        IReadOnlyList<string> allowedRepoIds);
 }

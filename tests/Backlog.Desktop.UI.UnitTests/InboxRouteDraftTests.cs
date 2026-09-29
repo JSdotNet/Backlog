@@ -43,6 +43,48 @@ public sealed class InboxRouteDraftTests
     }
 
     [Fact]
+    public void The_drafters_dependencies_are_added_on_after_the_stated_ones_and_never_twice()
+    {
+        var stated = After(B, A, "Alpha");
+        var draft = Draft(dependencies: [stated]);
+        var same = new ProposedDependency(B, DependencyTarget.ForItem(A, "Alpha"), "AI", DependencyTier.Inferred);
+        var inferred = new ProposedDependency(A, DependencyTarget.ForItem(B, "Beta"), "AI", DependencyTier.Inferred);
+        var stranger = new ProposedDependency(Guid.NewGuid(), DependencyTarget.ForItem(A, "Alpha"), "AI", DependencyTier.Inferred);
+
+        var added = draft.AddInferred([same, inferred, stranger]);
+
+        Assert.Equal(1, added);
+        Assert.Equal([stated, inferred], draft.Dependencies);
+        Assert.True(draft.IsEnabled(1));
+        Assert.Equal("The AI added 1 dependency. Turn it off if it is wrong.", draft.InferenceNote);
+        Assert.False(draft.InferenceFailed);
+
+        // The two now wait on each other: the loop holds Confirm as any other does.
+        Assert.False(draft.CanConfirm);
+        draft.SetEnabled(0, false);
+        Assert.Equal([B, A], draft.OrderedItems.Select(item => item.Id));
+        Assert.Equal([inferred], draft.Choices().Dependencies);
+    }
+
+    [Fact]
+    public void An_ask_that_adds_nothing_or_is_refused_says_so_and_confirm_waits_while_it_is_out()
+    {
+        var draft = Draft();
+
+        draft.Inferring = true;
+        Assert.False(draft.CanConfirm);
+        draft.Inferring = false;
+
+        Assert.Equal(0, draft.AddInferred([]));
+        Assert.Equal("The AI found no order beyond what the items already say.", draft.InferenceNote);
+
+        draft.InferenceRefused("The AI's order names a repository outside this batch, so none of it was used: x/y.");
+        Assert.True(draft.InferenceFailed);
+        Assert.Empty(draft.Dependencies);
+        Assert.True(draft.CanConfirm);
+    }
+
+    [Fact]
     public void The_count_is_one_task_per_repository_or_one_for_none()
     {
         var draft = Draft(["a/one", "a/two"], []);
