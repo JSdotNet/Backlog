@@ -504,7 +504,7 @@ public sealed class InboxBacklogTargetTests
         public TasksRepositoryRef? Resolve(string name) =>
             Repositories.FirstOrDefault(repository => string.Equals(repository.Id, name, StringComparison.OrdinalIgnoreCase));
 
-        public TasksRepositoryRef Register(string name)
+        public Result<TasksRepositoryRef> Register(string name)
         {
             Registered.Add(name);
             return new TasksRepositoryRef(name, "x", name);
