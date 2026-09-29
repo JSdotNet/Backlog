@@ -275,7 +275,7 @@ Deployed, the key travels like this:
 | Step | Where | What |
 | --- | --- | --- |
 | 1 | GitHub environment `backlog-sync` | Secret `SYNC_TOKEN_SIGNING_KEY` (prerequisite 5) |
-| 2 | `.github/workflows/deploy-sync.yml` | Exported into the job environment; `Verify deployment target` checks its shape |
+| 2 | `.github/workflows/deploy-sync.yml` | Set in the step environment of `Verify deployment target`, which checks its shape, and of the three `azd` steps (preview, provision, deploy) — no other step sees it |
 | 3 | `infra/sync/main.parameters.json` | `tokenSigningKey: ${SYNC_TOKEN_SIGNING_KEY}` — `azd` substitutes from the process environment |
 | 4 | `infra/sync/main.bicep` | `@secure() @minLength(44) param tokenSigningKey`, no default |
 | 5 | Container app `configuration.secrets` | `sync-token-signing-key` |
