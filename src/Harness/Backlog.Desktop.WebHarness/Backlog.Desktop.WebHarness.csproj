@@ -38,6 +38,8 @@
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
+    <!-- The Sessions context's disk readers, which this harness composes. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sessions\Backlog.Infrastructure.Sessions.csproj" />
     <!-- The device half of cloud sync. The harness keeps its credential under
          its own content root, so it and the mobile harness are two devices. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />

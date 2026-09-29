@@ -30,6 +30,7 @@ using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
+using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Infrastructure.AzureFoundry;
@@ -517,6 +518,7 @@ public static class MauiProgram
         // for a host to differ about and both hosts compose the same adapter. It
         // stamps what it finds with the device identity registered above.
         builder.Services.AddAgentSessionSource();
+        builder.Services.AddSessionsAiContentSource();
 
         // Session replication, on top of AddSyncClient above and after the readers
         // it pushes from: it reads this machine's sessions through the port that

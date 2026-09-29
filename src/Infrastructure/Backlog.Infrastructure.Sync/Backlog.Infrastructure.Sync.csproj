@@ -63,8 +63,8 @@
          port the panels use. Published surface only, taken as optional so a head
          with no annotation store composes unchanged. -->
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
-    <!-- The published surface only, and deliberately not the Sessions .UI project
-         that holds the local readers. Session replication reads AgentSession off
+    <!-- The published surface only, and deliberately not Backlog.Infrastructure.Sessions,
+         which holds the local readers. Session replication reads AgentSession off
          whatever answers IAgentSessionSource and hands replicated records back as a
          second implementation of the same port, which is the widening that port's
          own doc comment anticipates. The reverse reference is the one that cannot
