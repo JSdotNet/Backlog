@@ -149,6 +149,7 @@ public sealed class BatchTests
             createPlan: null!,
             routeBatchToBacklog: null!,
             proposeBatch: null!,
+            inferBatchOrder: null!,
             createList: null!,
             renameList: null!,
             deleteList: null!,
