@@ -295,6 +295,23 @@ the capture recorded for it.
 - **When** the bytes the desktop downloads have a different sha256
 - **Then** no file is written and the file is marked failed with its reason
 
+### Requirement: A file no fetch could honour is left off the item
+
+```meta
+type: requirement
+status: draft
+tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.A_named_file_no_fetch_could_honour_is_dropped_not_thrown
+```
+
+The desktop SHALL receive a capture that names a file with no id or a malformed
+digest, leaving that file off the item instead of refusing the capture.
+
+#### Scenario: One good file and one malformed one
+
+- **Given** a capture naming a photo and a second file whose sha256 is not a digest
+- **When** the desktop syncs
+- **Then** the item is in the Inbox with the photo as its only file
+
 ### Requirement: A replayed sync page downloads nothing twice
 
 ```meta
@@ -353,8 +370,8 @@ status: draft
 ```
 
 The Inbox detail view SHALL show every file an item arrived with: pictures on
-this machine as thumbnails that open the file, and every other file as a row
-with its size and Open.
+this machine of 8 MB or less as thumbnails that open the file, and every other
+file, a larger picture included, as a row with its size and Open.
 
 #### Scenario: A picture and a document
 
@@ -367,6 +384,12 @@ with its size and Open.
 - **Given** an item with a picture that has not been downloaded
 - **When** the person opens the item
 - **Then** the picture shows as a row saying it is waiting, not as a thumbnail
+
+#### Scenario: A picture over 8 MB
+
+- **Given** an item with a downloaded photo larger than 8 MB
+- **When** the person opens the item
+- **Then** the photo shows as a file row with its size and Open, not as a thumbnail
 
 ### Requirement: An item's kind follows its files
 

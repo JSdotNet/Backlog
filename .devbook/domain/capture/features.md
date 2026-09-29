@@ -13,10 +13,18 @@ status: draft
 ```meta
 type: feature
 status: draft
+related: [".devbook/arc42/05-building-block-view.md#mobile-app"]
 ```
 
-Frictionless capture from a phone while away from the desktop, with the minimum
-required fields and offline-first behavior.
+Frictionless capture from a phone while away from the desktop, offline first.
+
+A capture needs only a title and where it came from. Everything else is
+optional: a Markdown body, tags, the one person it is about or from, and files —
+pictures, PDFs, text and Office documents — that travel beside it. The phone
+names every capture with an id of its own before the first send, so sending it
+again is never a second capture. The sub-features below each use part of that:
+one-tap entry the body, tags and person; offline-first sync the id; the talk
+note the files.
 
 ### One-tap entry
 
