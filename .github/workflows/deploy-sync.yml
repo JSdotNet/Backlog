@@ -73,6 +73,7 @@ jobs:
   sync:
     name: Provision and deploy Sync
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     environment: ${{ inputs.environment_name || 'backlog-sync' }}
     permissions:
       contents: read
