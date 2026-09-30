@@ -10,8 +10,9 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 
 /// <summary>
 /// Answers the Inbox's <see cref="IInboxTaskReferences"/> port over Tasks'
-/// published <see cref="ITaskItems"/>: each open task by what an inbox item's
-/// text could name it with.
+/// published <see cref="ITaskItems"/>: each task by what an inbox item's text
+/// could name it with, and where it came from — the join the Inbox's relations
+/// and its batch proposal both read, kept here so no Inbox source names Tasks.
 /// <para>
 /// Here beside <see cref="InboxBacklogTagSource"/> and for its reason: the Inbox
 /// may not see Tasks, and this adapter may see both. The translation it makes
@@ -22,6 +23,14 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 /// the one GitHub gives it. The source link is the <c>Source:</c> line
 /// <see cref="InboxBacklogTarget.Compose"/> writes under a routed item's notes.
 /// A session projection is not a link anyone writes, and is left out.
+/// </para>
+/// <para>
+/// Two reads, one translation. <see cref="OpenTasksAsync"/> leaves out done and
+/// archived work, which nothing waits on; <see cref="AllTasksAsync"/> leaves out
+/// only archived work, which the backlog has put away, and says of the rest
+/// whether it is still open. The source item's id is Tasks' own string; one that
+/// is not a guid — the sync service writes <c>desktop</c> on its acknowledgement
+/// entries — names no Inbox item and is left out.
 /// </para>
 /// </summary>
 internal sealed partial class InboxTaskReferences(ITaskItems tasks) : IInboxTaskReferences
@@ -35,14 +44,25 @@ internal sealed partial class InboxTaskReferences(ITaskItems tasks) : IInboxTask
             .Select(Reference)];
     }
 
+    public async Task<IReadOnlyList<InboxTaskReferenceDto>> AllTasksAsync(CancellationToken cancellationToken = default)
+    {
+        var entries = await tasks.ListAsync(cancellationToken).ConfigureAwait(false);
+
+        return [.. entries
+            .Where(entry => entry.Status is not EntryStatus.Archived)
+            .Select(Reference)];
+    }
+
     private static InboxTaskReferenceDto Reference(TaskItemDto entry)
     {
         var issues = Numbered(entry, EntryProjectionDto.IssueTargetType);
         var pulls = Numbered(entry, EntryProjectionDto.PullRequestTargetType);
 
+        var sources = SourceLine().Matches(entry.Body ?? string.Empty).Select(match => match.Groups["url"].Value).ToList();
+
         var links = issues.Select(issue => $"https://github.com/{issue.Repo}/issues/{issue.Number}")
             .Concat(pulls.Select(pull => $"https://github.com/{pull.Repo}/pull/{pull.Number}"))
-            .Concat(SourceLine().Matches(entry.Body ?? string.Empty).Select(match => match.Groups["url"].Value))
+            .Concat(sources)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -52,7 +72,10 @@ internal sealed partial class InboxTaskReferences(ITaskItems tasks) : IInboxTask
             entry.Title,
             entry.RepoIds ?? [],
             issues,
-            links);
+            links,
+            Guid.TryParse(entry.SourceInboxId, out var source) ? source : null,
+            sources.FirstOrDefault(),
+            entry.Status is not (EntryStatus.Done or EntryStatus.Archived));
     }
 
     /// <summary>The entry's projections of one type on a GitHub repository,

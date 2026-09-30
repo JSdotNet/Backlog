@@ -170,6 +170,62 @@ public sealed class InboxDesktopStateTests : IDisposable
         Assert.Equal(["sync"], state.TagOptions.Select(option => option.Value));
     }
 
+    /// <summary>An item's relations are read once while it stays on screen and
+    /// read again after any change, because any change may be the one that made
+    /// or broke a relation — the suggestions' rule.</summary>
+    [Fact]
+    public async Task Relations_are_read_once_per_item_and_again_after_a_reload()
+    {
+        var inbox = new FakeInboxItems();
+        var first = inbox.Seed("Read the design doc");
+        var second = inbox.Seed("Buy milk");
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        await state.ReloadAsync();
+
+        state.SelectItem(first.Id);
+        await state.LoadRelationsAsync();
+        await state.LoadRelationsAsync();
+
+        Assert.Equal(1, inbox.RelatedCalls);
+        Assert.Equal(first.Id, state.Relations!.ItemId);
+        Assert.NotNull(state.RelationsOf(state.SelectedItem!));
+
+        state.SelectItem(second.Id);
+        Assert.Null(state.RelationsOf(state.SelectedItem!));
+        await state.LoadRelationsAsync();
+        Assert.Equal(2, inbox.RelatedCalls);
+
+        await state.ReloadAsync();
+        await state.LoadRelationsAsync();
+        Assert.Equal(3, inbox.RelatedCalls);
+        Assert.Equal(second.Id, state.Relations!.ItemId);
+    }
+
+    /// <summary>An item already archived as a duplicate of the selected one —
+    /// directly or down a chain — is not offered as what it duplicates: the
+    /// module would refuse it as circular.</summary>
+    [Fact]
+    public async Task The_duplicate_picker_leaves_out_items_that_are_already_duplicates_of_the_selected_one()
+    {
+        var inbox = new FakeInboxItems();
+        var kept = inbox.Seed("Read the post", capturedAt: inbox.Now.AddMinutes(-3));
+        var direct = inbox.Seed("Read the post again", capturedAt: inbox.Now.AddMinutes(-2));
+        var chained = inbox.Seed("Read the post, third time", capturedAt: inbox.Now.AddMinutes(-1));
+        var other = inbox.Seed("Buy milk", capturedAt: inbox.Now);
+        await inbox.ArchiveAsDuplicateAsync(direct.Id, kept.Id, TestContext.Current.CancellationToken);
+        await inbox.ArchiveAsDuplicateAsync(chained.Id, direct.Id, TestContext.Current.CancellationToken);
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        await state.ReloadAsync();
+
+        state.SelectItem(kept.Id);
+
+        Assert.Equal([other.Id], state.DuplicateCandidates(null).Select(item => item.Id));
+
+        state.SelectItem(other.Id);
+
+        Assert.Equal([chained.Id, direct.Id, kept.Id], state.DuplicateCandidates(null).Select(item => item.Id));
+    }
+
     private sealed class FakeBacklogTagSource(IReadOnlyList<string> tags) : IBacklogTagSource
     {
         public IReadOnlyList<string> Tags { get; set; } = tags;

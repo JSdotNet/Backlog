@@ -121,13 +121,20 @@ internal sealed class FakeBacklogTarget : IInboxBacklogTarget
     }
 }
 
-/// <summary>The backlog's open tasks, as the test lists them, and how many
-/// times they were asked for.</summary>
+/// <summary>The backlog's tasks, as the test lists them — the open ones for
+/// the open read, every one for the other, archived ones being the test's to
+/// leave out — and how many times they were asked for.</summary>
 internal sealed class FakeTaskReferences(params InboxTaskReferenceDto[] tasks) : IInboxTaskReferences
 {
     public int Calls { get; private set; }
 
     public Task<IReadOnlyList<InboxTaskReferenceDto>> OpenTasksAsync(CancellationToken cancellationToken = default)
+    {
+        Calls++;
+        return Task.FromResult<IReadOnlyList<InboxTaskReferenceDto>>([.. tasks.Where(task => task.IsOpen)]);
+    }
+
+    public Task<IReadOnlyList<InboxTaskReferenceDto>> AllTasksAsync(CancellationToken cancellationToken = default)
     {
         Calls++;
         return Task.FromResult<IReadOnlyList<InboxTaskReferenceDto>>(tasks);

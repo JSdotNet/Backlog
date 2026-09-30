@@ -15,9 +15,10 @@ public sealed record ProposeBatchQuery(IReadOnlyList<Guid> Ids, Guid? ListId = n
 
 /// <summary>
 /// Sorts the ids the way the route will, reads the backlog's open tasks, and
-/// hands both to <see cref="DependencyProposal"/>. A read: nothing is routed,
-/// and the dependencies it proposes are written only if the person confirms
-/// them on the route.
+/// hands both to <see cref="DependencyProposal"/> — for the dependencies, and
+/// for the ordering hints beneath them, which read the lists' names too. A read:
+/// nothing is routed, the dependencies it proposes are written only if the
+/// person confirms them on the route, and the hints are never written at all.
 /// <para>
 /// The plan tag is minted here rather than on the route, so the panel shows the
 /// tag the import will actually write — the route takes it back as one of the
@@ -61,11 +62,25 @@ public sealed class ProposeBatchQueryHandler(
             deferred = all.Count(item => item.ListId == listId && item.Status == InboxStatus.Deferred);
         }
 
+        var dependencies = DependencyProposal.Propose(batch, tasks);
+
+        // Hints need two items to say anything about an order, and the list
+        // names only for the same-list hint.
+        IReadOnlyList<OrderingHint> hints = [];
+        if (batch.Count >= 2)
+        {
+            var lists = await organizer.ListListsAsync(cancellationToken).ConfigureAwait(false);
+            hints = DependencyProposal.Hints(batch, dependencies, lists.ToDictionary(list => list.Id, list => list.Name));
+        }
+
         return new InboxBatchProposalDto(
             planTag.Value,
             [.. batch.Select(item => new InboxBatchProposalItemDto(item.Id, item.Title, [.. item.RepoIds]))],
-            DependencyProposal.Propose(batch, tasks),
+            dependencies,
             [.. failed.OrderBy(entry => entry.Position).Select(entry => entry.Failure)],
-            deferred);
+            deferred)
+        {
+            Hints = hints,
+        };
     }
 }

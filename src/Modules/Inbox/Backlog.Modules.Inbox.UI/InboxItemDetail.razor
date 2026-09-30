@@ -19,6 +19,15 @@
     line is written to read well rather than as an error — it is the ordinary
     case, not a broken one.
 
+    Beneath the suggestions sits Related: the other items that look like the
+    same capture — choosing one opens it — and the tasks that already carry this
+    one, each with the reason in words. The Inbox never acts on a relation; the
+    two acts that do — "Archive as duplicate of…" and "Link to task…" — live
+    here rather than in the header, which is at its budget, and are offered only
+    while the item is open. Each opens a picker: a Modal with a SearchBox over a
+    MenuList, the related ones first. An item archived as a duplicate says which
+    item it duplicates on its state line.
+
     Above the pickers sit the suggestions: the tags, repositories and destination
     Classification proposes, each a chip the reader takes with the digit drawn
     on it, with Enter, or with a click, and turns down with its ×. Nothing is
@@ -235,6 +244,69 @@
                 </section>
             }
 
+            @if (State.RelationsOf(item) is { } relations && (open || relations.Items.Count > 0 || relations.Tasks.Count > 0))
+            {
+                <section class="inbox-pane__related" aria-labelledby="inbox-detail-related-title" data-testid="inbox-detail-related">
+                    <h4 class="inbox-pane__suggestions-title" id="inbox-detail-related-title">Related</h4>
+                    @if (relations.Items.Count == 0 && relations.Tasks.Count == 0)
+                    {
+                        <Alert BaseClass="inbox-pane__note"
+                               Role="status"
+                               Message="Nothing else in the Inbox or the backlog looks like this item."
+                               TestId="inbox-related-none" />
+                    }
+                    @if (relations.Items.Count > 0)
+                    {
+                        <ul class="inbox-pane__related-list" aria-label="Related items" data-testid="inbox-related-items">
+                            @foreach (var relation in relations.Items)
+                            {
+                                var other = relation;
+                                <li class="inbox-pane__related-row" @key="other.Id" data-relation="@other.Kind" data-testid="@($"inbox-related-item-{other.Id:N}")">
+                                    <AppButton Variant="ButtonVariant.Ghost"
+                                               Size="ButtonSize.Small"
+                                               Title="Open this item"
+                                               CssClass="inbox-pane__related-open"
+                                               OnClick="() => State.SelectItem(other.Id)"
+                                               TestId="@($"inbox-related-open-{other.Id:N}")">@TitleOf(other.Title)</AppButton>
+                                    <span class="inbox-pane__related-reason">@other.Reason · @InboxLabels.Status(other.Status)</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    @if (relations.Tasks.Count > 0)
+                    {
+                        <ul class="inbox-pane__related-list" aria-label="Related tasks" data-testid="inbox-related-tasks">
+                            @foreach (var relation in relations.Tasks)
+                            {
+                                var task = relation;
+                                <li class="inbox-pane__related-row" @key="task.Id" data-relation="@task.Kind" data-testid="@($"inbox-related-task-{task.Id:N}")">
+                                    <span class="inbox-pane__related-title">@TitleOf(task.Title)</span>
+                                    <Badge Kind="status"
+                                           Slug="@(task.IsOpen ? "ready" : "done")"
+                                           CssClass="inbox-pane__related-badge">@(task.IsOpen ? "Open" : "Done")</Badge>
+                                    <span class="inbox-pane__related-reason">@task.Reason</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    @if (open)
+                    {
+                        <ButtonGroup AriaLabel="Relation actions" CssClass="inbox-pane__related-actions" TestId="inbox-related-actions">
+                            <AppButton Size="ButtonSize.Small"
+                                       Disabled="@Busy"
+                                       Title="Archive this item as the same capture as another one"
+                                       OnClick="OpenDuplicatePicker"
+                                       TestId="inbox-archive-duplicate">Archive as duplicate of…</AppButton>
+                            <AppButton Size="ButtonSize.Small"
+                                       Disabled="@Busy"
+                                       Title="Record that a task already in the backlog is this item, without making a new one"
+                                       OnClick="OpenLinkPicker"
+                                       TestId="inbox-link-task">Link to task…</AppButton>
+                        </ButtonGroup>
+                    }
+                </section>
+            }
+
             @* Keys typed into a picker are the picker's: stopping them here ends
                Blazor's walk up to the article, whose digits take a suggestion. *@
             <div class="inbox-pane__pickers" @onkeydown:stopPropagation="true">
@@ -319,6 +391,73 @@
                           AriaLabel="Lists"
                           TestId="inbox-move-list"
                           OnItemSelected="OnMoveTargetAsync" />
+            </ChildContent>
+        </Modal>
+
+        @* The two relation pickers: a search over a menu, the related ones first
+           with their reason beside the title. Filtering is local — the lists are
+           already in hand — so the search answers on every keystroke. *@
+        <Modal Open="@_duplicateOpen"
+               OpenChanged="open => _duplicateOpen = open"
+               Title="Archive as duplicate of…"
+               CssClass="inbox-pane__dialog"
+               TestId="inbox-duplicate-dialog">
+            <ChildContent>
+                <div class="inbox-pane__picker-dialog" @onkeydown:stopPropagation="true">
+                    <SearchBox Value="@_duplicateQuery"
+                               ValueChanged="query => _duplicateQuery = query"
+                               Placeholder="Find an item"
+                               AriaLabel="Find an item"
+                               DebounceMilliseconds="0"
+                               TestId="inbox-duplicate-search" />
+                    @if (DuplicateChoices() is { Count: > 0 } choices)
+                    {
+                        <MenuList Items="@choices"
+                                  AriaLabel="Items"
+                                  CssClass="inbox-pane__picker-menu"
+                                  TestId="inbox-duplicate-choices"
+                                  OnItemSelected="OnDuplicateChosenAsync" />
+                    }
+                    else
+                    {
+                        <Alert BaseClass="inbox-pane__note"
+                               Role="status"
+                               Message="No other item matches."
+                               TestId="inbox-duplicate-none" />
+                    }
+                </div>
+            </ChildContent>
+        </Modal>
+
+        <Modal Open="@_linkOpen"
+               OpenChanged="open => _linkOpen = open"
+               Title="Link to task…"
+               CssClass="inbox-pane__dialog"
+               TestId="inbox-link-dialog">
+            <ChildContent>
+                <div class="inbox-pane__picker-dialog" @onkeydown:stopPropagation="true">
+                    <SearchBox Value="@_linkQuery"
+                               ValueChanged="query => _linkQuery = query"
+                               Placeholder="Find a task"
+                               AriaLabel="Find a task"
+                               DebounceMilliseconds="0"
+                               TestId="inbox-link-search" />
+                    @if (LinkChoices() is { Count: > 0 } choices)
+                    {
+                        <MenuList Items="@choices"
+                                  AriaLabel="Tasks"
+                                  CssClass="inbox-pane__picker-menu"
+                                  TestId="inbox-link-choices"
+                                  OnItemSelected="OnLinkChosenAsync" />
+                    }
+                    else
+                    {
+                        <Alert BaseClass="inbox-pane__note"
+                               Role="status"
+                               Message="No task matches."
+                               TestId="inbox-link-none" />
+                    }
+                </div>
             </ChildContent>
         </Modal>
 
@@ -481,6 +620,10 @@
 
     private string StateLine(InboxItemDto item) => item switch
     {
+        { Status: InboxStatus.Archived, DuplicateOf: { } original } =>
+            State.Items.FirstOrDefault(other => other.Id == original) is { } kept
+                ? $"Archived as a duplicate of “{Title(kept)}”."
+                : "Archived as a duplicate of an item that is no longer in the Inbox.",
         { Status: InboxStatus.Archived } => "Archived.",
         { Status: InboxStatus.Deferred, DeferredUntil: { } until } =>
             $"Deferred until {until.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
@@ -616,6 +759,7 @@
         if (State.SelectedItem is { Attachments.Count: > 0 } item) await State.LoadThumbnailsAsync(item);
 
         await State.LoadSuggestionsAsync();
+        await State.LoadRelationsAsync();
     }
 
     private static RenderFragment Note(string line) =>
@@ -692,6 +836,60 @@
 
         var language = firstLine[3..].Trim();
         return language.Length == 0 ? null : language;
+    }
+
+    // --- Relations ----------------------------------------------------------
+
+    private bool _duplicateOpen;
+
+    private string? _duplicateQuery;
+
+    private bool _linkOpen;
+
+    private string? _linkQuery;
+
+    private static string TitleOf(string title) => string.IsNullOrWhiteSpace(title) ? "Untitled" : title;
+
+    /// <summary>Opens "Archive as duplicate of…" on an empty search.</summary>
+    private void OpenDuplicatePicker()
+    {
+        if (!CanDecide) return;
+
+        _duplicateQuery = null;
+        _duplicateOpen = true;
+    }
+
+    /// <summary>Opens "Link to task…" on an empty search.</summary>
+    private void OpenLinkPicker()
+    {
+        if (!CanDecide) return;
+
+        _linkQuery = null;
+        _linkOpen = true;
+    }
+
+    /// <summary>The items the duplicate picker offers, a related one with its
+    /// reason after the title.</summary>
+    private IReadOnlyList<MenuItem> DuplicateChoices() =>
+        [.. State.DuplicateCandidates(_duplicateQuery).Select(other =>
+            new MenuItem(other.Id.ToString("N"), State.RelationReason(other.Id) is { } reason ? $"{TitleOf(other.Title)} · {reason}" : TitleOf(other.Title)))];
+
+    /// <summary>The tasks the link picker offers, a related one with its reason
+    /// and a finished one saying so.</summary>
+    private IReadOnlyList<MenuItem> LinkChoices() =>
+        [.. State.LinkCandidates(_linkQuery).Select(task =>
+            new MenuItem(task.Id.ToString("N"), string.Join(" · ", new[] { TitleOf(task.Title), task.Reason, task.IsOpen ? null : "Done" }.OfType<string>())))];
+
+    private async Task OnDuplicateChosenAsync(MenuItem choice)
+    {
+        _duplicateOpen = false;
+        if (Guid.TryParseExact(choice.Id, "N", out var original)) await State.ArchiveAsDuplicateAsync(original);
+    }
+
+    private async Task OnLinkChosenAsync(MenuItem choice)
+    {
+        _linkOpen = false;
+        if (Guid.TryParseExact(choice.Id, "N", out var taskId)) await State.LinkToTaskAsync(taskId);
     }
 
     // --- Move to list ------------------------------------------------------

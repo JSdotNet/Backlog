@@ -334,6 +334,70 @@ internal sealed class FakeInboxItems : IInboxItems
             ? throw new InvalidOperationException("Already archived.")
             : item with { Status = InboxStatus.Archived, DeferredUntil = null });
 
+    // --- Relations ----------------------------------------------------------
+
+    private readonly Dictionary<Guid, InboxRelationsDto> _relations = [];
+
+    /// <summary>The backlog's open tasks, as "Link to task…" is offered them
+    /// after the related ones. Which tasks exist is the adapter's business.</summary>
+    public List<InboxTaskOptionDto> OpenTasks { get; } = [];
+
+    /// <summary>How many times the pane asked for an item's relations.</summary>
+    public int RelatedCalls { get; private set; }
+
+    /// <summary>What the item relates to, as the module would have found it —
+    /// which relations exist is the Relation Finder's business and has its own
+    /// tests; the pane only draws and acts on them.</summary>
+    public void SeedRelations(Guid id, IReadOnlyList<InboxRelatedItemDto>? items = null, IReadOnlyList<InboxRelatedTaskDto>? tasks = null) =>
+        _relations[id] = new InboxRelationsDto(id, items ?? [], tasks ?? []);
+
+    public Task<Result<InboxRelationsDto>> RelatedAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        RelatedCalls++;
+
+        if (Find(id) is null) return Task.FromResult(Result.Failure<InboxRelationsDto>(InboxErrors.ItemNotFound));
+
+        var relations = _relations.TryGetValue(id, out var seeded) ? seeded : InboxRelationsDto.None(id);
+        return Task.FromResult(Result.Success(relations with { OpenTasks = [.. OpenTasks] }));
+    }
+
+    /// <summary>The module's rules, restated: never itself, the other item must
+    /// exist, and only an open item.</summary>
+    public Task<Result> ArchiveAsDuplicateAsync(Guid id, Guid duplicateOf, CancellationToken cancellationToken = default)
+    {
+        if (id == duplicateOf) return Task.FromResult(Result.Failure(InboxErrors.DuplicateOfItself));
+        if (Find(duplicateOf) is null) return Task.FromResult(Result.Failure(InboxErrors.DuplicateTargetNotFound));
+        if (Find(duplicateOf)!.DuplicateOf == id) return Task.FromResult(Result.Failure(InboxErrors.DuplicateCircular));
+        if (Find(id) is { } item && item.Status is not (InboxStatus.Unprocessed or InboxStatus.Deferred))
+        {
+            return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Only an open item can be archived as a duplicate.")));
+        }
+
+        return Update(id, item => item with { Status = InboxStatus.Archived, DeferredUntil = null, DuplicateOf = duplicateOf });
+    }
+
+    /// <summary>Every link asked of the port, by item and task.</summary>
+    public List<(Guid Id, Guid TaskId)> Links { get; } = [];
+
+    /// <summary>The module's link, restated: the item routed to that one task,
+    /// nothing created.</summary>
+    public Task<Result> LinkToTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default)
+    {
+        Links.Add((id, taskId));
+
+        if (Find(id) is { } item && (item.Routing is not null || item.Status is not (InboxStatus.Unprocessed or InboxStatus.Deferred)))
+        {
+            return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Only an open item can be linked.")));
+        }
+
+        return Update(id, current => current with
+        {
+            Status = InboxStatus.Triaged,
+            DeferredUntil = null,
+            Routing = new InboxRoutingDto(RoutingDomain.Tasks, current.RepoIds, [taskId], Now)
+        });
+    }
+
     /// <summary>Every id deleted, in order.</summary>
     public List<Guid> Deleted { get; } = [];
 
@@ -473,6 +537,11 @@ internal sealed class FakeInboxItems : IInboxItems
     /// its own tests; the pane only draws and sends them.</summary>
     public List<ProposedDependency> ProposedDependencies { get; } = [];
 
+    /// <summary>The ordering hints the proposal carries, for the same reason.
+    /// A hint naming an item that is not going is left out, as the module
+    /// never makes one.</summary>
+    public List<OrderingHint> ProposedHints { get; } = [];
+
     /// <summary>Every proposal asked of the port, with the ids and the list.</summary>
     public List<(IReadOnlyList<Guid> Ids, Guid? ListId)> Proposals { get; } = [];
 
@@ -504,7 +573,10 @@ internal sealed class FakeInboxItems : IInboxItems
             [.. routable.Select(item => new InboxBatchProposalItemDto(item.Id, item.Title, item.RepoIds))],
             [.. ProposedDependencies.Where(dependency => going.Contains(dependency.From))],
             refused,
-            listId is { } named ? _items.Count(item => item.ListId == named && item.Status == InboxStatus.Deferred) : null)));
+            listId is { } named ? _items.Count(item => item.ListId == named && item.Status == InboxStatus.Deferred) : null)
+        {
+            Hints = [.. ProposedHints.Where(hint => hint.Items.All(going.Contains))],
+        }));
     }
 
     /// <summary>What the drafter's order says, as the module would hand it back
@@ -570,12 +642,20 @@ internal sealed class FakeInboxItems : IInboxItems
         var failed = new List<InboxBatchFailureDto>();
         var routable = new List<InboxItemDto>();
 
+        // The module's merge, restated: the items folded into a kept one are
+        // not sent, and are archived as its duplicates once it has gone.
+        var keptFor = new Dictionary<Guid, Guid>();
+        foreach (var (kept, duplicates) in choices?.Merges ?? new Dictionary<Guid, IReadOnlyList<Guid>>())
+        {
+            foreach (var duplicate in duplicates.Where(duplicate => duplicate != kept)) keptFor.TryAdd(duplicate, kept);
+        }
+
         foreach (var id in ids)
         {
             if (Find(id) is not { } item) failed.Add(new InboxBatchFailureDto(id, InboxErrors.ItemNotFound));
             else if (item.Routing is not null || item.Status == InboxStatus.Archived) failed.Add(new InboxBatchFailureDto(id, InboxErrors.InvalidTransition("Already routed.")));
             else if (LeaveOutOfBatch.TryGetValue(id, out var reason)) failed.Add(new InboxBatchFailureDto(id, reason));
-            else routable.Add(item);
+            else if (!keptFor.ContainsKey(id)) routable.Add(item);
         }
 
         if (RefuseBatch is { } refusal)
@@ -600,7 +680,16 @@ internal sealed class FakeInboxItems : IInboxItems
             routed.Add(new InboxRoutedDto(item.Id, taskIds));
         }
 
-        return new InboxBatchRoutedDto(tag, routed, failed);
+        var archived = new List<Guid>();
+        foreach (var (duplicate, kept) in keptFor)
+        {
+            if (routed.All(entry => entry.InboxItemId != kept) || Find(duplicate) is null) continue;
+
+            await Update(duplicate, current => current with { Status = InboxStatus.Archived, DeferredUntil = null, DuplicateOf = kept });
+            archived.Add(duplicate);
+        }
+
+        return new InboxBatchRoutedDto(tag, routed, failed) { Archived = archived };
     }
 
     public async Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default)

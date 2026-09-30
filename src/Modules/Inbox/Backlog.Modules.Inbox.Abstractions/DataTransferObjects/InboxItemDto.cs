@@ -38,6 +38,10 @@ public sealed record InboxItemDto(
     /// A member rather than a positional parameter so every caller that builds an
     /// item without files — most of them — builds it as it always did.</summary>
     public IReadOnlyList<InboxAttachmentDto> Attachments { get; init; } = [];
+
+    /// <summary>The item this one was archived as a duplicate of, or null. A
+    /// member for the reason <see cref="Attachments"/> is.</summary>
+    public Guid? DuplicateOf { get; init; }
 }
 
 /// <summary>One tag on an item. <paramref name="Name"/> is bare — no <c>#</c> —
