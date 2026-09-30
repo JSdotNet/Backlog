@@ -323,13 +323,12 @@ public static class MauiProgram
         // the listener it builds has a container of its own and forwards every
         // port into this one rather than composing a second ITaskItems.
         builder.Services.TryAddSingleton<McpServerWorker>();
-        // What the tools pane asks about that server: the switch, the port, the
-        // address they make, and whether the socket was taken. Beside the worker
+        // What the tools pane asks about that server: the port, the address it
+        // makes, and whether the socket was taken. Beside the worker
         // because it reads it — and through a Func, so that resolving the tool
         // service is never what constructs the worker and binds the port. The
         // line below is where that is meant to happen, after Build().
         builder.Services.TryAddSingleton<IMcpEndpointSource>(sp => new DesktopMcpEndpointSource(
-            sp.GetRequiredService<IAppFeatureSettings>(),
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<McpServerWorker>));
         // Where the sync service is, asked per client rather than fixed here.
@@ -640,10 +639,8 @@ public static class MauiProgram
 
         // And the MCP listener, on the same terms again - its constructor is
         // what binds the port, so a singleton nobody resolves is a server no
-        // session can reach. It is the one of the five that does nothing at all
-        // until somebody switches it on: AppFeatures.McpServer is
-        // EnabledByDefault: false, so on an untouched machine this line
-        // constructs an object that reads one flag and stops.
+        // session can reach. There is no switch in front of it: the MCP server
+        // is always on while the app runs.
         _ = app.Services.GetRequiredService<McpServerWorker>();
 
         // And the devbook database refresher, which is nothing until something

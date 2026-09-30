@@ -7,20 +7,18 @@ using Backlog.SharedKernel;
 namespace Backlog.Desktop.Mcp;
 
 /// <summary>
-/// This machine's own MCP server, answered for the tools pane: the feature
-/// switch, the configured port, why nothing is listening when nothing is, and
-/// the token a registration has to carry.
+/// This machine's own MCP server, answered for the tools pane: the configured
+/// port, why nothing is listening when nothing is, and the token a registration
+/// has to carry.
 /// <para>
-/// Three sources, because the facts genuinely live in three places. The switch
-/// is <see cref="AppFeatures.McpServer"/>, the port and the token are the
-/// workspace settings, and why the socket was not taken is the only thing the
-/// worker knows. Nothing here decides any of them; it reads them and says when
-/// one moved.
+/// Two sources, because the facts genuinely live in two places. The port and
+/// the token are the workspace settings, and why the socket was not taken is
+/// the only thing the worker knows. Nothing here decides any of them; it reads
+/// them and says when one moved.
 /// </para>
 /// </summary>
 public sealed class DesktopMcpEndpointSource : IMcpEndpointSource, IDisposable
 {
-    private readonly IAppFeatureSettings _features;
     private readonly WorkspaceSettingsStore _settings;
 
     /// <summary>
@@ -31,9 +29,8 @@ public sealed class DesktopMcpEndpointSource : IMcpEndpointSource, IDisposable
     /// constructor calls <c>ApplyGates()</c>, which is what binds the port. The
     /// head resolves it deliberately after <c>Build()</c> — one line, with a
     /// comment saying why — and resolving <see cref="IDevToolService"/> must
-    /// never be a second way to reach that. Somebody opening the Tools pane on a
-    /// machine that has the feature switched off would otherwise be starting the
-    /// server by looking at a table.
+    /// never be a second way to reach that, or composing the tool service
+    /// before <c>Build()</c> had finished would be what bound the port.
     /// </para>
     /// <para>
     /// So it is reached only where the answer genuinely requires it: the two
@@ -67,15 +64,12 @@ public sealed class DesktopMcpEndpointSource : IMcpEndpointSource, IDisposable
     private bool _disposed;
 
     public DesktopMcpEndpointSource(
-        IAppFeatureSettings features,
         WorkspaceSettingsStore settings,
         Func<McpServerWorker> worker)
     {
-        ArgumentNullException.ThrowIfNull(features);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(worker);
 
-        _features = features;
         _settings = settings;
         _worker = worker;
 
@@ -83,23 +77,13 @@ public sealed class DesktopMcpEndpointSource : IMcpEndpointSource, IDisposable
     }
 
     /// <inheritdoc />
-    public bool Enabled => _features.IsEnabled(AppFeatures.McpServer);
-
-    /// <inheritdoc />
     public int Port => _settings.McpServerPort;
 
     /// <summary>Why nothing is listening, in the worker's own words — which for
     /// the overwhelmingly likely case is the port-collision sentence that ends by
     /// telling the reader to change it in every registration too. That is
-    /// precisely what the row this feeds makes actionable.
-    /// <para>
-    /// Null without asking the worker when the feature is off, and that is not
-    /// only an optimisation: it is the one state in which nothing should be able
-    /// to construct the worker by reading a row. A switched-off server has its
-    /// own sentence, which the describer writes from <see cref="Enabled"/>
-    /// without a socket in the question at all.
-    /// </para></summary>
-    public string? Unavailable => Enabled ? _worker().LastError : null;
+    /// precisely what the row this feeds makes actionable.</summary>
+    public string? Unavailable => _worker().LastError;
 
     /// <inheritdoc />
     public string EnsureToken()

@@ -617,26 +617,15 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseAntiforgery();
 
-// The MCP endpoint answers to AppFeatures.McpServer, read per request rather
-// than once at startup. Mapping it conditionally here would have decided the
-// question when the harness booted, and QA flips feature switches on a running
-// harness — the whole point of driving the real app. Not Found rather than
-// Forbidden, because 08-crosscutting-concepts.md#feature-enablement asks that a
-// switched-off capability's entry points be "absent rather than
-// present-but-inert", and this is the entry point.
+// The MCP endpoint is always on, so the only thing in front of it is the
+// loopback Origin check the desktop listener makes too.
 app.UseWhen(
-    // The hook telemetry route beside /mcp is the same feature's entry point, so it
-    // goes behind the same switch and the same Origin check.
+    // The hook telemetry route beside /mcp is the same surface, so it goes
+    // behind the same Origin check.
     context => context.Request.Path.StartsWithSegments(BacklogMcpServerRegistration.EndpointPath)
         || context.Request.Path.StartsWithSegments(BacklogTelemetryEndpoint.RoutePath),
     branch => branch.Use(async (context, next) =>
     {
-        if (!context.RequestServices.GetRequiredService<IAppFeatureSettings>().IsEnabled(AppFeatures.McpServer))
-        {
-            context.Response.StatusCode = StatusCodes.Status404NotFound;
-            return;
-        }
-
         // The same predicate the desktop listener refuses on, and the same
         // handling of a header sent twice — two Origins is not something a
         // browser produces, so honouring either would be choosing which caller to

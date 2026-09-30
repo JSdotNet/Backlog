@@ -270,8 +270,6 @@ public class McpEndpointExpansionTests
     {
         public int TokensMinted { get; private set; }
 
-        public bool Enabled => true;
-
         public int Port => port;
 
         public string? Unavailable => null;

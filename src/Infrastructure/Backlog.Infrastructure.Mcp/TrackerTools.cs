@@ -36,12 +36,9 @@ namespace Backlog.Infrastructure.Mcp;
 /// <c>AppFeatures</c> declares <see cref="TasksFeatures.Tasks"/>
 /// <c>AlwaysEnabled</c> — the settings screen draws its checkbox ticked and
 /// disabled, and the store refuses to clear it — so today the check in front of
-/// these tools always passes. The group carries the key regardless, for two
-/// reasons. §7 asks the question per group, and a group that asked nothing would
-/// be the one place the rule is not applied. And the whole surface is already
-/// behind a switch that does answer no: <c>AppFeatures.McpServer</c> is
-/// <c>EnabledByDefault: false</c> and stops the listener outright, which is how a
-/// person actually turns these tools off. Whether the backlog itself should
+/// these tools always passes. The group carries the key regardless: §7 asks the
+/// question per group, and a group that asked nothing would be the one place the
+/// rule is not applied. Whether the backlog itself should
 /// become switchable is a question about the Tasks area rather than about these
 /// tools, and it is not settled here.
 /// </para>

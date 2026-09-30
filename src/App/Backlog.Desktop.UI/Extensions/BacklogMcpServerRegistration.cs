@@ -26,9 +26,7 @@ namespace Backlog.Desktop.UI.Extensions;
 /// nothing on the <c>net10.0-android</c> path does: the mobile head reaches
 /// <c>ServiceDefaults</c>, <c>Backlog.Mobile.UI</c>,
 /// <c>Backlog.Infrastructure.Sync</c> and <c>Backlog.Modules.Tasks</c>, and
-/// none of those reaches back here. It is also where
-/// <c>AppFeatures.McpServer</c> is declared, so the server's wiring and the key
-/// that switches it on stay in one project.
+/// none of those reaches back here.
 /// </para>
 /// <para>
 /// <b>Why that is safe.</b> The package this file needs is
