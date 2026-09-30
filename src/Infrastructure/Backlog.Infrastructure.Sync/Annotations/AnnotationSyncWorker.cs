@@ -187,7 +187,8 @@ public sealed class AnnotationSyncWorker : IDisposable
 
             if (session is null) return;
 
-            var result = await session.SyncAsync(_lifetime.Token).ConfigureAwait(false);
+            var result = await RefusedTokenRerun.RunAsync(
+                _services, () => session.SyncAsync(_lifetime.Token), _log, "annotation").ConfigureAwait(false);
 
             if (result.IsSuccess)
             {

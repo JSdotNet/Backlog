@@ -386,7 +386,11 @@ public sealed class SessionSyncWorker : IDisposable
             // is an arrangement rather than a fault. Nothing to do, and no noise.
             if (session is null) return;
 
-            var result = await session.SyncAsync(_lifetime.Token).ConfigureAwait(false);
+            // Once more at once when a token was refused during it - the footer's
+            // "Sync now" runs this loop too, so the first press after the service
+            // restarted would otherwise read "Unauthorized". See RefusedTokenRerun.
+            var result = await RefusedTokenRerun.RunAsync(
+                _services, () => session.SyncAsync(_lifetime.Token), _log, "session").ConfigureAwait(false);
 
             if (result.IsSuccess)
             {

@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using System.Text.Json;
 
@@ -10,7 +9,6 @@ using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Services;
 using Backlog.Modules.Tasks.DomainModels;
 
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
@@ -938,7 +936,7 @@ public sealed class TaskSyncWorkerTests
             // handler in front of the scripted service, and the real provider
             // minting a token per request to the scripted token endpoint.
             var tokens = authenticated ? TokenPipeline.Create(credentials, clock) : null;
-            var http = new HttpClient(tokens is null ? handler : new SyncAuthenticationHandler(tokens.Provider) { InnerHandler = handler })
+            var http = new HttpClient(tokens?.InFrontOf(handler) ?? handler)
             {
                 BaseAddress = new Uri("https://sync.test")
             };
@@ -1041,45 +1039,6 @@ public sealed class TaskSyncWorkerTests
             serviceType == typeof(TaskSyncSession) ? session()
             : serviceType == typeof(SyncTokenProvider) ? tokens
             : null;
-    }
-
-    /// <summary>The token provider a host registers, over a scripted token
-    /// endpoint that mints <c>token-0</c>, <c>token-1</c> and so on, each good
-    /// for half an hour.</summary>
-    private sealed class TokenPipeline : IDisposable
-    {
-        private readonly ServiceProvider _services;
-
-        private TokenPipeline(ServiceProvider services, StubHttpMessageHandler endpoint)
-        {
-            _services = services;
-            Endpoint = endpoint;
-            Provider = services.GetRequiredService<SyncTokenProvider>();
-        }
-
-        public SyncTokenProvider Provider { get; }
-
-        public StubHttpMessageHandler Endpoint { get; }
-
-        public static TokenPipeline Create(IDeviceCredentialStore credentials, FakeTimeProvider clock)
-        {
-            var endpoint = new StubHttpMessageHandler((_, index) => StubHttpMessageHandler.Json(
-                HttpStatusCode.OK,
-                $$"""
-                {"accessToken":"token-{{index}}","expiresAt":"{{clock.GetUtcNow().AddMinutes(30).ToString("O", CultureInfo.InvariantCulture)}}","tokenType":"Bearer"}
-                """));
-
-            var services = new ServiceCollection();
-            services.AddSingleton<TimeProvider>(clock);
-            services.AddSingleton(credentials);
-            services.AddSingleton<SyncTokenProvider>();
-            services.AddHttpClient(SyncTokenProvider.HttpClientName, client => client.BaseAddress = new Uri("https://sync.test"))
-                .ConfigurePrimaryHttpMessageHandler(() => endpoint);
-
-            return new TokenPipeline(services.BuildServiceProvider(), endpoint);
-        }
-
-        public void Dispose() => _services.Dispose();
     }
 
     /// <summary>
