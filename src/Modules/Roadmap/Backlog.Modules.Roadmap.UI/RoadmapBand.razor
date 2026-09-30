@@ -141,13 +141,15 @@
                        Placement="@_placement"
                        Rollup="@_rollup"
                        Proposal="@_proposal"
+                       CanUseForecast="@UseForecastOffered"
                        Repositories="@Configured()"
                        DependencyOptions="@DependencyOptions()"
                        Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
                        OnSave="SaveAsync"
                        OnDelete="DeleteAsync"
                        OnDependencyChanged="ChangeDependencyAsync"
-                       OnUpdateFromTasks="UpdateFromTasksAsync" />
+                       OnUpdateFromTasks="UpdateFromTasksAsync"
+                       OnUseForecast="UseForecastAsync" />
 
     <RoadmapMilestoneEditor @ref="_dateEditor"
                             Open="@_editingDate"
@@ -822,19 +824,52 @@
 
         _error = null;
 
-        var (start, end) = ItemWindowFor(change, itemId.Value);
-
-        var rescheduled = await Planning.RescheduleItemAsync(
-            itemId.Value,
-            start,
-            end,
-            LaneOf(change.RowId));
+        // Started work has a start that is a fact and an end that is a forecast. Its
+        // bar offers the end alone, and dragging it pins that end: the forecast stops
+        // deciding it until the person hands it back ("Use forecast" in the editor).
+        // Nothing else about the item moves, so this is not a reschedule.
+        var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
+        var rescheduled = bar is { Locked: true, EndResizable: true }
+            ? await Planning.PinItemEndAsync(itemId.Value, change.End)
+            : await RescheduleAsync(change, itemId.Value);
 
         // Reload either way. On success the plan is the truth; on failure the
         // redraw is what puts the bar back where it was, so a refused change never
         // leaves the chart showing something that was not stored.
         if (rescheduled.IsFailure) _error = rescheduled.Error.Message;
 
+        await Load();
+    }
+
+    private Task<global::Backlog.SharedKernel.Results.Result<RoadmapItemDto>> RescheduleAsync(RoadmapChange change, Guid itemId)
+    {
+        var (start, end) = ItemWindowFor(change, itemId);
+        return Planning.RescheduleItemAsync(itemId, start, end, LaneOf(change.RowId));
+    }
+
+    /// <summary>Whether the item in the editor has an end somebody pinned that is still
+    /// being read — work in flight, whose bar offers its end. A pin on finished or
+    /// unstarted work is ignored by the drawing, so there is nothing to hand back.</summary>
+    private bool UseForecastOffered =>
+        _edited is { EndPinned: true } pinned
+        && _view.Bars.Any(bar => bar.EndResizable && RoadmapPlanView.NodeIdOf(bar.Id) == pinned.Id);
+
+    /// <summary>Hands the end of started work back to the forecast.</summary>
+    private async Task UseForecastAsync(Guid itemId)
+    {
+        _error = null;
+
+        var result = await Planning.UnpinItemEndAsync(itemId);
+
+        if (result.IsFailure)
+        {
+            _editor?.Refuse(result.Error.Message);
+            return;
+        }
+
+        _editing = false;
+        _edited = null;
+        _proposal = null;
         await Load();
     }
 

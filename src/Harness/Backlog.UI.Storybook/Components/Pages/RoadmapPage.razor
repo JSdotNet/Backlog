@@ -154,6 +154,27 @@ Every gesture arrives as a `Preview` — a proposed placement the bar draws itse
         </div>
     </Story>
 
+    <Story Name="Work in flight: only the end can be dragged"
+           Description="A locked bar that is also `EndResizable`: started work, whose start is a fact and whose end is a forecast the reader may overrule. Only the end grip is drawn, and the dashed body still refuses to be moved. With the keyboard, Space picks the bar up and Shift with Left or Right moves the end; moving and Alt for the start are refused. The host decides what a change to the end means — the roadmap pins the end and keeps the forecast in the bar's detail, so a pinned end can be handed back."
+           Code="@InFlightCode">
+        <div class="sb-stack">
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@SoloInFlight"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Product, Jamie"
+                                    TestId="solo-in-flight" />
+            </div>
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@SoloInFlight"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Product, Jamie"
+                                    Grabbed="true"
+                                    Preview="@SoloInFlightPreview"
+                                    TestId="solo-in-flight-grabbed" />
+            </div>
+        </div>
+    </Story>
+
     <Story Name="An item with its steps"
            Description="A bar handed `Steps` offers a disclosure at its leading edge and carries a progress fill: done effort over total estimated effort, with the count of unestimated steps beside it rather than folded in. Expanded, it opens one row per step in the order it was handed — here a chain of three, then two more — each step's width its share of the estimated effort inside the bar's window.
 
@@ -494,6 +515,18 @@ Every action is a real button named for its plan, and the shelf is a region name
 
     private static RoadmapBar SoloLocked => Solo with { Id = "solo-locked", Title = "Somebody else's commitment", Locked = true };
 
+    private static RoadmapBar SoloInFlight => Solo with
+    {
+        Id = "solo-in-flight",
+        Title = "Move devbook",
+        Locked = true,
+        EndResizable = true,
+        Detail = "in progress, drawn from when the work began to when what is left should be done"
+    };
+
+    private static RoadmapChange? SoloInFlightPreview =>
+        new("solo-in-flight", "row", On(1, 19), On(6, 7), RoadmapDrag.ResizeEnd);
+
     private static RoadmapChange? SoloPreview =>
         new("solo", "row", On(2, 16), On(5, 10), RoadmapDrag.Move);
 
@@ -603,6 +636,12 @@ Every action is a real button named for its plan, and the shelf is a region name
                                 bar.Id, bar.RowId,
                                 new(2026, 2, 16), new(2026, 5, 10),
                                 RoadmapDrag.Move))" />
+        """;
+
+    private const string InFlightCode = """
+        // Locked refuses everything; EndResizable gives back the end alone.
+        <RoadmapTimelineBar Bar="@(bar with { Locked = true, EndResizable = true })"
+                            Geometry="@geometry" />
         """;
 
     // --- Steps inside an item ----------------------------------------------

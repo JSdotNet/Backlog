@@ -209,6 +209,17 @@
             </AppButton>
         }
 
+        @* Only for started work whose end somebody pinned: the drawing reads the pin
+           instead of the forecast, and this is how the forecast takes over again. *@
+        @if (CanUseForecast && Item is { } pinned)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       OnClick="() => OnUseForecast.InvokeAsync(pinned.Id)"
+                       TestId="roadmap-editor-use-forecast">
+                Use forecast
+            </AppButton>
+        }
+
         <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="roadmap-editor-cancel">
             Cancel
         </AppButton>
@@ -312,6 +323,16 @@
     /// <see cref="Refuse"/>.</summary>
     [Parameter]
     public EventCallback<RoadmapRelengthProposalDto> OnUpdateFromTasks { get; set; }
+
+    /// <summary>Whether the item's pinned end is being read instead of its forecast, so
+    /// handing it back is worth offering. The band decides; the dialog only shows
+    /// it.</summary>
+    [Parameter]
+    public bool CanUseForecast { get; set; }
+
+    /// <summary>Raised when the person hands the end back to the forecast.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnUseForecast { get; set; }
 
     private bool IsNew => Item is null;
 

@@ -3609,7 +3609,10 @@
                     return;
                 }
 
-                if (bar.dataset.roadmapLocked === 'true') return;
+                // A locked bar yields its end grip alone, and only when it says so: started
+                // work has a start that is a fact and an end the reader may pin.
+                if (bar.dataset.roadmapLocked === 'true'
+                    && !(bar.dataset.roadmapEndResizable === 'true' && grip.dataset.roadmapGrip === 'end')) return;
 
                 drag.active = true;
                 drag.pointerId = event.pointerId;

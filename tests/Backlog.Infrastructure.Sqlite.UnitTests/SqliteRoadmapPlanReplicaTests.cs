@@ -85,6 +85,29 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
         Assert.Equal(sent, await b.ReadAsync(Cancellation));
     }
 
+    /// <summary>A pinned end travels inside the plan document: the copy one device sent
+    /// is the plan, pin included, on the device that took it.</summary>
+    [Fact]
+    public async Task A_pinned_end_travels_with_the_copy_and_a_copy_without_it_reads_as_unpinned()
+    {
+        var a = new SqliteRoadmapPlanRepository(Device("a"));
+        var b = new SqliteRoadmapPlanRepository(Device("b"));
+        var plan = RoadmapPlan.Empty();
+        var id = plan.AddItem("Move devbook", PlannedWindow.Of(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 9))).Value.Id;
+        plan.PinEnd(id, new DateOnly(2026, 10, 30));
+        await a.SaveAsync(plan, Cancellation);
+
+        Assert.True(await b.TryWriteAsync((await a.ReadAsync(Cancellation))!, Cancellation));
+
+        var taken = Assert.Single((await b.LoadAsync(Cancellation)).Items);
+        Assert.True(taken.EndPinned);
+        Assert.Equal(new DateOnly(2026, 10, 30), taken.Window.End);
+
+        var older = """{"version":1,"items":[{"id":"7f3c0a52-0d0b-4a07-9d55-2f4a6b1c1111","title":"Old","start":"2026-10-01","end":"2026-10-09"}],"milestones":[],"bands":{}}""";
+        Assert.True(await b.TryWriteAsync(new RoadmapReplicaCopyDto(older, Morning), Cancellation));
+        Assert.False(Assert.Single((await b.LoadAsync(Cancellation)).Items).EndPinned);
+    }
+
     /// <summary>Verbatim, never re-serialised: a newer build's field survives on disk
     /// even though this build does not know it (ADR 0018, Decision §3).</summary>
     [Fact]

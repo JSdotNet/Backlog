@@ -12537,6 +12537,15 @@ select.field__input {
     display: none;
 }
 
+/* --- End-resizable locked bars ------------------------------------------- */
+
+/* Started work: the start is a fact and stays fixed, the end is a forecast the
+   reader may pin. Only the end grip is drawn, so the one edge that can move is
+   the one that invites a drag. */
+.roadmap-bar--locked.roadmap-bar--end-resizable .roadmap-bar__grip--end {
+    display: block;
+}
+
 /* The dependency handle: a dot just past the bar's end, clear of the end grip, so
    pulling it is never mistaken for resizing. Dragged onto another bar or milestone,
    it makes that one wait for this one. Shown on hover and focus only, so a chart of
@@ -14777,4 +14786,68 @@ select.field__input {
     flex: none;
     min-width: 2.75rem;
     min-height: 2.75rem;
+}
+
+
+/* ===== Slider (per-lane pace) =============================================== */
+
+/* A native range input drawn with the library's tokens: a thin track, a thumb in
+   the primary colour, and the focus ring every control here takes. The two
+   engines name their parts differently, so each rule is written twice; the
+   native control keeps the keyboard and the pointer. The width is the host's
+   - it fills what it is given - and the height is the thumb's, so a host that
+   reserves a row for it can count on one. */
+.slider {
+    width: 100%;
+    min-width: 0;
+    height: 1rem;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.slider::-webkit-slider-runnable-track {
+    height: 0.25rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-border);
+}
+
+.slider::-moz-range-track {
+    height: 0.25rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-border);
+}
+
+.slider::-webkit-slider-thumb {
+    width: 0.875rem;
+    height: 0.875rem;
+    margin-top: -0.3125rem;
+    border: var(--border-width) solid var(--color-primary);
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.slider::-moz-range-thumb {
+    width: 0.75rem;
+    height: 0.75rem;
+    border: var(--border-width) solid var(--color-primary);
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+}
+
+.slider:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-full);
+}
+
+.slider:disabled {
+    cursor: default;
+    opacity: 0.55;
 }

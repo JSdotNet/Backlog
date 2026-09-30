@@ -5125,12 +5125,12 @@ h1, h2, h3 {
     font-size: var(--font-size-lg);
 }
 
-/* A band's pace, under its name in the chart's sidebar: the stretches that
-   measured something, each with its figure, wrapping onto a second line within the
-   sidebar's own width — or, with none, one line saying the reader's own pace is
-   used. Sized to that width and to the rows the band asks for
-   (RoadmapPlanView.PaceRows), so every measure here is the smallest the library
-   offers. The reader's own pace — "Mine", the field and its unit — sits once in the
+/* A band's pace, under its name in the chart's sidebar, in the two rows the band
+   reserves for it (RoadmapPlanView.PaceRows): on the first a slider and the figure
+   it is at, on the second the "Measured" reset, the info mark with what the lane
+   managed, and - only when something needs saying - one short note. Sized to the
+   sidebar's own width, so every measure here is the smallest the library offers.
+   The reader's own pace - "Mine", the field and its unit - sits once in the
    roadmap's heading (.roadmap-pace--mine). */
 .roadmap-pace {
     display: grid;
@@ -5161,31 +5161,41 @@ h1, h2, h3 {
 }
 
 .roadmap-pace__unit,
-.roadmap-pace__note {
+.roadmap-pace__note,
+.roadmap-pace__value {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     white-space: nowrap;
 }
 
-/* Wrapping, not a strip: however many choices measured something, each keeps its
-   figure on one line, and a second line takes the ones the first cannot. Each
-   button keeps its own corners, since once wrapped none of them is an end. */
-.roadmap-pace .roadmap-pace__options.btn-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px;
+/* The slider takes what the figure beside it leaves. */
+.roadmap-pace__slider {
+    flex: 1 1 auto;
+    min-width: 2rem;
 }
 
-.roadmap-pace .roadmap-pace__options.btn-group > .btn {
-    display: inline-flex;
-    gap: var(--spacing-2xs);
+.roadmap-pace__value {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.roadmap-pace .roadmap-pace__measured.btn {
+    flex: 0 0 auto;
     padding: 1px var(--spacing-2xs);
     border-radius: var(--border-radius-sm);
     white-space: nowrap;
 }
 
-.roadmap-pace__option-value {
-    font-variant-numeric: tabular-nums;
+/* What the lane managed, as two short lines in the bubble the library draws. */
+.roadmap-pace__hint-line {
+    display: block;
+}
+
+/* The band's content is clipped to the rows it asked for, which would cut the bubble
+   off at the band's edge. While the bubble is showing - hover, focus or a press -
+   the clip is lifted so it can lie over the lanes below, where there is room. */
+.roadmap-timeline__group-content:has(.roadmap-pace__hint:is(:hover, :focus-within, .info-hint--open)) {
+    overflow: visible;
 }
 
 .roadmap-pace__note {

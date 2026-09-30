@@ -1,124 +1,175 @@
 @*
     The pace a band's plans are placed at: how many story points a week an imported
-    plan with no due date is drawn at (ADR 0013, ruling 4).
+    plan with no due date is drawn at, and an in-flight plan is forecast to finish
+    at (ADR 0013, ruling 4).
 
-    Up to three paces, one of them in use, each measured from the estimated work
-    finished over the last two, four and eight weeks and shown with its figure so the
-    reader can see what they are choosing. A stretch that finished nothing measured no
-    pace and is not offered at all. The pressed one is the one in use: the chosen
-    stretch, the last two weeks until one is chosen, or — when the chosen one has
-    since measured nothing — the first stretch that did.
+    A slider, because the figure that matters is a place between two others: what
+    the lane measured over the last two weeks and what the reader typed in the
+    roadmap's heading (PaceSliderRange). A lane that has been dormant measures very
+    little, and the reader wants to pull it back towards their own pace without
+    opening a field. Letting go of the thumb sets the lane's own pace
+    (IPlanningPace.SetOwn, PaceSource.Set), which the band places by from then on;
+    the figure beside the slider follows the thumb while it is held.
 
-    With no stretch measured there is nothing to choose, and the band places by the
-    reader's own pace, typed once in the roadmap's heading (RoadmapTypedPace); a line
-    says so, with the figure.
+    "Measured" puts the lane back on the pace it measures: it chooses the last two
+    weeks, and is pressed whenever a measured stretch is the one in effect. With
+    nothing finished in any stretch there is nothing measured to go back to: it is
+    offered only while the slider has set the pace, as "Reset", which returns the band
+    to the reader's own pace — and a line then says that pace is placing the band.
+
+    The info mark says what the lane actually managed over the last two, four and
+    eight weeks — the evidence for choosing a pace — and which pace is placing it.
 
     Kept per repository band, because productivity differs from one project to the
     next (ADR 0013, ruling 4 as amended), under the band's name in the chart's
-    sidebar, above the band's named lanes. A repository's band carries that
-    repository's pace (Repository set), measured over its own finished work. The
-    unfiled band carries the default pace (Repository unset), measured over all of it.
+    sidebar, above the band's named lanes, in the rows the band reserves for it
+    (RoadmapPlanView.PaceRows). A repository's band carries that repository's pace
+    (Repository set), measured over its own finished work. The unfiled band carries
+    the default pace (Repository unset), measured over all of it, and its own pace is
+    the heading's typed one.
 
-    A choice here that alters the pace in use is reported through OnPaceChanged, and
-    the band redraws every bar still sized by its effort, each at its own repository's
-    pace (ADR 0013, ruling 5 as amended). Those windows are read, not stored (local ADR
-    0018), so the choice writes the pace and nothing else — and finished work moving a
-    measured figure moves those bars too, since they are drawn at the pace in use.
+    A change here that alters the pace in use is reported through OnPaceChanged, and
+    the band redraws every bar still sized by its effort, each at its own
+    repository's pace (ADR 0013, ruling 5 as amended). Those windows are read, not
+    stored (local ADR 0018), so the choice writes the pace and nothing else.
 *@
 @implements IDisposable
 @inject IPlanningPace Pace
 @inject IRoadmapWorkChanges WorkChanges
 
 <div class="roadmap-pace" data-testid="@TestIdOf(null)">
-    @if (HasMeasured)
-    {
-        <ButtonGroup CssClass="roadmap-pace__options"
-                     AriaLabel="@OptionsLabel"
-                     TestId="@TestIdOf("options")">
-            @foreach (var option in Options)
-            {
-                var value = _paces.Of(option.Source);
-                if (value is null) continue;
+    <div class="roadmap-pace__line">
+        <Slider CssClass="roadmap-pace__slider"
+                Min="_range.Min"
+                Max="_range.Max"
+                Step="_range.Step"
+                Value="_paces.InUse"
+                ValueInput="OnLive"
+                ValueChanged="SetOwn"
+                AriaLabel="@SliderLabel"
+                ValueText="@($"{Rounded(Shown)} points a week")"
+                TestId="@TestIdOf("slider")" />
+        <span class="roadmap-pace__value"
+              data-testid="@TestIdOf("value")">@Rounded(Shown) pt/wk</span>
+    </div>
 
-                <ToggleButton BaseClass="btn btn--toggle btn--small"
-                              Pressed="@(_paces.InEffect == option.Source)"
-                              Title="@option.Title(value.Value, Repository)"
-                              OnClick="() => Choose(option.Source)"
-                              TestId="@TestIdOf(option.Key)">
-                    <span class="roadmap-pace__option-name">@option.Name</span>
-                    <span class="roadmap-pace__option-value">@Rounded(value.Value)</span>
-                </ToggleButton>
-            }
-        </ButtonGroup>
-    }
+    <div class="roadmap-pace__line">
+        @if (HasMeasured || SetByHand)
+        {
+            <ToggleButton BaseClass="btn btn--toggle btn--small"
+                          CssClass="roadmap-pace__measured"
+                          Pressed="Measuring"
+                          Title="@MeasuredTitle"
+                          OnClick="ChooseMeasured"
+                          TestId="@TestIdOf("measured")">
+                @(HasMeasured ? "Measured" : "Reset")
+            </ToggleButton>
+        }
 
-    @* One short line, always the same height, so the band never has to grow for
-       it. The whole sentence is its title and what a screen reader hears. *@
-    @if (Note is { } note)
-    {
-        <span class="roadmap-pace__note"
-              role="status"
-              title="@note.Sentence"
-              data-testid="@TestIdOf(note.Kind)">
-            <span aria-hidden="true">@note.Short</span>
-            <span class="sr-only">@note.Sentence</span>
-        </span>
-    }
+        <InfoHint CssClass="roadmap-pace__hint"
+                  AriaLabel="@HintLabel"
+                  TestId="@TestIdOf("hint")"
+                  TriggerTestId="@TestIdOf("hint-trigger")"
+                  TooltipTestId="@TestIdOf("hint-text")">
+            <span class="roadmap-pace__hint-line">@Managed</span>
+            <span class="roadmap-pace__hint-line">@Placing</span>
+        </InfoHint>
+
+        @* One short line, always the same height, so the band never has to grow for
+           it. The whole sentence is its title and what a screen reader hears. *@
+        @if (Note is { } note)
+        {
+            <span class="roadmap-pace__note"
+                  role="status"
+                  title="@note.Sentence"
+                  data-testid="@TestIdOf(note.Kind)">
+                <span aria-hidden="true">@note.Short</span>
+                <span class="sr-only">@note.Sentence</span>
+            </span>
+        }
+    </div>
 </div>
 
 @code {
-    private sealed record Option(PaceSource Source, string Key, string Name, string Stretch)
-    {
-        public string Title(decimal measured, string? repository)
-        {
-            var plans = repository is null ? "plans in no repository" : $"{repository}'s plans";
-            var finished = repository is null ? "what you finished" : $"what you finished in {repository}";
-
-            return $"Place {plans} by {finished} over the {Stretch}: {Rounded(measured)} points a week";
-        }
-    }
-
-    /// <summary>What the line under the choices says: a short form to show and the
+    /// <summary>What the line under the slider says: a short form to show and the
     /// sentence it stands for.</summary>
     private sealed record PaceNote(string Kind, string Short, string Sentence);
-
-    private static readonly Option[] Options =
-    [
-        new(PaceSource.LastTwoWeeks, "two-weeks", "2 wk", "last two weeks"),
-        new(PaceSource.LastFourWeeks, "four-weeks", "4 wk", "last four weeks"),
-        new(PaceSource.LastEightWeeks, "eight-weeks", "8 wk", "last eight weeks")
-    ];
 
     /// <summary>The repository whose pace this is, by alias; unset for the default
     /// pace — the one a plan filed in no repository is placed at.</summary>
     [Parameter]
     public string? Repository { get; set; }
 
-    /// <summary>Raised after the reader chose a stretch that changed the pace
-    /// placement uses for this control's scope, so the band can redraw the bars sized
-    /// by it. Not raised for a choice that leaves the pace in use where it
-    /// was.</summary>
+    /// <summary>Raised after the reader moved the slider or chose the measured pace
+    /// and that changed the pace placement uses for this control's scope, so the band
+    /// can redraw the bars sized by it. Not raised for a choice that leaves the pace
+    /// in use where it was.</summary>
     [Parameter]
     public EventCallback OnPaceChanged { get; set; }
 
     private PlanningPacesDto _paces = new(7m, null, null, null, PaceSource.Manual);
+    private PaceSliderRange _range = PaceSliderRange.Of(null, 7m, 7m);
     private string? _error;
     private string? _read;
     private bool _initialized;
 
-    private string OptionsLabel => Repository is null
-        ? "Which default pace places a plan"
-        : $"Which pace places a plan in {Repository}";
+    /// <summary>The figure the thumb is at while it is held, before it is let go; the
+    /// pace in use otherwise.</summary>
+    private decimal? _live;
+
+    private decimal Shown => _live ?? _paces.InUse;
+
+    private string Lane => Repository ?? "all your work";
+
+    private string SliderLabel => Repository is null
+        ? "Points a week the default pace places a plan at"
+        : $"Points a week plans in {Repository} are placed at";
+
+    private string HintLabel => Repository is null
+        ? "About the default pace"
+        : $"About the pace in {Repository}";
+
+    private string MeasuredTitle => !HasMeasured
+        ? $"Stop using the pace set by hand{Where} and place by your typed pace until something is finished"
+        : Repository is null
+            ? "Place plans by what you finished over the last two weeks"
+            : $"Place {Repository}'s plans by what you finished there over the last two weeks";
+
+    /// <summary>The slider set this scope's pace. With nothing measured, the reset is
+    /// the only way back to the typed pace, so it is offered then too.</summary>
+    private bool SetByHand => _paces.InEffect == PaceSource.Set;
 
     private string Where => Repository is null ? string.Empty : $" in {Repository}";
 
     /// <summary>Whether any stretch measured something — and so whether there is a
-    /// choice to offer at all.</summary>
-    private bool HasMeasured => !_paces.FellBack;
+    /// measured pace to go back to.</summary>
+    private bool HasMeasured => PlanningPacesDto.Stretches.Any(stretch => _paces.Of(stretch) is not null);
 
-    /// <summary>What the line under the choices says, most pressing first: a choice
+    /// <summary>A measured stretch is the one placing this scope.</summary>
+    private bool Measuring => _paces.InEffect is PaceSource.LastTwoWeeks or PaceSource.LastFourWeeks or PaceSource.LastEightWeeks;
+
+    /// <summary>What the lane managed, for the info mark.</summary>
+    private string Managed =>
+        $"Managed{(Repository is null ? " across all your work" : $" in {Repository}")}: "
+        + $"last 2 weeks {Stretch(_paces.LastTwoWeeks)} · 4 weeks {Stretch(_paces.LastFourWeeks)} · 8 weeks {Stretch(_paces.LastEightWeeks)}";
+
+    /// <summary>What is placing the lane, for the info mark.</summary>
+    private string Placing => $"Placing at {Rounded(_paces.InUse)} pt/wk — " + _paces.InEffect switch
+    {
+        PaceSource.Set => "set by hand",
+        PaceSource.LastTwoWeeks => "measured over 2 weeks",
+        PaceSource.LastFourWeeks => "measured over 4 weeks",
+        PaceSource.LastEightWeeks => "measured over 8 weeks",
+        _ => "your typed pace"
+    };
+
+    private static string Stretch(decimal? perWeek) =>
+        perWeek is { } pace ? $"{Rounded(pace)} pt/wk" : "nothing finished";
+
+    /// <summary>What the line under the slider says, most pressing first: a choice
     /// that could not be kept, since it is what the reader just did; then, with no
-    /// stretch measured, that the reader's own pace is placing this band.</summary>
+    /// stretch measured and no pace set by hand, that the reader's own pace is placing
+    /// this band.</summary>
     private PaceNote? Note
     {
         get
@@ -165,12 +216,25 @@
     {
         _read = Repository;
         _paces = await Pace.ReadAsync(Repository);
+        _live = null;
+        _range = PaceSliderRange.Of(_paces.LastTwoWeeks, _paces.Manual, _paces.InUse);
     }
 
-    private async Task Choose(PaceSource source)
+    private void OnLive(decimal value) => _live = value;
+
+    /// <summary>The thumb was let go: the lane's own pace is what it says.</summary>
+    private async Task SetOwn(decimal value)
     {
         var before = _paces.InUse;
-        _error = Pace.Choose(source, Repository);
+        _error = Pace.SetOwn(value, Repository);
+        await Read();
+        if (_paces.InUse != before) await OnPaceChanged.InvokeAsync();
+    }
+
+    private async Task ChooseMeasured()
+    {
+        var before = _paces.InUse;
+        _error = Pace.Choose(PaceSource.LastTwoWeeks, Repository);
         await Read();
         if (_paces.InUse != before) await OnPaceChanged.InvokeAsync();
     }
@@ -194,6 +258,6 @@
         new([.. value.Select(character => char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : '-')]);
 
     /// <summary>A pace to two decimals for reading at a glance. Placement still
-    /// divides by the four it was measured to.</summary>
+    /// divides by the figure it was measured to.</summary>
     private static string Rounded(decimal pace) => pace.ToString("0.##", CultureInfo.InvariantCulture);
 }

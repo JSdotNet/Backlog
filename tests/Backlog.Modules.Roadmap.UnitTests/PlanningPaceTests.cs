@@ -244,6 +244,117 @@ public class PlanningPaceTests
         Assert.Equal(2.5m, settings.Manual());
     }
 
+    // --- A pace set by hand, per lane ----------------------------------------------
+
+    [Fact]
+    public void APaceSetByHandIsInEffectWhateverWasMeasured()
+    {
+        var paces = PlanningPace.Paces(3m, PaceSource.Set, [new(Today, 14)], Today, own: 5m);
+
+        Assert.Equal(PaceSource.Set, paces.InEffect);
+        Assert.Equal(5m, paces.InUse);
+        Assert.Equal(5m, paces.Of(PaceSource.Set));
+        Assert.False(paces.FellBack);
+        Assert.Equal(7m, paces.LastTwoWeeks); // still measured, for the hint
+    }
+
+    [Fact]
+    public void APaceSetByHandIsInEffectWhenNothingWasMeasuredToo()
+    {
+        var paces = PlanningPace.Paces(3m, PaceSource.Set, [], Today, own: 5m);
+
+        Assert.Equal(5m, paces.InUse);
+        Assert.False(paces.FellBack);
+    }
+
+    [Fact]
+    public void OwnIsTheTypedPaceUntilAScopeSetItsOwn()
+    {
+        var paces = PlanningPace.Paces(3m, PaceSource.Manual, [], Today);
+
+        Assert.Equal(3m, paces.Own);
+        Assert.Equal(3m, paces.Of(PaceSource.Set));
+        Assert.Equal(3m, new PlanningPacesDto(3m, null, null, null, PaceSource.Set).InUse);
+    }
+
+    [Fact]
+    public void NoChoiceStillReadsAsTheLastTwoWeeksEvenWithAnOwnPace()
+    {
+        var paces = PlanningPace.Paces(3m, PaceSource.Manual, [new(Today, 14)], Today, own: 5m);
+
+        Assert.Equal(PaceSource.LastTwoWeeks, paces.InEffect);
+        Assert.Equal(7m, paces.InUse);
+    }
+
+    [Fact]
+    public async Task SettingALanesOwnPaceChoosesItForThatLaneAlone()
+    {
+        var settings = new Settings(3m, PaceSource.Manual);
+        var finished = new Finished(
+            [new(Today, 28) { RepositoryAliases = ["backlog"] }, new(Today, 28) { RepositoryAliases = ["site"] }],
+            "backlog", "site");
+        var pace = new PlanningPace(settings, finished, new FixedClock(Today));
+
+        Assert.Null(pace.SetOwn(2.25m, "backlog"));
+
+        var backlog = await pace.ReadAsync("backlog", TestContext.Current.CancellationToken);
+        var site = await pace.ReadAsync("site", TestContext.Current.CancellationToken);
+        var global = await pace.ReadAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(PaceSource.Set, backlog.InEffect);
+        Assert.Equal(2.25m, backlog.Own);
+        Assert.Equal(2.25m, backlog.InUse);
+        Assert.Equal(3m, backlog.Manual); // the heading's typed pace is untouched
+
+        Assert.Equal(14m, site.InUse);   // measured, as before
+        Assert.Equal(PaceSource.LastTwoWeeks, site.InEffect);
+        Assert.Equal(28m, global.InUse); // 56 over two weeks, each task once
+        Assert.Equal(3m, settings.Manual());
+    }
+
+    [Fact]
+    public async Task TheGlobalScopesOwnPaceIsTheHeadingsTypedPace()
+    {
+        var settings = new Settings(3m, PaceSource.Manual);
+        var pace = new PlanningPace(settings, new Finished([]), new FixedClock(Today));
+
+        Assert.Null(pace.SetOwn(4.5m));
+
+        var global = await pace.ReadAsync(cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(4.5m, settings.Manual());
+        Assert.Equal(PaceSource.Set, settings.Source());
+        Assert.Equal(4.5m, global.Own);
+        Assert.Equal(4.5m, global.Manual);
+        Assert.Equal(4.5m, global.InUse);
+    }
+
+    [Fact]
+    public async Task AnItemInTwoLanesStillUsesTheLowestPaceEvenWhenOneWasSetByHand()
+    {
+        var settings = new Settings(7m, PaceSource.Manual);
+        var finished = new Finished([new(Today, 28) { RepositoryAliases = ["backlog"] }], "backlog", "site");
+        var pace = new PlanningPace(settings, finished, new FixedClock(Today));
+
+        Assert.Null(pace.SetOwn(2m, "site"));
+        Assert.Equal(2m, await pace.GetStoryPointsPerWeekAsync(["backlog", "site"], TestContext.Current.CancellationToken));
+
+        Assert.Null(pace.SetOwn(30m, "site"));
+        Assert.Equal(14m, await pace.GetStoryPointsPerWeekAsync(["backlog", "site"], TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void AFigureThatIsNotAPaceIsRefusedAndChoosesNothing(int refused)
+    {
+        var settings = new Settings(3m, PaceSource.Manual);
+        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FixedClock(Today));
+
+        Assert.NotNull(pace.SetOwn(refused, "backlog"));
+
+        Assert.Equal(PaceSource.Manual, settings.Source("backlog"));
+    }
+
     /// <summary>A settings file in memory, with the store's inheritance: a repository
     /// with no pace of its own answers the global one, and the first change for it
     /// copies the other half from what it answered.</summary>
@@ -266,6 +377,7 @@ public class PlanningPaceTests
         public string? SetManual(string? typed, string? repository = null)
         {
             var value = decimal.Parse(typed!, System.Globalization.CultureInfo.InvariantCulture);
+            if (value <= 0) return "Give a pace above zero.";
             if (repository is null) _manual = value;
             else Own[repository] = (value, Source(repository));
             Changed?.Invoke();

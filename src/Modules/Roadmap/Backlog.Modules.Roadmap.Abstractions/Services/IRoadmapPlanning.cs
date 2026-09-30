@@ -84,6 +84,21 @@ public interface IRoadmapPlanning
         string? lane = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Fixes where an item ends, keeping its start. This is how a person overrides the
+    /// forecast end of started work: the pinned end is drawn instead of the forecast
+    /// until <see cref="UnpinItemEndAsync"/>. Fails when the end is before the start.
+    /// </summary>
+    Task<Result<RoadmapItemDto>> PinItemEndAsync(
+        Guid itemId,
+        DateOnly end,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Lets the forecast decide where started work ends again.</summary>
+    Task<Result<RoadmapItemDto>> UnpinItemEndAsync(
+        Guid itemId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Changes the plan's own priority for an item. Never touches a
     /// linked backlog entry.</summary>
     Task<Result<RoadmapItemDto>> PrioritiseItemAsync(
