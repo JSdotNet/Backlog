@@ -39,9 +39,11 @@
 
     The sources Capture looks at are configured on this pane too, because a
     switch three screens from its button is a switch nobody finds — but not by
-    this pane. It offers a slot under the run's result line and the shell fills
-    it with the Capture context's own panel, so the pane draws a region it
-    cannot name, the same way it raises a run it cannot describe.
+    this pane. It offers a slot and the shell fills it with the Capture
+    context's own panel, so the pane draws a region it cannot name, the same
+    way it raises a run it cannot describe. The slot is a tab beside the queue
+    rather than a strip above it: the sources are set once and read in full,
+    and a strip over the rows was too short for either.
 
     The old pane took its items from the shell, which is why the shell knew what
     an inbox item looked like. This one asks its own module; the four
@@ -113,81 +115,37 @@
            Role="status"
            TestId="inbox-pane-capture-result" />
 
-    @* The sources slot: whatever the host puts here sits between the run's
-       line and the columns, folded or not as the host's content decides. No
-       wrapper when it is empty, for the reason the result line has none — a
-       flex column leaves no gap behind an absent child. *@
-    @if (Sources is not null)
+    @* The sources slot is a tab beside the queue, so whatever the host puts
+       there has the pane's whole body rather than a strip above the rows. The
+       library's strip, bare, so the list and the two panels are children of
+       this flex column and each panel grows into what the header leaves. With
+       nothing in the slot there is nothing to switch to, and no strip. *@
+    @if (Sources is null)
     {
-        <div class="inbox-pane__sources" data-testid="inbox-pane-sources">
-            @Sources
-        </div>
-    }
-
-    @if (State.TriageMode)
-    {
-        @* One item at full width: the side menu and the rows step aside, and
-           the same detail the columns show takes the whole body, so every act
-           it offers is here too. The pager says where in the rows the reader
-           is and which keys drive it. *@
-        <div class="inbox-pane__triage" data-testid="inbox-triage">
-            <div class="inbox-pane__triage-bar">
-                @if (State.TriagePosition >= 0)
-                {
-                    <RecordPager Index="@State.TriagePosition"
-                                 Total="@State.VisibleItems.Count"
-                                 OnPrevious="() => State.Step(-1)"
-                                 OnNext="() => State.Step(1)"
-                                 PreviousLabel="Previous item"
-                                 NextLabel="Next item"
-                                 AriaLabel="@($"Triage position in {State.SliceName}")"
-                                 Hints="TriageHints"
-                                 CssClass="inbox-pane__triage-pager"
-                                 TestId="inbox-triage-pager" />
-                }
-                <AppButton Size="ButtonSize.Small"
-                           CssClass="inbox-pane__triage-leave"
-                           Title="Return to the list on this item (Esc)"
-                           OnClick="LeaveTriage"
-                           TestId="inbox-triage-leave">Back to the list</AppButton>
-            </div>
-
-            @if (State.SelectedItem is null)
-            {
-                <EmptyState Title="@($"Nothing left to triage in {State.SliceName}.")"
-                            Description="Every item here has been decided on. Go back to the list to see where they went."
-                            BaseClass="empty-state inbox-pane__empty-state"
-                            TestId="inbox-triage-done" />
-            }
-            else
-            {
-                <InboxItemDetail @ref="_detail" State="State" />
-            }
-        </div>
+        @Queue
     }
     else
     {
-        <div class="inbox-pane__body" data-testid="inbox-pane-body">
-            <InboxSideMenu State="State" />
-
-            @* The list is the fixed pane and the detail takes the rest: a row is a
-               line of metadata that fits a known width, and a detail is a page that
-               wants whatever is left. Anchored at the start for that reason. *@
-            <SplitPane CssClass="inbox-pane__split"
-                       Anchor="SplitPaneAnchor.Start"
-                       FixedWidthRem="28"
-                       MinRem="18"
-                       AriaLabel="Inbox list width"
-                       TestId="inbox-pane-split"
-                       SeparatorTestId="inbox-pane-split-handle">
-                <Start>
-                    <InboxItemList State="State" />
-                </Start>
-                <End>
-                    <InboxItemDetail @ref="_detail" State="State" />
-                </End>
-            </SplitPane>
-        </div>
+        <Tabs Bare="true"
+              ActiveId="@(State.SourcesShown ? SourcesTabId : QueueTabId)"
+              ActiveIdChanged="id => State.ShowSources(id == SourcesTabId)"
+              AriaLabel="Inbox views"
+              ListCssClass="tabs__list inbox-pane__tabs"
+              ListTestId="inbox-pane-tabs">
+            <TabPanel Id="@QueueTabId"
+                      Title="Inbox"
+                      TabTestId="inbox-pane-tab-queue"
+                      BaseClass="inbox-pane__queue">
+                @Queue
+            </TabPanel>
+            <TabPanel Id="@SourcesTabId"
+                      Title="Sources"
+                      TabTestId="inbox-pane-tab-sources"
+                      TestId="inbox-pane-sources"
+                      BaseClass="inbox-pane__sources">
+                @Sources
+            </TabPanel>
+        </Tabs>
     }
 
     @* Every key, in one place a reader can open from the header or with ?. *@
@@ -273,18 +231,93 @@
     [Parameter]
     public string? CaptureMessage { get; set; }
 
-    /// <summary>What configures the sources Capture looks at, rendered under
-    /// the run's line. A fragment rather than a component so the pane never
+    /// <summary>What configures the sources Capture looks at, rendered as the
+    /// pane's Sources tab. A fragment rather than a component so the pane never
     /// names the Capture context — the host decides what goes here, and
     /// nothing when there is nothing to configure.</summary>
     [Parameter]
     public RenderFragment? Sources { get; set; }
+
+    /// <summary>The queue: one item at full width in triage mode, the side
+    /// menu, rows and detail otherwise. Drawn straight into the pane when there
+    /// are no sources, and as the first tab when there are.</summary>
+    private RenderFragment Queue => __builder =>
+    {
+        if (State.TriageMode)
+        {
+            @* One item at full width: the side menu and the rows step aside, and
+               the same detail the columns show takes the whole body, so every act
+               it offers is here too. The pager says where in the rows the reader
+               is and which keys drive it. *@
+            <div class="inbox-pane__triage" data-testid="inbox-triage">
+                <div class="inbox-pane__triage-bar">
+                    @if (State.TriagePosition >= 0)
+                    {
+                        <RecordPager Index="@State.TriagePosition"
+                                     Total="@State.VisibleItems.Count"
+                                     OnPrevious="() => State.Step(-1)"
+                                     OnNext="() => State.Step(1)"
+                                     PreviousLabel="Previous item"
+                                     NextLabel="Next item"
+                                     AriaLabel="@($"Triage position in {State.SliceName}")"
+                                     Hints="TriageHints"
+                                     CssClass="inbox-pane__triage-pager"
+                                     TestId="inbox-triage-pager" />
+                    }
+                    <AppButton Size="ButtonSize.Small"
+                               CssClass="inbox-pane__triage-leave"
+                               Title="Return to the list on this item (Esc)"
+                               OnClick="LeaveTriage"
+                               TestId="inbox-triage-leave">Back to the list</AppButton>
+                </div>
+
+                @if (State.SelectedItem is null)
+                {
+                    <EmptyState Title="@($"Nothing left to triage in {State.SliceName}.")"
+                                Description="Every item here has been decided on. Go back to the list to see where they went."
+                                BaseClass="empty-state inbox-pane__empty-state"
+                                TestId="inbox-triage-done" />
+                }
+                else
+                {
+                    <InboxItemDetail @ref="_detail" State="State" />
+                }
+            </div>
+        }
+        else
+        {
+            <div class="inbox-pane__body" data-testid="inbox-pane-body">
+                <InboxSideMenu State="State" />
+
+                @* The list is the fixed pane and the detail takes the rest: a row is a
+                   line of metadata that fits a known width, and a detail is a page that
+                   wants whatever is left. Anchored at the start for that reason. *@
+                <SplitPane CssClass="inbox-pane__split"
+                           Anchor="SplitPaneAnchor.Start"
+                           FixedWidthRem="28"
+                           MinRem="18"
+                           AriaLabel="Inbox list width"
+                           TestId="inbox-pane-split"
+                           SeparatorTestId="inbox-pane-split-handle">
+                    <Start>
+                        <InboxItemList State="State" />
+                    </Start>
+                    <End>
+                        <InboxItemDetail @ref="_detail" State="State" />
+                    </End>
+                </SplitPane>
+            </div>
+        }
+    };
 
     private bool _addOpen;
     private string _title = string.Empty;
     private string _notes = string.Empty;
 
     private const string PaneId = "inbox-pane";
+
+    private const string QueueTabId = "inbox-queue";
+    private const string SourcesTabId = "inbox-sources";
 
     private bool _shortcutsOpen;
     private InboxItemDetail? _detail;
@@ -348,6 +381,10 @@
     {
         await InvokeAsync(async () =>
         {
+            // On the Sources tab the rows are not on screen, and a key that
+            // decided an item the reader cannot see would be a surprise.
+            if (State.SourcesShown && Sources is not null && key != "?") return;
+
             switch (key)
             {
                 case "j":

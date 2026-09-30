@@ -19,10 +19,8 @@
     --workspace-min-width: 22rem;
     --pane-min-width: var(--workspace-min-width);
 
-    /* How much of the Inbox pane the open sources fold may take, and how much
-       of the queue it must leave standing. The fold scrolls inside the first;
-       the second is what stops it squeezing the rows away. */
-    --inbox-sources-max-height: 24rem;
+    /* How much of the Inbox queue must stay standing when the pane is short:
+       below it the pane scrolls rather than squeezing the rows away. */
     --inbox-queue-min-height: 16rem;
 
     /* Saved-confirmation flash uses a smooth ease-out rather than the org
@@ -3443,43 +3441,64 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-/* --- Capture sources ---------------------------------------------------- */
+/* --- The Inbox's two tabs ------------------------------------------------ */
 /*
-   The sources panel the shell folds into the Inbox pane's sources slot: a
-   library FoldControl wearing capture-sources beside its own fold class, so
-   the trigger and the chevron are the library's and only the region inside is
-   styled here. Folded, it is one line; open, it is a card per source with the
-   same flag-row switch the feature flags use, the library's textarea under it,
-   and the last run's line with the log beneath. Every colour is a token.
+   When the shell fills the sources slot the pane grows a tab strip, bare, so
+   the list and both panels are children of the pane's own flex column. Each
+   panel takes all the height the strip leaves: the queue as a column its body
+   or triage view grows into, the sources as a region that scrolls on its own.
+   The panel not chosen stays in the DOM, empty and hidden, and its display
+   rule would beat the hidden attribute without the rule after these two.
 */
-/* Open, the fold is taller than the pane can spare: it scrolls inside a
-   bounded region and may shrink below that, so the queue beneath keeps its
-   own minimum rather than being the one child the column squeezes to 0px. */
-.inbox-pane__sources {
-    flex: 0 1 auto;
+.inbox-pane__queue {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
     min-width: 0;
     min-height: 0;
-    max-height: var(--inbox-sources-max-height);
+}
+
+.inbox-pane__sources {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
     overflow-y: auto;
 }
 
-.capture-sources .fold__trigger {
-    font-size: var(--font-size-sm);
+.inbox-pane__queue[hidden],
+.inbox-pane__sources[hidden] {
+    display: none;
 }
 
-.capture-sources__label {
-    font-weight: 700;
+.inbox-pane__tabs {
+    flex: none;
+}
+
+/* --- Capture sources ---------------------------------------------------- */
+/*
+   The sources panel the shell puts on the Inbox pane's Sources tab: a line
+   saying how many sources are on, then a card per source — the same flag-row
+   switch the feature flags use, the library's textarea under it, and the last
+   run's line with the log beneath — side by side as far as the width allows.
+   Every colour is a token.
+*/
+.capture-sources {
+    display: grid;
+    gap: var(--spacing-md);
 }
 
 .capture-sources__summary {
-    margin-left: var(--spacing-xs);
-    color: var(--color-text-secondary);
+    margin-right: var(--spacing-xs);
+    color: var(--color-text-primary);
 }
 
-.capture-sources__body {
+/* The cards fill the tab's width in columns of a readable measure, and fall
+   back to one column when the pane is narrow. */
+.capture-sources__grid {
     display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
     gap: var(--spacing-md);
-    padding-top: var(--spacing-xs);
+    align-items: start;
 }
 
 .capture-sources__description,
@@ -3610,10 +3629,10 @@ h1, h2, h3 {
 /* The side menu is a fixed column; the split beside it takes the rest and
    divides itself. The body grows into what the header leaves, and min-height: 0
    on both children is what lets each column scroll on its own instead of the
-   pane growing to fit the longest. The body itself keeps a floor, because the
-   sources fold above it would otherwise take every pixel it gives up, and its
-   basis is 0 rather than its content: with the rows' full height as a basis it
-   out-bids the folded sources line in the shrink and squeezes that to a pixel. */
+   pane growing to fit the longest. The body itself keeps a floor, so a short
+   pane scrolls rather than squeezing the rows away, and its basis is 0 rather
+   than its content, so it grows into what the header leaves instead of
+   out-bidding the header's own lines in the shrink. */
 .inbox-pane__body {
     display: grid;
     flex: 1 1 0;

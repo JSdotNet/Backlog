@@ -1047,6 +1047,74 @@ public sealed class InboxPaneTests
         Assert.Empty(pane.FindAll("[data-testid='inbox-pane-capture-result']"));
     }
 
+    // --- The Sources tab ----------------------------------------------------
+
+    /// <summary>With nothing in the sources slot there is nothing to switch
+    /// to, so the pane draws the queue with no tab strip over it.</summary>
+    [Fact]
+    public async Task Without_sources_the_queue_has_no_tab_strip()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-tabs']"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-body']"));
+    }
+
+    /// <summary>The sources are a tab of their own beside the queue, so they
+    /// take the pane's whole body rather than a strip above the rows. The
+    /// queue is the tab a pane opens on.</summary>
+    [Fact]
+    public async Task Sources_are_a_tab_beside_the_queue_and_the_queue_is_shown_first()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync(parameters => parameters
+            .Add(p => p.Sources, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p data-testid='sources-content'>switches</p>"))));
+
+        var tabs = pane.FindAll("[data-testid='inbox-pane-tabs'] [role='tab']");
+        Assert.Equal(["Inbox", "Sources"], tabs.Select(tab => tab.TextContent.Trim()));
+        Assert.Equal("true", pane.Find("[data-testid='inbox-pane-tab-queue']").GetAttribute("aria-selected"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-body']"));
+        Assert.Empty(pane.FindAll("[data-testid='sources-content']"));
+    }
+
+    [Fact]
+    public async Task Choosing_the_sources_tab_gives_them_the_body_in_place_of_the_queue()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync(parameters => parameters
+            .Add(p => p.Sources, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p data-testid='sources-content'>switches</p>"))));
+
+        await pane.Find("[data-testid='inbox-pane-tab-sources']").ClickAsync(new());
+
+        Assert.True(harness.State.SourcesShown);
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-sources'] [data-testid='sources-content']"));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-body']"));
+
+        await pane.Find("[data-testid='inbox-pane-tab-queue']").ClickAsync(new());
+
+        Assert.False(harness.State.SourcesShown);
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-body']"));
+    }
+
+    /// <summary>The tab is held on the state, not the pane, so a pane that
+    /// re-mounts in another slot opens on the tab the reader left it on.</summary>
+    [Fact]
+    public async Task A_remounted_pane_opens_on_the_tab_it_was_left_on()
+    {
+        using var harness = Harness.Create();
+        harness.State.ShowSources(true);
+
+        var pane = await harness.RenderAsync(parameters => parameters
+            .Add(p => p.Sources, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p data-testid='sources-content'>switches</p>"))));
+
+        Assert.Equal("true", pane.Find("[data-testid='inbox-pane-tab-sources']").GetAttribute("aria-selected"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='sources-content']"));
+    }
+
     // --- The context menu ---------------------------------------------------
 
     [Fact]

@@ -10,11 +10,9 @@
     it configures is on the Inbox pane, and a switch three screens away from
     the thing it switches is a switch nobody finds.
 
-    Folded by default. The pane is for triage, and the sources are set once and
-    then left alone; the trigger's label carries how many are on so a folded
-    panel still answers the first question. Who holds the fold is the host's
-    business — the shell keeps it across the pane re-mounting when it changes
-    slot, for the reason it keeps the run's result.
+    It has the Inbox's Sources tab to itself, so it is drawn open, with the
+    sources side by side as far as the width allows; the line at the top says
+    how many are on, the first question anyone opening it asks.
 
     Each source is one block: the switch, the targets, and the last run — when,
     and how many new items — with a Log button that opens the runs before it.
@@ -34,108 +32,91 @@
     boundary tests require.
 *@
 
-<FoldControl CssClass="capture-sources"
-             Expanded="@Expanded"
-             ExpandedChanged="ExpandedChanged"
-             TestId="capture-sources-toggle"
-             AriaLabel="Capture sources">
-    <LabelContent>
-        <span class="capture-sources__label">Sources</span>
-        <span class="capture-sources__summary" data-testid="capture-sources-summary">@EnabledSummary</span>
-    </LabelContent>
-    <ChildContent>
-        <div class="capture-sources__body" data-testid="capture-sources">
-            <p class="capture-sources__description">
-                What Capture looks at when it is pressed. Nothing is watched until you
-                switch it on here.
-            </p>
+<div class="capture-sources" data-testid="capture-sources">
+    <p class="capture-sources__description">
+        <strong class="capture-sources__summary" data-testid="capture-sources-summary">@EnabledSummary</strong>
+        What Capture looks at when it is pressed. Nothing is watched until you
+        switch it on here.
+    </p>
 
-            @foreach (var kind in CaptureSourceKinds.Monitorable)
+    <div class="capture-sources__grid">
+        @foreach (var kind in CaptureSourceKinds.Monitorable)
+        {
+            var slug = CaptureSourceKinds.Slug(kind);
+            var source = Settings.Current.For(kind);
+
+            <div class="capture-sources__source" data-testid="@($"capture-source-{slug}")">
+                @* The same shape as the feature flags: the whole row is a
+                   label, and the switch saves the moment it flips. *@
+                <Toggle NativeCheckbox="true"
+                        BaseClass="feature-flag"
+                        TextCssClass="feature-flag__content"
+                        LabelCssClass="feature-flag__title"
+                        DescriptionCssClass="feature-flag__description"
+                        Label="@CaptureSourceKinds.Label(kind)"
+                        Description="@Description(kind)"
+                        Checked="@source.Enabled"
+                        CheckedChanged="enabled => SetEnabled(kind, enabled)"
+                        data-testid="@($"capture-source-{slug}-enabled")" />
+
+                @* One target per line, committed on change. The library's
+                   own field, help line and error line: the help says what
+                   the row is in force as, the error is the store's refusal. *@
+                <TextArea AutoGrow="false"
+                          CssClass="capture-sources__targets"
+                          Label="@TargetsLabel(kind)"
+                          Id="@($"capture-source-{slug}-targets")"
+                          TestId="@($"capture-source-{slug}-targets")"
+                          Rows="3"
+                          spellcheck="false"
+                          autocomplete="off"
+                          Placeholder="@TargetsPlaceholder(kind)"
+                          HelpText="@Summary(kind)"
+                          ErrorMessage="@_errors.GetValueOrDefault(kind)"
+                          Value="@_drafts.GetValueOrDefault(kind, string.Empty)"
+                          ValueChanged="value => _drafts[kind] = value"
+                          @onchange="() => ApplyTargets(kind)" />
+
+                @RunAndLog(kind)
+            </div>
+        }
+
+        <div class="capture-sources__source capture-sources__import" data-testid="capture-source-import">
+            @* Keyed per import: a file input keeps the file it was given,
+               and picking the same file again raises no change, so each
+               import gets a fresh input — importing twice is the point. *@
+            <FileField @key="_importRound"
+                       CssClass="capture-sources__import-file"
+                       Label="Import file…"
+                       Id="capture-source-import-file"
+                       TestId="capture-source-import-file"
+                       Accept=".md,.markdown,text/markdown"
+                       MaxBytes="ImportMaxBytes"
+                       Disabled="_importing"
+                       HelpText="An import manifest, as the backlog-import-inbox skill writes one from another tool's export. Items already here are skipped, so importing the same file twice adds nothing."
+                       ErrorMessage="@_importError"
+                       OnTextRead="ImportAsync"
+                       OnRejected="error => _importError = error" />
+
+            @if (_importing || _importMessage is not null)
             {
-                var slug = CaptureSourceKinds.Slug(kind);
-                var source = Settings.Current.For(kind);
-
-                <div class="capture-sources__source" data-testid="@($"capture-source-{slug}")">
-                    @* The same shape as the feature flags: the whole row is a
-                       label, and the switch saves the moment it flips. *@
-                    <Toggle NativeCheckbox="true"
-                            BaseClass="feature-flag"
-                            TextCssClass="feature-flag__content"
-                            LabelCssClass="feature-flag__title"
-                            DescriptionCssClass="feature-flag__description"
-                            Label="@CaptureSourceKinds.Label(kind)"
-                            Description="@Description(kind)"
-                            Checked="@source.Enabled"
-                            CheckedChanged="enabled => SetEnabled(kind, enabled)"
-                            data-testid="@($"capture-source-{slug}-enabled")" />
-
-                    @* One target per line, committed on change. The library's
-                       own field, help line and error line: the help says what
-                       the row is in force as, the error is the store's refusal. *@
-                    <TextArea AutoGrow="false"
-                              CssClass="capture-sources__targets"
-                              Label="@TargetsLabel(kind)"
-                              Id="@($"capture-source-{slug}-targets")"
-                              TestId="@($"capture-source-{slug}-targets")"
-                              Rows="3"
-                              spellcheck="false"
-                              autocomplete="off"
-                              Placeholder="@TargetsPlaceholder(kind)"
-                              HelpText="@Summary(kind)"
-                              ErrorMessage="@_errors.GetValueOrDefault(kind)"
-                              Value="@_drafts.GetValueOrDefault(kind, string.Empty)"
-                              ValueChanged="value => _drafts[kind] = value"
-                              @onchange="() => ApplyTargets(kind)" />
-
-                    @RunAndLog(kind)
-                </div>
+                <p class="capture-sources__import-result" data-testid="capture-source-import-result" role="status">
+                    @(_importing ? "Importing…" : _importMessage)
+                </p>
             }
 
-            <div class="capture-sources__source capture-sources__import" data-testid="capture-source-import">
-                @* Keyed per import: a file input keeps the file it was given,
-                   and picking the same file again raises no change, so each
-                   import gets a fresh input — importing twice is the point. *@
-                <FileField @key="_importRound"
-                           CssClass="capture-sources__import-file"
-                           Label="Import file…"
-                           Id="capture-source-import-file"
-                           TestId="capture-source-import-file"
-                           Accept=".md,.markdown,text/markdown"
-                           MaxBytes="ImportMaxBytes"
-                           Disabled="_importing"
-                           HelpText="An import manifest, as the backlog-import-inbox skill writes one from another tool's export. Items already here are skipped, so importing the same file twice adds nothing."
-                           ErrorMessage="@_importError"
-                           OnTextRead="ImportAsync"
-                           OnRejected="error => _importError = error" />
-
-                @if (_importing || _importMessage is not null)
-                {
-                    <p class="capture-sources__import-result" data-testid="capture-source-import-result" role="status">
-                        @(_importing ? "Importing…" : _importMessage)
-                    </p>
-                }
-
-                @RunAndLog(CaptureSourceKind.Import)
-            </div>
-
-            <p class="capture-sources__note">
-                Kept in <code>@Settings.SettingsPath</code>, beside the app's other
-                per-user choices rather than in the backlog folder. Addresses and channels
-                only - never a password or a key.
-            </p>
+            @RunAndLog(CaptureSourceKind.Import)
         </div>
-    </ChildContent>
-</FoldControl>
+    </div>
+
+    <p class="capture-sources__note">
+        Kept in <code>@Settings.SettingsPath</code>, beside the app's other
+        per-user choices rather than in the backlog folder. Addresses and channels
+        only - never a password or a key.
+    </p>
+</div>
 
 @code {
-    /// <summary>Whether the panel is open. Held by the host so it survives the
-    /// pane re-mounting; the panel only asks to change it.</summary>
-    [Parameter]
-    public bool Expanded { get; set; }
-
-    [Parameter]
-    public EventCallback<bool> ExpandedChanged { get; set; }
-
     private readonly Dictionary<CaptureSourceKind, string> _drafts = [];
     private readonly Dictionary<CaptureSourceKind, string?> _errors = [];
     private readonly HashSet<CaptureSourceKind> _openLogs = [];
@@ -161,7 +142,7 @@
         Log.Changed += HandleChanged;
     }
 
-    /// <summary>"2 of 3 on" on the trigger, so a folded panel still says
+    /// <summary>"2 of 3 sources on" at the top, so the panel says at a glance
     /// whether Capture will do anything.</summary>
     private string EnabledSummary
     {
@@ -170,7 +151,7 @@
             var on = Settings.Current.Enabled.Count;
             var all = CaptureSourceKinds.Monitorable.Count;
 
-            return on == 0 ? "none on" : $"{on} of {all} on";
+            return on == 0 ? $"None of {all} sources on" : $"{on} of {all} sources on";
         }
     }
 
