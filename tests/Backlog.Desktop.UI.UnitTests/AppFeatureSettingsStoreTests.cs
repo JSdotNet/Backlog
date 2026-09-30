@@ -98,7 +98,6 @@ public sealed class AppFeatureSettingsStoreTests
                 AppFeatures.FeedbackReporting,
                 AppFeatureKeys.CopilotCli,
                 AppFeatures.AiAssistant,
-                AppFeatures.McpServer,
                 AppFeatures.UsageMetrics
             ],
             AppFeatures.All.Select(feature => feature.Key));

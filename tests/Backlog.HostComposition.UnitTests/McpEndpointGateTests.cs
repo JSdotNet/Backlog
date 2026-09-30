@@ -22,8 +22,8 @@ namespace Backlog.HostComposition.UnitTests;
 /// Everything between <c>MapMcp</c> and a working endpoint is arrangement that no
 /// unit test can see: whether the route survives sitting after
 /// <c>MapRazorComponents</c>, whether <c>UseAntiforgery</c> rejects the POST
-/// before it arrives, whether the feature gate is consulted per request or was
-/// decided at startup. Those are the failures a green build and a green suite
+/// before it arrives, whether a context's feature gate is consulted per request
+/// or was decided at startup. Those are the failures a green build and a green suite
 /// would both sit on top of, and this is the cheapest place to find them —
 /// in-process, with no Aspire run and no port.
 /// </para>
@@ -46,8 +46,8 @@ public class McpEndpointGateTests
 
     /// <summary>Development for the reason <see cref="WebHarnessHostTests"/>
     /// gives — it is the only environment where the provider validates — plus the
-    /// feature switches this class needs to decide.</summary>
-    private sealed class Harness(bool mcpServer, bool sessions = true) : WebApplicationFactory<DesktopHarness::Program>
+    /// feature switch this class needs to decide.</summary>
+    private sealed class Harness(bool sessions = true) : WebApplicationFactory<DesktopHarness::Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -56,23 +56,16 @@ public class McpEndpointGateTests
             // After the harness's own registration, so this is the one resolved:
             // the last registration of a service wins.
             builder.ConfigureServices(services =>
-                services.AddSingleton<IAppFeatureSettings>(new FixedFeatures(mcpServer, sessions)));
+                services.AddSingleton<IAppFeatureSettings>(new FixedFeatures(sessions)));
         }
     }
 
     /// <summary>Hand-rolled, because this repository uses no mocking library.
-    /// Every key but the two under test answers true, so a gate that read the
-    /// wrong key would let the request through and fail the first test
-    /// here.
-    /// <para>
-    /// The sessions key is separate from the endpoint's own because they gate
-    /// different things: <c>mcp-server</c> decides whether there is an endpoint
-    /// at all, and a context's key decides which of its tools that endpoint
-    /// lists. Both have to be switchable here to tell one from the other — an
-    /// absent tool and an absent endpoint look alike from the far side of an
-    /// HTTP call.
-    /// </para></summary>
-    private sealed class FixedFeatures(bool mcpServer, bool sessions = true) : IAppFeatureSettings
+    /// Every key but the one under test answers true. There is no key for the
+    /// endpoint itself — the MCP server is always on — so what is switchable here
+    /// is a context's key, which decides which of its tools the endpoint lists.
+    /// </summary>
+    private sealed class FixedFeatures(bool sessions = true) : IAppFeatureSettings
     {
         public event Action? Changed;
 
@@ -82,7 +75,6 @@ public class McpEndpointGateTests
 
         public bool IsEnabled(string key) => key switch
         {
-            _ when string.Equals(key, AppFeatures.McpServer, StringComparison.Ordinal) => mcpServer,
             _ when string.Equals(key, SessionFeatures.Sessions, StringComparison.Ordinal) => sessions,
             _ => true
         };
@@ -123,25 +115,7 @@ public class McpEndpointGateTests
     }
 
     /// <summary>
-    /// With the feature off the endpoint is <em>absent</em>, not present and
-    /// refusing — which is what
-    /// <c>08-crosscutting-concepts.md#feature-enablement</c> asks of every
-    /// switchable capability, and what local ADR 0012 §7 repeats for these tools.
-    /// </summary>
-    [Fact]
-    public async Task The_endpoint_is_absent_while_the_feature_is_off()
-    {
-        using var harness = new Harness(mcpServer: false);
-        using var client = harness.CreateClient();
-
-        using var request = Initialize();
-        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    /// <summary>
-    /// And with it on the endpoint answers an <c>initialize</c>.
+    /// The endpoint answers an <c>initialize</c>.
     /// <para>
     /// The assertion that matters is not the payload but that it got here at all:
     /// a 404 would mean the route never survived the pipeline, and a 400 would
@@ -150,9 +124,9 @@ public class McpEndpointGateTests
     /// </para>
     /// </summary>
     [Fact]
-    public async Task The_endpoint_answers_an_initialize_while_the_feature_is_on()
+    public async Task The_endpoint_answers_an_initialize()
     {
-        using var harness = new Harness(mcpServer: true);
+        using var harness = new Harness();
         using var client = harness.CreateClient();
 
         using var request = Initialize();
@@ -196,7 +170,7 @@ public class McpEndpointGateTests
     [Fact]
     public async Task The_harness_refuses_a_cross_origin_request_and_asks_for_no_token()
     {
-        using var harness = new Harness(mcpServer: true);
+        using var harness = new Harness();
         using var client = harness.CreateClient();
 
         using var request = Initialize();
@@ -221,7 +195,7 @@ public class McpEndpointGateTests
     [Fact]
     public async Task The_harness_answers_a_loopback_origin()
     {
-        using var harness = new Harness(mcpServer: true);
+        using var harness = new Harness();
         using var client = harness.CreateClient();
 
         using var request = Initialize();
@@ -268,7 +242,7 @@ public class McpEndpointGateTests
     [Fact]
     public async Task Two_tool_calls_in_a_row_both_answer()
     {
-        using var harness = new Harness(mcpServer: true);
+        using var harness = new Harness();
         using var client = harness.CreateClient();
 
         // The last revision that has the initialize handshake and a session in
@@ -318,7 +292,7 @@ public class McpEndpointGateTests
     [Fact]
     public async Task The_delivery_surface_is_listed_while_its_feature_is_on()
     {
-        await using var harness = new Harness(mcpServer: true);
+        await using var harness = new Harness();
         using var client = harness.CreateClient();
 
         var body = await ListToolsAsync(client);
@@ -338,7 +312,7 @@ public class McpEndpointGateTests
     [Fact]
     public async Task The_delivery_surface_is_absent_while_its_feature_is_off()
     {
-        await using var harness = new Harness(mcpServer: true, sessions: false);
+        await using var harness = new Harness(sessions: false);
         using var client = harness.CreateClient();
 
         var body = await ListToolsAsync(client);

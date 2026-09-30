@@ -749,18 +749,14 @@ public sealed class DevToolService : IDevToolService
 
         // What a row reached over HTTP has to say about the endpoint behind it,
         // which is not the same question as whether its registration is right.
-        // A registration can be perfect and answer nothing, because the feature
-        // is off or because somebody else holds the port — so these are notes on
-        // the row rather than findings about the registration.
+        // A registration can be perfect and answer nothing, because somebody else
+        // holds the port — so these are notes on the row rather than findings
+        // about the registration.
         if (endpoint is not null)
         {
             if (mcp is null)
             {
                 notes.Add(EndpointUnresolvable);
-            }
-            else if (!mcp.Enabled)
-            {
-                notes.Add(EndpointDisabled);
             }
             else if (mcp.Unavailable is { Length: > 0 } unavailable)
             {
@@ -801,12 +797,11 @@ public sealed class DevToolService : IDevToolService
                 var state = DescribeClaudeRegistration(serverName, DeclaredTransport(claude), target, details);
 
                 // The finding stays; the offer goes. Re-registering calls
-                // EnsureToken, and minting a secret for a server nobody switched
-                // on — or for an endpoint this host cannot resolve at all — is
-                // the one thing a button here must not do. The row still says it
-                // is pointing elsewhere, and the note above says why nothing can
-                // be done about it yet.
-                if (http && mcp is not { Enabled: true })
+                // EnsureToken, and minting a secret for an endpoint this host
+                // cannot resolve at all is the one thing a button here must not
+                // do. The row still says it is pointing elsewhere, and the note
+                // above says why nothing can be done about it.
+                if (http && mcp is null)
                 {
                     state = state with { RegistrationDrifted = false };
                 }
@@ -895,15 +890,6 @@ public sealed class DevToolService : IDevToolService
     /// never going to be able to.</summary>
     private const string EndpointUnresolvable =
         "The Backlog MCP endpoint is resolved in the desktop app, so nothing here can expand or register this row.";
-
-    /// <summary>What a row says when the machine has the server switched off.
-    ///
-    /// <para>The row is still drawn and the registration is still left exactly
-    /// where it is: a registration made while the feature was on is on this
-    /// machine either way, and it still names the port. What is true is only that
-    /// nothing answers there.</para></summary>
-    private const string EndpointDisabled =
-        "The MCP server is switched off, so nothing answers at the registered address.";
 
     /// <summary>
     /// The resolver a listing may use: the port, and never the token.
@@ -2009,7 +1995,7 @@ public sealed class DevToolService : IDevToolService
         }
 
         if (mayMint
-            && _mcp is { Enabled: true } mcp
+            && _mcp is { } mcp
             && declaredValues.Append(declaredUrl).Any(value => value.Contains(McpPlaceholders.TokenName, StringComparison.Ordinal)))
         {
             log.Redact(mcp.EnsureToken());
@@ -2049,9 +2035,8 @@ public sealed class DevToolService : IDevToolService
     /// </summary>
     /// <remarks>
     /// <para>This is the one call site in the class that expands a token, and it
-    /// refuses outright for a host with no endpoint and for a machine that has
-    /// the server switched off: registering either would write a secret to a
-    /// machine for a server nobody asked to run.</para>
+    /// refuses outright for a host with no endpoint: registering there would
+    /// write a secret to a machine for a server this host does not run.</para>
     ///
     /// <para>The mint itself is not here. It happens in
     /// <see cref="RedactRegistrationSecrets"/>, at the top of the apply, because
@@ -2076,16 +2061,6 @@ public sealed class DevToolService : IDevToolService
         if (_mcp is not { } mcp)
         {
             return (DevToolActionResult.Failed($"'{name}' was not registered. {EndpointUnresolvable}"), string.Empty, none);
-        }
-
-        if (!mcp.Enabled)
-        {
-            return (
-                DevToolActionResult.Failed(
-                    $"'{name}' was not registered: the MCP server is switched off on this machine, and registering it would "
-                    + "create a token for a server nobody has asked to run. Switch it on first."),
-                string.Empty,
-                none);
         }
 
         var declaredUrl = GetString(claude, "url");
