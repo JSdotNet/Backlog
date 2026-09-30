@@ -33,7 +33,7 @@ jobs:
     name: Auto-merge when green
     if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 60
     env:
       PR: ${{ github.event.pull_request.number }}
       SHA: ${{ github.event.pull_request.head.sha }}
@@ -93,6 +93,7 @@ jobs:
     name: Turn off auto-merge for a draft
     if: ${{ github.event.action == 'converted_to_draft' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Disable auto-merge
         env:
