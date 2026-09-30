@@ -209,6 +209,10 @@
     /// so which of them the read view is already showing a control for.</summary>
     private HashSet<string> _statusHeadings = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The file and root of the chapter read that last landed, which is
+    /// what the baselines and modes describe. Written only by the latest read, so
+    /// they can lag <see cref="_chapterDocument"/>, the chapter last asked for.</summary>
+    private string? _chapterPath;
     private string? _chapterRoot;
     private string? _openedText;
     private string? _committedText;
@@ -228,6 +232,11 @@
     /// launchers rather than offering changes the next fetch would discard.</summary>
     private bool CanEdit => _view?.CanEdit ?? true;
     private DevbookChapterContent _chapter = DevbookChapterContent.None;
+    private int _chapterRead;
+    /// <summary>Resolved once when the panel starts, never per read: a read a
+    /// folder change starts can outlive the scope that built the panel, and a
+    /// provider asked then has already been disposed.</summary>
+    private DevbookChapterFileReader _chapterReader = DevbookChapterFileReader.Disk;
     private DomainDevbookDocument? _chapterDocument;
     /// <summary>The view rendering the chapter, held only so a new remark can
     /// ask it what the block it was left on says. See
@@ -350,6 +359,7 @@
     protected override void OnInitialized()
     {
         DomainDevbook.Changed += OnDevbookChanged;
+        _chapterReader = Services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk;
 
         _c4Store = Services.GetService<C4DevbookStore>();
         if (_c4Store is not null) _c4Store.Changed += OnDevbookChanged;
@@ -494,6 +504,15 @@
     /// parent can come back with the same records after the file underneath them
     /// changed.
     /// </para>
+    /// <para>
+    /// Only the latest read lands. Every parameter set starts one, so reads
+    /// overlap whenever the host re-renders while a file is still coming off disk,
+    /// and they can finish out of order: a read of the chapter that was open
+    /// finishing after the reader picked another one put the first chapter's text
+    /// under the second one's name, and an editor opened then held its buffer.
+    /// Everything after the read is about the chapter it read, so a dropped read
+    /// changes none of it.
+    /// </para>
     /// </summary>
     private async Task LoadSelectedChapterAsync(bool force = false)
     {
@@ -508,17 +527,24 @@
         // The root belongs in the comparison too: the same relative path under a
         // folder that has moved is a different file, and a baseline read from the
         // one before it would compare a chapter against somebody else's copy of it.
-        var sameChapter = string.Equals(document?.Path, _chapterDocument?.Path, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(_view?.RootPath, _chapterRoot, StringComparison.OrdinalIgnoreCase);
-
-        _chapterRoot = _view?.RootPath;
+        // Against the chapter that last landed, not the one last asked for: a read
+        // this one overtakes is dropped, and it may have been the only one to see
+        // that the file changed — the reset below would then never run.
+        var root = _view?.RootPath;
+        var sameChapter = string.Equals(document?.Path, _chapterPath, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(root, _chapterRoot, StringComparison.OrdinalIgnoreCase);
 
         _chapterDocument = document;
         _chapterSaveError = null;
-        _chapter = _view is null || document is null
+        var read = ++_chapterRead;
+        var chapter = _view is null || document is null
             ? DevbookChapterContent.None
-            : await DevbookChapterContent.LoadAsync("domain", _view.RootPath, document.Path, _view.CanEdit);
+            : await DevbookChapterContent.LoadAsync("domain", _view.RootPath, document.Path, _view.CanEdit, reader: _chapterReader);
+        if (read != _chapterRead) return;
 
+        _chapterPath = document?.Path;
+        _chapterRoot = root;
+        _chapter = chapter;
         RefreshChapterComments();
 
         _statusHeadings = HeadingsWithStatus(_chapter.Text);

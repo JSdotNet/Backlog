@@ -29,12 +29,14 @@ internal sealed record DevbookChapterContent(DevbookChapterRef? Chapter, string?
     internal static DevbookChapterContent None { get; } = new(null, null);
 
     /// <summary>Loads against a folder the devbook-folder port located.</summary>
+    /// <param name="reader">The disk when omitted; see <see cref="DevbookChapterFileReader"/>.</param>
     internal static Task<DevbookChapterContent> LoadAsync(
         string areaKey,
         DevbookFolderLocation? location,
         string? selection,
-        CancellationToken cancellationToken = default) =>
-        LoadAsync(DevbookChapterResolver.TryResolve(areaKey, location, selection), cancellationToken);
+        CancellationToken cancellationToken = default,
+        DevbookChapterFileReader? reader = null) =>
+        LoadAsync(DevbookChapterResolver.TryResolve(areaKey, location, selection), reader, cancellationToken);
 
     /// <summary>Loads against a root a store already holds.
     /// <para>
@@ -44,21 +46,23 @@ internal sealed record DevbookChapterContent(DevbookChapterRef? Chapter, string?
     /// the store had said read-only, the status control was hidden on that word,
     /// and the edit control beside it was offered anyway.
     /// </para></summary>
+    /// <param name="reader">The disk when omitted; see <see cref="DevbookChapterFileReader"/>.</param>
     internal static Task<DevbookChapterContent> LoadAsync(
         string areaKey,
         string? rootPath,
         string? selection,
         bool canEdit = true,
-        CancellationToken cancellationToken = default) =>
-        LoadAsync(DevbookChapterResolver.TryResolve(areaKey, rootPath, selection, canEdit: canEdit), cancellationToken);
+        CancellationToken cancellationToken = default,
+        DevbookChapterFileReader? reader = null) =>
+        LoadAsync(DevbookChapterResolver.TryResolve(areaKey, rootPath, selection, canEdit: canEdit), reader, cancellationToken);
 
-    private static async Task<DevbookChapterContent> LoadAsync(DevbookChapterRef? chapter, CancellationToken cancellationToken)
+    private static async Task<DevbookChapterContent> LoadAsync(DevbookChapterRef? chapter, DevbookChapterFileReader? reader, CancellationToken cancellationToken)
     {
         if (chapter is null) return None;
 
         try
         {
-            return new DevbookChapterContent(chapter, await File.ReadAllTextAsync(chapter.FullPath, cancellationToken).ConfigureAwait(false));
+            return new DevbookChapterContent(chapter, await (reader ?? DevbookChapterFileReader.Disk).ReadAllTextAsync(chapter.FullPath, cancellationToken).ConfigureAwait(false));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

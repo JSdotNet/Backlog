@@ -2,6 +2,7 @@
 @inject GitHubSettingsStore Repositories
 @inject InstructionSourceDiscovery InstructionSources
 @inject IDevbookFolderSource Folders
+@inject IServiceProvider Services
 
 @*
     The eyebrow, the title and the subtitle are all gone. The tab strip says
@@ -164,6 +165,11 @@
     private IReadOnlyList<InstructionRepositoryView> _repositories = [];
     private string? _loadedRepositoryAlias;
     private DevbookChapterContent _chapter = DevbookChapterContent.None;
+    private int _chapterRead;
+    /// <summary>Resolved once when the panel starts, never per read: a read a
+    /// folder change starts can outlive the scope that built the panel, and a
+    /// provider asked then has already been disposed.</summary>
+    private DevbookChapterFileReader _chapterReader = DevbookChapterFileReader.Disk;
     private InstructionDocument? _chapterDocument;
     private DevbookChapterEditor? _editor;
     private bool _editing;
@@ -230,7 +236,11 @@
 
     private InstructionDocument? SelectedDocument => ResolveSelectedDocument();
 
-    protected override void OnInitialized() => Folders.Changed += OnDevbookChanged;
+    protected override void OnInitialized()
+    {
+        Folders.Changed += OnDevbookChanged;
+        _chapterReader = Services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk;
+    }
 
     /// <summary>A folder that moved or changed underneath the panel. A refresh
     /// rather than a load, the same as the other four areas: the scope did not
@@ -402,6 +412,13 @@
     /// identity so a parameter set that changed nothing costs no read, and every
     /// re-discovery hands back new records, so a save is read again.
     /// </para>
+    /// <para>
+    /// Only the latest read lands. Every parameter set starts one, so reads
+    /// overlap whenever the host re-renders while a file is still coming off disk,
+    /// and they can finish out of order: a read of the file that was open
+    /// finishing after the reader picked another one put the first file's text
+    /// under the second one's name, and an editor opened then held its buffer.
+    /// </para>
     /// </summary>
     private async Task LoadSelectedChapterAsync()
     {
@@ -409,9 +426,13 @@
         if (ReferenceEquals(_chapterDocument, document)) return;
 
         _chapterDocument = document;
-        _chapter = ActiveRepository is { } repository && document is not null
-            ? await DevbookChapterContent.LoadAsync("instructions", repository.LocalRoot, document.RelativePath, repository.CanEdit)
+        var read = ++_chapterRead;
+        var chapter = ActiveRepository is { } repository && document is not null
+            ? await DevbookChapterContent.LoadAsync("instructions", repository.LocalRoot, document.RelativePath, repository.CanEdit, reader: _chapterReader)
             : DevbookChapterContent.None;
+        if (read != _chapterRead) return;
+
+        _chapter = chapter;
     }
 
     /// <summary>

@@ -51,6 +51,92 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A folder change re-reads the open chapter, and a reader can pick another
+    /// one while that read is still coming off disk. The two reads then finish in
+    /// either order, and the older one used to land last and win: the decision's
+    /// text was drawn under the introduction's name, and Edit opened the decision's
+    /// buffer on the introduction's file.
+    /// </summary>
+    [Fact]
+    public async Task A_chapter_read_that_finishes_after_a_newer_one_is_dropped()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true);
+        var reader = new HeldChapterFileReader("0001-decision.md") { Holding = false };
+        harness.Context.Services.AddSingleton<DevbookChapterFileReader>(reader);
+
+        var component = harness.Render(DecisionPath);
+        component.WaitForAssertion(() => Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal));
+
+        reader.Holding = true;
+        harness.Folders.NotifyContentChanged();
+        await reader.Started.WaitAsync(TestContext.Current.CancellationToken);
+
+        component.Render(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
+            .Add(panel => panel.SelectedPath, ".arc42/01-introduction.md"));
+        component.WaitForAssertion(() => Assert.Contains("Goals.", component.Markup, StringComparison.Ordinal));
+
+        // The refresh that holds the older read ends in a render whichever way
+        // the read is taken up, so that render is what says the stale text had
+        // its chance to land.
+        var renders = component.RenderCount;
+        reader.Release();
+        await reader.Returned.WaitAsync(TestContext.Current.CancellationToken);
+        component.WaitForState(() => component.RenderCount > renders);
+
+        Assert.Equal("Introduction", component.Find(".file-view__name").TextContent.Trim());
+        Assert.Contains("Goals.", component.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Original prose.", component.Markup, StringComparison.Ordinal);
+
+        await component.InvokeAsync(() => component.Find("[data-testid='arc42-chapter-file-edit']").Click());
+        component.WaitForAssertion(() => Assert.Equal(
+            "# Introduction\n\nGoals.\n",
+            component.Find("[data-testid='devbook-chapter-surface'] textarea").GetAttribute("value")));
+    }
+
+    /// <summary>
+    /// A dropped read can be the only one that saw the chapter change. The reader
+    /// edits the decision, picks the introduction while its read is held, and a
+    /// folder change re-reads the introduction before that read is back. The
+    /// re-read is the one that lands, and it has to know it is opening a different
+    /// file: decided against the chapter last asked for, it saw the introduction
+    /// both times and left the editor open on a file nobody chose to edit.
+    /// </summary>
+    [Fact]
+    public async Task A_reload_that_overtakes_a_dropped_read_still_leaves_the_editor()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true);
+        var reader = new HeldChapterFileReader("01-introduction.md");
+        harness.Context.Services.AddSingleton<DevbookChapterFileReader>(reader);
+
+        var component = harness.Render(DecisionPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-edit']")));
+        await component.InvokeAsync(() => component.Find("[data-testid='arc42-chapter-file-edit']").Click());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-chapter-surface'] textarea")));
+
+        component.Render(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
+            .Add(panel => panel.SelectedPath, ".arc42/01-introduction.md"));
+        await reader.Started.WaitAsync(TestContext.Current.CancellationToken);
+
+        // The folder change's read of the same chapter goes straight through, so
+        // it lands first, with a record of its own past the identity guard.
+        reader.Holding = false;
+        harness.Folders.NotifyContentChanged();
+        component.WaitForAssertion(() => Assert.Contains("Goals.", component.Markup, StringComparison.Ordinal));
+
+        var renders = component.RenderCount;
+        reader.Release();
+        await reader.Returned.WaitAsync(TestContext.Current.CancellationToken);
+        component.WaitForState(() => component.RenderCount > renders);
+
+        Assert.Equal("Introduction", component.Find(".file-view__name").TextContent.Trim());
+        Assert.DoesNotContain("Original prose.", component.Markup, StringComparison.Ordinal);
+        Assert.Empty(component.FindAll("[data-testid='devbook-chapter-surface']"));
+        Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-edit']"));
+    }
+
     [Fact]
     public async Task A_selected_chapter_opens_as_the_file_read_and_offers_a_way_in()
     {
