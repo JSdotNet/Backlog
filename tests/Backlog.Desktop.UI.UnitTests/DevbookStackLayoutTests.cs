@@ -291,6 +291,27 @@ public sealed class DevbookStackLayoutTests
     }
 
     /// <summary>
+    /// The chart's two columns are each as tall as the frame or their own rows, whichever
+    /// is taller. Stretched, both were clamped to the frame's visible height: the track
+    /// clipped its last lanes, and scrolled down the horizontal scrollbar sat mid-chart
+    /// over blank lanes. With the frame's height as a minimum, a short plan still puts the
+    /// scrollbar on the frame's bottom edge.
+    /// </summary>
+    [Fact]
+    public void The_roadmap_columns_grow_with_their_rows_and_keep_the_scrollbar_at_the_bottom()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var frame = RuleBody(css, ".roadmap-band__timeline .roadmap-timeline__frame {");
+        Assert.Contains("align-items: flex-start;", frame, StringComparison.Ordinal);
+
+        var columns = RuleBody(
+            css,
+            ".roadmap-band__timeline .roadmap-timeline__sidebar,\n.roadmap-band__timeline .roadmap-timeline__scroll {");
+        Assert.Contains("min-height: 100%;", columns, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// The unplanned work is a column beside the chart while there is any, scrolling on
     /// its own so neither can push the other off the surface — and under the chart,
     /// capped, on a window too narrow for two columns.

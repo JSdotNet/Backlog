@@ -5226,9 +5226,20 @@ h1, h2, h3 {
 /* The scrollbar goes where the rows are. A plan that fits shows none — `auto`, not
    `scroll`. */
 .roadmap-band__timeline .roadmap-timeline__frame {
+    align-items: flex-start;
     min-height: 0;
     overflow-y: auto;
     scrollbar-width: thin;
+}
+
+/* The two columns are each the frame's height or their rows', whichever is taller.
+   Stretched, a flex line in a frame of fixed height is that height: the track clipped
+   its last lanes, and scrolled down its horizontal scrollbar sat mid-chart over them.
+   The frame's height as a floor keeps that scrollbar on the frame's bottom edge when
+   the plan is short. */
+.roadmap-band__timeline .roadmap-timeline__sidebar,
+.roadmap-band__timeline .roadmap-timeline__scroll {
+    min-height: 100%;
 }
 
 /* The chart's heading row, once it is carrying the view's own heading: the heading
