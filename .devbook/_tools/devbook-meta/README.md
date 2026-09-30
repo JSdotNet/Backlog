@@ -2,7 +2,8 @@
 
 Checks the `meta` blocks embedded in the devbook folders under `.devbook/` —
 `arc42/`, `domain/`, `tech/`, `design/`, and `ai/`, at `.devbook/arc42/` and so
-on — and, with `--write`, derives three machine-readable indexes from them:
+on — plus a change's `proposal.md` and deltas under `openspec/changes/`, and,
+with `--write`, derives three machine-readable indexes from them:
 
 - **`graph.json`** — the reference graph between chapters and files.
 - **`index.json`** — the ordered reading outline of each area.
@@ -29,7 +30,18 @@ node .devbook/_tools/devbook-meta/build.mjs --write --scope tech
 
 # Point at a repository other than the working directory
 node .devbook/_tools/devbook-meta/build.mjs --root ../other-repo
+
+# Resolve one change's deltas; merge them and archive the change
+node .devbook/_tools/devbook-meta/delta.mjs --check add-cache
+node .devbook/_tools/devbook-meta/delta.mjs --apply add-cache
+
+# Merge and leave the folder for another tool to move — `openspec archive` does
+node .devbook/_tools/devbook-meta/delta.mjs --apply add-cache --no-move
 ```
+
+The change folder, `openspec/changes/`, is indexed into the repository rollup
+only: it gets no scope and no `_meta/` of its own, because every folder under it
+is a change to OpenSpec.
 
 The repository root defaults to the working directory. Only devbook folders
 that actually exist under `.devbook/` produce a scope, so a repository that
@@ -85,12 +97,14 @@ followed, so a scoped graph stays about its own folder.
 |---|---|
 | `metadata.mjs` | Parses the `meta` blocks — the single implementation of the schema defined by the `devbook-chapter-metadata` instructions. Loaded by `devbook-derived`'s canvas from the materialized path. |
 | `graph.mjs` | Graph construction, scope discovery, and scope projection. Imported by the CLI and loaded by `devbook-derived`'s canvas from the materialized path, so the check, the written indexes, and the live view are one parser. |
+| `statuses.mjs` | Reads the repository's own `status` ladder from `.devbook/statuses.json`, reports a configuration error once on the file, and resolves which rungs a block may hold; absent, the built-in ladders in `metadata.mjs` apply. The graph build and the canvas lint both call it. |
 | `outline.mjs` | Outline generation: root-document resolution (`index: root`, else the `DIRECTORY_CONVENTION` table), numbered ordering, and the per-file lede and diagram count a list view needs. |
 | `annotations-index.mjs` | Derives `annotations.json` from the fences: the open-note index every reader comes off, so no reader needs the writer and no reader parses Markdown twice. |
 | `annotations.mjs` | The only writer of an annotation fence — `list`, `add`, `reply`, `resolve`, `sweep`, plus a CLI over the same five functions. Edits are surgical, so a field a later version adds survives a write by one that does not know it. `sweep` is the bulk half of `resolve --delete`: it takes every resolved fence in an addressed chapter, bottom-up, and no open one. |
 | `build.mjs` | CLI wrapper: writes all three artifacts per scope, prints stats, exits non-zero on errors. |
+| `delta.mjs` | The change folder's merge. `--check <change>` resolves every delta under `openspec/changes/<change>/devbook-delta/` to its target file and heading and lints each merged result; `--apply <change>` does the same, then writes the merges, stamps `change` on every chapter block it touched, and moves the folder to `archive/<date>-<name>/`. The graph build imports `checkDelta`, so an indexed delta is checked exactly as a merge would check it. `gateCheck` is the empty seam before the merge where a check that the change may be merged goes. |
 | `chapter-hash.mjs` | CLI over `metadata.mjs`'s `chapterHash`: prints the content fingerprint of an addressed chapter, the value `approved-hash` records. The approval gate calls it so the value written and the value checked come from one function. |
-| `*.test.mjs` | Self-contained checks, one per rule that was worth pinning: run one with `node <file>`, all of them with `node --test "*.test.mjs"`. Each prints `PASS`/`FAIL` per case and exits non-zero on the first failure, so no framework is installed to read them. `behaviour-files.test.mjs` covers the `requirements.md` and invariants-subpage types, the subpage naming and placement checks, the three coverage warnings, and the typed `related` pairing. |
+| `*.test.mjs` | Self-contained checks, one per rule that was worth pinning: run one with `node <file>`, all of them with `node --test "*.test.mjs"`. Each prints `PASS`/`FAIL` per case and exits non-zero on the first failure, so no framework is installed to read them. `behaviour-files.test.mjs` covers the `requirements.md` and invariants-subpage types, the subpage naming and placement checks, the three coverage warnings, and the typed `related` pairing; `design-requirements.test.mjs` covers `design/`'s `requirement` type and its `e2e` level; `change-folder.test.mjs` runs a fixture change through the index, `--check`, and `--apply`. |
 
 This folder is self-contained — copy it into a repository as
 `.devbook/_tools/devbook-meta/` and it runs with no other files installed.
@@ -295,6 +309,11 @@ each expects, without building a command.
 | `ai/` `stage` on a file-level block — a file groups chapters and places none of them | error |
 | `ai/` `related` entry reaching into `tech/` — the tool a usage rests on goes in `depends-on`, which is what the loop picture draws | warning |
 | A directory missing the root document its folder convention names | warning |
+| A change's `proposal.md` without `category`, or with one outside `feature`, `behaviour-change`, `defect` | error |
+| A delta whose opening `meta` block is missing, names another change, lacks `delta`, or carries any other field | error |
+| A delta naming a chapter or section its target lacks, adding one it has, or using a section other than `ADDED`, `MODIFIED`, `REMOVED` | error |
+| A delta whose merge would leave its target with a new error | error |
+| A `change` value that is not one lowercase kebab-case change name | error |
 
 ### Literal escape sequences
 

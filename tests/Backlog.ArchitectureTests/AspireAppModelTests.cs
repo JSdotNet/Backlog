@@ -42,11 +42,11 @@ public class AspireAppModelTests
     private static readonly string[] MauiHeads = ["Backlog.Mobile", "Backlog.Desktop"];
 
     /// <summary>The procedures a flow run reads before it touches the running app:
-    /// <c>start</c> for how the app starts and what healthy looks like, <c>debug</c>
-    /// for how its logs and traces are queried.</summary>
+    /// the <c>run</c> recipe for how the app starts and what healthy looks like,
+    /// <c>debug</c> for how its logs and traces are queried.</summary>
     private static readonly string[][] RuntimeProcedures =
     [
-        [".agents", "skills", "start.md"],
+        [".claude", "skills", "run-backlog", "SKILL.md"],
         [".agents", "skills", "debug.md"],
     ];
 
@@ -428,7 +428,7 @@ public class AspireAppModelTests
         }
     }
 
-    /// <summary>The start and debug procedures are the brief every flow run reads
+    /// <summary>The run and debug procedures are the brief every flow run reads
     /// before it starts the app. A runtime fact missing from them is one a run
     /// discovers the hard way.</summary>
     [Theory]
@@ -441,7 +441,7 @@ public class AspireAppModelTests
 
         Assert.True(
             text.Contains(fact, StringComparison.OrdinalIgnoreCase),
-            $"Neither the start nor the debug procedure mentions '{fact}'. Every flow run reads them before "
+            $"Neither the run nor the debug procedure mentions '{fact}'. Every flow run reads them before "
             + "starting the app, so a fact missing from them leaves the run working from a stale brief.");
     }
 
