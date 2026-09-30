@@ -29,9 +29,9 @@ namespace Backlog.Infrastructure.Sync;
 /// The request that met the dead token still ends in its 401 here. Whether the
 /// work it was part of is tried again is the caller's decision, and
 /// <see cref="SyncTokenProvider.TokensRefused"/> is what it decides on:
-/// <see cref="TaskSyncWorker"/> runs a cycle once more when a token was refused
-/// during it, so the first sync after a restart does not end on a failure the
-/// device has already recovered from.
+/// every sync loop runs a cycle once more when a token was refused during it
+/// (<see cref="RefusedTokenRerun"/>), so the first sync after a restart does not
+/// end on a failure the device has already recovered from.
 /// </para>
 /// <para>
 /// With no token the request goes out unauthenticated instead of being blocked
