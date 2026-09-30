@@ -17,6 +17,7 @@
     <!-- For AddRoadmapAiContentSource(), the composition root a host calls to
          put the plan behind the shell's Ask AI port. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
   </ItemGroup>
 
   <ItemGroup>

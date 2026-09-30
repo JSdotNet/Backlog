@@ -90,15 +90,15 @@
     -->
     <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.61.0" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
     <!--
       A HostApplicationBuilder in a test. Backlog.Infrastructure.Cosmos's
       registration extension takes an IHostApplicationBuilder and decides what to
       do by its environment, and the only honest way to assert that is to hand it
       a real builder rather than a stand-in that implements the interface.
     -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.9.0" />
     <!--
       ILoggingBuilder and its filters, for the file log the installed desktop
@@ -106,9 +106,9 @@
       package in their framework already; the library that registers the provider
       has to name it.
     -->
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.12" />
 
     <!--
       ValidateDataAnnotations(), for a project that is a plain library rather than
@@ -116,9 +116,9 @@
       only Backlog.Infrastructure.Cosmos names it: without it, options with
       [Required] and [Range] on them would bind and never be checked.
     -->
-    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.9.0" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.9.0" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
 
     <!--
       Pinned to the version Microsoft.AspNetCore.Authentication.JwtBearer 10.0.11
