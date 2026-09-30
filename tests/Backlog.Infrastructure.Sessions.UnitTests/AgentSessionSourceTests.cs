@@ -1,5 +1,6 @@
 using System.Globalization;
 using Backlog.Infrastructure.Sessions;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sessions.UnitTests;
 
@@ -1145,7 +1146,7 @@ public sealed class AgentSessionSourceTests : IDisposable
     }
 
     private Task<AgentSessionCatalog> ReadAsync(ITranscriptFactsCache facts) =>
-        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon), facts)
+        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FakeTimeProvider(Noon), facts)
             .GetSessionsAsync();
 
     /// <summary>The facts cache, in memory: the reader's use of the port is what is
@@ -1164,15 +1165,15 @@ public sealed class AgentSessionSourceTests : IDisposable
     }
 
     private Task<AgentSessionCatalog> ReadAsync() =>
-        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon))
+        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FakeTimeProvider(Noon))
             .GetSessionsAsync();
 
     private Task<AgentSessionCatalog> ReadAsync(AgentSessionQuery query) =>
-        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon))
+        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FakeTimeProvider(Noon))
             .GetSessionsAsync(query);
 
     private Task<AgentSessionCatalog> ReadAsync(ISessionRepositoryResolver repositories) =>
-        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon), facts: null, repositories)
+        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FakeTimeProvider(Noon), facts: null, repositories)
             .GetSessionsAsync();
 
     /// <summary>The port answered from a fixed list of clones, through the same
@@ -1317,12 +1318,5 @@ public sealed class AgentSessionSourceTests : IDisposable
         catch (IOException)
         {
         }
-    }
-
-    /// <summary>A clock that does not move, so "stalled" has a boundary a test can
-    /// stand either side of.</summary>
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
     }
 }

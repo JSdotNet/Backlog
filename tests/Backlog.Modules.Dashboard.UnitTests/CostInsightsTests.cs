@@ -1,6 +1,7 @@
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.Services;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Dashboard.UnitTests;
 
@@ -296,7 +297,7 @@ public class CostInsightsTests
     }
 
     private static CostInsights Costs(StubSpendSource claude, StubSpendSource copilot, StubSpendSource? azureFoundry = null) =>
-        new(new ClaudeAdapter(claude), new CopilotAdapter(copilot), new AzureFoundryAdapter(azureFoundry ?? Silent()), new FixedClock(Now));
+        new(new ClaudeAdapter(claude), new CopilotAdapter(copilot), new AzureFoundryAdapter(azureFoundry ?? Silent()), new FakeTimeProvider(Now));
 
     private static SpendReport AzureSpend(decimal amount) =>
         new([new SpendEntry(new DateOnly(2026, 8, 3), "gpt-5.4 Output Tokens", null, new DashboardMoney(amount, "EUR"))]);
@@ -365,10 +366,5 @@ public class CostInsightsTests
 
         public Task<SpendReport> GetSpendAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default) =>
             inner.GetSpendAsync(from, to, cancellationToken);
-    }
-
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
     }
 }

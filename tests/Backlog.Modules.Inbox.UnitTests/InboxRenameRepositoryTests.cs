@@ -8,7 +8,7 @@ namespace Backlog.Modules.Inbox.UnitTests;
 /// about it moves. The routing record in particular stays as written — it is
 /// where the item went, not a live link.
 /// </summary>
-public sealed class RenameRepositoryTests
+public sealed class InboxRenameRepositoryTests
 {
     private const string OldId = "JSdotNet/Backlog";
     private const string NewId = "JSdotNet/Backlog-renamed";

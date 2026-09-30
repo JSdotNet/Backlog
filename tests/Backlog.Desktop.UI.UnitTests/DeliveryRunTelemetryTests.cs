@@ -400,16 +400,4 @@ public sealed class DeliveryRunTelemetryTests : IDisposable
         }.ToJsonString();
 
     private static void Append(string file, string line) => File.AppendAllText(file, line + "\n");
-
-    private sealed class RecordingTelemetry : IDeliveryRunTelemetry
-    {
-        public List<string> Events { get; } = [];
-
-        public Task RecordAsync(JsonElement hookEvent, CancellationToken cancellationToken = default)
-        {
-            Events.Add(hookEvent.GetProperty("hook_event_name").GetString()!);
-
-            return Task.CompletedTask;
-        }
-    }
 }

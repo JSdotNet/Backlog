@@ -2,6 +2,7 @@ using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.Services;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Dashboard.UnitTests;
 
@@ -600,7 +601,7 @@ public class ProductivityInsightsTests
             source,
             baseline ?? new StubBaselineSource(),
             repositories ?? new StubRepositoryDirectory(),
-            new FixedClock(Now));
+            new FakeTimeProvider(Now));
 
     /// <summary>
     /// The sync figures share the rework answer but not its denominator: every pull
@@ -738,12 +739,5 @@ public class ProductivityInsightsTests
             Requested.AddRange(repositories);
             return Task.FromResult(Report);
         }
-    }
-
-    /// <summary>A clock that does not move, so a window is the same window on every
-    /// machine and on every run.</summary>
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
     }
 }

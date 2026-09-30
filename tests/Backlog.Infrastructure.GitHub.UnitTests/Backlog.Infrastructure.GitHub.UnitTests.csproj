@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- FakeTimeProvider: the clock these tests stop at one instant. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
   </ItemGroup>
 
@@ -9,6 +14,13 @@
          the stand-in for `gh` has to be next to the test assembly for GhStub to
          copy. See gh-stub.cmd and GhStub.cs. -->
     <None Update="gh-stub.cmd" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- The shared test doubles this project uses. Linked per project rather than
+       from tests/Directory.Build.props: a double that implements a product
+       interface only compiles in a project that references it. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\RecordingHandler.cs" Link="Shared\TestDoubles\RecordingHandler.cs" />
   </ItemGroup>
 
 </Project>

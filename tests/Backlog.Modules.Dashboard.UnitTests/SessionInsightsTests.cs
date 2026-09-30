@@ -3,6 +3,7 @@ using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.Services;
 using Backlog.SharedKernel;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Dashboard.UnitTests;
 
@@ -2860,7 +2861,7 @@ public class SessionInsightsTests
             new FixedWorkingHours(week ?? WorkingHours.Default),
             new StubRepositoryDirectory(),
             reset ?? new FixedUsageReset(null),
-            new FixedClock(Now, zone));
+            Clock(zone));
 
     /// <summary>A reset that does not come off disk: null for the calendar fallback the
     /// weekly facts are asserted under, or the one a fact about the usage week hands in.</summary>
@@ -3092,15 +3093,16 @@ public class SessionInsightsTests
     }
 
     /// <summary>A clock that does not move, so a window is the same window on every
-    /// machine and on every run.</summary>
-    private sealed class FixedClock(DateTimeOffset now, TimeZoneInfo? zone = null) : TimeProvider
+    /// machine and on every run.
+    ///
+    /// <para>The grid is the only figure on this surface drawn in local hours, so
+    /// it is the only one whose test has to say which local. Fixed rather than the
+    /// machine's, because a grid asserted against whatever zone CI happens to run in
+    /// is a grid asserted against nothing.</para></summary>
+    private static FakeTimeProvider Clock(TimeZoneInfo? zone)
     {
-        public override DateTimeOffset GetUtcNow() => now;
-
-        /// <summary>The grid is the only figure on this surface drawn in local hours, so
-        /// it is the only one whose test has to say which local. Fixed rather than the
-        /// machine's, because a grid asserted against whatever zone CI happens to run in
-        /// is a grid asserted against nothing.</summary>
-        public override TimeZoneInfo LocalTimeZone => zone ?? TimeZoneInfo.Utc;
+        var clock = new FakeTimeProvider(Now);
+        clock.SetLocalTimeZone(zone ?? TimeZoneInfo.Utc);
+        return clock;
     }
 }

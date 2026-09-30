@@ -1,6 +1,3 @@
-using System.Net;
-using System.Text;
-
 using Backlog.Infrastructure.GitHub;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
@@ -353,23 +350,6 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         {
             Names.Add(name);
             return new HttpClient(handler, disposeHandler: false);
-        }
-    }
-
-    private sealed class RecordingHandler : HttpMessageHandler
-    {
-        public HttpRequestMessage? Request { get; private set; }
-
-        public int RequestCount { get; private set; }
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            RequestCount++;
-            Request = request;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json")
-            });
         }
     }
 }

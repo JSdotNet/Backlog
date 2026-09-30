@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- FakeTimeProvider: the clock these tests stop at one instant. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Sync\Backlog.Modules.Sync.Api\Backlog.Modules.Sync.Api.csproj" />
   </ItemGroup>
 

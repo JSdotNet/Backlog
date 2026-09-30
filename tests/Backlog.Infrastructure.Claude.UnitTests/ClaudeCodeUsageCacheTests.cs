@@ -154,6 +154,6 @@ public class ClaudeCodeUsageCacheTests
     {
         using var directory = new TemporaryDirectory();
 
-        new ClaudeCodeUsageCache(() => directory.Path).Forget();
+        Assert.Null(Record.Exception(() => new ClaudeCodeUsageCache(() => directory.Path).Forget()));
     }
 }

@@ -119,5 +119,16 @@
     <ProjectReference Include="..\..\src\App\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
   </ItemGroup>
 
+  <!-- The shared test doubles this project uses. Linked per project rather than
+       from tests/Directory.Build.props: a double that implements a product
+       interface only compiles in a project that references it. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\RecordingHandler.cs" Link="Shared\TestDoubles\RecordingHandler.cs" />
+    <Compile Include="..\Shared\TestDoubles\RecordingTelemetry.cs" Link="Shared\TestDoubles\RecordingTelemetry.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubAzureFoundryChatClient.cs" Link="Shared\TestDoubles\StubAzureFoundryChatClient.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubGitHubClient.cs" Link="Shared\TestDoubles\StubGitHubClient.cs" />
+    <Compile Include="..\Shared\TestDoubles\StubProbe.cs" Link="Shared\TestDoubles\StubProbe.cs" />
+  </ItemGroup>
+
 </Project>
 

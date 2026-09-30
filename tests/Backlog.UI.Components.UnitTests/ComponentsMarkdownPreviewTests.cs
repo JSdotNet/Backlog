@@ -4,7 +4,7 @@ namespace Backlog.UI.Components.UnitTests;
 /// Only the block shapes <see cref="MarkdownView"/> switches on — if the parser
 /// stops producing one of these, the view silently renders nothing for it.
 /// </summary>
-public sealed class MarkdownPreviewTests
+public sealed class ComponentsMarkdownPreviewTests
 {
     [Fact]
     public void A_heading_keeps_its_level()

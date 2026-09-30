@@ -142,7 +142,7 @@ public class AiCreditUsageCacheTests : IDisposable
     [Fact]
     public void Forgetting_when_nothing_was_stored_is_not_an_error()
     {
-        Cache().Forget();
+        Assert.Null(Record.Exception(() => Cache().Forget()));
     }
 
     private string OnlyEntry() => Assert.Single(Directory.GetFiles(_root, "*.json", SearchOption.AllDirectories));

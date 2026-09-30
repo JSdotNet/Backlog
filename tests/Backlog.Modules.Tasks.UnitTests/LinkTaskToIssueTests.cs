@@ -71,36 +71,4 @@ public class LinkTaskToIssueTests
         Assert.True(result.IsSuccess);
         Assert.Equal(["JSdotNet/Backlog"], result.Value.RepoIds!);
     }
-
-    private sealed class InMemoryTaskRepository : ITaskRepository
-    {
-        public List<TaskItem> Entries { get; } = [];
-
-        // Both reads hide a tombstoned entry, the way the port says they must.
-        public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Where(entry => entry.DeletedAt is null)]);
-
-        // And the list that does not, for the push that has to carry a deletion
-        // off the machine.
-        public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(
-            DateTimeOffset since,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>(
-                [.. Entries.Where(entry => entry.UpdatedAt > since).OrderBy(entry => entry.UpdatedAt)]);
-
-        public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.FirstOrDefault(entry => entry.Id == id && entry.DeletedAt is null));
-
-        // And the one read that does not, for the merge that has to tell
-        // "deleted here" from "never seen here".
-        public Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.FirstOrDefault(entry => entry.Id == id));
-
-        public Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default)
-        {
-            Entries.RemoveAll(existing => existing.Id == task.Id);
-            Entries.Add(task);
-            return Task.CompletedTask;
-        }
-    }
 }
