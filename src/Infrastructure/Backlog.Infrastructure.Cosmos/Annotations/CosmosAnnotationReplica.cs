@@ -71,7 +71,7 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
         // send the rest of the batch back.
         foreach (var change in changes)
         {
-            if (await WriteIfLaterAsync(container, partition, scope, change, cancellationToken))
+            if (await WriteIfLaterAsync(container, partition, scope, change, cancellationToken).ConfigureAwait(false))
             {
                 accepted++;
             }
@@ -123,7 +123,7 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
 
             try
             {
-                var read = await container.ReadItemAsync<AnnotationDocument>(id, partition, cancellationToken: cancellationToken);
+                var read = await container.ReadItemAsync<AnnotationDocument>(id, partition, cancellationToken: cancellationToken).ConfigureAwait(false);
                 held = read.Resource;
                 etag = read.ETag;
             }
@@ -149,7 +149,7 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
             {
                 if (held is null)
                 {
-                    await container.CreateItemAsync(document, partition, cancellationToken: cancellationToken);
+                    await container.CreateItemAsync(document, partition, cancellationToken: cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
@@ -158,7 +158,7 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
                         id,
                         partition,
                         new ItemRequestOptions { IfMatchEtag = etag },
-                        cancellationToken);
+                        cancellationToken).ConfigureAwait(false);
                 }
 
                 return true;
@@ -217,7 +217,7 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
         ResponseMessage response;
         try
         {
-            response = await iterator.ReadNextAsync(cancellationToken);
+            response = await iterator.ReadNextAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (CosmosException failure)
         {

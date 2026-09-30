@@ -62,19 +62,31 @@ public class DevPcAdapterTests
         Assert.DoesNotContain(packages, package => package.Contains("AspNetCore", StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>The exhaustive-switch settings the contract project carries, for
-    /// the same switches over <c>DevToolKind</c> and <c>DevToolProvider</c> — the
-    /// adapter has more of them than the contract does.</summary>
+    /// <summary>The exhaustive-switch settings its switches over <c>DevToolKind</c>
+    /// and <c>DevToolProvider</c> rely on — the adapter has more of them than the
+    /// contract does. They are set once in the root <c>Directory.Build.props</c>
+    /// (BuildPolicyTests keeps a project from restating them), so what is checked
+    /// here is that the adapter inherits them: the root sets the pair and no
+    /// nearer props file stands between the adapter and the root.</summary>
     [Fact]
     public void The_tools_adapter_fails_the_build_on_an_unhandled_enum_member()
     {
-        var project = XDocument.Load(AdapterProject().FullName);
+        var root = XDocument.Load(PathOf("Directory.Build.props"));
 
-        var errors = string.Join(';', project.Descendants("WarningsAsErrors").Select(element => element.Value));
-        var silenced = string.Join(';', project.Descendants("NoWarn").Select(element => element.Value));
+        var errors = string.Join(';', root.Descendants("WarningsAsErrors").Select(element => element.Value));
+        var silenced = string.Join(';', root.Descendants("NoWarn").Select(element => element.Value));
 
         Assert.Contains("CS8509", errors, StringComparison.Ordinal);
         Assert.Contains("CS8524", silenced, StringComparison.Ordinal);
+
+        for (var directory = AdapterProject().Directory;
+            directory is not null && !string.Equals(directory.FullName.TrimEnd(Path.DirectorySeparatorChar), Repository.Root.FullName.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase);
+            directory = directory.Parent)
+        {
+            Assert.False(
+                File.Exists(Path.Combine(directory.FullName, "Directory.Build.props")),
+                $"{directory.FullName} has a Directory.Build.props of its own, so the adapter no longer takes the root's exhaustive-switch settings.");
+        }
     }
 
     [Fact]

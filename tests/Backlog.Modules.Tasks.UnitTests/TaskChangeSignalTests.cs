@@ -82,12 +82,12 @@ public sealed class TaskChangeSignalTests
                 await otherFlowDone.Task;
                 signal.Raise();
             }
-        });
+        }, TestContext.Current.CancellationToken);
 
         await suppressedFlowStarted.Task;
 
         // A different flow, started outside the suppression.
-        await Task.Run(() => signal.Raise());
+        await Task.Run(() => signal.Raise(), TestContext.Current.CancellationToken);
         otherFlowDone.SetResult();
         await suppressed;
 

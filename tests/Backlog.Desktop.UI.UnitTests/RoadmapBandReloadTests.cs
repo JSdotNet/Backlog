@@ -23,7 +23,7 @@ public sealed class RoadmapBandReloadTests : RoadmapBandHarness
         // Tasks written behind the band's back, and no plan write to hear: a
         // task-level import with no `plan` entry touches only Tasks.
         var imported = await TasksTestHost.EntriesFor(Settings)
-            .ImportPlanAsync("# Later\n`prompt` `+later` `effort:2`\n");
+            .ImportPlanAsync("# Later\n`prompt` `+later` `effort:2`\n", cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(imported.IsSuccess);
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-shelf\"]"));
 

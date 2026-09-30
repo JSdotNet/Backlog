@@ -79,7 +79,7 @@ public sealed class GhCliAccountSource : IGhCliAccountSource
             if (_accounts is { } cached) return cached;
         }
 
-        var accounts = await ReadAccountsAsync(cancellationToken);
+        var accounts = await ReadAccountsAsync(cancellationToken).ConfigureAwait(false);
 
         lock (_gate)
         {
@@ -110,7 +110,7 @@ public sealed class GhCliAccountSource : IGhCliAccountSource
         string? token;
         try
         {
-            var result = await RunAsync(arguments, cancellationToken);
+            var result = await RunAsync(arguments, cancellationToken).ConfigureAwait(false);
             token = result.ExitCode == 0 ? Blank(result.StandardOutput.Trim()) : null;
         }
         catch (Exception)
@@ -149,7 +149,7 @@ public sealed class GhCliAccountSource : IGhCliAccountSource
     {
         try
         {
-            var result = await RunAsync(["auth", "status", "--json", "hosts"], cancellationToken);
+            var result = await RunAsync(["auth", "status", "--json", "hosts"], cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0) return [];
 
             using var document = JsonDocument.Parse(result.StandardOutput);
@@ -223,9 +223,9 @@ public sealed class GhCliAccountSource : IGhCliAccountSource
             var standardOutput = process.StandardOutput.ReadToEndAsync(cancellationToken);
             var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
 
-            await process.WaitForExitAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
 
-            return new ProcessResult(process.ExitCode, await standardOutput, await standardError);
+            return new ProcessResult(process.ExitCode, await standardOutput.ConfigureAwait(false), await standardError.ConfigureAwait(false));
         }
         catch (OperationCanceledException)
         {

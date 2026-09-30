@@ -59,7 +59,8 @@ public sealed class RoadmapBandShelfTests : RoadmapBandHarness
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
             repositoryAliases: ["backlog"],
-            tag: "release-q4");
+            tag: "release-q4",
+            cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = ContextWith(Shelf, Release);
         var band = Loaded(context);
@@ -112,7 +113,8 @@ public sealed class RoadmapBandShelfTests : RoadmapBandHarness
             "Shelf",
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
-            tag: "shelf");
+            tag: "shelf",
+            cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = ContextWith(Shelf);
         var band = Loaded(context);
@@ -163,7 +165,7 @@ public sealed class RoadmapBandShelfTests : RoadmapBandHarness
         Assert.Single(band.FindAll(".roadmap-shelf__row"));
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-shelf-row-shelf\"]"));
 
-        var item = Assert.Single((await Planning.GetPlanAsync()).Items);
+        var item = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
         Assert.Equal("shelf", item.Tag);
         Assert.Equal("Shelf", item.Title);
         Assert.Equal(new[] { "backlog" }, item.RepositoryAliases);

@@ -303,16 +303,16 @@ public sealed class InstructionsDevbookPanelTests
         // was set and nothing else was, so the only row that looked chosen was
         // whichever one the pointer happened to be over.
         var row = Assert.Single(
-            component.FindAll("[data-testid='instructions-reach-view'] [role='treeitem']")
-                .Where(item => item.TextContent.Trim().EndsWith("Home.razor", StringComparison.Ordinal)));
+            component.FindAll("[data-testid='instructions-reach-view'] [role='treeitem']"),
+            item => item.TextContent.Trim().EndsWith("Home.razor", StringComparison.Ordinal));
 
         Assert.Equal("true", row.GetAttribute("aria-selected"));
         Assert.Contains("devbook-menu__item--active", row.ClassName ?? string.Empty, StringComparison.Ordinal);
 
         // The rule scoped to src/App is now one Copilot loads for this change.
         var scoped = Assert.Single(
-            component.FindAll("[data-testid='instructions-reach-table'] tbody tr")
-                .Where(row => row.TextContent.Contains("ui-components.instructions.md", StringComparison.Ordinal)));
+            component.FindAll("[data-testid='instructions-reach-table'] tbody tr"),
+            row => row.TextContent.Contains("ui-components.instructions.md", StringComparison.Ordinal));
 
         Assert.Contains(
             "badge--reach-matched",
@@ -466,8 +466,8 @@ public sealed class InstructionsDevbookPanelTests
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
 
         var naming = Assert.Single(
-            component.FindAll("[data-testid='instructions-reach-table'] tbody tr")
-                .Where(row => row.TextContent.Contains("naming.instructions.md", StringComparison.Ordinal)));
+            component.FindAll("[data-testid='instructions-reach-table'] tbody tr"),
+            row => row.TextContent.Contains("naming.instructions.md", StringComparison.Ordinal));
 
         Assert.Contains("Not read", naming.QuerySelector("[data-testid='instructions-reach-claude']")!.TextContent, StringComparison.Ordinal);
         Assert.Contains("Always", naming.QuerySelector("[data-testid='instructions-reach-copilot']")!.TextContent, StringComparison.Ordinal);
@@ -475,8 +475,8 @@ public sealed class InstructionsDevbookPanelTests
 
         // The one Claude does read is not flagged, or the mark would mean nothing.
         var claudeFile = Assert.Single(
-            component.FindAll("[data-testid='instructions-reach-table'] tbody tr")
-                .Where(row => row.TextContent.Contains("CLAUDE.md", StringComparison.Ordinal)));
+            component.FindAll("[data-testid='instructions-reach-table'] tbody tr"),
+            row => row.TextContent.Contains("CLAUDE.md", StringComparison.Ordinal));
 
         Assert.Contains("Always", claudeFile.QuerySelector("[data-testid='instructions-reach-claude']")!.TextContent, StringComparison.Ordinal);
     }

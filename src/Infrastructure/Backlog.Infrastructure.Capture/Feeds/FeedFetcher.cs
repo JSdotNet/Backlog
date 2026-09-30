@@ -141,7 +141,8 @@ internal sealed class FeedFetcher(IHttpClientFactory clients)
         using var bodyTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         bodyTimeout.CancelAfter(timeout);
 
-        await using var stream = await response.Content.ReadAsStreamAsync(bodyTimeout.Token).ConfigureAwait(false);
+        var stream = await response.Content.ReadAsStreamAsync(bodyTimeout.Token).ConfigureAwait(false);
+        await using var _ = stream.ConfigureAwait(false);
         using var buffer = new MemoryStream();
 
         var chunk = new byte[16 * 1024];
