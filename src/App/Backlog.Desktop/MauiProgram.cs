@@ -41,6 +41,7 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
+using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Extensions;
@@ -259,10 +260,16 @@ public static class MauiProgram
         builder.Services.AddSingleton<IGitHubCredentialResolver>(sp => new GitHubCredentialResolver(
             sp.GetRequiredService<GitHubSettingsStore>(),
             sp.GetRequiredService<IGhCliAccountSource>()));
+        // The token route asks the factory for its client on every send, and the
+        // client carries GitHub's own pipeline: reads retried, writes sent once,
+        // budgets sized for a database-sized backup PUT. The web harness and the
+        // desktop app call the same registration so the two cannot drift.
+        builder.Services.AddGitHubHttpClient();
         builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
             sp.GetRequiredService<GitHubSettingsStore>(),
             credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
-            accounts: sp.GetRequiredService<IGhCliAccountSource>()));
+            accounts: sp.GetRequiredService<IGhCliAccountSource>(),
+            httpClients: sp.GetRequiredService<IHttpClientFactory>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
         builder.Services.AddSingleton<IGitHubAccountProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
         // The catalog is the shell's product copy; the store is the adapter that
@@ -423,7 +430,10 @@ public static class MauiProgram
         // all the adapters hold. Every part reports itself unavailable with a reason until
         // the credential it needs exists, so this is safe to register unconditionally.
         builder.Services.AddDashboardModule();
-        builder.Services.AddDashboardAdapters();
+        builder.Services.AddGitHubDashboardAdapters();
+        builder.Services.AddClaudeDashboardAdapters();
+        builder.Services.AddAzureFoundryDashboardAdapters();
+        builder.Services.AddDashboardUi();
 
         // Tasks' own adapter, registered here rather than beside
         // AddTasksModule() above because it reads the GitHub settings store and

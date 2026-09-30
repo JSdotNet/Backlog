@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The tools adapter's own suite, and the catalog language it reads: the
+    command lines and their parsers live in the adapter, and the catalog merge
+    they are checked against lives in the contract it answers, so both are
+    referenced and both namespaces are imported once here.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.DevPc\Backlog.Infrastructure.DevPc.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Backlog.Infrastructure.DevPc" />
+    <Using Include="Backlog.Modules.DevPc.Abstractions" />
+  </ItemGroup>
+
+</Project>

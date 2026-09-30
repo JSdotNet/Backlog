@@ -307,6 +307,41 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         Assert.EndsWith("Content:\nThe login page 500s on submit.", user, StringComparison.Ordinal);
     }
 
+    /// <summary>A batch is the same route under the batch prompt: the plan
+    /// prompt with the batch rules after it, the marker still first, and each
+    /// item under its own <c>## Item &lt;id&gt;</c> heading with its own
+    /// repositories — the ids the model copies into <c>id:</c> and
+    /// <c>after:</c>.</summary>
+    [Fact]
+    public async Task A_batch_request_posts_the_batch_prompt_and_each_item_under_its_id()
+    {
+        var handler = new RecordingHandler(_ => Completion("# A\n`prompt` `!draft` `+inbox-batch-1a2b3c4d` `id:x`"));
+        var client = BuildConfiguredClient(handler);
+        var first = Guid.NewGuid().ToString("D");
+        var second = Guid.NewGuid().ToString("D");
+
+        await client.DraftPlanAsync(
+            new AzureFoundryPlanRequest("inbox-batch-1a2b3c4d", "", null, "batch", [], ["acme/web"], "inbox-batch-1a2b3c4d",
+            [
+                new AzureFoundryPlanBatchItem(first, "Set up the pipeline", "Build and test.", null, "text", ["acme/web"]),
+                new AzureFoundryPlanBatchItem(second, "Deploy the preview", "Once the pipeline\n\nexists.", "https://example.com/x", "article", []),
+            ]),
+            TestContext.Current.CancellationToken);
+
+        using var document = JsonDocument.Parse(handler.Body!);
+        var messages = document.RootElement.GetProperty("messages");
+        var system = messages[0].GetProperty("content").GetString()!;
+        Assert.Equal(AzureFoundryPlanPrompt.BatchText, system);
+        Assert.StartsWith(AzureFoundryPlanPrompt.Text, system, StringComparison.Ordinal);
+        Assert.Contains("the `+` sigil, never `#`", system, StringComparison.Ordinal);
+
+        var user = messages[1].GetProperty("content").GetString()!;
+        Assert.Contains("Plan tag: inbox-batch-1a2b3c4d", user, StringComparison.Ordinal);
+        Assert.Contains($"## Item {first}\nTitle: Set up the pipeline\nKind: text\nRepositories: acme/web\nContent:\nBuild and test.", user, StringComparison.Ordinal);
+        Assert.Contains($"## Item {second}\nTitle: Deploy the preview\nKind: article\nSource: https://example.com/x\nRepositories: (none)\nContent:\nOnce the pipeline\n\nexists.", user, StringComparison.Ordinal);
+        Assert.DoesNotContain("Content:\n\n", user, StringComparison.Ordinal);
+    }
+
     /// <summary>An item with nothing to say still gets a well-formed message:
     /// the empty lists are written as "(none)" rather than as a label with
     /// nothing after it, and the source line is left out rather than left
@@ -587,6 +622,36 @@ public sealed class AzureFoundryInboxPlanDrafterTests : IDisposable
         Assert.Equal(["auth"], request.Tags);
         Assert.Equal(["acme/web"], request.Repositories);
         Assert.Equal("fix-login", request.PlanTag);
+    }
+
+    [Fact]
+    public async Task A_batch_is_handed_to_the_client_item_for_item_under_its_id()
+    {
+        var chat = new StubChatClient { Plan = "# A\n`prompt`" };
+        var drafter = new AzureFoundryInboxPlanDrafter(chat, ConfiguredSettings());
+        var first = Guid.NewGuid();
+
+        await drafter.DraftAsync(
+            new InboxPlanDraftRequestDto(Guid.Empty, "inbox-batch-1a2b3c4d", "", null, "batch", [], ["acme/web"], "inbox-batch-1a2b3c4d",
+                [new InboxPlanDraftBatchItemDto(first, "Set up the pipeline", "Build it.", "https://example.com", "article", ["acme/web"])]),
+            TestContext.Current.CancellationToken);
+
+        var item = Assert.Single(Assert.Single(chat.Requests).Batch!);
+        Assert.Equal(new AzureFoundryPlanBatchItem(first.ToString("D"), "Set up the pipeline", "Build it.", "https://example.com", "article", item.Repositories), item);
+        Assert.Equal(["acme/web"], item.Repositories);
+    }
+
+    [Fact]
+    public async Task A_single_item_request_carries_no_batch()
+    {
+        var chat = new StubChatClient { Plan = "# A\n`prompt`" };
+        var drafter = new AzureFoundryInboxPlanDrafter(chat, ConfiguredSettings());
+
+        await drafter.DraftAsync(
+            new InboxPlanDraftRequestDto(Guid.NewGuid(), "Fix the login page", "", null, "text", [], [], "fix-login"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Null(Assert.Single(chat.Requests).Batch);
     }
 
     [Fact]

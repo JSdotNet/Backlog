@@ -115,6 +115,43 @@ internal sealed class GhStub : IDisposable
         return this;
     }
 
+    /// <summary>Makes every call hang until it is killed: the stub starts a child
+    /// that holds <c>hang.lock</c> open, so the lock is released only when that
+    /// child is gone too.</summary>
+    public GhStub Hangs()
+    {
+        Set("hang.txt", "hang");
+        return this;
+    }
+
+    private string HangLock => Path.Combine(_directory, "hang.lock");
+
+    /// <summary>Waits for a hanging call to be under way — its child holding the
+    /// lock — so a test cancels a call that is really running.</summary>
+    public void WaitUntilHanging() =>
+        Assert.True(
+            SpinWait.SpinUntil(() => File.Exists(HangLock), TimeSpan.FromSeconds(30)),
+            "The stub never started hanging.");
+
+    /// <summary>Whether everything a hanging call started has exited within
+    /// <paramref name="timeout"/>: the lock can be taken only once no process
+    /// holds it.</summary>
+    public bool HasLetGo(TimeSpan timeout) =>
+        SpinWait.SpinUntil(
+            () =>
+            {
+                try
+                {
+                    using var _ = new FileStream(HangLock, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                    return true;
+                }
+                catch (IOException)
+                {
+                    return false;
+                }
+            },
+            timeout);
+
     public void Dispose()
     {
         try

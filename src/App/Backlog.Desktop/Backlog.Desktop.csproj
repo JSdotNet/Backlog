@@ -120,11 +120,14 @@
     <!-- The Dashboard module implementation, for AddDashboardModule(). The host is
          the only thing that sees it: the parts ask through the abstractions project. -->
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />
-    <!-- Dev PC Management's published surface. DevToolService implements its
-         IDevToolService port against the Copilot and dotnet CLIs, which is a
-         host's job; the port and the catalog format it reads come from here, not
-         from the UI project that happens to render the answer. -->
+    <!-- Dev PC Management's published surface: the port and the catalog format,
+         from here rather than from the UI project that happens to render the
+         answer. -->
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
+    <!-- And its adapter, DevToolService, which answers that port against the
+         Copilot, Claude, dotnet and winget CLIs. The head composes it with its
+         MCP endpoint source. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.DevPc\Backlog.Infrastructure.DevPc.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <!-- The feed readers behind the Inbox's Capture button, and the delivery
          that hands what they found to the Inbox. -->

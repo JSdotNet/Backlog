@@ -2,6 +2,7 @@ using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.DomainModels;
+using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -31,7 +32,8 @@ public sealed class CreatePlanCommandHandler(
     IInboxItemRepository items,
     IInboxBacklogTarget target,
     TimeProvider clock,
-    IInboxPlanDrafter? drafter = null)
+    IInboxPlanDrafter? drafter = null,
+    IInboxAttachmentFiles? attachmentFiles = null)
     : ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>>
 {
     public async Task<Result<InboxRoutedDto>> Handle(
@@ -68,9 +70,17 @@ public sealed class CreatePlanCommandHandler(
 
         // The item's repositories go along as the only ones the plan may name:
         // the drafter was told the same list, and a model that writes another
-        // is refused by the adapter rather than allowed to register it.
+        // is refused by the adapter rather than allowed to register it. The
+        // item's attachment folder goes along too, as Route to backlog hands it
+        // on — to the import, not the drafter: it is a place on this machine,
+        // and the text the model writes has no use for it.
         var imported = await target
-            .ImportPlanAsync(draft.Value.PlanMarkdown, item.Id, [.. item.RepoIds], cancellationToken)
+            .ImportPlanAsync(
+                draft.Value.PlanMarkdown,
+                item.Id,
+                [.. item.RepoIds],
+                RouteToBacklogCommandHandler.AttachmentFolder(item, attachmentFiles),
+                cancellationToken)
             .ConfigureAwait(false);
         if (imported.IsFailure) return imported.Error;
 

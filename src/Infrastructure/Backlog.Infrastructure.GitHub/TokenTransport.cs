@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Polly.Timeout;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -24,29 +25,46 @@ namespace Backlog.Infrastructure.GitHub;
 /// </summary>
 public sealed class TokenTransport : IGitHubTransport
 {
-    private readonly HttpClient _http;
+    /// <summary>The name <see cref="GitHubHttpRegistration.AddGitHubHttpClient"/>
+    /// registers this transport's client under, so the client comes from
+    /// <c>IHttpClientFactory</c> with the pipeline sized for GitHub's calls.</summary>
+    public const string HttpClientName = "GitHub";
+
+    /// <summary>The client a transport built with neither a client nor a factory
+    /// sends over: one per process, shared, and never given default headers, so
+    /// nothing here mutates a client another caller holds.</summary>
+    private static readonly Lazy<HttpClient> Fallback = new(() => new HttpClient());
+
+    private readonly Func<HttpClient> _http;
     private readonly IGitHubCredentialResolver _credentials;
     private readonly Func<string?> _apiEndpoint;
 
+    /// <param name="http">A fixed client, for a caller that owns one. A host
+    /// passes <paramref name="httpClients"/> instead.</param>
+    /// <param name="httpClients">Where a client is asked for on every send, by
+    /// <see cref="HttpClientName"/>, so the factory's handler rotation reaches
+    /// this transport however long it lives. Wins over <paramref name="http"/>.</param>
     public TokenTransport(
         IGitHubCredentialResolver credentials,
         Func<string?>? apiEndpoint = null,
-        HttpClient? http = null)
+        HttpClient? http = null,
+        IHttpClientFactory? httpClients = null)
     {
         ArgumentNullException.ThrowIfNull(credentials);
 
         _credentials = credentials;
         _apiEndpoint = apiEndpoint ?? (() => GitHubSettings.DefaultApiEndpoint);
-        _http = http ?? new HttpClient();
+        _http = httpClients is not null
+            ? () => httpClients.CreateClient(HttpClientName)
+            : http is not null
+                ? () => http
+                : () => Fallback.Value;
 
-        _http.DefaultRequestHeaders.UserAgent.TryParseAdd("Backlog");
-        _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-
-        // The API version is deliberately *not* a default header any more. It used
-        // to be, which worked while every endpoint this app called lived on one
-        // version; the billing usage reports do not, so the version travels per
-        // request. A default here would win or lose against the per-request one
-        // depending on header-collection semantics rather than on intent.
+        // The User-Agent, the Accept header and the API version all travel on the
+        // request, not as a client default. The version is per request because the
+        // billing usage reports live on another one; the other two because the
+        // client is handed in, and a transport has no business changing the
+        // defaults of a client it does not own.
     }
 
     public string Description => "personal access token";
@@ -108,6 +126,8 @@ public sealed class TokenTransport : IGitHubTransport
         ArgumentNullException.ThrowIfNull(credential);
 
         using var request = new HttpRequestMessage(method, EndpointUri(path, credential.ApiEndpoint));
+        request.Headers.UserAgent.ParseAdd("Backlog");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credential.Token.Trim());
         request.Headers.TryAddWithoutValidation(
             "X-GitHub-Api-Version",
@@ -132,11 +152,18 @@ public sealed class TokenTransport : IGitHubTransport
         HttpResponseMessage response;
         try
         {
-            response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            response = await _http().SendAsync(request, cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {
             throw new GitHubException($"Couldn't reach GitHub: {ex.Message}", ex);
+        }
+        catch (TimeoutRejectedException ex)
+        {
+            // The factory client's pipeline gave up: an attempt or the whole call
+            // ran past its budget. That is GitHub not answering, which callers
+            // already handle as a GitHubException, not a Polly type they never see.
+            throw new GitHubException("GitHub didn't answer in time.", ex);
         }
 
         using (response)

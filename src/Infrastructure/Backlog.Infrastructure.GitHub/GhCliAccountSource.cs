@@ -218,12 +218,22 @@ public sealed class GhCliAccountSource : IGhCliAccountSource
         using var process = Process.Start(startInfo)
             ?? throw new GitHubException("The GitHub CLI could not be started.");
 
-        var standardOutput = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
+        try
+        {
+            var standardOutput = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
 
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
 
-        return new ProcessResult(process.ExitCode, await standardOutput.ConfigureAwait(false), await standardError.ConfigureAwait(false));
+            return new ProcessResult(process.ExitCode, await standardOutput.ConfigureAwait(false), await standardError.ConfigureAwait(false));
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancelling the wait does not stop what is being waited for; left
+            // alone, gh would run on with nobody reading its answer.
+            process.Kill(entireProcessTree: true);
+            throw;
+        }
     }
 
     private sealed record ProcessResult(int ExitCode, string StandardOutput, string StandardError);

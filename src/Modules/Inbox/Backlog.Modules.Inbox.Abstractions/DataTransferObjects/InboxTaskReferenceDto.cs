@@ -1,9 +1,10 @@
 namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 
 /// <summary>
-/// An open backlog task as the Inbox may see it: only what an item's text could
-/// name it by. The answer to <see cref="Services.IInboxTaskReferences"/>, in the
-/// Inbox's own words — no status, no body, no entry grammar.
+/// A backlog task as the Inbox may see it: only what an item's text could name
+/// it by, and where it came from. The answer to
+/// <see cref="Services.IInboxTaskReferences"/>, in the Inbox's own words — no
+/// body, no entry grammar, and of its status only whether it is still open.
 /// </summary>
 /// <param name="Id">The task's id.</param>
 /// <param name="ImportItemId">The <c>id:</c> it was imported under, when a plan
@@ -13,13 +14,26 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// <param name="Issues">The GitHub issues it was filed as.</param>
 /// <param name="Links">The links it is known by: its issue and pull request
 /// URLs, and the source link it was captured from.</param>
+/// <param name="SourceInboxId">The Inbox item it was routed from, when it was
+/// routed from one — what "Routed from this item" is read from. Last, with the
+/// two after it, so every caller that names only what a dependency needs keeps
+/// compiling.</param>
+/// <param name="SourceUrl">The source link it was captured from — its
+/// <c>Source:</c> line — or null. Also among <paramref name="Links"/>; here on
+/// its own because "the same link" compares an item's source with a task's
+/// source, not with every link the task is known by.</param>
+/// <param name="IsOpen">Neither done nor archived. Always true in
+/// <see cref="Services.IInboxTaskReferences.OpenTasksAsync"/>'s answer.</param>
 public sealed record InboxTaskReferenceDto(
     Guid Id,
     string? ImportItemId,
     string Title,
     IReadOnlyList<string> RepoIds,
     IReadOnlyList<InboxIssueReferenceDto> Issues,
-    IReadOnlyList<string> Links);
+    IReadOnlyList<string> Links,
+    Guid? SourceInboxId = null,
+    string? SourceUrl = null,
+    bool IsOpen = true);
 
 /// <summary>A GitHub issue a task was filed as: its repository
 /// (<c>owner/name</c>) and number.</summary>

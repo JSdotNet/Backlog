@@ -67,7 +67,8 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
         GhCliTransport? cli = null,
         TokenTransport? token = null,
         IGitHubCredentialResolver? credentials = null,
-        IGhCliAccountSource? accounts = null)
+        IGhCliAccountSource? accounts = null,
+        IHttpClientFactory? httpClients = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
@@ -78,7 +79,7 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
         // transport actually sends have to be the same answer, or a bound path
         // could be routed on one opinion and authenticated on another.
         _credentials = credentials ?? token?.Credentials ?? new GitHubCredentialResolver(settings, _accounts);
-        _token = token ?? new TokenTransport(_credentials, () => settings.Current.ApiEndpoint);
+        _token = token ?? new TokenTransport(_credentials, () => settings.Current.ApiEndpoint, httpClients: httpClients);
     }
 
     public string Description => "GitHub CLI, or a personal access token";

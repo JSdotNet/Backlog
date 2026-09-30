@@ -30,7 +30,10 @@
 
     @if (_view is null)
     {
-        <Alert Message="@($"Reading the {Scope.Label} atlas...")" Role="status" />
+        @* A graph has no layout to preview before it is read, so the spinner —
+           never a sentence (.devbook/design/interaction-guidelines.md, Loading
+           States). *@
+        <Spinner Label="@($"Reading the {Scope.Label} atlas")" TestId="devbook-atlas-loading" />
     }
     else if (!_view.Available)
     {

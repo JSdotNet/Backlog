@@ -96,6 +96,9 @@ public sealed class SyncAuthenticationHandlerTests
         Assert.Equal(2, host.Token.Requests.Count);
         Assert.Equal("token-0", host.Data.Requests[0].AuthorizationParameter);
         Assert.Equal("token-1", host.Data.Requests[1].AuthorizationParameter);
+
+        // Counted, so the work the refused request was part of can be run again.
+        Assert.Equal(1, host.Tokens.TokensRefused);
     }
 
     /// <summary>
@@ -114,6 +117,7 @@ public sealed class SyncAuthenticationHandlerTests
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Empty(host.Token.Requests);
+        Assert.Equal(0, host.Tokens.TokensRefused);
     }
 
     /// <summary>The pipeline a host composes: a data client with the handler
@@ -135,6 +139,8 @@ public sealed class SyncAuthenticationHandlerTests
         public StubHttpMessageHandler Data { get; }
 
         public HttpClient Client { get; }
+
+        public SyncTokenProvider Tokens => _services.GetRequiredService<SyncTokenProvider>();
 
         public static Host Create(
             IDeviceCredentialStore credentials,

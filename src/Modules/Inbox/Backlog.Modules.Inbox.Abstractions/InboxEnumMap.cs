@@ -1,3 +1,5 @@
+using Backlog.SharedKernel;
+
 namespace Backlog.Modules.Inbox.Abstractions;
 
 /// <summary>
@@ -14,7 +16,8 @@ namespace Backlog.Modules.Inbox.Abstractions;
 /// beside it, because a kind is a reading of the capture rather than a
 /// decision about it — a phone that learned a new kind before this desktop did
 /// should produce an item shown as its plain word, not an item that breaks the
-/// queue.
+/// queue. The mechanism is the shared <see cref="WireTokenMap{TEnum}"/>; the
+/// difference is the fallback <see cref="ParseKind"/> hands it.
 /// </para>
 /// </summary>
 public static class InboxEnumMap
@@ -23,78 +26,57 @@ public static class InboxEnumMap
     /// value that says an item has no replica behind it.</summary>
     public const string ManualChannel = "manual";
 
-    public static string ToWire(InboxStatus value) => value switch
+    private static readonly WireTokenMap<InboxStatus> Statuses = new("inbox status", new Dictionary<InboxStatus, string>
     {
-        InboxStatus.Unprocessed => "unprocessed",
-        InboxStatus.Triaged => "triaged",
-        InboxStatus.Deferred => "deferred",
-        InboxStatus.Archived => "archived",
-        _ => throw new ArgumentOutOfRangeException(nameof(value))
-    };
+        [InboxStatus.Unprocessed] = "unprocessed",
+        [InboxStatus.Triaged] = "triaged",
+        [InboxStatus.Deferred] = "deferred",
+        [InboxStatus.Archived] = "archived"
+    });
+
+    private static readonly WireTokenMap<ContentKind> Kinds = new("content kind", new Dictionary<ContentKind, string>
+    {
+        [ContentKind.Text] = "text",
+        [ContentKind.Article] = "article",
+        [ContentKind.Link] = "link",
+        [ContentKind.YouTube] = "youtube",
+        [ContentKind.Image] = "image",
+        [ContentKind.Document] = "document",
+        [ContentKind.Email] = "email",
+        [ContentKind.Code] = "code",
+        [ContentKind.Voice] = "voice",
+        [ContentKind.ClaudeArtifact] = "claude-artifact"
+    });
+
+    private static readonly WireTokenMap<RoutingDomain> RoutingDomains = new(
+        "routing domain",
+        new Dictionary<RoutingDomain, string>
+        {
+            [RoutingDomain.Tasks] = "tasks",
+            [RoutingDomain.Devbook] = "devbook",
+            [RoutingDomain.Archive] = "archive"
+        },
+        // The wire token the member carried before the context was renamed; nothing
+        // routed there, but a row that did would still be readable rather than thrown on.
+        aliases: new Dictionary<string, RoutingDomain> { ["secondbrain"] = RoutingDomain.Devbook });
+
+    public static string ToWire(InboxStatus value) => Statuses.ToWire(value);
 
     /// <summary>The slug a kind is stored and drawn as — identical to the
     /// shared component library's <c>CaptureKinds.All</c>, restated here because
     /// the module may not reference the library.</summary>
-    public static string ToWire(ContentKind value) => value switch
-    {
-        ContentKind.Text => "text",
-        ContentKind.Article => "article",
-        ContentKind.Link => "link",
-        ContentKind.YouTube => "youtube",
-        ContentKind.Image => "image",
-        ContentKind.Document => "document",
-        ContentKind.Email => "email",
-        ContentKind.Code => "code",
-        ContentKind.Voice => "voice",
-        ContentKind.ClaudeArtifact => "claude-artifact",
-        _ => throw new ArgumentOutOfRangeException(nameof(value))
-    };
+    public static string ToWire(ContentKind value) => Kinds.ToWire(value);
 
-    public static string ToWire(RoutingDomain value) => value switch
-    {
-        RoutingDomain.Tasks => "tasks",
-        RoutingDomain.Devbook => "devbook",
-        RoutingDomain.Archive => "archive",
-        _ => throw new ArgumentOutOfRangeException(nameof(value))
-    };
+    public static string ToWire(RoutingDomain value) => RoutingDomains.ToWire(value);
 
-    public static InboxStatus ParseStatus(string value) => Normalize(value) switch
-    {
-        "unprocessed" => InboxStatus.Unprocessed,
-        "triaged" => InboxStatus.Triaged,
-        "deferred" => InboxStatus.Deferred,
-        "archived" => InboxStatus.Archived,
-        _ => throw new FormatException($"Unknown inbox status '{value}'.")
-    };
+    public static InboxStatus ParseStatus(string value) => Statuses.Parse(value);
 
     /// <summary>The kind a slug names, or <see cref="ContentKind.Text"/> when
     /// this build has no member for it. The caller keeps the raw slug beside the
     /// answer — see the class remarks for why an unknown kind is not an error.</summary>
-    public static ContentKind ParseKind(string? value) => Normalize(value) switch
-    {
-        "text" => ContentKind.Text,
-        "article" => ContentKind.Article,
-        "link" => ContentKind.Link,
-        "youtube" => ContentKind.YouTube,
-        "image" => ContentKind.Image,
-        "document" => ContentKind.Document,
-        "email" => ContentKind.Email,
-        "code" => ContentKind.Code,
-        "voice" => ContentKind.Voice,
-        "claudeartifact" => ContentKind.ClaudeArtifact,
-        _ => ContentKind.Text
-    };
+    public static ContentKind ParseKind(string? value) => Kinds.Parse(value, fallback: ContentKind.Text);
 
-    public static RoutingDomain ParseRoutingDomain(string value) => Normalize(value) switch
-    {
-        "tasks" => RoutingDomain.Tasks,
-        "devbook" => RoutingDomain.Devbook,
-        // The wire token the member carried before the context was renamed; nothing
-        // routed there, but a row that did would still be readable rather than thrown on.
-        "secondbrain" => RoutingDomain.Devbook,
-        "archive" => RoutingDomain.Archive,
-        _ => throw new FormatException($"Unknown routing domain '{value}'.")
-    };
+    public static RoutingDomain ParseRoutingDomain(string value) => RoutingDomains.Parse(value);
 
     /// <summary>
     /// The channel token an item is filed under, from whatever a client wrote as
@@ -116,7 +98,4 @@ public static class InboxEnumMap
             _ => trimmed
         };
     }
-
-    private static string Normalize(string? value) =>
-        (value ?? string.Empty).Trim().ToLowerInvariant().Replace("_", string.Empty).Replace("-", string.Empty);
 }

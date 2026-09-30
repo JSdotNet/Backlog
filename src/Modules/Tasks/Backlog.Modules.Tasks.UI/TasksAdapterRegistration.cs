@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.Tasks;
 /// <remarks>
 /// <para>
 /// Separate from <c>AddTasksModule()</c> on purpose, the same split the
-/// Dashboard makes with <c>AddDashboardAdapters()</c>. That call brings the use
+/// Dashboard makes with <c>AddGitHubDashboardAdapters()</c>. That call brings the use
 /// cases; this one decides which providers are behind their ports, which is the
 /// host's choice — and a test replaces this call rather than having to unpick it.
 /// </para>
