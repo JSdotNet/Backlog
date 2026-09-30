@@ -14,7 +14,7 @@ DevTools endpoint.
 
 1. Decide where the symptom lives.
    - A symptom seen in a harness, or in shared code, is reproduced against this worktree's
-     AppHost. Invoke the `start` skill and reuse the instance it reports.
+     AppHost. Invoke the `run` skill and reuse the instance it reports.
    - A symptom seen only in the installed desktop app is read from that app over CDP (see
      below) before theorising from the web harness.
 2. Reproduce it once, the narrowest way that shows it: one request, one click, or one
@@ -36,7 +36,7 @@ Use the Aspire MCP tools, whose prefix you resolve from the live tool list.
 | What did it print? | `list_console_logs` with `resourceName`, or `aspire logs <resource> --apphost src/Aspire/Backlog.Aspire.AppHost/Backlog.Aspire.AppHost.csproj` |
 | Which log line is the error? | `list_structured_logs` with `resourceName` and a `search` term, for example the exception type, a route, or an entry id |
 | Where did the request go? | `list_traces` with `resourceName`, then `list_trace_structured_logs` with the `traceId` of the failing span |
-| What does a person see? | The Aspire dashboard `start` reports: the same data, when you need to show it rather than quote it |
+| What does a person see? | The Aspire dashboard `run` reports: the same data, when you need to show it rather than quote it |
 | What did the browser see? | The browser tool's console and network requests, against `desktop-web-harness` or `mobile-web-harness` |
 | What is on disk? | `%LOCALAPPDATA%\Backlog.Debug`: `backlog.db`, `devbook-cache`, `activity-cache` |
 

@@ -51,11 +51,11 @@ call a run complete without the person's explicit approval.
   `qa:qa` for QA, `domain-design:domain-architect` for domain, `ux-design:ux-designer` for
   UX, `documentation:documentation` for docs, and `csharp-coding:coding` for
   implementation. Product and security are deliberately unbound.
-- **Procedures** — `.agents/skills/start.md` starts the Aspire AppHost and says what healthy
-  looks like and which harness answers which question; `show.md` walks a branch's change in
-  the harness that serves it; `capture.md` places evidence; `debug.md` finds a cause from
-  logs and traces; `estimate.md` sizes work. A flow calls `start` at `app.start` rather than
-  guessing a command.
+- **Procedures** — `.claude/skills/run-backlog/SKILL.md` (the `run` skill) starts the
+  Aspire AppHost and says what healthy looks like and which harness answers which question;
+  under `.agents/skills/`, `show.md` walks a branch's change in the harness that serves it;
+  `capture.md` places evidence; `debug.md` finds a cause from logs and traces; `estimate.md`
+  sizes work. A flow calls `run` at `app.start` rather than guessing a command.
 - **QA depth** — the engine picks it from the change kind: full Playwright QA with capture
   for new behaviour, targeted checks for a fix, startup-only for a dependency move, and
   skipped when nothing runs. `policy` in the config caps it at `full`.
