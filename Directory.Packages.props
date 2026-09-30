@@ -39,13 +39,13 @@
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <!--
       Foundry Local and the MAUI project resource ship one preview build per
-      Aspire release, so their versions are the 13.5.3 build rather than a
+      Aspire release, so their versions are that release's preview build rather than a
       version of their own. They move with Aspire.Hosting.AppHost above; a
       hosting package from another release binds against a different
       Aspire.Hosting than the AppHost resolves.
     -->
-    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.5.3-preview.1.26425.3" />
-    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.5.3-preview.1.26425.3" />
+    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.6.0-preview.1.26479.8" />
+    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.6.0-preview.1.26479.8" />
 
     <!--
       The client-side half of the Cosmos wiring: it reads the connection string
@@ -64,7 +64,7 @@
     <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.0" />
 
     <!--
-      Pinned to the version Aspire.Azure.Storage.Blobs 13.5.3 resolves
+      Pinned to the version Aspire.Azure.Storage.Blobs above resolves
       transitively, for the reason Microsoft.Azure.Cosmos below is: the blob
       adapter stages and commits blocks through the SDK's own types, and naming a
       different version would put the adapter and the Aspire wiring on two builds
@@ -80,7 +80,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
 
     <!--
-      Pinned to the version Aspire.Microsoft.Azure.Cosmos 13.5.3 already resolves
+      Pinned to the version Aspire.Microsoft.Azure.Cosmos above already resolves
       transitively. The replica adapter is written against the SDK's own types —
       CosmosClient, Container, FeedRange, ChangeFeedStartFrom — so the package is
       a direct reference rather than something only Aspire touches, and naming a
