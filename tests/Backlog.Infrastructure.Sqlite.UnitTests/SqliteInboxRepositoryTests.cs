@@ -348,6 +348,25 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task An_item_archived_as_a_duplicate_comes_back_naming_the_item_it_duplicates()
+    {
+        var original = Manual("Read the post");
+        var duplicate = Manual("Read the post again");
+        duplicate.Archive(Noon.AddHours(1), original.Id);
+        await _repository.SaveAsync(original, TestContext.Current.CancellationToken);
+        await _repository.SaveAsync(duplicate, TestContext.Current.CancellationToken);
+
+        var loaded = await _repository.GetAsync(duplicate.Id, TestContext.Current.CancellationToken);
+        var kept = await _repository.GetAsync(original.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(InboxStatus.Archived, loaded.Status);
+        Assert.Equal(original.Id, loaded.DuplicateOf);
+        Assert.Equal(duplicate.UpdatedAt, loaded.UpdatedAt);
+        Assert.Null(kept!.DuplicateOf);
+    }
+
+    [Fact]
     public async Task An_inbox_table_written_before_suggestions_gains_the_column_and_its_rows_load_with_none_turned_down()
     {
         // A database from before the column: the inbox_items table as it shipped,
@@ -378,6 +397,7 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
 
         Assert.Equal("Written before", only.Title);
         Assert.Empty(only.DismissedSuggestions);
+        Assert.Null(only.DuplicateOf);
 
         only.DismissSuggestion("tag:sync");
         await _repository.SaveAsync(only, TestContext.Current.CancellationToken);

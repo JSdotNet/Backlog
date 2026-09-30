@@ -43,6 +43,48 @@ public sealed class InboxRouteDraftTests
     }
 
     [Fact]
+    public void The_drafters_dependencies_are_added_on_after_the_stated_ones_and_never_twice()
+    {
+        var stated = After(B, A, "Alpha");
+        var draft = Draft(dependencies: [stated]);
+        var same = new ProposedDependency(B, DependencyTarget.ForItem(A, "Alpha"), "AI", DependencyTier.Inferred);
+        var inferred = new ProposedDependency(A, DependencyTarget.ForItem(B, "Beta"), "AI", DependencyTier.Inferred);
+        var stranger = new ProposedDependency(Guid.NewGuid(), DependencyTarget.ForItem(A, "Alpha"), "AI", DependencyTier.Inferred);
+
+        var added = draft.AddInferred([same, inferred, stranger]);
+
+        Assert.Equal(1, added);
+        Assert.Equal([stated, inferred], draft.Dependencies);
+        Assert.True(draft.IsEnabled(1));
+        Assert.Equal("The AI added 1 dependency. Turn it off if it is wrong.", draft.InferenceNote);
+        Assert.False(draft.InferenceFailed);
+
+        // The two now wait on each other: the loop holds Confirm as any other does.
+        Assert.False(draft.CanConfirm);
+        draft.SetEnabled(0, false);
+        Assert.Equal([B, A], draft.OrderedItems.Select(item => item.Id));
+        Assert.Equal([inferred], draft.Choices().Dependencies);
+    }
+
+    [Fact]
+    public void An_ask_that_adds_nothing_or_is_refused_says_so_and_confirm_waits_while_it_is_out()
+    {
+        var draft = Draft();
+
+        draft.Inferring = true;
+        Assert.False(draft.CanConfirm);
+        draft.Inferring = false;
+
+        Assert.Equal(0, draft.AddInferred([]));
+        Assert.Equal("The AI found no order beyond what the items already say.", draft.InferenceNote);
+
+        draft.InferenceRefused("The AI's order names a repository outside this batch, so none of it was used: x/y.");
+        Assert.True(draft.InferenceFailed);
+        Assert.Empty(draft.Dependencies);
+        Assert.True(draft.CanConfirm);
+    }
+
+    [Fact]
     public void The_count_is_one_task_per_repository_or_one_for_none()
     {
         var draft = Draft(["a/one", "a/two"], []);
@@ -71,5 +113,94 @@ public sealed class InboxRouteDraftTests
         Assert.Equal([kept], choices.Dependencies);
         Assert.Equal(["a/one"], choices.Repositories![A]);
         Assert.Empty(choices.Repositories[B]);
+        Assert.Null(choices.Merges);
+    }
+
+    // --- Hints ---------------------------------------------------------------------
+
+    private static readonly Guid C = Guid.NewGuid();
+
+    private static InboxRouteDraft Hinted(params OrderingHint[] hints) =>
+        new(
+            new InboxBatchProposalDto(
+                "+inbox-batch-1a2b3c4d",
+                [
+                    new InboxBatchProposalItemDto(A, "Alpha", ["a/one"]),
+                    new InboxBatchProposalItemDto(B, "Alpha again", ["a/one"]),
+                    new InboxBatchProposalItemDto(C, "Gamma", []),
+                ],
+                [After(C, B, "Alpha again")],
+                [])
+            {
+                Hints = hints,
+            },
+            listId: null,
+            picked: []);
+
+    [Fact]
+    public void A_merge_starts_off_and_on_it_folds_the_duplicates_into_the_first_and_says_so_in_the_choices()
+    {
+        var draft = Hinted(new OrderingHint(OrderingHintKind.Duplicate, [A, B], "Nearly the same title"));
+
+        Assert.False(draft.IsMerged(0));
+        Assert.Null(draft.Choices().Merges);
+        Assert.Equal(3, draft.TaskCount);
+
+        draft.SetMerged(0, true);
+
+        var merges = draft.Choices().Merges;
+        Assert.NotNull(merges);
+        Assert.Equal([B], merges[A]);
+        Assert.Equal([A, C], draft.GoingItems.Select(item => item.Id));
+        Assert.Equal([A, C], draft.OrderedItems.Select(item => item.Id));
+        Assert.Equal(2, draft.TaskCount);
+        Assert.Equal("Keep “Alpha”, archive “Alpha again”", draft.DescribeMerge(draft.Hints[0]));
+    }
+
+    [Fact]
+    public void A_merge_carries_the_folded_items_dependencies_onto_the_kept_one_so_the_panel_sees_the_loop_the_route_would()
+    {
+        var draft = new InboxRouteDraft(
+            new InboxBatchProposalDto(
+                "+inbox-batch-1a2b3c4d",
+                [
+                    new InboxBatchProposalItemDto(A, "Alpha", []),
+                    new InboxBatchProposalItemDto(B, "Alpha again", []),
+                    new InboxBatchProposalItemDto(C, "Gamma", []),
+                ],
+                [After(A, C, "Gamma"), After(C, B, "Alpha again")],
+                [])
+            {
+                Hints = [new OrderingHint(OrderingHintKind.Duplicate, [A, B], "Nearly the same title")],
+            },
+            listId: null,
+            picked: []);
+
+        Assert.Empty(draft.Loops);
+
+        draft.SetMerged(0, true);
+
+        Assert.Equal(["Alpha → Gamma → Alpha"], draft.Loops);
+        Assert.False(draft.CanConfirm);
+    }
+
+    [Fact]
+    public void A_hint_that_is_not_a_duplicate_cannot_be_turned_on_and_never_touches_the_order_or_the_loops()
+    {
+        var draft = Hinted(
+            new OrderingHint(OrderingHintKind.CaptureOrder, [C, B, A], "Captured in another order"),
+            new OrderingHint(OrderingHintKind.SetupFirst, [C], "Reads like setup, so it may belong ahead of the rest"),
+            new OrderingHint(OrderingHintKind.SameRepository, [A, B], "Same repository: a/one"));
+
+        draft.SetMerged(0, true);
+
+        Assert.False(draft.IsMerged(0));
+        Assert.Null(draft.Choices().Merges);
+        Assert.Equal([A, B, C], draft.OrderedItems.Select(item => item.Id));
+        Assert.Empty(draft.Loops);
+        Assert.Equal([After(C, B, "Alpha again")], draft.Choices().Dependencies);
+        Assert.Equal("Captured in another order: Gamma → Alpha again → Alpha", draft.DescribeHint(draft.Hints[0]));
+        Assert.Equal("“Gamma” reads like setup, so it may belong ahead of the rest", draft.DescribeHint(draft.Hints[1]));
+        Assert.Equal("Same repository: a/one — Alpha, Alpha again", draft.DescribeHint(draft.Hints[2]));
     }
 }

@@ -4,7 +4,7 @@
     names its stylesheet already knows.
 *@
 
-<nav class="@NavClassValue" aria-label="@NavAriaLabel">
+<nav class="@NavClassValue" aria-label="@NavAriaLabel" aria-busy="@(IsLoading ? "true" : null)">
     @if (ShowHeading)
     {
     <div class="@HeadingClassValue" data-testid="@HeadingTestId">
@@ -24,7 +24,17 @@
            CssClass="@OpenErrorClass" />
     @if (IsLoading)
     {
-        <p class="@MessageClassValue">@LoadingMessage</p>
+        @* Rows in the shape of the tree rather than a sentence saying it is on
+           its way: a line of text on an empty column reads the same as a column
+           that failed to draw (.devbook/design/interaction-guidelines.md,
+           Loading States). Hidden in one piece, like every skeleton — the nav's
+           aria-busy is what says the tree is not there yet. *@
+        <div class="@(ClassPrefix)__skeleton" data-testid="tree-loading" aria-hidden="true">
+            @foreach (var width in SkeletonWidths)
+            {
+                <Skeleton Width="@width" />
+            }
+        </div>
     }
     else if (Nodes.Count == 0)
     {
@@ -64,8 +74,9 @@
     [Parameter]
     public bool IsLoading { get; set; }
 
-    [Parameter]
-    public string LoadingMessage { get; set; } = "Loading devbook menu...";
+    /// <summary>Placeholder rows of differing length, since bars of one length
+    /// read as a pattern rather than as a list of names.</summary>
+    private static readonly string[] SkeletonWidths = ["70%", "55%", "80%", "45%", "65%"];
 
     [Parameter]
     public string EmptyMessage { get; set; } = "No chapters are available for this area.";

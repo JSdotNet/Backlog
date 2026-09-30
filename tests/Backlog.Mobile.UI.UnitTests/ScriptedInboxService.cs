@@ -20,6 +20,10 @@ internal sealed class ScriptedInboxService
     private readonly List<CaptureRequest> _received = [];
     private readonly List<(Guid Id, long Bytes)> _uploads = [];
 
+    private TaskCompletionSource? _pullsHeld;
+    private int _heldPulls;
+    private int _pulls;
+
     public ScriptedInboxService(params InboxItem[] items) => _items.AddRange(items);
 
     public InboxServiceState State { get; set; } = InboxServiceState.Answering;
@@ -29,6 +33,27 @@ internal sealed class ScriptedInboxService
     public TimeProvider Clock { get; init; } = TimeProvider.System;
 
     public int Requests { get; private set; }
+
+    /// <summary>Pulls that arrived while <see cref="HoldPulls"/> was in force.</summary>
+    public int HeldPulls => Volatile.Read(ref _heldPulls);
+
+    /// <summary>Every pull that reached the service, however it was answered.</summary>
+    public int Pulls => Volatile.Read(ref _pulls);
+
+    /// <summary>
+    /// From now on a pull reads the list as it stands when it arrives, then waits
+    /// for <see cref="ReleasePulls"/> before answering with it — an answer the
+    /// service gave before a capture landed, still on its way back to the phone.
+    /// </summary>
+    public void HoldPulls() => _pullsHeld = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>Lets the held pulls answer; the ones after them answer at once.</summary>
+    public void ReleasePulls()
+    {
+        var held = _pullsHeld;
+        _pullsHeld = null;
+        held?.TrySetResult();
+    }
 
     /// <summary>Every capture post that reached the service, repeats included,
     /// in the order they arrived.</summary>
@@ -56,6 +81,18 @@ internal sealed class ScriptedInboxService
     public async Task<HttpResponseMessage> AnswerAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         Requests++;
+        if (request.Method == HttpMethod.Get) Interlocked.Increment(ref _pulls);
+
+        if (request.Method == HttpMethod.Get && State == InboxServiceState.Answering && _pullsHeld is { } held)
+        {
+            List<InboxItem> answered;
+            lock (_lock) answered = [.. _items];
+
+            Interlocked.Increment(ref _heldPulls);
+            await held.Task.WaitAsync(cancellationToken);
+
+            return JsonAnswer(HttpStatusCode.OK, answered);
+        }
 
         byte[]? upload = null;
         if (request.Method == HttpMethod.Put && request.Content is not null)

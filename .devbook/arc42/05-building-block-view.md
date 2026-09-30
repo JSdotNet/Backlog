@@ -291,47 +291,81 @@ press of Capture free, with no seen-store of its own. See
 ## Mobile App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle", ".devbook/domain/capture/features.md#mobile-capture"]
 ```
 
 Android-first, offline-first capture app. Serves Capture, Inbox,
 and lightweight Tasks. It owns mobile UI, push plumbing, and sync
 transport, but not domain lifecycle rules.
 
+The shell (`MainLayout`) is a title bar carrying the sync status, the page, and
+three tabs along the bottom, withheld until the device is paired:
+
+- **Inbox** — quick capture and the list of captures the service still holds,
+  each marked waiting until it has left the outbox; Dismiss acknowledges one.
+- **Note** — the talk note: a title, a dictated Markdown body, the speaker, tags
+  and attached pictures and files, sent as one capture.
+- **Tasks** — My Day, read from `task_view`, and the one write the phone makes to
+  tasks: adding a task picked for today.
+
 Its local SQLite file holds three things and no canonical task data: the
 outbox, the last inbox it pulled, and `task_view`, a fold of the owner's task
-feed the Tasks tab reads My Day from. The Tasks tab is read-only except for
-adding a task picked for today, which leaves through the outbox as its `task`
-kind; see `.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push`.
+feed. Everything the phone sends leaves through the outbox, oldest first, with
+backoff and a park after five attempts; an entry's kind — `capture`,
+`talk-note`, `task` — decides how it is sent. A talk note's files wait beside
+the database in `talk-notes/outbox/` and form its attachment upload queue: each
+is uploaded before the capture that names them, checkpointed into the entry so a
+retry never sends one twice. See
+`.devbook/arc42/06-runtime-view.md#talk-note-upload` and
+`.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push`.
 
 ```mermaid
 graph TB
-  UI["UI Layer\n(.NET MAUI / Blazor Hybrid)"]
-
-  subgraph "App Layer"
-    Capture["Capture Service\n(Quick add, Voice, Shortcuts)"]
-    Storage["Local Storage\n(SQLite)"]
-    Sync["Sync Engine\n(Conflict resolution)"]
+  subgraph "UI (.NET MAUI / Blazor Hybrid, Backlog.Mobile.UI)"
+    Shell["Shell\n(sync status, pairing gate)"]
+    InboxTab["Inbox tab\n(quick capture, list, Dismiss)"]
+    NoteTab["Note tab\n(talk note)"]
+    TasksTab["Tasks tab\n(My Day, add for today)"]
   end
 
-  subgraph "Platform Layer"
-    OS["OS Services\n(Camera, Microphone,\nShare Sheet)"]
-    Creds["Secure Storage\n(Keychain / Vault)"]
+  subgraph "Device store (SQLite)"
+    Outbox["Outbox\n(capture, talk-note, task)"]
+    InboxCache["Last pulled inbox"]
+    TaskView["task_view\n(fold of the task feed)"]
   end
 
-  API["Cloud Sync API\n(REST + Auth)"]
+  Files["talk-notes/outbox\n(attachment upload queue)"]
 
-  UI --> Capture
-  UI --> Storage
-  UI --> Sync
-  Capture --> OS
-  Capture --> Creds
-  Storage --> Sync
-  Sync -->|HTTPS| API
-  OS -->|Speech-to-text| Capture
+  subgraph "Platform (Backlog.Mobile)"
+    Picker["Attachment picker\n(camera, pictures, files)"]
+    Speech["Speech transcriber"]
+    Share["Share target"]
+    Creds["Secure storage\n(device credential)"]
+  end
+
+  API["Sync API\n(REST, device JWT)"]
+
+  Shell --> InboxTab
+  Shell --> NoteTab
+  Shell --> TasksTab
+  InboxTab --> Outbox
+  InboxTab --> InboxCache
+  NoteTab --> Outbox
+  NoteTab --> Files
+  NoteTab --> Picker
+  NoteTab --> Speech
+  InboxTab --> Speech
+  Share -->|prefills quick capture| InboxTab
+  TasksTab --> TaskView
+  TasksTab --> Outbox
+  Files -->|"PUT /api/sync/attachments/{id}"| API
+  Outbox -->|"POST /api/sync/inbox, /api/sync/tasks"| API
+  API -->|"GET /api/sync/inbox"| InboxCache
+  API -->|"GET /api/sync/tasks (task feed)"| TaskView
+  Creds -.->|bearer| API
 ```
 
-The sync engine reaches the cloud only through the sync API. Routing a device's
+The phone reaches the cloud only through the sync API. Routing a device's
 store through a consumer file-sync product — OneDrive, Google Drive, or any
 other — is not a supported path and corrupts the store; see
 `.devbook/arc42/02-constraints.md#technical-constraints` and

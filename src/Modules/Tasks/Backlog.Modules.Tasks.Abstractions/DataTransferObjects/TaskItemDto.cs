@@ -35,9 +35,8 @@ namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 /// comment warns about: nothing outside the module reads either one yet, a
 /// tombstoned task never reaches a read that produces this record — so
 /// <c>DeletedAt</c> could only ever be null — and this record is a projection for
-/// the screens rather than a copy of the aggregate, omitting
-/// <c>SourceInboxId</c> and the usage history as well, so it is not what a sync
-/// payload would be built from either.
+/// the screens rather than a copy of the aggregate, omitting the usage history as
+/// well, so it is not what a sync payload would be built from either.
 /// </para>
 /// <para>
 /// <paramref name="CreatedAt"/> is the one stamp that is published, and on the
@@ -53,6 +52,15 @@ namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 /// rather than beside <paramref name="CompletedOn"/> only so every positional
 /// caller keeps compiling; it round-trips through the text as a
 /// <c>started:</c> token like the fields above it.
+/// </para>
+/// <para>
+/// <paramref name="SourceInboxId"/> is the Inbox item the entry was routed from,
+/// or null. Published on <paramref name="CreatedAt"/>'s terms — read from its own
+/// column, never rebuilt from the text, so the round-trip rule does not reach it,
+/// and fixed when the entry is made, so nothing here can change it — for the
+/// first reader outside the module that needs it: the Inbox, which shows an item
+/// the tasks that were routed from it. Last, for the reason
+/// <paramref name="StartedOn"/> is.
 /// </para>
 /// </summary>
 public sealed record TaskItemDto(
@@ -81,7 +89,8 @@ public sealed record TaskItemDto(
     string? ImportPlanId = null,
     string? ImportItemId = null,
     DateTimeOffset? CreatedAt = null,
-    DateOnly? StartedOn = null);
+    DateOnly? StartedOn = null,
+    string? SourceInboxId = null);
 
 /// <summary>Where an entry has been projected to outside this system — today a
 /// GitHub issue. Kept as data rather than a typed link so the module does not

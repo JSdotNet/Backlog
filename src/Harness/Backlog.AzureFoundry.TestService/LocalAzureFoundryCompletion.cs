@@ -96,6 +96,9 @@ public static partial class LocalAzureFoundryCompletion
     /// </summary>
     private static string CreatePlan(string userPrompt)
     {
+        var batch = BatchItem().Matches(userPrompt);
+        if (batch.Count > 0) return CreateBatchOrder(userPrompt, batch);
+
         var item = ExtractSection(userPrompt, "Item:") is { Length: > 0 } title ? title : "Inbox item";
         var planTag = ExtractSection(userPrompt, "Plan tag:") is { Length: > 0 } tag ? tag : "inbox-plan";
         // "(none)" is what the prompt writes for an empty list, so a bracketed
@@ -127,6 +130,42 @@ public static partial class LocalAzureFoundryCompletion
 
         return plan.ToString();
     }
+
+    /// <summary>
+    /// A canned order for a batch — the plan prompt's batch form, told apart by
+    /// its <c>## Item &lt;id&gt;</c> headings, which
+    /// <c>AzureFoundryPlanPrompt.User</c> writes. One entry per item under the
+    /// item's id, each waiting on the item listed after it, so the order comes
+    /// back reversed: a browser session can see the panel's order move when the
+    /// answer lands, which an order equal to the one asked would not show.
+    /// <para>
+    /// <c>order:unknown-repo</c> anywhere in the message makes the first entry
+    /// name a repository no item has, so the refusal path can be walked too.
+    /// </para>
+    /// </summary>
+    private static string CreateBatchOrder(string userPrompt, MatchCollection batch)
+    {
+        var planTag = ExtractSection(userPrompt, "Plan tag:") is { Length: > 0 } tag ? tag : "inbox-batch";
+        var madeUp = userPrompt.Contains("order:unknown-repo", StringComparison.OrdinalIgnoreCase);
+        var ids = batch.Select(match => match.Groups["id"].Value).ToList();
+        var plan = new StringBuilder();
+
+        for (var index = 0; index < ids.Count; index++)
+        {
+            var after = index + 1 < ids.Count ? $" `after:{ids[index + 1]}`" : string.Empty;
+            var repo = madeUp && index == 0 ? " `repo:made-up/repository`" : string.Empty;
+
+            if (plan.Length > 0) plan.Append('\n');
+            plan.Append($"# Item {index + 1}\n");
+            plan.Append($"`prompt` `!draft` `+{planTag}` `id:{ids[index]}`{after}{repo} `effort:2`\n\n");
+            plan.Append($"Backlog plan item {ids[index]} of plan {planTag}\nThe local stand-in orders a batch last to first.\n");
+        }
+
+        return plan.ToString();
+    }
+
+    [GeneratedRegex(@"^## Item (?<id>[0-9a-fA-F-]{36})\s*$", RegexOptions.Multiline)]
+    private static partial Regex BatchItem();
 
     private static string? ExtractSection(string prompt, string marker)
     {

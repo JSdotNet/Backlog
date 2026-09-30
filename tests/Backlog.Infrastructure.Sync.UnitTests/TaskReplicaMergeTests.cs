@@ -443,7 +443,7 @@ public sealed class TaskReplicaMergeTests
         var original = TaskChanges.Task("Round trip", Noon);
         original.UpdateContent("The body.");
         original.ChangePriority(Priority.High);
-        original.SetStatus(EntryStatus.InProgress);
+        original.SetStatus(EntryStatus.InProgress, new DateOnly(2026, 1, 1));
         original.SetOrder(7);
         original.SetArea("repos");
         original.SetEffort(5);
@@ -505,7 +505,7 @@ public sealed class TaskReplicaMergeTests
     public void The_wire_carries_the_stores_own_tokens()
     {
         var task = TaskChanges.Task("Tokenized", Noon);
-        task.SetStatus(EntryStatus.InProgress);
+        task.SetStatus(EntryStatus.InProgress, new DateOnly(2026, 1, 1));
         task.LoadStamps(Noon, null);
 
         TaskPayload payload = TaskReplicaMerge.ToPayload(task);

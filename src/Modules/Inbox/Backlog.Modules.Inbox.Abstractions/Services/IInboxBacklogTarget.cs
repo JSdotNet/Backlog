@@ -54,10 +54,39 @@ public interface IInboxBacklogTarget
     /// import registers a repository it does not know and a drafter's guess is
     /// not a person's decision. Tasks' own import errors
     /// (<c>import.empty_plan</c>, <c>import.duplicate_item_id</c>) come back
-    /// unchanged.</summary>
+    /// unchanged.
+    /// <para>
+    /// <paramref name="attachmentPath"/> is the item's attachment folder when it
+    /// arrived with files, and every task the plan makes carries it as its
+    /// attachment — the same hand-on <see cref="CreateTasksAsync"/> makes through
+    /// <see cref="InboxRouteRequestDto.AttachmentPath"/>. A <c>plan</c> entry
+    /// becomes no task, so it carries none.
+    /// </para></summary>
     Task<Result<IReadOnlyList<Guid>>> ImportPlanAsync(
         string planMarkdown,
         Guid sourceInboxId,
         IReadOnlyList<string> allowedRepoIds,
+        string? attachmentPath = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads the order a drafter proposed for a batch: every <c>after:</c> in
+    /// <paramref name="planMarkdown"/> as an edge between two of
+    /// <paramref name="itemIds"/>, the entry's own <c>id:</c> being the item
+    /// that waits. An id may carry a <c>/repo</c> suffix, the shape a batch
+    /// writes for an item with several repositories.
+    /// <para>
+    /// Read, never imported: the edges go back to the person as proposals and
+    /// the batch is routed as it always is. Refused whole — no edge at all —
+    /// when the answer names a repository outside
+    /// <paramref name="allowedRepoIds"/> (<c>inbox.order.unknown_repository</c>,
+    /// the rule <see cref="ImportPlanAsync"/> applies to a drafted plan) or an
+    /// entry that is not one of the items (<c>inbox.order.unknown_item</c>):
+    /// an answer that made one thing up is not trusted for the rest.
+    /// </para>
+    /// </summary>
+    Result<IReadOnlyList<InboxBatchEdge>> ReadDraftedOrder(
+        string planMarkdown,
+        IReadOnlyCollection<Guid> itemIds,
+        IReadOnlyList<string> allowedRepoIds);
 }

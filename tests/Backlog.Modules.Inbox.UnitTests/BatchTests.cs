@@ -149,6 +149,7 @@ public sealed class BatchTests
             createPlan: null!,
             routeBatchToBacklog: null!,
             proposeBatch: null!,
+            inferBatchOrder: null!,
             createList: null!,
             renameList: null!,
             deleteList: null!,
@@ -161,5 +162,7 @@ public sealed class BatchTests
             readAttachment: null!,
             openAttachment: null!,
             suggest: null!,
-            dismissSuggestion: null!);
+            dismissSuggestion: null!,
+            related: null!,
+            linkToTask: null!);
 }

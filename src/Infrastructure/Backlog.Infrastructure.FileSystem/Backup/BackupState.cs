@@ -108,7 +108,7 @@ public sealed class FileBackupStateStore : IBackupStateStore
 
             return JsonSerializer.Deserialize<BackupState>(File.ReadAllText(_path), JsonOptions) ?? BackupState.None;
         }
-        catch (Exception)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             return BackupState.None;
         }

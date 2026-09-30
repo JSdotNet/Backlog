@@ -6,6 +6,9 @@ using Backlog.Modules.Inbox.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace Backlog.Modules.Inbox.Features.ReceiveCapture;
 
 /// <summary>A capture that arrived with an id of its own — pulled from the
@@ -67,7 +70,8 @@ public sealed record ReceiveCaptureCommand(InboxCaptureDto Capture);
 /// <para>
 /// Both attachment ports are optional. A head composed without them records
 /// the files by name and fetches nothing, which is the honest answer on a
-/// machine with nowhere to fetch from.
+/// machine with nowhere to fetch from. The logger a failed fetch is reported
+/// to is optional too; without one the failure is only on the row.
 /// </para>
 /// <para>
 /// A capture that states its content kind keeps it rather than being read by
@@ -79,9 +83,12 @@ public sealed class ReceiveCaptureCommandHandler(
     IInboxItemRepository items,
     TimeProvider clock,
     IInboxAttachmentSource? attachmentSource = null,
-    IInboxAttachmentFiles? attachmentFiles = null)
+    IInboxAttachmentFiles? attachmentFiles = null,
+    ILogger<ReceiveCaptureCommandHandler>? logger = null)
     : ICommandHandler<ReceiveCaptureCommand, Result<InboxIntakeOutcome>>
 {
+    private readonly ILogger _logger = logger ?? NullLogger<ReceiveCaptureCommandHandler>.Instance;
+
     public async Task<Result<InboxIntakeOutcome>> Handle(
         ReceiveCaptureCommand command,
         CancellationToken cancellationToken = default)
@@ -212,7 +219,7 @@ public sealed class ReceiveCaptureCommandHandler(
         foreach (var attachmentId in waiting)
         {
             await InboxAttachmentDownloads
-                .DownloadAsync(item, attachmentId, attachmentSource, attachmentFiles, clock, cancellationToken)
+                .DownloadAsync(item, attachmentId, attachmentSource, attachmentFiles, clock, _logger, cancellationToken)
                 .ConfigureAwait(false);
         }
 

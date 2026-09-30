@@ -14,9 +14,22 @@
 *@
 
 <aside class="devbook-pane tech-devbook-pane" data-testid="technology-devbook-panel" aria-label="Technology area">
-    @if (_view is null)
+    @if (_loadError is not null)
     {
-        <Alert Message="Loading the technology area..." BaseClass="devbook-empty" Role="status" />
+        @* The folder could not be read, so there is nothing to show but that and
+           the way back (.devbook/design/interaction-guidelines.md, Error States).
+           Retry is the load itself. *@
+        <Alert Message="@_loadError"
+               ActionLabel="Retry"
+               OnAction="LoadOrReportAsync"
+               ActionTestId="technology-load-retry"
+               TestId="technology-load-error" />
+    }
+    else if (_view is null)
+    {
+        @* The whole panel waits on one read and has nothing to lay out until it
+           is in, so the spinner rather than a skeleton — and never a sentence. *@
+        <Spinner Label="Loading the technology area" TestId="technology-loading" />
     }
     else if (!_view.Available)
     {
@@ -193,6 +206,9 @@
     private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
     private TechnologyDevbookView? _view;
 
+    /// <summary>Why the folder could not be read, when the last load failed.</summary>
+    private string? _loadError;
+
     /// <summary>Whether this panel may write anything back. The view carries the
     /// whole resolved location, so the answer comes straight off it.</summary>
     private bool CanEdit => _view?.Location.CanEdit ?? true;
@@ -240,7 +256,26 @@
     {
         if (_view is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
         {
+            await LoadOrReportAsync();
+        }
+    }
+
+    /// <summary>The load a scope change asks for, and the Retry after one failed.
+    /// Caught here rather than in <see cref="LoadAsync"/>, which the status
+    /// changes and the folder-change handler call with layers already on screen
+    /// to keep: a failed first load has nothing to keep, and left to throw it took
+    /// the renderer's pipeline down with the spinner still up.</summary>
+    private async Task LoadOrReportAsync()
+    {
+        _loadError = null;
+
+        try
+        {
             await LoadAsync();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _loadError = $"Could not read the technology area. {ex.Message}";
         }
     }
 
@@ -259,6 +294,11 @@
 
         _view = view;
         _loadedRepositoryAlias = alias;
+
+        // The folder read, so an earlier failure no longer describes it. Cleared
+        // here rather than only by LoadOrReportAsync, because a folder change
+        // loads without it and the failure alert is drawn before the layers.
+        _loadError = null;
         if (_view.Layers.All(layer => layer.FileName != _activeLayerFile))
         {
             _activeLayerFile = _view.Layers.FirstOrDefault()?.FileName;

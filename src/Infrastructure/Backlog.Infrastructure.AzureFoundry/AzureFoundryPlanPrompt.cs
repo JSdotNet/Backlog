@@ -70,6 +70,26 @@ public static class AzureFoundryPlanPrompt
         """;
 
     /// <summary>
+    /// The system message for a batch: <see cref="Text"/> and then the rules
+    /// that turn a plan into an order. The grammar is the same — the answer is
+    /// entry text the adapter reads with the import's own parser — so only what
+    /// differs is said: one entry per listed item, its <c>id:</c> the item's id
+    /// rather than a slug, and <c>after:</c> as the model's reading of which
+    /// item waits on which. Starts with <see cref="Marker"/>, so the stand-in
+    /// answers it as a plan and tells the batch apart by its item headings.
+    /// </summary>
+    public const string BatchText = Text + """
+
+
+        This request is a batch. The message lists several inbox items, each under a heading `## Item <id>`, and asks for the order they should be done in rather than a plan for each. For a batch these rules replace the entry count, the `id:` slug and the one-entry-per-repository rule above:
+        - Write exactly one entry per listed item, and no other entry. Its title is the item's title.
+        - Its `id:` is the item's id exactly as written after `## Item`, not a slug.
+        - Write `after:<id>` for each listed item that has to be done before this one, naming that item's id. Infer it from what the items say; an item that waits on nothing gets no `after:`. Never name an id that is not listed, and never make two items wait on each other.
+        - Write `repo:` only with a value from that item's own `Repositories:` line.
+        - The first line of the body is `Backlog plan item <id> of plan <plan tag>` as above, followed by one sentence saying why the item comes where it does.
+        """;
+
+    /// <summary>
     /// The user message: the item as labelled sections, one fact per label, the
     /// content last because it is the one section free to hold blank lines.
     /// The labels are the ones the stand-in service reads back (<c>Item:</c>,
@@ -106,6 +126,30 @@ public static class AzureFoundryPlanPrompt
 
         message.Append("\n\n");
         message.Append("Plan tag: ").Append(request.PlanTag.Trim()).Append("\n\n");
+
+        if (request.Batch is { Count: > 0 } batch)
+        {
+            // Each item under its own heading, the id on the heading line so
+            // the model copies it from one place and the stand-in reads it from
+            // one place; the content last, as for a single item, because it is
+            // the part free to hold blank lines.
+            foreach (var item in batch)
+            {
+                message.Append("## Item ").Append(item.Id.Trim()).Append('\n');
+                message.Append("Title: ").Append(item.Title.Trim()).Append('\n');
+                message.Append("Kind: ").Append(item.KindSlug.Trim()).Append('\n');
+                if (!string.IsNullOrWhiteSpace(item.SourceUrl))
+                {
+                    message.Append("Source: ").Append(item.SourceUrl.Trim()).Append('\n');
+                }
+
+                message.Append("Repositories: ").Append(item.Repositories.Count == 0 ? "(none)" : string.Join(", ", item.Repositories)).Append('\n');
+                message.Append("Content:\n").Append(item.Content.Trim()).Append("\n\n");
+            }
+
+            return message.ToString().TrimEnd();
+        }
+
         message.Append("Content:\n").Append(request.ItemContent.Trim());
 
         return message.ToString();

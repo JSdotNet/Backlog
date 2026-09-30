@@ -58,6 +58,20 @@ public sealed record RouteBatchToBacklogCommand(
 /// the order their dependencies give (<see cref="InboxBatchOrder"/>), so the
 /// document reads first-things-first.
 /// </para>
+/// <para>
+/// A merge the person turned on (<see cref="InboxBatchRouteChoicesDto.Merges"/>)
+/// keeps one item and sends only it: the items it was kept in favour of are
+/// taken out of the document and archived as duplicates of it once it is routed
+/// and saved. What they waited on, and what waited on them, is carried onto the
+/// kept item (<see cref="InboxBatchOrder.Carry"/>) — the same thought still
+/// waits on the same things — and checked for a loop with the rest. This is done
+/// here rather than
+/// in the pane, so the two halves of one decision are one command. When the kept
+/// item is not routed, its duplicates are left in the Inbox with it and named
+/// (<c>inbox.batch.merge_not_routed</c>). A merge naming an item that is not
+/// going, or an item twice, is read for what it can mean: each item is kept or
+/// merged at most once, and anything else is ignored.
+/// </para>
 /// </summary>
 public sealed partial class RouteBatchToBacklogCommandHandler(
     IInboxItemRepository items,
@@ -91,8 +105,14 @@ public sealed partial class RouteBatchToBacklogCommandHandler(
 
         if (routable.Count == 0) return new InboxBatchRoutedDto(planTag, [], Ordered(failed));
 
+        // The items a merge folds into another are not sent; they wait for the
+        // one kept, and are archived as its duplicates once it has gone.
+        var keptFor = Merges(command.Choices, routable);
+        var extras = routable.Where(entry => keptFor.ContainsKey(entry.Item.Id)).ToList();
+        routable = [.. routable.Where(entry => !keptFor.ContainsKey(entry.Item.Id))];
+
         var going = routable.Select(entry => entry.Item.Id).ToList();
-        var dependencies = (command.Choices?.Dependencies ?? [])
+        var dependencies = InboxBatchOrder.Carry(command.Choices?.Dependencies ?? [], keptFor)
             .Where(dependency => going.Contains(dependency.From))
             .ToList();
         var edges = InboxBatchOrder.Edges(dependencies)
@@ -146,6 +166,7 @@ public sealed partial class RouteBatchToBacklogCommandHandler(
             failed.AddRange(routable
                 .Where(entry => !leftOut.Contains(entry.Item.Id))
                 .Select(entry => (entry.Position, new InboxBatchFailureDto(entry.Item.Id, refusal))));
+            failed.AddRange(extras.Select(entry => (entry.Position, new InboxBatchFailureDto(entry.Item.Id, InboxErrors.BatchMergeNotRouted))));
             return new InboxBatchRoutedDto(planTag, [], Ordered(failed));
         }
 
@@ -176,7 +197,88 @@ public sealed partial class RouteBatchToBacklogCommandHandler(
             }
         }
 
-        return new InboxBatchRoutedDto(planTag, routedItems, Ordered(failed));
+        var archived = await ArchiveMergedAsync(extras, keptFor, routedItems, now, failed, cancellationToken).ConfigureAwait(false);
+
+        return new InboxBatchRoutedDto(planTag, routedItems, Ordered(failed)) { Archived = archived };
+    }
+
+    /// <summary>
+    /// The merges that can be done, as "merged item → the item kept". A kept item
+    /// must be going and not itself merged; a merged item must be going, not the
+    /// kept one, not kept by another merge, and merged once. Kept items are read
+    /// in the batch's order, so which merge claims an item twice named is the
+    /// same on every run.
+    /// </summary>
+    private static Dictionary<Guid, Guid> Merges(InboxBatchRouteChoicesDto? choices, List<(int Position, InboxItem Item)> routable)
+    {
+        var keptFor = new Dictionary<Guid, Guid>();
+        if (choices?.Merges is not { Count: > 0 } merges) return keptFor;
+
+        var going = routable.Select(entry => entry.Item.Id).ToHashSet();
+        var kept = merges.Keys.Where(going.Contains).ToHashSet();
+
+        foreach (var (_, item) in routable)
+        {
+            if (!kept.Contains(item.Id) || !merges.TryGetValue(item.Id, out var duplicates) || duplicates is null) continue;
+
+            foreach (var duplicate in duplicates)
+            {
+                if (duplicate == item.Id || !going.Contains(duplicate) || kept.Contains(duplicate)) continue;
+                keptFor.TryAdd(duplicate, item.Id);
+            }
+        }
+
+        return keptFor;
+    }
+
+    /// <summary>Archives each merged item as a duplicate of the one kept, once
+    /// that one is routed and saved; otherwise names it as left behind. Each is
+    /// its own save, as each routed item is, and answers the ones archived in
+    /// the order asked.</summary>
+    private async Task<IReadOnlyList<Guid>> ArchiveMergedAsync(
+        List<(int Position, InboxItem Item)> extras,
+        Dictionary<Guid, Guid> keptFor,
+        List<InboxRoutedDto> routedItems,
+        DateTimeOffset now,
+        List<(int Position, InboxBatchFailureDto Failure)> failed,
+        CancellationToken cancellationToken)
+    {
+        var routed = routedItems.Select(routed => routed.InboxItemId).ToHashSet();
+        var archived = new List<Guid>();
+
+        foreach (var (at, item) in extras.OrderBy(entry => entry.Position))
+        {
+            var kept = keptFor[item.Id];
+            if (!routed.Contains(kept))
+            {
+                failed.Add((at, new InboxBatchFailureDto(item.Id, InboxErrors.BatchMergeNotRouted)));
+                continue;
+            }
+
+            try
+            {
+                item.Archive(now, kept);
+            }
+            catch (InvalidInboxTransitionException refused)
+            {
+                failed.Add((at, new InboxBatchFailureDto(item.Id, InboxErrors.InvalidTransition(refused.Message))));
+                continue;
+            }
+
+            try
+            {
+                await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
+                archived.Add(item.Id);
+            }
+            catch (Exception failure) when (IsStoreFailure(failure))
+            {
+                // Nothing was made for it, so there is nothing to lose: it stays
+                // in the Inbox beside the item that went, and says why.
+                failed.Add((at, new InboxBatchFailureDto(item.Id, InboxErrors.BatchMergeSaveFailed(failure.Message))));
+            }
+        }
+
+        return archived;
     }
 
     /// <summary>A new plan tag for a batch, sigil included: named after the
@@ -229,7 +331,7 @@ public sealed partial class RouteBatchToBacklogCommandHandler(
     /// <summary>The repositories an item goes to: the person's choice when the
     /// panel made one, else the ones it is assigned — trimmed, blank ones
     /// dropped, each once.</summary>
-    private static IReadOnlyList<string> RepositoriesFor(InboxItem item, InboxBatchRouteChoicesDto? choices)
+    internal static IReadOnlyList<string> RepositoriesFor(InboxItem item, InboxBatchRouteChoicesDto? choices)
     {
         var chosen = choices?.Repositories is { } overrides && overrides.TryGetValue(item.Id, out var picked) && picked is not null
             ? picked

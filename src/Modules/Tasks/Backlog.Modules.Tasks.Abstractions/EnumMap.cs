@@ -1,3 +1,5 @@
+using Backlog.SharedKernel;
+
 namespace Backlog.Modules.Tasks.Abstractions;
 
 /// <summary>
@@ -20,81 +22,57 @@ namespace Backlog.Modules.Tasks.Abstractions;
 /// It stays a translation table and nothing more. Nothing here validates,
 /// defaults, or decides: an unknown token throws rather than being coerced to a
 /// plausible member, because guessing what <c>in_progres</c> meant is how a
-/// status silently becomes the wrong one.
+/// status silently becomes the wrong one. How a token is normalized and looked
+/// up is <see cref="WireTokenMap{TEnum}"/>'s, shared with the Inbox's map; the
+/// tokens are this context's.
 /// </para>
 /// </summary>
 public static class EnumMap
 {
-    public static string ToWire(EntryType value) => value switch
+    private static readonly WireTokenMap<EntryType> Types = new("task type", new Dictionary<EntryType, string>
     {
-        EntryType.Prompt => "prompt",
-        EntryType.Task => "task",
-        EntryType.Idea => "idea",
-        EntryType.Test => "test",
-        _ => throw new ArgumentOutOfRangeException(nameof(value))
-    };
+        [EntryType.Prompt] = "prompt",
+        [EntryType.Task] = "task",
+        [EntryType.Idea] = "idea",
+        [EntryType.Test] = "test"
+    });
 
-    public static string ToWire(EntryStatus value) => value switch
+    private static readonly WireTokenMap<EntryStatus> Statuses = new("task status", new Dictionary<EntryStatus, string>
     {
-        EntryStatus.Draft => "draft",
-        EntryStatus.Ready => "ready",
-        EntryStatus.InProgress => "in_progress",
-        EntryStatus.Done => "done",
-        EntryStatus.Archived => "archived",
-        _ => throw new ArgumentOutOfRangeException(nameof(value))
-    };
+        [EntryStatus.Draft] = "draft",
+        [EntryStatus.Ready] = "ready",
+        [EntryStatus.InProgress] = "in_progress",
+        [EntryStatus.Done] = "done",
+        [EntryStatus.Archived] = "archived"
+    });
 
-    public static string ToWire(Priority value) => value switch
+    private static readonly WireTokenMap<Priority> Priorities = new("priority", new Dictionary<Priority, string>
     {
-        Priority.Low => "low",
-        Priority.Medium => "medium",
-        Priority.High => "high",
-        Priority.Critical => "critical",
-        _ => throw new ArgumentOutOfRangeException(nameof(value))
-    };
+        [Priority.Low] = "low",
+        [Priority.Medium] = "medium",
+        [Priority.High] = "high",
+        [Priority.Critical] = "critical"
+    });
 
-    public static string ToWire(SubItemStatus value) => value switch
+    private static readonly WireTokenMap<SubItemStatus> SubItemStatuses = new("sub-item status", new Dictionary<SubItemStatus, string>
     {
-        SubItemStatus.Pending => "pending",
-        SubItemStatus.Done => "done",
-        _ => throw new ArgumentOutOfRangeException(nameof(value))
-    };
+        [SubItemStatus.Pending] = "pending",
+        [SubItemStatus.Done] = "done"
+    });
 
-    public static EntryType ParseType(string value) => Normalize(value) switch
-    {
-        "prompt" => EntryType.Prompt,
-        "task" => EntryType.Task,
-        "idea" => EntryType.Idea,
-        "test" => EntryType.Test,
-        _ => throw new FormatException($"Unknown task type '{value}'.")
-    };
+    public static string ToWire(EntryType value) => Types.ToWire(value);
 
-    public static EntryStatus ParseStatus(string value) => Normalize(value) switch
-    {
-        "draft" => EntryStatus.Draft,
-        "ready" => EntryStatus.Ready,
-        "inprogress" => EntryStatus.InProgress,
-        "done" => EntryStatus.Done,
-        "archived" => EntryStatus.Archived,
-        _ => throw new FormatException($"Unknown task status '{value}'.")
-    };
+    public static string ToWire(EntryStatus value) => Statuses.ToWire(value);
 
-    public static Priority ParsePriority(string value) => Normalize(value) switch
-    {
-        "low" => Priority.Low,
-        "medium" => Priority.Medium,
-        "high" => Priority.High,
-        "critical" => Priority.Critical,
-        _ => throw new FormatException($"Unknown priority '{value}'.")
-    };
+    public static string ToWire(Priority value) => Priorities.ToWire(value);
 
-    public static SubItemStatus ParseSubItemStatus(string value) => Normalize(value) switch
-    {
-        "pending" => SubItemStatus.Pending,
-        "done" => SubItemStatus.Done,
-        _ => throw new FormatException($"Unknown sub-item status '{value}'.")
-    };
+    public static string ToWire(SubItemStatus value) => SubItemStatuses.ToWire(value);
 
-    private static string Normalize(string value) =>
-        (value ?? string.Empty).Trim().ToLowerInvariant().Replace("_", string.Empty).Replace("-", string.Empty);
+    public static EntryType ParseType(string value) => Types.Parse(value);
+
+    public static EntryStatus ParseStatus(string value) => Statuses.Parse(value);
+
+    public static Priority ParsePriority(string value) => Priorities.Parse(value);
+
+    public static SubItemStatus ParseSubItemStatus(string value) => SubItemStatuses.Parse(value);
 }

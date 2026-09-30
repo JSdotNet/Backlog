@@ -33,7 +33,7 @@ public class TaskItemLifecycleTests
     {
         var entry = MoveTo(from);
 
-        entry.ChangeStatus(to);
+        entry.ChangeStatus(to, new DateOnly(2026, 1, 1));
 
         Assert.Equal(to, entry.Status);
     }
@@ -55,7 +55,7 @@ public class TaskItemLifecycleTests
     {
         var entry = MoveTo(from);
 
-        var ex = Assert.Throws<InvalidStatusTransitionException>(() => entry.ChangeStatus(to));
+        var ex = Assert.Throws<InvalidStatusTransitionException>(() => entry.ChangeStatus(to, new DateOnly(2026, 1, 1)));
         Assert.Equal(from, ex.From);
         Assert.Equal(to, ex.To);
         Assert.Equal(from, entry.Status); // unchanged
@@ -65,7 +65,7 @@ public class TaskItemLifecycleTests
     public void ChangeStatus_ToSameStatus_IsNoOp()
     {
         var entry = NewEntry();
-        entry.ChangeStatus(EntryStatus.Draft);
+        entry.ChangeStatus(EntryStatus.Draft, new DateOnly(2026, 1, 1));
         Assert.Equal(EntryStatus.Draft, entry.Status);
     }
 
@@ -78,22 +78,22 @@ public class TaskItemLifecycleTests
             case EntryStatus.Draft:
                 break;
             case EntryStatus.Ready:
-                entry.ChangeStatus(EntryStatus.Ready);
+                entry.ChangeStatus(EntryStatus.Ready, new DateOnly(2026, 1, 1));
                 break;
             case EntryStatus.InProgress:
-                entry.ChangeStatus(EntryStatus.Ready);
-                entry.ChangeStatus(EntryStatus.InProgress);
+                entry.ChangeStatus(EntryStatus.Ready, new DateOnly(2026, 1, 1));
+                entry.ChangeStatus(EntryStatus.InProgress, new DateOnly(2026, 1, 1));
                 break;
             case EntryStatus.Done:
-                entry.ChangeStatus(EntryStatus.Ready);
-                entry.ChangeStatus(EntryStatus.InProgress);
-                entry.ChangeStatus(EntryStatus.Done);
+                entry.ChangeStatus(EntryStatus.Ready, new DateOnly(2026, 1, 1));
+                entry.ChangeStatus(EntryStatus.InProgress, new DateOnly(2026, 1, 1));
+                entry.ChangeStatus(EntryStatus.Done, new DateOnly(2026, 1, 1));
                 break;
             case EntryStatus.Archived:
-                entry.ChangeStatus(EntryStatus.Ready);
-                entry.ChangeStatus(EntryStatus.InProgress);
-                entry.ChangeStatus(EntryStatus.Done);
-                entry.ChangeStatus(EntryStatus.Archived);
+                entry.ChangeStatus(EntryStatus.Ready, new DateOnly(2026, 1, 1));
+                entry.ChangeStatus(EntryStatus.InProgress, new DateOnly(2026, 1, 1));
+                entry.ChangeStatus(EntryStatus.Done, new DateOnly(2026, 1, 1));
+                entry.ChangeStatus(EntryStatus.Archived, new DateOnly(2026, 1, 1));
                 break;
         }
         return entry;

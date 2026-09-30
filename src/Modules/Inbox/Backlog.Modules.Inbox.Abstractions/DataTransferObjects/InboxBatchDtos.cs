@@ -75,4 +75,10 @@ public sealed record InboxBatchTargetResultDto(
 public sealed record InboxBatchRoutedDto(
     string PlanTag,
     IReadOnlyList<InboxRoutedDto> Routed,
-    IReadOnlyList<InboxBatchFailureDto> Failed);
+    IReadOnlyList<InboxBatchFailureDto> Failed)
+{
+    /// <summary>The items a merge archived as duplicates of one that was routed,
+    /// in the order asked. Neither routed nor failed: they became nothing, on
+    /// purpose. A member so a batch without merges is built as it always was.</summary>
+    public IReadOnlyList<Guid> Archived { get; init; } = [];
+}
