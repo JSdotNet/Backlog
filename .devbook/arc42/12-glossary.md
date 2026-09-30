@@ -25,6 +25,7 @@ lists only system-wide architecture terms that don't belong to a single domain.
 | **Thin cloud** | The principle that the cloud service only coordinates sync, forwards webhooks, pushes notifications, and hosts the PC registry — no domain data or fetching. |
 | **Last-write-wins** | Conflict policy where the most recent edit prevails; new items always create rather than overwrite. |
 | **WoL relay** | Wake-on-LAN relay in the cloud PC registry that can wake a registered sleeping/offline machine. |
+| **Talk note** | A note taken on the phone during a conference talk — the body, the speaker, tags, and attached pictures and files — sent to the desktop Inbox as one ordinary capture. Never called a *session note*: *session* already names a bounded context (Sessions, the record of an AI coding session), and the two must not share a word. See `.devbook/domain/capture/features.md#talk-note`. |
 
 For bounded-context names (Capture, Inbox, Devbook, etc.) and their
 business meaning, see `.devbook/domain/context-map.md#subdomain-landscape`.

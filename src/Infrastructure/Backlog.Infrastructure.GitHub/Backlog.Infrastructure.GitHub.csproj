@@ -9,6 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The token route's client and its pipeline: GitHubHttpRegistration. -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- Devbook's published surface. A repository carries a list of that
          context's DevbookFolderSetting, which is the adapter conforming to a
@@ -21,6 +26,14 @@
          store answers it (SettingsSessionRepositoryResolver) with the clone
          directory each registered repository carries. -->
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <!-- The Dashboard's published surface, in the same direction again: the
+         adapters under Dashboard/ answer its repository-directory, activity,
+         baseline and Copilot-spend ports from the clients beside them. -->
+    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

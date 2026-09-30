@@ -50,7 +50,14 @@ public sealed class AzureFoundryInboxPlanDrafter(IAzureFoundryChatClient chat, A
                     request.KindSlug,
                     request.Tags,
                     request.RepoIds,
-                    request.PlanTag),
+                    request.PlanTag,
+                    request.Batch?.Select(item => new AzureFoundryPlanBatchItem(
+                        item.InboxItemId.ToString("D"),
+                        item.Title,
+                        item.BodyMd,
+                        item.SourceUrl,
+                        item.KindSlug,
+                        item.RepoIds)).ToList()),
                 cancellationToken).ConfigureAwait(false);
 
             return new InboxPlanDraftDto(response.PlanMarkdown);

@@ -319,6 +319,23 @@ public sealed class GhCliTransportTests
         Assert.Equal("Ship it", result.GetProperty("title").GetString());
     }
 
+    /// <summary>Cancelling a call cancels <c>gh</c>, not only the wait for it: the
+    /// process tree is killed and the cancellation still reaches the caller, rather
+    /// than an orphaned CLI running on after the app stopped listening.</summary>
+    [Fact]
+    public async Task A_cancelled_call_kills_the_gh_it_started()
+    {
+        using var gh = new GhStub().Hangs();
+        using var cancellation = new CancellationTokenSource();
+
+        var call = gh.Transport().SendAsync(HttpMethod.Get, "user", cancellationToken: cancellation.Token);
+        gh.WaitUntilHanging();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => call);
+        Assert.True(gh.HasLetGo(TimeSpan.FromSeconds(15)), "gh was still running after the call was cancelled");
+    }
+
     [Fact]
     public void The_transport_describes_itself_as_the_github_cli()
     {

@@ -13,10 +13,18 @@ status: draft
 ```meta
 type: feature
 status: draft
+related: [".devbook/arc42/05-building-block-view.md#mobile-app"]
 ```
 
-Frictionless capture from a phone while away from the desktop, with the minimum
-required fields and offline-first behavior.
+Frictionless capture from a phone while away from the desktop, offline first.
+
+A capture needs only a title and where it came from. Everything else is
+optional: a Markdown body, tags, the one person it is about or from, and files —
+pictures, PDFs, text and Office documents — that travel beside it. The phone
+names every capture with an id of its own before the first send, so sending it
+again is never a second capture. The sub-features below each use part of that:
+one-tap entry the body, tags and person; offline-first sync the id; the talk
+note the files.
 
 ### One-tap entry
 
@@ -58,7 +66,9 @@ capture. It appears in the Inbox list at once, marked waiting, and leaves in the
 order it was made. A failed send is retried on its own a few times with growing
 waits. After that it shows "waiting — tap to retry", and is tried again on a
 tap, when the app is reopened, or when the network comes back.
-The status line says how many captures are waiting.
+The status line says how many captures are waiting. A capture stops reading
+waiting the moment the service takes it, and stays in the list while the next
+pull brings it back, even when that pull was asked before it landed or fails.
 
 Each capture carries an id the phone mints before its first send, so resending
 it after a lost answer delivers it once: the service answers with the capture it

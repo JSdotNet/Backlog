@@ -89,6 +89,17 @@ classDiagram
         +String name
         +Boolean auto_generated
     }
+    class Attachment {
+        <<value object>>
+        +Id id
+        +String name
+        +String content_type
+        +Long size_bytes
+        +String sha256
+        +String local_path
+        +Timestamp downloaded_at
+        +String last_error
+    }
 
     InboxItem --> InboxStatus : has status
     InboxItem --> ContentKind : is a
@@ -96,14 +107,20 @@ classDiagram
     Source --> CaptureSource : arrived through
     InboxItem "1" *-- "0..*" Tag : tagged with
     InboxItem "1" *-- "0..1" RoutingTarget : routed to
+    InboxItem "1" *-- "0..*" Attachment : arrived with
     InboxItem "0..*" --> "0..1" InboxList : filed in (by id)
     InboxList "0..*" --> "0..1" InboxGroup : grouped under (by id)
 ```
 
 ## Relationship notes
 
-- `InboxItem` is the aggregate root of an item; `Tag`, `RoutingTarget` and
-  `Source` are owned value objects.
+- `InboxItem` is the aggregate root of an item; `Tag`, `RoutingTarget`,
+  `Source` and `Attachment` are owned value objects.
+- An `Attachment` has two halves: what the capture said about the file (`id`,
+  `name`, `content_type`, `size_bytes`, `sha256`), fixed once recorded, and this
+  machine's copy (`local_path`, `downloaded_at`, `last_error`), which changes on
+  every fetch. The bytes are not on the item; they sit in its
+  [attachment folder](domain.md#attachment-folder).
 - `InboxList` and `InboxGroup` are two further, small aggregate roots. An item
   relates to a list by `list_id` and a list to a group by `group_id` — id
   references only, never containment, so deleting a list is a write across the

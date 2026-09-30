@@ -168,6 +168,25 @@ public class DevbookSnapshotAutoFetchTests
         Assert.Equal("boom", fetcher.Ensure(Repository, "main", hasSnapshot: false).Failure);
     }
 
+    /// <summary>A cancellation is let through rather than turned into a message,
+    /// but it still frees the slot: a fetch that ended any way at all is not
+    /// "fetching", or the branch would say so for the rest of the session.</summary>
+    [Fact]
+    public async Task A_cancelled_fetch_does_not_leave_the_branch_fetching()
+    {
+        var cache = new GatedCache();
+        var fetcher = Fetcher(cache);
+
+        fetcher.Ensure(Repository, "main", hasSnapshot: false);
+        var pending = fetcher.InFlight(Repository, "main")!;
+        cache.Fail(new OperationCanceledException());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+
+        Assert.Null(fetcher.InFlight(Repository, "main"));
+        Assert.False(fetcher.Ensure(Repository, "main", hasSnapshot: false).InFlight);
+        Assert.Equal(1, cache.Fetches);
+    }
+
     [Fact]
     public void Branches_of_the_same_repository_are_tracked_apart()
     {

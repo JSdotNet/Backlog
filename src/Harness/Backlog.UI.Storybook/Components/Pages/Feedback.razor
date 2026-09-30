@@ -53,6 +53,18 @@
         </div>
     </Story>
 
+    <Story Name="Alert with a way back"
+           Description="ActionLabel and OnAction draw the library's button at the end of the alert's own line — the Retry a section whose load failed has to offer. It is inside the element rather than beside it because the element is the live region, and the way back belongs in the sentence that says why it is needed. Both or nothing: a label with no callback, or a callback with no label, draws no button."
+           Code="@AlertActionCode">
+        <div class="sb-stack">
+            <Alert Message="@(_retries == 0 ? "Could not read the architecture folder." : $"Could not read the architecture folder. Tried again {_retries} times.")"
+                   ActionLabel="Retry"
+                   OnAction="() => _retries++"
+                   ActionTestId="alert-action-retry"
+                   TestId="alert-with-action" />
+        </div>
+    </Story>
+
     <Story Name="EmptyState"
            Description="With an action when there is something to do about it, without one when there is not."
            Code="@EmptyCode">
@@ -309,6 +321,7 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
     private int _nextToastId;
     private int _created;
     private string? _alertMessage;
+    private int _retries;
 
     /// <summary>The save behind the live indicator. Saving for as long as the
     /// delay runs, then Saved — the save itself has nothing to write, so the
@@ -371,6 +384,10 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
                          aria-label="@($"Open issue {issue.RepoFullName}{issue.Label} on GitHub")">@($"{issue.RepoFullName}{issue.Label}")</a>
             }
         </Alert>
+        """;
+
+    private const string AlertActionCode = """
+        <Alert Message="@_loadError" ActionLabel="Retry" OnAction="LoadAsync" />
         """;
 
     private const string EmptyCode = """

@@ -207,7 +207,18 @@
     private string? _pullNotice;
     private string? _actionError;
     private bool _refreshing;
+    private bool _refreshAgain;
     private Row? _selected;
+
+    /// <summary>
+    /// Captures the outbox has delivered that no pull asked for since, each with
+    /// the delivery's number. The outbox has the service's word for them, so they
+    /// are listed as delivered until a pull that began after the delivery answers
+    /// — the one in flight may have been read before the capture landed, and the
+    /// next one may fail.
+    /// </summary>
+    private readonly Dictionary<Guid, (InboxItem Item, long Delivery)> _delivered = [];
+    private long _deliveries;
 
     /// <summary>Null until the recogniser has been asked. Neither "yes" nor "no"
     /// is true during the first render, and claiming either would flash a
@@ -230,36 +241,45 @@
     /// What the outbox still holds, above what the service has sent back — one
     /// list, newest first, so a capture made a moment ago is at the top whether or
     /// not it has left the phone. A capture the service has but the outbox has
-    /// not yet heard back about is shown once, as the outbox's.
+    /// not yet heard back about is shown once, as the outbox's. One the outbox
+    /// has delivered is shown as delivered, whether or not a pull has brought it
+    /// back yet.
     /// </summary>
     private IReadOnlyList<Row> Rows
     {
         get
         {
             var pending = Outbox.Entries
-                .Where(entry => entry.Kind is CaptureOutboxKind.Token or TalkNoteOutboxKind.Token)
-                .Select(entry =>
-                {
-                    // A talk note is a capture with its uploads in front of it;
-                    // on the list it is the capture it will become.
-                    var capture = entry.Kind == TalkNoteOutboxKind.Token
-                        ? TalkNoteOutboxKind.Read(entry).Capture
-                        : CaptureOutboxKind.Read(entry);
-                    return new Row(
-                        new InboxItem(entry.Id, capture.Title, capture.Source, entry.CreatedAt, capture.BodyMd, capture.Tags, capture.Person, capture.Attachments),
-                        entry);
-                })
+                .Where(IsCapture)
+                .Select(entry => new Row(ItemOf(entry), entry))
                 .ToList();
 
-            var queued = pending.Select(row => row.Item.Id).ToHashSet();
+            var shown = pending.Select(row => row.Item.Id).ToHashSet();
+            var pulled = (_items ?? []).Where(item => shown.Add(item.Id)).Select(item => new Row(item, null)).ToList();
+            var delivered = _delivered.Values.Where(sent => shown.Add(sent.Item.Id)).Select(sent => new Row(sent.Item, null));
 
             return
             [
                 .. pending
-                    .Concat((_items ?? []).Where(item => !queued.Contains(item.Id)).Select(item => new Row(item, null)))
+                    .Concat(pulled)
+                    .Concat(delivered)
                     .OrderByDescending(row => row.Item.CapturedAt)
             ];
         }
+    }
+
+    private static bool IsCapture(OutboxEntry entry) =>
+        entry.Kind is CaptureOutboxKind.Token or TalkNoteOutboxKind.Token;
+
+    /// <summary>The capture an entry will become. A talk note is a capture with
+    /// its uploads in front of it; on the list it is that capture.</summary>
+    private static InboxItem ItemOf(OutboxEntry entry)
+    {
+        var capture = entry.Kind == TalkNoteOutboxKind.Token
+            ? TalkNoteOutboxKind.Read(entry).Capture
+            : CaptureOutboxKind.Read(entry);
+
+        return new InboxItem(entry.Id, capture.Title, capture.Source, entry.CreatedAt, capture.BodyMd, capture.Tags, capture.Person, capture.Attachments);
     }
 
     /// <summary>
@@ -377,9 +397,14 @@
 
     private void OnOutboxChanged() => _ = InvokeAsync(StateHasChanged);
 
-    /// <summary>The service has the capture now, so the list it answers with is
-    /// the one to show — and the row stops saying it is waiting.</summary>
-    private void OnDelivered(OutboxEntry entry) => _ = InvokeAsync(RefreshAsync);
+    /// <summary>The service has the capture now: the row stops saying it is
+    /// waiting at once, and the list the service answers with next replaces it.</summary>
+    private void OnDelivered(OutboxEntry entry) => _ = InvokeAsync(() =>
+    {
+        if (IsCapture(entry)) _delivered[entry.Id] = (ItemOf(entry), ++_deliveries);
+        StateHasChanged();
+        return RefreshAsync();
+    });
 
     private async Task OnSpeechToggledAsync(bool pressed)
     {
@@ -452,11 +477,42 @@
     /// whatever is on screen and says why in one line: a replica still warming up
     /// (503 <c>sync.replica_unavailable</c>) is a wait, anything else is a network
     /// the phone cannot reach — and neither is a reason to blank the list.
+    /// <para>
+    /// A refresh asked for while one is out runs once that one answers, never
+    /// instead of it: the pull in flight may have been read before the capture
+    /// that asked for the next one landed.
+    /// </para>
     /// </summary>
     private async Task RefreshAsync()
     {
-        if (_refreshing) return;
+        if (_refreshing)
+        {
+            _refreshAgain = true;
+            return;
+        }
+
         _refreshing = true;
+
+        try
+        {
+            do
+            {
+                _refreshAgain = false;
+                await PullAsync();
+            }
+            while (_refreshAgain);
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task PullAsync()
+    {
+        var asked = _deliveries;
 
         try
         {
@@ -467,6 +523,13 @@
             _pulledAt = now;
             _pullNotice = null;
 
+            // Asked after these were delivered, so the list has them — or they
+            // have left the inbox since, dismissed on the desktop.
+            foreach (var (id, sent) in _delivered.ToList())
+            {
+                if (sent.Delivery <= asked) _delivered.Remove(id);
+            }
+
             await Store.SaveInboxAsync(new CachedInbox(items, now));
             Status.RecordSynced();
         }
@@ -476,12 +539,6 @@
             _pullNotice = PullNotice(ex);
             Status.RecordUnreachable();
         }
-        finally
-        {
-            _refreshing = false;
-        }
-
-        StateHasChanged();
     }
 
     private string PullNotice(Exception failure)

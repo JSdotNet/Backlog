@@ -1,4 +1,3 @@
-using Backlog.Desktop.WebHarness;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.DevPc.UI;
@@ -99,7 +98,7 @@ public class ToolsAiContentSourceTests
             }
             """);
 
-        var tools = new LocalDevelopmentDevToolService(
+        var tools = DevToolService.CatalogOnly(
             TasksTestHost.TaskStoreFor(new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"))));
 
         var content = await new ToolsAiContentSource(tools)

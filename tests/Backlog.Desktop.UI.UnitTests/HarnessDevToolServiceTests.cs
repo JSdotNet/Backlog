@@ -1,4 +1,3 @@
-using Backlog.Desktop.WebHarness;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -557,12 +556,12 @@ public sealed class HarnessDevToolServiceTests
     /// at the real one would write per-PC overrides into somebody's synced
     /// folder.</para>
     /// </summary>
-    private static LocalDevelopmentDevToolService CreateService(string catalog) =>
+    private static DevToolService CreateService(string catalog) =>
         CreateServiceWith(catalog).Tools;
 
     /// <summary>The service and the paths it reads, for the tests that have to
     /// assert on the files themselves rather than on a row.</summary>
-    private static (LocalDevelopmentDevToolService Tools, DevToolConfigurationPaths Paths) CreateServiceWith(string catalog)
+    private static (DevToolService Tools, DevToolConfigurationPaths Paths) CreateServiceWith(string catalog)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-harness-tool-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".tools"));
@@ -570,7 +569,7 @@ public sealed class HarnessDevToolServiceTests
             Path.Combine(root, ".tools", DevToolConfigurationPaths.CatalogFileName),
             catalog);
 
-        return (new LocalDevelopmentDevToolService(TaskStoreFor(root)), DevToolConfigurationPaths.FromRepositoryRoot(root));
+        return (DevToolService.CatalogOnly(TaskStoreFor(root)), DevToolConfigurationPaths.FromRepositoryRoot(root));
     }
 
     private static ITaskStore TaskStoreFor(string root) =>

@@ -244,6 +244,23 @@ public sealed class GhCliAccountSourceTests
         Assert.Empty(await source.ListAsync(TestContext.Current.CancellationToken));
     }
 
+    /// <summary>Cancelling a token lookup kills the <c>gh</c> it started. The
+    /// lookup itself still answers "no token" — every failure of the CLI does —
+    /// but the process must not outlive the call.</summary>
+    [Fact]
+    public async Task A_cancelled_lookup_kills_the_gh_it_started()
+    {
+        using var gh = new GhStub().Hangs();
+        using var cancellation = new CancellationTokenSource();
+
+        var lookup = gh.Source().GetTokenAsync("JSdotNet", cancellationToken: cancellation.Token);
+        gh.WaitUntilHanging();
+        cancellation.Cancel();
+
+        Assert.Null(await lookup.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        Assert.True(gh.HasLetGo(TimeSpan.FromSeconds(15)), "gh was still running after the lookup was cancelled");
+    }
+
     /// <summary>A clock the test moves by hand, so the token lifetime is asserted
     /// rather than waited out.</summary>
     private sealed class FakeTimeProvider : TimeProvider
