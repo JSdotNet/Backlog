@@ -3,6 +3,7 @@ extern alias MobileHarness;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.HostComposition.UnitTests;
@@ -136,6 +137,127 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// The GitHub token route asks <see cref="IHttpClientFactory"/> for its client,
+    /// by name, on every send — not once, when the singleton transport is built,
+    /// which would hold one client for the life of the process where the
+    /// factory's handler rotation never reaches it.
+    /// <para>
+    /// The factory is swapped for one that writes down what it was asked for, and
+    /// the credential resolver for one that binds every path to an account, so
+    /// the call leaves over the token route without a <c>gh</c> CLI or a
+    /// configured token. The transport itself is the harness's own registration;
+    /// nothing here restates it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_desktop_harness_github_transport_asks_the_factory_for_a_client_on_send()
+    {
+        var factory = new RecordingHttpClientFactory();
+        using var harness = new Harness<DesktopHarness::Program>();
+        using var recorded = harness.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddSingleton<IHttpClientFactory>(factory);
+                services.AddSingleton<Backlog.Infrastructure.GitHub.IGitHubCredentialResolver>(new BoundCredentialResolver());
+            }));
+
+        var transport = recorded.Services.GetRequiredService<Backlog.Infrastructure.GitHub.ResolvingGitHubTransport>();
+
+        Assert.DoesNotContain(Backlog.Infrastructure.GitHub.TokenTransport.HttpClientName, factory.Names);
+
+        await transport.SendAsync(HttpMethod.Get, "repos/octo/demo", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, factory.Names.Count(name => name == Backlog.Infrastructure.GitHub.TokenTransport.HttpClientName));
+        Assert.Equal(1, factory.Handler.RequestCount);
+    }
+
+    private sealed class RecordingHttpClientFactory : IHttpClientFactory
+    {
+        private readonly System.Collections.Concurrent.ConcurrentQueue<string> _names = new();
+
+        public IReadOnlyCollection<string> Names => _names;
+
+        public AnsweringHandler Handler { get; } = new();
+
+        public HttpClient CreateClient(string name)
+        {
+            _names.Enqueue(name);
+            return new HttpClient(Handler, disposeHandler: false);
+        }
+    }
+
+    /// <summary>Answers every request with an empty JSON object, so nothing leaves
+    /// the test.</summary>
+    private sealed class AnsweringHandler : HttpMessageHandler
+    {
+        private int _count;
+
+        public int RequestCount => _count;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _count);
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json")
+            });
+        }
+    }
+
+    /// <summary>Every path is bound to an account, which is the route that always
+    /// goes out over HTTP rather than the <c>gh</c> CLI.</summary>
+    private sealed class BoundCredentialResolver : Backlog.Infrastructure.GitHub.IGitHubCredentialResolver
+    {
+        public bool HasAnyCredential => true;
+
+        public Task<Backlog.Infrastructure.GitHub.GitHubCredential?> ResolveAsync(string? path, CancellationToken cancellationToken = default) =>
+            Task.FromResult<Backlog.Infrastructure.GitHub.GitHubCredential?>(
+                new Backlog.Infrastructure.GitHub.GitHubCredential("ghp_test", null, "octocat"));
+    }
+
+    /// <summary>
+    /// Every Dashboard port the pane and Ask AI read is still answered, with the
+    /// lifetime it had when one UI-side call registered them all: the provider
+    /// adapters and the machine directory once per app, the scope mirror and the
+    /// Ask AI source once per reader. The adapters now come from the infrastructure
+    /// they wrap, so this is what says the swap in the composition root left none
+    /// of them behind.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_answers_every_dashboard_port_with_its_lifetime()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IRepositoryDirectory>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IMachineDirectory>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IActivitySource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IActivityBaselineSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IClaudeSpendSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.ICopilotSpendSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IAzureFoundrySpendSource>(harness.Services);
+
+        using var first = harness.Services.CreateScope();
+        using var second = harness.Services.CreateScope();
+
+        var scope = first.ServiceProvider.GetRequiredService<Backlog.Modules.Dashboard.UI.DashboardScopeInView>();
+        Assert.Same(scope, first.ServiceProvider.GetRequiredService<Backlog.Modules.Dashboard.UI.DashboardScopeInView>());
+        Assert.NotSame(scope, second.ServiceProvider.GetRequiredService<Backlog.Modules.Dashboard.UI.DashboardScopeInView>());
+
+        var askAi = first.ServiceProvider.GetServices<Backlog.SharedKernel.Ai.IAiContentSource>()
+            .Single(source => source.GetType().Name == "DashboardAiContentSource");
+        Assert.DoesNotContain(askAi, second.ServiceProvider.GetServices<Backlog.SharedKernel.Ai.IAiContentSource>());
+
+        static void AssertSingleton<TPort>(IServiceProvider services) where TPort : class
+        {
+            using var one = services.CreateScope();
+            using var other = services.CreateScope();
+            Assert.Same(
+                one.ServiceProvider.GetRequiredService<TPort>(),
+                other.ServiceProvider.GetRequiredService<TPort>());
+        }
+    }
+
+    /// <summary>
     /// Every port the Sessions adapters answer is resolvable, and answered from
     /// <c>Backlog.Infrastructure.Sessions</c> rather than from the module's screen
     /// project; the Ask AI source the screen project keeps is still composed beside
@@ -197,5 +319,21 @@ public class WebHarnessHostTests
         // the session, and a phone with no local task database has nothing for
         // either of them to replicate.
         Assert.Null(scope.ServiceProvider.GetService<Backlog.Infrastructure.Sync.TaskSyncWorker>());
+    }
+
+    /// <summary>
+    /// The desktop harness registers the Inbox's settings section, so its settings
+    /// screen carries the routing rules the way the desktop app's does. The shell
+    /// holds no copy of its own: without the registration the page is simply gone.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_registers_the_inbox_settings_section()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using var scope = harness.Services.CreateScope();
+
+        var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
+        Assert.Contains(sections, section => section.Id == "inbox" && section.Title == "Inbox");
     }
 }

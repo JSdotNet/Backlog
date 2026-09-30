@@ -142,8 +142,7 @@ related: [".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-besid
 A capture's files travel beside it rather than inside it (local ADR 0014). The
 phone uploads each file first, under an id it mints itself, and posts the
 capture that names them after; the capture document carries only their
-metadata. The service side and the phone's upload are built — the phone's half
-is the talk note, below; the desktop's intake is a later slice.
+metadata. All three sides are built — the phone's half is the talk note, below.
 
 - **Upload, then capture.** `PUT /api/sync/attachments/{id}` carries the bytes,
   their declared `Content-Type` and their SHA-256 in `X-Attachment-Sha256`. The
@@ -156,7 +155,12 @@ is the talk note, below; the desktop's intake is a later slice.
   ids) unless every file is stored under this owner with the size and digest
   the capture claims.
 - **The desktop fetches** each file with `GET /api/sync/attachments/{id}`,
-  served as a download with `nosniff`. Another owner's id is a 404.
+  served as a download with `nosniff`. Another owner's id is a 404. The Inbox
+  intake records the files the capture names in `inbox_item_attachments` and
+  saves the item first, then downloads each one, checks its SHA-256, and writes
+  it into the item's folder under the workspace. A file that fails keeps its
+  reason and waits for Retry; the item is received either way. See
+  `.devbook/domain/inbox/requirements.md#capture-attachments`.
 - **Acknowledgement releases.** When the capture's tombstone is stored — the
   phone's `POST /inbox/{id}/ack` or the desktop's pushed tombstone — the
   service deletes the files the held capture named. A failed delete is logged

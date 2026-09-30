@@ -25,6 +25,9 @@
          uses it directly, and a reference nobody states is a reference somebody
          removes. -->
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Mcp\Backlog.Infrastructure.Mcp.csproj" />
+    <!-- The GitHub transport, whose HttpClient the harness test asks the
+         factory for. Named for the same reason as the reference above. -->
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -27,7 +27,10 @@ public interface IInboxPlanDrafter
     /// act on; null when it is true.</summary>
     string? UnavailableReason { get; }
 
-    /// <summary>Drafts the plan. Transport and model failures come back as
+    /// <summary>Drafts the plan — about one item, or, when the request carries a
+    /// <see cref="InboxPlanDraftRequestDto.Batch"/>, the order of a batch: one
+    /// entry per item under the item's id, its <c>after:</c> tokens naming the
+    /// items it waits on. Transport and model failures come back as
     /// <c>inbox.plan.failed</c> rather than thrown.</summary>
     Task<Result<InboxPlanDraftDto>> DraftAsync(InboxPlanDraftRequestDto request, CancellationToken cancellationToken = default);
 }

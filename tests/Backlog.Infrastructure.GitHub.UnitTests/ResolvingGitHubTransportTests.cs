@@ -63,6 +63,31 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         Assert.Equal("Bearer ghp_example", handler.Request!.Headers.Authorization!.ToString());
     }
 
+    /// <summary>The token route it builds for itself asks the host's factory for a
+    /// client by name on every send, not once when it is built, so the factory's
+    /// handler rotation reaches a transport that lives as long as the process.</summary>
+    [Fact]
+    public async Task The_token_route_it_builds_asks_the_factory_for_a_client_on_every_send()
+    {
+        using var gh = new GhStub().Fails();
+        var handler = new RecordingHandler();
+        var factory = new RecordingHttpClientFactory(handler);
+        var transport = new ResolvingGitHubTransport(
+            Store(),
+            gh.Transport(),
+            credentials: StubCredentialResolver.WithToken(),
+            httpClients: factory);
+
+        Assert.Empty(factory.Names);
+
+        await transport.SendAsync(HttpMethod.Get, "repos/octo/demo", cancellationToken: TestContext.Current.CancellationToken);
+        await transport.SendAsync(HttpMethod.Get, "repos/octo/demo", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal([TokenTransport.HttpClientName, TokenTransport.HttpClientName], factory.Names);
+        Assert.Equal(2, handler.RequestCount);
+        Assert.Equal("Bearer ghp_example", handler.Request!.Headers.Authorization!.ToString());
+    }
+
     /// <summary>A settings problem rather than a failure, so it carries the two things
     /// that would fix it.</summary>
     [Fact]
@@ -319,6 +344,17 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
     /// case the CLI may never answer for.</summary>
     private static TokenTransport BoundToken(RecordingHandler handler, string account = "j-schepers_innobv") =>
         new(StubCredentialResolver.Bound(account), () => GitHubSettings.DefaultApiEndpoint, new HttpClient(handler));
+
+    private sealed class RecordingHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory
+    {
+        public List<string> Names { get; } = [];
+
+        public HttpClient CreateClient(string name)
+        {
+            Names.Add(name);
+            return new HttpClient(handler, disposeHandler: false);
+        }
+    }
 
     private sealed class RecordingHandler : HttpMessageHandler
     {

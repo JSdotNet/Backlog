@@ -1,0 +1,97 @@
+@*
+    The Inbox's page on the settings screen, which the shell draws because the
+    host registered it (AddInboxSettings) rather than because the shell knows
+    anything about the Inbox. It was a block at the foot of the shell's
+    Repositories page; moving it here means a change to how the Inbox is set up
+    touches the Inbox and not the desktop shell.
+
+    The namespace is the project's root rather than the folder's: a
+    Backlog.Desktop.UI.Inbox.Settings namespace would shadow the settings screen's
+    own component for everything under Backlog.Desktop.UI.Inbox, the collision
+    Settings.razor explains at length.
+*@
+@namespace Backlog.Desktop.UI.Inbox
+@using Backlog.SharedKernel
+@using Backlog.Modules.Inbox.Abstractions.Services
+@using Microsoft.Extensions.DependencyInjection
+@inject IAppFeatureSettings Features
+@* Read off this rather than injected: a host that keeps no rules registers no
+   store, and then there is no field to draw. *@
+@inject IServiceProvider Services
+
+@* Only while the Inbox pane is on, since nothing else reads the rules, and only
+   when the host keeps them somewhere. The shell also withholds the page while the
+   pane is off; this says it again for a host that renders the section directly. *@
+@if (InboxRoutingRules is not null && Features.IsEnabled(InboxFeatures.Pane))
+{
+    <h3 class="setting__subtitle" id="inbox-routing-rules-title">Inbox routing rules</h3>
+    <p class="setting__body">
+        One rule per line, written <code>pattern =&gt; owner/repo</code>. An Inbox item that
+        matches is offered that repository as a suggestion; nothing is assigned until you
+        take it. <code>#design</code> matches a tag, <code>@@alice</code> the person who shared
+        the item, and anything else its channel or link — <code>youtube</code>,
+        <code>*github.com/JSdotNet/*</code>. <code>*</code> stands for anything. The
+        repositories a rule names are the ones listed under Repositories.
+    </p>
+    <TextArea Bare="true"
+              AutoGrow="false"
+              GrowCssClass=""
+              LabelCssClass="setting__label"
+              InputCssClass="@(_routingRulesError is null ? "setting__input setting__input--multiline" : "setting__input setting__input--error setting__input--multiline")"
+              Label="Rules"
+              Id="inbox-routing-rules"
+              data-testid="inbox-routing-rules-input"
+              Rows="4"
+              spellcheck="false"
+              autocomplete="off"
+              aria-describedby="inbox-routing-rules-result"
+              Placeholder="#design => owner/repo"
+              Value="@_draftRoutingRules"
+              ValueChanged="value => _draftRoutingRules = value"
+              @onchange="ApplyRoutingRules" />
+    @* The library's own error look when a line did not read, the page's note
+       look otherwise. *@
+    <Alert Message="@RoutingRulesMessage"
+           BaseClass="@(_routingRulesError is null ? "setting__note" : "app-error-message")"
+           Role="status"
+           Id="inbox-routing-rules-result"
+           TestId="inbox-routing-rules-result" />
+}
+
+@code {
+    /// <summary>Where the Inbox keeps its routing rules, or null in a host that
+    /// keeps none — then the field is not drawn.</summary>
+    private IInboxRoutingRules? InboxRoutingRules => Services.GetService<IInboxRoutingRules>();
+
+    private string _draftRoutingRules = string.Empty;
+    private string? _routingRulesError;
+
+    /// <summary>The line under the field: why the rules were not kept, or how many
+    /// are in use.</summary>
+    private string RoutingRulesMessage => _routingRulesError ?? (InboxRoutingRules?.Current.Count ?? 0) switch
+    {
+        0 => "No rules yet — items are offered only the tags and destination their own text suggests.",
+        1 => "1 rule is in use.",
+        var count => $"{count} rules are in use."
+    };
+
+    protected override void OnInitialized() =>
+        _draftRoutingRules = InboxRoutingRules is { } routingRules
+            ? InboxRoutingRule.Format(routingRules.Current)
+            : string.Empty;
+
+    /// <summary>Keeps what the field says when it reads as rules, and says which
+    /// line does not when it does not — keeping nothing, so the rules in use stay
+    /// the last set that read. The draft is left as typed either way, so the
+    /// reader fixes the line rather than retyping the set.</summary>
+    private void ApplyRoutingRules()
+    {
+        if (InboxRoutingRules is not { } rules) return;
+
+        _routingRulesError = rules.SetRules(_draftRoutingRules);
+        if (_routingRulesError is null)
+        {
+            _draftRoutingRules = InboxRoutingRule.Format(rules.Current);
+        }
+    }
+}

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 
@@ -9,6 +10,7 @@ using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Services;
 using Backlog.Modules.Tasks.DomainModels;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
@@ -248,6 +250,81 @@ public sealed class TaskSyncWorkerTests
         await second.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, fixture.SessionsResolved);
+    }
+
+    // --- A token refused mid-cycle --------------------------------------------
+
+    /// <summary>
+    /// The first cycle after the service restarted. Development signs with a key
+    /// generated at startup, so the token this device holds is refused although
+    /// it has not expired. The handler drops it and the request ends in its 401;
+    /// the cycle then runs once more, reaching the token endpoint for a fresh
+    /// token, and the person never reads "Sync failed: Unauthorized" for a
+    /// failure the device had already recovered from.
+    /// </summary>
+    [Fact]
+    public async Task A_cycle_whose_token_was_refused_runs_once_more_at_once()
+    {
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            authenticated: true,
+            respond: (_, index) => index == 0
+                ? new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                : StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"tasks":[],"since":"cursor-1","hasMore":false}"""));
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Null(fixture.Worker.LastError);
+        Assert.NotNull(fixture.Worker.LastSummary);
+        Assert.Equal(2, fixture.Handler.Requests.Count);
+        Assert.Equal(2, fixture.TokenRequests);
+    }
+
+    /// <summary>
+    /// Inherited ADR 0015, from the worker's side: the one extra cycle is spent
+    /// on a token that was dropped, not on a credential the service refuses. A
+    /// second refusal is the answer, and it is shown rather than asked again.
+    /// </summary>
+    [Fact]
+    public async Task A_cycle_refused_twice_shows_the_failure_and_runs_no_third_time()
+    {
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            authenticated: true,
+            respond: (_, _) => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(fixture.Worker.LastError);
+        Assert.Equal(2, fixture.Handler.Requests.Count);
+    }
+
+    /// <summary>A failure no token had a part in - the service is down - is not
+    /// run again early. That is what the schedule and the button are for.</summary>
+    [Fact]
+    public async Task A_failure_with_no_token_refused_is_not_run_again_at_once()
+    {
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            authenticated: true,
+            respond: (_, _) => StubHttpMessageHandler.Problem(
+                HttpStatusCode.ServiceUnavailable,
+                SyncErrorCodes.ReplicaUnavailable,
+                "The replica is not reachable yet."));
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Contains("not reachable", fixture.Worker.LastError, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(fixture.Handler.Requests);
     }
 
     /// <summary>
@@ -733,6 +810,7 @@ public sealed class TaskSyncWorkerTests
 
         private readonly HttpClient _http;
         private readonly ITaskRepository _repository;
+        private readonly TokenPipeline? _tokens;
         private int _sessionsResolved;
 
         private Fixture(
@@ -746,10 +824,12 @@ public sealed class TaskSyncWorkerTests
             FakeTimeProvider clock,
             RepositoryGate gate,
             List<string> pushedBodies,
-            RecordingRoadmapReplication? roadmap)
+            RecordingRoadmapReplication? roadmap,
+            TokenPipeline? tokens)
         {
             _http = http;
             _repository = repository;
+            _tokens = tokens;
             Roadmap = roadmap;
 
             Handler = handler;
@@ -762,7 +842,7 @@ public sealed class TaskSyncWorkerTests
             PushedBodies = pushedBodies;
 
             Worker = new TaskSyncWorker(
-                new SessionProvider(BuildSession),
+                new SessionProvider(BuildSession, tokens?.Provider),
                 features,
                 credentials,
                 state,
@@ -807,6 +887,10 @@ public sealed class TaskSyncWorkerTests
 
         public int SessionsResolved => Volatile.Read(ref _sessionsResolved);
 
+        /// <summary>How many tokens were minted, where the fixture was composed
+        /// <c>authenticated</c>.</summary>
+        public int TokenRequests => _tokens?.Endpoint.Requests.Count ?? 0;
+
         public static Fixture Create(
             bool featureOn,
             bool paired,
@@ -815,7 +899,8 @@ public sealed class TaskSyncWorkerTests
             Action<InMemoryTaskStore>? seed = null,
             TaskSyncState? initialState = null,
             Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
-            RecordingRoadmapReplication? roadmap = null)
+            RecordingRoadmapReplication? roadmap = null,
+            bool authenticated = false)
         {
             var tasks = new InMemoryTaskStore();
             seed?.Invoke(tasks);
@@ -846,7 +931,17 @@ public sealed class TaskSyncWorkerTests
                         """{"tasks":[],"since":"cursor-1","hasMore":false}""");
             });
 
-            var http = new HttpClient(handler) { BaseAddress = new Uri("https://sync.test") };
+            var credentials = paired ? new InMemoryDeviceCredentialStore(Paired) : new InMemoryDeviceCredentialStore();
+            var clock = new FakeTimeProvider(Noon);
+
+            // Authenticated, the wire is the one a host composes: the real
+            // handler in front of the scripted service, and the real provider
+            // minting a token per request to the scripted token endpoint.
+            var tokens = authenticated ? TokenPipeline.Create(credentials, clock) : null;
+            var http = new HttpClient(tokens is null ? handler : new SyncAuthenticationHandler(tokens.Provider) { InnerHandler = handler })
+            {
+                BaseAddress = new Uri("https://sync.test")
+            };
 
             // The repository the session reads through: the plain store, one that
             // can be held open so a cycle stays in flight, or one that throws the
@@ -864,11 +959,12 @@ public sealed class TaskSyncWorkerTests
                 tasks,
                 new InMemoryTaskSyncStateStore(initialState),
                 new StubFeatureSettings(featureOn),
-                paired ? new InMemoryDeviceCredentialStore(Paired) : new InMemoryDeviceCredentialStore(),
-                new FakeTimeProvider(Noon),
+                credentials,
+                clock,
                 gate,
                 pushedBodies,
-                roadmap);
+                roadmap,
+                tokens);
         }
 
         /// <summary>
@@ -918,6 +1014,7 @@ public sealed class TaskSyncWorkerTests
         {
             Worker.Dispose();
             _http.Dispose();
+            _tokens?.Dispose();
         }
 
         private TaskSyncSession BuildSession()
@@ -938,10 +1035,51 @@ public sealed class TaskSyncWorkerTests
     /// <summary>The one service the worker is allowed to ask for, and a count of
     /// how often it asked. Anything else answers null, which is what a container
     /// does for a service nobody registered.</summary>
-    private sealed class SessionProvider(Func<TaskSyncSession> session) : IServiceProvider
+    private sealed class SessionProvider(Func<TaskSyncSession> session, SyncTokenProvider? tokens) : IServiceProvider
     {
         public object? GetService(Type serviceType) =>
-            serviceType == typeof(TaskSyncSession) ? session() : null;
+            serviceType == typeof(TaskSyncSession) ? session()
+            : serviceType == typeof(SyncTokenProvider) ? tokens
+            : null;
+    }
+
+    /// <summary>The token provider a host registers, over a scripted token
+    /// endpoint that mints <c>token-0</c>, <c>token-1</c> and so on, each good
+    /// for half an hour.</summary>
+    private sealed class TokenPipeline : IDisposable
+    {
+        private readonly ServiceProvider _services;
+
+        private TokenPipeline(ServiceProvider services, StubHttpMessageHandler endpoint)
+        {
+            _services = services;
+            Endpoint = endpoint;
+            Provider = services.GetRequiredService<SyncTokenProvider>();
+        }
+
+        public SyncTokenProvider Provider { get; }
+
+        public StubHttpMessageHandler Endpoint { get; }
+
+        public static TokenPipeline Create(IDeviceCredentialStore credentials, FakeTimeProvider clock)
+        {
+            var endpoint = new StubHttpMessageHandler((_, index) => StubHttpMessageHandler.Json(
+                HttpStatusCode.OK,
+                $$"""
+                {"accessToken":"token-{{index}}","expiresAt":"{{clock.GetUtcNow().AddMinutes(30).ToString("O", CultureInfo.InvariantCulture)}}","tokenType":"Bearer"}
+                """));
+
+            var services = new ServiceCollection();
+            services.AddSingleton<TimeProvider>(clock);
+            services.AddSingleton(credentials);
+            services.AddSingleton<SyncTokenProvider>();
+            services.AddHttpClient(SyncTokenProvider.HttpClientName, client => client.BaseAddress = new Uri("https://sync.test"))
+                .ConfigurePrimaryHttpMessageHandler(() => endpoint);
+
+            return new TokenPipeline(services.BuildServiceProvider(), endpoint);
+        }
+
+        public void Dispose() => _services.Dispose();
     }
 
     /// <summary>

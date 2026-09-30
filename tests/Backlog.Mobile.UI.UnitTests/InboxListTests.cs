@@ -1,3 +1,4 @@
+using Backlog.Mobile.UI.Components;
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
@@ -67,6 +68,90 @@ public sealed class InboxListTests
         });
 
         Assert.Equal(1, inbox.Created);
+    }
+
+    /// <summary>
+    /// The race behind the conference-day nudges: a pull is out when the outbox
+    /// delivers, and it answers with the list from before the capture landed. The
+    /// delivery's own refresh must not be lost to the pull in flight, and the row
+    /// must not vanish while the next pull is on its way.
+    /// </summary>
+    [Fact]
+    public void A_capture_delivered_while_a_pull_is_out_stops_waiting_and_stays_listed()
+    {
+        var clock = new FakeTimeProvider(Now);
+        var inbox = new ScriptedInboxService { State = InboxServiceState.Unreachable };
+        using var host = ShellHost.Paired(inbox, clock: clock);
+        var app = CaptureOffline(host, "Ask the speaker for the slides");
+
+        PullThenDeliver(app, host, inbox, clock);
+        inbox.ReleasePulls();
+
+        app.WaitForAssertion(() =>
+        {
+            var row = Assert.Single(app.FindAll("[data-testid='inbox-row']"));
+            Assert.Equal("false", row.GetAttribute("data-waiting"));
+            Assert.Contains("Ask the speaker for the slides", row.TextContent);
+        });
+
+        // The delivery's refresh waited for the pull in flight rather than being
+        // dropped by it: the first pull failed offline, the second was held, and
+        // a third asked the service after the capture landed.
+        app.WaitForAssertion(() => Assert.Equal(3, inbox.Pulls));
+    }
+
+    /// <summary>After a restart the next pull can fail too — the token it carries
+    /// was signed by the service that stopped. A delivered capture still reads
+    /// delivered: the outbox has the service's word for it.</summary>
+    [Fact]
+    public void A_delivered_capture_stays_listed_when_the_pull_after_it_fails()
+    {
+        var clock = new FakeTimeProvider(Now);
+        var inbox = new ScriptedInboxService { State = InboxServiceState.Unreachable };
+        using var host = ShellHost.Paired(inbox, clock: clock);
+        var app = CaptureOffline(host, "Ask the speaker for the slides");
+
+        PullThenDeliver(app, host, inbox, clock);
+        inbox.State = InboxServiceState.Unauthorized;
+        inbox.ReleasePulls();
+
+        app.WaitForAssertion(() =>
+        {
+            Assert.Equal(3, inbox.Pulls);
+            Assert.NotNull(app.Find("[data-testid='inbox-pull-notice']"));
+        });
+        var row = Assert.Single(app.FindAll("[data-testid='inbox-row']"));
+        Assert.Equal("false", row.GetAttribute("data-waiting"));
+        Assert.Contains("Ask the speaker for the slides", row.TextContent);
+    }
+
+    private static IRenderedComponent<Routes> CaptureOffline(ShellHost host, string title)
+    {
+        var app = host.Open();
+
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-pull-notice']")));
+        app.Find("[data-testid='capture-field'] input").Input(title);
+        app.Find("[data-testid='capture-submit']").Click();
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-waiting']")));
+
+        return app;
+    }
+
+    /// <summary>The service is back. A pull reads its list before the capture
+    /// reaches it and is held there; then the outbox's retry delivers.</summary>
+    private static void PullThenDeliver(IRenderedComponent<Routes> app, ShellHost host, ScriptedInboxService inbox, FakeTimeProvider clock)
+    {
+        inbox.State = InboxServiceState.Answering;
+        inbox.HoldPulls();
+        app.Find("[data-testid='inbox-refresh']").Click();
+        app.WaitForAssertion(() => Assert.Equal(1, inbox.HeldPulls));
+
+        clock.Advance(DeviceOutbox.FirstRetryDelay);
+        app.WaitForAssertion(() =>
+        {
+            Assert.Equal(1, inbox.Created);
+            Assert.Empty(host.Outbox.Entries);
+        });
     }
 
     /// <summary>While the Cosmos emulator warms up the service answers 503

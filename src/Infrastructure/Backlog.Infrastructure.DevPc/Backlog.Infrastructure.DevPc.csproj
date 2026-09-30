@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Dev PC Management's adapter: the one IDevToolService both hosts compose.
+
+    The desktop head composes it with its MCP endpoint source, and it shells out
+    to the copilot, claude, dotnet, winget and code CLIs and asks the VS Code
+    gallery for published versions. The web harness composes it in its
+    catalog-only configuration (DevToolService.CatalogOnly), which reads the
+    catalog JSON, starts no process and answers the sample rows a browser
+    session needs to reach every shape of the tools pane.
+
+    The command lines it runs (DevToolCommands), the refresh ordering
+    (DevToolRefresh) and the Claude desktop config merge sit here beside it:
+    they are how this adapter talks to the machine, not the catalog language
+    a caller or a hand-edited file has to agree on, which stays in
+    Backlog.Modules.DevPc.Abstractions.
+  -->
+  <PropertyGroup>
+    <!-- The same exhaustive-switch settings as the contract project, for the
+         same switches over DevToolKind and DevToolProvider: CS8509 (a named
+         enum member no arm covers) fails the build, and CS8524 (an unnamed
+         value an int cast can produce) is off. See
+         Backlog.Modules.DevPc.Abstractions.csproj for the reasoning. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
+    <NoWarn>$(NoWarn);CS8524</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The listing logs a CLI it could not read rather than losing it. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The port it answers, and the catalog language it reads. The direction is
+         the one ModuleBoundaryTests requires: a module declares a port and
+         infrastructure implements it, never the reverse. -->
+    <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
+    <!-- ITaskStore, for its RootDirectory: the storage root the per-PC config is
+         resolved from. -->
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Infrastructure.DevPc.UnitTests" />
+  </ItemGroup>
+
+</Project>

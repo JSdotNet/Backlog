@@ -126,7 +126,7 @@ public sealed class ConferenceDayTests
             log.AppendLine($"{DateTimeOffset.UtcNow:O} sync started");
             await phone.ComeBackOnlineAsync();
 
-            await WaitUntilSentAsync(phone, evidence, log, phone.InboxRow(note), phone.InboxRow(offline));
+            await WaitUntilSentAsync(phone, evidence, phone.InboxRow(note), phone.InboxRow(offline));
             await Interactive.EventuallyAsync(
                 async () =>
                 {
@@ -248,7 +248,7 @@ public sealed class ConferenceDayTests
             await appHost.StartAsync(Sync, cancellationToken);
             log.AppendLine($"{DateTimeOffset.UtcNow:O} sync started");
             await phone.ComeBackOnlineAsync();
-            await WaitUntilSentAsync(phone, evidence, log, phone.TaskRow(added));
+            await WaitUntilSentAsync(phone, evidence, phone.TaskRow(added));
             await Expect(phone.TaskRow(added).GetByTestId("task-waiting")).ToHaveCountAsync(0);
             await evidence.ScreenshotAsync(phone.Page, "phone-my-day-task-synced");
 
@@ -286,43 +286,31 @@ public sealed class ConferenceDayTests
 
     /// <summary>
     /// Waits for rows the phone queued while offline to stop saying they wait.
-    ///
-    /// <para>The outbox flushes on its own once it is resumed, and its rows
-    /// follow. If they have not after a while, the phone is nudged the way a
-    /// person would — pulled to refresh and resumed — and every nudge is logged
-    /// and photographed, so a marker that outlives its delivery shows up in the
-    /// evidence rather than as a timeout.</para>
+    /// The outbox flushes on its own once it is resumed, and its rows follow —
+    /// the phone is not nudged, so a row that loses its delivery fails the run.
+    /// A row missing from the list counts as not delivered.
     /// </summary>
-    private static async Task WaitUntilSentAsync(PhoneHarness phone, Evidence evidence, StringBuilder log, params ILocator[] rows)
+    private static async Task WaitUntilSentAsync(PhoneHarness phone, Evidence evidence, params ILocator[] rows)
     {
-        var nudges = 0;
-        var nextNudge = DateTime.UtcNow.AddSeconds(15);
-
-        await Interactive.EventuallyAsync(
-            async () =>
-            {
-                var waiting = 0;
-                foreach (var row in rows)
+        try
+        {
+            await Interactive.EventuallyAsync(
+                async () =>
                 {
-                    if (await row.GetAttributeAsync("data-waiting") != "false") waiting++;
-                }
+                    foreach (var row in rows)
+                    {
+                        if (await row.CountAsync() != 1 || await row.GetAttributeAsync("data-waiting") != "false") return false;
+                    }
 
-                if (waiting == 0) return true;
-
-                if (DateTime.UtcNow > nextNudge)
-                {
-                    nudges++;
-                    log.AppendLine($"{DateTimeOffset.UtcNow:O} nudge {nudges}: {waiting} row(s) still waiting");
-                    await evidence.ScreenshotAsync(phone.Page, $"phone-still-waiting-nudge-{nudges}");
-                    await phone.ComeBackOnlineAsync();
-                    if (await phone.Page.GetByTestId("inbox-refresh").IsVisibleAsync()) await phone.RefreshInboxAsync();
-                    if (await phone.Page.GetByTestId("tasks-refresh").IsVisibleAsync()) await phone.RefreshMyDayAsync();
-                    nextNudge = DateTime.UtcNow.AddSeconds(10);
-                }
-
-                return false;
-            },
-            Flush,
-            "the queued rows to be sent");
+                    return true;
+                },
+                Flush,
+                "the queued rows to be sent");
+        }
+        catch (TimeoutException)
+        {
+            await evidence.ScreenshotAsync(phone.Page, "phone-still-waiting");
+            throw;
+        }
     }
 }

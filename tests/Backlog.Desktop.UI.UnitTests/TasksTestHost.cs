@@ -148,8 +148,37 @@ internal static class TasksTestHost
         GitHubIntegration gitHub,
         TasksCopilotCli? copilot = null,
         IRoadmapTagSource? roadmapTags = null,
-        IToastChannel? toasts = null) =>
-        new(TaskStoreFor(store), EntriesFor(store), gitHub, copilot, roadmapTags, toasts);
+        IToastChannel? toasts = null,
+        TimeProvider? clock = null,
+        TaskStoreCalls? storeCalls = null)
+    {
+        var entries = EntriesFor(store);
+        return new(TaskStoreFor(store), storeCalls?.Watch(entries) ?? entries, gitHub, copilot, roadmapTags, toasts, timeProvider: clock);
+    }
+
+    /// <summary>Waits on <see cref="TasksDesktopState.Changed"/> for what a moved
+    /// clock set off. The timer fires on the thread that moved it, but the save
+    /// it starts goes to the store and comes back on its own.</summary>
+    public static async Task UntilAsync(TasksDesktopState state, Func<bool> condition)
+    {
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void OnChanged()
+        {
+            if (condition()) reached.TrySetResult();
+        }
+
+        state.Changed += OnChanged;
+        try
+        {
+            if (condition()) return;
+            await reached.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        }
+        finally
+        {
+            state.Changed -= OnChanged;
+        }
+    }
 
     /// <summary>
     /// The notification channel a screen publishes on and MainLayout's tray reads

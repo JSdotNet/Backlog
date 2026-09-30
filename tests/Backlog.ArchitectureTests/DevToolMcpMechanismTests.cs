@@ -7,8 +7,9 @@ namespace Backlog.ArchitectureTests;
 /// by reading its source.
 ///
 /// <para>A source scan for the reason <see cref="ProcessLaunchTests"/> is one: the
-/// file these rules are about lives in <c>src/App/Backlog.Desktop</c>, the MAUI
-/// head, which no test project references or can reference. The decisions
+/// rules are about how the service's own members are written, which no call
+/// through its public surface can observe. The file used to live in the MAUI head
+/// and now lives in <c>Backlog.Infrastructure.DevPc</c>. The decisions
 /// themselves were pushed into <c>Backlog.Modules.DevPc.Abstractions</c> so that
 /// one set of unit tests covers both services — what is left here is that this
 /// service actually goes through them.</para>
@@ -22,7 +23,7 @@ namespace Backlog.ArchitectureTests;
 /// </summary>
 public class DevToolMcpMechanismTests
 {
-    private const string ServiceFile = "src/App/Backlog.Desktop/Services/DevToolService.cs";
+    private const string ServiceFile = "src/Infrastructure/Backlog.Infrastructure.DevPc/DevToolService.cs";
 
     /// <summary>The argument lists that ask <c>dotnet</c> about one package.
     ///
@@ -94,8 +95,8 @@ public class DevToolMcpMechanismTests
     /// rotated.</para>
     ///
     /// <para>A source scan rather than a unit test for the reason the rest of
-    /// this file is one: the only member that mints lives in the MAUI head, which
-    /// no test project references. What the scan holds is the structural half —
+    /// this file is one: the only member that mints is private to the adapter, and
+    /// no call through its public surface can see which member it is in. What the scan holds is the structural half —
     /// the mint and the redaction are in the same member, so a later member that
     /// grows a mint cannot quietly leave the redaction behind.</para>
     /// </remarks>
@@ -235,8 +236,8 @@ public class DevToolMcpMechanismTests
     /// list.</para>
     ///
     /// <para>A source scan for the same reason as the rules above it: the file
-    /// lives in the MAUI head and the decision it has to defer to lives in
-    /// <c>Backlog.Modules.DevPc.Abstractions</c>, where a unit test already covers
+    /// is the adapter in <c>Backlog.Infrastructure.DevPc</c> and the decision it
+    /// has to defer to is <c>DevToolCommands</c> beside it, where a unit test already covers
     /// what the vector is.</para>
     /// </remarks>
     [Fact]

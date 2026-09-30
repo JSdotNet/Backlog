@@ -160,6 +160,58 @@ public class DevbookDatabaseRefresherTests : IDisposable
         Assert.False(DevbookDatabaseBuilder.IsCurrent(_root, Target), "inside the quiet interval nothing rebuilt");
     }
 
+    /// <summary>The waiting form still does its walk and its build off the
+    /// caller's thread: a UI caller awaiting it must not sit for the build. The
+    /// cache folder is the first thing a check asks for, so holding that answer
+    /// holds the check where the caller can see whether it waited.</summary>
+    [Fact]
+    public async Task Refresh_async_returns_before_the_check_runs()
+    {
+        using var gate = new ManualResetEventSlim();
+        using var refresher = new DevbookDatabaseRefresher(() => gate.Wait(TimeSpan.FromSeconds(10)) ? _cache : null);
+
+        var refresh = refresher.RefreshAsync(_root, TestContext.Current.CancellationToken);
+
+        Assert.False(refresh.IsCompleted, "the check ran on the caller's thread");
+        gate.Set();
+        Assert.True(await refresh.WaitAsync(TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken));
+        Assert.True(File.Exists(Target));
+    }
+
+    /// <summary>Cancelling the caller's token after the call has returned still
+    /// reaches the build — which it cannot if the linked token source was
+    /// disposed as the call returned.</summary>
+    [Fact]
+    public async Task Cancelling_after_refresh_async_returned_stops_the_build()
+    {
+        using var gate = new ManualResetEventSlim();
+        using var refresher = new DevbookDatabaseRefresher(() => gate.Wait(TimeSpan.FromSeconds(10)) ? _cache : null);
+        using var cancellation = new CancellationTokenSource();
+
+        var refresh = refresher.RefreshAsync(_root, cancellation.Token);
+        cancellation.Cancel();
+        gate.Set();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => refresh.WaitAsync(TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken));
+        Assert.False(File.Exists(Target), "a cancelled build leaves no database");
+    }
+
+    /// <summary>Disposing the refresher is the other way in: it stops a build a
+    /// caller is waiting on.</summary>
+    [Fact]
+    public async Task Disposing_the_refresher_stops_a_refresh_async_in_flight()
+    {
+        using var gate = new ManualResetEventSlim();
+        var refresher = new DevbookDatabaseRefresher(() => gate.Wait(TimeSpan.FromSeconds(10)) ? _cache : null);
+
+        var refresh = refresher.RefreshAsync(_root, TestContext.Current.CancellationToken);
+        refresher.Dispose();
+        gate.Set();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => refresh.WaitAsync(TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken));
+        Assert.False(File.Exists(Target), "a cancelled build leaves no database");
+    }
+
     /// <summary>Two worktrees of one repository are two databases, each built from
     /// its own files.</summary>
     [Fact]

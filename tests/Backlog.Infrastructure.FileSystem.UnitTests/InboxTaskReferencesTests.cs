@@ -75,6 +75,51 @@ public sealed class InboxTaskReferencesTests
         Assert.Null(reference.ImportItemId);
     }
 
+    [Fact]
+    public async Task Every_task_but_an_archived_one_is_read_for_relations_saying_whether_it_is_open()
+    {
+        var references = await new InboxTaskReferences(new ListingTaskItems(
+            [
+                Entry("Ready", EntryStatus.Ready),
+                Entry("Done", EntryStatus.Done),
+                Entry("Archived", EntryStatus.Archived),
+            ])).AllTasksAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(["Ready", "Done"], references.Select(reference => reference.Title));
+        Assert.Equal([true, false], references.Select(reference => reference.IsOpen));
+    }
+
+    [Fact]
+    public async Task A_task_carries_the_inbox_item_it_was_routed_from_and_its_source_link()
+    {
+        var item = Guid.NewGuid();
+        var entry = Entry("Ship the parser", EntryStatus.Ready) with
+        {
+            Body = "Notes.\n\nSource: https://example.com/spec\n",
+            SourceInboxId = item.ToString("D"),
+        };
+
+        var reference = Assert.Single(await new InboxTaskReferences(new ListingTaskItems([entry]))
+            .AllTasksAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(item, reference.SourceInboxId);
+        Assert.Equal("https://example.com/spec", reference.SourceUrl);
+        Assert.True(reference.IsOpen);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("desktop")]
+    public async Task A_source_that_is_not_an_inbox_items_id_names_no_item(string? source)
+    {
+        var entry = Entry("Ack", EntryStatus.Ready) with { SourceInboxId = source };
+
+        var reference = Assert.Single(await Read(entry));
+
+        Assert.Null(reference.SourceInboxId);
+        Assert.Null(reference.SourceUrl);
+    }
+
     private static Task<IReadOnlyList<InboxTaskReferenceDto>> Read(params TaskItemDto[] entries) =>
         new InboxTaskReferences(new ListingTaskItems(entries)).OpenTasksAsync(TestContext.Current.CancellationToken);
 

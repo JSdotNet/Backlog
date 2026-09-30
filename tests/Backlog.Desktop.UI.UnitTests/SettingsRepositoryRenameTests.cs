@@ -8,6 +8,7 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
+using Backlog.UI.Components.Layout;
 
 using Bunit;
 
@@ -145,6 +146,40 @@ public sealed class SettingsRepositoryRenameTests
         Assert.Empty(settings.Component.FindAll("[data-testid='github-repos-replaced-hint']"));
     }
 
+    /// <summary>
+    /// Removing the first repository leaves the second one's panel standing rather
+    /// than handing the first panel the second one's id: each repository panel is
+    /// keyed by its alias, so the component that was the docs panel before the
+    /// removal is the docs panel after it, and its tab is the one selected.
+    /// </summary>
+    [Fact]
+    public void Removing_the_first_repository_keeps_the_second_panel_bound()
+    {
+        using var settings = RenderSettings();
+        OpenRepositoriesTab(settings.Component);
+        var docsPanel = RepositoryPanel(settings.Component, "docs");
+
+        settings.Component.Find("[data-testid='remove-repository-button']").Click();
+
+        var remaining = Assert.Single(
+            settings.Component.FindComponents<TabPanel>(),
+            panel => panel.Instance.Id is "backlog" or "docs");
+        Assert.Equal("docs", remaining.Instance.Id);
+        Assert.Same(docsPanel, remaining.Instance);
+
+        var tab = Assert.Single(settings.Component.FindAll("[data-testid='repo-subpage-tab']"));
+        Assert.Equal("JSdotNet/Docs", tab.TextContent.Trim());
+        Assert.Equal("true", tab.GetAttribute("aria-selected"));
+
+        var card = settings.Component.Find("[data-testid='github-repo-card']");
+        Assert.Equal("JSdotNet/Docs repository settings", card.GetAttribute("aria-label"));
+        Assert.False(card.HasAttribute("hidden"));
+        Assert.Equal(tab.GetAttribute("aria-controls"), card.GetAttribute("id"));
+    }
+
+    private static TabPanel RepositoryPanel(IRenderedComponent<Settings> component, string alias) =>
+        component.FindComponents<TabPanel>().Single(panel => panel.Instance.Id == alias).Instance;
+
     private static void Rename(IRenderedComponent<Settings> component, string newName)
     {
         component.Find("[data-testid='rename-repository-button']").Click();
@@ -260,6 +295,10 @@ public sealed class SettingsRepositoryRenameTests
         public Task<Result> AssignRepositoriesAsync(Guid id, IReadOnlyList<string> repoIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> MoveToListAsync(Guid id, Guid? listId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result> ArchiveAsDuplicateAsync(Guid id, Guid duplicateOf, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result> LinkToTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result<InboxRelationsDto>> RelatedAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result.Success(InboxRelationsDto.None(id)));
         public Task<Result> DeleteAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> DeferAsync(Guid id, DateOnly? until, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> ResurfaceAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -272,6 +311,7 @@ public sealed class SettingsRepositoryRenameTests
         public Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<InboxBatchRoutedDto>> RouteToBacklogAsync(IReadOnlyList<Guid> ids, Guid? listId = null, InboxBatchRouteChoicesDto? choices = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(IReadOnlyList<Guid> ids, Guid? listId = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result<IReadOnlyList<ProposedDependency>>> InferBatchOrderAsync(IReadOnlyList<Guid> ids, string planTag, IReadOnlyDictionary<Guid, IReadOnlyList<string>>? repositories = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<InboxListDto>> CreateListAsync(string name, Guid? groupId = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> RenameListAsync(Guid listId, string name, CancellationToken cancellationToken = default) => throw new NotSupportedException();

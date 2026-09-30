@@ -3,6 +3,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.UI.Components.Layout;
 
 using Bunit;
 
@@ -286,6 +287,41 @@ public sealed class SettingsAccountsTests
 
         Assert.DoesNotContain("Accounts", SettingsTabs(settings.Component));
         Assert.Empty(settings.Component.FindAll("[data-testid='repo-account-select']"));
+    }
+
+    /// <summary>
+    /// Forgetting the first account leaves the second one's panel standing rather
+    /// than handing the first panel the second one's login: each account panel is
+    /// keyed by its login, so the component that was octocat's panel before is
+    /// octocat's panel after, and its tab is the one selected.
+    /// </summary>
+    [Fact]
+    public void Forgetting_the_first_account_keeps_the_second_panel_bound()
+    {
+        using var settings = RenderSettings(seed: store => Assert.Null(store.SetAccounts(
+        [
+            new GitHubAccount("JSdotNet"),
+            new GitHubAccount("octocat")
+        ])));
+        OpenAccountsTab(settings.Component);
+        var octocatPanel = settings.Component.FindComponents<TabPanel>().Single(panel => panel.Instance.Id == "octocat").Instance;
+
+        settings.Component.Find("[data-testid='remove-account-button']").Click();
+
+        Assert.Null(settings.GitHub.Current.Account("JSdotNet"));
+        var remaining = Assert.Single(
+            settings.Component.FindComponents<TabPanel>(),
+            panel => panel.Instance.Id is "JSdotNet" or "octocat");
+        Assert.Equal("octocat", remaining.Instance.Id);
+        Assert.Same(octocatPanel, remaining.Instance);
+
+        var tab = Assert.Single(settings.Component.FindAll("[data-testid='account-subpage-tab']"));
+        Assert.Equal("true", tab.GetAttribute("aria-selected"));
+
+        var card = settings.Component.Find("[data-testid='github-account-card']");
+        Assert.Equal("octocat account settings", card.GetAttribute("aria-label"));
+        Assert.False(card.HasAttribute("hidden"));
+        Assert.Equal(tab.GetAttribute("aria-controls"), card.GetAttribute("id"));
     }
 
     private static GhCliAccount Signed(string login, bool active) =>
