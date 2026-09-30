@@ -37,20 +37,23 @@ evidence path for every scenario it reports.
 status: trial
 type: skill
 stage: [code, test]
-depends-on: [".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-development.md#devbook-plugin"]
+depends-on: [".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-development.md#devbook-procedures"]
 date: 2026-09-25
 ```
 
-How to `start` the application, `show` a branch's change, `capture` evidence, and `debug` an
-observed issue are this repository's own skills under `.agents/skills/`, each reached through
-a wrapper per host that fixes its goal. A flow calls `start` at its `app.start` extension
-instead of guessing a command.
+How to `run` the application, `show` a branch's change, `capture` evidence, `debug` an
+observed issue, and `estimate` work are this repository's own skills, each reached through a
+wrapper per host that fixes its goal. `run` is a Claude Code recipe at
+`.claude/skills/run-backlog/SKILL.md` with a Copilot twin; the other bodies live under
+`.agents/skills/`. A flow calls `run` at its `app.start` extension instead of guessing a
+command.
 
-- **Used for** — starting the AppHost the way `start` says, walking a
+- **Used for** — starting the AppHost the way `run` says, walking a
   change for a reviewer, and finding a cause from logs and traces without handing the person
   a debugger.
-- **Adopted by** — the flows, since the procedures were seeded on 2026-09-25.
-- **Evidence** — none yet beyond the flows that called `start`.
+- **Adopted by** — the flows, since the procedures were seeded on 2026-09-25. The `start`
+  procedure became the `run` recipe on 2026-09-30.
+- **Evidence** — none yet beyond the flows that started the application this way.
 - **Limits** — the body is the repository's to edit; the goal in the wrapper is not.
 
 ## Devbook checks around a flow
