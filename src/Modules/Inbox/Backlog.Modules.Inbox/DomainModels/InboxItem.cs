@@ -167,6 +167,12 @@ public sealed class InboxItem
     /// synced, so the stamp is bookkeeping rather than a tie-break.</summary>
     public DateTimeOffset UpdatedAt { get; private set; }
 
+    /// <summary>The item this one was archived as a duplicate of, or null. Set
+    /// only by <see cref="Archive(DateTimeOffset, Guid?)"/> with an item named,
+    /// and never cleared: an archived item stays archived, and so does what it
+    /// was archived as.</summary>
+    public Guid? DuplicateOf { get; private set; }
+
     /// <summary>"Routed" as <c>flow.md</c> defines it: triaged, with a target.</summary>
     public bool IsRouted => Routing is not null;
 
@@ -460,13 +466,32 @@ public sealed class InboxItem
         Touch(now);
     }
 
-    /// <summary>Dismisses the item. From any state but the two terminal ones —
-    /// routed and archived. Marks the replica acknowledgement pending when the
-    /// item came from one, because the phone is still offering it.</summary>
-    public void Archive(DateTimeOffset now)
+    /// <summary>
+    /// Dismisses the item. From any state but the two terminal ones — routed and
+    /// archived. Marks the replica acknowledgement pending when the item came
+    /// from one, because the phone is still offering it.
+    /// <para>
+    /// With <paramref name="duplicateOf"/> it is dismissed as the same capture as
+    /// that item, and remembers which (<see cref="DuplicateOf"/>). Two rules on
+    /// top of archiving's: an item is never a duplicate of itself, and only an
+    /// open item — unprocessed or deferred — is archived as one, because that is
+    /// a triage decision and an item already triaged has had its decision. The
+    /// item named may be in any state; whether it still exists is the handler's
+    /// to check, since the aggregate cannot see another item.
+    /// </para>
+    /// </summary>
+    public void Archive(DateTimeOffset now, Guid? duplicateOf = null)
     {
         if (IsRouted || Status is InboxStatus.Archived)
             throw new InvalidInboxTransitionException(Status, "archived");
+
+        if (duplicateOf is { } original)
+        {
+            if (original == Id) throw new ArgumentException("An item cannot be a duplicate of itself.", nameof(duplicateOf));
+            if (!IsOpen) throw new InvalidInboxTransitionException(Status, "archived as a duplicate");
+
+            DuplicateOf = original;
+        }
 
         Status = InboxStatus.Archived;
         DeferredUntil = null;
@@ -495,6 +520,28 @@ public sealed class InboxItem
         DeferredUntil = null;
         if (ReplicaBacked) ReplicaAckPending = true;
         Touch(now);
+    }
+
+    /// <summary>
+    /// Records that the item is already a task the backlog has — "Link to
+    /// task…" — rather than making it one. The same routing a route records,
+    /// naming that one task, so the item leaves the queue as decided and says
+    /// where it went; nothing is created, and the task is not touched, because
+    /// its source is fixed when it is made.
+    /// <para>
+    /// Only from an open item, as archiving as a duplicate is: linking is a
+    /// triage decision. <paramref name="repoIds"/> are the task's repositories,
+    /// which is where the work the item became actually lives.
+    /// </para>
+    /// </summary>
+    public void LinkToTask(Guid taskId, IReadOnlyList<string> repoIds, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(repoIds);
+
+        if (taskId == Guid.Empty) throw new ArgumentException("A task id is required.", nameof(taskId));
+        if (IsRouted || !IsOpen) throw new InvalidInboxTransitionException(Status, "linked to a task");
+
+        RouteToBacklog([taskId], repoIds, now);
     }
 
     /// <summary>The outbox drained: the replica has the tombstone.</summary>
@@ -561,9 +608,11 @@ public sealed class InboxItem
         DateOnly? deferredUntil,
         RoutingTarget? routing,
         bool replicaAckPending,
-        DateTimeOffset updatedAt)
+        DateTimeOffset updatedAt,
+        Guid? duplicateOf = null)
     {
         Status = status;
+        DuplicateOf = duplicateOf;
         DeferredUntil = deferredUntil;
         Routing = routing;
         ReplicaAckPending = replicaAckPending;

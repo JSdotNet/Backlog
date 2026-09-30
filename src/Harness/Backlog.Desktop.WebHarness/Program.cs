@@ -37,6 +37,7 @@ using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
+using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Extensions;
@@ -224,10 +225,16 @@ builder.Services.AddSingleton<IGhCliAccountSource>(_ => new GhCliAccountSource()
 builder.Services.AddSingleton<IGitHubCredentialResolver>(sp => new GitHubCredentialResolver(
     sp.GetRequiredService<GitHubSettingsStore>(),
     sp.GetRequiredService<IGhCliAccountSource>()));
+// The token route asks the factory for its client on every send, and the
+// client carries GitHub's own pipeline: reads retried, writes sent once,
+// budgets sized for a database-sized backup PUT. The web harness and the
+// desktop app call the same registration so the two cannot drift.
+builder.Services.AddGitHubHttpClient();
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
     sp.GetRequiredService<GitHubSettingsStore>(),
     credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
-    accounts: sp.GetRequiredService<IGhCliAccountSource>()));
+    accounts: sp.GetRequiredService<IGhCliAccountSource>(),
+    httpClients: sp.GetRequiredService<IHttpClientFactory>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IGitHubAccountProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IAppFeatureSettings>(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
@@ -391,7 +398,10 @@ builder.Services.AddSingleton<IClaudeCodeUsageCache>(sp => new ClaudeCodeUsageCa
 // all the adapters hold. Every part reports itself unavailable with a reason until
 // the credential it needs exists, so this is safe to register unconditionally.
 builder.Services.AddDashboardModule();
-builder.Services.AddDashboardAdapters();
+builder.Services.AddGitHubDashboardAdapters();
+builder.Services.AddClaudeDashboardAdapters();
+builder.Services.AddAzureFoundryDashboardAdapters();
+builder.Services.AddDashboardUi();
 
 // Tasks' own adapter, registered here rather than beside
 // AddTasksModule() above because it reads the GitHub settings store and that is
@@ -483,7 +493,9 @@ builder.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<ID
 // The web host never distributes or updates the desktop app, so it always
 // reports updates as unsupported.
 builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-builder.Services.AddSingleton<IDevToolService, LocalDevelopmentDevToolService>();
+// The desktop head's own tools adapter, configured to read the catalog and run
+// nothing: a browser session operates the pane without touching the machine.
+builder.Services.AddSingleton<IDevToolService>(sp => DevToolService.CatalogOnly(sp.GetRequiredService<ITaskStore>()));
 // The tool catalog behind the shell's Ask AI port, beside the port it reads.
 builder.Services.AddToolsAiContentSource();
 

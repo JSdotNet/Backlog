@@ -26,9 +26,23 @@
     section keeps scrolling it.
 *@
 <section class="@RootClass" aria-label="@($"{Folder.DisplayName} area")" data-testid="@($"{Folder.AreaKey}-devbook-view")">
-    @if (_model is null)
+    @if (_loadError is not null)
     {
-        <Alert Message="@($"Loading the {Folder.DisplayName} area...")" BaseClass="folder-devbook__message" Role="status" />
+        @* The folder could not be read, so there is nothing to show but that and
+           the way back (.devbook/design/interaction-guidelines.md, Error States).
+           Retry is the load itself. *@
+        <Alert Message="@_loadError"
+               BaseClass="folder-devbook__message"
+               ActionLabel="Retry"
+               OnAction="ReloadOrReportAsync"
+               ActionTestId="@($"{Folder.AreaKey}-load-retry")"
+               TestId="@($"{Folder.AreaKey}-load-error")" />
+    }
+    else if (_model is null)
+    {
+        @* The whole view waits on one read and has nothing to lay out until it is
+           in, so the spinner rather than a skeleton — and never a sentence. *@
+        <Spinner Label="@($"Loading the {Folder.DisplayName} area")" TestId="@($"{Folder.AreaKey}-loading")" />
     }
     else if (!_model.IsAvailable)
     {
@@ -308,6 +322,9 @@
 @code {
     private DocumentDevbookModel? _model;
 
+    /// <summary>Why the folder could not be read, when the last load failed.</summary>
+    private string? _loadError;
+
     /// <summary>Whether this view may write anything back. False for a folder
     /// read from a repository branch, which draws every status as a badge and
     /// renders chapters read-only.</summary>
@@ -390,7 +407,7 @@
     {
         if (_model is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
         {
-            await ReloadAsync();
+            await ReloadOrReportAsync();
             return;
         }
 
@@ -429,6 +446,25 @@
             StateHasChanged();
         });
 
+    /// <summary>The load a scope change asks for, and the Retry after one failed.
+    /// Caught here rather than in <see cref="ReloadAsync"/>, which the saves and
+    /// the folder-change handler call with documents already on screen to keep: a
+    /// failed first load has nothing to keep, and left to throw it took the
+    /// renderer's pipeline down with the loading spinner still up.</summary>
+    private async Task ReloadOrReportAsync()
+    {
+        _loadError = null;
+
+        try
+        {
+            await ReloadAsync();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _loadError = $"Could not read the {Folder.DisplayName} area. {ex.Message}";
+        }
+    }
+
     /// <summary>Parses the folder again and re-reads the open chapter, whatever
     /// the guard in <see cref="OnParametersSetAsync"/> would have decided. The
     /// status badges and the token strip are derived from the file, so after a
@@ -448,6 +484,11 @@
 
         _model = model;
         _loadedRepositoryAlias = alias;
+
+        // The folder read, so an earlier failure no longer describes it. Cleared
+        // here rather than only by ReloadOrReportAsync, because a folder change
+        // reloads without it and the failure alert is drawn before the documents.
+        _loadError = null;
         await ReadChapterAsync();
     }
 

@@ -2526,6 +2526,22 @@ button.md-check {
     font-size: var(--font-size-xs);
 }
 
+/* The alert's one action - a Retry, usually - sits at the end of the line it
+   belongs to rather than on a row of its own. */
+.alert__action {
+    margin-inline-start: var(--spacing-sm);
+    vertical-align: middle;
+}
+
+/* A tree that has not arrived: a column of placeholder rows on the tree's own
+   rhythm, so the rows that replace them land where the bars were. */
+.devbook-menu__skeleton,
+.folder-tree__skeleton {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+}
+
 .devbook-menu,
 .folder-tree,
 .folder-tree__children,

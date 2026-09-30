@@ -10,6 +10,10 @@ rem
 rem  Reads:   stdout.txt     written to stdout verbatim, when it exists
 rem           stderr.txt     written to stderr verbatim, when it exists
 rem           exit-code.txt  the exit code to end with; 0 when absent
+rem           hang.txt       when it exists, the call never ends by itself: a
+rem                          child `ping` holds hang.lock open for two minutes,
+rem                          so the lock outlives the call unless the whole
+rem                          process tree is killed
 rem  Writes:  args.txt       one argv element per line, each call closed by the
 rem                          marker line below
 rem           stdin.txt      whatever was piped in, but only for a call that
@@ -33,6 +37,11 @@ goto record
 
 :recorded
 >>"%here%args.txt" echo(--- end of call ---
+
+if not exist "%here%hang.txt" goto answer
+>"%here%hang.lock" ping -n 120 127.0.0.1
+
+:answer
 
 if defined piped more >>"%here%stdin.txt"
 

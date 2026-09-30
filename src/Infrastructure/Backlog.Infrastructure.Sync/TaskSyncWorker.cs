@@ -577,7 +577,23 @@ public sealed class TaskSyncWorker : IDisposable
             // an arrangement rather than a fault. Nothing to do, and no noise.
             if (session is null) return;
 
+            var tokens = _services.GetService<SyncTokenProvider>();
+            var refusedBefore = tokens?.TokensRefused;
+
             var result = await session.SyncAsync(_lifetime.Token).ConfigureAwait(false);
+
+            // A token refused during the exchange has already been dropped, so
+            // the next one starts from the credential - which is how the first
+            // cycle after the service restarted with a new signing key ends in a
+            // 401 the device has already recovered from. That one is run again
+            // at once rather than shown. Once only, and never for the credential
+            // itself (inherited ADR 0015): a second failure is the answer.
+            if (result.IsFailure && tokens is not null && tokens.TokensRefused != refusedBefore)
+            {
+                _log.LogInformation(
+                    "A task sync cycle met a refused token; running it once more with a fresh one: {Code}", result.Error.Code);
+                result = await session.SyncAsync(_lifetime.Token).ConfigureAwait(false);
+            }
 
             if (result.IsSuccess)
             {

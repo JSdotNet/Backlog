@@ -17,14 +17,29 @@
 *@
 
 <section class="domain-devbook @(Compact ? "domain-devbook--compact" : string.Empty)" data-testid="domain-devbook-panel" aria-label="Domain area">
-    @if (_view is null || _reading)
+    @if (_loadError is not null)
+    {
+        @* The folder could not be read, so there is nothing to show but that and
+           the way back (.devbook/design/interaction-guidelines.md, Error States).
+           Retry is the load itself. *@
+        <Alert Message="@_loadError"
+               BaseClass="domain-devbook__state"
+               ActionLabel="Retry"
+               OnAction="RetryLoadAsync"
+               ActionTestId="domain-load-retry"
+               TestId="domain-load-error" />
+    }
+    else if (_view is null || _reading)
     {
         @* Also while a context's documents are being read for the render that
            comes next. The lists are lazy so that the load does not parse the
            corpus; drawing one before it is read would parse it here, on the
            thread that draws — which is what MaterializeSelectionAsync exists to
-           keep off it. *@
-        <Alert Message="Loading the domain area..." BaseClass="domain-devbook__state" Role="status" />
+           keep off it.
+
+           The spinner rather than a skeleton, because the whole panel waits and
+           nothing is laid out until the read is in — and never a sentence. *@
+        <Spinner Label="Loading the domain area" TestId="domain-loading" />
     }
     else if (_view.Error is not null)
     {
@@ -205,6 +220,9 @@
     private string _baselineId = OpenedBaselineId;
     private DomainDevbookView? _view;
 
+    /// <summary>Why the folder could not be read, when the last load failed.</summary>
+    private string? _loadError;
+
     /// <summary>Whether this panel may write anything back. False for a folder
     /// read from a repository branch, which hides the status controls and the
     /// launchers rather than offering changes the next fetch would discard.</summary>
@@ -355,11 +373,25 @@
             // — and this guard would then never ask again. A load the scope has
             // moved on from is dropped; the switch's own load has the answer.
             var alias = RepositoryAlias;
-            var view = await DomainDevbook.LoadAsync(alias);
+            DomainDevbookView view;
+            try
+            {
+                view = await DomainDevbook.LoadAsync(alias);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A failed first load has nothing on screen to keep, and left to
+                // throw it took the renderer's pipeline down with the spinner
+                // still up. Said instead, with the Retry that asks again.
+                if (string.Equals(alias, RepositoryAlias, StringComparison.Ordinal)) _loadError = LoadError(ex);
+                return;
+            }
+
             if (!string.Equals(alias, RepositoryAlias, StringComparison.Ordinal)) return;
 
             _view = view;
             _loadedRepositoryAlias = alias;
+            _loadError = null;
         }
 
         // Read on every pass rather than only on a scope change: the store answers
@@ -552,6 +584,25 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    /// <summary>The Retry after a failed first load: the reload, and the context
+    /// it opens on, as a folder change would ask for them.</summary>
+    private async Task RetryLoadAsync()
+    {
+        _loadError = null;
+
+        try
+        {
+            await ReloadAsync();
+            SelectDefaultContext();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _loadError = LoadError(ex);
+        }
+    }
+
+    private static string LoadError(Exception ex) => $"Could not read the domain area. {ex.Message}";
+
     /// <summary>
     /// The view again, past the repository-alias guard.
     /// <para>
@@ -564,6 +615,11 @@
     private async Task ReloadAsync()
     {
         _view = await DomainDevbook.LoadAsync(RepositoryAlias);
+
+        // The folder read, so an earlier failure no longer describes it. Cleared
+        // here rather than only by the Retry, because a folder change reloads
+        // without it and the failure alert is drawn before the view.
+        _loadError = null;
         _c4 = _c4Store is null ? C4Catalog.Off : await _c4Store.LoadAsync(RepositoryAlias);
         _loadedRepositoryAlias = RepositoryAlias;
         await MaterializeSelectionAsync();

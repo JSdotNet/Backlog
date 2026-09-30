@@ -1,6 +1,6 @@
-using System.Globalization;
 using System.Text.RegularExpressions;
 
+using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.DomainModels;
 
@@ -37,7 +37,16 @@ namespace Backlog.Modules.Inbox.Services;
 /// One dependency per pair; the first rule to match gives the reason. An item
 /// never waits on itself, and two items with the same title do not wait on each
 /// other for it — the same words are the same thought captured twice, not one
-/// naming the other.
+/// naming the other. The same goes for any two items that are directly
+/// duplicates (<see cref="DuplicateReason"/>): the same link or nearly the same
+/// title is one capture made twice, which the panel offers to merge rather than
+/// chain. Only the pair itself: two items that are each a duplicate of a third
+/// are not, for that, duplicates of each other, and may still wait on one another.
+/// </para>
+/// <para>
+/// Beneath the tier-one rules sit the <see cref="Hints"/> — same list, same
+/// repository, capture order, setup first, duplicates — which are said and never
+/// proposed: they are <see cref="OrderingHint"/>s, a type no route or order reads.
 /// </para>
 /// </summary>
 internal static partial class DependencyProposal
@@ -67,12 +76,12 @@ internal static partial class DependencyProposal
         foreach (var item in batch)
         {
             var text = item.Title + "\n" + item.BodyMd;
-            var links = Links(text);
+            var links = InboxUrl.Links(text);
             var offered = new HashSet<(DependencyTargetKind, Guid)>();
 
             foreach (var other in batch.Where(other => other.Id != item.Id))
             {
-                if (other.SourceUrl is { } source && Written(links, source) is { } written)
+                if (other.SourceUrl is { } source && InboxUrl.Written(links, source) is { } written)
                 {
                     Offer(DependencyTarget.ForItem(other.Id, other.Title), written);
                 }
@@ -86,12 +95,12 @@ internal static partial class DependencyProposal
 
             foreach (var task in tasks)
             {
-                if (NamedIssue(text, links, task, item.RepoIds) is { } issue) Offer(DependencyTarget.ForTask(task), issue);
+                if (IssueMention.Find(text, links, task, item.RepoIds) is { } issue) Offer(DependencyTarget.ForTask(task), issue.Written);
             }
 
             foreach (var task in tasks)
             {
-                if (task.Links.Select(link => Written(links, link)).FirstOrDefault(written => written is not null) is { } written)
+                if (task.Links.Select(link => InboxUrl.Written(links, link)).FirstOrDefault(written => written is not null) is { } written)
                 {
                     Offer(DependencyTarget.ForTask(task), written);
                 }
@@ -100,6 +109,8 @@ internal static partial class DependencyProposal
             void Offer(DependencyTarget to, string reason)
             {
                 if (to.Kind == DependencyTargetKind.Item && to.Id == item.Id) return;
+                if (to.Kind == DependencyTargetKind.Item && batch.FirstOrDefault(other => other.Id == to.Id) is { } target
+                    && DuplicateReason(item, target) is not null) return;
                 if (!offered.Add((to.Kind, to.Id))) return;
 
                 proposed.Add(new ProposedDependency(item.Id, to, reason, DependencyTier.Stated));
@@ -109,44 +120,165 @@ internal static partial class DependencyProposal
         return proposed;
     }
 
-    // --- Links -----------------------------------------------------------------
+    // --- Duplicates ------------------------------------------------------------
 
-    /// <summary>A link written in the text, as written and as compared.</summary>
-    private readonly record struct Link(string Written, string Key);
-
-    /// <summary>Every <c>http(s)</c> link in the text, trailing sentence
-    /// punctuation left off — "see https://example.com/a." links to <c>/a</c>.
-    /// A markdown link's brackets and a quoted link's quotes end it too.</summary>
-    private static List<Link> Links(string text) =>
-        [.. LinkPattern().Matches(text)
-            .Select(match => match.Value.TrimEnd('.', ',', ';', ':', '!', '?'))
-            .Where(written => written.Length > 0)
-            .Select(written => new Link(written, Key(written)))];
-
-    /// <summary>How two links are compared: without case, without a fragment,
-    /// and without a trailing slash, so <c>…/issues/12#issuecomment-3</c> and
-    /// <c>…/issues/12/</c> both name issue 12 — and <c>…/issues/123</c> does not.</summary>
-    private static string Key(string url)
+    /// <summary>Why two items of a batch are the same capture, or null when they
+    /// are not: the same source link first, then nearly the same title.</summary>
+    internal static string? DuplicateReason(InboxItem a, InboxItem b)
     {
-        var key = url.Trim();
-        var fragment = key.IndexOf('#', StringComparison.Ordinal);
-        if (fragment >= 0) key = key[..fragment];
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
 
-        return key.TrimEnd('/').ToLowerInvariant();
+        if (InboxUrl.Same(a.SourceUrl, b.SourceUrl)) return SameLinkReason;
+        if (TitleSimilarity.IsNearIdentical(a.Title, b.Title)) return SimilarTitleReason;
+        return null;
     }
 
-    /// <summary>The text's own spelling of <paramref name="url"/>, or null when
-    /// the text does not link to it.</summary>
-    private static string? Written(List<Link> links, string url)
+    /// <summary>
+    /// The batch's items that are the same capture, grouped around the one a
+    /// merge would keep: in the batch's order, the first item not yet in a group
+    /// starts one, and every later item not yet in a group that is a duplicate of
+    /// <em>it</em> joins. Direct only, never through a third item — A sharing a
+    /// link with B and B nearly a title with C does not make A and C one capture,
+    /// and a merge keeping A must not archive C. Only groups of two or more,
+    /// ordered by where each starts.
+    /// </summary>
+    internal static IReadOnlyList<IReadOnlyList<InboxItem>> DuplicateGroups(IReadOnlyList<InboxItem> batch)
     {
-        if (string.IsNullOrWhiteSpace(url)) return null;
+        ArgumentNullException.ThrowIfNull(batch);
 
-        var key = Key(url);
-        return links.FirstOrDefault(link => string.Equals(link.Key, key, StringComparison.Ordinal)).Written;
+        var grouped = new HashSet<Guid>();
+        var groups = new List<IReadOnlyList<InboxItem>>();
+
+        for (var i = 0; i < batch.Count; i++)
+        {
+            var kept = batch[i];
+            if (grouped.Contains(kept.Id)) continue;
+
+            var group = new List<InboxItem> { kept };
+            for (var j = i + 1; j < batch.Count; j++)
+            {
+                var other = batch[j];
+                if (other.Id == kept.Id || grouped.Contains(other.Id) || group.Any(member => member.Id == other.Id)) continue;
+                if (DuplicateReason(kept, other) is not null) group.Add(other);
+            }
+
+            if (group.Count < 2) continue;
+
+            grouped.UnionWith(group.Select(member => member.Id));
+            groups.Add(group);
+        }
+
+        return groups;
     }
 
-    [GeneratedRegex(@"https?://[^\s<>()\[\]{}""'`]+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex LinkPattern();
+    // --- Hints -----------------------------------------------------------------
+
+    internal const string SameLinkReason = "Same link";
+    internal const string SimilarTitleReason = "Nearly the same title";
+    internal const string EitherDuplicateReason = "Same link or nearly the same title";
+    internal const string CaptureOrderReason = "Captured in another order";
+    internal const string SetupFirstReason = "Reads like setup, so it may belong ahead of the rest";
+
+    /// <summary>
+    /// What the Inbox notices about the order <paramref name="batch"/> could go
+    /// in, beyond what its items state — tier two, said and never written.
+    /// Nothing for a batch of fewer than two items. In this order:
+    /// <list type="number">
+    /// <item><b>Duplicates</b>: each <see cref="DuplicateGroups"/> group, the one
+    /// a merge would keep first. The only hint the panel can act on.</item>
+    /// <item><b>Setup first</b>: an item whose title reads like setup
+    /// (<see cref="IsSetupShaped"/>) that the proposed order puts behind one that
+    /// does not.</item>
+    /// <item><b>Same list</b> and <b>same repository</b>: two or more items
+    /// sharing one — but not every item, because a hint true of the whole batch
+    /// tells the person nothing about its order.</item>
+    /// <item><b>Capture order</b>: the items in the order they were captured,
+    /// only when that differs from the order proposed.</item>
+    /// </list>
+    /// <paramref name="dependencies"/> are the ones proposed, which give the
+    /// proposed order; <paramref name="listNames"/> name the lists.
+    /// </summary>
+    public static IReadOnlyList<OrderingHint> Hints(
+        IReadOnlyList<InboxItem> batch,
+        IReadOnlyList<ProposedDependency> dependencies,
+        IReadOnlyDictionary<Guid, string> listNames)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+        ArgumentNullException.ThrowIfNull(dependencies);
+        ArgumentNullException.ThrowIfNull(listNames);
+
+        var items = batch.DistinctBy(item => item.Id).ToList();
+        if (items.Count < 2) return [];
+
+        var hints = new List<OrderingHint>();
+
+        foreach (var group in DuplicateGroups(items))
+        {
+            var reason = group.Skip(1).All(other => InboxUrl.Same(group[0].SourceUrl, other.SourceUrl))
+                ? SameLinkReason
+                : group.Skip(1).All(other => TitleSimilarity.IsNearIdentical(group[0].Title, other.Title))
+                    ? SimilarTitleReason
+                    : EitherDuplicateReason;
+            hints.Add(new OrderingHint(OrderingHintKind.Duplicate, [.. group.Select(item => item.Id)], reason));
+        }
+
+        var ids = items.Select(item => item.Id).ToList();
+        var proposed = InboxBatchOrder.Order(ids, InboxBatchOrder.Edges(dependencies));
+        var byId = items.ToDictionary(item => item.Id);
+
+        for (var at = 0; at < proposed.Count; at++)
+        {
+            var item = byId[proposed[at]];
+            if (IsSetupShaped(item.Title) && proposed.Take(at).Any(earlier => !IsSetupShaped(byId[earlier].Title)))
+            {
+                hints.Add(new OrderingHint(OrderingHintKind.SetupFirst, [item.Id], SetupFirstReason));
+            }
+        }
+
+        foreach (var list in items.Where(item => item.ListId is not null).GroupBy(item => item.ListId!.Value))
+        {
+            var members = list.ToList();
+            if (members.Count < 2 || members.Count == items.Count) continue;
+
+            var name = listNames.TryGetValue(list.Key, out var named) ? named : "a list";
+            hints.Add(new OrderingHint(OrderingHintKind.SameList, [.. members.Select(item => item.Id)], $"Same list: {name}"));
+        }
+
+        var repositories = items
+            .SelectMany(item => item.RepoIds.Select(repo => (Repo: repo, Item: item)))
+            .GroupBy(pair => pair.Repo, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var repository in repositories)
+        {
+            var members = repository.Select(pair => pair.Item).DistinctBy(item => item.Id).ToList();
+            if (members.Count < 2 || members.Count == items.Count) continue;
+
+            hints.Add(new OrderingHint(
+                OrderingHintKind.SameRepository,
+                [.. members.Select(item => item.Id)],
+                $"Same repository: {repository.First().Repo}"));
+        }
+
+        var captured = items.OrderBy(item => item.CapturedAt).Select(item => item.Id).ToList();
+        if (!captured.SequenceEqual(proposed))
+        {
+            hints.Add(new OrderingHint(OrderingHintKind.CaptureOrder, captured, CaptureOrderReason));
+        }
+
+        return hints;
+    }
+
+    /// <summary>Whether a title reads like setup: it says set up, install,
+    /// configure, scaffold, bootstrap, init or initialise, as whole words in any
+    /// case — the work other work usually waits on.</summary>
+    internal static bool IsSetupShaped(string? title) =>
+        !string.IsNullOrWhiteSpace(title) && SetupPattern().IsMatch(title);
+
+    [GeneratedRegex(
+        @"(?<![\p{L}\p{N}_])(?:set[ -]?up|install(?:ing)?|configur(?:e|ing)|scaffold(?:ing)?|bootstrap(?:ping)?|init|initiali[sz](?:e|ing))(?![\p{L}\p{N}_])",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SetupPattern();
 
     // --- Titles ----------------------------------------------------------------
 
@@ -176,51 +308,4 @@ internal static partial class DependencyProposal
             return null;
         }
     }
-
-    // --- Issues ----------------------------------------------------------------
-
-    /// <summary>The text naming one of the task's issues — <c>#123</c> for an
-    /// issue in one of the item's repositories, or the issue's GitHub URL for
-    /// any — or null.</summary>
-    private static string? NamedIssue(string text, List<Link> links, InboxTaskReferenceDto task, IReadOnlyList<string> itemRepos)
-    {
-        foreach (var issue in task.Issues)
-        {
-            if (itemRepos.Contains(issue.Repo, StringComparer.OrdinalIgnoreCase))
-            {
-                foreach (Match match in IssueNumberPattern().Matches(text))
-                {
-                    if (int.TryParse(match.Groups["number"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var number)
-                        && number == issue.Number)
-                    {
-                        return match.Value;
-                    }
-                }
-            }
-
-            foreach (var link in links)
-            {
-                var url = IssueUrlPattern().Match(link.Key);
-                if (url.Success
-                    && string.Equals(url.Groups["repo"].Value, issue.Repo, StringComparison.OrdinalIgnoreCase)
-                    && int.TryParse(url.Groups["number"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var number)
-                    && number == issue.Number)
-                {
-                    return link.Written;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>A <c>#123</c> that is not the tail of a word, a link or an
-    /// entity — <c>page#12</c> is an anchor and <c>&amp;#12;</c> a character.</summary>
-    [GeneratedRegex(@"(?<![\p{L}\p{N}_&/#])#(?<number>[0-9]+)(?![\p{L}\p{N}_])", RegexOptions.CultureInvariant)]
-    private static partial Regex IssueNumberPattern();
-
-    /// <summary>A GitHub issue URL, already compared-form (lower case, no
-    /// fragment, no trailing slash).</summary>
-    [GeneratedRegex(@"^https?://(?:www\.)?github\.com/(?<repo>[a-z0-9._-]+/[a-z0-9._-]+)/issues/(?<number>[0-9]+)(?:[/?].*)?$", RegexOptions.CultureInvariant)]
-    private static partial Regex IssueUrlPattern();
 }

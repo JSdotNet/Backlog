@@ -8,11 +8,11 @@
 {
     @if (Inline)
     {
-        <span class="@CssClassValue" id="@Id" data-testid="@TestId" role="@Role">@Message@ChildContent</span>
+        <span class="@CssClassValue" id="@Id" data-testid="@TestId" role="@Role">@Message@ChildContent@ActionContent</span>
     }
     else
     {
-        <p class="@CssClassValue" id="@Id" data-testid="@TestId" role="@Role">@Message@ChildContent</p>
+        <p class="@CssClassValue" id="@Id" data-testid="@TestId" role="@Role">@Message@ChildContent@ActionContent</p>
     }
 }
 
@@ -71,6 +71,34 @@
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
+    /// <summary>
+    /// The name of the one thing a reader can do about the message — "Retry",
+    /// for a section whose load failed. Drawn as the library's button, after the
+    /// message and inside the same element, when <see cref="OnAction"/> is wired
+    /// too.
+    /// <para>
+    /// A parameter rather than a button a host writes beside the alert, for the
+    /// reason <see cref="ChildContent"/> gives: the element is the live region,
+    /// and the way back belongs in the line that says why it is needed.
+    /// .devbook/design/interaction-guidelines.md makes that way back mandatory for
+    /// a page or a section that failed, which is what put it on the component
+    /// rather than on every screen that has one.
+    /// </para>
+    /// <para>
+    /// Both or nothing: a label with nothing to call would be a control that does
+    /// nothing, and a callback with no label a control nobody can name. Every
+    /// call site that predates this sets neither and draws what it always did.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public string? ActionLabel { get; set; }
+
+    [Parameter]
+    public EventCallback OnAction { get; set; }
+
+    [Parameter]
+    public string? ActionTestId { get; set; }
+
     [Parameter]
     public string? TestId { get; set; }
 
@@ -81,6 +109,15 @@
     /// alert styling can point this at it instead of adopting ours.</summary>
     [Parameter]
     public string BaseClass { get; set; } = "app-error-message";
+
+    private RenderFragment? ActionContent =>
+        string.IsNullOrWhiteSpace(ActionLabel) || !OnAction.HasDelegate
+            ? null
+            : @<AppButton Variant="ButtonVariant.Secondary"
+                          Size="ButtonSize.Small"
+                          CssClass="alert__action"
+                          TestId="@ActionTestId"
+                          OnClick="() => OnAction.InvokeAsync()">@ActionLabel</AppButton>;
 
     private string CssClassValue => string.IsNullOrWhiteSpace(CssClass)
         ? BaseClass

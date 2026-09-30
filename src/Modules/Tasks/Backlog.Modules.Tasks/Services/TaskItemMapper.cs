@@ -36,5 +36,6 @@ internal static class TaskItemMapper
         entry.ImportPlanId,
         entry.ImportItemId,
         entry.CreatedAt,
-        entry.StartedOn);
+        entry.StartedOn,
+        entry.SourceInboxId);
 }

@@ -498,15 +498,15 @@ public sealed class C4DevbookPanelTests : IDisposable
 
         /// <summary>
         /// The catalog and the workspace are both read asynchronously, so the first
-        /// render is the loading line and everything under test arrives on a later
-        /// one. Waiting on the loading line going away rather than on anything that
+        /// render is the loading spinner and everything under test arrives on a later
+        /// one. Waiting on the spinner going away rather than on anything that
         /// appears, because half these tests are about something that must
         /// <em>not</em> appear — and a wait for that would pass on the loading render
         /// and prove nothing.
         /// </summary>
         public void Settle(IRenderedComponent<Arc42DevbookPanel> component) =>
             component.WaitForAssertion(() =>
-                Assert.DoesNotContain("Loading the architecture area", component.Markup, StringComparison.Ordinal));
+                Assert.Empty(component.FindAll("[data-testid='arc42-loading']")));
 
         public async ValueTask DisposeAsync() => await Context.DisposeAsync();
     }
