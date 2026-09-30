@@ -13,7 +13,13 @@ public sealed record AzureFoundryChatResponse(string Answer);
 /// item's facts, the repositories it may name, and the tag every entry of the
 /// plan must carry. The words are the model's (<c>Repositories</c>, not
 /// <c>RepoIds</c>): this record is the request as the prompt phrases it, and
-/// the Inbox's DTO is mapped onto it by the adapter that knows both.</summary>
+/// the Inbox's DTO is mapped onto it by the adapter that knows both.
+/// <para>
+/// With <c>Batch</c> set the question is the order of several items rather than
+/// a plan about one: <c>ItemTitle</c> names the batch, <c>Repositories</c> is
+/// every repository its items go to, and the model answers one entry per item —
+/// see <see cref="AzureFoundryPlanPrompt.BatchText"/>.
+/// </para></summary>
 public sealed record AzureFoundryPlanRequest(
     string ItemTitle,
     string ItemContent,
@@ -21,7 +27,19 @@ public sealed record AzureFoundryPlanRequest(
     string KindSlug,
     IReadOnlyList<string> Tags,
     IReadOnlyList<string> Repositories,
-    string PlanTag);
+    string PlanTag,
+    IReadOnlyList<AzureFoundryPlanBatchItem>? Batch = null);
+
+/// <summary>One item of a batch the model is asked to order, as the prompt
+/// writes it: its id, which the model copies into <c>id:</c> and
+/// <c>after:</c>, and the facts it orders by.</summary>
+public sealed record AzureFoundryPlanBatchItem(
+    string Id,
+    string Title,
+    string Content,
+    string? SourceUrl,
+    string KindSlug,
+    IReadOnlyList<string> Repositories);
 
 /// <summary>The drafted plan as entry text, trimmed and unfenced — whatever the
 /// model wrapped it in, what comes back is what Tasks' import can read.</summary>
@@ -51,7 +69,8 @@ public interface IAzureFoundryChatClient
 {
     Task<AzureFoundryChatResponse> AskAsync(AzureFoundryChatRequest request, CancellationToken cancellationToken = default);
 
-    /// <summary>Asks for an import plan about one item. Same route, same
+    /// <summary>Asks for an import plan about one item, or for the order of a
+    /// batch when the request carries one. Same route, same
     /// headers and the same failures as <see cref="AskAsync"/>; only the two
     /// messages differ — see <see cref="AzureFoundryPlanPrompt"/>.</summary>
     Task<AzureFoundryPlanResponse> DraftPlanAsync(AzureFoundryPlanRequest request, CancellationToken cancellationToken = default);
@@ -121,7 +140,7 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
         var answer = await CompleteAsync(
             PlanNotConfiguredMessage,
             [
-                new ChatMessage("system", AzureFoundryPlanPrompt.Text),
+                new ChatMessage("system", request.Batch is { Count: > 0 } ? AzureFoundryPlanPrompt.BatchText : AzureFoundryPlanPrompt.Text),
                 new ChatMessage("user", AzureFoundryPlanPrompt.User(request))
             ],
             cancellationToken).ConfigureAwait(false);

@@ -295,6 +295,23 @@ the capture recorded for it.
 - **When** the bytes the desktop downloads have a different sha256
 - **Then** no file is written and the file is marked failed with its reason
 
+### Requirement: A file no fetch could honour is left off the item
+
+```meta
+type: requirement
+status: draft
+tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.A_named_file_no_fetch_could_honour_is_dropped_not_thrown
+```
+
+The desktop SHALL receive a capture that names a file with no id or a malformed
+digest, leaving that file off the item instead of refusing the capture.
+
+#### Scenario: One good file and one malformed one
+
+- **Given** a capture naming a photo and a second file whose sha256 is not a digest
+- **When** the desktop syncs
+- **Then** the item is in the Inbox with the photo as its only file
+
 ### Requirement: A replayed sync page downloads nothing twice
 
 ```meta
@@ -353,8 +370,8 @@ status: draft
 ```
 
 The Inbox detail view SHALL show every file an item arrived with: pictures on
-this machine as thumbnails that open the file, and every other file as a row
-with its size and Open.
+this machine of 8 MB or less as thumbnails that open the file, and every other
+file, a larger picture included, as a row with its size and Open.
 
 #### Scenario: A picture and a document
 
@@ -367,6 +384,12 @@ with its size and Open.
 - **Given** an item with a picture that has not been downloaded
 - **When** the person opens the item
 - **Then** the picture shows as a row saying it is waiting, not as a thumbnail
+
+#### Scenario: A picture over 8 MB
+
+- **Given** an item with a downloaded photo larger than 8 MB
+- **When** the person opens the item
+- **Then** the photo shows as a file row with its size and Open, not as a thumbnail
 
 ### Requirement: An item's kind follows its files
 
@@ -405,6 +428,12 @@ item's attachment folder as that task's attachment.
 - **Given** an item with a downloaded file, assigned to one repository
 - **When** the person routes it to Tasks
 - **Then** the new task's attachment is the item's attachment folder
+
+#### Scenario: Create plan
+
+- **Given** an item with a downloaded picture and a downloaded PDF
+- **When** the person creates a plan from it
+- **Then** every task the plan creates has the item's attachment folder as its attachment
 
 #### Scenario: No files
 
@@ -789,3 +818,113 @@ The system SHALL refresh the Tasks pane once after a batch is routed, however ma
 - **Given** five picked items
 - **When** they are routed as a batch
 - **Then** the Tasks pane reloads once and shows all their entries
+
+## Order a batch with the drafter
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#order-a-batch-with-the-drafter, .devbook/domain/inbox/domain.md#dependency-tier]
+```
+
+> The requirements of asking the plan drafter which item of a batch waits on which.
+
+### Requirement: The drafter is asked only on the press
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Asking_the_AI_adds_its_order_as_switches_marked_inferred_and_confirm_routes_them, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.The_batch_is_carried_in_the_draft_request_with_each_item_and_the_bare_tag, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.One_routable_item_has_nothing_to_order_and_the_drafter_is_not_asked, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.Create_plan_still_asks_about_one_item_with_no_batch]
+```
+
+The system SHALL make no model call about a batch until the reader presses Ask the AI to order, and one call per press.
+
+#### Scenario: Opening the panel
+
+- **Given** two picked items and a configured drafter
+- **When** the reader routes them and the panel opens
+- **Then** the drafter has not been asked, and only the stated dependencies are shown
+
+#### Scenario: Asking
+
+- **Given** the panel is open for two items
+- **When** the reader presses Ask the AI to order
+- **Then** the drafter is asked once, with both items and the batch's plan tag
+
+### Requirement: Without a drafter the ask says why it cannot run
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Ask_the_AI_to_order_is_shown_disabled_with_its_reason_when_no_drafter_is_configured, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.Without_a_drafter_the_order_is_not_configured_and_nothing_is_read, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.A_drafter_that_is_not_available_gives_its_own_reason]
+```
+
+The system SHALL show Ask the AI to order disabled, titled with the drafter's reason, when no drafter is available.
+
+#### Scenario: No drafter configured
+
+- **Given** no plan drafter is configured
+- **When** the reader opens the panel for two items
+- **Then** Ask the AI to order is shown, disabled, and its title gives the drafter's reason
+
+### Requirement: An answer reaching outside the batch is refused whole
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_drafted_order_is_read_as_edges_between_the_items_and_tasks_is_not_asked, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_drafted_order_naming_a_repository_outside_the_batch_is_refused_whole, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_drafted_order_naming_an_entry_outside_the_batch_is_refused_whole, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.The_panels_repositories_are_the_ones_the_answer_may_name, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.An_answer_the_target_refuses_adds_nothing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.A_drafter_failure_comes_back_as_it_is, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_refused_order_is_named_in_the_panel_and_adds_no_switch]
+```
+
+The system SHALL offer none of the drafter's order when its answer names a repository none of the batch's items goes to, or an entry or an `after:` that is not one of the batch's items, and say why in the panel.
+
+#### Scenario: A made-up repository
+
+- **Given** a batch of two items routed to `acme/api`
+- **When** the drafter's answer names `acme/web`
+- **Then** no dependency is added and the panel says the order names a repository outside this batch
+
+#### Scenario: A made-up item
+
+- **Given** a batch of two items
+- **When** the drafter's answer puts one after an id that is not in the batch
+- **Then** no dependency is added and the panel says the order names an entry that is not in this batch
+
+#### Scenario: Nothing is imported
+
+- **Given** a batch of two items
+- **When** the drafter's answer is read
+- **Then** Tasks is not asked and no entry exists until the reader confirms
+
+### Requirement: Inferred dependencies are proposals a person can turn off
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxRouteDraftTests.The_drafters_dependencies_are_added_on_after_the_stated_ones_and_never_twice, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxRouteDraftTests.An_ask_that_adds_nothing_or_is_refused_says_so_and_confirm_waits_while_it_is_out, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Asking_the_AI_adds_its_order_as_switches_marked_inferred_and_confirm_routes_them, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests.Each_edge_read_back_is_an_inferred_dependency_on_the_other_item]
+```
+
+The system SHALL add each dependency the drafter infers between two items of the batch as a switch marked AI-inferred and on, never add one the panel already shows between the same two items, and route only the switches left on.
+
+#### Scenario: A new dependency
+
+- **Given** the panel shows no dependency between A and B
+- **When** the drafter puts B after A
+- **Then** a switch marked AI-inferred puts B after A, on, and Confirm routes B with `after:` A
+
+#### Scenario: One the item already states
+
+- **Given** B's notes link to A's source, so the panel already puts B after A
+- **When** the drafter also puts B after A
+- **Then** the panel still shows one switch for that pair, the stated one
+
+#### Scenario: Turned off
+
+- **Given** an AI-inferred switch putting B after A
+- **When** the reader turns it off and confirms
+- **Then** B is routed with no `after:` A
+
+#### Scenario: While the ask is out
+
+- **Given** the reader has pressed Ask the AI to order
+- **When** the drafter has not answered yet
+- **Then** Confirm is disabled until it does

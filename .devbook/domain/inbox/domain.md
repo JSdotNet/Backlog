@@ -270,7 +270,7 @@ and then removes the group, so no list is ever deleted by deleting its group.
 type: domain-service
 status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#import, .devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Creating_a_plan_hands_the_items_folder_to_the_import_as_its_attachment]
 aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, ArchiveItemCommand]
 ```
 
@@ -301,11 +301,13 @@ Three doors lead to Tasks and all end in the same `Routing Target`:
   that would spoil it is left out by name first and the rest still go: one
   already routed or archived, one whose notes carry a top-level `#` heading or
   leave a fence open, and one naming a repository the workspace does not know.
-  A batch never registers a repository.
+  A batch never registers a repository. The dependencies left on in the
+  panel before it goes — see [Dependency tier](#dependency-tier) — travel as
+  `after:` tokens.
 
 An item with attachments hands its [attachment folder](#attachment-folder) to
-every task Route to backlog or Route a batch creates, as that task's
-attachment. The file goes where the work goes. Create plan does not hand the folder on yet.
+every task Route to backlog, Route a batch or Create plan creates, as that
+task's attachment. The file goes where the work goes.
 
 Routing to Devbook is modelled and not built.
 
@@ -488,6 +490,28 @@ A set of Inbox Items routed to Tasks together, as one plan import under one
 list's open items. It lives only for the route: nothing stores it, and
 afterwards each item keeps its own Routing Target naming only the tasks it
 became. Never called a *group*: an `Inbox Group` is a fold in the side menu.
+
+### Dependency tier
+
+```meta
+type: term
+status: draft
+aliases: [DependencyTier, ProposedDependency, Stated, Inferred]
+related: [.devbook/domain/inbox/features.md#before-you-route, .devbook/domain/inbox/features.md#order-a-batch-with-the-drafter, .devbook/domain/inbox/domain.md#batch, .devbook/domain/tasks/features.md#import]
+```
+
+How sure the Inbox is of a dependency it proposes before a [batch](#batch)
+goes: that one item should come after another item of the batch, or after an
+open task. A dependency is a Tasks fact, written as an `after:` token; the Inbox
+only proposes one, as a switch the person turns off or leaves on, and stores
+none.
+
+- **Stated** — the item's own text names the other thing: its link, its title,
+  an issue or pull request. Always proposed, quoting that text.
+- **Inferred** — the plan drafter's reading of the whole batch, proposed only
+  when the person asks for it, and only between two items of the batch.
+
+A guess from similar wording would sit between the two and is not built.
 
 ### Attachment folder
 

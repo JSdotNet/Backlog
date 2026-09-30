@@ -26,6 +26,14 @@ namespace Backlog.Infrastructure.Sync;
 /// a refusal is unambiguous and gets recorded.
 /// </para>
 /// <para>
+/// The request that met the dead token still ends in its 401 here. Whether the
+/// work it was part of is tried again is the caller's decision, and
+/// <see cref="SyncTokenProvider.TokensRefused"/> is what it decides on:
+/// <see cref="TaskSyncWorker"/> runs a cycle once more when a token was refused
+/// during it, so the first sync after a restart does not end on a failure the
+/// device has already recovered from.
+/// </para>
+/// <para>
 /// With no token the request goes out unauthenticated instead of being blocked
 /// here. An unpaired device asking a bearer-only endpoint should hear the
 /// service's own 401; inventing one locally would be a second source of truth
@@ -56,7 +64,7 @@ public sealed class SyncAuthenticationHandler(SyncTokenProvider tokens) : Delega
         // unpaired device, and says nothing about any token.
         if (response.StatusCode == HttpStatusCode.Unauthorized && token is not null)
         {
-            _tokens.Invalidate();
+            _tokens.Refused();
         }
 
         return response;

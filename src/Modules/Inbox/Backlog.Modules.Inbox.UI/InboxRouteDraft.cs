@@ -6,7 +6,8 @@ namespace Backlog.Desktop.UI.Inbox;
 /// <summary>
 /// A batch the person is deciding on in the "Before you route" panel, before
 /// it goes: the module's proposal, and the choices made on top of it — which
-/// dependencies are on, which repositories each item goes to.
+/// dependencies are on, which repositories each item goes to, which duplicate
+/// groups are merged.
 /// <para>
 /// View state and its derivations, held by <see cref="InboxDesktopState"/>
 /// rather than the panel for the reason the selection is: the shell re-mounts
@@ -18,7 +19,9 @@ namespace Backlog.Desktop.UI.Inbox;
 /// </summary>
 public sealed class InboxRouteDraft
 {
-    private readonly bool[] _enabled;
+    private readonly List<ProposedDependency> _dependencies;
+    private readonly List<bool> _enabled;
+    private readonly bool[] _merged;
     private readonly Dictionary<Guid, IReadOnlyList<string>> _repositories;
     private readonly Dictionary<Guid, string> _titles;
 
@@ -33,7 +36,12 @@ public sealed class InboxRouteDraft
 
         // Every proposal starts on: each one is something an item's own text
         // said, and turning one off is the deliberate act.
+        _dependencies = [.. proposal.Dependencies];
         _enabled = [.. proposal.Dependencies.Select(_ => true)];
+
+        // Every merge starts off, the opposite of a dependency: a hint is only
+        // ever said, and archiving an item is the deliberate act.
+        _merged = [.. proposal.Hints.Select(_ => false)];
         _repositories = proposal.Items.ToDictionary(item => item.Id, item => item.RepoIds);
         _titles = proposal.Items.ToDictionary(item => item.Id, item => Title(item.Title));
     }
@@ -49,7 +57,9 @@ public sealed class InboxRouteDraft
 
     public string PlanTag => Proposal.PlanTag;
 
-    public IReadOnlyList<ProposedDependency> Dependencies => Proposal.Dependencies;
+    /// <summary>The proposal's dependencies, then the ones the drafter added
+    /// when asked — see <see cref="AddInferred"/>.</summary>
+    public IReadOnlyList<ProposedDependency> Dependencies => _dependencies;
 
     public bool IsEnabled(int index) => _enabled[index];
 
@@ -59,24 +69,177 @@ public sealed class InboxRouteDraft
     public IReadOnlyList<ProposedDependency> EnabledDependencies =>
         [.. Dependencies.Where((_, index) => _enabled[index])];
 
+    // --- The drafter's order ---------------------------------------------------
+
+    /// <summary>Whether the drafter's order is being asked for now. Confirm
+    /// waits for it, so the batch never goes on half an answer.</summary>
+    public bool Inferring { get; set; }
+
+    /// <summary>What the last ask came to, in a sentence — how many it added,
+    /// or why it added none. Null before the first ask.</summary>
+    public string? InferenceNote { get; private set; }
+
+    /// <summary>Whether the last ask failed, so the note reads as a warning.</summary>
+    public bool InferenceFailed { get; private set; }
+
+    /// <summary>
+    /// Adds the drafter's dependencies after the proposal's, on — the person
+    /// asked for them, and turning one off is still the deliberate act. One the
+    /// panel already shows between the same two items is not added twice,
+    /// whatever tier it came from: the item's own words already said it.
+    /// </summary>
+    /// <returns>How many were added.</returns>
+    public int AddInferred(IReadOnlyList<ProposedDependency> inferred)
+    {
+        ArgumentNullException.ThrowIfNull(inferred);
+
+        var added = 0;
+        foreach (var dependency in inferred)
+        {
+            var known = _dependencies.Any(existing =>
+                existing.From == dependency.From
+                && existing.To.Kind == dependency.To.Kind
+                && existing.To.Id == dependency.To.Id);
+            if (known || !_titles.ContainsKey(dependency.From)) continue;
+
+            _dependencies.Add(dependency);
+            _enabled.Add(true);
+            added++;
+        }
+
+        InferenceFailed = false;
+        InferenceNote = added switch
+        {
+            0 => "The AI found no order beyond what the items already say.",
+            1 => "The AI added 1 dependency. Turn it off if it is wrong.",
+            _ => $"The AI added {added} dependencies. Turn off any that are wrong.",
+        };
+
+        return added;
+    }
+
+    /// <summary>The ask failed: the note says why, and nothing was added.</summary>
+    public void InferenceRefused(string message)
+    {
+        InferenceFailed = true;
+        InferenceNote = message;
+    }
+
     /// <summary>The routable items in the order they will go: each after what
     /// it waits on, otherwise as asked. Re-read on every render, so a toggle
-    /// moves the list at once.</summary>
+    /// moves the list at once. An item a merge folds into another is not going,
+    /// and is not in it.</summary>
     public IReadOnlyList<InboxBatchProposalItemDto> OrderedItems
     {
         get
         {
             var byId = Proposal.Items.ToDictionary(item => item.Id);
-            return [.. InboxBatchOrder.Order(ItemIds, InboxBatchOrder.Edges(EnabledDependencies)).Select(id => byId[id])];
+            return [.. InboxBatchOrder.Order(ItemIds, InboxBatchOrder.Edges(CarriedDependencies)).Select(id => byId[id])];
         }
     }
 
-    /// <summary>Every loop the enabled dependencies make, named by titles —
-    /// <c>A → B → A</c>. While there is one, nothing can be confirmed.</summary>
-    public IReadOnlyList<string> Loops =>
-        [.. InboxBatchOrder.Loops(ItemIds, InboxBatchOrder.Edges(EnabledDependencies)).Select(loop => InboxBatchOrder.Name(loop, id => _titles[id]))];
+    /// <summary>The routable items that will be sent, in the order asked: every
+    /// one but those a merge folds into another.</summary>
+    public IReadOnlyList<InboxBatchProposalItemDto> GoingItems
+    {
+        get
+        {
+            var mergedAway = MergedAway;
+            return [.. Proposal.Items.Where(item => !mergedAway.Contains(item.Id))];
+        }
+    }
 
-    public bool CanConfirm => Loops.Count == 0;
+    // --- Hints -----------------------------------------------------------------
+
+    /// <summary>The proposal's ordering hints — said, never written, never part
+    /// of the order or of a loop.</summary>
+    public IReadOnlyList<OrderingHint> Hints => Proposal.Hints;
+
+    /// <summary>Whether the hint at <paramref name="index"/> is a duplicate group
+    /// the person has chosen to merge. Always false for any other kind.</summary>
+    public bool IsMerged(int index) => _merged[index];
+
+    /// <summary>Turns a duplicate group's merge on or off. A hint of any other
+    /// kind cannot act, and is left as it is.</summary>
+    public void SetMerged(int index, bool on)
+    {
+        if (Hints[index].Kind == OrderingHintKind.Duplicate) _merged[index] = on;
+    }
+
+    /// <summary>The items the merges turned on fold into another: every item of
+    /// a merged group but its first. An item two merges name is folded once.</summary>
+    public IReadOnlySet<Guid> MergedAway => KeptFor().Keys.ToHashSet();
+
+    /// <summary>The merges turned on, per kept item the ones folded into it —
+    /// the first merge to name an item claims it, and a kept item another merge
+    /// already folded keeps nothing.</summary>
+    private Dictionary<Guid, IReadOnlyList<Guid>> MergeMap()
+    {
+        var merges = new Dictionary<Guid, IReadOnlyList<Guid>>();
+        var folded = new HashSet<Guid>();
+
+        for (var index = 0; index < Hints.Count; index++)
+        {
+            var hint = Hints[index];
+            if (!_merged[index] || hint.Items.Count < 2 || folded.Contains(hint.Items[0]) || merges.ContainsKey(hint.Items[0])) continue;
+
+            var duplicates = hint.Items.Skip(1).Where(id => !merges.ContainsKey(id) && folded.Add(id)).ToList();
+            if (duplicates.Count > 0) merges[hint.Items[0]] = duplicates;
+        }
+
+        return merges;
+    }
+
+    /// <summary>Each folded item, and the item it is folded into.</summary>
+    private Dictionary<Guid, Guid> KeptFor() =>
+        MergeMap().SelectMany(merge => merge.Value.Select(duplicate => (duplicate, merge.Key)))
+            .ToDictionary(pair => pair.duplicate, pair => pair.Key);
+
+    /// <summary>The dependencies left on with the merges applied — a merged
+    /// item's carried onto the one kept, as the route will carry them — which
+    /// is what the order and the loops are read from.</summary>
+    private IReadOnlyList<ProposedDependency> CarriedDependencies => InboxBatchOrder.Carry(EnabledDependencies, KeptFor());
+
+    /// <summary>"Keep <c>A</c>, archive <c>B</c>": what a merge would do, the
+    /// way its switch says it.</summary>
+    public string DescribeMerge(OrderingHint hint)
+    {
+        ArgumentNullException.ThrowIfNull(hint);
+
+        var titles = hint.Items.Select(TitleOf).ToList();
+        return titles.Count == 0
+            ? hint.Reason
+            : $"Keep “{titles[0]}”, archive {string.Join(", ", titles.Skip(1).Select(title => $"“{title}”"))}";
+    }
+
+    /// <summary>One hint as the panel says it: what was noticed, and about
+    /// which items.</summary>
+    public string DescribeHint(OrderingHint hint)
+    {
+        ArgumentNullException.ThrowIfNull(hint);
+
+        var titles = hint.Items.Select(TitleOf).ToList();
+        return hint.Kind switch
+        {
+            OrderingHintKind.CaptureOrder => $"{hint.Reason}: {string.Join(InboxBatchOrder.Arrow, titles)}",
+            OrderingHintKind.SetupFirst when titles.Count > 0 => $"“{titles[0]}” {LowerFirst(hint.Reason)}",
+            OrderingHintKind.Duplicate => $"{hint.Reason}: {string.Join(", ", titles)}",
+            _ => $"{hint.Reason} — {string.Join(", ", titles)}",
+        };
+    }
+
+    private string TitleOf(Guid id) => _titles.TryGetValue(id, out var title) ? title : "An item";
+
+    private static string LowerFirst(string text) =>
+        string.IsNullOrEmpty(text) ? text : char.ToLowerInvariant(text[0]) + text[1..];
+
+    /// <summary>Every loop the enabled dependencies make once the merges are
+    /// applied, named by titles — <c>A → B → A</c>. While there is one, nothing
+    /// can be confirmed.</summary>
+    public IReadOnlyList<string> Loops =>
+        [.. InboxBatchOrder.Loops(ItemIds, InboxBatchOrder.Edges(CarriedDependencies)).Select(loop => InboxBatchOrder.Name(loop, id => _titles[id]))];
+
+    public bool CanConfirm => Loops.Count == 0 && !Inferring;
 
     /// <summary>"<c>A</c> after <c>B</c>": the dependency the way the panel
     /// says it.</summary>
@@ -125,17 +288,27 @@ public sealed class InboxRouteDraft
     public IReadOnlyList<string> RepositoriesOf(Guid id) => OneForAll ? SharedRepositories : OwnRepositories(id);
 
     /// <summary>How many tasks the batch will make: one per repository per
-    /// item, or one for an item with none — the route's own rule.</summary>
-    public int TaskCount => Proposal.Items.Sum(item => Math.Max(1, RepositoriesOf(item.Id).Count));
+    /// item, or one for an item with none — the route's own rule — for the
+    /// items that will be sent.</summary>
+    public int TaskCount => GoingItems.Sum(item => Math.Max(1, RepositoriesOf(item.Id).Count));
 
-    /// <summary>Everything decided here, as the route takes it.</summary>
-    public InboxBatchRouteChoicesDto Choices() =>
-        new(
+    /// <summary>Everything decided here, as the route takes it. The merges are
+    /// named only when one is on, each as the kept item and the ones folded into
+    /// it; a batch without one goes as it did before there were merges.</summary>
+    public InboxBatchRouteChoicesDto Choices()
+    {
+        var merges = MergeMap();
+
+        return new(
             PlanTag,
             Proposal.Items.ToDictionary(item => item.Id, item => RepositoriesOf(item.Id)),
-            EnabledDependencies);
+            EnabledDependencies,
+            merges.Count > 0 ? merges : null);
+    }
 
-    private IReadOnlyList<Guid> ItemIds => [.. Proposal.Items.Select(item => item.Id)];
+    /// <summary>The ids the order and the loops are asked about: the items
+    /// that will be sent.</summary>
+    private IReadOnlyList<Guid> ItemIds => [.. GoingItems.Select(item => item.Id)];
 
     private static string Title(string title) => string.IsNullOrWhiteSpace(title) ? "Untitled" : title;
 }

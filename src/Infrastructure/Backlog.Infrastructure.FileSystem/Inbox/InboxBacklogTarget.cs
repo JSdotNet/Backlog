@@ -244,6 +244,7 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
         string planMarkdown,
         Guid sourceInboxId,
         IReadOnlyList<string> allowedRepoIds,
+        string? attachmentPath = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(allowedRepoIds);
@@ -259,12 +260,29 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
         }
 
         var imported = await tasks
-            .ImportPlanAsync(planMarkdown, defaultRepo: null, repoMatches: null, sourceInboxId.ToString("D"), cancellationToken: cancellationToken)
+            .ImportPlanAsync(WithAttachment(planMarkdown, attachmentPath), defaultRepo: null, repoMatches: null, sourceInboxId.ToString("D"), cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
         if (imported.IsFailure) return Result.Failure<IReadOnlyList<Guid>>(imported.Error);
 
         return Result.Success<IReadOnlyList<Guid>>([.. imported.Value.Entries.Select(entry => entry.Id)]);
+    }
+
+    /// <summary>The drafted plan with every task entry carrying the item's
+    /// attachment folder, or the plan as it came when there is none. Written
+    /// entry by entry through Tasks' own writer, as <see cref="Compose"/> writes
+    /// a routed entry's, so the path is spelled the way the grammar spells it and
+    /// a <c>files:</c> the model wrote is replaced rather than kept beside it. A
+    /// <c>plan</c> entry is left as written: it becomes a roadmap item, never a
+    /// task, and a segment with no title is dropped by the import anyway.</summary>
+    private static string WithAttachment(string planMarkdown, string? attachmentPath)
+    {
+        if (Attachment.From(attachmentPath) is not { } attachment) return planMarkdown;
+
+        return string.Join("\n\n", EntryTextParser.SplitSegments(planMarkdown).Select(segment =>
+            EntryTextParser.Parse(segment) is { Kind: not EntryKind.Plan } parsed && !string.IsNullOrWhiteSpace(parsed.Title)
+                ? EntryTextParser.WithAttachment(segment, attachment)
+                : segment));
     }
 
     /// <summary>The first <c>repo:</c> value in the plan that is not one of the
@@ -280,6 +298,68 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
             .Select(EntryTextParser.Parse)
             .SelectMany(parsed => parsed.RepoIds ?? [])
             .FirstOrDefault(repo => !allowed.Contains(repo));
+    }
+
+    public Result<IReadOnlyList<InboxBatchEdge>> ReadDraftedOrder(
+        string planMarkdown,
+        IReadOnlyCollection<Guid> itemIds,
+        IReadOnlyList<string> allowedRepoIds)
+    {
+        ArgumentNullException.ThrowIfNull(itemIds);
+        ArgumentNullException.ThrowIfNull(allowedRepoIds);
+
+        // The drafted plan's rule first, in the same words of the same parser:
+        // a repository the batch does not go to is a repository made up.
+        if (FirstUnknownRepository(planMarkdown ?? string.Empty, allowedRepoIds) is { } unknown)
+        {
+            return Result.Failure<IReadOnlyList<InboxBatchEdge>>(InboxErrors.OrderUnknownRepository(unknown));
+        }
+
+        var batch = itemIds.ToHashSet();
+        var edges = new List<InboxBatchEdge>();
+
+        // Segments without a title are dropped by the import and so are not
+        // entries; everything else has to be one of the items, or the answer
+        // is about something other than this batch.
+        foreach (var parsed in EntryTextParser.SplitSegments(planMarkdown ?? string.Empty)
+                     .Select(EntryTextParser.Parse)
+                     .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Title)))
+        {
+            if (ItemOf(parsed.ImportItemId, batch) is not { } from)
+            {
+                return Result.Failure<IReadOnlyList<InboxBatchEdge>>(
+                    InboxErrors.OrderUnknownItem(parsed.ImportItemId?.Trim() is { Length: > 0 } id ? id : $"\"{parsed.Title.Trim()}\" has no id"));
+            }
+
+            foreach (var value in parsed.DependsOn ?? [])
+            {
+                if (ItemOf(value, batch) is not { } to)
+                {
+                    return Result.Failure<IReadOnlyList<InboxBatchEdge>>(InboxErrors.OrderUnknownItem(value.Trim()));
+                }
+
+                // An item's several entries all name the same item, and one
+                // waiting on itself is not an order.
+                var edge = new InboxBatchEdge(from, to);
+                if (from != to && !edges.Contains(edge)) edges.Add(edge);
+            }
+        }
+
+        return edges;
+    }
+
+    /// <summary>The batch item an <c>id:</c> or <c>after:</c> value names: the
+    /// item's guid, alone or with the <c>/repo</c> a batch writes for an item
+    /// with several repositories. Null for anything else.</summary>
+    private static Guid? ItemOf(string? value, HashSet<Guid> batch)
+    {
+        var trimmed = value?.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return null;
+
+        var slash = trimmed.IndexOf('/', StringComparison.Ordinal);
+        var head = slash < 0 ? trimmed : trimmed[..slash];
+
+        return Guid.TryParse(head, out var id) && batch.Contains(id) ? id : null;
     }
 
     /// <summary>

@@ -27,7 +27,8 @@ namespace Backlog.Infrastructure.Sqlite.Inbox;
 /// a file, not a schema. The tables are created by idempotent
 /// <c>IF NOT EXISTS</c> DDL on every open (local ADR 0003); a column added
 /// later goes through <see cref="EnsureColumnAsync"/> (local ADR 0006) — the
-/// first was <c>dismissed_suggestions</c>, the suggestions a reader turned down.
+/// first was <c>dismissed_suggestions</c>, the suggestions a reader turned down,
+/// and the second <c>duplicate_of</c>, the item one was archived as a duplicate of.
 /// </para>
 /// <para>
 /// Lists and groups are hard-deleted. Tombstoning is for documents that travel
@@ -43,7 +44,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
     private const string ItemColumns =
         "id, title, body_md, source_url, captured_at, received_at, status, deferred_until, kind, " +
         "channel, person, tags, repo_ids, list_id, routing_domain, routing_repo_ids, routing_task_ids, " +
-        "routed_at, replica_backed, replica_ack_pending, updated_at, dismissed_suggestions";
+        "routed_at, replica_backed, replica_ack_pending, updated_at, dismissed_suggestions, duplicate_of";
 
     private const string AttachmentColumns =
         "item_id, attachment_id, name, content_type, size_bytes, sha256, local_path, downloaded_at, last_error, sort_order";
@@ -94,7 +95,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             VALUES (
                 $id, $title, $body_md, $source_url, $captured_at, $received_at, $status, $deferred_until, $kind,
                 $channel, $person, $tags, $repo_ids, $list_id, $routing_domain, $routing_repo_ids, $routing_task_ids,
-                $routed_at, $replica_backed, $replica_ack_pending, $updated_at, $dismissed_suggestions)
+                $routed_at, $replica_backed, $replica_ack_pending, $updated_at, $dismissed_suggestions, $duplicate_of)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 body_md = excluded.body_md,
@@ -116,7 +117,8 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 replica_backed = excluded.replica_backed,
                 replica_ack_pending = excluded.replica_ack_pending,
                 updated_at = excluded.updated_at,
-                dismissed_suggestions = excluded.dismissed_suggestions;
+                dismissed_suggestions = excluded.dismissed_suggestions,
+                duplicate_of = excluded.duplicate_of;
             """;
 
         command.Parameters.AddWithValue("$id", item.Id.ToString());
@@ -145,6 +147,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         command.Parameters.AddWithValue("$replica_ack_pending", item.ReplicaAckPending ? 1 : 0);
         command.Parameters.AddWithValue("$updated_at", WriteInstant(item.UpdatedAt));
         command.Parameters.AddWithValue("$dismissed_suggestions", TaskPayloads.Write(item.DismissedSuggestions));
+        command.Parameters.AddWithValue("$duplicate_of", Nullable(item.DuplicateOf?.ToString()));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
@@ -602,6 +605,8 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             // each carries a default a row written then can stand on.
             await EnsureColumnAsync(connection, "inbox_items", "dismissed_suggestions", "TEXT NOT NULL DEFAULT '[]'", cancellationToken)
                 .ConfigureAwait(false);
+            await EnsureColumnAsync(connection, "inbox_items", "duplicate_of", "TEXT NULL", cancellationToken)
+                .ConfigureAwait(false);
 
             return connection;
         }
@@ -660,6 +665,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         public const int Tags = 11, RepoIds = 12, ListId = 13;
         public const int RoutingDomain = 14, RoutingRepoIds = 15, RoutingTaskIds = 16, RoutedAt = 17;
         public const int ReplicaBacked = 18, ReplicaAckPending = 19, UpdatedAt = 20, DismissedSuggestions = 21;
+        public const int DuplicateOf = 22;
 
         public const int ListName = 1, ListGroupId = 2, ListOrder = 3, ListCreatedAt = 4, ListUpdatedAt = 5;
         public const int GroupName = 1, GroupOrder = 2, GroupCreatedAt = 3, GroupUpdatedAt = 4;
@@ -717,7 +723,8 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             ParseDate(Text(row, Col.DeferredUntil)),
             routing,
             row.GetInt32(Col.ReplicaAckPending) != 0,
-            ParseInstant(row.GetString(Col.UpdatedAt)));
+            ParseInstant(row.GetString(Col.UpdatedAt)),
+            ParseGuid(Text(row, Col.DuplicateOf)));
 
         return item;
     }

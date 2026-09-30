@@ -3,7 +3,7 @@
 ```meta
 type: flow
 status: draft
-related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md]
+related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/domain/inbox/domain.md#attachment]
 ```
 
 > Lifecycle and process flows for this bounded context. Flows describe how an
@@ -60,14 +60,23 @@ sequenceDiagram
     participant M as Desktop sync client
     participant I as Inbox intake
     participant O as Inbox outbox
+    participant A as Attachment store (via sync)
 
-    P->>S: POST /api/sync/inbox (title, source)
+    P->>A: PUT /api/sync/attachments/{id} (each file first)
+    P->>S: POST /api/sync/inbox (title, source, attachments: metadata)
     S->>S: write document, type = capture
     M->>S: GET /api/sync/tasks?since=cursor
     S-->>M: documents, captures among them
     M->>I: ReceiveAsync(capture)
     alt unknown id, live
-        I->>I: create item with the capture's id (Received)
+        I->>I: create item with the capture's id, record its attachments, save (Received)
+        loop each attachment still waiting
+            I->>A: GET /api/sync/attachments/{id}
+            A-->>I: bytes
+            I->>I: check sha256, write into the item's folder — Downloaded, or Failed with the reason
+        end
+    else known id, live
+        I->>I: record attachments it lacks, fetch waiting ones (AlreadyKnown)
     else known id, tombstoned, still open
         I->>I: archive the item, owing nothing (Withdrawn)
     else otherwise
@@ -85,7 +94,28 @@ sequenceDiagram
 
 - The intake decides by id and status and parses no token; every case has an
   answer and none is an error, because the caller is the sync client and an
-  error there would replay the page for ever.
+  error there would replay the page for ever. For the same reason a file entry
+  no fetch could honour is left off the item rather than thrown, and a file that
+  fails to download leaves the item Received.
+
+## Attachment lifecycle
+
+One file on an item, as this machine holds it. The bytes come from the attachment
+store (local ADR 0014), never from the replica.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Recorded : the capture names the file, item saved
+    Recorded --> Downloaded : bytes fetched, sha256 matches, written to the item's folder
+    Recorded --> Failed : fetch or write fails, or sha256 differs
+    Failed --> Downloaded : Retry succeeds
+    Failed --> Failed : Retry fails again (new reason)
+    Downloaded --> [*]
+```
+
+- A replayed sync page never retries a Failed file; only the person's Retry does.
+- Recording the same file again changes nothing, so a replay cannot move a
+  Downloaded file back to Recorded.
 - Only a decision about a replica-backed item — route, archive or delete — puts
   an acknowledgement in the outbox. An item archived *because* the replica
   already carried a tombstone owes nothing. The acknowledgement is durable on the

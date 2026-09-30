@@ -94,7 +94,9 @@ is still on screen.
 >
 > **Not built, and not to be read into any of the above.** The sparse rank key
 > and the `NormalizeOrderAsync` trigger fix under **Manual rank** do not exist,
-> nor do attachments or the local tombstone reaper the open questions leave open.
+> nor do task attachments or the local tombstone reaper the open questions leave
+> open. A capture's files do travel now, beside the replica rather than on it
+> (local ADR 0014); a task's attachment still stays on the machine it was made on.
 > The 180-day tombstone TTL is stamped per document, and **it cannot be verified
 > locally at all** — the Cosmos emulator does not honour TTL, so that number is
 > deployed-only behaviour rather than something a test or a QA run here has
@@ -970,12 +972,14 @@ Negative:
   patterns even with prompts and file contents withheld. The whitelist under
   **Session records** is what bounds that, and a whitelist is only as good as the
   code that honours it.
-- **A task can sync while its attachment does not.** `.devbook/arc42/07-deployment-view.md`
-  puts attachments on the desktop file system and provisions no blob storage, and
-  this record does not change that. The second machine therefore receives a task
-  referencing a file it does not have and has no way to fetch. This is deferred
-  rather than solved, and it is stated here so that "the task synced" is not read as
-  "everything about the task synced".
+- **A task can sync while its attachment does not.** A task's attachment is a
+  path on the desktop file system, and this record does not move it. The blob
+  store that `.devbook/arc42/07-deployment-view.md` now provisions carries a
+  capture's files only (local ADR 0014), and hands them to the desktop that
+  receives the capture. The second machine therefore receives a task
+  referencing a file it does not have and has no way to fetch. For tasks this is
+  deferred rather than solved, and it is stated here so that "the task synced" is
+  not read as "everything about the task synced".
 - **A second store to keep consistent.** ADR 0003's own argument against
   many-files was that no two of them can be allowed to disagree; a replica is by
   definition a second copy that can. The change feed and the tombstones exist to
@@ -1035,7 +1039,7 @@ Neutral:
 - **Attachments — answered for captures by local ADR 0014, still open for tasks.**
   **The gap this record leaves is that a task can sync while its attachment does
   not** — the second machine gets the task and a reference to a file it cannot
-  reach. Local ADR 0014 (proposed) answers the half the phone needs: an Azure
+  reach. Local ADR 0014 (accepted, built) answers the half the phone needs: an Azure
   Storage account beside this replica, reached only through the sync service,
   carries a capture's files, and the capture document carries their metadata but
   never their bytes. It deliberately leaves a task's attachment — a path to a

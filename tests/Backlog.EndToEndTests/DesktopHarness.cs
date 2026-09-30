@@ -103,34 +103,18 @@ internal sealed partial class DesktopHarness
     /// Runs a task sync now, rather than waiting up to five minutes for the
     /// worker. The pull is also what brings phone captures into the Inbox.
     ///
-    /// <para>A run that fails is run once more. Restarting <c>sync</c> in
-    /// Development generates a new signing key, and the desktop's first run
-    /// after that meets a 401, fetches a fresh token, and ends there as
-    /// "Sync failed: Unauthorized" — it is the next run that pulls. The phone
-    /// retries within the same flush; the desktop does not.</para>
+    /// <para>One press is one run, and a failed run fails the test. The first
+    /// run after <c>sync</c> restarts meets a token signed with the old key;
+    /// the desktop runs that cycle once more itself, so it does not end on
+    /// "Sync failed: Unauthorized".</para>
+    ///
+    /// <para>A run is over when the button is idle again, and it failed when a
+    /// message appeared: a failed run says why there and leaves the result line
+    /// as the last good run wrote it. A run with nothing to move is over in a
+    /// few milliseconds, faster than any poll sees the busy state, so the page
+    /// itself is asked to notice the button turning busy.</para>
     /// </summary>
     public async Task<string> SyncNowAsync()
-    {
-        var (succeeded, outcome) = await SyncOnceAsync();
-        if (succeeded) return outcome;
-
-        var (again, retried) = await SyncOnceAsync();
-        return again
-            ? $"failed ({outcome}), then {retried}"
-            : throw new InvalidOperationException($"The desktop could not sync twice running: {outcome}; {retried}");
-    }
-
-    /// <summary>
-    /// One run of "Sync now". The button is busy while the run goes, and a run
-    /// that fails says why in the page's message and leaves the result line as
-    /// the last good run wrote it — so a run is over when the button is idle
-    /// again, and it failed when a message appeared.
-    ///
-    /// <para>A run with nothing to move is over in a few milliseconds, faster
-    /// than any poll sees the busy state, so the page itself is asked to notice
-    /// the button turning busy.</para>
-    /// </summary>
-    private async Task<(bool Succeeded, string Outcome)> SyncOnceAsync()
     {
         await OpenSettingsAsync("Devices");
         var sync = Page.GetByTestId("devices-sync-now");
@@ -161,21 +145,25 @@ internal sealed partial class DesktopHarness
             "the desktop's task sync to finish");
 
         return await message.IsVisibleAsync()
-            ? (false, await message.InnerTextAsync())
-            : (true, $"{await Page.GetByTestId("devices-sync-result").InnerTextAsync()} ({(DateTime.UtcNow - started).TotalSeconds:0.0} s)");
+            ? throw new InvalidOperationException($"The desktop's task sync failed: {await message.InnerTextAsync()}")
+            : $"{await Page.GetByTestId("devices-sync-result").InnerTextAsync()} ({(DateTime.UtcNow - started).TotalSeconds:0.0} s)";
     }
 
     // ---- Home panes ----
 
     /// <summary>Shows one Home pane. The Inbox pane reads its list when it is
-    /// shown, so a pull is only visible after the pane is shown again.</summary>
+    /// shown, so a pull is only visible after the pane is shown again. A fresh
+    /// load reopens the surface the shared workspace last showed — another
+    /// worktree's Roadmap, say — so the Workspace surface is picked first.</summary>
     private async Task ShowPaneAsync(string option, string pane)
     {
         await Page.GotoAsync(_baseUrl.ToString());
+        var workspace = Page.GetByTestId("workspace-surface-option");
         var toggle = Page.GetByTestId(option);
         await Interactive.RepeatAsync(
             async () =>
             {
+                if (await workspace.GetAttributeAsync("aria-pressed") != "true") await workspace.ClickAsync();
                 if (await toggle.GetAttributeAsync("aria-pressed") != "true") await toggle.ClickAsync();
             },
             () => Page.Locator($"#{pane}").IsVisibleAsync(),
