@@ -6,7 +6,7 @@ goal: "Return evidence a reviewer can open instead of taking your word for it: o
 
 # Capture Evidence
 
-Evidence for Backlog is taken against the harnesses `start` reports, saved under this
+Evidence for Backlog is taken against the harnesses `run` reports, saved under this
 worktree's `.qa-workspace/evidence/`, and cited by path. It never lands in the committed
 fixtures beside it.
 

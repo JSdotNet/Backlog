@@ -25,7 +25,7 @@
   "extensions": {
     "implement": "csharp-coding:coding",
     "app.start": {
-      "provider": "repo:start",
+      "provider": "repo:run",
       "host": "aspire"
     },
     "qa.run": {
@@ -230,28 +230,23 @@
       ]
     },
     "devbook-procedures": {
-      "pluginVersion": "1.10.0",
+      "pluginVersion": "1.13.0",
       "adopted": [
-        "start",
+        "run",
         "show",
         "capture",
         "debug",
         "estimate"
       ],
       "materialized": {
-        ".agents/skills/start.md": {
-          "from": "1.7.0",
-          "hash": "sha256:803a989fa01cab8b768a2ea1670ee4e9716111b5baafd0a758ec47c5d0af46da",
+        ".claude/skills/run-backlog/SKILL.md": {
+          "from": "1.12.0",
+          "hash": "sha256:34a50970137805b32c0a95130226d286c7a7b4d95b8de4ddd0a038e4c967584b",
           "managed": false
         },
-        ".claude/skills/start/SKILL.md": {
-          "from": "1.7.0",
-          "hash": "sha256:00fdab521f742c325df36617c365a0046160ba7b24340412f9fa919a7d935c21",
-          "managed": true
-        },
-        ".github/skills/start/SKILL.md": {
-          "from": "1.7.0",
-          "hash": "sha256:00fdab521f742c325df36617c365a0046160ba7b24340412f9fa919a7d935c21",
+        ".github/skills/run/SKILL.md": {
+          "from": "1.12.0",
+          "hash": "sha256:2770db0b576814378f7aa98f2a26ca2d31f2c40847d8e6e3646526bfba35fc34",
           "managed": true
         },
         ".agents/skills/show.md": {
@@ -260,13 +255,13 @@
           "managed": false
         },
         ".claude/skills/show/SKILL.md": {
-          "from": "1.7.0",
-          "hash": "sha256:35e9994fdc2e01fd7143337536dd87b06dc0aed2b382b080eebf7b22d57085c9",
+          "from": "1.13.0",
+          "hash": "sha256:d727e8b0221cc98b1d1027bb18eb60bce04fd818eb652648c9fc8097a9857a76",
           "managed": true
         },
         ".github/skills/show/SKILL.md": {
-          "from": "1.7.0",
-          "hash": "sha256:35e9994fdc2e01fd7143337536dd87b06dc0aed2b382b080eebf7b22d57085c9",
+          "from": "1.13.0",
+          "hash": "sha256:d727e8b0221cc98b1d1027bb18eb60bce04fd818eb652648c9fc8097a9857a76",
           "managed": true
         },
         ".agents/skills/capture.md": {
