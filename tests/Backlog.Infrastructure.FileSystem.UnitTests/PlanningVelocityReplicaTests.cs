@@ -120,6 +120,25 @@ public sealed class PlanningVelocityReplicaTests : IDisposable
         Assert.Equal(3.5m, Store("b").StoryPointsPerWeekFor("backlog"));
     }
 
+    /// <summary>A lane's pace set by hand travels by name: the other device reads it as
+    /// the same choice and the same figure.</summary>
+    [Fact]
+    public async Task A_pace_set_by_hand_travels_to_another_device_by_name()
+    {
+        var a = Store("a", new FakeTimeProvider(Morning));
+        a.Set(2.75m, "backlog");
+        a.Choose(PaceSource.Set, "backlog");
+        var sent = (await ((IRoadmapReplicaStore)a).ReadAsync(Cancellation))!;
+
+        Assert.Equal("Set", (string)JsonNode.Parse(sent.Content)!["repositories"]!["backlog"]!["source"]!);
+
+        var b = Store("b");
+        Assert.True(await ((IRoadmapReplicaStore)b).TryWriteAsync(sent, Cancellation));
+
+        Assert.Equal(PaceSource.Set, b.SourceFor("backlog"));
+        Assert.Equal(2.75m, b.StoryPointsPerWeekFor("backlog"));
+    }
+
     /// <summary>Written as it arrived, with the inbound stamp — a key a newer build
     /// added survives here even though this build does not read it.</summary>
     [Fact]

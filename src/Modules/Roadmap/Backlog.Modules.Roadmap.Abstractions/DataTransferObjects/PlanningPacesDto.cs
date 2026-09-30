@@ -17,7 +17,8 @@ namespace Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 /// <param name="LastFourWeeks">Effort finished in the last 28 days, over 4 weeks.</param>
 /// <param name="LastEightWeeks">Effort finished in the last 56 days, over 8 weeks.</param>
 /// <param name="Source">The stretch the reader chose. <see cref="PaceSource.Manual"/>
-/// is no stretch chosen, which reads as the last two weeks.</param>
+/// is no stretch chosen, which reads as the last two weeks; <see cref="PaceSource.Set"/>
+/// is the scope's own pace, set by hand (<see cref="Own"/>).</param>
 public sealed record PlanningPacesDto(
     decimal Manual,
     decimal? LastTwoWeeks,
@@ -25,6 +26,18 @@ public sealed record PlanningPacesDto(
     decimal? LastEightWeeks,
     PaceSource Source)
 {
+    private decimal? _own;
+
+    /// <summary>The scope's own typed pace, set on its slider — what
+    /// <see cref="PaceSource.Set"/> stands for. The global scope's is the heading's
+    /// typed pace, and so is a repository's that has none of its own, so it equals
+    /// <see cref="Manual"/> unless a scope set one. Always positive.</summary>
+    public decimal Own
+    {
+        get => _own ?? Manual;
+        init => _own = value;
+    }
+
     /// <summary>The pace a source stands for, or <c>null</c> when it measured
     /// nothing.</summary>
     public decimal? Of(PaceSource source) => source switch
@@ -32,6 +45,7 @@ public sealed record PlanningPacesDto(
         PaceSource.LastTwoWeeks => LastTwoWeeks,
         PaceSource.LastFourWeeks => LastFourWeeks,
         PaceSource.LastEightWeeks => LastEightWeeks,
+        PaceSource.Set => Own,
         _ => Manual
     };
 
@@ -40,13 +54,16 @@ public sealed record PlanningPacesDto(
     public static IReadOnlyList<PaceSource> Stretches { get; } =
         [PaceSource.LastTwoWeeks, PaceSource.LastFourWeeks, PaceSource.LastEightWeeks];
 
-    /// <summary>The pace placement reads: the chosen stretch when it measured
-    /// something, otherwise the first stretch that did, otherwise the typed pace.
-    /// No stretch chosen reads as the last two weeks.</summary>
+    /// <summary>The pace placement reads: the scope's own pace when it was set by
+    /// hand, otherwise the chosen stretch when it measured something, otherwise the
+    /// first stretch that did, otherwise the typed pace. No stretch chosen reads as
+    /// the last two weeks.</summary>
     public PaceSource InEffect
     {
         get
         {
+            if (Source == PaceSource.Set) return PaceSource.Set;
+
             var chosen = Source == PaceSource.Manual ? PaceSource.LastTwoWeeks : Source;
             if (Of(chosen) is not null) return chosen;
 
@@ -62,7 +79,8 @@ public sealed record PlanningPacesDto(
     /// <summary>What placement divides by. Always positive.</summary>
     public decimal InUse => Of(InEffect) ?? Manual;
 
-    /// <summary>No stretch measured anything, so <see cref="Manual"/> is in use.</summary>
+    /// <summary>No stretch measured anything, so <see cref="Manual"/> is in use. Never
+    /// so for a pace set by hand: that is a choice, not a fallback.</summary>
     public bool FellBack => InEffect == PaceSource.Manual;
 }
 

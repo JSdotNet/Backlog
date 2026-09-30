@@ -713,13 +713,22 @@ public static class RoadmapPlanView
             Facets(part.Item, part.Aliases, configured),
             Detail(part.Item, contradicting, part.PartCount, part.IsSegment, drawnFrom),
             Locked: drawnFrom is not null,
-            Steps: part.Steps);
+            Steps: part.Steps,
+            // Work in flight has a start that is a fact and an end that is a forecast, so
+            // the end alone may be dragged to pin it. Only the bar that reaches the item's
+            // end: an earlier segment of a hand-over is a slice of it, not where it ends.
+            EndResizable: drawnFrom is { Finished: false } && part.End == part.Item.End);
 
     /// <summary>
     /// How an item drawn from its work was drawn: finished, or in flight with its end
     /// forecast — and the first day its open work can be drawn on.
     /// </summary>
-    private sealed record DrawnFrom(bool Finished, DateOnly OpenFrom);
+    private sealed record DrawnFrom(
+        bool Finished,
+        DateOnly OpenFrom,
+        DateOnly? ForecastEnd = null,
+        decimal? Pace = null,
+        bool EndPinned = false);
 
     /// <summary>
     /// An item as it is drawn: where it was planned, or — once work on it has begun —
@@ -793,8 +802,15 @@ public static class RoadmapPlanView
         var left = rollup.BacklogEntries.Where(link => !link.IsDone).Sum(link => Math.Max(0, link.Effort ?? 1));
         var days = (int)Math.Clamp(Math.Ceiling(left * 7m / pace), 1, 3650);
 
-        drawnFromWork[item.Id] = new DrawnFrom(Finished: false, openFrom);
-        return item with { Start = from, End = openFrom.AddDays(days - 1) };
+        var forecastEnd = openFrom.AddDays(days - 1);
+
+        // A pinned end is a person's date and outranks the forecast — but never ends
+        // before the first day open work can be drawn on. The forecast is kept and said
+        // in the bar's detail, so pinning does not hide what the pace says.
+        var drawnEnd = item.EndPinned ? Max(item.End, openFrom) : forecastEnd;
+
+        drawnFromWork[item.Id] = new DrawnFrom(Finished: false, openFrom, forecastEnd, pace, item.EndPinned);
+        return item with { Start = from, End = drawnEnd };
     }
 
     /// <summary>When a segment's work ran: its first task's start — or, for one
@@ -930,7 +946,16 @@ public static class RoadmapPlanView
         {
             parts.Add(drawnFrom.Finished
                 ? "finished, drawn where the work ran"
-                : "in progress, drawn from when the work began to when what is left should be done");
+                : drawnFrom.EndPinned
+                    ? "in progress, drawn from when the work began to the end you pinned"
+                    : "in progress, drawn from when the work began to when what is left should be done");
+
+            if (drawnFrom is { EndPinned: true, ForecastEnd: { } forecastEnd, Pace: { } pace })
+            {
+                parts.Add(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Forecast: {forecastEnd:d MMM yyyy} at {pace:0.##} pt/wk"));
+            }
         }
 
         if (!string.IsNullOrEmpty(item.Tag)) parts.Add($"tagged {item.Tag}");

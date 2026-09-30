@@ -1,0 +1,148 @@
+@*
+    A number picked along a line: a native range input, so it takes the keyboard
+    (arrows, Home, End, Page keys) and the pointer, and is announced as a slider
+    with no ARIA of ours on top.
+
+    It reports twice, on purpose. ValueChanged is the commit - raised when the
+    reader lets go of the thumb, or when a key press settles - so a host that
+    writes something on every change (a saved setting, a redrawn chart) does it
+    once per choice rather than once per pixel of the drag. ValueInput is the
+    live one, raised on every movement, for a host that only wants to echo the
+    number while it is being chosen. The input event is not attached at all when
+    nobody listens, because on a circuit each one is a round trip.
+
+    The thumb's position is bound to the host's Value, not to what the live
+    events carry: a re-render in the middle of a drag therefore writes nothing
+    back, and the thumb never snaps to where the host last saw it.
+
+    A slider says where it is by position and leaves the number to whoever draws
+    one beside it. ValueText is what a screen reader hears instead of the bare
+    number - "4.25 points a week" rather than "4.25" - because the unit is exactly
+    what a position cannot say.
+*@
+
+@using System.Globalization
+<input type="range"
+       class="@ClassValue"
+       data-testid="@TestId"
+       min="@Format(Min)"
+       max="@Format(Max)"
+       step="@Format(Step)"
+       disabled="@Disabled"
+       aria-label="@AriaLabel"
+       aria-valuetext="@ValueText"
+       @bind:get="_text"
+       @bind:set="OnChangedAsync"
+       @bind:event="onchange"
+       @oninput="InputHandler"
+       @attributes="AdditionalAttributes" />
+
+@code {
+    /// <summary>The smallest value the line reaches.</summary>
+    [Parameter]
+    public decimal Min { get; set; }
+
+    /// <summary>The largest value the line reaches.</summary>
+    [Parameter]
+    public decimal Max { get; set; } = 100m;
+
+    /// <summary>The distance between the values the thumb can rest on, counted from
+    /// <see cref="Min"/>.</summary>
+    [Parameter]
+    public decimal Step { get; set; } = 1m;
+
+    /// <summary>Where the thumb is. A value outside <see cref="Min"/> and
+    /// <see cref="Max"/> is drawn at the nearer end.</summary>
+    [Parameter]
+    public decimal Value { get; set; }
+
+    /// <summary>Raised when the reader commits a value: the thumb let go, or a key
+    /// press settled.</summary>
+    [Parameter]
+    public EventCallback<decimal> ValueChanged { get; set; }
+
+    /// <summary>Raised on every movement while the thumb is held, for a host that
+    /// echoes the number as it is chosen. Nothing is attached when this is unset.</summary>
+    [Parameter]
+    public EventCallback<decimal> ValueInput { get; set; }
+
+    /// <summary>What the slider is for - its accessible name, since a line on its own
+    /// says nothing.</summary>
+    [Parameter, EditorRequired]
+    public string AriaLabel { get; set; } = string.Empty;
+
+    /// <summary>What a screen reader announces for the current value, in place of the
+    /// bare number: "4.25 points a week".</summary>
+    [Parameter]
+    public string? ValueText { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>Appended to the base class, for a modifier on top of it.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>slider</c> on the input.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "slider";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    // What the input shows: the host's Value until the reader commits one. Taken
+    // from the host only when the host changes it, so a re-render that brings the
+    // same value back does not write over a thumb that has moved.
+    private string _text = string.Empty;
+    private decimal? _hostValue;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass)
+        ? BaseClass
+        : $"{BaseClass} {CssClass}";
+
+    private EventCallback<ChangeEventArgs> InputHandler =>
+        ValueInput.HasDelegate ? EventCallback.Factory.Create<ChangeEventArgs>(this, OnInputAsync) : default;
+
+    protected override void OnParametersSet()
+    {
+        if (Max < Min) Max = Min;
+        if (Step <= 0m) Step = 1m;
+
+        var shown = Math.Clamp(Value, Min, Max);
+
+        if (_hostValue != shown)
+        {
+            _hostValue = shown;
+            _text = Format(shown);
+        }
+    }
+
+    private async Task OnChangedAsync(string? text)
+    {
+        if (!TryRead(text, out var value)) return;
+
+        _text = Format(value);
+        _hostValue = value;
+
+        await ValueChanged.InvokeAsync(value);
+    }
+
+    private Task OnInputAsync(ChangeEventArgs e) =>
+        TryRead(e.Value?.ToString(), out var value) ? ValueInput.InvokeAsync(value) : Task.CompletedTask;
+
+    private bool TryRead(string? text, out decimal value)
+    {
+        if (decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value))
+        {
+            value = Math.Clamp(value, Min, Max);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string Format(decimal value) => value.ToString("0.####", CultureInfo.InvariantCulture);
+}

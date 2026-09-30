@@ -413,14 +413,23 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
         string.IsNullOrWhiteSpace(repository) ? null : repository.Trim().ToLowerInvariant();
 
     /// <summary>What <paramref name="repository"/> reads: its own entry, each half of
-    /// it falling back to the global one where it holds none.</summary>
+    /// it falling back to the global one where it holds none.
+    /// <para>
+    /// Except that <see cref="PaceSource.Set"/> is never inherited: it means "this
+    /// scope's own typed pace, set by hand", and the global one is the heading's figure
+    /// the default band's slider wrote. A repository that chose nothing reads
+    /// <see cref="PaceSource.Manual"/> — its own last two weeks — rather than being
+    /// drawn at a figure typed for another scope.
+    /// </para></summary>
     private static Setting Effective(Pace pace, string? repository)
     {
-        var global = new Setting(pace.StoryPointsPerWeek, pace.Source);
+        if (Key(repository) is not { } key) return new Setting(pace.StoryPointsPerWeek, pace.Source);
 
-        return Key(repository) is { } key && pace.Repositories.TryGetValue(key, out var own)
-            ? new Setting(own.StoryPointsPerWeek ?? global.StoryPointsPerWeek, own.Source ?? global.Source)
-            : global;
+        var inherited = pace.Source == PaceSource.Set ? PaceSource.Manual : pace.Source;
+
+        return pace.Repositories.TryGetValue(key, out var own)
+            ? new Setting(own.StoryPointsPerWeek ?? pace.StoryPointsPerWeek, own.Source ?? inherited)
+            : new Setting(pace.StoryPointsPerWeek, inherited);
     }
 
     /// <summary>The published figure with <paramref name="setting"/> as the global pace

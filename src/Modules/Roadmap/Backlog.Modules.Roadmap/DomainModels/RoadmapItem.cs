@@ -35,7 +35,8 @@ public sealed class RoadmapItem
         string? notes,
         PlanningTag? tag = null,
         KnowledgeReferences? knowledgeRefs = null,
-        ImportPlacement? placedByImport = null)
+        ImportPlacement? placedByImport = null,
+        bool endPinned = false)
     {
         Id = id;
         Title = title;
@@ -53,6 +54,7 @@ public sealed class RoadmapItem
         Tag = tag ?? PlanningTag.From(title);
         KnowledgeRefs = knowledgeRefs ?? KnowledgeReferences.Empty;
         PlacedByImport = placedByImport;
+        EndPinned = endPinned;
     }
 
     /// <summary>Stable across every reschedule. That is what makes it safe for a
@@ -95,6 +97,12 @@ public sealed class RoadmapItem
     /// keeps the window, dates and all (ADR 0013, ruling 5).</summary>
     public ImportPlacement? PlacedByImport { get; private set; }
 
+    /// <summary>Whether a person has fixed where this item ends. Only ever read for
+    /// started work, whose drawn end is otherwise a forecast: a pinned end outranks the
+    /// forecast until it is handed back. A plain moved window never clears it — the
+    /// person's date is theirs until they say otherwise.</summary>
+    public bool EndPinned { get; private set; }
+
     internal void Rename(string title) => Title = title;
 
     /// <summary>Moves the item in time on a person's say-so. The lane is only changed
@@ -112,6 +120,20 @@ public sealed class RoadmapItem
         Window = window;
         if (lane is not null) Lane = lane;
     }
+
+    /// <summary>Fixes the end on a person's say-so. The window is the person's from
+    /// then on, so the import provenance goes with it — even when the pinned date is the
+    /// one the importer placed, because a pin is a hand placement either way.</summary>
+    internal void PinEnd(PlannedWindow window)
+    {
+        PlacedByImport = null;
+        Window = window;
+        EndPinned = true;
+    }
+
+    /// <summary>Hands the end back to the forecast. The stored end stays where it is: it
+    /// is only read again if the item is not started.</summary>
+    internal void UnpinEnd() => EndPinned = false;
 
     /// <summary>The importer places the window, and records by which rule.</summary>
     internal void PlaceByImport(PlannedWindow window, ImportPlacement placement)

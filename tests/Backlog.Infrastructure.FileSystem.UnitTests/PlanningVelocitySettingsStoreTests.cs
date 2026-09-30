@@ -445,6 +445,56 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void A_pace_set_by_hand_survives_a_restart_by_name_for_a_repository_and_globally()
+    {
+        var store = Store();
+        Assert.Null(store.Set(6.25m, "backlog"));
+        Assert.Null(store.Choose(PaceSource.Set, "backlog"));
+        Assert.Null(store.Choose(PaceSource.Set));
+
+        var reopened = Store();
+
+        Assert.Equal(PaceSource.Set, reopened.SourceFor("backlog"));
+        Assert.Equal(6.25m, reopened.StoryPointsPerWeekFor("backlog"));
+        Assert.Equal(PaceSource.Set, reopened.Source);
+        Assert.Contains("\"Set\"", File.ReadAllText(reopened.SettingsPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_repository_never_inherits_a_global_pace_set_by_hand_and_reads_its_own_two_weeks()
+    {
+        var store = Store();
+        Assert.Null(store.Set(10m));
+        Assert.Null(store.Choose(PaceSource.Set));
+
+        // Set is the scope's own typed pace: the global one is the heading's figure.
+        Assert.Equal(PaceSource.Set, store.Source);
+        Assert.Equal(PaceSource.Manual, store.SourceFor("backlog"));
+        Assert.Equal(PaceSource.Set, store.SourceFor(null));
+
+        // And a repository with an entry that chose nothing reads the same.
+        Assert.Null(store.Set(9m, "backlog"));
+        Assert.Equal(PaceSource.Manual, store.SourceFor("backlog"));
+    }
+
+    [Fact]
+    public void A_repositorys_first_entry_does_not_copy_a_global_pace_set_by_hand()
+    {
+        var store = Store();
+        Assert.Null(store.Choose(PaceSource.Set));
+
+        Assert.Null(store.Set(9m, "backlog"));
+
+        var reopened = Store();
+        Assert.Equal(PaceSource.Manual, reopened.SourceFor("backlog"));
+        Assert.Equal(PaceSource.Set, reopened.Source);
+
+        // "Set" is written once, for the global choice, and not into backlog's entry.
+        var written = File.ReadAllText(reopened.SettingsPath);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(written, "\"Set\""));
+    }
+
+    [Fact]
     public void Setting_a_repositorys_pace_copies_the_choice_it_read_and_leaves_the_global_one()
     {
         var store = Store();

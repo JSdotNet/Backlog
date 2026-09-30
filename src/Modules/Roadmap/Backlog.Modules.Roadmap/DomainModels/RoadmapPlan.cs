@@ -173,6 +173,32 @@ public sealed class RoadmapPlan
         return Result.Success(item);
     }
 
+    /// <summary>Fixes where an item ends, keeping its start. This is how a person
+    /// overrides the forecast end of started work. Started work is drawn from when it
+    /// began, which can be earlier than its planned start, so an end before the stored
+    /// start is not a mistake: the start moves back to it and the window is that one day.</summary>
+    public Result<RoadmapItem> PinEnd(Guid itemId, DateOnly end)
+    {
+        var item = FindItem(itemId);
+        if (item is null) return Result.Failure<RoadmapItem>(RoadmapErrors.ItemNotFound(itemId));
+
+        var window = PlannedWindow.Create(end < item.Window.Start ? end : item.Window.Start, end);
+        if (window.IsFailure) return Result.Failure<RoadmapItem>(window.Error);
+
+        item.PinEnd(window.Value);
+        return Result.Success(item);
+    }
+
+    /// <summary>Lets the forecast decide the end of started work again.</summary>
+    public Result<RoadmapItem> UnpinEnd(Guid itemId)
+    {
+        var item = FindItem(itemId);
+        if (item is null) return Result.Failure<RoadmapItem>(RoadmapErrors.ItemNotFound(itemId));
+
+        item.UnpinEnd();
+        return Result.Success(item);
+    }
+
     public Result<RoadmapItem> Prioritise(Guid itemId, PlanningPriority priority)
     {
         var item = FindItem(itemId);

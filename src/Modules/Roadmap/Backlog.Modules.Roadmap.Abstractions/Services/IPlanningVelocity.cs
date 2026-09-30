@@ -69,6 +69,13 @@ public interface IPlanningPace
     /// <summary>Chooses the pace placement uses. Returns <c>null</c> when saved, a
     /// warning when it took but could not be written for next time.</summary>
     string? Choose(PaceSource source, string? repository = null);
+
+    /// <summary>Sets the scope's own pace — <paramref name="repository"/>'s, or the
+    /// heading's typed pace for <c>null</c> — and chooses
+    /// <see cref="PaceSource.Set"/>, so placement uses it: what a lane's slider does
+    /// on release. Returns <c>null</c> when saved, a refusal for a figure that is not
+    /// a pace, and a warning when it took but could not be written for next time.</summary>
+    string? SetOwn(decimal storyPointsPerWeek, string? repository = null);
 }
 
 /// <summary>

@@ -35,6 +35,11 @@ namespace Backlog.UI.Components.Roadmap;
 /// drawn. A bar with steps offers to expand into them, one row each, and carries a
 /// progress fill of done effort over total effort while it is collapsed. Null or
 /// empty is a bar with nothing inside it to show.</param>
+/// <param name="EndResizable">Whether a <paramref name="Locked"/> bar still lets its
+/// end be dragged, or resized from the keyboard — and only its end: moving it and
+/// pulling its start stay refused. For a span whose start is a fact (work began) but
+/// whose end is a prediction the reader may overrule. Ignored on a bar that is not
+/// locked, which can be resized at both edges anyway.</param>
 public sealed record RoadmapBar(
     string Id,
     string RowId,
@@ -45,7 +50,8 @@ public sealed record RoadmapBar(
     IReadOnlyList<RoadmapFacet>? Facets = null,
     string? Detail = null,
     bool Locked = false,
-    IReadOnlyList<RoadmapStep>? Steps = null)
+    IReadOnlyList<RoadmapStep>? Steps = null,
+    bool EndResizable = false)
 {
     public IReadOnlyList<RoadmapFacet> FacetList => Facets ?? [];
 

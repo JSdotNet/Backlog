@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
@@ -39,6 +41,10 @@ internal sealed class PlanningPace(
 {
     /// <summary>The longest stretch measured, so one read covers all three.</summary>
     private const int LongestWeeks = 8;
+
+    /// <summary>The finest pace the settings file can hold; anything under it is
+    /// refused by the settings themselves.</summary>
+    private const decimal SmallestPace = 0.0001m;
 
     public event Action? Changed
     {
@@ -83,17 +89,40 @@ internal sealed class PlanningPace(
     public string? Choose(PaceSource source, string? repository = null) =>
         settings.Choose(source, Scope(repository));
 
+    /// <summary>Sets the scope's own typed pace and chooses it. The typed text goes
+    /// through the settings' one parsing rule, in the invariant spelling, so a refusal
+    /// reads the same here as beside the heading's field.</summary>
+    public string? SetOwn(decimal storyPointsPerWeek, string? repository = null)
+    {
+        var scope = Scope(repository);
+
+        // A figure the settings cannot hold is refused with its message and nothing
+        // is chosen; past that, whatever comes back is a warning and the pace took.
+        if (storyPointsPerWeek < SmallestPace)
+        {
+            return settings.SetManual(storyPointsPerWeek.ToString(CultureInfo.InvariantCulture), scope);
+        }
+
+        var warning = settings.SetManual(storyPointsPerWeek.ToString(CultureInfo.InvariantCulture), scope);
+
+        return settings.Choose(PaceSource.Set, scope) ?? warning;
+    }
+
     internal static PlanningPacesDto Paces(
         decimal manual,
         PaceSource source,
         IReadOnlyList<CompletedEffortDto> finished,
-        DateOnly today) =>
+        DateOnly today,
+        decimal? own = null) =>
         new(
             manual,
             Measured(finished, today, 2),
             Measured(finished, today, 4),
             Measured(finished, today, LongestWeeks),
-            source);
+            source)
+        {
+            Own = own ?? manual
+        };
 
     /// <summary>
     /// Effort finished in the <paramref name="weeks"/> weeks ending today, today
@@ -128,6 +157,7 @@ internal sealed class PlanningPace(
     /// global one either way: it is the single fallback.</summary>
     private PlanningPacesDto PacesOf(string? repository, IReadOnlyList<CompletedEffortDto> finished, DateOnly today)
     {
+        // The global scope's own pace is the heading's typed one.
         if (repository is null) return Paces(settings.Manual(), settings.Source(), finished, today);
 
         IReadOnlyList<CompletedEffortDto> own =
@@ -135,7 +165,7 @@ internal sealed class PlanningPace(
             .. finished.Where(entry => entry.RepositoryAliases.Contains(repository, StringComparer.OrdinalIgnoreCase))
         ];
 
-        return Paces(settings.Manual(), settings.Source(repository), own, today);
+        return Paces(settings.Manual(), settings.Source(repository), own, today, settings.Manual(repository));
     }
 
     /// <summary>The configured repository an alias names, or <c>null</c> — the global

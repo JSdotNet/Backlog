@@ -764,6 +764,102 @@ public class RoadmapPlanViewTests
         Assert.Equal(new DateOnly(2026, 1, 13), bar.End);
     }
 
+    // --- A pinned end outranks the forecast for work in flight --------------------
+
+    private static RoadmapGatheredLink[] InFlightWork() =>
+    [
+        Sized("a", 2, RoadmapProgress.Done, started: new DateOnly(2025, 12, 20), completed: new DateOnly(2025, 12, 28)),
+        Sized("b", 3, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 2)),
+        Sized("c", null, RoadmapProgress.Planned)
+    ];
+
+    [Fact]
+    public void AnItemInFlight_IsLocked_ButItsEndCanBeResized()
+    {
+        var bar = Forecasted(Item("Plan", repositories: ["backlog"]), InFlightWork());
+
+        Assert.True(bar.Locked);
+        Assert.True(bar.EndResizable);
+        Assert.DoesNotContain("Forecast:", bar.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnItemInFlight_WithAPinnedEnd_IsDrawnToThePinnedEnd_AndStartsWhenTheWorkBegan()
+    {
+        // The forecast would end on the 13th; the person pinned the 31st.
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 31, repositories: ["backlog"]) with { EndPinned = true },
+            InFlightWork());
+
+        Assert.Equal(new DateOnly(2025, 12, 20), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 31), bar.End);
+        Assert.True(bar.Locked);
+        Assert.True(bar.EndResizable);
+    }
+
+    [Fact]
+    public void AnItemInFlight_WithAPinnedEnd_KeepsTheForecastInItsDetail()
+    {
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 31, repositories: ["backlog"]) with { EndPinned = true },
+            InFlightWork());
+
+        var lines = bar.Detail!.Split('\n');
+        Assert.Contains("Forecast: 13 Jan 2026 at 7 pt/wk", lines);
+        Assert.Contains(lines, line => line.Contains("end you pinned", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AnItemInFlight_WhosePinnedEndHasPassed_IsDrawnFromTodayAtLeast()
+    {
+        // Pinned to the 7th, but today is the 10th and work is still open: the bar
+        // cannot end before the first day open work can be drawn on.
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 7, repositories: ["backlog"]) with { EndPinned = true },
+            InFlightWork());
+
+        Assert.Equal(new DateOnly(2026, 1, 10), bar.End);
+    }
+
+    [Fact]
+    public void AnItemInFlight_PinnedBeforeItsPlannedStart_IsDrawnFromWhenTheWorkBegan_ToTheLaterOfThePinAndToday()
+    {
+        // The plan said the 5th, the work began on 20 December, and the person pinned
+        // the 1st: the store moved the window back to the pin (1st to 1st), and the bar
+        // is still drawn from when the work began — never ending before open work can be.
+        var bar = Forecasted(
+            Item("Plan", startDay: 1, endDay: 1, repositories: ["backlog"]) with { EndPinned = true },
+            InFlightWork());
+
+        Assert.Equal(new DateOnly(2025, 12, 20), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 10), bar.End);
+        Assert.True(bar.EndResizable);
+    }
+
+    [Fact]
+    public void AFinishedItem_IgnoresAPinnedEnd_AndCannotBeResized()
+    {
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 31, repositories: ["backlog"]) with { EndPinned = true },
+            Sized("a", 2, RoadmapProgress.Done, started: new DateOnly(2026, 1, 2), completed: new DateOnly(2026, 1, 8)));
+
+        Assert.Equal(new DateOnly(2026, 1, 8), bar.End);
+        Assert.True(bar.Locked);
+        Assert.False(bar.EndResizable);
+    }
+
+    [Fact]
+    public void AnItemNobodyStarted_IsDrawnAsStored_EvenWithAPinnedEnd_AndIsNotEndOnly()
+    {
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 20, repositories: ["backlog"]) with { EndPinned = true },
+            Sized("a", 3, RoadmapProgress.Ready));
+
+        Assert.Equal(new DateOnly(2026, 1, 20), bar.End);
+        Assert.False(bar.Locked);
+        Assert.False(bar.EndResizable);
+    }
+
     [Fact]
     public void AnItemNobodyStarted_IsDrawnWherePlanned_AndCanBeMoved()
     {
