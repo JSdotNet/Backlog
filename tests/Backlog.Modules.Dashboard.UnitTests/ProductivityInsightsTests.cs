@@ -101,8 +101,8 @@ public class ProductivityInsightsTests
         var source = new StubActivitySource();
         var insights = Insights(source);
 
-        _ = await insights.GetHeadlineAsync(DashboardScope.Default);
-        _ = await insights.GetHeadlineAsync(DashboardScope.Default with { MachineId = "tower" });
+        _ = await insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        _ = await insights.GetHeadlineAsync(DashboardScope.Default with { MachineId = "tower" }, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, source.Calls);
     }

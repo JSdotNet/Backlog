@@ -84,7 +84,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         // unlucky document must not send the other four hundred back.
         foreach (var change in changes)
         {
-            if (await WriteIfLaterAsync(container, partition, scope, change, cancellationToken))
+            if (await WriteIfLaterAsync(container, partition, scope, change, cancellationToken).ConfigureAwait(false))
             {
                 accepted++;
             }
@@ -136,7 +136,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
 
             try
             {
-                var read = await container.ReadItemAsync<TaskDocument>(id, partition, cancellationToken: cancellationToken);
+                var read = await container.ReadItemAsync<TaskDocument>(id, partition, cancellationToken: cancellationToken).ConfigureAwait(false);
                 held = read.Resource;
                 etag = read.ETag;
             }
@@ -162,7 +162,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
             {
                 if (held is null)
                 {
-                    await container.CreateItemAsync(document, partition, cancellationToken: cancellationToken);
+                    await container.CreateItemAsync(document, partition, cancellationToken: cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
@@ -171,7 +171,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
                         id,
                         partition,
                         new ItemRequestOptions { IfMatchEtag = etag },
-                        cancellationToken);
+                        cancellationToken).ConfigureAwait(false);
                 }
 
                 return true;
@@ -244,7 +244,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         ResponseMessage response;
         try
         {
-            response = await iterator.ReadNextAsync(cancellationToken);
+            response = await iterator.ReadNextAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (CosmosException failure)
         {
@@ -332,7 +332,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         {
             while (results.HasMoreResults)
             {
-                foreach (var document in await results.ReadNextAsync(cancellationToken))
+                foreach (var document in await results.ReadNextAsync(cancellationToken).ConfigureAwait(false))
                 {
                     if (string.Equals(document.OwnerId, key, StringComparison.Ordinal)
                         && TaskDocumentFactory.ToRecord(document) is { } record)
@@ -362,7 +362,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
             var response = await Container().ReadItemAsync<TaskDocument>(
                 ReplicaDocumentSerialization.Key(id),
                 new PartitionKey(key),
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             // A read is already confined to the partition it named, so this can
             // only fail if the document says something other than what its own

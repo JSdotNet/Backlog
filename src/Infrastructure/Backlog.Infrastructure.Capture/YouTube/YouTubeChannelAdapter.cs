@@ -61,7 +61,8 @@ internal sealed partial class YouTubeChannelAdapter(FeedFetcher fetcher) : ICapt
 
         var document = await fetcher.GetAsync(feed, cancellationToken).ConfigureAwait(false);
 
-        await using var xml = document.OpenRead();
+        var xml = document.OpenRead();
+        await using var _ = xml.ConfigureAwait(false);
         return new TargetReading(FeedReader.Read(xml, document.Url));
     }
 

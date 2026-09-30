@@ -10,6 +10,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// a <c>_reading-order.json</c> at every level, each declaring an order the
 /// convention disagrees with, and none of them shows.</para>
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookOutlineConventionTests : IDisposable
 {
     private const string StrayOrder = """{ "version": 1, "directories": { ".": { "order": [".devbook/ai", ".devbook/arc42"] } } }""";

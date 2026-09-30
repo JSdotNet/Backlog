@@ -16,18 +16,13 @@
     a caller or a hand-edited file has to agree on, which stays in
     Backlog.Modules.DevPc.Abstractions.
   -->
-  <PropertyGroup>
-    <!-- The same exhaustive-switch settings as the contract project, for the
-         same switches over DevToolKind and DevToolProvider: CS8509 (a named
-         enum member no arm covers) fails the build, and CS8524 (an unnamed
-         value an int cast can produce) is off. See
-         Backlog.Modules.DevPc.Abstractions.csproj for the reasoning. -->
-    <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
-    <NoWarn>$(NoWarn);CS8524</NoWarn>
-  </PropertyGroup>
+  <!-- The exhaustive-switch settings its switches over DevToolKind and
+       DevToolProvider rely on are set once in the root Directory.Build.props;
+       BuildPolicyTests keeps them from being restated here. -->
 
   <ItemGroup>
     <!-- The listing logs a CLI it could not read rather than losing it. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 

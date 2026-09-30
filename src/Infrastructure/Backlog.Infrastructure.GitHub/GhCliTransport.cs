@@ -56,7 +56,7 @@ public sealed partial class GhCliTransport : IGitHubTransport
             // `gh api user` proves both halves at once: the CLI exists, and its
             // stored credential is actually good. `gh auth status` can pass with
             // a token that no longer works.
-            var result = await RunAsync(["api", "user"], input: null, cancellationToken);
+            var result = await RunAsync(["api", "user"], input: null, cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0)
             {
                 _available = false;
@@ -117,7 +117,7 @@ public sealed partial class GhCliTransport : IGitHubTransport
             arguments.AddRange(["--input", "-"]);
         }
 
-        var result = await RunAsync(arguments, input, cancellationToken);
+        var result = await RunAsync(arguments, input, cancellationToken).ConfigureAwait(false);
 
         if (result.ExitCode != 0)
         {
@@ -185,16 +185,16 @@ public sealed partial class GhCliTransport : IGitHubTransport
         {
             if (input is not null)
             {
-                await process.StandardInput.WriteAsync(input.AsMemory(), cancellationToken);
+                await process.StandardInput.WriteAsync(input.AsMemory(), cancellationToken).ConfigureAwait(false);
                 process.StandardInput.Close();
             }
 
             var standardOutput = process.StandardOutput.ReadToEndAsync(cancellationToken);
             var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
 
-            await process.WaitForExitAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
 
-            return new ProcessResult(process.ExitCode, await standardOutput, await standardError);
+            return new ProcessResult(process.ExitCode, await standardOutput.ConfigureAwait(false), await standardError.ConfigureAwait(false));
         }
         catch (OperationCanceledException)
         {

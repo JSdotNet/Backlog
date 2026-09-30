@@ -8,4 +8,10 @@
     <RootNamespace>Backlog.Infrastructure.Copilot</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- The launcher's process seam is internal so tests can see what it starts
+         without spawning the CLI. -->
+    <InternalsVisibleTo Include="Backlog.Infrastructure.Copilot.UnitTests" />
+  </ItemGroup>
+
 </Project>

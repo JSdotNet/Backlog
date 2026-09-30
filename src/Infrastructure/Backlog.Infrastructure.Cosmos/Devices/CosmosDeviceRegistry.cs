@@ -67,7 +67,7 @@ internal sealed class CosmosDeviceRegistry : IDeviceRegistry
             await Container().CreateItemAsync(
                 document,
                 new PartitionKey(document.Id),
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (CosmosException failure)
         {
@@ -84,7 +84,7 @@ internal sealed class CosmosDeviceRegistry : IDeviceRegistry
             var response = await Container().ReadItemAsync<DeviceDocument>(
                 key,
                 new PartitionKey(key),
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             return DeviceDocumentFactory.ToDevice(response.Resource);
         }
@@ -105,7 +105,7 @@ internal sealed class CosmosDeviceRegistry : IDeviceRegistry
         CountOwnedBy(ownerId, cancellationToken);
 
     public async Task<bool> OwnerExists(OwnerId ownerId, CancellationToken cancellationToken = default) =>
-        await CountOwnedBy(ownerId, cancellationToken) > 0;
+        await CountOwnedBy(ownerId, cancellationToken).ConfigureAwait(false) > 0;
 
     /// <summary>
     /// The one query in this adapter, and it crosses partitions on purpose —
@@ -127,7 +127,7 @@ internal sealed class CosmosDeviceRegistry : IDeviceRegistry
 
             while (results.HasMoreResults)
             {
-                foreach (var partial in await results.ReadNextAsync(cancellationToken))
+                foreach (var partial in await results.ReadNextAsync(cancellationToken).ConfigureAwait(false))
                 {
                     // A cross-partition aggregate arrives already merged by the
                     // SDK; summing is for the shape of the API, not for the

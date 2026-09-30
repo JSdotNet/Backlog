@@ -27,6 +27,18 @@
     flex: none;
 }
 
+/*
+  On a paired phone the status line is a button that offers to forget the
+  pairing. It keeps the line's own look - a ghost button, the line's words -
+  and the 44px touch height, and gives way to the title when the bar is tight.
+*/
+::deep .app-bar__sync {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    min-height: 44px;
+}
+
 main {
     flex: 1;
     padding-bottom: var(--spacing-md);

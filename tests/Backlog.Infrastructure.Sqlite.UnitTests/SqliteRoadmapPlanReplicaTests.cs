@@ -16,6 +16,7 @@ namespace Backlog.Infrastructure.Sqlite.UnitTests;
 /// Decision §1): read as its stored text and stamp, written back verbatim at the
 /// stamp it arrived with, and never overwritten with something that is not a plan.
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
 {
     private static readonly DateTimeOffset Morning = new(2026, 9, 29, 9, 0, 0, TimeSpan.Zero);

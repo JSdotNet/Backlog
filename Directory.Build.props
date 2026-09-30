@@ -16,6 +16,44 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <!--
+      The warning policy. The rule severities live in the root .editorconfig;
+      these switch the analyzers on and make the build report them. The build
+      is kept at zero warnings, and the pull request workflow passes
+      TreatWarningsAsErrors so it stays there — set on the command line rather
+      than here, so a half-finished local edit still builds and runs.
+    -->
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
+
+    <!--
+      Switches over DevToolKind, DevToolProvider and the other closed enums
+      have no catch-all arm, because a catch-all files a member nobody has
+      thought about under an answer meant for something else: the DevPc key
+      routing once defaulted an unrecognised kind to "MCP server".
+
+      CS8509 (a named member no arm covers) is an error: adding a member
+             without handling it in every switch fails the build.
+      CS8524 (the (DevToolKind)7 an int cast can produce, which no exhaustive
+             switch can name) is off: guarding it is exactly what a catch-all
+             arm would be for, and it only arises from a cast of a value the
+             formats have no way to express.
+
+      Set once here rather than in each project that switches, so a project
+      cannot opt out by forgetting it.
+    -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
+    <NoWarn>$(NoWarn);CS8524</NoWarn>
+  </PropertyGroup>
+
+  <!-- On a runner only: it maps the source paths in the PDBs, which a debugger
+       on a developer's machine then cannot resolve. -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <Company>JSdotNet</Company>
     <Product>Backlog</Product>
     <Copyright>Copyright © JSdotNet 2026</Copyright>

@@ -23,6 +23,7 @@
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <!-- DevbookDatabaseRefresher reports a failed background build rather than
          losing it. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 

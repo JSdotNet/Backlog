@@ -79,9 +79,10 @@ public sealed class TalkNoteOutboxKind(CloudSyncClient sync, TalkNoteFiles files
             await checkpoint(Write(payload), cancellationToken);
         }
 
-        // The entry's id wins over the payload's, as for a plain capture: it is
-        // the one every retry repeats and the service de-duplicates on.
-        var capture = payload.Capture with { Id = entry.Id };
+        // Posted as a plain capture is: under the entry's id, the one every
+        // retry repeats and the service de-duplicates on, and made when the
+        // note was saved.
+        var capture = CaptureOutboxKind.Stamped(payload.Capture, entry);
         var posted = await OutboxDelivery.AttemptAsync(() => sync.PostCaptureAsync(capture, cancellationToken), cancellationToken);
 
         if (posted.Kind == OutboxDeliveryKind.Delivered)

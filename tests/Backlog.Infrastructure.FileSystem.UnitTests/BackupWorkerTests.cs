@@ -14,6 +14,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// rather than waiting for it, and through a fake client so nothing here talks
 /// to GitHub.
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class BackupWorkerTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-backup-worker-tests", Guid.NewGuid().ToString("n"));

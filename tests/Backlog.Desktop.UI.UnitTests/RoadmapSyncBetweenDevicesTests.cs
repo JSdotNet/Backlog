@@ -42,6 +42,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// built on it end holding the same plan and pace.
 /// </para>
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
 {
     private static readonly Guid Owner = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");

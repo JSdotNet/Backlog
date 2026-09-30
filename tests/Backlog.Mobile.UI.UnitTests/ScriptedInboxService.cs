@@ -28,6 +28,10 @@ internal sealed class ScriptedInboxService
 
     public InboxServiceState State { get; set; } = InboxServiceState.Answering;
 
+    /// <summary>The service's own clock, which stamps a capture that arrives
+    /// without a time of its own — the real service's rule.</summary>
+    public TimeProvider Clock { get; init; } = TimeProvider.System;
+
     public int Requests { get; private set; }
 
     /// <summary>Pulls that arrived while <see cref="HoldPulls"/> was in force.</summary>
@@ -144,7 +148,7 @@ internal sealed class ScriptedInboxService
                 return JsonAnswer(HttpStatusCode.OK, existing);
             }
 
-            var stored = new InboxItem(id, capture.Title, capture.Source, DateTimeOffset.UtcNow, capture.BodyMd, capture.Tags ?? [], capture.Person, capture.Attachments);
+            var stored = new InboxItem(id, capture.Title, capture.Source, capture.CapturedAt ?? Clock.GetUtcNow(), capture.BodyMd, capture.Tags ?? [], capture.Person, capture.Attachments);
             _items.Add(stored);
             Created++;
 

@@ -58,6 +58,7 @@
       "tests\\Backlog.Infrastructure.BlobStorage.UnitTests\\Backlog.Infrastructure.BlobStorage.UnitTests.csproj",
       "tests\\Backlog.Infrastructure.Capture.UnitTests\\Backlog.Infrastructure.Capture.UnitTests.csproj",
       "tests\\Backlog.Infrastructure.Claude.UnitTests\\Backlog.Infrastructure.Claude.UnitTests.csproj",
+      "tests\\Backlog.Infrastructure.Copilot.UnitTests\\Backlog.Infrastructure.Copilot.UnitTests.csproj",
       "tests\\Backlog.Infrastructure.Cosmos.UnitTests\\Backlog.Infrastructure.Cosmos.UnitTests.csproj",
       "tests\\Backlog.Infrastructure.FileSystem.UnitTests\\Backlog.Infrastructure.FileSystem.UnitTests.csproj",
       "tests\\Backlog.Infrastructure.GitHub.UnitTests\\Backlog.Infrastructure.GitHub.UnitTests.csproj",

@@ -14,6 +14,7 @@ public sealed class ProcessCopilotCliLauncher : ICopilotCliLauncher
 {
     private const string DefaultExecutable = "copilot";
     private readonly string _executable;
+    private readonly Func<ProcessStartInfo, Process?> _startProcess;
 
     public ProcessCopilotCliLauncher()
         : this(Environment.GetEnvironmentVariable("BACKLOG_COPILOT_CLI"))
@@ -21,8 +22,16 @@ public sealed class ProcessCopilotCliLauncher : ICopilotCliLauncher
     }
 
     internal ProcessCopilotCliLauncher(string? executable)
+        : this(executable, Process.Start)
+    {
+    }
+
+    /// <summary>The process seam: the tests assert what the launcher starts and
+    /// what it does with the returned Process without spawning the CLI.</summary>
+    internal ProcessCopilotCliLauncher(string? executable, Func<ProcessStartInfo, Process?> startProcess)
     {
         _executable = string.IsNullOrWhiteSpace(executable) ? DefaultExecutable : executable.Trim();
+        _startProcess = startProcess;
     }
 
     public Task LaunchAsync(CopilotCliRequest request, CancellationToken cancellationToken = default)
@@ -54,10 +63,9 @@ public sealed class ProcessCopilotCliLauncher : ICopilotCliLauncher
 
         try
         {
-            if (Process.Start(startInfo) is null)
-            {
-                throw new CopilotCliException("GitHub Copilot CLI did not start.");
-            }
+            // The CLI runs on in its own console window and is never waited on;
+            // disposing releases the handle without touching the child.
+            using var process = _startProcess(startInfo) ?? throw new CopilotCliException("GitHub Copilot CLI did not start.");
         }
         catch (Win32Exception ex)
         {

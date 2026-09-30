@@ -14,6 +14,11 @@ namespace Backlog.Mobile.UI.Outbox;
 /// capture it already has (200) instead of a second one — so a phone that lost
 /// the first 201 to a dropped connection can send again without doubling it.
 /// </para>
+/// <para>
+/// The time goes with it for the same reason: the entry was stamped when the
+/// capture was queued, and every attempt sends that stamp as the capture's time,
+/// so a capture flushed after a morning offline still reads as the morning's.
+/// </para>
 /// </summary>
 public sealed class CaptureOutboxKind(CloudSyncClient sync) : IOutboxKind
 {
@@ -42,11 +47,17 @@ public sealed class CaptureOutboxKind(CloudSyncClient sync) : IOutboxKind
             ?? throw new InvalidOperationException($"Outbox entry {entry.Id} holds no capture.");
     }
 
+    /// <summary>The capture as every attempt posts it: under the entry's id,
+    /// and made when the entry was queued unless it says otherwise.</summary>
+    internal static CaptureRequest Stamped(CaptureRequest capture, OutboxEntry entry) =>
+        capture with { Id = entry.Id, CapturedAt = capture.CapturedAt ?? entry.CreatedAt };
+
     public Task<OutboxDelivery> SendAsync(OutboxEntry entry, CancellationToken cancellationToken)
     {
         // The entry's id wins over whatever the payload says: it is the one the
-        // outbox keys on, and the one every retry has to repeat.
-        var request = Read(entry) with { Id = entry.Id };
+        // outbox keys on, and the one every retry has to repeat. Its stamp is
+        // when the capture was made, unless the payload already says.
+        var request = Stamped(Read(entry), entry);
 
         return OutboxDelivery.AttemptAsync(() => sync.PostCaptureAsync(request, cancellationToken), cancellationToken);
     }

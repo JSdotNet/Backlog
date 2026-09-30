@@ -41,7 +41,7 @@ public class RoadmapBandLinkingTests : RoadmapBandHarness
 
         await Link(band, first.ToString(), then.ToString());
 
-        var plan = await Planning.GetPlanAsync();
+        var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
         Assert.Equal([first], plan.Items.Single(item => item.Id == then).DependsOn);
 
         // Drawn from the reloaded plan, from one band into the other.
@@ -53,14 +53,14 @@ public class RoadmapBandLinkingTests : RoadmapBandHarness
     public async Task ALinkThatWouldCloseACycle_IsRefusedAndSaidSo()
     {
         var (first, then) = await TwoItemsAsync();
-        Assert.True((await Planning.AddDependencyAsync(then, first)).IsSuccess);
+        Assert.True((await Planning.AddDependencyAsync(then, first, TestContext.Current.CancellationToken)).IsSuccess);
 
         using var context = Context();
         var band = Drawn(context);
 
         await Link(band, then.ToString(), first.ToString());
 
-        var plan = await Planning.GetPlanAsync();
+        var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
         Assert.Empty(plan.Items.Single(item => item.Id == first).DependsOn);
         band.WaitForAssertion(() => Assert.NotEmpty(band.Find("[data-testid=\"roadmap-band-error\"]").TextContent.Trim()));
     }
@@ -70,14 +70,15 @@ public class RoadmapBandLinkingTests : RoadmapBandHarness
     {
         Configure("JSdotNet/Backlog", "JSdotNet/Fincent");
         var item = (await Planning.AddItemAsync(
-            "Both", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog", "fincent"])).Value;
+            "Both", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog", "fincent"],
+            cancellationToken: TestContext.Current.CancellationToken)).Value;
 
         using var context = Context();
         var band = Drawn(context);
 
         await Link(band, $"{item.Id}@backlog", $"{item.Id}@fincent");
 
-        Assert.Empty((await Planning.GetPlanAsync()).Items.Single().DependsOn);
+        Assert.Empty((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items.Single().DependsOn);
         band.WaitForAssertion(() => Assert.Contains(
             "part of itself", band.Find("[data-testid=\"roadmap-band-error\"]").TextContent, StringComparison.Ordinal));
     }
@@ -95,7 +96,7 @@ public class RoadmapBandLinkingTests : RoadmapBandHarness
         await band.InvokeAsync(() => timeline.Instance.OnBarChanged.InvokeAsync(
             new RoadmapChange(bar.Id, bar.RowId, bar.Start.AddDays(7), bar.End.AddDays(7), RoadmapDrag.Move)));
 
-        var moved = (await Planning.GetPlanAsync()).Items.Single(item => item.Id == first);
+        var moved = (await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items.Single(item => item.Id == first);
         Assert.Equal((new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16)), (moved.Start, moved.End));
     }
 }

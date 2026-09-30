@@ -34,6 +34,7 @@
          absent: it carries a Microsoft.AspNetCore.App framework reference, and
          taking it here would put that reference one project reference away from
          anything that ever wants to read a tool. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="ModelContextProtocol.Core" />
   </ItemGroup>
 

@@ -96,13 +96,13 @@ public sealed class TokenTransport : IGitHubTransport
     {
         // Throws, naming the account, when the path is bound to one this machine
         // cannot satisfy. Never falls through to another identity.
-        var credential = await _credentials.ResolveAsync(path, cancellationToken);
+        var credential = await _credentials.ResolveAsync(path, cancellationToken).ConfigureAwait(false);
         if (credential is null)
         {
             throw new GitHubNotConfiguredException("No GitHub token is configured.");
         }
 
-        return await SendAsAsync(credential, method, path, body, apiVersion, cancellationToken);
+        return await SendAsAsync(credential, method, path, body, apiVersion, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -152,7 +152,7 @@ public sealed class TokenTransport : IGitHubTransport
         HttpResponseMessage response;
         try
         {
-            response = await _http().SendAsync(request, cancellationToken);
+            response = await _http().SendAsync(request, cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {
@@ -168,7 +168,7 @@ public sealed class TokenTransport : IGitHubTransport
 
         using (response)
         {
-            var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+            var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
             {

@@ -108,7 +108,7 @@ public sealed class DevbookDatabaseRefresher : IDisposable
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(_stopping.Token, cancellationToken);
         var token = linked.Token;
 
-        return await Task.Run(() => Refresh(repositoryRoot, token), token);
+        return await Task.Run(() => Refresh(repositoryRoot, token), token).ConfigureAwait(false);
     }
 
     /// <summary>The check in flight or last run for a repository, for a caller

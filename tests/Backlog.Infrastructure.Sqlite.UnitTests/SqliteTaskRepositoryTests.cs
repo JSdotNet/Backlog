@@ -10,6 +10,7 @@ namespace Backlog.Infrastructure.Sqlite.UnitTests;
 /// their order — because a store that quietly drops one is a store that loses
 /// somebody's work without ever failing.
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class SqliteTaskRepositoryTests : IDisposable
 {
     private readonly string _root;

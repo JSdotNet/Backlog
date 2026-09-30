@@ -21,6 +21,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// reason <c>DevbookSchemaContractTests</c> does it: nothing on the C# side is
 /// allowed to restate the schema, including a fixture.</para>
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookIndexDatabaseTests : IDisposable
 {
     private readonly string _root = Path.Combine(

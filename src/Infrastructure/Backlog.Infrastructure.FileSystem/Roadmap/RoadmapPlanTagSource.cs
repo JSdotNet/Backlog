@@ -26,7 +26,7 @@ public sealed class RoadmapPlanTagSource : IRoadmapTagSource
 
     public async Task<IReadOnlyList<string>> TagsInUseAsync(CancellationToken cancellationToken = default)
     {
-        var plan = await _planning.GetPlanAsync(cancellationToken);
+        var plan = await _planning.GetPlanAsync(cancellationToken).ConfigureAwait(false);
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var tags = new List<string>();

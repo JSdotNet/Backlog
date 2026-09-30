@@ -9,6 +9,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// <para>Each test owns its refresher and its storage folder rather than the
 /// process-wide one, so nothing here builds into another test's database.</para>
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public class DevbookDatabaseRefresherTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-refresher", Guid.NewGuid().ToString("N"), "repo");
