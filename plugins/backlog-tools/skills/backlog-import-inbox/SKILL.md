@@ -95,8 +95,7 @@ re-import is being prepared.
 |---|---|---|---|---|---|---|---|
 | Microsoft To Do (`microsoft-todo`) | JSON with `source: microsoft-graph-todo`, or any JSON whose tasks carry `@odata.etag`, `status` and `createdDateTime` — a bare Graph `value` array included (then ask which list it is) | task `id` | `createdDateTime` | first `linkedResources[].webUrl`, else the first `http(s)` URL in the title or body | `categories` | the enclosing list's `displayName` | `status: completed` |
 
-To add a tool, add a row here and a sniff in step 1. Nothing else changes: the manifest,
-the grammar and the review view are the same for every tool.
+To add a tool, add a row here and a sniff in step 1.
 
 ## Workflow
 
