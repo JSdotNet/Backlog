@@ -86,6 +86,12 @@ does the work:
   every prompt whose work it checks. Automated tests are never a `test` entry: they belong
   inside the prompt that writes the code.
 
+`prompt` is the default. A `task` or `test` other than the plan's closing sign-off is one
+the user chose to keep manual when the plan was written, and its body ends with a
+`Kept manual: <reason>` line saying why — prose, not a token Backlog parses. A decision is
+never a `task`: it is asked while the plan is written and its answer is written into the
+prompts that need it, so no prompt stops to ask it at run time.
+
 A `prompt` never mixes with the other two. A manual step or check is never a sub-item,
 checklist line or instruction inside a `prompt`, and a `task` or `test` never carries
 instructions for an AI. Work that needs both is split: the manual step is its own `task`
@@ -160,23 +166,25 @@ before you start.`` instead; `backlog-run-plan-item` still recognizes that line.
 
 `plan` `*high` `+vscode-desktop-rollout` `repo:backlog-desktop`
 
-# 1 - Confirm the export format with design
+# 1 - Reserve the marketplace publisher name
 
-`task` `!ready` `@repos` `+vscode-desktop-rollout` `id:confirm-format` `repo:backlog-desktop` `effort:1`
+`task` `!ready` `@repos` `+vscode-desktop-rollout` `id:reserve-publisher` `repo:backlog-desktop` `effort:1`
 
-Agree with design whether the export is plain Markdown or Markdown with front matter, and
-note the answer on this entry. Done when the format is written down here.
+Reserve the `backlog` publisher name on the VS Code marketplace. Done when the publisher
+page shows it as yours.
+
+Kept manual: the publisher account needs my own Microsoft sign-in.
 
 # 2 - Add the export command
 
-`prompt` `*high` `!ready` `@repos` `+vscode-desktop-rollout` `id:add-command` `after:confirm-format` `repo:backlog-desktop` `effort:5`
+`prompt` `*high` `!ready` `@repos` `+vscode-desktop-rollout` `id:add-command` `after:reserve-publisher` `repo:backlog-desktop` `effort:5`
 
-Backlog plan item `add-command` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `confirm-format` — run it with the `backlog-run-plan-item` skill.
+Backlog plan item `add-command` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `reserve-publisher` — run it with the `backlog-run-plan-item` skill.
 
 Title this session `vscode-desktop-rollout:2 - Add the export command` before you start.
 
-Add an export command to the command palette that serializes the current view to Markdown,
-in the format agreed on the `confirm-format` entry.
+Add an export command to the command palette that serializes the current view to Markdown
+with front matter, publisher `backlog` in the extension manifest.
 
 ## Setup: install the command-palette SDK
 
