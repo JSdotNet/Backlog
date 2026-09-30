@@ -34,6 +34,7 @@
     <!-- WebApplicationFactory: it runs the host's real entry point, which is the
          only thing that composes the host the way the host composes itself. -->
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
 
 </Project>

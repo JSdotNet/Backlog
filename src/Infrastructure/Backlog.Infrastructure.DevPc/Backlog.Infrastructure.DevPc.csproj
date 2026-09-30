@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <!-- The listing logs a CLI it could not read rather than losing it. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
