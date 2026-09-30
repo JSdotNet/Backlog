@@ -1,5 +1,8 @@
 @using Backlog.Infrastructure.Sync
+@using Backlog.Mobile.UI.Outbox
 @inject DevicePairingClient Pairing
+@inject DeviceOutbox Outbox
+@implements IDisposable
 
 @*
     What every tab is before it is anything else: an unpaired phone. The layout
@@ -11,14 +14,26 @@
     answer anybody can act on. One thing to do, and it is the thing that makes
     the rest work. Redeeming a code saves a credential, the store says so, and
     the layout puts the page back.
+
+    A phone that let its pairing go still holds whatever it had not sent, and
+    the box says so: those entries wait for the new pairing and go the moment
+    it lands, rather than whenever the outbox's backoff next comes round.
 *@
 
 <PageTitle>Pair this device</PageTitle>
 
-<h1>Pair this device</h1>
+@* Focusable by script only, so the box can take focus when it appears: after a
+   forget, the button that asked has gone, and focus would otherwise fall to
+   the page. *@
+<h1 tabindex="-1" @ref="_heading">Pair this device</h1>
 
 <Alert Message="Enter the code shown on a device that is already paired to sync."
        Role="status" BaseClass="capture__notice" TestId="pairing-notice" />
+
+@if (WaitingMessage is { } waiting)
+{
+    <Alert Message="@waiting" Role="status" BaseClass="capture__notice" TestId="pairing-waiting" />
+}
 
 <div class="capture">
     <TextField @bind-Value="_pairingCode" AriaLabel="Pairing code" Placeholder="XXXX-XXXX"
@@ -35,6 +50,31 @@
 @code {
     private string _pairingCode = string.Empty;
     private string? _pairingError;
+    private ElementReference _heading;
+
+    private string? WaitingMessage =>
+        Outbox.Entries.Count(entry => !entry.Refused) switch
+        {
+            0 => null,
+            1 => "1 item is waiting on this phone. It is sent once this device is paired.",
+            var count => $"{count} items are waiting on this phone. They are sent once this device is paired."
+        };
+
+    protected override void OnInitialized() => Outbox.Changed += OnOutboxChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            await _heading.FocusAsync();
+        }
+        catch (JSException)
+        {
+            // A host with no element to focus yet; the box still works.
+        }
+    }
 
     /// <summary>
     /// Redeems the code somebody read out on the device that is already in. The
@@ -62,6 +102,10 @@
             }
 
             _pairingCode = string.Empty;
+
+            // What waited through the old pairing, or through none, goes now:
+            // a person who just paired expects their captures to follow.
+            Outbox.Resume();
         }
         catch (Exception ex)
         {
@@ -71,6 +115,10 @@
             _pairingError = ex.Message;
         }
     }
+
+    private void OnOutboxChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Outbox.Changed -= OnOutboxChanged;
 
     private static string DeviceName =>
         string.IsNullOrWhiteSpace(Environment.MachineName) ? "Phone" : Environment.MachineName;

@@ -32,8 +32,8 @@ namespace Backlog.Mobile.Services;
 /// Uninstalling the app clears the Keystore entry along with the preferences,
 /// so a fresh install starts unpaired — which is the right answer, since the
 /// service still holds the old device's record and the pairing screen is how a
-/// new one is made. There is no un-pair control on the phone today; reinstall is
-/// the only forget path.
+/// new one is made. Tapping the sync status line and forgetting the device calls
+/// <see cref="Clear"/>, which removes the same entry without a reinstall.
 /// </para>
 /// </remarks>
 public sealed class SecureStorageDeviceCredentialStore : IDeviceCredentialStore

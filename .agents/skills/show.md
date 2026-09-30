@@ -21,8 +21,9 @@ harness that serves the area the branch changes, walk the change, and capture ev
 Each harness serves one kind of surface, and none of them stands in for another:
 
 - `desktop-web-harness` serves every desktop pane.
-- `mobile-web-harness` serves Inbox quick-capture and nothing else. It has no Tasks, Devbook
-  or any other pane. To show phone-width behaviour, resize `desktop-web-harness` to 390×844.
+- `mobile-web-harness` serves the phone app: the pairing box, the sync status line, and the
+  Inbox, Note and Tasks tabs. It has no Devbook or other desktop pane. To show a desktop pane
+  at phone width, resize `desktop-web-harness` to 390×844.
 - `ui-storybook` hosts the shared component library alone, with no app behind it. A
   component change is shown there first, then in the pane that uses it.
 
@@ -33,7 +34,7 @@ Each harness serves one kind of surface, and none of them stands in for another:
 | Devbook pane | `desktop-web-harness`, Devbook | `src/Modules/Devbook/`, `src/Infrastructure/Backlog.Infrastructure.Devbook/` |
 | Tasks, Dashboard, Roadmap, Sessions, DevPc | `desktop-web-harness`, that pane | `src/Modules/<Pane>/` |
 | Desktop shell, Settings | `desktop-web-harness` root, or Settings | `src/App/Backlog.Desktop.UI/`, `src/Harness/Backlog.Desktop.WebHarness/` |
-| Inbox quick-capture | `mobile-web-harness` root | `src/App/Backlog.Mobile.UI/`, `src/Modules/Inbox/`, `src/Modules/Capture/`, `src/Harness/Backlog.Mobile.WebHarness/` |
+| Phone app: pairing, Inbox, Note, Tasks | `mobile-web-harness` root, or that tab | `src/App/Backlog.Mobile.UI/`, `src/Modules/Inbox/`, `src/Modules/Capture/`, `src/Harness/Backlog.Mobile.WebHarness/` |
 | Sync API | `sync`, `openapi/v1.json`, and then the harness that calls it | `src/Modules/Sync/`, `src/Infrastructure/Backlog.Infrastructure.Sync/` |
 | MAUI heads, VS Code extension | Not walkable here: say so and show the shared screen in its harness | `src/App/Backlog.Desktop/`, `src/App/Backlog.Mobile/`, `src/App/Backlog.Ide.VsCode/` |
 
