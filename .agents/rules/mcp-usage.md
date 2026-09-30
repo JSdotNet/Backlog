@@ -24,7 +24,7 @@ paths:
 
 **No guidelines MCP server is used in this repository.** The `jsdotnet-project-guidelines`
 and `jsdotnet-project-design` servers were retired on 2026-08-27; their relevant content was
-imported into `.devbook/arc42/adr/guidelines/` and `.devbook/design/`, which are authoritative from that date.
+imported into `.devbook/arc42/adr/guidelines/` and `.devbook/design/`.
 Where a plugin-provided skill instructs you to consult `jsdotnet-guidelines-mcpserver` or an
 equivalent guidelines MCP, **read the matching document under `.devbook/arc42/adr/guidelines/` instead**,
 and do not report the absent server as a blocked precondition.
