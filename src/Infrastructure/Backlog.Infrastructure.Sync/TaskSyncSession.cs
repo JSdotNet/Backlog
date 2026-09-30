@@ -238,7 +238,7 @@ public sealed class TaskSyncSession
                 }
             }
 
-            if (WatermarkAfter(batch, final: start + batch.Count >= pending.Count) is { } advanced)
+            if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, task => task.UpdatedAt) is { } advanced)
             {
                 _state.Save(_state.Current with { PushWatermark = advanced });
             }
@@ -411,7 +411,7 @@ public sealed class TaskSyncSession
 
             if (page.IsFailure)
             {
-                if (startedOver || cursor is null || !Retired(page.Error.Code))
+                if (startedOver || cursor is null || !ReplicaRoutes.Retired(page.Error.Code))
                 {
                     return Result.Failure<TaskSyncSummary>(page.Error);
                 }
@@ -516,41 +516,4 @@ public sealed class TaskSyncSession
         SubItems: [],
         UsageEvents: [],
         ProjectionRefs: []);
-
-    /// <summary>The two answers that mean "that cursor is no longer one you can
-    /// resume from", which the device recovers from by forgetting it. Neither
-    /// says anything about the owner's documents, so starting over loses nothing
-    /// but the position.</summary>
-    private static bool Retired(string code) =>
-        code is SyncErrorCodes.SyncCursorExpired or SyncErrorCodes.SyncCursorMalformed;
-
-    /// <summary>
-    /// How far the watermark may move once a batch has been accepted, or null
-    /// when it may not move at all.
-    /// <para>
-    /// The last stamp in the batch on the final batch, because everything that
-    /// was selected has then been sent — including a whole backlog imported from
-    /// one clock reading, which would otherwise be re-pushed on every sync for
-    /// ever. Anywhere else it is the highest stamp strictly below the batch's
-    /// last, because a task sharing that last stamp may still be waiting in the
-    /// next batch and the selection would never offer it again.
-    /// </para>
-    /// <para>
-    /// Null when a whole batch shares one stamp: there is nowhere safe to move
-    /// to, so the batch is simply sent again next run. Free under a
-    /// whole-document upsert, and the alternative is losing the tasks that share
-    /// it.
-    /// </para>
-    /// </summary>
-    private static DateTimeOffset? WatermarkAfter(IReadOnlyList<TaskItem> batch, bool final)
-    {
-        if (final) return batch[^1].UpdatedAt;
-
-        var boundary = batch[^1].UpdatedAt;
-
-        return batch
-            .Where(task => task.UpdatedAt < boundary)
-            .Select(task => (DateTimeOffset?)task.UpdatedAt)
-            .Max();
-    }
 }

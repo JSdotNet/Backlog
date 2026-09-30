@@ -248,7 +248,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         }
         catch (CosmosException failure)
         {
-            throw failure.StatusCode is HttpStatusCode.BadRequest ? Expired(failure) : Unavailable(failure);
+            throw failure.StatusCode is HttpStatusCode.BadRequest ? ReplicaFailures.Expired(failure) : ReplicaFailures.Unavailable(UnavailableMessage, failure);
         }
 
         using (response)
@@ -266,7 +266,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
 
             if (response.StatusCode is HttpStatusCode.BadRequest)
             {
-                throw Expired(null);
+                throw ReplicaFailures.Expired(null);
             }
 
             if (!response.IsSuccessStatusCode)
@@ -344,7 +344,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         }
         catch (CosmosException failure)
         {
-            throw Unavailable(failure);
+            throw ReplicaFailures.Unavailable(UnavailableMessage, failure);
         }
 
         return captures;
@@ -380,7 +380,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         }
         catch (CosmosException failure)
         {
-            throw Unavailable(failure);
+            throw ReplicaFailures.Unavailable(UnavailableMessage, failure);
         }
     }
 
@@ -462,22 +462,9 @@ internal sealed class CosmosTaskReplica : ITaskReplica
                 "The task replica is busy. Try again shortly.",
                 failure),
 
-            _ => Unavailable(failure),
+            _ => ReplicaFailures.Unavailable(UnavailableMessage, failure),
         };
     }
-
-    private static SyncReplicaException Unavailable(CosmosException failure) => new(
-        SyncErrorCodes.ReplicaUnavailable,
-        UnavailableMessage,
-        failure);
-
-    /// <summary>A continuation Cosmos will not resume from. It is the client's to
-    /// recover from — drop the cursor and pull from the beginning — so it is a
-    /// 400 with its own code rather than an error the service can retry.</summary>
-    private static SyncReplicaException Expired(CosmosException? failure) => new(
-        SyncErrorCodes.SyncCursorExpired,
-        "That cursor is too old to resume from. Pull again without one.",
-        failure);
 
     /// <summary>The container, resolved once. Internal rather than private so
     /// that the activity the client is constructed under can be asserted without
