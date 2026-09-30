@@ -35,6 +35,10 @@ marks tool-interpreted data inside it. The five folders under the parent carry n
 `domain` bare when it is the kind in a field or a stamp. See
 `devbook-chapter-metadata.md`.
 
+The change folder is the one devbook folder outside the parent: `openspec/changes/`, with
+`archive/` inside it, in OpenSpec's names, which its CLI fixes. Never spell it
+`.devbook/.changes/`, and never dot or prefix a folder inside it. See `devbook-changes.md`.
+
 ## No redundant suffixes
 
 A name should not repeat what its location already says.

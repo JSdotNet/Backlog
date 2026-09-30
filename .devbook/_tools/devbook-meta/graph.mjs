@@ -23,9 +23,15 @@ import {
     isExtensionField,
     parseAnnotations,
     resolveAnnotation,
+    parseDeltaHeader,
+    changePathParts,
+    changeHash,
     DEVBOOK_FOLDER_NAMES,
     DEVBOOK_ROOT,
+    CHANGES_ROOT,
 } from "./metadata.mjs";
+import { loadStatusLadder } from "./statuses.mjs";
+import { changeDecisionIssues, changeFiles, checkDelta, readChange } from "./delta.mjs";
 
 /**
  * Every devbook folder this convention recognizes, as the repository path it
@@ -34,7 +40,7 @@ import {
  */
 export const DEVBOOK_FOLDERS = DEVBOOK_FOLDER_NAMES.map((name) => `${DEVBOOK_ROOT}/${name}`);
 
-export { DEVBOOK_FOLDER_NAMES, DEVBOOK_ROOT };
+export { DEVBOOK_FOLDER_NAMES, DEVBOOK_ROOT, CHANGES_ROOT };
 // The repo-visible contract: one number covering the metadata schema a
 // repository authors and the derived artifacts a consumer reads. It moves only
 // when something repo-visible changes shape, which is why a plugin release
@@ -118,7 +124,9 @@ export { DEVBOOK_FOLDER_NAMES, DEVBOOK_ROOT };
 // requirement is warned for having no `#### Scenario:`, and a scenario an older
 // invariant still carries is tolerated. `requirements.md` is titled
 // `# Requirements` and an invariants subpage `# Invariants`, so a menu listing
-// pages by title can tell them from the context's other pages. A file still
+// pages by title can tell them from the context's other pages; a
+// `requirements.<name>.md` split takes its feature's name, so the entries
+// under `requirements.md` differ. A file still
 // titled by its context validates; `migrations/018-behaviour-titles/`
 // retitles it, because reconcile never touches an authored file.
 //
@@ -127,7 +135,41 @@ export { DEVBOOK_FOLDER_NAMES, DEVBOOK_ROOT };
 // beside it in `domain.invariants.md` instead of under an aggregate that
 // happens to use it. It only widens what `related` may name: nothing written
 // under 18 stops validating, and no migration is owed.
-export const CONTRACT_VERSION = 19;
+//
+// Version 20 lets a repository declare its own `status` ladder per folder, file
+// glob, and block level in `.devbook/statuses.json` (statuses.mjs). The resting
+// value, the decision rungs, and a required rating stay devbook's; a folder or a
+// block the file does not name takes the built-in ladder, so a repository with
+// no file validates exactly as under 19 and no migration is owed.
+//
+// Version 21 removes the review triad — `review`, `reviewer`, `review-at`.
+// A review in progress is the chapter's `status` rung plus its open
+// annotation fences, and who owes the next move lives in the pull request
+// or the tracker. A leftover field is reported by name, and
+// `migrations/021-no-review-triad/` deletes it.
+//
+// Version 22 gives `.design` its one chapter type, `requirement`: a rule a
+// component keeps or breaks, as a `### Requirement:` with `#### Scenario:`
+// cases under the component's chapter, held to `e2e` by the coverage warning.
+// Every other `.design` chapter stays untyped, so nothing written under 21
+// stops validating, and no migration is owed.
+//
+// Version 23 adopts the change folder, `openspec/changes/`, as a folder kind:
+// each change's `proposal.md` is a `type: change` file at `status: proposed`
+// with a `category`, each file under its `devbook-delta/` is a delta checked by
+// the merge in delta.mjs, `archive/` is never indexed, and `change` is legal on
+// any chapter as the merge's provenance. A repository without the folder
+// validates exactly as under 22, and no migration is owed.
+//
+// Version 24 gives a change's `proposal.md` the two decision rungs, `approved`
+// and `accepted`, with the six record fields, for the whole change: its
+// fingerprint covers the proposal and every delta, an open question anywhere
+// in the change stands against a rung, and `delta.mjs --apply` merges only an
+// accepted change over its current fingerprint. The merge writes no rung onto
+// the chapters it lands in and lifts one it makes stale. `domain/`'s own rungs
+// are unchanged, so nothing written under 23 stops validating, and no
+// migration is owed.
+export const CONTRACT_VERSION = 24;
 
 // The oldest contract a reconcile still carries forward. A migration lives
 // for the major version it ships in: a major release raises this to the
@@ -237,6 +279,10 @@ const ATTRIBUTE_FIELDS = [
     "accepted-by",
     "accepted-at",
     "accepted-hash",
+    // The change folder's own: a proposal's category, and on any chapter the
+    // change whose merge last touched it.
+    "category",
+    "change",
 ];
 
 // Non-reference fields whose authored form may be a scalar or a bracket list,
@@ -362,9 +408,18 @@ export async function buildGraph(repoRoot, folders = null) {
         });
     }
 
-    const files = (
-        await Promise.all(scanned.map((folder) => collectMarkdown(repoRoot, folder)))
-    ).flat();
+    // The repository's own status ladder, if it declares one. A configuration
+    // error is reported here, once, instead of on every block it would fail.
+    const { ladder, issues: ladderIssues } = await loadStatusLadder(repoRoot);
+    problems.push(...ladderIssues);
+
+    // The change folder is indexed beside the folders whenever it exists: its
+    // proposals and deltas are chapters, and a delta's references resolve like
+    // any other. Its `archive/` is history and is never read.
+    const files = [
+        ...(await Promise.all(scanned.map((folder) => collectMarkdown(repoRoot, folder)))).flat(),
+        ...(await changeFiles(repoRoot)),
+    ];
 
     for (const relPath of files) {
         const folder = folderKindForPath(relPath);
@@ -383,6 +438,7 @@ export async function buildGraph(repoRoot, folders = null) {
         }
 
         const fileMeta = chapters.find((c) => c.level === 1)?.meta ?? null;
+        const delta = changePathParts(relPath)?.part === "delta" ? parseDeltaHeader(raw)?.meta ?? {} : null;
         const fileNode = {
             id: relPath,
             label: composeFileLabel(
@@ -403,6 +459,13 @@ export async function buildGraph(repoRoot, folders = null) {
         if (number !== null) fileNode.number = number;
         // Omitted rather than emitted as 0, so adding this did not churn every
         // node of every existing index.
+        // A delta's own header says which change it belongs to and what it
+        // does; where it lands is its path, re-rooted at the devbook.
+        if (delta) {
+            if (delta.change) fileNode.change = delta.change;
+            if (delta.delta) fileNode.delta = delta.delta;
+            fileNode.target = changePathParts(relPath).target;
+        }
         const fileOpenNotes = [...openNotes.values()].reduce((a, b) => a + b, 0);
         if (fileOpenNotes) fileNode.openNotes = fileOpenNotes;
         nodes.set(fileNode.id, fileNode);
@@ -414,7 +477,21 @@ export async function buildGraph(repoRoot, folders = null) {
         // editor extension, which not every author has open. Each issue keeps
         // its own severity: a warning stays a warning, and only an error fails
         // the run.
-        for (const issue of validateDocument(relPath, raw)) {
+        // A delta is checked by the merge that would apply it: its header, its
+        // shape, every chapter it names resolved in its target, and the merged
+        // target through this same lint.
+        // A proposal's rungs decide the whole change, so its fingerprint and its
+        // open questions are read across the proposal and every delta.
+        const proposalOf = changePathParts(relPath)?.part === "proposal" ? await readChange(repoRoot, changePathParts(relPath).name) : null;
+        const fileIssues = delta
+            ? (await checkDelta(repoRoot, relPath, raw, { ladder })).issues
+            : proposalOf
+              ? [
+                    ...validateDocument(relPath, raw, { ladder, changeHash: changeHash(proposalOf.proposal, proposalOf.deltas) }),
+                    ...changeDecisionIssues(proposalOf),
+                ]
+              : validateDocument(relPath, raw, { ladder });
+        for (const issue of fileIssues) {
             problems.push({
                 severity: issue.severity,
                 path: relPath,
@@ -714,7 +791,7 @@ export async function buildGraphDocument(
         schemaVersion: SCHEMA_VERSION,
         generatedBy: generatorPath(repoRoot),
         scope,
-        sources: scope === REPO_SCOPE ? folders : [scope],
+        sources: scope === REPO_SCOPE ? [...folders, ...(await hasChanges(repoRoot))] : [scope],
         // Deliberately no timestamp: the index is a deterministic function of
         // the Markdown, so re-running it produces a byte-identical file and CI
         // can diff it to detect a stale commit.
@@ -773,7 +850,14 @@ export async function discoverLayout(repoRoot) {
         }
         if (await isDirectory(path.join(repoRoot, `.${name}`))) stray.push(`.${name}`);
     }
-    return { folders, stray };
+    // The change folder is adopted the same way, by existing.
+    const changes = (await isDirectory(path.join(repoRoot, CHANGES_ROOT))) ? CHANGES_ROOT : null;
+    return { folders, stray, changes };
+}
+
+/** The change folder as a rollup source, when the repository has one. */
+async function hasChanges(repoRoot) {
+    return (await isDirectory(path.join(repoRoot, CHANGES_ROOT))) ? [CHANGES_ROOT] : [];
 }
 
 async function isDirectory(absolutePath) {

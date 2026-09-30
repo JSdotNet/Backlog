@@ -10,7 +10,8 @@
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-import { chapterHash, parseDocument, slugify } from "./metadata.mjs";
+import { CHANGES_ROOT, changePathParts, chapterHash, parseDocument, slugify } from "./metadata.mjs";
+import { changeFingerprint } from "./delta.mjs";
 
 const USAGE = `chapter-hash.mjs — the content fingerprint of an addressed chapter
 
@@ -18,6 +19,10 @@ const USAGE = `chapter-hash.mjs — the content fingerprint of an addressed chap
   node chapter-hash.mjs <path>#<slug>   one chapter: its heading and everything
                                         under it, to the next heading at the
                                         same or a higher level
+  node chapter-hash.mjs openspec/changes/<name>
+                                        a change, decided as one: its
+                                        proposal.md and every delta together.
+                                        The proposal's own path prints the same
 
 Prints \`sha256:\` followed by eight lowercase hex characters. The \`meta\`
 blocks and \`annotation\` fences are excluded and whitespace is normalised, so
@@ -33,6 +38,20 @@ export async function main(argv) {
     const hashIndex = address.lastIndexOf("#");
     const filePath = hashIndex === -1 ? address : address.slice(0, hashIndex);
     const slug = hashIndex === -1 ? null : address.slice(hashIndex + 1);
+
+    // A change is decided as one: its folder, or its proposal's file block,
+    // fingerprints the proposal and every delta together.
+    const folder = filePath.replace(/\\/g, "/").replace(/\/+$/, "");
+    const change = changePathParts(folder.endsWith(".md") ? folder : `${folder}/proposal.md`);
+    if (slug === null && change?.part === "proposal") {
+        const hash = await changeFingerprint(process.cwd(), change.name);
+        if (hash === null) {
+            console.error(`No proposal.md in ${CHANGES_ROOT}/${change.name}/.`);
+            return 1;
+        }
+        console.log(hash);
+        return 0;
+    }
 
     let markdown;
     try {

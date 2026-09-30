@@ -271,6 +271,19 @@ check(
     JSON.stringify(documentIssues.filter((i) => i.severity === "error").map((i) => i.message))
 );
 
+// A `#### Scenario:` is a case of the rule above it, found by its text, and
+// owes no block of its own; the same heading anywhere else still does.
+const withScenario = document.replace("tests: unit:dotnet:A.B", "tests: e2e:playwright:tests/checkout.spec.ts") +
+    "\n#### Scenario: Confirm an order\n\n- **When** the order is confirmed\n- **Then** it is acknowledged\n";
+const scenarioIssues = validateDocument(".devbook/domain/ordering/requirements.md", withScenario);
+check(scenarioIssues.length === 0, "a scenario under its requirement is a section, not a chapter missing its block",
+    JSON.stringify(scenarioIssues.map((i) => `${i.severity}: ${i.message}`)));
+const strayScenario = validateDocument(".devbook/domain/ordering/requirements.md",
+    withScenario.replace("\n#### Scenario:", "\n### Scenario:"));
+check(strayScenario.some((i) => /Scenario: Confirm an order .* has no `meta` block/.test(i.message)),
+    "a scenario heading that is not directly under a requirement still owes a block",
+    JSON.stringify(strayScenario.map((i) => `${i.severity}: ${i.message}`)));
+
 // An invariant is a claim, its rejection code, and where it is enforced — no
 // scenario — and a document holding one reports nothing about coverage.
 const invariantDocument = `# Invariants

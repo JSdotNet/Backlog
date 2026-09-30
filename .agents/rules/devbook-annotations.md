@@ -96,9 +96,8 @@ not to. A question about whether a rule still holds, ingested as context,
 becomes the rule. This is the one failure mode the convention did not have
 before, so the discipline is explicit, the same way `_meta/` has one:
 
-- A reader loading a chapter **for context skips every annotation fence**, and
-  the `review`, `reviewer`, and `review-at` fields beside it — a chapter someone
-  has queried has not thereby stopped saying what it says.
+- A reader loading a chapter **for context skips every annotation fence** — a
+  chapter someone has queried has not thereby stopped saying what it says.
 - A reader working **in review mode** — a review skill, a queue, the approval
   gate — reads them, and reads nothing else in the chapter as instruction.
 - `capture-specs` never writes one. `apply-change` never carries one into
