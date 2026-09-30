@@ -98,10 +98,6 @@ It holds:
 
 - **Blazor Server prerenders.** A field filled, or a button clicked, before the circuit
   attaches is lost. `Interactive` repeats the action until the page shows it took.
-- **The desktop's first sync after a `sync` restart fails.** It meets a 401, fetches
-  a new token, and ends as *Sync failed: Unauthorized*. The following run pulls, so
-  `DesktopHarness.SyncNowAsync` runs once more after a failure and logs both. The phone
-  retries within the same flush.
 - **The harness's outbox runs server-side**, so switching the browser offline does not
   cut it off. The test stops the `sync` resource instead, and raises the page's `online`
   event when it is back, which is what a real phone does on reconnect.
