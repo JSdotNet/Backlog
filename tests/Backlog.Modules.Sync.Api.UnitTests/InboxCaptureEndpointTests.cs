@@ -4,6 +4,8 @@ using System.Text;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Api.Endpoints;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
@@ -233,6 +235,107 @@ public sealed class InboxCaptureEndpointTests : IDisposable
             Cancellation);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    /// <summary>A talk note written offline in the morning and flushed in the
+    /// afternoon keeps the morning: the phone's time becomes the document's
+    /// creation stamp, which is what the desktop's intake and the phone's list
+    /// read. The change stamp stays the service's own, so the precedence rule
+    /// and the pull cursor see an ordinary new write.</summary>
+    [Fact]
+    public async Task A_capture_time_is_kept_as_when_the_capture_was_made()
+    {
+        using var service = AtFixedTime();
+        var device = await service.CreateClient().RegisteredDevice("Phone");
+        var taken = Now.AddHours(-6);
+
+        var response = await device.PostAsJsonAsync(
+            Inbox,
+            new CaptureRequest("Ask the speaker for the slides", "mobile", Guid.CreateVersion7(), CapturedAt: taken),
+            Cancellation);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(taken, (await response.Content.ReadFromJsonAsync<InboxItem>(Cancellation))!.CapturedAt);
+
+        var document = Assert.Single((await device.PullTasks()).Tasks).Change;
+        Assert.Equal(taken, document.Task.CreatedAt);
+        Assert.Equal(Now, document.UpdatedAt);
+
+        Assert.Equal(taken, Assert.Single((await device.GetFromJsonAsync<List<InboxItem>>(Inbox, Cancellation))!).CapturedAt);
+    }
+
+    /// <summary>The desktop pane, the editor extension and an older phone send
+    /// no time, and the capture is stamped when it arrives, as it always
+    /// was.</summary>
+    [Fact]
+    public async Task A_capture_without_a_time_is_stamped_when_it_arrives()
+    {
+        using var service = AtFixedTime();
+        var device = await service.CreateClient().RegisteredDevice("Phone");
+
+        var response = await device.PostAsync(
+            Inbox,
+            new StringContent("""{"title":"Call the dentist","source":"phone"}""", Encoding.UTF8, "application/json"),
+            Cancellation);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(Now, (await response.Content.ReadFromJsonAsync<InboxItem>(Cancellation))!.CapturedAt);
+        Assert.Equal(Now, Assert.Single((await device.PullTasks()).Tasks).Change.Task.CreatedAt);
+    }
+
+    public static TheoryData<string, TimeSpan> CaptureTimesOutOfBounds => new()
+    {
+        { "ahead of the service by more than the skew", SyncRequestLimits.MaximumCaptureClockSkew + TimeSpan.FromSeconds(1) },
+        { "older than the oldest a capture may be", -(SyncRequestLimits.MaximumCaptureAge + TimeSpan.FromSeconds(1)) },
+    };
+
+    /// <summary>A phone's clock is believed within reason and no further: a
+    /// capture from the future, or from before any outbox could have held it,
+    /// is a broken clock, and is refused like any other field out of
+    /// bounds.</summary>
+    [Theory]
+    [MemberData(nameof(CaptureTimesOutOfBounds))]
+    public async Task A_capture_time_out_of_bounds_is_refused(string reason, TimeSpan offset)
+    {
+        using var service = AtFixedTime();
+        var device = await service.CreateClient().RegisteredDevice("Phone");
+
+        var response = await device.PostAsJsonAsync(Inbox, new CaptureRequest("Call", "phone", CapturedAt: Now + offset), Cancellation);
+
+        Assert.True(response.StatusCode == HttpStatusCode.BadRequest, $"{reason}: {response.StatusCode}");
+        Assert.Equal(SyncErrorCodes.CaptureInvalid, (await response.Content.ReadFromJsonAsync<ProblemBody>(Cancellation))?.Code);
+        Assert.Empty((await device.PullTasks()).Tasks);
+    }
+
+    /// <summary>Both time bounds are inclusive, as the length bounds are.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_capture_time_at_either_bound_is_taken(bool ahead)
+    {
+        using var service = AtFixedTime();
+        var device = await service.CreateClient().RegisteredDevice("Phone");
+        var taken = ahead ? Now + SyncRequestLimits.MaximumCaptureClockSkew : Now - SyncRequestLimits.MaximumCaptureAge;
+
+        var response = await device.PostAsJsonAsync(Inbox, new CaptureRequest("Call", "phone", CapturedAt: taken), Cancellation);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(taken, Assert.Single((await device.PullTasks()).Tasks).Change.Task.CreatedAt);
+    }
+
+    /// <summary>The service's clock held still, so a bound can be met exactly.
+    /// Taken from the real clock rather than a fixed date, because the device
+    /// token this host issues is checked against the real one.</summary>
+    private static readonly DateTimeOffset Now = new(DateTimeOffset.UtcNow.Ticks / TimeSpan.TicksPerSecond * TimeSpan.TicksPerSecond, TimeSpan.Zero);
+
+    private static SyncServiceFactory AtFixedTime() => new()
+    {
+        TestServices = services => services.Replace(ServiceDescriptor.Singleton<TimeProvider>(new FixedClock(Now))),
+    };
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 
     private async Task<HttpClient> Device() => await _service.CreateClient().RegisteredDevice("Phone");

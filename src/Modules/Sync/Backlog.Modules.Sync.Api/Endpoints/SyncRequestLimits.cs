@@ -75,6 +75,18 @@ internal static class SyncRequestLimits
     /// one capture document carries about them.</summary>
     internal const int MaximumCaptureAttachments = 20;
 
+    /// <summary>How far ahead of the service's own clock a capture's time may
+    /// be. A phone's clock drifts by seconds, not minutes; beyond this it is
+    /// set wrong, and a capture from the future would sort above everything
+    /// written after it.</summary>
+    internal static readonly TimeSpan MaximumCaptureClockSkew = TimeSpan.FromMinutes(15);
+
+    /// <summary>How long before the service's clock a capture's time may be. An
+    /// outbox can sit on a phone left in a drawer for months; a capture older
+    /// than a year was not made by any outbox, it is a clock reset to its
+    /// epoch.</summary>
+    internal static readonly TimeSpan MaximumCaptureAge = TimeSpan.FromDays(365);
+
     /// <summary>How long an attachment's file name may be. Every file system's
     /// own limit on one path segment.</summary>
     internal const int MaximumAttachmentName = 255;
