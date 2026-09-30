@@ -7,10 +7,9 @@ paths:
 
 # Repository delivery and context policy
 
-The one repository context file for delivery: how work is routed here, what the flows lean
-on, and how much of the devbook they may read. `CLAUDE.md` restates the gate for Claude
-Code; keep both in step. The folder rules themselves live in `AGENTS.md`'s devbook section
-and `.agents/rules/devbook-*.md` and are not restated here.
+`CLAUDE.md` restates the gate for Claude Code; keep both in step. The folder rules themselves
+live in `AGENTS.md`'s devbook section and `.agents/rules/devbook-*.md` and are not restated
+here.
 
 ## The gate
 
@@ -83,7 +82,6 @@ Every edit to a devbook folder routes through `delivery:flow-spec`; say so when 
 
 - Architecture, arc42, ADR and TDR work — `flow-spec` on `.devbook/arc42/` and
   `architecture:architect` — may load `.devbook/arc42/`, but only the chapters in scope.
-  A chapter, a decision record and a debt record all route that way.
 - Domain modelling — `flow-spec` on `.devbook/domain/` and `domain-design:domain-architect`
   — may load `.devbook/domain/`, but only the bounded contexts in scope.
 - Design and UX work — `ux-design:ux-designer` — may load `.devbook/design/`, and stack,
