@@ -22,6 +22,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// poll are gone; a devbook belongs to a repository, and the poll's only
 /// reason was the shared folder the tab now warns against.
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class SettingsBackupTests
 {
     private const string RepositoryInput = "[data-testid='storage-repository-input']";

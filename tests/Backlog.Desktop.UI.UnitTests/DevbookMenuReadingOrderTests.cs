@@ -26,6 +26,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// distinguishable rows with six rows called <c>Inbox</c>. A title is therefore
 /// taken only where it still tells one row from another.</para>
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookMenuReadingOrderTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];

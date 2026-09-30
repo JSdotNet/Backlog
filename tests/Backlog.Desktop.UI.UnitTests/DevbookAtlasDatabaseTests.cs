@@ -18,6 +18,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// reader is meant to see, and slice 4's search-unavailable state is modelled on
 /// it.</para>
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookAtlasDatabaseTests : IDisposable
 {
     private static readonly DevbookAtlasScope DomainScope = new("domain", "Domain", ".domain");

@@ -49,11 +49,7 @@ internal static class DevbookSchemaSource
     /// </summary>
     public static void Create(string path, int? schemaVersion = null)
     {
-        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = path,
-            Mode = SqliteOpenMode.ReadWriteCreate
-        }.ToString());
+        using var connection = new SqliteConnection(CreatingConnectionString(path));
 
         connection.Open();
 
@@ -83,15 +79,32 @@ internal static class DevbookSchemaSource
     /// <summary>Opens a database this suite created, to fill it.</summary>
     public static SqliteConnection OpenForWriting(string path)
     {
-        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = path,
-            Mode = SqliteOpenMode.ReadWrite
-        }.ToString());
+        var connection = new SqliteConnection(WritingConnectionString(path));
 
         connection.Open();
         return connection;
     }
+
+    /// <summary>Lets go of the pooled handles <see cref="Create"/> and
+    /// <see cref="OpenForWriting"/> keep on <paramref name="path"/>, and no others.
+    /// Only this database's own pools, never <c>ClearAllPools</c>: that clears
+    /// the pools of tests running beside this one, and in Microsoft.Data.Sqlite
+    /// 10.0.11 a clear can dispose a connection another test is opening
+    /// (dotnet/efcore#38854).</summary>
+    public static void ReleasePools(string path)
+    {
+        foreach (var connectionString in (string[])[CreatingConnectionString(path), WritingConnectionString(path)])
+        {
+            using var connection = new SqliteConnection(connectionString);
+            SqliteConnection.ClearPool(connection);
+        }
+    }
+
+    private static string CreatingConnectionString(string path) =>
+        new SqliteConnectionStringBuilder { DataSource = path, Mode = SqliteOpenMode.ReadWriteCreate }.ToString();
+
+    private static string WritingConnectionString(string path) =>
+        new SqliteConnectionStringBuilder { DataSource = path, Mode = SqliteOpenMode.ReadWrite }.ToString();
 }
 
 /// <summary>A repository root and the database the resolver keys to it, both
@@ -131,7 +144,7 @@ internal sealed class TemporaryDatabase : IDisposable
     {
         try
         {
-            SqliteConnection.ClearAllPools();
+            DevbookSchemaSource.ReleasePools(DatabaseFile);
             if (Directory.Exists(RootDirectory)) Directory.Delete(RootDirectory, recursive: true);
             var databaseFolder = System.IO.Path.GetDirectoryName(DatabaseFile);
             if (databaseFolder is not null && Directory.Exists(databaseFolder)) Directory.Delete(databaseFolder, recursive: true);

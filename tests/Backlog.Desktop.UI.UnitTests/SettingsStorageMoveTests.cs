@@ -25,6 +25,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// the explicit second action rather than the silent default.
 /// </para>
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class SettingsStorageMoveTests
 {
     [Fact]

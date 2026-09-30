@@ -17,6 +17,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// the folders asking for them, and a reference written as
 /// <c>.devbook/domain/…</c> goes where <c>.domain/…</c> goes.
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookLayoutReadingTests : IDisposable
 {
     private readonly string _root = Path.Combine(

@@ -29,6 +29,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// what these assert is the pane wired to retrieval rather than the pane wired to
 /// a fake that always says what the test wants.</para>
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookPaneSearchTests : IDisposable
 {
     private readonly List<string> _roots = [];

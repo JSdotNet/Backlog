@@ -25,6 +25,7 @@ namespace Backlog.Infrastructure.Sqlite.UnitTests;
 /// what another reader would see.
 /// </para>
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
 {
     private readonly string _dir;
