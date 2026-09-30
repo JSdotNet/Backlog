@@ -293,7 +293,16 @@
 
     private DevbookDocument? _selected;
     private DevbookChapterContent _chapter = DevbookChapterContent.None;
+    private int _chapterRead;
+    /// <summary>Resolved once when the panel starts, never per read: a read a
+    /// folder change starts can outlive the scope that built the panel, and a
+    /// provider asked then has already been disposed.</summary>
+    private DevbookChapterFileReader _chapterReader = DevbookChapterFileReader.Disk;
     private DevbookDocument? _chapterDocument;
+    /// <summary>The file of the chapter read that last landed, which is what the
+    /// editing mode describes. Written only by the latest read, so it can lag
+    /// <see cref="_chapterDocument"/>, the chapter last asked for.</summary>
+    private string? _chapterPath;
     /// <summary>The view rendering the chapter, held only so a new remark can
     /// ask it what the block it was left on says. See
     /// <c>FileView.BlockDigestAt</c>.</summary>
@@ -355,6 +364,7 @@
     protected override void OnInitialized()
     {
         Devbook.Changed += OnDevbookChanged;
+        _chapterReader = Services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk;
 
         _c4Store = Services.GetService<C4DevbookStore>();
         if (_c4Store is not null) _c4Store.Changed += OnDevbookChanged;
@@ -501,6 +511,15 @@
     /// different record and is read again, while a parameter set that changed
     /// nothing hands back the very document already loaded and costs no read.
     /// </para>
+    /// <para>
+    /// Only the latest read lands. Every parameter set starts one, so reads
+    /// overlap whenever the host re-renders while a file is still coming off disk,
+    /// and they can finish out of order: a read of the chapter that was open
+    /// finishing after the reader picked another one put the first chapter's text
+    /// under the second one's name, and an editor opened then held its buffer.
+    /// Everything after the read is about the chapter it read, so a dropped read
+    /// changes none of it.
+    /// </para>
     /// </summary>
     private async Task LoadSelectedChapterAsync()
     {
@@ -513,14 +532,22 @@
         // "is this a different chapter", which is what leaving the editor hangs off.
         // Resetting the mode on a same-file reload would close the editor under a
         // reader mid-save — the debounce re-reads through here on every write.
-        var sameChapter = string.Equals(_selected?.Path, _chapterDocument?.Path, StringComparison.OrdinalIgnoreCase);
+        // Against the chapter that last landed, not the one last asked for: a read
+        // this one overtakes is dropped, and it may have been the only one to see
+        // that the file changed — the reset below would then never run.
+        var sameChapter = string.Equals(_selected?.Path, _chapterPath, StringComparison.OrdinalIgnoreCase);
 
-        _chapterDocument = _selected;
+        var document = _selected;
+        _chapterDocument = document;
         _chapterSaveError = null;
-        _chapter = _selected is null
+        var read = ++_chapterRead;
+        var chapter = _selected is null
             ? DevbookChapterContent.None
-            : await DevbookChapterContent.LoadAsync("arc42", Folders.Resolve(".arc42", RepositoryAlias), _selected.Path);
+            : await DevbookChapterContent.LoadAsync("arc42", Folders.Resolve(".arc42", RepositoryAlias), _selected.Path, reader: _chapterReader);
+        if (read != _chapterRead) return;
 
+        _chapterPath = document?.Path;
+        _chapter = chapter;
         RefreshChapterComments();
 
         // A different chapter is read fresh, so nothing the last one was doing
