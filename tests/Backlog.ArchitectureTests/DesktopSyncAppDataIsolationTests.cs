@@ -26,15 +26,14 @@ public sealed partial class DesktopSyncAppDataIsolationTests
     public void No_sync_path_is_composed_under_a_literal_Backlog_folder()
     {
         var files = new[] { Path.Combine(Repository.Root.FullName, "src", "App", "Backlog.Desktop", "MauiProgram.cs") }
-            .Concat(Directory.EnumerateFiles(
-                Path.Combine(Repository.Root.FullName, "src", "Infrastructure", "Backlog.Infrastructure.Sync"),
-                "*.cs",
-                SearchOption.AllDirectories)
-                .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
-                         && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")))
+            .Concat(SourceUnder("src", "Infrastructure", "Backlog.Infrastructure.Sync"))
+            // The shared composition both desktop heads call, which is where the
+            // sync stores are registered from the paths the head hands it.
+            .Concat(SourceUnder("src", "App", "Backlog.Desktop.Composition"))
             .ToList();
 
         Assert.True(File.Exists(files[0]));
+        Assert.Contains(files, file => file.Contains("Backlog.Desktop.Composition", StringComparison.Ordinal));
 
         var offenders = files
             .Where(file => LiteralBacklogFolder().IsMatch(File.ReadAllText(file)))
@@ -46,6 +45,17 @@ public sealed partial class DesktopSyncAppDataIsolationTests
             "These files compose a LocalApplicationData path under a literal \"Backlog\" folder, which a Debug "
             + "head shares with the installed app. Compose it under WorkspaceSettingsStore.DefaultAppDataDirectory, "
             + "or take the path from the host:\n" + string.Join('\n', offenders));
+    }
+
+    private static IEnumerable<string> SourceUnder(params string[] segments)
+    {
+        var folder = Path.Combine([Repository.Root.FullName, .. segments]);
+
+        return Directory.Exists(folder)
+            ? Directory.EnumerateFiles(folder, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                         && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
+            : [];
     }
 
     [GeneratedRegex(@"SpecialFolder\.LocalApplicationData\)\s*,\s*""Backlog""")]

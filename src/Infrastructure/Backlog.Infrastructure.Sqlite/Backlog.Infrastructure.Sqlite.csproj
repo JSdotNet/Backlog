@@ -34,6 +34,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" />
+    <!-- For SqliteRegistration, the one place the three stores are registered. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
 </Project>

@@ -2,6 +2,7 @@
   "solution": {
     "path": "Backlog.sln",
     "projects": [
+      "src\\App\\Backlog.Desktop.Composition\\Backlog.Desktop.Composition.csproj",
       "src\\App\\Backlog.Desktop.UI\\Backlog.Desktop.UI.csproj",
       "src\\App\\Backlog.Mobile.UI\\Backlog.Mobile.UI.csproj",
       "src\\Aspire\\Backlog.Aspire.AppHost\\Backlog.Aspire.AppHost.csproj",

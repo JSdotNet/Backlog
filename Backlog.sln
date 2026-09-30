@@ -193,6 +193,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Infrastructure.DevP
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Infrastructure.BlobStorage.UnitTests", "tests\Backlog.Infrastructure.BlobStorage.UnitTests\Backlog.Infrastructure.BlobStorage.UnitTests.csproj", "{76FFB198-625C-40FF-8E65-97536B75E345}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Desktop.Composition", "src\App\Backlog.Desktop.Composition\Backlog.Desktop.Composition.csproj", "{01FE88B7-841F-4447-80A6-F301A0904285}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -1139,6 +1141,18 @@ Global
 		{76FFB198-625C-40FF-8E65-97536B75E345}.Release|x64.Build.0 = Release|Any CPU
 		{76FFB198-625C-40FF-8E65-97536B75E345}.Release|x86.ActiveCfg = Release|Any CPU
 		{76FFB198-625C-40FF-8E65-97536B75E345}.Release|x86.Build.0 = Release|Any CPU
+		{01FE88B7-841F-4447-80A6-F301A0904285}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{01FE88B7-841F-4447-80A6-F301A0904285}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{01FE88B7-841F-4447-80A6-F301A0904285}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{01FE88B7-841F-4447-80A6-F301A0904285}.Debug|x64.Build.0 = Debug|Any CPU
+		{01FE88B7-841F-4447-80A6-F301A0904285}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{01FE88B7-841F-4447-80A6-F301A0904285}.Debug|x86.Build.0 = Debug|Any CPU
+		{01FE88B7-841F-4447-80A6-F301A0904285}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{01FE88B7-841F-4447-80A6-F301A0904285}.Release|Any CPU.Build.0 = Release|Any CPU
+		{01FE88B7-841F-4447-80A6-F301A0904285}.Release|x64.ActiveCfg = Release|Any CPU
+		{01FE88B7-841F-4447-80A6-F301A0904285}.Release|x64.Build.0 = Release|Any CPU
+		{01FE88B7-841F-4447-80A6-F301A0904285}.Release|x86.ActiveCfg = Release|Any CPU
+		{01FE88B7-841F-4447-80A6-F301A0904285}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1237,5 +1251,6 @@ Global
 		{9E7617B3-F5D6-49DB-8119-5C96A4E4B60B} = {9048EB7F-3875-A59E-E36B-5BD4C6F2A282}
 		{23645DF8-14DF-44BE-BB90-83579E84234D} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{76FFB198-625C-40FF-8E65-97536B75E345} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{01FE88B7-841F-4447-80A6-F301A0904285} = {547E75E0-49BC-27F6-65D6-DF25CFFB661A}
 	EndGlobalSection
 EndGlobal

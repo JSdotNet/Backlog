@@ -12,6 +12,11 @@
     here is the failure a developer would otherwise meet as a resource that dies
     on startup.
 
+    The MAUI desktop head is the exception it can partly close: that head and the
+    desktop harness compose through one AddDesktopComposition call, so
+    MauiDesktopCompositionTests builds that call with the head's options and its
+    head-only lines, restated, and validates the provider.
+
     Both harnesses are referenced under an alias: each has its own top-level
     Program in the global namespace, and without one the name is ambiguous.
   -->
@@ -28,6 +33,15 @@
     <!-- The GitHub transport, whose HttpClient the harness test asks the
          factory for. Named for the same reason as the reference above. -->
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
+    <!-- The composition both desktop heads share, which MauiDesktopCompositionTests
+         builds with the MAUI head's options: that head cannot be referenced, so
+         its container is proven through the call it makes. The adapters it hands
+         in - DPAPI, the full tools service, the Devbook block - are named for the
+         same reason as the two references above. -->
+    <ProjectReference Include="..\..\src\App\Backlog.Desktop.Composition\Backlog.Desktop.Composition.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.DevPc\Backlog.Infrastructure.DevPc.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
   </ItemGroup>
 
   <ItemGroup>

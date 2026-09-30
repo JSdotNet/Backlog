@@ -14,4 +14,9 @@
     <InternalsVisibleTo Include="Backlog.Infrastructure.Copilot.UnitTests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- For CopilotRegistration, the one place the launcher is registered. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
 </Project>
