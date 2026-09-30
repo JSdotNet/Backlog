@@ -16,6 +16,7 @@ namespace Backlog.Infrastructure.Sqlite.UnitTests;
 /// the slug of a kind this build cannot read — and that sharing the file with
 /// the task table costs neither side anything.
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class SqliteInboxRepositoryTests : IDisposable
 {
     private static readonly DateTimeOffset Noon = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);

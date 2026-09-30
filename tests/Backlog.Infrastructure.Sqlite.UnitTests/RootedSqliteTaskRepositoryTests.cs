@@ -9,6 +9,7 @@ namespace Backlog.Infrastructure.Sqlite.UnitTests;
 /// repository reads the root per call. These assert that it actually follows —
 /// and, just as importantly, that it does not carry the old folder's tasks over.
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class RootedSqliteTaskRepositoryTests : IDisposable
 {
     private readonly string _first;

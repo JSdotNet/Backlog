@@ -19,6 +19,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// adoption takes both paths for exactly this reason.
 /// </para>
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class PackagedAppDataTests : IDisposable
 {
     private readonly string _root = Path.Combine(

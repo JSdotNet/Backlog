@@ -13,6 +13,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// row with that slug, and a note above the first heading counts on the file's
 /// first row.</para>
 /// </summary>
+[Collection(SqlitePoolClearingCollection.Name)]
 public sealed class DevbookOpenAnnotationTests : IDisposable
 {
     private const string Path = ".devbook/domain/inbox/domain.md";
