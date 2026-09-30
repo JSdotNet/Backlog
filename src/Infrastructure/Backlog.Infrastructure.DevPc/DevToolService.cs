@@ -3133,7 +3133,8 @@ public sealed class DevToolService : IDevToolService
 
         var tempPath = path + ".tmp";
 
-        await using (var stream = File.Create(tempPath))
+        var stream = File.Create(tempPath);
+        await using (stream.ConfigureAwait(false))
         {
             await JsonSerializer.SerializeAsync(stream, root, ClaudeDesktopJsonOptions, ct).ConfigureAwait(false);
         }

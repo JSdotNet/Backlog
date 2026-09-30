@@ -225,7 +225,7 @@ public sealed partial class GitHubIntegration(
     {
         try
         {
-            await send();
+            await send().ConfigureAwait(false);
         }
         catch (GitHubException ex)
         {

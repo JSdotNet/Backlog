@@ -13,7 +13,7 @@ public sealed class DevbookRuleTextContractTests
     [Fact]
     public void The_product_claims_the_contract_the_vendored_rules_were_taken_at()
     {
-        Assert.Equal(DevbookRuleText.VendoredContract(), DevbookSchema.ContractVersion);
+        Assert.Equal(DevbookSchema.ContractVersion, DevbookRuleText.VendoredContract());
     }
 
     [Theory]

@@ -269,7 +269,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 ["number"] = number
             },
             cancellationToken,
-            tolerate: OnlyTheCheckRollupWasRefused);
+            tolerate: OnlyTheCheckRollupWasRefused).ConfigureAwait(false);
 
         return ReadPullRequestStatus(data, repository.FullName, number);
     }
@@ -330,7 +330,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         var variables = new Dictionary<string, object?> { ["id"] = pullRequestId };
         if (method is { } chosen) variables["method"] = MergeMethodName(chosen);
 
-        await GitHubGraphQl.SendAsync(transport, repository, mutation, variables, cancellationToken);
+        await GitHubGraphQl.SendAsync(transport, repository, mutation, variables, cancellationToken).ConfigureAwait(false);
     }
 
     private static string MergeMethodName(GitHubMergeMethod method) => method switch

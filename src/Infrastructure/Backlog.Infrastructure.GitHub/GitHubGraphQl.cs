@@ -120,7 +120,7 @@ internal static class GitHubGraphQl
             HttpMethod.Post,
             PathFor(repository),
             body,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         return DataOf(response, tolerate);
     }
