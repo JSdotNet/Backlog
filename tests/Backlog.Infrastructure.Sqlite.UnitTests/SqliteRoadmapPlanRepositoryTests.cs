@@ -459,7 +459,8 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         // Written once, for the pinned item only: a free item costs no key. The key is
         // persisted and synced, so its spelling is pinned here rather than left to the
         // naming policy.
-        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(json, "\"endPinned\":true").Count);
+        Assert.NotNull(json);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(json, "\"endPinned\":true"));
         Assert.DoesNotContain("\"endPinned\":false", json, StringComparison.Ordinal);
         Assert.Equal([true, false], loaded.Items.Select(item => item.EndPinned));
         Assert.Equal(new DateOnly(2026, 3, 20), loaded.Items[0].Window.End);
