@@ -6,8 +6,7 @@ goal: "Leave this repository's application running and healthy, and report the c
 
 # Start the Application
 
-Backlog runs through one Aspire AppHost. Start it with the command below, judge its health
-from the Aspire MCP, and report the entry points the run actually bound.
+Backlog runs through one Aspire AppHost.
 
 ## Run
 
