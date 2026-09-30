@@ -9,8 +9,6 @@ Backlog is a local-first, AI-first work management product: desktop, mobile, and
 channels plus a thin cloud sync service. Solution: `Backlog.sln`. Product code under
 `src/` (including development-time hosts under `src/Harness/`), tests under `tests/`.
 
-This file carries the repository rules that apply to **Claude Code**.
-
 ## Delivery gate
 
 **Before the first `Edit` or `Write` to any file under `src/` or `tests/`, invoke the
@@ -58,9 +56,7 @@ and one-shot, so it is not a flow and does not go through the gate;
 item's instructions *through* the gate — the matching flow — rather than adding an
 execution path beside it.
 
-Changes confined to the devbook folders under `.devbook/` (`arc42/`, `domain/`, `tech/`,
-`design/`, `ai/`) run through `delivery:flow-spec`, not the code gate.
-`.agents/rules/context-loading.md` says how they are verified instead.
+`.agents/rules/context-loading.md` says how a change confined to `.devbook/` is verified.
 
 ## Delivery surfaces
 
@@ -81,8 +77,7 @@ looks like and which harness answers which question; `show.md` picks the harness
 branch's change; `debug.md` queries logs and traces. QA depth is the engine's per change
 kind, capped by `policy` in `.devbook/config.json`.
 
-This repository configures no model overrides. Flows use each plugin's default model per
-category unless a run is given an explicit model instruction.
+This repository configures no model overrides.
 
 ## Running and testing
 
@@ -100,8 +95,7 @@ dotnet build Backlog.sln
 dotnet test Backlog.sln
 ```
 
-`desktop`, `mobile-android`, `ide-vscode-build`, and `ide-vscode-host` use
-`WithExplicitStart()`. Them sitting `NotStarted` is expected, not a failed startup.
+`.claude/skills/run-backlog/SKILL.md` names the resources whose healthy state is `NotStarted`.
 
 ## Devbook
 
@@ -135,28 +129,11 @@ product reads `.devbook/<name>` first and a root-level `.<name>` as the legacy f
 `.github/workflows/devbook-metadata.yml` beside the installed `devbook-meta.yml`.
 `.claude/commands/update-devbook-index.md` runs the build check.
 
-## UI components
-
-A screen under `src/App/` or `src/Modules/` renders the shared library's component
-(`src/Core/Backlog.UI.Components`) rather than writing its own version of one. That covers
-both a raw `button`/`input`/`select`/`textarea` and a plain `div`/`span`/`p` wearing a
-component's own class. When a component cannot wear the screen's classes, add the hook to
-the library — `BaseClass`, `CssClass`, `Bare`, or a per-part class parameter usually
-already exists — rather than hand-rolling a second implementation.
-
-`tests/Backlog.ArchitectureTests/SharedControlAdoptionTests.cs` enforces this and holds the
-documented exceptions. See `.agents/rules/ui-components.md` for the full
-rule, including what the test cannot see.
-
 ## Authoritative guidance
 
-Repository guidance is **checked in, not fetched**: `.devbook/arc42/adr/guidelines/` holds
-the inherited organization decisions that govern the .NET code (read the one that governs
-your change; its `README.md` indexes them), `.devbook/arc42/adr/` Backlog's own — both
-start at 0001, so name the folder when citing one — and `.devbook/design/` the design and
-UX guidance. A skill that says to consult a guidelines MCP server reads
-`.devbook/arc42/adr/guidelines/` instead; the absent server is not a blocked precondition.
-`.agents/rules/mcp-usage.md` has the full authority order and the MCP servers still in use.
+Repository guidance is **checked in, not fetched**; `.agents/rules/mcp-usage.md` holds the
+authority order and what replaces a guidelines MCP server. `.devbook/arc42/adr/guidelines/`
+and `.devbook/arc42/adr/` both number from 0001, so name the folder when citing a decision.
 
 ## Further guidance
 
