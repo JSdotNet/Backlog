@@ -152,6 +152,17 @@ internal sealed record RoadmapItemDocument
     /// person — which is what each of them was. No version bump, per ADR 0006.</summary>
     public string? PlacedByImport { get; init; }
 
+    /// <summary>Whether a person fixed where this item ends, overriding the forecast for
+    /// started work. Written only when true, so an ordinary item costs no key, which
+    /// needs the explicit condition because the serializer's null rule says nothing about
+    /// a bool. The name is spelled out rather than left to the camelCase policy: it is
+    /// persisted and synced, and a renamed property would silently read every pin as
+    /// unset. Additive, absent means false — an older document has no pins — so no
+    /// version bump, per ADR 0006.</summary>
+    [JsonPropertyName("endPinned")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool EndPinned { get; init; }
+
     internal static RoadmapItemDocument From(RoadmapItem item) => new()
     {
         Id = item.Id.ToString(),
@@ -166,7 +177,8 @@ internal sealed record RoadmapItemDocument
         Knowledge = item.KnowledgeRefs.IsEmpty ? null : [.. item.KnowledgeRefs.Refs],
         DependsOn = [.. item.Dependencies.All.Select(id => id.ToString())],
         Notes = item.Notes,
-        PlacedByImport = item.PlacedByImport is { } placement ? RoadmapWire.ToWire(placement) : null
+        PlacedByImport = item.PlacedByImport is { } placement ? RoadmapWire.ToWire(placement) : null,
+        EndPinned = item.EndPinned
     };
 
     /// <summary>The item, or null when the block does not describe one. A block
@@ -196,7 +208,8 @@ internal sealed record RoadmapItemDocument
             // derives one from its title when handed null.
             string.IsNullOrWhiteSpace(Tag) ? null : PlanningTag.Of(Tag),
             KnowledgeReferences.Of(Knowledge),
-            RoadmapWire.ParsePlacement(PlacedByImport));
+            RoadmapWire.ParsePlacement(PlacedByImport),
+            EndPinned);
     }
 }
 

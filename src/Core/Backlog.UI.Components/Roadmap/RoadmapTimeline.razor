@@ -79,6 +79,8 @@
         Press Enter to open. Press Space to pick the bar up, then Left and Right to move it a week,
         Up and Down to move it to another row, Shift with Left or Right to change its end date,
         and Alt with Left or Right to change its start date. Space drops it, Escape puts it back.
+        A bar that shows a dashed outline cannot be moved, and its start stays fixed; where it offers
+        its end, Shift with Left or Right changes that end date alone.
         A bar with steps has a button beside it that shows or hides them, one row each.
         A step is drawn by its share of the effort, not by date.
         @if (OnLinkCreated.HasDelegate)
@@ -1036,6 +1038,10 @@
     [JSInvokable]
     public void DragBegin(string barId, string grip)
     {
+        // The script already refuses these; this is the same rule where it cannot be
+        // bypassed. A locked bar yields its end grip and nothing else.
+        if (Bar(barId) is { Locked: true } locked && !(EndOnly(locked) && grip == "end")) return;
+
         _clickEndsADrag = false;
         _dragId = barId;
         _grabbedId = null;
@@ -1137,17 +1143,20 @@
                 return;
             }
 
-            if (bar.Locked || (!AllowMove && !AllowResize)) return;
+            if (bar.Locked && !EndOnly(bar)) return;
+            if (!AllowMove && !AllowResize) return;
 
             _dragId = null;
             _grabbedId = bar.Id;
             _pointerRows = false;
-            _kind = RoadmapDrag.Move;
+            _kind = bar.Locked ? RoadmapDrag.ResizeEnd : RoadmapDrag.Move;
             _steps = 0;
             _rowOffset = 0;
 
             Invalidate();
-            Announce($"Grabbed {bar.Title}. Use arrow keys to move, Space to drop, Escape to cancel.");
+            Announce(bar.Locked
+                ? $"Grabbed {bar.Title}. Its start is fixed. Use Shift with the arrow keys to move its end, Space to drop, Escape to cancel."
+                : $"Grabbed {bar.Title}. Use arrow keys to move, Space to drop, Escape to cancel.");
             return;
         }
 
@@ -1182,6 +1191,9 @@
 
             if (kind == RoadmapDrag.Move && !AllowMove) return;
             if (kind != RoadmapDrag.Move && !AllowResize) return;
+
+            // A locked bar that offers its end moves nothing else.
+            if (bar.Locked && kind != RoadmapDrag.ResizeEnd) return;
 
             if (kind != _kind)
             {
@@ -1257,6 +1269,10 @@
 
         Invalidate();
     }
+
+    /// <summary>Whether a locked bar still offers its end — and so is grabbed, but
+    /// only to move that.</summary>
+    private bool EndOnly(RoadmapBar bar) => AllowResize && bar.Locked && bar.EndResizable;
 
     private static RoadmapDrag GripKind(string grip) => grip switch
     {

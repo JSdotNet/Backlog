@@ -54,6 +54,15 @@ internal sealed class FakeRoadmapPlanning(RoadmapPlanDto plan) : IRoadmapPlannin
         string? lane = null,
         CancellationToken cancellationToken = default) => throw Written(nameof(RescheduleItemAsync));
 
+    public Task<Result<RoadmapItemDto>> PinItemEndAsync(
+        Guid itemId,
+        DateOnly end,
+        CancellationToken cancellationToken = default) => throw Written(nameof(PinItemEndAsync));
+
+    public Task<Result<RoadmapItemDto>> UnpinItemEndAsync(
+        Guid itemId,
+        CancellationToken cancellationToken = default) => throw Written(nameof(UnpinItemEndAsync));
+
     public Task<Result<RoadmapItemDto>> PrioritiseItemAsync(
         Guid itemId,
         PlanningPriority priority,

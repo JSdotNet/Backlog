@@ -53,6 +53,8 @@ public sealed record RoadmapPlanDto(
 /// references that may dangle. Empty means it points at none.</param>
 /// <param name="PlacedByImport">Which rule an import placed the window by, while it
 /// is still the importer's; null once a person has placed it.</param>
+/// <param name="EndPinned">Whether a person fixed the end. For started work the drawn end is
+/// a forecast unless this is set.</param>
 public sealed record RoadmapItemDto(
     Guid Id,
     string Title,
@@ -66,7 +68,8 @@ public sealed record RoadmapItemDto(
     string? Notes = null,
     string Tag = "",
     IReadOnlyList<string>? KnowledgeRefs = null,
-    ImportPlacement? PlacedByImport = null)
+    ImportPlacement? PlacedByImport = null,
+    bool EndPinned = false)
 {
     /// <summary>How many days it covers, counting both ends.</summary>
     public int Days => End.DayNumber - Start.DayNumber + 1;
