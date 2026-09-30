@@ -148,6 +148,38 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.Equal(GitHubItemState.Open, row.PullRequestStates[open]);
     }
 
+    /// <summary>
+    /// A reload replaces every row, and it is set off by writes the reader never
+    /// sees — an agent recording its work through the MCP server, a sync pull. What
+    /// the last sync read is carried onto the new row, so a merged pull request does
+    /// not go back to looking unread the moment somebody else writes.
+    /// </summary>
+    [Fact]
+    public async Task What_a_sync_read_survives_a_reload_from_the_store()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var written = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        await harness.State.PushToGitHubAsync(written);
+        var entries = TasksTestHost.EntriesFor(harness.Store);
+        await entries.LinkToIssueAsync(written.Id!.Value, "JSdotNet/Backlog", "708", EntryProjectionDto.PullRequestTargetType, TestContext.Current.CancellationToken);
+        await harness.State.ReloadFromStoreAsync();
+
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
+        await harness.State.SyncGitHubAsync();
+
+        await entries.LinkToIssueAsync(written.Id!.Value, "JSdotNet/Backlog", "710", EntryProjectionDto.PullRequestTargetType, TestContext.Current.CancellationToken);
+        await harness.State.ReloadFromStoreAsync();
+
+        var row = Assert.Single(harness.State.Rows);
+        Assert.NotSame(written, row);
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStatuses[pr].State);
+        Assert.NotNull(row.Snapshot);
+        Assert.False(row.PullRequestStates.ContainsKey(new EntryPullRequestLink("JSdotNet/Backlog", 710)));
+    }
+
     /// <summary>A pull request GitHub will not answer for is left unread rather
     /// than failing the issue it sits beside, and says nothing out loud: the issue
     /// is what the entry was filed as, the pull request a detail of its work.</summary>

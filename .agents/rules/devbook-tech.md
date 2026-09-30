@@ -117,7 +117,9 @@ Maturity of the technology **in this project**, on a tech-radar-style ladder:
 | `hold` | Kept but no longer expanded; avoid new usage. |
 | `retired` | No longer used; kept for history. |
 
-Early in a project most entries are legitimately `candidate`.
+Early in a project most entries are legitimately `candidate`. A repository
+may narrow this ladder per file in `.devbook/statuses.json`, and never add to
+it — see `devbook-chapter-metadata.md`.
 
 There is no `approved` or `accepted` rung here. The two decision rungs are
 `domain/`'s alone — see `devbook-domain.md`. This folder's value is a rating of

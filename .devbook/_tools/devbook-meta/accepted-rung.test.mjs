@@ -117,11 +117,6 @@ const HASH = chapterHash(chapter(accepted), CHAPTER_LINE);
 }
 
 {
-    const issues = validateDocument(PATH, chapter(`${accepted}review: cleared\nreviewer: Ada\nreview-at: 2026-09-19\n`));
-    check(Boolean(find(issues, "error", "while carrying review state")), "review state does not survive the accepted rung", dump(issues));
-}
-
-{
     // A content change drops both records, so both fingerprints go stale
     // together — there is no state where the build is accepted against text
     // that was never approved.

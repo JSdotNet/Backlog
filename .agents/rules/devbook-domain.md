@@ -461,7 +461,9 @@ instructions.
 - The metadata block's `status` field uses `draft`, `proposed`, `active`, or
   `deprecated` in this folder. This folder describes the current (or
   agreed-future) model, not a task queue, so there is no `done`: `active`
-  means "this is the current model", `deprecated` means superseded.
+  means "this is the current model", `deprecated` means superseded. That is
+  the built-in ladder; a repository replaces its transitional rungs per file
+  in `.devbook/statuses.json`, per `devbook-chapter-metadata.md`.
 - On top of that ladder sit the two decision rungs, defined once in
   `devbook-chapter-metadata.md` and belonging to **this folder only**:
   `approved`, a person agreed this chapter, recorded with `approved-by` and
@@ -539,11 +541,14 @@ instructions.
   convention does not name is titled by its subject. Write the title in the
   language the folder is written in: `# Actoren` is `# Actors`.
 
-  The behaviour files stay titled by kind, split or not: `requirements.md` and
-  `requirements.<name>.md` are `# Requirements`, and `domain.invariants.md` and
-  `domain.<name>.invariants.md` `# Invariants`, because each reads beside the
-  page it belongs to. A behaviour file still titled by its context validates;
-  `018-behaviour-titles` retitles it. No other file carries a title the check
+  The behaviour files are titled by kind: `requirements.md` is
+  `# Requirements`, and `domain.invariants.md` and
+  `domain.<name>.invariants.md` are `# Invariants`, because each reads beside
+  the page it belongs to. A `requirements.<name>.md` is a split like any other
+  and takes its feature's name — `requirements.checkout.md` is `# Checkout` —
+  because it lists under `requirements.md`, where a title by kind would read
+  `Requirements` on every entry. A behaviour file still titled by its context
+  validates; `018-behaviour-titles` retitles it. No other file carries a title the check
   reads, so one still titled by its context validates too; retitle it when the
   file is next edited, never by a sweep.
 

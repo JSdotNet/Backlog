@@ -60,7 +60,8 @@ Prose for this chapter starts here.
 ```
 
 `type` is the only universally required field, and only in the three folders
-that define a value set for it (`domain/`, `tech/`, `ai/`). `status` is
+that classify every chapter with it (`domain/`, `tech/`, `ai/`); `design/`
+types its requirement chapters and nothing else. `status` is
 required per folder: mandatory in `tech/` and `ai/`, optional in
 `domain/`, `arc42/`, and `design/`, where leaving it out means the content is
 at rest — see the `status` entry under **Fields**. Optional fields (`related`,
@@ -68,9 +69,9 @@ at rest — see the `status` entry under **Fields**. Optional fields (`related`,
 are included only when they have a value; empty collections and null values are
 omitted rather than written out.
 
-**The `meta` fence stays even when the block ends up empty.** In `arc42/` and
-`design/` there is no `type` field, so a resting chapter with no
-relations has nothing left to write:
+**The `meta` fence stays even when the block ends up empty.** In `arc42/`, and
+on every `design/` chapter but a requirement, there is no `type` field, so a
+resting chapter with no relations has nothing left to write:
 
 ```markdown
 ## <Chapter Heading>
@@ -108,6 +109,10 @@ Anchors are therefore slugs of the bare name —
 Headings that name a **grouping** rather than a thing keep their descriptive
 text, because that text *is* the group's name: `## Shared Value Objects` is
 correct, with `type: shared-value-objects`.
+
+`### Requirement:`, `### Invariant:`, and `#### Scenario:` keep their prefix,
+in `domain/` and, for requirements, in `design/`: the heading shape is
+OpenSpec's, and a tool that reads OpenSpec finds them by it.
 
 ## File-level metadata block
 
@@ -185,6 +190,10 @@ repository path:
 move and does not index it. Derived `_meta/` folders are written beside the
 chapters they index, and the repository-wide rollup under `.devbook/_meta/`.
 
+A proposed change lives outside the parent, in `openspec/changes/<name>/`; its
+`proposal.md` and deltas are chapters too, indexed into the rollup alone. Their
+shape is `devbook-changes.md`'s.
+
 ### Chapter and file references
 
 Chapters are not given a separate stored id. A chapter is addressed by its
@@ -222,8 +231,54 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   Spell the absence by leaving the field out, never as `status: null` — same
   discipline as `issue: null`, and the reason is the same.
 
+  **Each folder's ladder is a built-in default.** A repository whose team
+  reviews differently declares its own in `.devbook/statuses.json`, and the
+  check validates against it:
 
-  On top of **`domain/`**'s ladder — and no other folder's — sit two decision
+  ```json
+  { "folders": { "domain": { "rules": [
+    { "files": ["**/actors.md"], "scope": "file", "statuses": ["draft", "review", "ready"] },
+    { "files": ["**/domain.md", "**/domain.*.md"], "statuses": ["draft", "review", "ready", "deprecated"] }
+  ] } } }
+  ```
+
+  Rules are tried in order and the first whose `files` glob — relative to the
+  folder — and `scope` (`file` for the `#` block, `chapter`, or `any`, the
+  default) match a block decides it. A block no rule matches, and a folder the
+  file does not name, takes the built-in ladder. A rule lists the rungs a person
+  writes, and nothing else: never the resting value, which stays written by
+  omission; never `approved` or `accepted`, which devbook adds to every
+  `domain/` rule and keeps out of every other folder; and in `tech/` and `ai/`
+  only rungs of the rating ladder, never an empty list, because a rating is
+  always stated. An empty list elsewhere means the block carries no status.
+  Listing any of those is a configuration error, reported once on the file.
+  The check reads only `folders.<folder>.rules[].files`, `scope`, and
+  `statuses`; every other key, and every folder that is not a devbook folder,
+  belongs to whatever else reads the file — a viewer's status picker — and is
+  left alone.
+
+  The allowed values are folder-specific; see the `status` section
+  in `devbook-domain.md`,
+  `devbook-arc42.md`,
+  `devbook-tech.md`,
+  `devbook-design.md`, or
+  `devbook-ai.md` for the value set
+  that applies to the folder you're editing, unless `.devbook/statuses.json`
+  declares one for the block, as above. A file-level `status` reflects
+  the document as a whole and is set independently of its chapters' own
+  `status` values (e.g. a file can be `active` overall while one chapter
+  inside it is still `draft`).
+
+  A review in progress is never a field beside `status`: the chapter stays on
+  its transitional rung — a repository that wants the review visible declares a
+  rung for it in `.devbook/statuses.json` — and its open `annotation` fences say
+  what is still asked. Who owes the next move belongs to the pull request or
+  the tracker, not the chapter. `review`, `reviewer`, and `review-at` were
+  removed in contract 21 and are reported by name.
+
+
+  On top of **`domain/`**'s ladder — and of a change's `proposal.md`, which
+  decides the whole change once per `devbook-changes.md`, and no other — sit two decision
   rungs. The first is `approved`: a person has read this chapter and approved it. It is the decision the approval gate
   makes before a chapter becomes work, recorded in the chapter so it travels
   with the content and lands in the git history like any other change — not in
@@ -259,11 +314,11 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   one change the moment the content changes, and the chapter returns to its
   folder's ordinary rung: a build was accepted against the text that was
   approved, so neither statement outlives it.
-- **approved-by** (`domain/` only, optional) — who approved this chapter: a
+- **approved-by** (`domain/` and a proposal, optional) — who approved this chapter: a
   person, a handle, or a team. One value, not a list.
-- **approved-at** (`domain/` only, optional) — the day they approved it, in
+- **approved-at** (`domain/` and a proposal, optional) — the day they approved it, in
   `YYYY-MM-DD` form.
-- **approved-hash** (`domain/` only, optional) — a fingerprint of the content
+- **approved-hash** (`domain/` and a proposal, optional) — a fingerprint of the content
   that was approved: `sha256:` followed by eight lowercase hex characters. Written by
   the approval gate in the same change as the rung, and never by hand.
 
@@ -288,11 +343,11 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   claiming the rung — either the approval is current and the status says so, or
   it has lapsed and the record comes out with it. Under `status: accepted` the
   approval record is not orphaned: the acceptance stands on it.
-- **accepted-by** (`domain/` only, optional) — who accepted the built work
+- **accepted-by** (`domain/` and a proposal, optional) — who accepted the built work
   against this chapter. One value, not a list.
-- **accepted-at** (`domain/` only, optional) — the day they accepted it, in
+- **accepted-at** (`domain/` and a proposal, optional) — the day they accepted it, in
   `YYYY-MM-DD` form, on or after `approved-at`.
-- **accepted-hash** (`domain/` only, optional) — the fingerprint of the content accepted,
+- **accepted-hash** (`domain/` and a proposal, optional) — the fingerprint of the content accepted,
   computed exactly as `approved-hash` is. Where both are written they are one
   value, because an acceptance is of the approved content; two that disagree
   say the chapter moved between the two decisions, and are reported.
@@ -300,37 +355,6 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   The three behave field for field like the approval three: written together,
   deleted together, reported when one is left behind, and off the moment the
   content changes.
-- **review** (optional) — where this chapter's review pass stands, on the way to
-  that decision: `requested` (waiting on the reviewer), `changes-requested`
-  (waiting on the author; at least one open annotation says why), or `cleared`
-  (waiting on nobody; no open annotation remains, and the chapter is ready for
-  the approval decision). Omitted means no review is running. The three states
-  are checked against the notes in the chapter body: `changes-requested` over no
-  open fence, or `cleared` over one, is a verdict written without its findings.
-- **reviewer** (optional) — who owes the next move: one handle, name, or role.
-  Never a list.
-- **review-at** (optional) — the day the current review state was written, in
-  `YYYY-MM-DD` form.
-
-  The three are written together or not at all, mirroring the approval triad so
-  a chapter reads the same way on its way to a decision as it does past one.
-  None of it is chapter content: a reader loading a chapter for context skips
-  the review fields the same way it skips an annotation fence, and only review
-  work — a review skill, a queue, the approval gate — reads them. Approval
-  deletes all three in the same change that writes the rung: an approved
-  chapter carries the decision, not the road to it. A finding is never a field
-  here; it is one `annotation` fence beside the passage it is about.
-
-  The allowed values are folder-specific; see the `status` section
-  in `devbook-domain.md`,
-  `devbook-arc42.md`,
-  `devbook-tech.md`,
-  `devbook-design.md`, or
-  `devbook-ai.md` for the value set
-  that applies to the folder you're editing. A file-level `status` reflects
-  the document as a whole and is set independently of its chapters' own
-  `status` values (e.g. a file can be `active` overall while one chapter
-  inside it is still `draft`).
 - **type** (required where the folder defines a value set) — what kind of thing
   this chapter or file *is*: the classification that used to be written as a
   heading prefix. Like `status`, the allowed values are folder-specific and are
@@ -338,19 +362,24 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   and file-level blocks alike, with a separate value set for each level where
   the folder distinguishes them.
 
-  Three folders define a value set:
+  Four folders define a value set:
 
   | Folder | Chapter values | File values |
   |---|---|---|
   | `domain/` | `bounded-context`, `aggregate`, `entity`, `value-object`, `enum`, `shared-value-objects`, `shared-enums`, `ubiquitous-language`, `domain-service`, `domain-event`, `feature`, `sub-feature`, `requirements`, `requirement`, `invariants`, `invariant`, `feature-flag`, `setting`, `user`, `organisation`, `technical`, `term` | `context-map`, `context`, `domain`, `actors`, `features`, `skills`, `requirements`, `invariants`, `model`, `flow`, `dependencies`, or an additional page's own filename |
   | `tech/` | `language`, `runtime`, `framework`, `library`, `package`, `tool`, `service`, `platform`, `protocol`, `format` | none |
   | `ai/` | `practice`, `agent`, `skill`, `plugin`, `mcp-server`, `hook`, `workflow`, `model`, `concept`, `guardrail` | `adoption-map`, `stage`, `concepts` |
+  | `design/` | `requirement` | none |
 
-  `arc42/` and `design/` deliberately define **no** value set. Their only kind
-  distinction — chapter vs section — is already carried by heading level, so a `type` field there would restate the document
-  structure rather than add anything. Omit it in those folders, per the same
-  omit-when-empty discipline that governs the optional fields; setting it is
-  reported as a warning.
+  `arc42/` deliberately defines **no** value set. Its only kind distinction —
+  chapter vs section — is already carried by heading level, so a `type` field
+  there would restate the document structure rather than add anything. Omit it,
+  per the same omit-when-empty discipline that governs the optional fields;
+  setting it is reported as a warning.
+
+  `design/`'s one value marks out chapters rather than classifying every one: a
+  `### Requirement:` under a component is `type: requirement`, per
+  `devbook-design.md`, and every other `design/` chapter omits `type`.
 
   In `tech/` this field was previously spelled `kind`. The old name still parses
   so an existing repository is not broken by a generator sync, but it reports a
@@ -407,6 +436,10 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   "[Linking test cases](#linking-test-cases)" for the format, the level and
   runner vocabularies, and why this field exists where a code-path field
   deliberately does not.
+- **change** (optional) — the change whose merge last touched this chapter or
+  file: its folder name under `openspec/changes/`. Written by
+  `delta.mjs --apply`, never by hand. Available in every folder. See
+  `devbook-changes.md`.
 - **number** (optional, **file-level blocks only**) — this document's number
   within its directory, as a single non-negative integer: arc42 chapter 9,
   TDR 2. A numbered filename (`09-architecture-decisions.md`,
@@ -672,7 +705,7 @@ chapter.
   rule reaches `status` in `domain/`, `arc42/`, and `design/`, where the resting
   value `active` is what an absent field says: a settled chapter with no
   relations, no estimate, and no issue shows only `type` where the folder
-  defines one — and in `arc42/` and `design/`, which define none, an empty
+  defines one — and in `arc42/`, and on a `design/` guideline, an empty
   fence. Keep the fence; it is what makes the heading addressable.
 
 ## Where reading order comes from

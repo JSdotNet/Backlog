@@ -182,6 +182,9 @@ learns one adoption vocabulary and applies it in both folders:
 | `hold` | Kept, but no longer expanded; avoid new usage. |
 | `retired` | No longer used. Kept because knowing what we stopped doing, and why, is the most useful record in this folder. |
 
+A repository may narrow this ladder per file in `.devbook/statuses.json`, and
+never add to it — see `devbook-chapter-metadata.md`.
+
 There is no `approved` or `accepted` rung here. The two decision rungs are
 `domain/`'s alone — see `devbook-domain.md`.
 

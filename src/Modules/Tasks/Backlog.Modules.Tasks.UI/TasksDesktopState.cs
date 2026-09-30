@@ -3344,6 +3344,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         RoadmapTags = await _roadmapTags.TagsInUseAsync();
 
         var rows = new List<EntryRow>();
+        var previous = Rows.Where(r => r.Id is not null).DistinctBy(r => r.Id).ToDictionary(r => r.Id!.Value);
 
         foreach (var entry in await _entryUseCases.ListAsync())
         {
@@ -3351,12 +3352,38 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
             var row = new EntryRow { Id = entry.Id };
             RefreshRowFromEntry(row, entry, rewriteText: true);
+            if (previous.TryGetValue(entry.Id, out var before)) CarryGitHubRead(before, row);
             rows.Add(row);
         }
 
         Rows = rows;
 
         ApplyFilter();
+    }
+
+    /// <summary>
+    /// Puts what the last GitHub read found back on the row that replaces
+    /// <paramref name="before"/>. A reload is set off by writes the reader never
+    /// sees — an agent recording its work through the MCP server, a sync pull — and
+    /// without this every one of them turned a merged pull request back into an
+    /// unread one until the next sync.
+    /// <para>
+    /// Only what still applies: the snapshot while the entry names the same issue,
+    /// and the states of the pull requests it still records. The read stays in
+    /// memory, as <see cref="EntryRow.Snapshot"/> says it must.
+    /// </para>
+    /// </summary>
+    private static void CarryGitHubRead(EntryRow before, EntryRow after)
+    {
+        if (before.IssueLink is not null && before.IssueLink == after.IssueLink) after.Snapshot = before.Snapshot;
+
+        var recorded = after.PullRequestLinks.ToHashSet();
+        after.PullRequestStates = before.PullRequestStates
+            .Where(read => recorded.Contains(read.Key))
+            .ToDictionary(read => read.Key, read => read.Value);
+        after.PullRequestStatuses = before.PullRequestStatuses
+            .Where(read => recorded.Contains(read.Key))
+            .ToDictionary(read => read.Key, read => read.Value);
     }
 
     private void ApplyFilter()
