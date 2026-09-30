@@ -13,10 +13,9 @@ public sealed class DevbookToolsTests : IDisposable
 {
     private const string ChapterPath = ".arc42/adr/0012-mcp.md";
 
-    /// <summary>The area-relative spelling of the same chapter — what the arc42
-    /// panel files its notes under, where the domain panel files a prefixed
-    /// one.</summary>
-    private const string AreaRelativePath = "adr/0012-mcp.md";
+    /// <summary>The same chapter's path within its folder — what the folder
+    /// source is asked to prepare.</summary>
+    private const string FolderRelativePath = "adr/0012-mcp.md";
 
     /// <summary>
     /// A chapter with one of everything the two modes have to tell apart: the
@@ -190,22 +189,62 @@ public sealed class DevbookToolsTests : IDisposable
         Assert.All(answer.Blocks, block => Assert.Empty(block.Notes));
     }
 
-    /// <summary>The notes are read under both spellings the product files them
-    /// under — the panels disagree, and a tool that picked one would answer
-    /// nothing for half the chapters.</summary>
+    /// <summary>The notes are asked for once, with the chapter's own
+    /// repository-relative path: the store canonicalizes the question, so a
+    /// second spelling would only ask the same thing twice.</summary>
     [Fact]
-    public void Annotations_are_found_under_either_spelling_of_the_chapter()
+    public void Annotations_are_asked_for_once_with_the_chapter_path()
     {
-        var prefixed = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 1, body: "Filed the domain panel's way.");
-        var areaRelative = Notes.Note(Backlog.Alias, AreaRelativePath, blockIndex: 2, body: "Filed the arc42 panel's way.");
+        var note = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 1, body: "Filed by the panel.");
 
-        var tools = Tools(out _, out var store, prefixed, areaRelative);
+        var tools = Tools(out _, out var store, note);
 
         var answer = tools.ListAnnotationsOn("JSdotNet/Backlog", ChapterPath);
 
-        Assert.Equal(2, answer.Count);
-        Assert.Equal([prefixed.Id, areaRelative.Id], answer.Annotations.Select(note => note.Id));
-        Assert.Equal([ChapterPath, AreaRelativePath], store.Listed.Select(asked => asked.ChapterPath));
+        Assert.Equal(note.Id, Assert.Single(answer.Annotations).Id);
+        Assert.Equal((Backlog.Alias, ChapterPath), Assert.Single(store.Listed));
+    }
+
+    /// <summary>The review read asks the same one question.</summary>
+    [Fact]
+    public async Task A_review_read_asks_for_the_notes_once_with_the_chapter_path()
+    {
+        var note = Notes.Note(Backlog.Alias, ChapterPath, blockIndex: 2, body: "Still true?");
+
+        var tools = Tools(out _, out var store, note);
+
+        var answer = await tools.ReadKnowledgeChapterAsync(
+            "JSdotNet/Backlog", ChapterPath, review: true, TestContext.Current.CancellationToken);
+
+        Assert.Equal(note.Id, Assert.Single(answer.Blocks.Single(block => block.Index == 2).Notes).Id);
+        Assert.Equal((Backlog.Alias, ChapterPath), Assert.Single(store.Listed));
+    }
+
+    /// <summary>
+    /// A note filed under one configured spelling of a chapter is found by any
+    /// other, with one question. The store canonicalizes both the key and the
+    /// question, so which spelling the panel held when it filed the note and
+    /// which one the session asks with no longer matter.
+    /// </summary>
+    [Theory]
+    [InlineData(".devbook/arc42/adr/0012-mcp.md", ".arc42/adr/0012-mcp.md")]
+    [InlineData(".arc42/adr/0012-mcp.md", ".devbook/arc42/adr/0012-mcp.md")]
+    [InlineData("docs/arch/adr/0012-mcp.md", ".arc42/adr/0012-mcp.md")]
+    [InlineData(".arc42/adr/0012-mcp.md", "docs/arch/adr/0012-mcp.md")]
+    [InlineData("docs/arch/adr/0012-mcp.md", ".devbook/arc42/adr/0012-mcp.md")]
+    public void A_note_filed_under_another_spelling_of_the_chapter_is_found(string filedUnder, string askedWith)
+    {
+        var note = Notes.Note(Backlog.Alias, filedUnder, blockIndex: 1, body: "Filed on the other machine.");
+
+        var relocated = Arc42 with { Path = "docs/arch" };
+        var folders = new FakeDevbookFolderSource(_root.FullName, relocated, Domain);
+        var store = new FakeDevbookAnnotationStore(note) { Folders = folders.Folders(Backlog.Alias) };
+        var tools = new DevbookTools(folders, store, new FakeRepositoryDirectory([Backlog]));
+
+        var answer = tools.ListAnnotationsOn("JSdotNet/Backlog", askedWith);
+
+        Assert.Equal(note.Id, Assert.Single(answer.Annotations).Id);
+        Assert.Single(store.Listed);
     }
 
     /// <summary>
@@ -261,7 +300,7 @@ public sealed class DevbookToolsTests : IDisposable
 
         var prepared = Assert.Single(folders.Prepared);
         Assert.Equal(".arc42", prepared.Key);
-        Assert.Equal(AreaRelativePath, prepared.Path);
+        Assert.Equal(FolderRelativePath, prepared.Path);
     }
 
     /// <summary>A path that climbs out of the folder is not a chapter. The
