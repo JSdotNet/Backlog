@@ -991,6 +991,21 @@ public sealed class InboxDesktopState
     /// <summary>Whether the pane shows one item at a time.</summary>
     public bool TriageMode { get; private set; }
 
+    /// <summary>Whether the pane shows its Sources tab rather than the queue.
+    /// Held here, not on the pane, for the reason triage mode is: the pane
+    /// re-mounts when it changes slot, and a tab that snapped back to the
+    /// queue on that would be one the reader keeps choosing again.</summary>
+    public bool SourcesShown { get; private set; }
+
+    /// <summary>Shows the Sources tab, or the queue again.</summary>
+    public void ShowSources(bool shown)
+    {
+        if (SourcesShown == shown) return;
+
+        SourcesShown = shown;
+        Changed?.Invoke();
+    }
+
     /// <summary>The zero-based place of the item being read among the rows on
     /// screen, or -1 when none is chosen or it has left them.</summary>
     public int TriagePosition => SelectedItemId is { } id ? IndexOf(VisibleItems, id) : -1;
