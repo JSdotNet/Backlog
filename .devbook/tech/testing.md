@@ -14,7 +14,7 @@ related: [".devbook/tech/technology-graph.md", ".devbook/arc42/10-quality-requir
 ```meta
 status: adopted
 type: framework
-version: "4.0.0"
+version: "4.0.1"
 depends-on: [".devbook/tech/shared.md#net-runtime", ".devbook/tech/shared.md#c-language"]
 related: [".devbook/tech/testing.md#microsofttestingplatform"]
 ```
@@ -87,7 +87,7 @@ The test adapter that surfaces xUnit tests to IDE test explorers.
 ```meta
 status: adopted
 type: package
-version: "2.3.3"
+version: "2.4.1"
 depends-on: [".devbook/tech/testing.md#microsofttestingplatform"]
 related: [".devbook/tech/tooling.md#github-actions"]
 ```
@@ -104,7 +104,7 @@ The TRX report writer.
 ```meta
 status: adopted
 type: framework
-version: "2.9.0"
+version: "2.11.3"
 depends-on: [".devbook/tech/shared.md#razor-components", ".devbook/tech/testing.md#xunit-v3"]
 related: [".devbook/design/component-libraries.md"]
 ```
@@ -140,7 +140,7 @@ In-memory hosting of an ASP.NET Core app under test.
 ```meta
 status: adopted
 type: package
-version: "10.9.0"
+version: "10.10.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 ```
 
@@ -156,7 +156,7 @@ depends-on: [".devbook/tech/shared.md#net-runtime"]
 ```meta
 status: adopted
 type: tool
-version: "10.0.1"
+version: "10.1.0"
 depends-on: [".devbook/tech/testing.md#microsoftnettestsdk"]
 ```
 
