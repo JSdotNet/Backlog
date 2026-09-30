@@ -152,14 +152,18 @@ internal sealed partial class DesktopHarness
     // ---- Home panes ----
 
     /// <summary>Shows one Home pane. The Inbox pane reads its list when it is
-    /// shown, so a pull is only visible after the pane is shown again.</summary>
+    /// shown, so a pull is only visible after the pane is shown again. A fresh
+    /// load reopens the surface the shared workspace last showed — another
+    /// worktree's Roadmap, say — so the Workspace surface is picked first.</summary>
     private async Task ShowPaneAsync(string option, string pane)
     {
         await Page.GotoAsync(_baseUrl.ToString());
+        var workspace = Page.GetByTestId("workspace-surface-option");
         var toggle = Page.GetByTestId(option);
         await Interactive.RepeatAsync(
             async () =>
             {
+                if (await workspace.GetAttributeAsync("aria-pressed") != "true") await workspace.ClickAsync();
                 if (await toggle.GetAttributeAsync("aria-pressed") != "true") await toggle.ClickAsync();
             },
             () => Page.Locator($"#{pane}").IsVisibleAsync(),
