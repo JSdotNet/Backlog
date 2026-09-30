@@ -45,14 +45,14 @@ public sealed class RoadmapPlanProgressSource(
 
         if (!features.IsEnabled(RoadmapFeatures.Roadmap)) return PlanReading.Off;
 
-        var plan = await planning.GetPlanAsync(cancellationToken);
+        var plan = await planning.GetPlanAsync(cancellationToken).ConfigureAwait(false);
         var candidates = MayReach(plan.Items, from, to);
-        var gathered = await rollups.GatherPlanAsync(plan with { Items = candidates }, cancellationToken);
+        var gathered = await rollups.GatherPlanAsync(plan with { Items = candidates }, cancellationToken).ConfigureAwait(false);
 
         // One repository in scope quotes its own pace; several or none quote the global
         // one, because there is no single repository pace that speaks for a set.
-        var scoped = await pace.ReadAsync(repositoryAliases.Count == 1 ? repositoryAliases[0] : null, cancellationToken);
-        var inUse = await velocity.ReadPacesInUseAsync(cancellationToken);
+        var scoped = await pace.ReadAsync(repositoryAliases.Count == 1 ? repositoryAliases[0] : null, cancellationToken).ConfigureAwait(false);
+        var inUse = await velocity.ReadPacesInUseAsync(cancellationToken).ConfigureAwait(false);
 
         // Narrowed again once each end reads as the roadmap draws it.
         var inWindow = InWindow(EffortWindow.Derive(candidates, gathered, inUse), from, to);

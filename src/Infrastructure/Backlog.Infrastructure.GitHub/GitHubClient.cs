@@ -147,7 +147,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             HttpMethod.Post,
             $"repos/{repository.Owner}/{repository.Name}/issues",
             payload,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         return ReadIssue(response);
     }
@@ -163,7 +163,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             HttpMethod.Get,
             $"repos/{repository.Owner}/{repository.Name}/issues/{number}",
             body: null,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         var issue = ReadIssue(issueResponse);
 
@@ -174,7 +174,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 HttpMethod.Get,
                 $"repos/{repository.Owner}/{repository.Name}/issues/{number}/timeline?per_page=100",
                 body: null,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             pullRequests = ReadLinkedPullRequests(timeline);
         }
@@ -199,7 +199,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             HttpMethod.Get,
             $"repos/{repository.Owner}/{repository.Name}/pulls/{number}",
             body: null,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         return ReadPullRequest(response, repository.FullName);
     }
@@ -269,7 +269,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 ["number"] = number
             },
             cancellationToken,
-            tolerate: OnlyTheCheckRollupWasRefused);
+            tolerate: OnlyTheCheckRollupWasRefused).ConfigureAwait(false);
 
         return ReadPullRequestStatus(data, repository.FullName, number);
     }
@@ -330,7 +330,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         var variables = new Dictionary<string, object?> { ["id"] = pullRequestId };
         if (method is { } chosen) variables["method"] = MergeMethodName(chosen);
 
-        await GitHubGraphQl.SendAsync(transport, repository, mutation, variables, cancellationToken);
+        await GitHubGraphQl.SendAsync(transport, repository, mutation, variables, cancellationToken).ConfigureAwait(false);
     }
 
     private static string MergeMethodName(GitHubMergeMethod method) => method switch
@@ -448,7 +448,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             throw new GitHubException("A committed file needs a branch.");
         }
 
-        await EnsureBranchExistsAsync(repository, branch, cancellationToken);
+        await EnsureBranchExistsAsync(repository, branch, cancellationToken).ConfigureAwait(false);
 
         var payload = new Dictionary<string, object?>
         {
@@ -461,7 +461,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             HttpMethod.Put,
             $"repos/{repository.Owner}/{repository.Name}/contents/{Uri.EscapeDataString(path)}",
             payload,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         var downloadUrl = response.TryGetProperty("content", out var contentElement)
             && contentElement.ValueKind == JsonValueKind.Object
@@ -500,7 +500,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         string? existingSha = null;
         try
         {
-            var existing = await transport.SendAsync(HttpMethod.Get, resource, body: null, cancellationToken: cancellationToken);
+            var existing = await transport.SendAsync(HttpMethod.Get, resource, body: null, cancellationToken: cancellationToken).ConfigureAwait(false);
             existingSha = existing.ValueKind == JsonValueKind.Object ? String(existing, "sha") : null;
         }
         catch (GitHubException ex) when (ex.IsNotFound)
@@ -526,7 +526,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         JsonElement response;
         try
         {
-            response = await transport.SendAsync(HttpMethod.Put, resource, payload, cancellationToken: cancellationToken);
+            response = await transport.SendAsync(HttpMethod.Put, resource, payload, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (GitHubException ex) when (ex.IsNotFound)
         {
@@ -573,7 +573,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 HttpMethod.Get,
                 $"repos/{repository.Owner}/{repository.Name}/git/ref/heads/{Uri.EscapeDataString(branch)}",
                 body: null,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
             return;
         }
         catch (GitHubException)
@@ -587,7 +587,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             HttpMethod.Get,
             $"repos/{repository.Owner}/{repository.Name}",
             body: null,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         var defaultBranch = String(repositoryDetails, "default_branch");
         if (string.IsNullOrWhiteSpace(defaultBranch))
@@ -599,7 +599,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             HttpMethod.Get,
             $"repos/{repository.Owner}/{repository.Name}/git/ref/heads/{Uri.EscapeDataString(defaultBranch)}",
             body: null,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         var sha = defaultRef.TryGetProperty("object", out var target) && target.ValueKind == JsonValueKind.Object
             ? String(target, "sha")
@@ -614,7 +614,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             HttpMethod.Post,
             $"repos/{repository.Owner}/{repository.Name}/git/refs",
             new Dictionary<string, object?> { ["ref"] = $"refs/heads/{branch}", ["sha"] = sha },
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Reads the issue payload GitHub returns for both create and get.</summary>

@@ -309,7 +309,11 @@ public static partial class DeliveryRunWorktrees
 
         if (slug.Length == 0) slug = "project";
 
+        // A short, stable name for a folder, not a security boundary: another
+        // algorithm would re-key every run already recorded under this one.
+#pragma warning disable CA5350
         var hash = Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes(root.ToLowerInvariant())))[..8];
+#pragma warning restore CA5350
 
         return $"{slug}-{hash}";
     }

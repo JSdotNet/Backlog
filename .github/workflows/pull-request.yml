@@ -32,7 +32,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       # DevbookBuilderParityTests runs tools/devbook/build-database.mjs to hold
       # the app's C# builder to it (local ADR 0015), and the writer needs
@@ -83,11 +83,16 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore Backlog.WithoutAppHeads.slnf
 
+      # The solution builds at zero warnings (the rule severities are in the
+      # root .editorconfig), and this is where a new one stops. It is passed
+      # here rather than set in Directory.Build.props so a half-finished local
+      # edit still builds; both app-head builds below pass it too.
       - name: Build
         run: >
           dotnet build Backlog.WithoutAppHeads.slnf
           --no-restore
           --configuration Release
+          -p:TreatWarningsAsErrors=true
 
       # xunit v3 runs on Microsoft.Testing.Platform, which global.json opts
       # `dotnet test` into. The solution filter is named with --solution, and the
@@ -136,7 +141,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       # Scoped to the heads rather than to the solution: they are the only
       # projects with a platform target framework, and so the only reason any
@@ -174,6 +179,7 @@ jobs:
           dotnet build src\App\Backlog.Desktop\Backlog.Desktop.csproj
           --no-restore
           --configuration Release
+          -p:TreatWarningsAsErrors=true
           -p:RuntimeIdentifierOverride=win-x64
           -p:WindowsPackageType=None
           -p:AppxPackageSigningEnabled=false
@@ -184,6 +190,7 @@ jobs:
           dotnet build src\App\Backlog.Mobile\Backlog.Mobile.csproj
           --no-restore
           --configuration Release
+          -p:TreatWarningsAsErrors=true
           -p:RuntimeIdentifierOverride=win-x64
           -p:WindowsPackageType=None
           -p:AppxPackageSigningEnabled=false

@@ -50,7 +50,7 @@ public sealed class RoadmapCompletedWork : IRoadmapCompletedWork
         DateOnly since,
         CancellationToken cancellationToken = default)
     {
-        var backlog = await _entries().ListAsync(cancellationToken);
+        var backlog = await _entries().ListAsync(cancellationToken).ConfigureAwait(false);
         return Completed(backlog, since, _repositories().Repositories);
     }
 

@@ -66,11 +66,11 @@ internal sealed class ArchifyDeliveryRunDiagrams : IDeliveryRunDiagrams
 
             if (!File.Exists(artifact))
             {
-                var failure = await GenerateAsync(specification, key, artifact, cancellationToken);
+                var failure = await GenerateAsync(specification, key, artifact, cancellationToken).ConfigureAwait(false);
                 if (failure is not null) return DeliveryRunDiagram.Failed(failure);
             }
 
-            var diagram = new DeliveryRunDiagram(await File.ReadAllTextAsync(artifact, cancellationToken), artifact, null);
+            var diagram = new DeliveryRunDiagram(await File.ReadAllTextAsync(artifact, cancellationToken).ConfigureAwait(false), artifact, null);
             Remember(key, diagram);
 
             return diagram;
@@ -94,7 +94,7 @@ internal sealed class ArchifyDeliveryRunDiagrams : IDeliveryRunDiagrams
         var spec = Path.Combine(_cacheDirectory, $"run-{key}.architecture.json");
         var partial = Path.Combine(_cacheDirectory, $"run-{key}.{Guid.NewGuid():N}.partial.html");
 
-        await File.WriteAllTextAsync(spec, specification, cancellationToken);
+        await File.WriteAllTextAsync(spec, specification, cancellationToken).ConfigureAwait(false);
 
         var start = new ProcessStartInfo("node")
         {
@@ -132,12 +132,12 @@ internal sealed class ArchifyDeliveryRunDiagrams : IDeliveryRunDiagrams
                 var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
                 var error = process.StandardError.ReadToEndAsync(timeout.Token);
 
-                await process.WaitForExitAsync(timeout.Token);
+                await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
 
                 if (process.ExitCode != 0)
                 {
-                    var detail = (await error).Trim();
-                    if (detail.Length == 0) detail = (await output).Trim();
+                    var detail = (await error.ConfigureAwait(false)).Trim();
+                    if (detail.Length == 0) detail = (await output.ConfigureAwait(false)).Trim();
 
                     TryDelete(partial);
                     return detail.Length == 0

@@ -129,7 +129,7 @@ public sealed class GitHubCredentialResolver : IGitHubCredentialResolver
                 : throw Unsatisfiable(choice, $"no personal access token has been pasted for '{login}'");
         }
 
-        var token = await _accounts.GetTokenAsync(account.Login, account.Host, cancellationToken);
+        var token = await _accounts.GetTokenAsync(account.Login, account.Host, cancellationToken).ConfigureAwait(false);
 
         return string.IsNullOrWhiteSpace(token)
             ? throw Unsatisfiable(choice, $"the GitHub CLI has no token for '{login}'")

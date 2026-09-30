@@ -34,7 +34,7 @@ public sealed class ImportedPlanSource : IImportedPlanSource
 
     public async Task<IReadOnlyList<ImportedPlanDto>> ListAsync(CancellationToken cancellationToken = default)
     {
-        var backlog = await _entries.ListAsync(cancellationToken);
+        var backlog = await _entries.ListAsync(cancellationToken).ConfigureAwait(false);
         return Summarise(backlog, _repositories.Repositories);
     }
 

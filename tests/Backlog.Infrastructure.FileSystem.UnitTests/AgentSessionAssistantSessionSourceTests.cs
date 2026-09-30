@@ -19,7 +19,7 @@ public class AgentSessionAssistantSessionSourceTests
     {
         var source = Source(Session("claude-1", AgentSessionKind.Claude, AgentSessionState.Finished));
 
-        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
+        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84), TestContext.Current.CancellationToken)).Sessions);
 
         // The id is the machine, and the name is only what it is called: the Sessions
         // context's Environment splits into exactly those two here.
@@ -42,7 +42,7 @@ public class AgentSessionAssistantSessionSourceTests
     {
         var source = Source(Session("claude-1", AgentSessionKind.Claude, AgentSessionState.Finished, turns));
 
-        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
+        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84), TestContext.Current.CancellationToken)).Sessions);
 
         Assert.Equal(turns, session.Prompts);
     }
@@ -60,7 +60,7 @@ public class AgentSessionAssistantSessionSourceTests
     {
         var source = Source(Session("one", kind, AgentSessionState.Finished));
 
-        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
+        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84), TestContext.Current.CancellationToken)).Sessions);
 
         Assert.Equal(expected, session.Assistant);
     }
@@ -79,7 +79,7 @@ public class AgentSessionAssistantSessionSourceTests
             Discovered: 842);
 
         var report = await new AgentSessionAssistantSessionSource(new StubAgentSessionSource(catalog))
-            .GetSessionsAsync(Noon.AddDays(-84));
+            .GetSessionsAsync(Noon.AddDays(-84), TestContext.Current.CancellationToken);
 
         Assert.True(report.Capped);
         Assert.Equal(["Copilot"], report.Unreadable);
@@ -98,7 +98,7 @@ public class AgentSessionAssistantSessionSourceTests
         var stub = new StubAgentSessionSource(AgentSessionCatalog.Empty);
         var horizon = Noon.AddDays(-84);
 
-        _ = await new AgentSessionAssistantSessionSource(stub).GetSessionsAsync(horizon);
+        _ = await new AgentSessionAssistantSessionSource(stub).GetSessionsAsync(horizon, TestContext.Current.CancellationToken);
 
         var query = Assert.Single(stub.Queries);
         Assert.False(query.IsNewest);
@@ -115,10 +115,10 @@ public class AgentSessionAssistantSessionSourceTests
     {
         var source = Source();
 
-        var availability = await source.GetAvailabilityAsync();
+        var availability = await source.GetAvailabilityAsync(TestContext.Current.CancellationToken);
 
         Assert.True(availability.IsAvailable);
-        Assert.Empty((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
+        Assert.Empty((await source.GetSessionsAsync(Noon.AddDays(-84), TestContext.Current.CancellationToken)).Sessions);
     }
 
     /// <summary>
@@ -143,7 +143,7 @@ public class AgentSessionAssistantSessionSourceTests
             ResolvedRepository = resolved
         });
 
-        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
+        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84), TestContext.Current.CancellationToken)).Sessions);
 
         Assert.Equal(expected, session.Repository);
     }
@@ -157,7 +157,7 @@ public class AgentSessionAssistantSessionSourceTests
             ModelUsage = [new AgentModelUsage("claude-opus-5-5", 10, 2_000, 300, 40_000)]
         });
 
-        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
+        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84), TestContext.Current.CancellationToken)).Sessions);
 
         var pr = Assert.Single(session.PullRequests!);
         Assert.Equal(("acme/backlog", 587, "https://github.com/acme/backlog/pull/587", (DateTimeOffset?)Noon.AddHours(-1)), (pr.Repository, pr.Number, pr.Url, pr.LinkedAt));
@@ -178,7 +178,7 @@ public class AgentSessionAssistantSessionSourceTests
             Session("unknown", AgentSessionKind.Copilot, AgentSessionState.Finished),
             Session("none", AgentSessionKind.Claude, AgentSessionState.Finished) with { PullRequests = [], ModelUsage = [] });
 
-        var sessions = (await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions;
+        var sessions = (await source.GetSessionsAsync(Noon.AddDays(-84), TestContext.Current.CancellationToken)).Sessions;
 
         Assert.Null(sessions[0].PullRequests);
         Assert.Null(sessions[0].ModelUsage);

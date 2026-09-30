@@ -58,11 +58,11 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
     {
         ArgumentNullException.ThrowIfNull(item);
 
-        var backlog = await _entries.ListAsync(cancellationToken);
+        var backlog = await _entries.ListAsync(cancellationToken).ConfigureAwait(false);
         var knowledge = ReadGraphNodes();
         var sessions = await ReadSessionsAsync(
             backlog.Where(entry => RoadmapItemRollupBuilder.Gathers(item, entry)),
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         return RoadmapItemRollupBuilder.Build(item, backlog, knowledge, sessions);
     }
@@ -80,11 +80,11 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
     {
         ArgumentNullException.ThrowIfNull(plan);
 
-        var backlog = await _entries.ListAsync(cancellationToken);
+        var backlog = await _entries.ListAsync(cancellationToken).ConfigureAwait(false);
         var knowledge = ReadGraphNodes();
         var sessions = await ReadSessionsAsync(
             backlog.Where(entry => plan.Items.Any(item => RoadmapItemRollupBuilder.Gathers(item, entry))),
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         return RoadmapItemRollupBuilder.BuildPlan(plan, backlog, knowledge, sessions);
     }
@@ -118,7 +118,7 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
             if (entry.CreatedAt is { } created && created < horizon) horizon = created;
         }
 
-        var catalog = await _sessions.GetSessionsAsync(AgentSessionQuery.Since(horizon), cancellationToken);
+        var catalog = await _sessions.GetSessionsAsync(AgentSessionQuery.Since(horizon), cancellationToken).ConfigureAwait(false);
 
         var found = new Dictionary<string, RoadmapSessionActivity>(StringComparer.OrdinalIgnoreCase);
         foreach (var session in catalog.Sessions)

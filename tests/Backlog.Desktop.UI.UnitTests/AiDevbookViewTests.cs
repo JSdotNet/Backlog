@@ -165,6 +165,7 @@ public sealed class AiDevbookViewTests : IDisposable
         // The callback is raised through the renderer and can land after Click
         // returns, so the link is waited for rather than read straight away.
         component.WaitForAssertion(() => Assert.NotNull(opened));
+        Assert.NotNull(opened);
         Assert.Equal("ai", opened.AreaKey);
         Assert.EndsWith("01-specify.md", opened.Path, StringComparison.Ordinal);
         Assert.Equal("devbook-skills", opened.Anchor);

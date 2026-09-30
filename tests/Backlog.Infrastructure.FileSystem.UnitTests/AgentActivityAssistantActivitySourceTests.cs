@@ -26,7 +26,7 @@ public class AgentActivityAssistantActivitySourceTests
     [Fact]
     public async Task An_environment_becomes_a_machine_at_the_seam()
     {
-        var report = await Source(Activity("claude-1", AgentSessionKind.Claude)).GetActivityAsync(Horizon);
+        var report = await Source(Activity("claude-1", AgentSessionKind.Claude)).GetActivityAsync(Horizon, TestContext.Current.CancellationToken);
 
         var session = Assert.Single(report.Sessions);
 
@@ -49,7 +49,7 @@ public class AgentActivityAssistantActivitySourceTests
     [InlineData(AgentSessionKind.Copilot)]
     public async Task An_assistant_is_named_by_the_context_that_owns_the_name(AgentSessionKind kind)
     {
-        var report = await Source(Activity("one", kind)).GetActivityAsync(Horizon);
+        var report = await Source(Activity("one", kind)).GetActivityAsync(Horizon, TestContext.Current.CancellationToken);
 
         var session = Assert.Single(report.Sessions);
 
@@ -72,7 +72,7 @@ public class AgentActivityAssistantActivitySourceTests
             [new AgentActivityRun(Noon.AddHours(-3), Noon.AddHours(-2)), new AgentActivityRun(Noon.AddHours(-1), Noon)],
             [new AgentActivityWait(Noon.AddHours(-2), Noon.AddHours(-1))]);
 
-        var session = Assert.Single((await Source(activity).GetActivityAsync(Horizon)).Sessions);
+        var session = Assert.Single((await Source(activity).GetActivityAsync(Horizon, TestContext.Current.CancellationToken)).Sessions);
 
         Assert.Equal(
             [(Noon.AddHours(-3), Noon.AddHours(-2)), (Noon.AddHours(-1), Noon)],
@@ -95,7 +95,7 @@ public class AgentActivityAssistantActivitySourceTests
         var log = new AgentActivityLog([], [], Horizon, TimeSpan.FromMinutes(5));
 
         var report = await new AgentActivityAssistantActivitySource(new StubAgentActivitySource(log))
-            .GetActivityAsync(Horizon);
+            .GetActivityAsync(Horizon, TestContext.Current.CancellationToken);
 
         Assert.Equal(TimeSpan.FromMinutes(5), report.IdleAfter);
 
@@ -115,7 +115,7 @@ public class AgentActivityAssistantActivitySourceTests
         var log = new AgentActivityLog([], ["Copilot"], Horizon, TimeSpan.FromMinutes(5));
 
         var report = await new AgentActivityAssistantActivitySource(new StubAgentActivitySource(log))
-            .GetActivityAsync(Horizon);
+            .GetActivityAsync(Horizon, TestContext.Current.CancellationToken);
 
         Assert.Equal(["Copilot"], report.Unreadable);
     }
@@ -130,7 +130,7 @@ public class AgentActivityAssistantActivitySourceTests
     {
         var source = new StubAgentActivitySource(AgentActivityLog.Empty);
 
-        _ = await new AgentActivityAssistantActivitySource(source).GetActivityAsync(Horizon);
+        _ = await new AgentActivityAssistantActivitySource(source).GetActivityAsync(Horizon, TestContext.Current.CancellationToken);
 
         Assert.Equal(Horizon, Assert.Single(source.Asked));
     }
@@ -147,7 +147,7 @@ public class AgentActivityAssistantActivitySourceTests
         var report = await Source(
                 [Activity("claude-1", AgentSessionKind.Claude)],
                 [Subagent("a16156d26373fd0e8", "claude-1")])
-            .GetActivityAsync(Horizon);
+            .GetActivityAsync(Horizon, TestContext.Current.CancellationToken);
 
         var session = Assert.Single(report.Sessions);
 
@@ -181,7 +181,7 @@ public class AgentActivityAssistantActivitySourceTests
         var report = await Source(
                 [Activity("one", kind)],
                 [Subagent("a1", "one", kind)])
-            .GetActivityAsync(Horizon);
+            .GetActivityAsync(Horizon, TestContext.Current.CancellationToken);
 
         Assert.Equal(AgentSessionGroups.Label(kind), Assert.Single(report.Subagents).Assistant);
     }
@@ -198,7 +198,7 @@ public class AgentActivityAssistantActivitySourceTests
         var report = await Source(
                 [Activity("claude-1", AgentSessionKind.Claude)],
                 [Subagent("a1", "claude-1")])
-            .GetActivityAsync(Horizon);
+            .GetActivityAsync(Horizon, TestContext.Current.CancellationToken);
 
         var agent = Assert.Single(report.Subagents);
 
@@ -212,7 +212,7 @@ public class AgentActivityAssistantActivitySourceTests
     [Fact]
     public async Task A_log_with_no_subagents_maps_to_a_report_with_none()
     {
-        var report = await Source(Activity("claude-1", AgentSessionKind.Claude)).GetActivityAsync(Horizon);
+        var report = await Source(Activity("claude-1", AgentSessionKind.Claude)).GetActivityAsync(Horizon, TestContext.Current.CancellationToken);
 
         Assert.Single(report.Sessions);
         Assert.Empty(report.Subagents);
@@ -241,7 +241,7 @@ public class AgentActivityAssistantActivitySourceTests
             ]
         };
 
-        var report = await Source(session).GetActivityAsync(Horizon);
+        var report = await Source(session).GetActivityAsync(Horizon, TestContext.Current.CancellationToken);
 
         Assert.Collection(
             report.Limits,
