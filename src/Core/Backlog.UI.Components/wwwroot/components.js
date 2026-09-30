@@ -3715,7 +3715,30 @@
                 event.preventDefault();
             };
 
+            /*
+                A double-click on an empty place on a row: add something there. Only
+                rows .NET marked with data-roadmap-slot take it — it marks none when
+                nothing is listening — and never a bar or a marker, whose own
+                double-click is two clicks that open it. Where along the row is told
+                in rem, as every other distance here is.
+            */
+            const onDoubleClick = (event) => {
+                if (event.button !== 0 || drag.active || link.active) return;
+                if (event.target.closest?.('[data-roadmap-bar], [data-roadmap-node], button, a, input, select, textarea')) return;
+
+                const row = event.target.closest?.('[data-roadmap-slot]');
+                if (!row || !element.contains(row) || !row.dataset.roadmapSlot) return;
+
+                // The browser selects the word under a double-click; there is no word
+                // here, but it would select the nearest label in the band instead.
+                window.getSelection?.()?.removeAllRanges?.();
+
+                const box = row.getBoundingClientRect();
+                reference.invokeMethodAsync('SlotActivated', row.dataset.roadmapSlot, (event.clientX - box.left) / backlogRootFontSize());
+            };
+
             element.addEventListener('pointerdown', onPointerDown);
+            element.addEventListener('dblclick', onDoubleClick);
             element.addEventListener('pointermove', onPointerMove);
             element.addEventListener('pointerup', onPointerUp);
             element.addEventListener('pointercancel', onPointerCancel);
@@ -3752,6 +3775,7 @@
                 reset();
                 endLink();
                 element.removeEventListener('pointerdown', onPointerDown);
+                element.removeEventListener('dblclick', onDoubleClick);
                 element.removeEventListener('pointermove', onPointerMove);
                 element.removeEventListener('pointerup', onPointerUp);
                 element.removeEventListener('pointercancel', onPointerCancel);

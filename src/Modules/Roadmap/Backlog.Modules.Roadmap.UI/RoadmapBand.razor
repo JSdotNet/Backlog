@@ -90,6 +90,7 @@
                                  OnBarSelected="Select"
                                  OnBarChanged="Apply"
                                  OnLinkCreated="LinkAsync"
+                                 OnSlotActivated="PlaceHere"
                                  GroupContent="@BandPace"
                                  CssClass="roadmap-band__timeline"
                                  TestId="roadmap-timeline" />
@@ -137,6 +138,7 @@
                        Open="@_editing"
                        OpenChanged="EditingChanged"
                        Item="@_edited"
+                       Placement="@_placement"
                        Rollup="@_rollup"
                        Proposal="@_proposal"
                        Repositories="@Configured()"
@@ -151,6 +153,7 @@
                             Open="@_editingDate"
                             OpenChanged="EditingDateChanged"
                             Milestone="@_editedDate"
+                            PlacedOn="@_placedOn"
                             Repositories="@Configured()"
                             DependencyOptions="@DependencyOptions()"
                             Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
@@ -176,6 +179,11 @@
 
     private RoadmapItemEditor? _editor;
     private RoadmapItemDto? _edited;
+
+    // Where on the chart the new work or date being added was put, when it was put
+    // somewhere rather than asked for from the heading.
+    private RoadmapItemPlacement? _placement;
+    private DateOnly? _placedOn;
     private RoadmapItemRollupDto _rollup = RoadmapItemRollupDto.Empty;
     private RoadmapRelengthProposalDto? _proposal;
     private bool _editing;
@@ -524,19 +532,54 @@
         _rollup = RoadmapItemRollupDto.Empty;
         _proposal = null;
         _edited = null;
+        _placement = null;
         _editing = true;
     }
 
     private void AddADate()
     {
         _editedDate = null;
+        _placedOn = null;
         _editingDate = true;
+    }
+
+    /// <summary>
+    /// A double-click on an empty place on the chart: the same two dialogs the heading
+    /// opens, opened on where it was — the week, and for work the band's repository and
+    /// the row's lane. Nothing is added until the dialog is saved, so a stray
+    /// double-click costs a Cancel, never an item.
+    /// </summary>
+    private void PlaceHere(RoadmapSlot slot)
+    {
+        if (slot.Kind == RoadmapRowKind.Milestones)
+        {
+            AddADate();
+            _placedOn = slot.On;
+            return;
+        }
+
+        PlanSomething();
+        _placement = new RoadmapItemPlacement(slot.On, RepositoryOf(slot.RowId), RoadmapPlanView.LaneOf(slot.RowId));
+    }
+
+    /// <summary>The configured repository a row's band stands for, or null for the
+    /// unfiled band — which is where work filed against nothing is drawn.</summary>
+    private string? RepositoryOf(string rowId)
+    {
+        var separator = rowId.IndexOf("::", StringComparison.Ordinal);
+        var band = separator < 0 ? rowId : rowId[..separator];
+
+        return Configured().FirstOrDefault(repository =>
+            string.Equals(repository.Alias, band, StringComparison.OrdinalIgnoreCase))?.Alias;
     }
 
     private void EditingDateChanged(bool open)
     {
         _editingDate = open;
-        if (!open) _editedDate = null;
+        if (open) return;
+
+        _editedDate = null;
+        _placedOn = null;
     }
 
     private void EditingChanged(bool open)
@@ -546,6 +589,7 @@
 
         _edited = null;
         _proposal = null;
+        _placement = null;
     }
 
     /// <summary>Everything in the plan an item could be told to wait for, itself

@@ -12454,6 +12454,47 @@ select.field__input {
     border-style: dashed;
 }
 
+/*
+  Intent alone: nothing has been set up to carry it out yet. An outline with a
+  faint hatch rather than a filled span, so the plan's guesses read apart from the
+  work somebody has picked up, while the band's colour still says whose it is.
+  Dotted rather than dashed, because dashed already means "fixed" — and the two can
+  never meet on one bar: a bar is only fixed once work on it has begun.
+*/
+.roadmap-bar--tentative .roadmap-bar__body {
+    border-style: dotted;
+    border-left-style: solid;
+    background:
+        repeating-linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--roadmap-group-color, var(--color-border-strong)) 16%, transparent) 0 0.25rem,
+            transparent 0.25rem 0.5rem),
+        var(--color-background-alt);
+    color: var(--color-text-secondary);
+}
+
+.roadmap-bar--tentative .roadmap-bar__title {
+    font-style: italic;
+}
+
+/*
+  Where a double-click adds something, the pointer says so. Only on the empty
+  row: a bar keeps its own grab cursor.
+*/
+.roadmap-timeline--insertable .roadmap-timeline__row[data-roadmap-slot] {
+    cursor: cell;
+}
+
+/* Padding holds nothing, but under a band's last lane it is where a reader aims
+   for "one more thing in this band" — so it takes the double-click the lane would. */
+.roadmap-timeline--insertable .roadmap-timeline__row--padding[data-roadmap-slot] {
+    pointer-events: auto;
+}
+
+.roadmap-timeline--insertable .roadmap-timeline__row[data-roadmap-slot]:hover {
+    background-color: color-mix(in srgb, var(--roadmap-group-color, var(--color-border-strong)) 6%, transparent);
+}
+
 /* --- The edges ----------------------------------------------------------- */
 
 /*
