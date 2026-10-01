@@ -979,7 +979,7 @@ public static class RoadmapPlanView
             {
                 parts.Add(string.Create(
                     CultureInfo.InvariantCulture,
-                    $"Forecast: {forecastEnd:d MMM yyyy} at {pace:0.##} pt/wk"));
+                    $"Forecast: {forecastEnd:d MMM yyyy} at {Math.Round(pace, MidpointRounding.AwayFromZero):0} pt/wk"));
             }
         }
 

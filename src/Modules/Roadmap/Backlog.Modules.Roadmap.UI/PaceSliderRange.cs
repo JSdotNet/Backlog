@@ -11,17 +11,17 @@ namespace Backlog.Modules.Roadmap.UI;
 /// them and it runs from half the typed pace to double it.
 /// </para>
 /// <para>
-/// Both ends are moved outward onto a step so the thumb can rest on them, and the
-/// line is always long enough to hold the pace in use, so the thumb is never drawn
-/// somewhere the lane is not. The ends never go below one step — a pace of zero has
-/// no length to draw — unless the pace in use is itself lower, which then is the end.
+/// Stepped a whole point at a time, so a pace set with the slider is always a whole
+/// number. Both ends are moved outward onto a whole point so the thumb can rest on
+/// them, and the line is always long enough to reach the pace in use. It never starts
+/// below one point — a pace of zero has no length to draw — so a lane in use at less
+/// than a point a week is drawn at the start of the line.
 /// </para>
 /// </summary>
 internal readonly record struct PaceSliderRange(decimal Min, decimal Max, decimal Step)
 {
-    /// <summary>A quarter of a point a week: fine enough to place a lane by, coarse
-    /// enough to land on with a thumb.</summary>
-    public const decimal QuarterPoint = 0.25m;
+    /// <summary>A whole point a week: the one figure the slider sets.</summary>
+    public const decimal WholePoint = 1m;
 
     public static PaceSliderRange Of(decimal? twoWeek, decimal typed, decimal current)
     {
@@ -34,18 +34,15 @@ internal readonly record struct PaceSliderRange(decimal Min, decimal Max, decima
             high = Math.Max(measured, typed);
         }
 
+        low = Math.Min(low, current);
         high = Math.Max(high, current);
 
-        // The floor only applies to the ends the lane and the reader chose. A pace in
-        // use below it — the 8-week stretch of a quiet lane can measure an eighth of a
-        // point — still has to be on the line, so it is the end itself then.
-        var min = Math.Max(QuarterPoint, Math.Floor(low / QuarterPoint) * QuarterPoint);
-        if (current < min) min = current;
-        var max = Math.Ceiling(high / QuarterPoint) * QuarterPoint;
+        var min = Math.Max(WholePoint, Math.Floor(low));
+        var max = Math.Ceiling(high);
 
         // One step at least, so there is a line to move along.
-        if (max <= min) max = min + QuarterPoint;
+        if (max <= min) max = min + WholePoint;
 
-        return new PaceSliderRange(min, max, QuarterPoint);
+        return new PaceSliderRange(min, max, WholePoint);
     }
 }

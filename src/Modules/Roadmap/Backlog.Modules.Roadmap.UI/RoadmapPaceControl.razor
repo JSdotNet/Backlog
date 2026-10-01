@@ -17,8 +17,9 @@
     offered only while the slider has set the pace, as "Reset", which returns the band
     to the reader's own pace — and a line then says that pace is placing the band.
 
-    The info mark says what the lane actually managed over the last two, four and
-    eight weeks — the evidence for choosing a pace — and which pace is placing it.
+    The info mark, at the end of the band's name, says what the lane actually managed
+    over the last two, four and eight weeks — the evidence for choosing a pace — and
+    which pace is placing it. Every figure is a whole number of points.
 
     Kept per repository band, because productivity differs from one project to the
     next (ADR 0013, ruling 4 as amended), under the band's name in the chart's
@@ -28,22 +29,35 @@
     the default pace (Repository unset), measured over all of it, and its own pace is
     the heading's typed one.
 
-    A change here that alters the pace in use is reported through OnPaceChanged, and
-    the band redraws every bar still sized by its effort, each at its own
-    repository's pace (ADR 0013, ruling 5 as amended). Those windows are read, not
-    stored (local ADR 0018), so the choice writes the pace and nothing else.
+    A change here that alters the pace in use is reported through OnPaceChanged. The
+    band redraws on the pace's own change notice instead, every bar still sized by
+    its effort, each at its own repository's pace (ADR 0013, ruling 5 as amended).
+    Those windows are read, not stored (local ADR 0018), so the choice writes the
+    pace and nothing else — once: letting go of the thumb sets the pace and chooses
+    it in one save, and the thumb stays where it was let go while that is read back.
 *@
 @implements IDisposable
 @inject IPlanningPace Pace
 @inject IRoadmapWorkChanges WorkChanges
 
 <div class="roadmap-pace" data-testid="@TestIdOf(null)">
+    @* At the end of the band's name, in the band's top-right corner, where it does
+       not take a line of the rows the band reserves (see .roadmap-pace__hint). *@
+    <InfoHint CssClass="roadmap-pace__hint"
+              AriaLabel="@HintLabel"
+              TestId="@TestIdOf("hint")"
+              TriggerTestId="@TestIdOf("hint-trigger")"
+              TooltipTestId="@TestIdOf("hint-text")">
+        <span class="roadmap-pace__hint-line">@Managed</span>
+        <span class="roadmap-pace__hint-line">@Placing</span>
+    </InfoHint>
+
     <div class="roadmap-pace__line">
         <Slider CssClass="roadmap-pace__slider"
                 Min="_range.Min"
                 Max="_range.Max"
                 Step="_range.Step"
-                Value="_paces.InUse"
+                Value="_released ?? _paces.InUse"
                 ValueInput="OnLive"
                 ValueChanged="SetOwn"
                 AriaLabel="@SliderLabel"
@@ -65,15 +79,6 @@
                 @(HasMeasured ? "Measured" : "Reset")
             </ToggleButton>
         }
-
-        <InfoHint CssClass="roadmap-pace__hint"
-                  AriaLabel="@HintLabel"
-                  TestId="@TestIdOf("hint")"
-                  TriggerTestId="@TestIdOf("hint-trigger")"
-                  TooltipTestId="@TestIdOf("hint-text")">
-            <span class="roadmap-pace__hint-line">@Managed</span>
-            <span class="roadmap-pace__hint-line">@Placing</span>
-        </InfoHint>
 
         @* One short line, always the same height, so the band never has to grow for
            it. The whole sentence is its title and what a screen reader hears. *@
@@ -117,7 +122,12 @@
     /// pace in use otherwise.</summary>
     private decimal? _live;
 
-    private decimal Shown => _live ?? _paces.InUse;
+    /// <summary>The figure the thumb was let go at, until the pace it saved has been
+    /// read back. Without it the slider is handed the pace in use from before, and
+    /// puts the thumb back there for as long as the read takes.</summary>
+    private decimal? _released;
+
+    private decimal Shown => _released ?? _live ?? _paces.InUse;
 
     private string Lane => Repository ?? "all your work";
 
@@ -226,8 +236,17 @@
     private async Task SetOwn(decimal value)
     {
         var before = _paces.InUse;
-        _error = Pace.SetOwn(value, Repository);
-        await Read();
+        _released = value;
+        try
+        {
+            _error = Pace.SetOwn(value, Repository);
+            await Read();
+        }
+        finally
+        {
+            _released = null;
+        }
+
         if (_paces.InUse != before) await OnPaceChanged.InvokeAsync();
     }
 
@@ -257,7 +276,8 @@
     private static string Slug(string value) =>
         new([.. value.Select(character => char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : '-')]);
 
-    /// <summary>A pace to two decimals for reading at a glance. Placement still
-    /// divides by the figure it was measured to.</summary>
-    private static string Rounded(decimal pace) => pace.ToString("0.##", CultureInfo.InvariantCulture);
+    /// <summary>A pace as a whole number of points, the only figure the slider sets.
+    /// Placement still divides by the figure it was measured to.</summary>
+    private static string Rounded(decimal pace) =>
+        Math.Round(pace, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture);
 }

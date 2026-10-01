@@ -42,10 +42,6 @@ internal sealed class PlanningPace(
     /// <summary>The longest stretch measured, so one read covers all three.</summary>
     private const int LongestWeeks = 8;
 
-    /// <summary>The finest pace the settings file can hold; anything under it is
-    /// refused by the settings themselves.</summary>
-    private const decimal SmallestPace = 0.0001m;
-
     public event Action? Changed
     {
         add => settings.Changed += value;
@@ -89,24 +85,12 @@ internal sealed class PlanningPace(
     public string? Choose(PaceSource source, string? repository = null) =>
         settings.Choose(source, Scope(repository));
 
-    /// <summary>Sets the scope's own typed pace and chooses it. The typed text goes
-    /// through the settings' one parsing rule, in the invariant spelling, so a refusal
-    /// reads the same here as beside the heading's field.</summary>
-    public string? SetOwn(decimal storyPointsPerWeek, string? repository = null)
-    {
-        var scope = Scope(repository);
-
-        // A figure the settings cannot hold is refused with its message and nothing
-        // is chosen; past that, whatever comes back is a warning and the pace took.
-        if (storyPointsPerWeek < SmallestPace)
-        {
-            return settings.SetManual(storyPointsPerWeek.ToString(CultureInfo.InvariantCulture), scope);
-        }
-
-        var warning = settings.SetManual(storyPointsPerWeek.ToString(CultureInfo.InvariantCulture), scope);
-
-        return settings.Choose(PaceSource.Set, scope) ?? warning;
-    }
+    /// <summary>Sets the scope's own typed pace and chooses it, as one change, so every
+    /// pace on screen hears it once. The typed text goes through the settings' one
+    /// parsing rule, in the invariant spelling, so a refusal reads the same here as
+    /// beside the heading's field.</summary>
+    public string? SetOwn(decimal storyPointsPerWeek, string? repository = null) =>
+        settings.SetOwn(storyPointsPerWeek.ToString(CultureInfo.InvariantCulture), Scope(repository));
 
     internal static PlanningPacesDto Paces(
         decimal manual,

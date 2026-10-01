@@ -305,6 +305,39 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Setting_a_repositorys_own_pace_writes_the_pace_and_the_choice_as_one_change()
+    {
+        var store = Store();
+        var raised = 0;
+        store.Changed += () => raised++;
+
+        Assert.Null(store.SetOwn("5.25", "backlog"));
+        Assert.Null(store.SetOwn("5.25", "backlog")); // unchanged: nothing to write
+
+        Assert.Equal(1, raised);
+        var reread = Store();
+        Assert.Equal(5.25m, reread.StoryPointsPerWeekFor("backlog"));
+        Assert.Equal(PaceSource.Set, reread.SourceFor("backlog"));
+        Assert.Equal(PaceSource.Manual, reread.Source);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("2,5")]
+    public void A_pace_of_its_own_that_is_not_a_pace_is_refused_and_chooses_nothing(string refused)
+    {
+        var store = Store();
+        var raised = 0;
+        store.Changed += () => raised++;
+
+        Assert.NotNull(store.SetOwn(refused, "backlog"));
+
+        Assert.Equal(0, raised);
+        Assert.False(store.KeepsOwnPace("backlog"));
+    }
+
+    [Fact]
     public void A_value_that_is_not_a_pace_source_is_refused()
     {
         var store = Store();
