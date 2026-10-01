@@ -59,4 +59,16 @@
     <Compile Include="$(MSBuildThisFileDirectory)Shared\RepositoryRoot.cs" Link="Shared\RepositoryRoot.cs" />
   </ItemGroup>
 
+  <!--
+    The one poll for a condition a test cannot await, which passes the running
+    test's cancellation token. Linked everywhere for the same reason as above,
+    and because it depends on nothing but xunit. The shared test doubles under
+    Shared\TestDoubles are not linked here: each is linked by the projects that
+    use it, because a double that implements a product interface only compiles
+    where that interface is referenced. See tests/Shared/Polling.cs.
+  -->
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Shared\Polling.cs" Link="Shared\Polling.cs" />
+  </ItemGroup>
+
 </Project>

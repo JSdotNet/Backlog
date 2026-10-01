@@ -50,6 +50,9 @@
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Mcp\Backlog.Infrastructure.Mcp.csproj" />
     <ProjectReference Include="..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
     <ProjectReference Include="..\..\App\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
+    <!-- What this harness composes alike with the MAUI head, behind one call:
+         AddDesktopComposition in Program. -->
+    <ProjectReference Include="..\..\App\Backlog.Desktop.Composition\Backlog.Desktop.Composition.csproj" />
   </ItemGroup>
 
   <ItemGroup>

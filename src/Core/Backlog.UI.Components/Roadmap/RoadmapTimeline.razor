@@ -89,7 +89,7 @@
         }
         @if (OnSlotActivated.HasDelegate)
         {
-            <text>With a pointer, double-click an empty place on a row to add something there, in that week.</text>
+            <text>With a pointer, double-click an empty place on a row to add something there, in that week, or drag across one to add something that long.</text>
         }
     </p>
 
@@ -609,8 +609,8 @@
     public EventCallback<RoadmapLink> OnLinkCreated { get; set; }
 
     /// <summary>
-    /// An empty place on a row the reader double-clicked, to put something there:
-    /// the row and the week. Proposed, not created — what to add, and whether it may
+    /// An empty place on a row the reader double-clicked or dragged across, to put
+    /// something there: the row and the week, and for a drag the weeks it covered. Proposed, not created — what to add, and whether it may
     /// go there, is the host's, and it appears when the host hands it back.
     /// <para>
     /// A pointer shortcut and nothing more. Left unset, a double-click on a row does
@@ -898,16 +898,17 @@
 
     private RoadmapGeometry Geometry => new(Span, QuarterWidth * Stretch, RowHeight, BarHeight);
 
-    /// <summary>Where the part of the chart that has to fill the screen begins: this
-    /// week when it is on the chart, so history to the left is scrolled to rather
-    /// than squeezed in, and the window's start otherwise.</summary>
+    /// <summary>Where the part of the chart that has to fill the screen begins: the
+    /// week before this one when it is on the chart — so the days either side of
+    /// today are what it opens on, and older history to the left is scrolled to
+    /// rather than squeezed in — and the window's start otherwise.</summary>
     private DateOnly FillFrom
     {
         get
         {
             if (Today is not { } today || !Span.Contains(today)) return Span.Start;
 
-            var week = RoadmapWindow.StartOfWeek(today, WeekStart);
+            var week = RoadmapWindow.StartOfWeek(today, WeekStart).AddDays(Span.IsGraduated ? -7 * RoadmapWindow.GraduatedDayWeeks : 0);
 
             return week < Span.Start ? Span.Start : week;
         }
@@ -1132,14 +1133,72 @@
     [JSInvokable]
     public async Task SlotActivated(string rowId, double xRem)
     {
-        if (!OnSlotActivated.HasDelegate) return;
-
-        var row = Rows.FirstOrDefault(placed => placed.Step is null && !placed.Padding && placed.Row.Id == rowId)?.Row;
-        if (row is null) return;
+        if (SlotRow(rowId) is not { } row) return;
 
         var on = RoadmapWindow.StartOfWeek(Geometry.DateAt(xRem), WeekStart);
 
         await OnSlotActivated.InvokeAsync(new RoadmapSlot(row.Id, on, row.Kind));
+    }
+
+    /// <summary>
+    /// Where a span dragged across an empty place on <paramref name="rowId"/>, from
+    /// <paramref name="fromRem"/> to <paramref name="toRem"/>, would be drawn — the
+    /// weeks <see cref="SlotDrawn"/> would propose for the same two points, so what the
+    /// reader sees while dragging is what the release asks for. Null on a row that
+    /// takes no span: a milestones row, a row the chart does not draw, or any row when
+    /// nothing is listening.
+    /// </summary>
+    [JSInvokable]
+    public RoadmapSlotDraft? SlotDrawPreview(string rowId, double fromRem, double toRem)
+    {
+        if (SlotRow(rowId) is not { Kind: RoadmapRowKind.Bars }) return null;
+
+        var (start, end) = SlotSpan(fromRem, toRem);
+        var weeks = (end.DayNumber - start.DayNumber + 1) / 7;
+
+        return new RoadmapSlotDraft(
+            Geometry.XFor(start),
+            Geometry.WidthFor(start, end),
+            $"{DateLabel(start)} – {DateLabel(end)}, {weeks} {(weeks == 1 ? "week" : "weeks")}");
+    }
+
+    /// <summary>
+    /// A drag across an empty place on <paramref name="rowId"/> was released: proposed
+    /// as the whole weeks from the one pressed in through the one let go in, whichever
+    /// way the pointer travelled. A milestones row takes the pressed week alone, as a
+    /// double-click there does — a date has no length to drag out.
+    /// </summary>
+    [JSInvokable]
+    public async Task SlotDrawn(string rowId, double fromRem, double toRem)
+    {
+        if (SlotRow(rowId) is not { } row) return;
+
+        if (row.Kind == RoadmapRowKind.Milestones)
+        {
+            await OnSlotActivated.InvokeAsync(new RoadmapSlot(row.Id, RoadmapWindow.StartOfWeek(Geometry.DateAt(fromRem), WeekStart), row.Kind));
+            return;
+        }
+
+        var (start, end) = SlotSpan(fromRem, toRem);
+
+        await OnSlotActivated.InvokeAsync(new RoadmapSlot(row.Id, start, row.Kind, end));
+    }
+
+    /// <summary>The row an add-in-place gesture names, when somebody is listening and the
+    /// chart draws it as a row of its own.</summary>
+    private RoadmapRow? SlotRow(string rowId) =>
+        OnSlotActivated.HasDelegate
+            ? Rows.FirstOrDefault(placed => placed.Step is null && !placed.Padding && placed.Row.Id == rowId)?.Row
+            : null;
+
+    /// <summary>Two points along a row widened to the whole weeks they fall in: the
+    /// first day of the earlier one's week through the last day of the later one's.</summary>
+    private (DateOnly Start, DateOnly End) SlotSpan(double fromRem, double toRem)
+    {
+        var start = RoadmapWindow.StartOfWeek(Geometry.DateAt(Math.Min(fromRem, toRem)), WeekStart);
+        var end = RoadmapWindow.StartOfWeek(Geometry.DateAt(Math.Max(fromRem, toRem)), WeekStart).AddDays(6);
+
+        return (start, end);
     }
 
     /// <summary>The row a double-click there adds to, or null — no attribute, so the

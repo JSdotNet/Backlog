@@ -279,22 +279,20 @@ public sealed class TasksDetailPaneTests
 
     private static async Task WaitUntilStoredAsync(TasksPaneHost host, EntryRow row, Func<string, bool> condition)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(10);
+        var stored = string.Empty;
 
-        while (true)
-        {
-            var stored = string.Empty;
-            await host.FromElsewhereAsync(elsewhere =>
+        await Polling.WaitUntilAsync(
+            async () =>
             {
-                stored = elsewhere.Rows.Single(r => r.Id == row.Id).RawText;
-                return Task.CompletedTask;
-            });
+                await host.FromElsewhereAsync(elsewhere =>
+                {
+                    stored = elsewhere.Rows.Single(r => r.Id == row.Id).RawText;
+                    return Task.CompletedTask;
+                });
 
-            if (condition(stored)) return;
-
-            Assert.True(DateTime.UtcNow < deadline, $"The debounced save never landed; the store holds: {stored}");
-            await Task.Delay(50);
-        }
+                return condition(stored);
+            },
+            () => $"The debounced save never landed; the store holds: {stored}");
     }
 
     /// <summary>

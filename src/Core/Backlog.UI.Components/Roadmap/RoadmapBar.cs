@@ -153,17 +153,28 @@ public enum RoadmapMarker
 public sealed record RoadmapLink(string FromId, string ToId);
 
 /// <summary>
-/// An empty place on the chart the reader asked to put something: a row, and the
-/// week under the pointer.
+/// An empty place on the chart the reader asked to put something: a row, the week
+/// under the pointer, and — when they dragged across the row rather than
+/// double-clicked it — how far they dragged.
 /// <para>
 /// Proposed, not created — like <see cref="RoadmapChange"/>, what goes there and
-/// whether it may is the host's. The week is snapped to its first day, because every
+/// whether it may is the host's. Both ends snap to whole weeks, because every
 /// gesture on a timeline snaps to the week.
 /// </para>
 /// </summary>
 /// <param name="RowId">The row it is on. A band's padding reports the lane drawn
 /// nearest it, which is where a bar dragged into the padding would land too.</param>
-/// <param name="On">The first day of the week under the pointer.</param>
+/// <param name="On">The first day of the first week covered.</param>
 /// <param name="Kind">Whether the row takes bars or milestones, so a host can tell
 /// "plan work here" from "add a date here" without parsing the row id.</param>
-public sealed record RoadmapSlot(string RowId, DateOnly On, RoadmapRowKind Kind);
+/// <param name="Until">The last day of the last week a drag covered, inclusive as a
+/// bar's end is. Null for a double-click, which says where and leaves how long to
+/// the host, and always null on a milestones row, where a date has no length.</param>
+public sealed record RoadmapSlot(string RowId, DateOnly On, RoadmapRowKind Kind, DateOnly? Until = null);
+
+/// <summary>
+/// Where a span being dragged across an empty row would be drawn, in rem from the
+/// track's left edge, and what it covers in words. The script outlines it under the
+/// pointer; nothing is added until the drag is released and the host says so.
+/// </summary>
+public sealed record RoadmapSlotDraft(double LeftRem, double WidthRem, string Label);

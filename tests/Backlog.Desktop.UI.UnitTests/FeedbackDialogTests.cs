@@ -281,14 +281,4 @@ public sealed class FeedbackDialogTests
                 $"https://raw.githubusercontent.com/{repository.FullName}/{branch}/{path}"));
         }
     }
-
-    private sealed class StubProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
-
-        public void Invalidate()
-        {
-        }
-    }
 }

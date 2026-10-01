@@ -402,7 +402,8 @@ public static class RoadmapPlanView
                 partCount,
                 window.Start,
                 window.End,
-                waitsFor));
+                waitsFor,
+                Ran: ran.ContainsKey((phase, band))));
         }
 
         foreach (var (groupId, aliases) in bands.Where(band =>
@@ -454,6 +455,25 @@ public static class RoadmapPlanView
         item.End.AddDays(change.End.DayNumber - bar.End.DayNumber)
     );
 
+    /// <summary>
+    /// The end to pin for started work after the end of one of its bars was dragged to
+    /// <paramref name="change"/>: the item's drawn end — the latest end of any of its bars
+    /// — moved as far as that bar's end did. For the bar that reaches the item's end that
+    /// is the dropped date itself. For an earlier segment of a hand-over it is not where
+    /// the segment lands: the open segments share the new window out by effort again.
+    /// </summary>
+    public static DateOnly PinnedEndFor(IEnumerable<RoadmapBar> bars, RoadmapBar bar, RoadmapChange change)
+    {
+        var node = NodeIdOf(bar.Id);
+        var drawnEnd = bars
+            .Where(candidate => NodeIdOf(candidate.Id) == node)
+            .Select(candidate => candidate.End)
+            .Append(bar.End)
+            .Max();
+
+        return drawnEnd.AddDays(change.End.DayNumber - bar.End.DayNumber);
+    }
+
     /// <summary>What separates a part's band from its place in the sequence, in the id
     /// of one segment of an item whose tasks hand over between repositories:
     /// <c>&lt;item id&gt;@&lt;band&gt;#&lt;phase&gt;</c>.</summary>
@@ -479,7 +499,8 @@ public static class RoadmapPlanView
         int PartCount,
         DateOnly? SegmentStart = null,
         DateOnly? SegmentEnd = null,
-        IReadOnlyList<string>? WaitsForParts = null)
+        IReadOnlyList<string>? WaitsForParts = null,
+        bool Ran = false)
     {
         public DateOnly Start => SegmentStart ?? Item.Start;
 
@@ -722,9 +743,10 @@ public static class RoadmapPlanView
             Locked: drawnFrom is not null,
             Steps: part.Steps,
             // Work in flight has a start that is a fact and an end that is a forecast, so
-            // the end alone may be dragged to pin it. Only the bar that reaches the item's
-            // end: an earlier segment of a hand-over is a slice of it, not where it ends.
-            EndResizable: drawnFrom is { Finished: false } && part.End == part.Item.End,
+            // the end alone may be dragged to pin it. Every part still open offers it — an
+            // earlier segment of a hand-over too, whose end moves the item's by as much
+            // (PinnedEndFor). A segment drawn where its work ran is history, and stays put.
+            EndResizable: drawnFrom is { Finished: false } && !part.Ran,
             Tentative: noTask);
 
     /// <summary>
@@ -979,7 +1001,7 @@ public static class RoadmapPlanView
             {
                 parts.Add(string.Create(
                     CultureInfo.InvariantCulture,
-                    $"Forecast: {forecastEnd:d MMM yyyy} at {pace:0.##} pt/wk"));
+                    $"Forecast: {forecastEnd:d MMM yyyy} at {Math.Round(pace, MidpointRounding.AwayFromZero):0} pt/wk"));
             }
         }
 

@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.GitHub;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 
@@ -356,7 +357,7 @@ public class GitHubBillingClientTests
 
         var transport = new RoutingTransport().Returns("users/j-schepers_innobv/", OneModel);
         var settings = Settings("JSdotNet/Backlog", accounts: ["j-schepers_innobv"]);
-        var client = new GitHubBillingClient(transport, new StubIdentity("jsdotnet"), settings, months, new FixedClock(Today));
+        var client = new GitHubBillingClient(transport, new StubIdentity("jsdotnet"), settings, months, new FakeTimeProvider(Today));
 
         var usage = await client.GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
 
@@ -366,12 +367,7 @@ public class GitHubBillingClientTests
     }
 
     private static GitHubBillingClient Client(RoutingTransport transport, IAiCreditUsageCache months, DateTimeOffset now) =>
-        new(transport, new StubIdentity("jsdotnet"), Settings("JSdotNet/Backlog"), months, new FixedClock(now));
-
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
-    }
+        new(transport, new StubIdentity("jsdotnet"), Settings("JSdotNet/Backlog"), months, new FakeTimeProvider(now));
 
     /// <summary>The month cache, in memory: what is pinned here is the client's use
     /// of the port, and the disk is the file-system project's test.</summary>

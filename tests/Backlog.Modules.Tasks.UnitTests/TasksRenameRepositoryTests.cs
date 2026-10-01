@@ -12,7 +12,7 @@ namespace Backlog.Modules.Tasks.UnitTests;
 /// The properties are the reconcile pass's own: it moves exactly what named the
 /// old id, it is idempotent, and it never touches a tombstone.
 /// </summary>
-public class RenameRepositoryTests
+public class TasksRenameRepositoryTests
 {
     private const string OldId = "JSdotNet/Backlog";
     private const string NewId = "JSdotNet/Backlog-renamed";
@@ -25,7 +25,7 @@ public class RenameRepositoryTests
         var changed = await Rename(store);
 
         Assert.Equal(1, changed);
-        Assert.Equal([NewId, "JSdotNet/Docs"], store.Entries.Single().RepoIds);
+        Assert.Equal([NewId, "JSdotNet/Docs"], store.Entries.Values.Single().RepoIds);
     }
 
     /// <summary>An issue link is a projection into a repository, and the issue
@@ -43,7 +43,7 @@ public class RenameRepositoryTests
 
         Assert.Equal(
             [new ProjectionRef(NewId, "42", "issue"), new ProjectionRef("JSdotNet/Docs", "7", "issue")],
-            store.Entries.Single().ProjectionRefs);
+            store.Entries.Values.Single().ProjectionRefs);
     }
 
     /// <summary>Registry ids are compared without regard to case everywhere
@@ -57,7 +57,7 @@ public class RenameRepositoryTests
         var changed = await Rename(store);
 
         Assert.Equal(1, changed);
-        Assert.Equal([NewId], store.Entries.Single().RepoIds);
+        Assert.Equal([NewId], store.Entries.Values.Single().RepoIds);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class RenameRepositoryTests
 
         await Rename(store);
 
-        Assert.Equal([NewId], store.Entries.Single().RepoIds);
+        Assert.Equal([NewId], store.Entries.Values.Single().RepoIds);
     }
 
     /// <summary>A tombstone is not read back into a chip and is not seen by the
@@ -108,7 +108,7 @@ public class RenameRepositoryTests
         var changed = await Rename(store);
 
         Assert.Equal(0, changed);
-        Assert.Equal([OldId], store.Entries.Single().RepoIds);
+        Assert.Equal([OldId], store.Entries.Values.Single().RepoIds);
     }
 
     [Fact]
@@ -152,38 +152,6 @@ public class RenameRepositoryTests
 
     private static InMemoryTaskRepository StoreWith(params TaskItem[] entries)
     {
-        var store = new InMemoryTaskRepository();
-        store.Entries.AddRange(entries);
-        return store;
-    }
-
-    private sealed class InMemoryTaskRepository : ITaskRepository
-    {
-        public List<TaskItem> Entries { get; } = [];
-
-        public int Writes { get; set; }
-
-        public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Where(entry => entry.DeletedAt is null)]);
-
-        public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(
-            DateTimeOffset since,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>(
-                [.. Entries.Where(entry => entry.UpdatedAt > since).OrderBy(entry => entry.UpdatedAt)]);
-
-        public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.FirstOrDefault(entry => entry.Id == id && entry.DeletedAt is null));
-
-        public Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.FirstOrDefault(entry => entry.Id == id));
-
-        public Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default)
-        {
-            Writes++;
-            Entries.RemoveAll(existing => existing.Id == task.Id);
-            Entries.Add(task);
-            return Task.CompletedTask;
-        }
+        return new InMemoryTaskRepository(entries);
     }
 }

@@ -1,5 +1,3 @@
-using System.Net;
-using System.Text;
 using Backlog.Infrastructure.Claude;
 
 namespace Backlog.Infrastructure.Claude.UnitTests;
@@ -98,22 +96,5 @@ public sealed class ClaudeAdminTransportTests
             transport.SendAsync(new ClaudeAccount(), HttpMethod.Get, "v1/organizations/cost_report", TestContext.Current.CancellationToken));
 
         Assert.Equal(0, handler.RequestCount);
-    }
-
-    private sealed class RecordingHandler : HttpMessageHandler
-    {
-        public HttpRequestMessage? Request { get; private set; }
-
-        public int RequestCount { get; private set; }
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            RequestCount++;
-            Request = request;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json")
-            });
-        }
     }
 }

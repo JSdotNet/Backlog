@@ -434,7 +434,7 @@ public sealed class TagFilterTests
 
         Assert.Empty(host.State.FilteredRows);
         Assert.Contains(
-            "Nothing matches these filters.",
+            "Nothing matches these filters",
             pane.Find("[data-testid='empty-state']").TextContent);
     }
 

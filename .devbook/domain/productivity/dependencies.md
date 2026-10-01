@@ -25,6 +25,7 @@ status: draft
 |---|---|---|---|---|
 | [Monitoring & Dashboard](../monitoring/domain.md#progress-signal) | OHS + Published Language (Productivity = supplier) | Subscribes to `ProductivityRecorded` | `.devbook/domain/productivity/domain.md#productivityrecorded` | Relies on productivity activity signals for dashboard views and attention rules. |
 | [Tasks](../tasks/domain.md#task) | Customer/Supplier (Productivity = supplier) | Query productivity summaries by subject or period | `.devbook/domain/productivity/domain.md#productivity-analysis` | Roadmap and backlog views can show AI-assisted progress trends without calculating metrics themselves. |
+| [Roadmap Planning](../roadmap/domain.md#working-week) | Shared Kernel (`WorkingHours` in `Backlog.SharedKernel`) | Reads the [working week](context.md#working-week) for placement and carries it in its synced `planning-pace` document | `.devbook/arc42/adr/0019-roadmap-counts-the-working-week.md` | Relies on seven independent days, each worked or not with its own start and end. A change to that shape changes how every effort-sized bar is counted. Proposed, not built yet. |
 
 ## Notes
 

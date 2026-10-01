@@ -116,41 +116,6 @@ public class SaveTaskFromTextRepositoryResolutionTests
             .Handle(new SaveTaskFromTextCommand(null, rawText, 0));
 
         Assert.True(result.IsSuccess);
-        return store.Entries.Single();
-    }
-
-    /// <summary>The store a host would supply, holding the aggregates themselves:
-    /// what is under test is the value that reached the entry, not how it would be
-    /// serialized.</summary>
-    private sealed class InMemoryTaskRepository : ITaskRepository
-    {
-        public List<TaskItem> Entries { get; } = [];
-
-        // Both reads hide a tombstoned entry, the way the port says they must.
-        public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Where(entry => entry.DeletedAt is null)]);
-
-        // And the list that does not, for the push that has to carry a deletion
-        // off the machine.
-        public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(
-            DateTimeOffset since,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>(
-                [.. Entries.Where(entry => entry.UpdatedAt > since).OrderBy(entry => entry.UpdatedAt)]);
-
-        public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.FirstOrDefault(entry => entry.Id == id && entry.DeletedAt is null));
-
-        // And the one read that does not, for the merge that has to tell
-        // "deleted here" from "never seen here".
-        public Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.FirstOrDefault(entry => entry.Id == id));
-
-        public Task SaveAsync(TaskItem entry, CancellationToken cancellationToken = default)
-        {
-            Entries.RemoveAll(existing => existing.Id == entry.Id);
-            Entries.Add(entry);
-            return Task.CompletedTask;
-        }
+        return store.Entries.Values.Single();
     }
 }

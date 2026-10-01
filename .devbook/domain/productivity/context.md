@@ -9,8 +9,9 @@ Productivity turns AI-assisted work activity into personal insight for the one
 person using it, and owns none of the work it measures.
 
 Inside the boundary: the productivity ledger and the summaries read off it, and
-the per-device choices that shape how a week is read — the reader's own working
-week, and when their weekly assistant allowance resets.
+the choices that shape how a week is read. These are the reader's own working
+week, which follows them between devices, and when their weekly assistant
+allowance resets, which stays on each device.
 
 Outside it: task work, repository state, and completion decisions, which
 [Tasks](../tasks/domain.md#task) and
@@ -26,7 +27,7 @@ type: setting
 key: working-hours.json
 scope: user
 default: Monday to Friday 09:00-17:30; Saturday and Sunday not worked
-related: [.devbook/domain/productivity/features.md#personal-productivity-dashboard]
+related: [.devbook/domain/productivity/features.md#personal-productivity-dashboard, .devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/domain.md#working-week, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.WorkingHoursSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsWorkingHoursTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.The_grid_outlines_the_hours_of_the_working_week]
 ```
 
@@ -35,13 +36,20 @@ worked or not, and each with its own start and end. Seven days rather than one
 range plus a set of working days, because a reader who starts at seven on
 Fridays cannot say so with a single range.
 
-What it does is presentation, and deliberately only that: the dashboard's hour
-grids outline the hours the week claims, and nothing else changes. No figure is
-recomputed and no work is excluded — agent-active time at eleven at night counts
-exactly as much as time at eleven in the morning, and a grid that quietly
+On the dashboard it is presentation, and deliberately only that: the hour grids
+outline the hours the week claims, and nothing else changes. No dashboard figure
+is recomputed and no work is excluded — agent-active time at eleven at night
+counts exactly as much as time at eleven in the morning, and a grid that quietly
 dropped out-of-hours work would answer a different question from the one its
 tile is named for. What the outline buys the reader is the ability to see the
 difference themselves.
+
+The roadmap does count it
+([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md), proposed).
+A plan sized by its effort is counted over the hours this week claims and skips
+the days not worked. A pace's week is this week's total hours. Day and week
+columns show their working hours, and days not worked are shaded. See
+[Placing a plan in time](../roadmap/features.md#placing-a-plan-in-time).
 
 An hour is outlined when **any part** of it falls inside that day's hours, so a
 day ending at 17:30 outlines the 17:00 hour: there is no half-marked cell to
@@ -68,9 +76,13 @@ pointer, which would then be rewritten every time somebody moved Friday's
 finishing time. Times are written as `HH:mm` so the file, the field, and the
 reader all spell them the same way.
 
-`scope: user` is the nearest rung the vocabulary offers: the choice is one
-person's, but it is stored per device and nothing syncs it, so the same reader
-on a second machine starts again from the default.
+`scope: user` fits: the choice is one person's, and it follows that person. With
+sync on, the week travels as a `workingWeek` key inside the roadmap's synced
+`planning-pace` document, newest change winning (ADR 0019). A change here writes
+`working-hours.json` and that key together. A week pulled from another device
+replaces this file. So `working-hours.json` stays the device's copy, and the
+dashboard keeps reading it. A pace document without the key leaves the file
+alone, and the device's next change writes the key.
 
 ## Weekly usage reset
 
@@ -90,8 +102,7 @@ a time, recurring every seven days.
 It decides where the dashboard cuts a week. The columns of the weekly charts and
 the seven days of the hour grids run from one reset to the next rather than from
 a calendar Monday, so a week on screen is the week the allowance is actually
-spent in. Like the working week it changes no figure — only where the boundaries
-fall.
+spent in. It changes no figure, only where the boundaries fall.
 
 The time is on this machine's clock rather than UTC, because the reset is a fact
 the reader copies off the assistant's own usage screen in their own clock
@@ -112,8 +123,9 @@ on a machine may come from an older plan or an older month, and the surface says
 which of the three cuts won rather than leaving the reader to guess.
 
 Set and cleared on the settings screen; clearing removes the file and hands the
-week back to detection. Stored per device beside the working week, with the same
-`scope: user` caveat.
+week back to detection. Stored per device beside the working week. Unlike the
+working week, nothing syncs it, so `scope: user` is only the nearest rung the
+vocabulary offers: the same reader on a second machine starts again unset.
 
 ## AI usage metrics
 

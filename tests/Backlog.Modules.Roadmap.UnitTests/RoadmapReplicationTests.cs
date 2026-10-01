@@ -275,5 +275,7 @@ public sealed class RoadmapReplicationTests
         public string? SetManual(string? typed, string? repository = null) => null;
 
         public string? Choose(PaceSource source, string? repository = null) => null;
+
+        public string? SetOwn(string? typed, string? repository = null) => null;
     }
 }

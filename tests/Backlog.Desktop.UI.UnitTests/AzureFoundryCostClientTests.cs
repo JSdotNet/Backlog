@@ -5,6 +5,7 @@ using Azure.Core;
 using Azure.Identity;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.AzureFoundry.Dashboard;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -196,7 +197,7 @@ public sealed class AzureFoundryCostClientTests : IDisposable
     [Fact]
     public async Task The_developer_sign_in_token_is_fetched_once_until_it_nears_expiry()
     {
-        var clock = new FixedClock(new DateTimeOffset(2026, 9, 22, 9, 0, 0, TimeSpan.Zero));
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 9, 22, 9, 0, 0, TimeSpan.Zero));
         var credential = new CountingCredential(expiresOn: clock.GetUtcNow().AddHours(1));
         var source = new DeveloperSignInTokenSource(credential, clock);
 
@@ -204,7 +205,7 @@ public sealed class AzureFoundryCostClientTests : IDisposable
         _ = await source.GetTokenAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, credential.Calls);
 
-        clock.Now = clock.GetUtcNow().AddMinutes(57);
+        clock.Advance(TimeSpan.FromMinutes(57));
         _ = await source.GetTokenAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, credential.Calls);
     }
@@ -285,29 +286,5 @@ public sealed class AzureFoundryCostClientTests : IDisposable
 
         public override ValueTask<AccessToken> GetTokenAsync(TokenRequestContext requestContext, CancellationToken cancellationToken) =>
             ValueTask.FromResult(GetToken(requestContext, cancellationToken));
-    }
-
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
-    {
-        public DateTimeOffset Now { get; set; } = now;
-
-        public override DateTimeOffset GetUtcNow() => Now;
-    }
-
-    private sealed class RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
-    {
-        public HttpRequestMessage? Request { get; private set; }
-
-        public string? Body { get; private set; }
-
-        public int RequestCount { get; private set; }
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            RequestCount++;
-            Request = request;
-            Body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
-            return respond(request);
-        }
     }
 }

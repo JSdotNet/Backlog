@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text;
 using Backlog.Infrastructure.GitHub;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
@@ -472,26 +471,5 @@ public sealed class TokenTransportTests
 
         Assert.Equal(HttpStatusCode.NotFound, refused.Status);
         Assert.True(refused.IsNotFound);
-    }
-
-    private sealed class RecordingHandler : HttpMessageHandler
-    {
-        public HttpRequestMessage? Request { get; private set; }
-
-        public int RequestCount { get; private set; }
-
-        /// <summary>What every request is answered with; OK unless a test
-        /// wants a refusal.</summary>
-        public HttpStatusCode Status { get; init; } = HttpStatusCode.OK;
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            RequestCount++;
-            Request = request;
-            return Task.FromResult(new HttpResponseMessage(Status)
-            {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json")
-            });
-        }
     }
 }

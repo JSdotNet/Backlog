@@ -16,6 +16,9 @@ dependency between two pieces of planned work, and the reading pace a plan's
 length is drawn from when the plan states no due date. Both follow their owner
 across the devices they have paired
 ([ADR 0018](../../arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md)).
+The pace is counted over the owner's working week, which travels with it
+([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). The
+working week itself is set in [Productivity](../productivity/context.md#working-week).
 
 Outside it: execution and task status, which [Tasks](../tasks/domain.md#task)
 answers, and the registered effort a plan totals but never owns, which lives on
@@ -30,12 +33,14 @@ type: setting
 key: planning-velocity.json
 scope: user
 default: 7
-related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#syncing-the-plan-between-devices, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md]
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#syncing-the-plan-between-devices, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/productivity/context.md#working-week]
 ```
 
-How many story points the reader gets through in a week. A positive decimal,
-held to four places. A week is seven calendar days to the placement: a plan's
-length is its effort × 7 ÷ this, rounded up.
+How many story points the reader gets through in a working week. A positive
+decimal, held to four places. A week is the hours of the reader's
+[working week](domain.md#working-week), 42.5 on the default week. A plan needs
+its effort × those hours ÷ this pace, counted forward over the hours the reader
+works (ADR 0019, proposed).
 
 **Kept per repository band**, because productivity differs from one project to
 the next, with one **global** pace beside them (ADR 0013, ruling 4 as amended on
@@ -52,9 +57,10 @@ alias Settings gives them, compared without regard to case.
 There are four paces and the reader picks one: the pace they **type**, and three
 **measured** from the estimated work they finished over the last two, four and
 eight weeks — the effort of every backlog entry completed in that stretch, today
-included, divided by its weeks (2, 4 or 8). Whole calendar weeks, weekends
-included, because a window is drawn in calendar days; a week of five working
-days would draw every bar shorter than the stretch it was measured over took. A stretch that finished nothing estimated measured no pace and cannot be
+included, divided by the working hours in that stretch and expressed per working
+week. Each stretch is whole calendar weeks, and any seven days in a row hold each
+weekday once. So the figure equals the points divided by the weeks (2, 4 or 8),
+whatever the working week is. A stretch that finished nothing estimated measured no pace and cannot be
 picked; if the one picked has since gone empty, the typed pace places the plan
 and the roadmap says so. Only the typed pace and the choice are stored — the
 measured ones are counted afresh on every read. A repository's measured paces
@@ -80,8 +86,9 @@ due date, or moved by hand, stays where it is — see
 Per value:
 
 - **Unset**, an unreadable file, a value that is not a number, or one that is
-  not positive all read as seven points a week — one a day, so a reader who
-  never set a pace sees the lengths they always had. A pace of zero has no
+  not positive all read as seven points a working week. Before ADR 0019 that was
+  one point a calendar day; on the default week it is now about 1.4 points a
+  worked day, so a default bar is longer than it was. A pace of zero has no
   length to give, and a default nobody chose should place a plan rather than
   refuse to.
 - **A file from when the pace was a day** holds `storyPointsPerDay` and reads
@@ -107,7 +114,7 @@ until edited. A stretch that counted nothing is not offered at all, and with non
 measured only the field is shown; a chosen stretch that has since emptied says in
 a line under the choices that the typed pace is used — and read per placement
 rather than pinned at startup, so the next plan laid out uses the pace now in force. Stored on
-the device beside the working week — the typed pace and the chosen `source`, a file
+the device in `planning-velocity.json`: the typed pace and the chosen `source`, a file
 without one reading as the typed pace, and an optional `repositories` object
 holding each repository's own pair, a file without it reading as it always did.
 The choice is one person's, so it follows that person: with sync on, the typed
@@ -116,4 +123,10 @@ paired devices, and a second machine reads the pace set on the first instead of
 starting again at seven
 ([ADR 0018](../../arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md);
 see [Syncing the plan between devices](features.md#syncing-the-plan-between-devices)).
-The working week beside it does not travel and stays each device's own.
+
+The working week travels with the pace, as a `workingWeek` key in the same file
+and the same synced document
+([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). A file
+without the key reads the device's own
+[working week](../productivity/context.md#working-week), or the default week, and
+writes the key on its next change.

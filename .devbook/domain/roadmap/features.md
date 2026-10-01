@@ -113,7 +113,7 @@ part of the plan and do not travel.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md]
+related: [.devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/productivity/context.md#working-week]
 ```
 
 The pace travels too — the typed pace, the chosen source, and each repository's
@@ -125,7 +125,13 @@ set a pace sends none, and reads the other device's instead of offering its
 seven. The measured paces do not travel: each device counts them from the
 finished work it holds.
 
-The working week does not travel. It stays each device's own.
+The working week travels with the pace, inside the same document and under the
+same newer-wins rule
+([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). Every
+device then counts a bar over the same hours and draws it the same length. The
+person has one working week, and the dashboard's hour grids read the same one. A
+pace saved before this change carries no working week. It reads the device's own
+until the next change to the pace or the week writes one.
 
 ## Tagging planned work
 
@@ -316,15 +322,25 @@ edit.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans]
+related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
 The timeline fills the width it is given and is ruled finer the nearer it is to
-today: this week a column a day, the next three weeks a column each, then months for
-about a quarter, then quarters. The work in flight sits this week, and a single week
+today, the same way in both directions: last week, this week and next a column a
+day, the three weeks either side of those a column each, then months for about a
+quarter, then quarters. The work in flight sits around today, and a single week
 column stacked every bar that started in it on the same few pixels. Every column
-widens by the same factor until the chart from this week on fills the screen, so a
-short plan never leaves the right of it empty, and the chart opens on this week.
+widens by the same factor until the chart from last week on fills the screen, so a
+short plan never leaves the right of it empty, and the chart opens on last week.
+
+The day and week columns also show the person's
+[working week](domain.md#working-week). Each day head carries that day's working
+hours, such as "Wed 23 · 8.5h", and each week head the week's, such as
+"Wk 41 · 42.5h". A day the person does not work is shaded, and its head shows no
+hours. Every column keeps its width, because the axis is still time. Narrowing the
+days off was rejected: a drag of the same distance would then move a bar by a
+different number of days
+([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)).
 
 ### Looking back at finished plans
 
@@ -338,8 +354,9 @@ Scroll back from this week to see what was finished and how long it really took.
 plan whose tasks are all done is drawn where its work actually ran — from the day
 its first task was started to the day its last was ticked off — rather than where it
 was planned, because a finished plan is a record and its planned window was only a
-hope. The four weeks before this one are ruled in weeks, where recent work sits, and
-anything earlier in months, as far back as the earliest thing drawn.
+hope. History is ruled as the horizon is, mirrored: last week in days and the three
+weeks before it in weeks, always, where recent work sits; then months for at least a
+quarter, then quarters, as far back as the earliest thing drawn.
 
 A finished plan cannot be dragged: its dates are read off the work, so a move would
 change nothing the next reading keeps. Opening it still edits the stored item.
@@ -466,16 +483,22 @@ chapter says what the feature does, not why the rulings fell the way they did.
 ```meta
 type: sub-feature
 setting: [.devbook/domain/roadmap/context.md#story-points-a-week]
-related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#plan-sequencing, .devbook/domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers]
+related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#plan-sequencing, .devbook/domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/roadmap/domain.md#working-week]
 ```
 
 Give an imported plan a window nobody had to guess. The **end** is the day the
 plan says it is due, when it says one. The **start** is never in the document:
 it is the day after the last thing the plan waits on finishes, or today when it
-waits on nothing. A plan with no due date gets a **length from its effort** —
-the story points its tasks registered, divided by how many points a week the
-person says they get through, as calendar days — never shorter than a day, and a plain working
-week when there is nothing gathered yet or nothing sized. A due date that falls
+waits on nothing. A plan with no due date gets a **length from its effort**:
+the story points its tasks registered, divided by how many points a working week
+the person says they get through. The plan never starts on a day the person does
+not work; such a start moves to their next working day. From there it counts
+their working hours forward, skipping the days and hours they do not work, and
+ends on the day the hours run out
+([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). It is never
+shorter than its start day, and it takes one working week when there is nothing
+gathered yet or nothing sized. Holidays and single days off are not counted; only
+the weekly pattern is. A due date that falls
 before the plan could start is kept, and the plan is placed on that one day so
 the [contradiction shows](#surfacing-contradictions-instead-of-fixing-them)
 rather than being smoothed over.
@@ -506,7 +529,8 @@ A plan whose window is still sized by its effort **keeps up with its work**.
 Every time the roadmap opens, and every time a task changes, the plan is laid out
 again from what is **not done yet**, at its repository's pace, from today. A plan
 whose work has begun keeps its start and moves its end. A plan nobody has started
-whose start has passed starts today. Finished tasks no longer count toward its
+whose start has passed starts today, or on the next working day when the person
+does not work today. Finished tasks no longer count toward its
 length. A plan that ran late therefore shows the day the rest of its work will
 actually land, and one that ran ahead pulls its end in. Changing a pace, or a
 measured pace moving as work is finished, re-draws the same way. A finished plan

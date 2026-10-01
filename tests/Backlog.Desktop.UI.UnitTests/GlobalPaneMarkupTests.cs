@@ -935,9 +935,12 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains(".backlog-list {", css, StringComparison.Ordinal);
         Assert.Contains(".entry-detail {", css, StringComparison.Ordinal);
 
-        var halves = Block(components, ".split-pane__start,\n.split-pane__end {");
-        Assert.Contains("overflow: auto;", halves, StringComparison.Ordinal);
-        Assert.Contains("min-height: 0;", halves, StringComparison.Ordinal);
+        foreach (var half in new[] { ".split-pane__start {", ".split-pane__end {" })
+        {
+            var halfRule = Block(components, half);
+            Assert.Contains("overflow: auto;", halfRule, StringComparison.Ordinal);
+            Assert.Contains("min-height: 0;", halfRule, StringComparison.Ordinal);
+        }
 
         var list = Block(css, ".backlog-list {");
         Assert.DoesNotContain("overflow", list, StringComparison.Ordinal);

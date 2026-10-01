@@ -71,8 +71,9 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
         await state.ChangeStatusAsync(row, EntryStatus.InProgress);
 
         state.OnRawTextInput(row, "# Written in the list, then retitled\n`task` `!in-progress`\n");
-        await WaitUntilAsync(async () =>
-            (await entries.ListAsync()).Single().Title == "Written in the list, then retitled");
+        await Polling.WaitUntilAsync(
+            async () => (await entries.ListAsync()).Single().Title == "Written in the list, then retitled",
+            () => "The debounced save never landed.");
 
         Assert.True(Volatile.Read(ref raised) >= 3, $"The signal was raised {raised} time(s); sync would not have heard the list.");
         Assert.Equal(0, Volatile.Read(ref announced));
@@ -128,17 +129,6 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
         state.OnRawTextInput(row, text);
         await state.EndEditAsync(row);
         return row;
-    }
-
-    private static async Task WaitUntilAsync(Func<Task<bool>> condition)
-    {
-        var deadline = DateTime.UtcNow.AddSeconds(10);
-
-        while (!await condition())
-        {
-            Assert.True(DateTime.UtcNow < deadline, "The debounced save never landed.");
-            await Task.Delay(50);
-        }
     }
 
     public void Dispose()

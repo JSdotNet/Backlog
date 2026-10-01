@@ -2,6 +2,7 @@ using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Services;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
 
@@ -13,6 +14,10 @@ namespace Backlog.Modules.Roadmap.UnitTests;
 public class PlanningPaceTests
 {
     private static readonly DateOnly Today = new(2026, 9, 25);
+
+    /// <summary>Midday on <see cref="Today"/>, in UTC, which is also the clock's
+    /// local zone — so "today" is the same date on every machine.</summary>
+    private static readonly DateTimeOffset Noon = new(Today.ToDateTime(new TimeOnly(12, 0)), TimeSpan.Zero);
 
     [Fact]
     public void EachStretchCountsItsOwnDaysTodayIncluded()
@@ -103,7 +108,7 @@ public class PlanningPaceTests
     {
         var settings = new Settings(3m, PaceSource.LastTwoWeeks);
         var finished = new Finished([new(Today, 14), new(Today.AddDays(-60), 100)]);
-        var pace = new PlanningPace(settings, finished, new FixedClock(Today));
+        var pace = new PlanningPace(settings, finished, new FakeTimeProvider(Noon));
 
         Assert.Equal(7m, await pace.GetStoryPointsPerWeekAsync([], TestContext.Current.CancellationToken)); // 14 over 2 weeks
 
@@ -115,7 +120,7 @@ public class PlanningPaceTests
     public void TheViewsWritesGoToTheSettings()
     {
         var settings = new Settings(1m, PaceSource.Manual);
-        var pace = new PlanningPace(settings, new Finished([]), new FixedClock(Today));
+        var pace = new PlanningPace(settings, new Finished([]), new FakeTimeProvider(Noon));
 
         Assert.Null(pace.SetManual("2.5"));
         Assert.Null(pace.Choose(PaceSource.LastEightWeeks));
@@ -137,7 +142,7 @@ public class PlanningPaceTests
                 new(Today, 4) // unfiled: the global pace's alone
             ],
             "backlog", "site");
-        var pace = new PlanningPace(new Settings(3m, PaceSource.Manual), finished, new FixedClock(Today));
+        var pace = new PlanningPace(new Settings(3m, PaceSource.Manual), finished, new FakeTimeProvider(Noon));
 
         var backlog = await pace.ReadAsync("backlog", TestContext.Current.CancellationToken);
         var site = await pace.ReadAsync("SITE", TestContext.Current.CancellationToken);
@@ -153,7 +158,7 @@ public class PlanningPaceTests
     {
         var settings = new Settings(3m, PaceSource.Manual);
         settings.Own["backlog"] = (9m, PaceSource.Manual); // kept by an earlier version
-        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FixedClock(Today));
+        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FakeTimeProvider(Noon));
 
         var paces = await pace.ReadAsync("backlog", TestContext.Current.CancellationToken);
 
@@ -166,7 +171,7 @@ public class PlanningPaceTests
     {
         var settings = new Settings(3m, PaceSource.LastTwoWeeks);
         var finished = new Finished([new(Today, 28) { RepositoryAliases = ["backlog"] }], "backlog");
-        var pace = new PlanningPace(settings, finished, new FixedClock(Today));
+        var pace = new PlanningPace(settings, finished, new FakeTimeProvider(Noon));
 
         var paces = await pace.ReadAsync("backlog", TestContext.Current.CancellationToken);
 
@@ -181,7 +186,7 @@ public class PlanningPaceTests
         var settings = new Settings(3m, PaceSource.Manual);
         settings.Own["gone"] = (9m, PaceSource.Manual);
         var finished = new Finished([new(Today, 28) { RepositoryAliases = ["gone"] }], "backlog");
-        var pace = new PlanningPace(settings, finished, new FixedClock(Today));
+        var pace = new PlanningPace(settings, finished, new FakeTimeProvider(Noon));
 
         var paces = await pace.ReadAsync("gone", TestContext.Current.CancellationToken);
 
@@ -200,7 +205,7 @@ public class PlanningPaceTests
                 new(Today, 6) { RepositoryAliases = ["site"] }      // 3 a week
             ],
             "backlog", "site", "docs");
-        var pace = new PlanningPace(settings, finished, new FixedClock(Today));
+        var pace = new PlanningPace(settings, finished, new FakeTimeProvider(Noon));
 
         Assert.Equal(3m, await pace.GetStoryPointsPerWeekAsync(["backlog", "site"], TestContext.Current.CancellationToken));
         Assert.Equal(7m, await pace.GetStoryPointsPerWeekAsync(["backlog", "docs"], TestContext.Current.CancellationToken)); // docs measured nothing: the typed 7
@@ -213,7 +218,7 @@ public class PlanningPaceTests
     {
         var settings = new Settings(5m, PaceSource.Manual);
         settings.Own["backlog"] = (1m, PaceSource.Manual);
-        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FixedClock(Today));
+        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FakeTimeProvider(Noon));
 
         Assert.Equal(5m, await pace.GetStoryPointsPerWeekAsync([], TestContext.Current.CancellationToken));
     }
@@ -222,7 +227,7 @@ public class PlanningPaceTests
     public async Task EveryPaceIsCountedFromOneReadOfTheBacklog()
     {
         var finished = new Finished([], "backlog", "site", "docs");
-        var pace = new PlanningPace(new Settings(5m, PaceSource.Manual), finished, new FixedClock(Today));
+        var pace = new PlanningPace(new Settings(5m, PaceSource.Manual), finished, new FakeTimeProvider(Noon));
 
         var paces = await pace.ReadPacesInUseAsync(TestContext.Current.CancellationToken);
 
@@ -234,7 +239,7 @@ public class PlanningPaceTests
     public void AChoiceForARepositoryGoesToThatRepositoryAndTheTypedPaceIsGlobal()
     {
         var settings = new Settings(1m, PaceSource.Manual);
-        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FixedClock(Today));
+        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FakeTimeProvider(Noon));
 
         Assert.Null(pace.Choose(PaceSource.LastEightWeeks, "backlog"));
         Assert.Null(pace.SetManual("2.5"));
@@ -293,7 +298,7 @@ public class PlanningPaceTests
         var finished = new Finished(
             [new(Today, 28) { RepositoryAliases = ["backlog"] }, new(Today, 28) { RepositoryAliases = ["site"] }],
             "backlog", "site");
-        var pace = new PlanningPace(settings, finished, new FixedClock(Today));
+        var pace = new PlanningPace(settings, finished, new FakeTimeProvider(Noon));
 
         Assert.Null(pace.SetOwn(2.25m, "backlog"));
 
@@ -316,7 +321,7 @@ public class PlanningPaceTests
     public async Task TheGlobalScopesOwnPaceIsTheHeadingsTypedPace()
     {
         var settings = new Settings(3m, PaceSource.Manual);
-        var pace = new PlanningPace(settings, new Finished([]), new FixedClock(Today));
+        var pace = new PlanningPace(settings, new Finished([]), new FakeTimeProvider(Noon));
 
         Assert.Null(pace.SetOwn(4.5m));
 
@@ -333,7 +338,7 @@ public class PlanningPaceTests
     {
         var settings = new Settings(7m, PaceSource.Manual);
         var finished = new Finished([new(Today, 28) { RepositoryAliases = ["backlog"] }], "backlog", "site");
-        var pace = new PlanningPace(settings, finished, new FixedClock(Today));
+        var pace = new PlanningPace(settings, finished, new FakeTimeProvider(Noon));
 
         Assert.Null(pace.SetOwn(2m, "site"));
         Assert.Equal(2m, await pace.GetStoryPointsPerWeekAsync(["backlog", "site"], TestContext.Current.CancellationToken));
@@ -342,13 +347,26 @@ public class PlanningPaceTests
         Assert.Equal(14m, await pace.GetStoryPointsPerWeekAsync(["backlog", "site"], TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public void SettingALanesOwnPaceIsOneChange()
+    {
+        var settings = new Settings(3m, PaceSource.Manual);
+        var raised = 0;
+        settings.Changed += () => raised++;
+        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FakeTimeProvider(Noon));
+
+        Assert.Null(pace.SetOwn(2.25m, "backlog"));
+
+        Assert.Equal(1, raised);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
     public void AFigureThatIsNotAPaceIsRefusedAndChoosesNothing(int refused)
     {
         var settings = new Settings(3m, PaceSource.Manual);
-        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FixedClock(Today));
+        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FakeTimeProvider(Noon));
 
         Assert.NotNull(pace.SetOwn(refused, "backlog"));
 
@@ -391,6 +409,16 @@ public class PlanningPaceTests
             Changed?.Invoke();
             return null;
         }
+
+        public string? SetOwn(string? typed, string? repository = null)
+        {
+            var value = decimal.Parse(typed!, System.Globalization.CultureInfo.InvariantCulture);
+            if (value <= 0) return "Give a pace above zero.";
+            if (repository is null) (_manual, _source) = (value, PaceSource.Set);
+            else Own[repository] = (value, PaceSource.Set);
+            Changed?.Invoke();
+            return null;
+        }
     }
 
     private sealed class Finished(IReadOnlyList<CompletedEffortDto> finished, params string[] repositories)
@@ -411,13 +439,5 @@ public class PlanningPaceTests
             return Task.FromResult<IReadOnlyList<CompletedEffortDto>>(
                 [.. finished.Where(entry => entry.CompletedOn >= since)]);
         }
-    }
-
-    private sealed class FixedClock(DateOnly today) : TimeProvider
-    {
-        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
-
-        public override DateTimeOffset GetUtcNow() =>
-            new(today.ToDateTime(new TimeOnly(12, 0)), TimeSpan.Zero);
     }
 }

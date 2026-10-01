@@ -178,28 +178,4 @@ public sealed class SourceInboxIdTests
             [EntryStatus.Ready, EntryStatus.Ready, EntryStatus.Draft],
             store.Entries.Values.OrderBy(entry => entry.Order).Select(entry => entry.Status));
     }
-
-    private sealed class InMemoryTaskRepository : ITaskRepository
-    {
-        public Dictionary<Guid, TaskItem> Entries { get; } = [];
-
-        public Task SaveAsync(TaskItem entry, CancellationToken cancellationToken = default)
-        {
-            Entries[entry.Id] = entry;
-            return Task.CompletedTask;
-        }
-
-        public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.TryGetValue(id, out var entry) && entry.DeletedAt is null ? entry : null);
-
-        public Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.TryGetValue(id, out var entry) ? entry : null);
-
-        public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Values.Where(entry => entry.DeletedAt is null)]);
-
-        public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>(
-                [.. Entries.Values.Where(entry => entry.UpdatedAt > since).OrderBy(entry => entry.UpdatedAt)]);
-    }
 }

@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// matters here is that ordinary markdown survives the trip and that
 /// half-written markdown degrades into readable prose instead of vanishing.
 /// </summary>
-public class MarkdownPreviewTests
+public class DesktopMarkdownPreviewTests
 {
     private static string PlainText(IEnumerable<MdInline> inlines) =>
         string.Concat(inlines.Select(i => i switch

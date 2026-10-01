@@ -1,49 +1,22 @@
 using Backlog.Infrastructure.AzureFoundry;
-using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
-using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Copilot;
-using Backlog.Desktop.UI.Inbox;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Desktop.Composition;
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.AppUpdate;
 using Backlog.Desktop.UI.Shell;
-using Backlog.Modules.DevPc.Abstractions;
 using Backlog.SharedKernel;
-using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.Modules.Tasks.Extensions;
-using Backlog.Modules.Roadmap;
-using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Roadmap.Extensions;
-using Backlog.Modules.Inbox;
-using Backlog.Modules.Inbox.Abstractions.Services;
-using Backlog.Modules.Inbox.Extensions;
-using Backlog.Modules.Capture.Abstractions.Services;
-using Backlog.Modules.Capture.Extensions;
-using Backlog.Infrastructure.FileSystem.Dashboard;
-using Backlog.Infrastructure.FileSystem.Inbox;
-using Backlog.Infrastructure.FileSystem.Roadmap;
-using Backlog.Infrastructure.Sqlite.Inbox;
-using Backlog.Infrastructure.Sqlite.Roadmap;
-using Backlog.Modules.Dashboard.Extensions;
-using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Sessions.UI.Extensions;
-using Backlog.Infrastructure.Sessions;
-using Backlog.Modules.Roadmap.UI;
-using Backlog.Modules.DevPc.UI;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Annotations;
-using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.UI.Components.Diagrams;
-using Backlog.UI.Components.Feedback;
 using Backlog.Desktop.UI.Extensions;
 using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.WebHarness;
@@ -66,20 +39,101 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// The workspace settings file, and the two module ports the adapters over it
-// answer. The knowledge resolver is what both ports share, so neither context
-// has to see the other's settings.
-builder.Services.AddSingleton<WorkspaceSettingsStore>();
+// Everything this harness composes alike with the desktop head: every module,
+// adapter, Ask AI source and settings page, in one place both call so the two
+// cannot drift — and since this harness is the one a test starts, this is what puts
+// the desktop head's registrations in front of provider validation. What follows
+// the call is this harness's own.
+//
+// Every per-user and per-machine file is scoped to this harness's content root,
+// each with an override variable of its own, so a session here never rewrites the
+// real per-user choice, and this harness and the mobile one are two devices under
+// one owner — which is what pairing is for. One shared name would let a single
+// setting collapse the pair back into one device, or let two harnesses share a
+// watermark and each skip what the other had pushed, silently, because nothing
+// about that fails.
+var localDevelopment = Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development");
+var azureFoundrySettings = CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath);
+builder.Services.AddDesktopComposition(new DesktopCompositionOptions
+{
+    // Constructed at startup rather than on first use, as the desktop host does:
+    // the identity belongs to the installation. Per worktree, because several
+    // worktrees serve this harness at once, and one shared identity file would put
+    // the first-write race across processes on every parallel start.
+    DeviceIdentity = CreateLocalDevelopmentDeviceIdentityStore(builder.Environment.ContentRootPath),
+    DeviceCredentialStore = _ => DeviceCredentialStoreFactory.CreateLocalDevelopmentStore(
+        builder.Environment.ContentRootPath,
+        "BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH",
+        Path.Combine("obj", "local-development", "device-credential.json")),
+    TaskSyncStateStore = _ => TaskSyncStateStoreFactory.CreateLocalDevelopmentStore(
+        builder.Environment.ContentRootPath,
+        "BACKLOG_DESKTOP_TASK_SYNC_STATE_PATH",
+        Path.Combine("obj", "local-development", "task-sync-state.json")),
+    // A folder rather than a path, because two stores is an implementation detail
+    // of the exchange and where they live is not.
+    SessionSyncFolder = Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_SESSION_SYNC_PATH") is { Length: > 0 } sessionSyncFolder
+        ? sessionSyncFolder
+        : localDevelopment,
+    AnnotationSyncFolder = Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_ANNOTATION_SYNC_PATH") is { Length: > 0 } annotationSyncFolder
+        ? annotationSyncFolder
+        : localDevelopment,
+    // A shared file would let two harnesses count each other's backups as their own.
+    BackupStatePath = Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_BACKUP_STATE_PATH") is { Length: > 0 } backupStatePath
+        ? backupStatePath
+        : Path.Combine(localDevelopment, "backup-state.json"),
+    // Resolved the way the desktop head resolves it, so the Settings page behaves the
+    // same here; under Aspire with nothing entered that is this AppHost run's sync
+    // resource. A shared file would point both harnesses at whatever one was told.
+    SyncServiceSettingsPath = Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_SYNC_SERVICE_SETTINGS_PATH") is { Length: > 0 } syncSettingsPath
+        ? syncSettingsPath
+        : Path.Combine(localDevelopment, "sync-service.json"),
+    FeatureSettings = _ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath),
+    WorkingHoursSettings = _ => CreateLocalDevelopmentWorkingHoursSettingsStore(builder.Environment.ContentRootPath),
+    UsageResetSettings = _ => new UsageResetSettingsStore(Path.Combine(localDevelopment, "usage-reset.settings.json")),
+    PlanningVelocitySettings = _ => new PlanningVelocitySettingsStore(Path.Combine(localDevelopment, "planning-velocity.settings.json")),
+    ShellNavigation = _ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath),
+    CaptureSourceSettings = _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath),
+    CaptureRunLog = _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath),
+    InboxRoutingRules = _ => CreateLocalDevelopmentInboxRoutingRulesStore(builder.Environment.ContentRootPath),
+    GitHubSettings = root => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath, root),
+    ClaudeSettings = _ => CreateLocalDevelopmentClaudeSettingsStore(builder.Environment.ContentRootPath),
+    AzureFoundrySettings = _ => azureFoundrySettings,
+    // The desktop head's own tools adapter, configured to read the catalog and run
+    // nothing: a browser session operates the pane without touching the machine.
+    DevToolService = sp => DevToolService.CatalogOnly(sp.GetRequiredService<ITaskStore>()),
+    FolderEditorLauncher = _ => new UnsupportedFolderEditorLauncher(),
+    // The web host never distributes or updates the desktop app, so it always
+    // reports updates as unsupported.
+    AppUpdateService = _ => new UnsupportedAppUpdateService(),
+    // This host cannot start a CLI, and pressing an offer says so rather than doing
+    // nothing.
+    CopilotCliLauncher = _ => new UnavailableCopilotCliLauncher(),
+    // Run from a linked worktree, the seeded clone is that worktree alone, so its
+    // main checkout is asked as well; see MainCheckoutSessionRepositoryResolver.
+    SessionRepositoryResolver = sp =>
+    {
+        var settings = sp.GetRequiredService<GitHubSettingsStore>();
+        var registered = new SettingsSessionRepositoryResolver(settings);
+        var checkout = ResolveRepositoryRoot(builder.Environment.ContentRootPath);
+        var main = DevelopmentWorkspace.MainCheckoutOf(checkout);
+        var seeded = settings.Current.Repositories.FirstOrDefault(repository =>
+            string.Equals(repository.CloneDirectory, checkout, StringComparison.OrdinalIgnoreCase));
 
-// Devbook read from a repository branch, for a repository nobody has cloned.
-// The network half — one listing per commit, one blob per file somebody opens —
-// lives in the GitHub adapter and the disk half in the file system one; the
-// cache root arrives as a delegate rather than as the workspace store, because
-// the GitHub adapter may not see that one.
-builder.Services.AddSingleton<IGitHubBranchCatalog>(sp => new GitHubBranchCatalog(
-    sp.GetRequiredService<ResolvingGitHubTransport>()));
-builder.Services.AddSingleton<IGitHubTreeClient>(sp => new GitHubTreeClient(
-    sp.GetRequiredService<ResolvingGitHubTransport>()));
+        return main is null || seeded is null
+            ? registered
+            : new MainCheckoutSessionRepositoryResolver(registered, new RegisteredClone(seeded.FullName, main));
+    },
+    // Scoped rather than singleton, and that is forced rather than tidy: this host has
+    // one circuit per visitor, a singleton over the modules' scoped services is a
+    // captive dependency validate-on-build refuses, and a singleton channel would
+    // show one visitor's toasts to every other.
+    WindowStateLifetime = ServiceLifetime.Scoped
+});
+
+// Devbook read from a repository branch, for a repository nobody has cloned. The
+// network half lives in the GitHub adapter and the disk half in the file system
+// one; the cache root arrives as a delegate rather than as the workspace store,
+// because the GitHub adapter may not see that one.
 builder.Services.AddSingleton<IDevbookSnapshotCache>(sp => new DevbookSnapshotCache(
     () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
     sp.GetRequiredService<IGitHubTreeClient>(),
@@ -96,328 +150,6 @@ builder.Services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSourc
     sp.GetRequiredService<GitHubSettingsStore>(),
     sp.GetRequiredService<WorkspaceSettingsStore>(),
     sp.GetRequiredService<IDevbookSnapshotCache>()));
-builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
-    sp.GetRequiredService<WorkspaceSettingsStore>()));
-// Which hours the reader means to be working — written on the settings screen,
-// read by the dashboard to shade a grid. Scoped to the content root like the
-// harness's other settings files, so a session here never rewrites the real
-// per-user choice.
-builder.Services.AddSingleton<IWorkingHoursSettings>(
-    _ => CreateLocalDevelopmentWorkingHoursSettingsStore(builder.Environment.ContentRootPath));
-// When the weekly allowance resets, scoped to the content root for the same reason.
-builder.Services.AddSingleton<IUsageResetSettings>(
-    _ => new UsageResetSettingsStore(
-        Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "usage-reset.settings.json")));
-// How many story points the reader gets through in a day, scoped to the content
-// root for the same reason. Roadmap reads it through IPlanningVelocitySettings, answered
-// over this store by AddRoadmapCrossContextAdapters below.
-builder.Services.AddSingleton(
-    _ => new PlanningVelocitySettingsStore(
-        Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "planning-velocity.settings.json")));
-// Which surface the shell was last showing. Scoped to the content root like the
-// harness's other settings files, so a session here never rewrites the real
-// per-user choice.
-builder.Services.AddSingleton(_ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath));
-// What can bring a surface forward from outside the user interface, which the
-// delivery surface's open_dashboard asks. Composed here exactly as in the desktop
-// head and with no local-development variant: there is nothing per-host about it,
-// and the harness is where this gets driven under Aspire. A circuit per browser tab
-// means several windows may attach at once, which is what the activator expects.
-builder.Services.AddSingleton<SessionsSurfaceActivator>();
-builder.Services.AddSingleton<ISessionsSurfaceActivator>(sp => sp.GetRequiredService<SessionsSurfaceActivator>());
-// Which machine this installation is. Scoped to the content root like the harness's
-// other settings files — and here that is more than tidiness: several worktrees serve
-// this harness at once, and one shared identity file would put the first-write race
-// across processes on every parallel start. A harness is a development host, so a
-// per-worktree identity is the right answer rather than a compromise. Constructed at
-// startup rather than on first use, as the desktop host does: the identity belongs to
-// the installation, so device.json exists from the first start whether or not a
-// surface that reads it is ever opened.
-builder.Services.AddSingleton<IDeviceIdentitySource>(
-    CreateLocalDevelopmentDeviceIdentityStore(builder.Environment.ContentRootPath));
-
-// Composition: the Tasks module brings its own use cases, and the host decides
-// which adapter is behind them. The repository follows the storage folder rather
-// than being pinned to wherever it was at startup.
-// The change signal is the module's singleton, registered by AddTasksModule
-// below; the repository resolves it lazily here, so line order between the
-// two does not matter. It is what lets the sync loop push an edit seconds
-// after it is saved rather than on its five-minute tick.
-builder.Services.AddSingleton<ITaskRepository>(sp =>
-    new RootedSqliteTaskRepository(
-        () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
-        sp.GetService<ITaskChangeSignal>()));
-builder.Services.AddTasksModule();
-
-// The same arrangement for the plan: the Roadmap module brings its use cases, and
-// the host picks the adapter. One document row in the same database the tasks use,
-// following the same folder.
-// One instance behind both ports: the same row is the plan the module loads and
-// saves and the document that travels to the person's other devices (local ADR
-// 0018). The pace document's store is AddRoadmapCrossContextAdapters'.
-builder.Services.AddSingleton(sp =>
-    new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
-builder.Services.AddSingleton<IRoadmapPlanRepository>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
-builder.Services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
-builder.Services.AddRoadmapModule();
-// The plan behind the shell's Ask AI port, after the module so the scoped
-// planning port it holds exists. The other areas register theirs beside
-// their own state below; the Roadmap has no state, only the port.
-builder.Services.AddRoadmapAiContentSource();
-
-// The same arrangement for capture: the module brings the run, and the host picks
-// where the monitored sources are kept and where what past runs said is kept.
-// Both scoped to the content root like the harness's other settings files, so a
-// session here never rewrites the real per-user choice or its log.
-builder.Services.AddSingleton<ICaptureSourceSettings>(
-    _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath));
-builder.Services.AddSingleton<ICaptureRunLog>(
-    _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath));
-builder.Services.AddCaptureModule();
-
-// The two cross-context joins the plan takes part in, answered by adapters that may
-// see both contexts: the backlog's tag picker offers the plan's tags, and a roadmap
-// item rolls up the backlog entries and knowledge chapters it gathers. Both capture
-// services the modules register as Scoped, so they are Scoped too — registered in
-// one place both hosts share so the lifetimes cannot drift apart.
-builder.Services.AddRoadmapCrossContextAdapters();
-
-// The same arrangement for the inbox: the Inbox module brings its use cases, and
-// the host picks the adapter — three tables in the same database the tasks use,
-// following the same folder. One rooted store answers both of the module's
-// repository ports, registered once and handed out under each.
-builder.Services.AddSingleton<RootedSqliteInboxRepository>(sp =>
-    new RootedSqliteInboxRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
-builder.Services.AddSingleton<IInboxItemRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
-builder.Services.AddSingleton<IInboxOrganizerRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
-// The reader's routing rules, scoped to the content root like the harness's
-// other settings files, so a session here never rewrites the real per-user rules.
-builder.Services.AddSingleton<IInboxRoutingRules>(
-    _ => CreateLocalDevelopmentInboxRoutingRulesStore(builder.Environment.ContentRootPath));
-builder.Services.AddInboxModule();
-
-// The cross-context join routing takes part in: the Inbox's backlog target,
-// answered by an adapter over Tasks' published port because only an adapter may
-// see both contexts. Scoped, for the reason the roadmap adapters are, and after
-// AddTasksModule() for the same reason.
-builder.Services.AddInboxCrossContextAdapters();
-
-// The other join the Inbox takes part in: Capture's feed readers and the delivery
-// that hands what they found to the Inbox's intake, answered by adapters because
-// neither module may see the other. After AddInboxModule() for the intake the
-// delivery captures.
-builder.Services.AddCaptureAdapters();
-// The same arrangement the desktop host makes: the shared registry follows the
-// workspace root, and moving the workspace re-reads it.
-builder.Services.AddSingleton(sp =>
-{
-    var workspace = sp.GetRequiredService<WorkspaceSettingsStore>();
-    var store = CreateLocalDevelopmentGitHubSettingsStore(
-        builder.Environment.ContentRootPath,
-        () => workspace.RootDirectory);
-    workspace.RootChanged += store.Reload;
-    return store;
-});
-// The same arrangement the desktop host makes: the credential a call leaves with
-// is decided per call, so a repository bound to an account goes out as that
-// account rather than as whoever `gh` happens to be switched to.
-builder.Services.AddSingleton<IGhCliAccountSource>(_ => new GhCliAccountSource());
-builder.Services.AddSingleton<IGitHubCredentialResolver>(sp => new GitHubCredentialResolver(
-    sp.GetRequiredService<GitHubSettingsStore>(),
-    sp.GetRequiredService<IGhCliAccountSource>()));
-// The token route asks the factory for its client on every send, and the
-// client carries GitHub's own pipeline: reads retried, writes sent once,
-// budgets sized for a database-sized backup PUT. The web harness and the
-// desktop app call the same registration so the two cannot drift.
-builder.Services.AddGitHubHttpClient();
-builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
-    sp.GetRequiredService<GitHubSettingsStore>(),
-    credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
-    accounts: sp.GetRequiredService<IGhCliAccountSource>(),
-    httpClients: sp.GetRequiredService<IHttpClientFactory>()));
-builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
-builder.Services.AddSingleton<IGitHubAccountProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
-builder.Services.AddSingleton<IAppFeatureSettings>(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
-// The device half of cloud sync. Scoped to the content root like the harness's
-// other settings files, so a session here pairs a device of its own rather than
-// rewriting the real per-user credential — and so this harness and the mobile
-// one are two devices under one owner, which is what pairing is for. The
-// override variable is this harness's own for the same reason: one shared name
-// would let a single setting collapse the pair back into one device.
-builder.Services.AddSingleton(_ => DeviceCredentialStoreFactory.CreateLocalDevelopmentStore(
-    builder.Environment.ContentRootPath,
-    "BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH",
-    Path.Combine("obj", "local-development", "device-credential.json")));
-// How far this device has pushed and pulled, scoped the same way and with an
-// override variable of its own for the same reason: a shared name would let the
-// two harnesses share a watermark, and each would then skip what the other had
-// pushed - silently, because nothing about that fails.
-builder.Services.AddSingleton<ITaskSyncStateStore>(_ => TaskSyncStateStoreFactory.CreateLocalDevelopmentStore(
-    builder.Environment.ContentRootPath,
-    "BACKLOG_DESKTOP_TASK_SYNC_STATE_PATH",
-    Path.Combine("obj", "local-development", "task-sync-state.json")));
-// Session replication's two files, scoped to this harness's content root the same
-// way and with an override variable of its own for the same reason: a shared name
-// would let two harnesses share a session watermark, and each would then skip what
-// the other had pushed - silently, because nothing about that fails. A folder
-// rather than a path, because two stores is an implementation detail of the
-// exchange and where they live is not.
-// What the last backup did, scoped to this harness's content root like the sync
-// state above and for the same reason: a shared file would let two harnesses
-// count each other's backups as their own.
-builder.Services.AddSingleton<IBackupStateStore>(_ => new FileBackupStateStore(
-    Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_BACKUP_STATE_PATH") is { Length: > 0 } backupStatePath
-        ? backupStatePath
-        : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "backup-state.json")));
-builder.Services.AddSingleton<BackupWorker>();
-builder.Services.AddSessionSyncStores(
-    Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_SESSION_SYNC_PATH") is { Length: > 0 } sessionSyncFolder
-        ? sessionSyncFolder
-        : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development"));
-// Annotation replication's progress file, scoped and overridable the same way
-// and for the same reason: two harnesses sharing an annotation watermark would
-// each skip what the other had pushed.
-builder.Services.AddAnnotationSyncStore(
-    Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_ANNOTATION_SYNC_PATH") is { Length: > 0 } annotationSyncFolder
-        ? annotationSyncFolder
-        : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development"));
-// Where the sync service is, resolved the way the desktop head resolves it so the
-// Settings page behaves the same here: a URL entered there, then BACKLOG_SYNC_URL,
-// then "https+http://sync", which Aspire service discovery rewrites to this
-// AppHost run's sync resource. Under Aspire with nothing entered that is the
-// address this harness always used. The settings file is this harness's own,
-// under its content root and with an override variable of its own, for the
-// reason the credential above is: a shared file would point both harnesses at
-// whatever one of them was told. Task replication is the second call and not
-// part of the first: it needs the ITaskRepository above, and a host without one
-// composes only the pairing surface.
-builder.Services.AddSingleton(_ => new SyncServiceSettingsStore(
-    Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_SYNC_SERVICE_SETTINGS_PATH") is { Length: > 0 } syncSettingsPath
-        ? syncSettingsPath
-        : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "sync-service.json")));
-builder.Services.AddSingleton<SyncServiceEndpoint>();
-builder.Services.AddSyncClient(SyncServiceAddress);
-builder.Services.AddTaskSyncClient(SyncServiceAddress);
-// The same MCP server the desktop head serves, on the Kestrel pipeline this
-// harness already has rather than a second listener of its own — which is what
-// local ADR 0012 §2 asks for, and what makes the tools reachable under Aspire
-// where QA drives them. One registration shared with the MAUI head, so the tools
-// and their feature gates cannot differ between the two.
-//
-// The Origin check comes with them; the bearer token does not. The two guards
-// answer different questions and only one of them is the installed app's.
-//
-// Origin is here because the tools are the same tools and the workspace under
-// them is the real one: this harness composes %LOCALAPPDATA%\Backlog.Debug, and
-// a repository configured there points its devbook folders at a clone on this
-// machine. QA has to turn the feature on to test it, and a harness left running
-// afterwards is reachable from any browser page on the machine by DNS rebinding
-// — Aspire's port being dynamic is not a secret, it is a number a page can find
-// by trying. The check costs QA nothing: a test client is not a browser and
-// sends no Origin at all.
-//
-// The token is not, and that is the difference. It is a secret a person copies
-// into a registration; here it would be one QA had to fetch out of a container
-// to drive a test, protecting a host that holds nothing the Origin check is not
-// already closing.
-builder.Services.AddBacklogMcpServer().WithHttpTransport();
-var azureFoundrySettings = CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath);
-builder.Services.AddSingleton(azureFoundrySettings);
-// The chat client's pipeline is the adapter's own, sized for a completion rather
-// than for the service-to-service defaults AddServiceDefaults puts on every other
-// client — see AzureFoundryRegistration.
-builder.Services.AddAzureFoundryChatClient();
-// The bill for the same resource. When the settings are this session's local
-// seed, the query goes to the stand-in service beside the chat one — with a
-// token nothing signed, because the stand-in checks none — so the dashboard's
-// Cost section has figures without an Azure sign-in. A person's own Foundry
-// configuration keeps the real client, and their real bill.
-AddAzureFoundryCostClient(builder.Services, azureFoundrySettings);
-// The Inbox's plan drafter over the same chat client. Scoped, like the other
-// port adapters the Inbox module takes: the handler that asks for it is
-// scoped, and the typed client behind it is transient either way.
-builder.Services.AddScoped<IInboxPlanDrafter, AzureFoundryInboxPlanDrafter>();
-// The embedding deployment beside the chat one. Registered and never called in
-// this change: local ADR 0004's semantic tier is wired and dormant, and the
-// thing that would join it up - writing vectors into the devbook database - is a
-// step DevbookDatabaseBuilder does not take yet (the embedding model is still
-// ADR 0004's open question).
-builder.Services.AddHttpClient<IAzureFoundryEmbeddingsClient, AzureFoundryEmbeddingsClient>();
-builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
-builder.Services.AddSingleton<IGitFileHistoryService, GitFileHistoryService>();
-builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
-builder.Services.AddSingleton<ICopilotUsageClient>(sp => new CopilotUsageClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
-
-// The three GitHub clients the dashboard reads. Identity is shared by the other
-// two: the activity client filters to the signed-in author, and the billing client
-// chooses between the user and organization endpoints by the same login, so
-// neither needs a setting for it.
-builder.Services.AddSingleton<IGitHubIdentityClient>(sp => new GitHubIdentityClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
-// The detail cache is what keeps a dashboard read from re-fetching every pull
-// request it already read. Its folder is beside the per-user settings and never
-// under the backlog root - see ActivityCacheDirectory.
-builder.Services.AddSingleton<IPullRequestDetailCache>(sp => new PullRequestDetailCache(
-    () => sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory));
-// And the listing cache is what keeps it from re-walking the pages that found
-// those pull requests. Same folder, so forgetting a repository is one gesture
-// that drops both.
-builder.Services.AddSingleton<IActivityListingCache>(sp => new ActivityListingCache(
-    () => sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory));
-builder.Services.AddSingleton<IGitHubActivityClient>(sp => new GitHubActivityClient(
-    sp.GetRequiredService<ResolvingGitHubTransport>(),
-    sp.GetRequiredService<IPullRequestDetailCache>(),
-    sp.GetRequiredService<IActivityListingCache>()));
-// Counts only, over the search API, for the stretches of history the detailed
-// client is too expensive to walk.
-builder.Services.AddSingleton<IGitHubActivityBaselineClient>(sp => new GitHubActivityBaselineClient(
-    sp.GetRequiredService<ResolvingGitHubTransport>()));
-// Settled Copilot months and settled Claude days are kept beside each other
-// under the spend cache - see SpendCacheDirectory for why it is a folder of its
-// own - so a seven-month trend costs the running month and nothing else.
-builder.Services.AddSingleton<IAiCreditUsageCache>(sp => new AiCreditUsageCache(
-    () => sp.GetRequiredService<WorkspaceSettingsStore>().SpendCacheDirectory));
-builder.Services.AddSingleton<IGitHubBillingClient>(sp => new GitHubBillingClient(
-    sp.GetRequiredService<ResolvingGitHubTransport>(),
-    sp.GetRequiredService<IGitHubIdentityClient>(),
-    sp.GetRequiredService<GitHubSettingsStore>(),
-    sp.GetRequiredService<IAiCreditUsageCache>()));
-
-// Claude usage reporting reports itself unavailable until an Admin API key is
-// configured, so it is safe to register unconditionally.
-builder.Services.AddSingleton(_ => CreateLocalDevelopmentClaudeSettingsStore(builder.Environment.ContentRootPath));
-builder.Services.AddHttpClient<IClaudeTransport, ClaudeAdminTransport>();
-builder.Services.AddSingleton<IClaudeAccountProbe>(sp => new ClaudeAccountProbe(sp.GetRequiredService<IClaudeTransport>()));
-builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
-    sp.GetRequiredService<IClaudeTransport>(),
-    sp.GetRequiredService<ClaudeSettingsStore>()));
-builder.Services.AddSingleton<IClaudeCodeUsageCache>(sp => new ClaudeCodeUsageCache(
-    () => sp.GetRequiredService<WorkspaceSettingsStore>().SpendCacheDirectory));
-
-// The Dashboard module brings its derivations; the adapters beside it decide which
-// providers are behind them. Registered after the provider clients above, which is
-// all the adapters hold. Every part reports itself unavailable with a reason until
-// the credential it needs exists, so this is safe to register unconditionally.
-builder.Services.AddDashboardModule();
-builder.Services.AddGitHubDashboardAdapters();
-builder.Services.AddClaudeDashboardAdapters();
-builder.Services.AddAzureFoundryDashboardAdapters();
-builder.Services.AddDashboardUi();
-
-// Tasks' own adapter, registered here rather than beside
-// AddTasksModule() above because it reads the GitHub settings store and that is
-// only configured by this point. It is what lets an imported plan resolve a
-// `repo:` name against the repositories somebody has configured — and register one
-// it names that nobody has, per ADR 0007.
-builder.Services.AddTasksAdapters();
-
-builder.Services.AddSingleton<GitHubIntegration>();
-builder.Services.AddSingleton<FeedbackReporter>();
-// Scoped, unlike the reporter above it: a request to open the Report issue
-// dialog belongs to the circuit that raised it, not to every tab on the harness.
-builder.Services.AddScoped<FeedbackReportChannel>();
-// This assembly's own pages, under Components/Pages: they exist only to be
-// driven — the shipped app has no route that throws on request.
-builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));
 builder.Services.AddSingleton<DesignDevbookProvider>();
 builder.Services.AddSingleton<AiDevbookProvider>();
 builder.Services.AddSingleton<TechnologyDevbookService>();
@@ -446,9 +178,7 @@ builder.Services.AddSingleton<IDevbookAnnotationStore>(sp =>
     new DevbookAnnotationStore(
         () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
         folders: sp.GetRequiredService<IDevbookFolderSource>()));
-builder.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
 builder.Services.AddSingleton<DevbookFolderOpenService>();
-builder.Services.AddSingleton(_ => TasksCopilotCli.Unavailable);
 builder.Services.AddSingleton(_ => new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
 // The shared diagram component asks for this optionally, so registering it is
 // what switches Archify artifacts on for the harness at all. It takes the same
@@ -460,116 +190,45 @@ builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramAr
     sp.GetRequiredService<GitHubSettingsStore>(),
     new UnavailableCopilotCliLauncher()));
 builder.Services.AddSingleton<DevbookScope>();
-// The open-chapter mirror the pane writes and the Ask AI source that pins
-// from it, after the search and folder ports above that the source holds.
-builder.Services.AddDevbookAiContentSource();
 builder.Services.AddSingleton<DevbookUpdateService>();
 
 // Shared by the Devbook pane and the settings screen, and a singleton so the
 // branch list somebody fetched in one is already there in the other.
 builder.Services.AddSingleton<DevbookSourceSelection>();
-builder.Services.AddScoped<TasksDesktopState>();
-// The backlog behind the shell's Ask AI port, beside the state it reads.
-builder.Services.AddTasksAiContentSource();
-// The Inbox pane's state, on the same terms as TasksDesktopState and for the
-// same reason: it captures the module's scoped IInboxItems, and a singleton over
-// a scoped service is a captive dependency validate-on-build refuses.
-builder.Services.AddScoped<InboxDesktopState>();
-// The Inbox behind the shell's Ask AI port, beside the state it reads.
-builder.Services.AddInboxAiContentSource();
-// The Inbox's page on the settings screen: the routing rules. The shell draws
-// it only because it is registered here, and holds no copy of its own.
-builder.Services.AddInboxSettings();
-// The save-state band and the toast tray, both mounted by MainLayout under every
-// route. Scoped rather than singleton, and that is forced rather than tidy: this
-// host has one circuit per visitor, a singleton forwarding to a scoped
-// TasksDesktopState is a captive dependency that throws on resolve, and a
-// singleton channel would show one visitor's toasts to every other.
-builder.Services.AddScoped<ISaveStatusSource>(sp => sp.GetRequiredService<TasksDesktopState>());
-builder.Services.AddScoped<ToastChannel>();
-builder.Services.AddScoped<IToastChannel>(sp => sp.GetRequiredService<ToastChannel>());
 builder.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
 
-// The web host never distributes or updates the desktop app, so it always
-// reports updates as unsupported.
-builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-// The desktop head's own tools adapter, configured to read the catalog and run
-// nothing: a browser session operates the pane without touching the machine.
-builder.Services.AddSingleton<IDevToolService>(sp => DevToolService.CatalogOnly(sp.GetRequiredService<ITaskStore>()));
-// The tool catalog behind the shell's Ask AI port, beside the port it reads.
-builder.Services.AddToolsAiContentSource();
-
-// The session list reads the two agents' own folders in the profile of whoever is
-// signed in, and the harness runs as that person on that machine — so unlike the
-// tool service above there is nothing for a local-development variant to differ
-// about, and both hosts compose the same adapter.
-builder.Services.AddAgentSessionSource();
-builder.Services.AddSessionsAiContentSource();
-
-// Session replication, on top of AddSyncClient above and after the readers it
-// pushes from: it reads this machine's sessions through the port that call
-// registers and contributes a second source to the same port for what the other
-// environments reported. Both lines are lazy factories, so the order is for
-// whoever reads this file rather than for the container. Its own call because a
-// head can have a task database and no session readers; it answers to the same
-// Sync switch as the task loop.
-builder.Services.AddSessionSyncClient(SyncServiceAddress);
-
-// Annotation replication, the third exchange over the same token pipeline, on
-// the same terms as the session one above and composed the same way in
-// src/App/Backlog.Desktop/MauiProgram.cs.
-builder.Services.AddAnnotationSyncClient(SyncServiceAddress);
-
-// What a transcript's parsed runs are kept in, so an activity read parses only the
-// transcripts that have changed. Beside the per-user settings and never under the
-// backlog root - see ActivityCacheDirectory: ADR 0005 syncs the workspace, and a
-// per-machine parse cache travelling to another device is exactly the hazard.
-builder.Services.AddSingleton<IAgentActivityCache>(sp => new AgentActivityCache(
-    () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
-// The other pass over the same transcripts: the folder, branch and turn count the
-// session list reads. Same folder, same reasons, forgotten together.
-builder.Services.AddSingleton<ITranscriptFactsCache>(sp => new TranscriptFactsCache(
-    () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
-// This machine's own session records, as the desktop head keeps them.
-builder.Services.AddSingleton<IAgentSessionRecordStore>(sp => new AgentSessionRecordStore(
-    () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionRecordsDirectory));
-// Which registered clone a session's working folder lies inside, read off the
-// same repository list the Repositories screen writes. The session readers
-// stamp the answer on each local session so a header scoped to one repository
-// can hold the Claude sessions running in its clone — Claude records none itself.
-// Run from a linked worktree, the seeded clone is that worktree alone, so its main
-// checkout is asked as well; see MainCheckoutSessionRepositoryResolver.
-builder.Services.AddSingleton<ISessionRepositoryResolver>(sp =>
-{
-    var settings = sp.GetRequiredService<GitHubSettingsStore>();
-    var registered = new SettingsSessionRepositoryResolver(settings);
-    var checkout = ResolveRepositoryRoot(builder.Environment.ContentRootPath);
-    var main = DevelopmentWorkspace.MainCheckoutOf(checkout);
-    var seeded = settings.Current.Repositories.FirstOrDefault(repository =>
-        string.Equals(repository.CloneDirectory, checkout, StringComparison.OrdinalIgnoreCase));
-
-    return main is null || seeded is null
-        ? registered
-        : new MainCheckoutSessionRepositoryResolver(registered, new RegisteredClone(seeded.FullName, main));
-});
-
-// When those sessions were actually producing, read out of the bodies of the
-// transcripts the call above only stats. A separate call because it is a separate
-// port: asking for the session list must not be the same thing as asking for hundreds
-// of megabytes to be parsed. It picks up the cache registered above through
-// GetService, so a host that composed none would still be correct and only slower.
+// The same MCP server the desktop head serves, on the Kestrel pipeline this
+// harness already has rather than a second listener of its own — which is what
+// local ADR 0012 §2 asks for, and what makes the tools reachable under Aspire
+// where QA drives them. One registration shared with the MAUI head, so the tools
+// and their feature gates cannot differ between the two.
 //
-// This machine's transcripts and no others, unlike the session list beside it: a
-// replicated session record says what another environment did, and the file its runs
-// would have to be parsed out of never left that machine.
-builder.Services.AddAgentActivitySource();
-
-// The join between the two contexts: the Dashboard's sessions part reports on what the
-// Sessions context reads. Only an infrastructure adapter may see both, so the
-// registration is there rather than in either module — and it comes after
-// AddDashboardModule(), AddAgentSessionSource() and AddAgentActivitySource(), whose
-// ports it sits between.
-builder.Services.AddDashboardCrossContextAdapters();
+// The Origin check comes with them; the bearer token does not. The two guards
+// answer different questions and only one of them is the installed app's.
+//
+// Origin is here because the tools are the same tools and the workspace under
+// them is the real one: this harness composes %LOCALAPPDATA%\Backlog.Debug, and
+// a repository configured there points its devbook folders at a clone on this
+// machine. QA has to turn the feature on to test it, and a harness left running
+// afterwards is reachable from any browser page on the machine by DNS rebinding
+// — Aspire's port being dynamic is not a secret, it is a number a page can find
+// by trying. The check costs QA nothing: a test client is not a browser and
+// sends no Origin at all.
+//
+// The token is not, and that is the difference. It is a secret a person copies
+// into a registration; here it would be one QA had to fetch out of a container
+// to drive a test, protecting a host that holds nothing the Origin check is not
+// already closing.
+builder.Services.AddBacklogMcpServer().WithHttpTransport();
+// The bill for the Azure Foundry resource. When the settings are this session's
+// local seed, the query goes to the stand-in service beside the chat one — with a
+// token nothing signed, because the stand-in checks none — so the dashboard's
+// Cost section has figures without an Azure sign-in. A person's own Foundry
+// configuration keeps the real client, and their real bill.
+AddAzureFoundryCostClient(builder.Services, azureFoundrySettings);
+// This assembly's own pages, under Components/Pages: they exist only to be
+// driven — the shipped app has no route that throws on request.
+builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));
 
 // Which worktree served this harness. It is only ever started from a checkout,
 // so there is nothing to gate on beyond finding one — and when it is missing the
@@ -702,11 +361,6 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
 
     return settings;
 }
-
-// The base-address callback the three sync registrations share, so they cannot
-// disagree about which service this harness is talking to.
-static Uri SyncServiceAddress(IServiceProvider services) =>
-    services.GetRequiredService<SyncServiceEndpoint>().Resolve().Address;
 
 static void AddAzureFoundryCostClient(IServiceCollection services, AzureFoundrySettingsStore settings)
 {

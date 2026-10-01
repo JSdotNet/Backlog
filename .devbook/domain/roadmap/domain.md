@@ -105,7 +105,8 @@ set again except by an import creating the item anew; an import re-places only a
 window that still carries it. While it is still `effort` and its work is not
 finished, the item **keeps up with its work** without being asked. Its window is
 re-projected from the effort not yet done (the total registered effort less the
-finished effort) at the reader's velocity, laid out from today. The start is kept
+finished effort) at the reader's velocity, laid out from today over the reader's
+[Working Week](#working-week) (ADR 0019). The start is kept
 once any of its work has begun. An item whose work has not begun starts on the
 later of today and the day after its latest predecessor ends, so an unstarted
 item follows the item it waits on. The value stays `effort`, because the window
@@ -524,6 +525,24 @@ arithmetic over the points that were actually registered, reported alongside the
 count of gathered things that registered none. A total, not a measurement of time,
 and never an inference: unestimated work is counted as unestimated, not as zero
 that hides in the sum.
+
+### Working Week
+
+```meta
+type: term
+status: draft
+aliases: [working week, working hours, workingWeek, WorkingHours]
+related: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+```
+
+The hours the person means to work, as seven days that are each worked or not,
+each with its own start and end. The person sets it once, in
+[Productivity's setting](../productivity/context.md#working-week), and it travels
+with their pace. Roadmap Planning reads it for two things. A **week** of the pace
+is the week's total hours, and an effort-sized Planned Window counts these hours
+forward from its start. A day not worked, or one whose end is not after its
+start, adds no hours. Only the weekly pattern exists; a holiday is not a term
+here (ADR 0019).
 
 ### Contradiction
 

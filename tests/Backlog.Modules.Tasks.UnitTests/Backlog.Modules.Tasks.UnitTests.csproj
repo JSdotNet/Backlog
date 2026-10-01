@@ -6,4 +6,11 @@
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
   </ItemGroup>
 
+  <!-- The shared test doubles this project uses. Linked per project rather than
+       from tests/Directory.Build.props: a double that implements a product
+       interface only compiles in a project that references it. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\InMemoryTaskRepository.cs" Link="Shared\TestDoubles\InMemoryTaskRepository.cs" />
+  </ItemGroup>
+
 </Project>

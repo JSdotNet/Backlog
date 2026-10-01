@@ -5,14 +5,14 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The line a lane's pace slider runs along: from the pace the lane measured over the
 /// last two weeks to the pace the reader typed, whichever is lower first, stepped a
-/// quarter point at a time, and always long enough to hold what is in use.
+/// whole point at a time, and always long enough to hold what is in use.
 /// </summary>
 public sealed class PaceSliderRangeTests
 {
     [Theory]
     [InlineData(3, 8, 7, 3, 8)]     // measured slower than typed
     [InlineData(12, 8, 10, 8, 12)]  // measured faster than typed
-    [InlineData(2.5, 7.75, 5, 2.5, 7.75)]
+    [InlineData(2.5, 7.75, 5, 2, 8)]
     public void It_runs_between_the_two_weeks_and_the_typed_pace_lowest_first(
         double twoWeek, double typed, double current, double min, double max)
     {
@@ -20,7 +20,7 @@ public sealed class PaceSliderRangeTests
 
         Assert.Equal((decimal)min, range.Min);
         Assert.Equal((decimal)max, range.Max);
-        Assert.Equal(0.25m, range.Step);
+        Assert.Equal(1m, range.Step);
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public sealed class PaceSliderRangeTests
     }
 
     [Fact]
-    public void An_end_not_on_a_step_is_moved_outward_onto_one_so_the_thumb_can_rest_on_it()
+    public void An_end_not_on_a_whole_point_is_moved_outward_onto_one_so_every_stop_is_whole()
     {
         var range = PaceSliderRange.Of(3.1m, 7.9m, 5m);
 
@@ -62,46 +62,28 @@ public sealed class PaceSliderRangeTests
     }
 
     [Fact]
-    public void A_pace_in_use_between_steps_extends_the_line_to_the_steps_around_it()
+    public void A_pace_in_use_between_points_extends_the_line_to_the_point_above_it()
     {
         var range = PaceSliderRange.Of(3m, 8m, 9.3333m);
 
-        Assert.Equal(9.5m, range.Max);
-    }
-
-    [Fact]
-    public void A_tiny_pace_never_reaches_zero_which_has_no_length_to_draw()
-    {
-        var range = PaceSliderRange.Of(null, 0.3m, 0.3m);
-
-        Assert.Equal(0.25m, range.Min);
-        Assert.Equal(0.75m, range.Max);
-        Assert.True(range.Max > range.Min);
+        Assert.Equal(10m, range.Max);
     }
 
     [Theory]
-    [InlineData(0.125, 0.125)]   // the 8-week stretch of a quiet lane
-    [InlineData(0.0625, 0.0625)]
-    public void A_pace_in_use_below_the_floor_is_still_on_the_line(double current, double min)
+    [InlineData(0.3)]
+    [InlineData(0.125)]   // the 8-week stretch of a quiet lane
+    public void The_line_never_starts_below_one_point_so_every_stop_is_a_pace(double pace)
     {
-        var range = PaceSliderRange.Of(3m, 8m, (decimal)current);
+        var range = PaceSliderRange.Of(null, (decimal)pace, (decimal)pace);
 
-        Assert.Equal((decimal)min, range.Min);
-        Assert.InRange((decimal)current, range.Min, range.Max);
-    }
-
-    [Fact]
-    public void A_pace_at_the_floor_or_above_it_keeps_the_floor()
-    {
-        var range = PaceSliderRange.Of(null, 0.3m, 0.25m);
-
-        Assert.Equal(0.25m, range.Min);
+        Assert.Equal(1m, range.Min);
+        Assert.True(range.Max > range.Min);
     }
 
     [Fact]
     public void A_line_always_has_length()
     {
-        var range = PaceSliderRange.Of(0.25m, 0.25m, 0.25m);
+        var range = PaceSliderRange.Of(1m, 1m, 1m);
 
         Assert.True(range.Max > range.Min);
     }

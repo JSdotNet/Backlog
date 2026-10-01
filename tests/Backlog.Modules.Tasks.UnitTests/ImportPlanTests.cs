@@ -955,45 +955,4 @@ public sealed class ImportPlanTests
 
     private static EntryStatus StatusOf(InMemoryTaskRepository store, ImportPlanResultDto result, string title) =>
         store.Entries[Assert.Single(result.Entries, e => e.Title == title).Id].Status;
-
-    /// <summary>The same small hand-written fake <c>RecurringTaskTests</c> uses,
-    /// kept local to this file for the same reason: what is under test is
-    /// Import's own orchestration rather than the storage format.</summary>
-    private sealed class InMemoryTaskRepository : ITaskRepository
-    {
-        public Dictionary<Guid, TaskItem> Entries { get; } = [];
-
-        /// <summary>Every save, counted, so "wrote nothing" can be asserted
-        /// rather than inferred from the rows looking the same.</summary>
-        public int Writes { get; set; }
-
-        public Task SaveAsync(TaskItem entry, CancellationToken cancellationToken = default)
-        {
-            Writes++;
-            Entries[entry.Id] = entry;
-            return Task.CompletedTask;
-        }
-
-        // Both reads hide a tombstoned entry, the way the port says they must.
-        // Unexercised by these tests, and here anyway: a double that answers a
-        // deleted entry when the real store would not is a double that lies.
-        public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.TryGetValue(id, out var entry) && entry.DeletedAt is null ? entry : null);
-
-        // And the one read that does not, for the merge that has to tell
-        // "deleted here" from "never seen here".
-        public Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.TryGetValue(id, out var entry) ? entry : null);
-
-        public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Values.Where(entry => entry.DeletedAt is null)]);
-
-        // And the list that does not either, for the push that has to carry a
-        // deletion off the machine.
-        public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(
-            DateTimeOffset since,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>(
-                [.. Entries.Values.Where(entry => entry.UpdatedAt > since).OrderBy(entry => entry.UpdatedAt)]);
-    }
 }

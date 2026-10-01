@@ -144,6 +144,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Infrastructure/Backlog.Infrastructure.BlobStorage` | Cross-cutting adapter — the sync service's attachment store, one private blob container behind `IAttachmentStore`. See [ADR 0014](.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md) |
 | `src/Infrastructure/Backlog.Infrastructure.Sessions` | Cross-cutting adapter — the Sessions module's disk adapters: the Claude and Copilot session and transcript readers, agent activity, the delivery-run stores and their telemetry, and the Archify runner that draws a run |
 | `src/App/Backlog.Desktop.UI` | Desktop shell — layout, routes, settings, and the composition that decides which context panes are on screen |
+| `src/App/Backlog.Desktop.Composition` | What both desktop heads compose — every module, adapter, Ask AI source and settings page behind one `AddDesktopComposition` call, with `DesktopCompositionOptions` for what the MAUI head and the web harness do differently |
 | `src/App/Backlog.Desktop` | Desktop channel — .NET MAUI Blazor Hybrid (Windows) |
 | `src/App/Backlog.Mobile.UI` | Shared Razor components for the mobile channel |
 | `src/App/Backlog.Mobile` | Mobile channel — .NET MAUI Blazor Hybrid (Android) |

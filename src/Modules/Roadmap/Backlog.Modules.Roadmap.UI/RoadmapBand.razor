@@ -248,8 +248,7 @@
            with nothing planned there is nothing to place. *@
         @if (_view.HasAnythingToDraw)
         {
-            <RoadmapTypedPace Repositories="@([.. Configured().Select(repository => repository.Alias)])"
-                              OnPaceChanged="RedrawAtNewPace" />
+            <RoadmapTypedPace Repositories="@([.. Configured().Select(repository => repository.Alias)])" />
         }
     </text>;
 
@@ -268,8 +267,7 @@
     /// </para>
     /// </summary>
     private RenderFragment<RoadmapGroup> BandPace => group =>
-        @<RoadmapPaceControl Repository="@(group.Id == RoadmapPlanView.UnfiledGroupId ? null : group.Id)"
-                             OnPaceChanged="RedrawAtNewPace" />;
+        @<RoadmapPaceControl Repository="@(group.Id == RoadmapPlanView.UnfiledGroupId ? null : group.Id)" />;
 
     /// <summary>Where the "now" line is drawn. A parameter so a test can put
     /// today somewhere it chooses rather than wherever the clock happens to
@@ -311,30 +309,15 @@
         // left should be done at the pace its band is placed at; a plan nobody started
         // that is sized by its effort, to where that effort reaches at the same pace
         // (RoadmapPlanView.AsDrawn).
+        // Every band's pace from one read of the finished work, not one read per band.
         var forecast = new RoadmapForecast(
             Today ?? DateOnly.FromDateTime(DateTime.Today),
-            await PacesInUseAsync(configured));
+            await Paces.ReadPacesInUseAsync());
 
         _view = RoadmapPlanView.From(_plan, configured, rollups, forecast);
 
         _imported = await ImportedPlans.ListAsync();
         _unplanned = Unplanned(_imported, _plan);
-    }
-
-    /// <summary>The pace each band is in use at — the one its pace control shows —
-    /// and the global one for work filed under none. Read on every load, which the
-    /// band already does when finished work or a pace changes.</summary>
-    private async Task<PacesInUseDto> PacesInUseAsync(IReadOnlyList<PlannedRepository> configured)
-    {
-        var global = (await Paces.ReadAsync()).InUse;
-        var byRepository = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var repository in configured)
-        {
-            byRepository[repository.Alias] = (await Paces.ReadAsync(repository.Alias)).InUse;
-        }
-
-        return new PacesInUseDto(global, byRepository);
     }
 
     /// <summary>
@@ -546,9 +529,9 @@
     }
 
     /// <summary>
-    /// A double-click on an empty place on the chart: the same two dialogs the heading
-    /// opens, opened on where it was — the week, and for work the band's repository and
-    /// the row's lane. Nothing is added until the dialog is saved, so a stray
+    /// A double-click on an empty place on the chart, or a drag across one: the same two
+    /// dialogs the heading opens, opened on where it was — the week, or the weeks
+    /// dragged across, and for work the band's repository and the row's lane. Nothing is added until the dialog is saved, so a stray
     /// double-click costs a Cancel, never an item.
     /// </summary>
     private void PlaceHere(RoadmapSlot slot)
@@ -561,7 +544,7 @@
         }
 
         PlanSomething();
-        _placement = new RoadmapItemPlacement(slot.On, RepositoryOf(slot.RowId), RoadmapPlanView.LaneOf(slot.RowId));
+        _placement = new RoadmapItemPlacement(slot.On, RepositoryOf(slot.RowId), RoadmapPlanView.LaneOf(slot.RowId), slot.Until);
     }
 
     /// <summary>The configured repository a row's band stands for, or null for the
@@ -762,18 +745,6 @@
         }
     }
 
-    /// <summary>
-    /// The reader changed their pace: every bar still sized by its effort is redrawn
-    /// at it, from what each item gathers now (ADR 0013, ruling 5 as amended).
-    /// <para>
-    /// A read, never a plan write. Those windows are derived where they are drawn
-    /// (<see cref="EffortWindow"/>), so the pace document is the only thing a pace
-    /// change writes — a plan saved here would carry a newer stamp to the other PCs and
-    /// overwrite an edit made there in the same interval (local ADR 0018). A pace that
-    /// arrives from another PC redraws through <see cref="OnPaceSettingsChanged"/>.
-    /// </para>
-    /// </summary>
-    private Task RedrawAtNewPace() => Load();
 
     /// <summary>
     /// "Update from tasks", taken: the item's window re-lengthened from what its tasks
@@ -827,10 +798,11 @@
         // Started work has a start that is a fact and an end that is a forecast. Its
         // bar offers the end alone, and dragging it pins that end: the forecast stops
         // deciding it until the person hands it back ("Use forecast" in the editor).
-        // Nothing else about the item moves, so this is not a reschedule.
+        // Nothing else about the item moves, so this is not a reschedule. An earlier
+        // segment of a hand-over moves the item's end as far as its own end was dragged.
         var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
         var rescheduled = bar is { Locked: true, EndResizable: true }
-            ? await Planning.PinItemEndAsync(itemId.Value, change.End)
+            ? await Planning.PinItemEndAsync(itemId.Value, RoadmapPlanView.PinnedEndFor(_view.Bars, bar, change))
             : await RescheduleAsync(change, itemId.Value);
 
         // Reload either way. On success the plan is the truth; on failure the
@@ -947,9 +919,23 @@
     /// holds.</summary>
     private void OnWorkChanged() => ReloadForOutsideChange();
 
-    /// <summary>A typed pace or a choice changed — here, in another window, or pulled
-    /// from another PC by the sync — so every bar still sized by its effort is drawn
-    /// again at the pace now in use. Nothing is written: the window is read.</summary>
+    /// <summary>
+    /// A typed pace or a choice changed — in this band's own pace controls, in another
+    /// window, or pulled from another PC by the sync — so every bar still sized by its
+    /// effort is drawn again at the pace now in use, from what each item gathers now
+    /// (ADR 0013, ruling 5 as amended).
+    /// <para>
+    /// The one redraw a pace change gets: the controls' own OnPaceChanged is not
+    /// listened to as well, because it reports the same save and a second load would
+    /// read the backlog again for nothing — the stall after letting go of a slider.
+    /// </para>
+    /// <para>
+    /// A read, never a plan write. Those windows are derived where they are drawn
+    /// (<see cref="EffortWindow"/>), so the pace document is the only thing a pace
+    /// change writes — a plan saved here would carry a newer stamp to the other PCs and
+    /// overwrite an edit made there in the same interval (local ADR 0018).
+    /// </para>
+    /// </summary>
     private void OnPaceSettingsChanged() => ReloadForOutsideChange();
 
     /// <summary>A reload is already under way when the next change lands.</summary>

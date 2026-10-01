@@ -29,7 +29,7 @@ public class ReconcileRepositoryIdsTests
         var changed = await Reconcile(store, directory);
 
         Assert.Equal(1, changed);
-        Assert.Equal(["JSdotNet/Backlog"], store.Entries.Single().RepoIds);
+        Assert.Equal(["JSdotNet/Backlog"], store.Entries.Values.Single().RepoIds);
     }
 
     /// <summary>
@@ -64,7 +64,7 @@ public class ReconcileRepositoryIdsTests
         var changed = await Reconcile(store, directory);
 
         Assert.Equal(0, changed);
-        Assert.Equal(["mystery"], store.Entries.Single().RepoIds);
+        Assert.Equal(["mystery"], store.Entries.Values.Single().RepoIds);
         Assert.Equal(0, store.Writes);
     }
 
@@ -90,7 +90,7 @@ public class ReconcileRepositoryIdsTests
         // Already the registry's own spelling, so the stored value does not move
         // and nothing is written.
         Assert.Equal(0, changed);
-        Assert.Equal(["Someone/Thing"], store.Entries.Single().RepoIds);
+        Assert.Equal(["Someone/Thing"], store.Entries.Values.Single().RepoIds);
     }
 
     /// <summary>
@@ -109,7 +109,7 @@ public class ReconcileRepositoryIdsTests
 
         Assert.Empty(directory.Registered);
         Assert.Single(directory.Repositories);
-        Assert.Equal(["xyz"], store.Entries.Single().RepoIds);
+        Assert.Equal(["xyz"], store.Entries.Values.Single().RepoIds);
     }
 
     /// <summary>
@@ -128,7 +128,7 @@ public class ReconcileRepositoryIdsTests
 
         Assert.Equal(0, changed);
         Assert.Equal(0, store.Writes);
-        Assert.Equal(["backlog", "docs"], store.Entries.Single().RepoIds);
+        Assert.Equal(["backlog", "docs"], store.Entries.Values.Single().RepoIds);
     }
 
     /// <summary>An entry may name several repositories, and the pass is a
@@ -143,7 +143,7 @@ public class ReconcileRepositoryIdsTests
         var changed = await Reconcile(store, directory);
 
         Assert.Equal(1, changed);
-        Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Docs"], store.Entries.Single().RepoIds);
+        Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Docs"], store.Entries.Values.Single().RepoIds);
     }
 
     /// <summary>Two casings of one repository resolve to one row, and
@@ -159,7 +159,7 @@ public class ReconcileRepositoryIdsTests
         var changed = await Reconcile(store, directory);
 
         Assert.Equal(1, changed);
-        Assert.Equal(["JSdotNet/Backlog"], store.Entries.Single().RepoIds);
+        Assert.Equal(["JSdotNet/Backlog"], store.Entries.Values.Single().RepoIds);
     }
 
     /// <summary>
@@ -172,14 +172,14 @@ public class ReconcileRepositoryIdsTests
     public async Task An_issue_link_follows_the_repository_with_the_assignment()
     {
         var store = StoreWith(["backlog"]);
-        store.Entries.Single().AddProjectionRef(new ProjectionRef("backlog", "42", "issue"));
-        store.Entries.Single().AddProjectionRef(new ProjectionRef("jsdotnet/docs", "7", "issue"));
+        store.Entries.Values.Single().AddProjectionRef(new ProjectionRef("backlog", "42", "issue"));
+        store.Entries.Values.Single().AddProjectionRef(new ProjectionRef("jsdotnet/docs", "7", "issue"));
         var directory = new FakeRepositoryDirectory([Backlog, Docs]);
 
         var changed = await Reconcile(store, directory);
 
         Assert.Equal(1, changed);
-        var entry = store.Entries.Single();
+        var entry = store.Entries.Values.Single();
         Assert.Equal(["JSdotNet/Backlog"], entry.RepoIds);
         Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Docs"], entry.ProjectionRefs.Select(link => link.RepoId));
     }
@@ -195,15 +195,15 @@ public class ReconcileRepositoryIdsTests
     public async Task An_id_the_registry_remembers_renaming_moves_to_the_repository_it_became()
     {
         var store = StoreWith(["JSdotNet/Backlog-old"]);
-        store.Entries.Single().AddProjectionRef(new ProjectionRef("JSdotNet/Backlog-old", "42", "issue"));
+        store.Entries.Values.Single().AddProjectionRef(new ProjectionRef("JSdotNet/Backlog-old", "42", "issue"));
         var directory = new FakeRepositoryDirectory([Backlog]);
         directory.Renamed["JSdotNet/Backlog-old"] = "JSdotNet/Backlog";
 
         var changed = await Reconcile(store, directory);
 
         Assert.Equal(1, changed);
-        Assert.Equal(["JSdotNet/Backlog"], store.Entries.Single().RepoIds);
-        Assert.Equal(["JSdotNet/Backlog"], store.Entries.Single().ProjectionRefs.Select(link => link.RepoId));
+        Assert.Equal(["JSdotNet/Backlog"], store.Entries.Values.Single().RepoIds);
+        Assert.Equal(["JSdotNet/Backlog"], store.Entries.Values.Single().ProjectionRefs.Select(link => link.RepoId));
         Assert.Empty(directory.Registered);
     }
 
@@ -223,7 +223,7 @@ public class ReconcileRepositoryIdsTests
         var changed = await Reconcile(store, directory);
 
         Assert.Equal(0, changed);
-        Assert.Equal(["finance/finance"], store.Entries.Single().RepoIds);
+        Assert.Equal(["finance/finance"], store.Entries.Values.Single().RepoIds);
         Assert.Empty(directory.Registered);
         Assert.Equal([Backlog], directory.Repositories);
     }
@@ -242,7 +242,7 @@ public class ReconcileRepositoryIdsTests
 
         Assert.Equal(0, changed);
         Assert.Equal(0, store.Writes);
-        Assert.Equal(["Someone/Thing"], store.Entries.Single().RepoIds);
+        Assert.Equal(["Someone/Thing"], store.Entries.Values.Single().RepoIds);
         Assert.Equal(["Someone/Thing"], directory.Registered);
         Assert.Equal([Backlog], directory.Repositories);
     }
@@ -261,46 +261,6 @@ public class ReconcileRepositoryIdsTests
         var entry = new TaskItem("Ship it", string.Empty, EntryType.Task);
         entry.SetRepoIds(repoIds);
 
-        var store = new InMemoryTaskRepository();
-        store.Entries.Add(entry);
-        return store;
-    }
-
-    /// <summary>Counts writes as well as holding entries, because "wrote nothing"
-    /// is half of what this pass has to guarantee and a store that only held the
-    /// rows could not tell a no-op from a rewrite to the same value.</summary>
-    private sealed class InMemoryTaskRepository : ITaskRepository
-    {
-        public List<TaskItem> Entries { get; } = [];
-
-        public int Writes { get; set; }
-
-        // Both reads hide a tombstoned entry, the way the port says they must.
-        public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Where(entry => entry.DeletedAt is null)]);
-
-        // And the list that does not, for the push that has to carry a deletion
-        // off the machine.
-        public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(
-            DateTimeOffset since,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>(
-                [.. Entries.Where(entry => entry.UpdatedAt > since).OrderBy(entry => entry.UpdatedAt)]);
-
-        public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.FirstOrDefault(entry => entry.Id == id && entry.DeletedAt is null));
-
-        // And the one read that does not, for the merge that has to tell
-        // "deleted here" from "never seen here".
-        public Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.FirstOrDefault(entry => entry.Id == id));
-
-        public Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default)
-        {
-            Writes++;
-            Entries.RemoveAll(existing => existing.Id == task.Id);
-            Entries.Add(task);
-            return Task.CompletedTask;
-        }
+        return new InMemoryTaskRepository(entry);
     }
 }

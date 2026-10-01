@@ -6,7 +6,7 @@
 ## Storage and Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log"]
 ```
 
 - **Local-first, one canonical local store** — the desktop's own store is the single
@@ -72,9 +72,13 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   last-write-wins on its `updated_at`. The pace (`planning-velocity.json`: the
   typed pace, the chosen source and the per-repository pairs) is a second
   `planning-pace` document, so a pace change and a plan edit never overwrite each
-  other. The working week stays with the per-device settings, and a device that
-  never saved a plan or a pace sends none — see
+  other. A device that never saved a plan or a pace sends none — see
   `.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md`.
+  The working week leaves the per-device settings under local ADR 0019
+  (proposed, 2026-10-01). Placement counts the person's working hours, so the
+  week travels as a `workingWeek` key inside the `planning-pace` document. Each
+  device keeps `working-hours.json` as its copy, and a document without the key
+  reads that copy (`.devbook/arc42/adr/0019-roadmap-counts-the-working-week.md`).
 - **Three containers in the cloud replica** — `tasks`, `sessions` and
   `annotations`, all partitioned on `/ownerId`. Separate because each wants its
   own change feed, its own indexing policy, and its own retention, and because

@@ -61,6 +61,9 @@ public interface IPlanningPace
     /// plans are placed at.</summary>
     Task<PlanningPacesDto> ReadAsync(string? repository = null, CancellationToken cancellationToken = default);
 
+    /// <inheritdoc cref="IPlanningVelocity.ReadPacesInUseAsync"/>
+    Task<PacesInUseDto> ReadPacesInUseAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Sets the typed pace — the one fallback every scope shares — from what
     /// a text field hands back. Returns <c>null</c> when it took and was saved, and a
     /// message to show beside the field otherwise.</summary>
@@ -102,6 +105,12 @@ public interface IPlanningVelocitySettings
 
     /// <inheritdoc cref="IPlanningPace.Choose"/>
     string? Choose(PaceSource source, string? repository = null);
+
+    /// <summary>Sets the scope's typed pace from what a text field hands back and
+    /// chooses <see cref="PaceSource.Set"/>, as one change: one write and one
+    /// <see cref="Changed"/>, so a slider let go of is heard once. Returns what
+    /// <see cref="SetManual"/> would, and chooses nothing for a refused figure.</summary>
+    string? SetOwn(string? typed, string? repository = null);
 }
 
 /// <summary>

@@ -137,7 +137,7 @@ public class SessionSyncClientRegistrationTests
 
                 yield return (
                     Path.GetRelativePath(Repository.Root.FullName, file.FullName).Replace('\\', '/'),
-                    File.ReadAllText(file.FullName));
+                    Repository.ComposedText(File.ReadAllText(file.FullName)));
             }
         }
     }

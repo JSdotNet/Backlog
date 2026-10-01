@@ -148,6 +148,9 @@
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Mcp\Backlog.Infrastructure.Mcp.csproj" />
     <ProjectReference Include="..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
+    <!-- What this head composes alike with the web harness, behind one call:
+         AddDesktopComposition in MauiProgram. -->
+    <ProjectReference Include="..\Backlog.Desktop.Composition\Backlog.Desktop.Composition.csproj" />
   </ItemGroup>
 
 </Project>
