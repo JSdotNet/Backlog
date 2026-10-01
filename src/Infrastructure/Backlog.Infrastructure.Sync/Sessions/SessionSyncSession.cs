@@ -228,7 +228,7 @@ public sealed class SessionSyncSession
                 _activity?.Record(SyncDirection.Sent, SyncItemKind.Session, item.Session.Id, item.Session.Title);
             }
 
-            if (WatermarkAfter([.. batch.Select(item => item.Session)], final: sent >= outgoing.Count) is { } advanced)
+            if (ReplicaRoutes.WatermarkAfter([.. batch.Select(item => item.Session)], final: sent >= outgoing.Count, session => session.LastActivityAt) is { } advanced)
             {
                 _state.Save(_state.Current with { PushWatermark = advanced });
             }
@@ -419,7 +419,7 @@ public sealed class SessionSyncSession
 
             if (page.IsFailure)
             {
-                if (startedOver || cursor is null || !Retired(page.Error.Code))
+                if (startedOver || cursor is null || !ReplicaRoutes.Retired(page.Error.Code))
                 {
                     return Result.Failure<SessionSyncSummary>(page.Error);
                 }
@@ -531,42 +531,5 @@ public sealed class SessionSyncSession
         if (state.OwnerId == me.OwnerId && state.DeviceId == me.DeviceId) return;
 
         _state.Save(new SessionSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId));
-    }
-
-    /// <summary>The two answers that mean "that cursor is no longer one you can
-    /// resume from", which the device recovers from by forgetting it. Neither says
-    /// anything about the owner's records, so starting over loses nothing but the
-    /// position — and a record that arrives twice lands on the row it already
-    /// wrote.</summary>
-    private static bool Retired(string code) =>
-        code is SyncErrorCodes.SyncCursorExpired or SyncErrorCodes.SyncCursorMalformed;
-
-    /// <summary>
-    /// How far the watermark may move once a batch has been accepted, or null when
-    /// it may not move at all.
-    /// <para>
-    /// <c>TaskSyncSession.WatermarkAfter</c>'s reasoning over this exchange's own
-    /// stamp. The last stamp in the batch on the final batch, because everything
-    /// selected has then been sent. Anywhere else the highest stamp strictly below
-    /// the batch's last, because a session sharing that last stamp may still be
-    /// waiting in the next batch and the selection would never offer it again.
-    /// </para>
-    /// <para>
-    /// Null when a whole batch shares one stamp: there is nowhere safe to move to,
-    /// so the batch is simply sent again next run. Free, because a resent record
-    /// lands on the document it already wrote, and the alternative is losing the
-    /// sessions that share it.
-    /// </para>
-    /// </summary>
-    private static DateTimeOffset? WatermarkAfter(IReadOnlyList<AgentSession> batch, bool final)
-    {
-        if (final) return batch[^1].LastActivityAt;
-
-        var boundary = batch[^1].LastActivityAt;
-
-        return batch
-            .Where(session => session.LastActivityAt < boundary)
-            .Select(session => (DateTimeOffset?)session.LastActivityAt)
-            .Max();
     }
 }

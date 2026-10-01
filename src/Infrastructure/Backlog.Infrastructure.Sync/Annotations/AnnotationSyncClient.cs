@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net.Http.Json;
 
 using Backlog.Modules.Sync.Abstractions;
@@ -56,17 +55,6 @@ public sealed class AnnotationSyncClient
         int maxItems = DefaultMaxItems,
         CancellationToken cancellationToken = default) =>
         await SyncHttp.SendAsync<PullAnnotationsResponse>(
-            () => _http.GetAsync(PullRoute(since, maxItems), cancellationToken),
+            () => _http.GetAsync(ReplicaRoutes.PullRoute(SyncRoutes.Annotations, since, maxItems), cancellationToken),
             cancellationToken).ConfigureAwait(false);
-
-    /// <summary>The pull URL with its query, the cursor escaped for the reason
-    /// <see cref="TaskSyncClient"/> gives: it is base64 of a signed payload.</summary>
-    private static string PullRoute(string? since, int maxItems)
-    {
-        var route = $"{SyncRoutes.Absolute(SyncRoutes.Annotations)}?maxItems={maxItems.ToString(CultureInfo.InvariantCulture)}";
-
-        return string.IsNullOrWhiteSpace(since)
-            ? route
-            : $"{route}&since={Uri.EscapeDataString(since)}";
-    }
 }
