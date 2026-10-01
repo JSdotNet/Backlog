@@ -3841,10 +3841,6 @@ button.task-panel__check:focus-visible {
     vertical-align: baseline;
 }
 
-.task-item__meta {
-    grid-column: 1 / -1;
-}
-
 /* Beside the title, and never squeezed by it: a badge that shrank would
    hyphenate a single word. The title takes the space instead, which it already
    knows how to give up — it ellipses.
@@ -3878,6 +3874,7 @@ button.task-panel__check:focus-visible {
     min-width: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+    grid-column: 1 / -1;
 }
 
 /* Each fact carries the glyph that says what kind of fact it is: "Friday" and
@@ -9207,20 +9204,19 @@ select.field__input {
   fixed one and never the order the children are rendered in — `.split-pane--end`
   has nothing to say here.
 */
-.split-pane__start {
-    grid-column: 1;
-}
-
 .split-pane__separator {
     grid-column: 2;
 }
 
-.split-pane__end {
-    grid-column: 3;
+.split-pane__start {
+    grid-column: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
 }
 
-.split-pane__start,
 .split-pane__end {
+    grid-column: 3;
     min-width: 0;
     min-height: 0;
     overflow: auto;
@@ -11181,14 +11177,16 @@ select.field__input {
     font-variant-numeric: tabular-nums;
 }
 
-.metric-trellis__change,
-.metric-trellis__detail {
+.metric-trellis__change {
     color: var(--chart-ink-muted);
     font-family: var(--font-family-base);
     font-size: var(--font-size-xs);
 }
 
 .metric-trellis__detail {
+    color: var(--chart-ink-muted);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
     margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;
