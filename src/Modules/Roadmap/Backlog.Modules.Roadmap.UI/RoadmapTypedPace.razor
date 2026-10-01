@@ -86,11 +86,14 @@
         var typed = e.Value?.ToString() ?? string.Empty;
         _draft = typed;
 
-        var before = await InUseAsync();
+        // Every scope's pace is read before and after only for a host that listens:
+        // each read is a read of the backlog.
+        var listening = OnPaceChanged.HasDelegate;
+        var before = listening ? await InUseAsync() : null;
         _error = Pace.SetManual(typed);
         await Read();
 
-        if (!before.SequenceEqual(await InUseAsync())) await OnPaceChanged.InvokeAsync();
+        if (before is not null && !before.SequenceEqual(await InUseAsync())) await OnPaceChanged.InvokeAsync();
     }
 
     /// <summary>The pace in use for the default scope, then for each repository in

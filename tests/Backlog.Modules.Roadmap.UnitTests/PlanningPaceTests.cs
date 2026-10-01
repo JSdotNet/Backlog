@@ -342,6 +342,19 @@ public class PlanningPaceTests
         Assert.Equal(14m, await pace.GetStoryPointsPerWeekAsync(["backlog", "site"], TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public void SettingALanesOwnPaceIsOneChange()
+    {
+        var settings = new Settings(3m, PaceSource.Manual);
+        var raised = 0;
+        settings.Changed += () => raised++;
+        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FixedClock(Today));
+
+        Assert.Null(pace.SetOwn(2.25m, "backlog"));
+
+        Assert.Equal(1, raised);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
@@ -388,6 +401,16 @@ public class PlanningPaceTests
         {
             if (repository is null) _source = source;
             else Own[repository] = (Manual(repository), source);
+            Changed?.Invoke();
+            return null;
+        }
+
+        public string? SetOwn(string? typed, string? repository = null)
+        {
+            var value = decimal.Parse(typed!, System.Globalization.CultureInfo.InvariantCulture);
+            if (value <= 0) return "Give a pace above zero.";
+            if (repository is null) (_manual, _source) = (value, PaceSource.Set);
+            else Own[repository] = (value, PaceSource.Set);
             Changed?.Invoke();
             return null;
         }

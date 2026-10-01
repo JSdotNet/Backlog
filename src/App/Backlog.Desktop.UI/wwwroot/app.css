@@ -5127,8 +5127,9 @@ h1, h2, h3 {
 
 /* A band's pace, under its name in the chart's sidebar, in the two rows the band
    reserves for it (RoadmapPlanView.PaceRows): on the first a slider and the figure
-   it is at, on the second the "Measured" reset, the info mark with what the lane
-   managed, and - only when something needs saying - one short note. Sized to the
+   it is at, on the second the "Measured" reset and - only when something needs
+   saying - one short note. The info mark with what the lane managed sits at the end
+   of the band's name, in the band's top-right corner (.roadmap-pace__hint). Sized to the
    sidebar's own width, so every measure here is the smallest the library offers.
    The reader's own pace - "Mine", the field and its unit - sits once in the
    roadmap's heading (.roadmap-pace--mine). */
@@ -5174,8 +5175,13 @@ h1, h2, h3 {
     min-width: 2rem;
 }
 
+/* A fixed width, wide enough for "999 pt/wk", so the slider beside it keeps its
+   length while the figure changes under a drag. A figure that grew or shrank the
+   slider moved the line under the pointer, and the thumb stuttered. */
 .roadmap-pace__value {
     flex: 0 0 auto;
+    width: 9ch;
+    text-align: right;
     font-variant-numeric: tabular-nums;
 }
 
@@ -5191,11 +5197,35 @@ h1, h2, h3 {
     display: block;
 }
 
-/* The band's content is clipped to the rows it asked for, which would cut the bubble
-   off at the band's edge. While the bubble is showing - hover, focus or a press -
-   the clip is lifted so it can lie over the lanes below, where there is room. */
-.roadmap-timeline__group-content:has(.roadmap-pace__hint:is(:hover, :focus-within, .info-hint--open)) {
+/* The info mark, at the end of the band's name. The mark is lifted out of the
+   content box, which starts under the name, onto the name's line - centred on it,
+   since the name is centred on the band's first row and the box starts a fixed
+   0.75rem under that centre (RoadmapTimeline.ContentGapUnderName). The hint is made
+   static, so the content box is the bubble's containing block (the arrangement
+   components.css offers for a wider anchor): the bubble opens under the band's pace,
+   as wide as the sidebar allows, rather than off the mark at the sidebar's edge. */
+.roadmap-pace .roadmap-pace__hint {
+    position: static;
+}
+
+.roadmap-pace__hint .info-hint__trigger {
+    position: absolute;
+    top: -0.75rem;
+    right: var(--spacing-sm);
+    transform: translateY(-50%);
+}
+
+/* The band's content is clipped to the rows it asked for. A band carrying a pace is
+   not: the mark sits above the box, on the name's line, and the bubble lies over the
+   lanes below. The pace's own lines fit the rows, so nothing else leaves the box. */
+.roadmap-timeline__group-content:has(> .roadmap-pace) {
     overflow: visible;
+}
+
+/* Room at the end of the band's name for the mark, so a long name is cut short
+   before it rather than running under it. */
+.roadmap-timeline__group--slotted:has(.roadmap-pace__hint) .roadmap-timeline__group-name {
+    margin-right: 1.25rem;
 }
 
 .roadmap-pace__note {
