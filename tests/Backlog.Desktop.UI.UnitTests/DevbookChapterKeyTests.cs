@@ -107,6 +107,71 @@ public sealed class DevbookChapterKeyTests
         Assert.Equal(string.Empty, DevbookChapterKey.Canonical("   ", null));
     }
 
+    /// <summary>
+    /// A path with no folder segment — <c>adr/0001-decision.md</c> — is claimed by
+    /// no area wherever arc42 is pointed, and so is not migrated: it keeps the
+    /// spelling it arrived with. Guessing arc42 for it would be a guess, and the
+    /// catalog test below is why no guess is needed. (An area pointed at a
+    /// folder that is itself named <c>adr</c> does claim it, as it claims every
+    /// path under that last segment.)
+    /// </summary>
+    [Fact]
+    public void A_path_with_no_folder_segment_is_claimed_by_no_area()
+    {
+        IReadOnlyList<DevbookFolderSetting>[] layouts =
+        [
+            Conventional(),
+            Arc42At(".arc42"),
+            Arc42At("docs/arch"),
+            Arc42At("D:/knowledge/arch"),
+        ];
+
+        foreach (var folders in layouts)
+        {
+            Assert.Equal("adr/0001-decision.md", DevbookChapterKey.Canonical("adr/0001-decision.md", folders));
+        }
+    }
+
+    /// <summary>
+    /// Why a folderless key is unreachable rather than merely unmigrated. The
+    /// arc42 panel files its remarks under the catalog's document path, and the
+    /// catalog spells every document relative to the repository — or, for a
+    /// folder off the clone, to the folder's parent — so the path always carries
+    /// the folder it sits in, and every layout keys under the conventional one.
+    /// That is what lets a reader ask the store once, with one spelling, and
+    /// miss no remark.
+    /// </summary>
+    [Theory]
+    [InlineData(".arc42")]
+    [InlineData(".devbook/arc42")]
+    [InlineData("docs/arch")]
+    [InlineData(null)]
+    public async Task Every_arc42_catalog_path_keys_under_the_conventional_folder(string? folderInRepository)
+    {
+        var repository = Path.Combine(Path.GetTempPath(), "backlog-chapter-key-tests", Guid.NewGuid().ToString("N"));
+        var elsewhere = Path.Combine(Path.GetTempPath(), "backlog-chapter-key-tests", Guid.NewGuid().ToString("N"));
+        var folder = folderInRepository is null
+            ? Path.Combine(elsewhere, "arch")
+            : Path.Combine(repository, folderInRepository.Replace('/', Path.DirectorySeparatorChar));
+        try
+        {
+            Directory.CreateDirectory(repository);
+            Directory.CreateDirectory(Path.Combine(folder, "adr"));
+            File.WriteAllText(Path.Combine(folder, "adr", "0001-decision.md"), "# Decision");
+
+            var catalog = await Arc42DevbookReader.LoadFolderAsync(folder, repository);
+
+            var path = Assert.Single(catalog.Documents).Path;
+            Assert.NotEqual("adr/0001-decision.md", path);
+            Assert.Equal(Decision, DevbookChapterKey.Canonical(path, Arc42At(folderInRepository ?? folder)));
+        }
+        finally
+        {
+            if (Directory.Exists(repository)) Directory.Delete(repository, recursive: true);
+            if (Directory.Exists(elsewhere)) Directory.Delete(elsewhere, recursive: true);
+        }
+    }
+
     /// <summary>The cheap half: one spelling for a path before anything decides
     /// which area it belongs to. The anchor goes because a chapter is a file and
     /// the domain panel names sections as <c>path#anchor</c>.</summary>
