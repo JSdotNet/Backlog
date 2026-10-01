@@ -571,6 +571,7 @@
               tabindex="-1"
               @ref="_surfaceElement"
               @onkeydown="OnSurfaceKeyDown"
+              data-escape-closes
               aria-label="System tools">
             <ToolsPane OnClose="CloseSurface" />
         </main>
@@ -583,6 +584,7 @@
               tabindex="-1"
               @ref="_surfaceElement"
               @onkeydown="OnSurfaceKeyDown"
+              data-escape-closes
               aria-label="Dashboard">
             <DashboardPane OnClose="CloseSurface"
                            RepositoryAliases="@State.SelectedRepositoryAliases"
@@ -597,6 +599,7 @@
               tabindex="-1"
               @ref="_surfaceElement"
               @onkeydown="OnSurfaceKeyDown"
+              data-escape-closes
               aria-label="Sessions">
             <SessionsPane OnClose="CloseSurface"
                           RepositoryScope="@State.SelectedRepositoryAliases"
@@ -615,6 +618,7 @@
               tabindex="-1"
               @ref="_surfaceElement"
               @onkeydown="OnSurfaceKeyDown"
+              data-escape-closes
               aria-label="Pull requests">
             <PullRequestsPane OnClose="CloseSurface"
                               RepositoryScope="@State.SelectedRepositoryAliases"
@@ -786,6 +790,16 @@
             catch (Exception)
             {
                 // Without the interop the separator still resizes by keyboard.
+            }
+
+            try
+            {
+                await JS.InvokeVoidAsync("backlogTakeoverEscape.register", _selfReference);
+            }
+            catch (Exception)
+            {
+                // Without it Escape still closes a surface from inside the surface;
+                // only the press after focus fell to <body> goes unheard.
             }
         }
 
@@ -1275,6 +1289,21 @@
     private void OnSurfaceKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Escape") CloseSurface();
+    }
+
+    /// <summary>The same Escape, heard at the document because focus is on
+    /// <c>&lt;body&gt;</c> — where a focused control that went disabled, such as a
+    /// Refresh button while its read runs, leaves it — and so never reached the
+    /// surface's own handler. The script checks a closing surface is open; this
+    /// checks again, because the render may have moved on since the key.</summary>
+    [JSInvokable]
+    public Task CloseSurfaceOnEscapeAsync()
+    {
+        if (WorkspaceVisible || RoadmapVisible) return Task.CompletedTask;
+
+        CloseSurface();
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private async Task AskAiAsync()
@@ -1992,6 +2021,7 @@
                 // before rendering the incoming one, so it does not — stated here so
                 // that a change to that ordering is read as breaking this.
                 await JS.InvokeVoidAsync("backlogPaneResizer.dispose");
+                await JS.InvokeVoidAsync("backlogTakeoverEscape.unregister");
             }
             catch (JSException)
             {
