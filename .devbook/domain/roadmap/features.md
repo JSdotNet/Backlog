@@ -320,11 +320,12 @@ related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans]
 ```
 
 The timeline fills the width it is given and is ruled finer the nearer it is to
-today: this week a column a day, the next three weeks a column each, then months for
-about a quarter, then quarters. The work in flight sits this week, and a single week
+today, the same way in both directions: last week, this week and next a column a
+day, the three weeks either side of those a column each, then months for about a
+quarter, then quarters. The work in flight sits around today, and a single week
 column stacked every bar that started in it on the same few pixels. Every column
-widens by the same factor until the chart from this week on fills the screen, so a
-short plan never leaves the right of it empty, and the chart opens on this week.
+widens by the same factor until the chart from last week on fills the screen, so a
+short plan never leaves the right of it empty, and the chart opens on last week.
 
 ### Looking back at finished plans
 
@@ -338,8 +339,9 @@ Scroll back from this week to see what was finished and how long it really took.
 plan whose tasks are all done is drawn where its work actually ran — from the day
 its first task was started to the day its last was ticked off — rather than where it
 was planned, because a finished plan is a record and its planned window was only a
-hope. The four weeks before this one are ruled in weeks, where recent work sits, and
-anything earlier in months, as far back as the earliest thing drawn.
+hope. History is ruled as the horizon is, mirrored: last week in days and the three
+weeks before it in weeks, always, where recent work sits; then months for at least a
+quarter, then quarters, as far back as the earliest thing drawn.
 
 A finished plan cannot be dragged: its dates are read off the work, so a move would
 change nothing the next reading keeps. Opening it still edits the stored item.
