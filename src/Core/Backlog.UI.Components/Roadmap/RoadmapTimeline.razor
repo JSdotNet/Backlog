@@ -898,16 +898,17 @@
 
     private RoadmapGeometry Geometry => new(Span, QuarterWidth * Stretch, RowHeight, BarHeight);
 
-    /// <summary>Where the part of the chart that has to fill the screen begins: this
-    /// week when it is on the chart, so history to the left is scrolled to rather
-    /// than squeezed in, and the window's start otherwise.</summary>
+    /// <summary>Where the part of the chart that has to fill the screen begins: the
+    /// week before this one when it is on the chart — so the days either side of
+    /// today are what it opens on, and older history to the left is scrolled to
+    /// rather than squeezed in — and the window's start otherwise.</summary>
     private DateOnly FillFrom
     {
         get
         {
             if (Today is not { } today || !Span.Contains(today)) return Span.Start;
 
-            var week = RoadmapWindow.StartOfWeek(today, WeekStart);
+            var week = RoadmapWindow.StartOfWeek(today, WeekStart).AddDays(Span.IsGraduated ? -7 * RoadmapWindow.GraduatedDayWeeks : 0);
 
             return week < Span.Start ? Span.Start : week;
         }

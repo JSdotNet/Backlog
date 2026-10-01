@@ -104,42 +104,46 @@ public sealed record RoadmapWindow
         return new RoadmapWindow(StartOfQuarter(first), EndOfQuarter(last));
     }
 
-    /// <summary>How many weeks a graduated window rules finer than a month on either
-    /// side of today, counting this week — which is itself ruled in days.</summary>
-    public const int GraduatedWeeks = 4;
+    /// <summary>How many weeks either side of today a graduated window rules in days:
+    /// this week, and this many before and after it.</summary>
+    public const int GraduatedDayWeeks = 1;
+
+    /// <summary>How many weeks a graduated window rules a column a week on either
+    /// side, beyond the weeks it rules in days.</summary>
+    public const int GraduatedWeeks = 3;
 
     /// <summary>
-    /// A window ruled coarser the further it reaches from today: a column per day
-    /// for this week, a column per week for the <see cref="GraduatedWeeks"/> minus
-    /// one after it, a column per month for roughly three months after that, and a
-    /// column per quarter beyond.
+    /// A window ruled coarser the further it reaches from today, the same way in
+    /// both directions: a column per day for this week and the
+    /// <see cref="GraduatedDayWeeks"/> either side of it, a column per week for the
+    /// <see cref="GraduatedWeeks"/> beyond those, a column per month for roughly a
+    /// quarter beyond that, and a column per quarter beyond.
     /// <para>
     /// The near term is what gets planned in detail and rescheduled by the week, so
-    /// that is where the ruler is fine enough to read a week off — and this week
-    /// finer still, because it is where the work in flight sits, and a single week
-    /// column stacked every bar that started this week on the same few pixels.
-    /// Next quarter is a month-level commitment, and anything further out is an
-    /// intention, which a weekly ruler would only make look more certain than it is.
+    /// that is where the ruler is fine enough to read a week off — and the days
+    /// around today finer still, because that is where the work in flight sits, and
+    /// a single week column stacked every bar that started in it on the same few
+    /// pixels. A day ruler from the start of last week to the end of next means
+    /// today always has at least a full week of days on both sides. Next quarter is
+    /// a month-level commitment, and anything further out is an intention, which a
+    /// weekly ruler would only make look more certain than it is.
     /// </para>
     /// <para>
-    /// The weeks are whole, so they rarely end on a month start: the month they end
-    /// in is drawn as a column covering only its remaining days, and every month
-    /// after it is whole. The months run up to a quarter start, so every quarter is
-    /// whole too.
+    /// The weeks are whole, so they rarely meet a month boundary: the month nearest
+    /// them on either side is a column clipped to the days it has left, and every
+    /// month beyond is whole. The months run to a quarter boundary, so every
+    /// quarter is whole too.
     /// </para>
     /// <para>
     /// Before this week is history, reached by scrolling back — finished plans are
-    /// drawn where their work actually happened. It is ruled in weeks for the
-    /// <see cref="GraduatedWeeks"/> before this one, where recently finished work
-    /// sits, and in months before that, the last clipped to meet the first week.
-    /// The weeks are always there, so a reader can look back at the last month
-    /// whatever is drawn; the months reach only as far back as the earliest date
-    /// given.
+    /// drawn where their work actually happened. Its days and weeks are always
+    /// there, so a reader can look back at the last month whatever is drawn; its
+    /// months and quarters reach only as far back as the earliest date given.
     /// </para>
     /// <para>
-    /// It always reaches at least to the end of the monthly tier, so the horizon's
-    /// shape is visible even for a plan that stops next month, and further when
-    /// the plan does.
+    /// After it, the window always reaches at least to the end of the monthly tier,
+    /// so the horizon's shape is visible even for a plan that stops next month, and
+    /// further when the plan does.
     /// </para>
     /// </summary>
     public static RoadmapWindow Graduated(IEnumerable<DateOnly> dates, DateOnly today, DayOfWeek weekStart)
@@ -147,10 +151,17 @@ public sealed record RoadmapWindow
         var days = dates as ICollection<DateOnly> ?? [.. dates];
 
         var thisWeek = StartOfWeek(today, weekStart);
-        var weeksFrom = thisWeek.AddDays(7);
-        var monthsFrom = thisWeek.AddDays(7 * GraduatedWeeks);
+
+        // Forward: days to weeksFrom, weeks to monthsFrom, months to quartersFrom.
+        var weeksFrom = thisWeek.AddDays(7 * (GraduatedDayWeeks + 1));
+        var monthsFrom = weeksFrom.AddDays(7 * GraduatedWeeks);
         var quartersFrom = FirstOfQuarterOnOrAfter(monthsFrom.AddMonths(3));
-        var pastWeeksFrom = thisWeek.AddDays(-7 * GraduatedWeeks);
+
+        // Backward, the mirror: days from pastDaysFrom, weeks from pastWeeksFrom,
+        // months from pastMonthsFrom, quarters before that.
+        var pastDaysFrom = thisWeek.AddDays(-7 * GraduatedDayWeeks);
+        var pastWeeksFrom = pastDaysFrom.AddDays(-7 * GraduatedWeeks);
+        var pastMonthsFrom = StartOfQuarter(pastWeeksFrom.AddMonths(-3));
 
         var first = days.Count == 0 ? thisWeek : days.Min();
         var last = days.Count == 0 ? quartersFrom.AddDays(-1) : days.Max();
@@ -160,38 +171,53 @@ public sealed record RoadmapWindow
         var previousYear = 0;
         var previousMonth = 0;
 
-        // Long before this week: months, the last one clipped to meet the first week.
-        for (var cursor = first < pastWeeksFrom ? new DateOnly(first.Year, first.Month, 1) : pastWeeksFrom; cursor < pastWeeksFrom; cursor = cursor.AddMonths(1))
+        // Long before this week: quarters, as far back as the earliest date.
+        for (var cursor = StartOfQuarter(first); cursor < pastMonthsFrom; cursor = cursor.AddMonths(3))
+        {
+            columns.Add(Quarter(cursor));
+            previousYear = cursor.Year;
+        }
+
+        // Then months, the last one clipped to meet the first week.
+        var monthsStart = first < pastMonthsFrom ? pastMonthsFrom
+            : first < pastWeeksFrom ? new DateOnly(first.Year, first.Month, 1)
+            : pastWeeksFrom;
+        for (var cursor = monthsStart; cursor < pastWeeksFrom; cursor = cursor.AddMonths(1))
         {
             columns.Add(Month(cursor, Min(cursor.AddMonths(1).AddDays(-1), pastWeeksFrom.AddDays(-1)), previousYear != cursor.Year));
             previousYear = cursor.Year;
             previousMonth = cursor.Month;
         }
 
-        // Just before it: weeks, always all of them, so there is recent history to
-        // scroll back into even when nothing drawn began before this week.
-        for (var cursor = pastWeeksFrom; cursor < thisWeek; cursor = cursor.AddDays(7))
+        // Just before the days: weeks, always all of them, so there is recent
+        // history to scroll back into even when nothing drawn began before this week.
+        for (var cursor = pastWeeksFrom; cursor < pastDaysFrom; cursor = cursor.AddDays(7))
         {
             columns.Add(Week(cursor, cursor.Month != previousMonth));
             previousMonth = cursor.Month;
             previousYear = cursor.Year;
         }
 
-        // This week, a column a day. The first carries the week's number, so the
-        // reader still knows which week this is without a column of its own.
-        for (var cursor = thisWeek; cursor < weeksFrom; cursor = cursor.AddDays(1))
+        // Last week, this week and next, a column a day. The first day of each week
+        // carries its number, so the reader still knows which week it is without a
+        // column of its own.
+        for (var cursor = pastDaysFrom; cursor < weeksFrom; cursor = cursor.AddDays(1))
         {
+            var week = StartOfWeek(cursor, weekStart);
+
             columns.Add(new RoadmapColumn(
                 RoadmapColumnScale.Day,
                 cursor,
                 cursor,
                 cursor.ToString("ddd d", CultureInfo.CurrentCulture),
-                cursor == thisWeek ? $"W{WeekNumber(thisWeek, weekStart)}" : null,
+                cursor == week ? $"W{WeekNumber(week, weekStart)}" : null,
                 cursor.ToString("dddd d MMMM yyyy", CultureInfo.CurrentCulture)));
         }
 
-        previousMonth = thisWeek.Month;
-        previousYear = thisWeek.Year;
+        // The days name no month, so the first week after them names its own unless
+        // the last day-week already began in it.
+        previousMonth = weeksFrom.AddDays(-7).Month;
+        previousYear = weeksFrom.AddDays(-7).Year;
 
         for (var cursor = weeksFrom; cursor < monthsFrom && cursor <= end; cursor = cursor.AddDays(7))
         {
@@ -208,16 +234,18 @@ public sealed record RoadmapWindow
 
         for (var cursor = quartersFrom; cursor <= end; cursor = cursor.AddMonths(3))
         {
-            columns.Add(new RoadmapColumn(
-                RoadmapColumnScale.Quarter,
-                cursor,
-                EndOfQuarter(cursor),
-                $"Q{QuarterOf(cursor)}",
-                cursor.Year.ToString(CultureInfo.InvariantCulture),
-                $"Q{QuarterOf(cursor)} {cursor.Year}"));
+            columns.Add(Quarter(cursor));
         }
 
         return new RoadmapWindow(columns);
+
+        static RoadmapColumn Quarter(DateOnly start) => new(
+            RoadmapColumnScale.Quarter,
+            start,
+            EndOfQuarter(start),
+            $"Q{QuarterOf(start)}",
+            start.Year.ToString(CultureInfo.InvariantCulture),
+            $"Q{QuarterOf(start)} {start.Year}");
 
         RoadmapColumn Week(DateOnly start, bool showMonth) => new(
             RoadmapColumnScale.Week,

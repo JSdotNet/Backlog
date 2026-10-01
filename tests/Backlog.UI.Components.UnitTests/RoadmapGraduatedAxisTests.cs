@@ -3,20 +3,20 @@ using Microsoft.JSInterop;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The graduated axis: this week a column a day, three weeks after it, months for
-/// about three after, quarters beyond — and history before it, weeks and then
-/// months. Pinned as columns and distances, because a ruler that changes scale is
-/// only honest if every column meets the next exactly and a day is wider near
-/// today than a year out.
+/// The graduated axis, the same both ways from today: last week, this week and next
+/// a column a day, three weeks either side of those, months for about a quarter
+/// beyond, quarters beyond that. Pinned as columns and distances, because a ruler
+/// that changes scale is only honest if every column meets the next exactly and a
+/// day is wider near today than a year out.
 /// </summary>
 public sealed class RoadmapGraduatedAxisTests
 {
-    // Friday 25 September 2026. Its week starts on Monday the 21st and is ruled a
-    // day a column; the weeks run from the 28th, and four weeks from the 21st is
-    // Monday 19 October, where the months take over — the rest of October as a
-    // column of its own — and the first quarter start three months after that is
-    // 1 April 2027. Four weeks back is Monday 24 August, where history turns from
-    // weeks to months.
+    // Friday 25 September 2026. Its week starts on Monday the 21st; the days run
+    // from Monday 14 September to Sunday 4 October. Forward, the weeks run from
+    // 5 October to Monday 26 October, where the months take over — the rest of
+    // October as a column of its own — and the first quarter start three months
+    // after that is 1 April 2027. Backward, the weeks run from Monday 24 August,
+    // the months before that from 1 April 2026, and quarters before that.
     private static readonly DateOnly Today = new(2026, 9, 25);
 
     private static RoadmapWindow Window(params DateOnly[] dates) =>
@@ -37,16 +37,16 @@ public sealed class RoadmapGraduatedAxisTests
         var months = window.Columns.Where(column => column.Scale == RoadmapColumnScale.Month).ToList();
         var quarters = window.Columns.Where(column => column.Scale == RoadmapColumnScale.Quarter).ToList();
 
-        Assert.Equal(7, days.Count);
+        Assert.Equal(21, days.Count);
         Assert.All(days, day => Assert.Equal(1, day.TotalDays));
-        Assert.Equal(new DateOnly(2026, 9, 21), days[0].Start);
-        Assert.Equal(new DateOnly(2026, 9, 27), days[^1].End);
+        Assert.Equal(new DateOnly(2026, 9, 14), days[0].Start);
+        Assert.Equal(new DateOnly(2026, 10, 4), days[^1].End);
 
         Assert.Equal(RoadmapWindow.GraduatedWeeks, history.Count);
-        Assert.Equal(RoadmapWindow.GraduatedWeeks - 1, weeks.Count);
+        Assert.Equal(RoadmapWindow.GraduatedWeeks, weeks.Count);
         Assert.All(weeks, week => Assert.Equal(7, week.TotalDays));
-        Assert.Equal(new DateOnly(2026, 10, 18), weeks[^1].End);
-        Assert.Equal(new DateOnly(2026, 10, 19), months[0].Start);
+        Assert.Equal(new DateOnly(2026, 10, 25), weeks[^1].End);
+        Assert.Equal(new DateOnly(2026, 10, 26), months[0].Start);
         Assert.Equal(new DateOnly(2026, 10, 31), months[0].End);
         Assert.Equal([10, 11, 12, 1, 2, 3], months.Select(month => month.Start.Month));
         Assert.All(months.Skip(1), month => Assert.Equal(1, month.Start.Day));
@@ -69,7 +69,7 @@ public sealed class RoadmapGraduatedAxisTests
     }
 
     [Fact]
-    public void LongAgo_IsRuledInMonths_ThenTheFourWeeksBeforeThisOne_InWeeks()
+    public void RecentHistory_IsRuledInMonths_ThenThreeWeeks_ThenLastWeeksDays()
     {
         var window = Window(new DateOnly(2026, 8, 10), new DateOnly(2026, 11, 1));
 
@@ -79,30 +79,48 @@ public sealed class RoadmapGraduatedAxisTests
 
         var history = window.Columns.Skip(1).TakeWhile(column => column.Scale == RoadmapColumnScale.Week).ToList();
         Assert.Equal(
-            [new DateOnly(2026, 8, 24), new DateOnly(2026, 8, 31), new DateOnly(2026, 9, 7), new DateOnly(2026, 9, 14)],
+            [new DateOnly(2026, 8, 24), new DateOnly(2026, 8, 31), new DateOnly(2026, 9, 7)],
             history.Select(week => week.Start));
         Assert.Equal(RoadmapColumnScale.Day, window.Columns[1 + history.Count].Scale);
-        Assert.Equal(new DateOnly(2026, 9, 21), window.Columns[1 + history.Count].Start);
+        Assert.Equal(new DateOnly(2026, 9, 14), window.Columns[1 + history.Count].Start);
         AssertContiguous(window);
     }
 
     [Fact]
-    public void RecentHistory_AlwaysOffersTheFourWeeksBeforeThisOne_EvenWhenNothingStartedThen()
+    public void LongAgo_IsRuledInQuarters_ThenWholeMonthsFromAQuarterStart()
     {
-        // Nothing drawn before this week: the four weeks before it are still there to
-        // scroll back into, from Monday 24 August, and nothing earlier.
+        // The mirror of the horizon: months for at least a quarter before the
+        // weeks, beginning on a quarter start, and quarters before that.
+        var window = Window(new DateOnly(2025, 11, 10), new DateOnly(2026, 11, 1));
+
+        var quarters = window.Columns.TakeWhile(column => column.Scale == RoadmapColumnScale.Quarter).ToList();
+        Assert.Equal(["Q4 2025", "Q1 2026"], quarters.Select(quarter => quarter.LongLabel));
+        Assert.Equal(new DateOnly(2025, 10, 1), window.Start);
+
+        var months = window.Columns.Skip(quarters.Count).TakeWhile(column => column.Scale == RoadmapColumnScale.Month).ToList();
+        Assert.Equal([4, 5, 6, 7, 8], months.Select(month => month.Start.Month));
+        Assert.All(months, month => Assert.Equal(1, month.Start.Day));
+        Assert.Equal(new DateOnly(2026, 8, 23), months[^1].End);
+        AssertContiguous(window);
+    }
+
+    [Fact]
+    public void RecentHistory_AlwaysOffersThreeWeeksAndLastWeeksDays_EvenWhenNothingStartedThen()
+    {
+        // Nothing drawn before this week: the weeks and days before it are still
+        // there to scroll back into, from Monday 24 August, and nothing earlier.
         var window = Window(new DateOnly(2026, 9, 24), new DateOnly(2026, 11, 1));
 
         Assert.Equal(new DateOnly(2026, 8, 24), window.Start);
         Assert.Equal(
-            [RoadmapColumnScale.Week, RoadmapColumnScale.Week, RoadmapColumnScale.Week, RoadmapColumnScale.Week, RoadmapColumnScale.Day],
-            window.Columns.Take(5).Select(column => column.Scale));
+            [RoadmapColumnScale.Week, RoadmapColumnScale.Week, RoadmapColumnScale.Week, RoadmapColumnScale.Day],
+            window.Columns.Take(4).Select(column => column.Scale));
         Assert.DoesNotContain(window.Columns.TakeWhile(column => column.Start < Today), column => column.Scale == RoadmapColumnScale.Month);
         AssertContiguous(window);
     }
 
     [Fact]
-    public void AnEmptyPlan_StillOffersTheFourWeeksBeforeThisOne()
+    public void AnEmptyPlan_StillOffersTheRecentHistory()
     {
         var window = Window();
 
@@ -111,17 +129,17 @@ public sealed class RoadmapGraduatedAxisTests
     }
 
     [Fact]
-    public void ThisWeeksDays_AreNamedByWeekday_TheFirstCarryingTheWeekNumber()
+    public void TheDays_RunFromLastWeekToNext_EachWeeksFirstCarryingItsNumber()
     {
         var days = Window(new DateOnly(2026, 10, 1)).Columns
             .Where(column => column.Scale == RoadmapColumnScale.Day)
             .ToList();
 
-        // Monday 21 September 2026 opens ISO week 39.
-        Assert.Equal("W39", days[0].Caption);
-        Assert.All(days.Skip(1), day => Assert.Null(day.Caption));
-        Assert.EndsWith("21", days[0].Label);
-        Assert.EndsWith("27", days[^1].Label);
+        // Mondays 14, 21 and 28 September 2026 open ISO weeks 38, 39 and 40.
+        Assert.Equal(["W38", "W39", "W40"], days.Where(day => day.Caption is not null).Select(day => day.Caption));
+        Assert.Equal([0, 7, 14], days.Select((day, index) => (day, index)).Where(pair => pair.day.Caption is not null).Select(pair => pair.index));
+        Assert.EndsWith("14", days[0].Label);
+        Assert.EndsWith("4", days[^1].Label);
     }
 
     [Fact]
@@ -131,11 +149,12 @@ public sealed class RoadmapGraduatedAxisTests
             .Where(column => column.Scale == RoadmapColumnScale.Week && column.Start > Today)
             .ToList();
 
-        // The week after this one, still in September, so no month under it.
-        Assert.Equal("W40", weeks[0].Label);
-        Assert.Equal("W41", weeks[1].Label);
-        Assert.Null(weeks[0].Caption);
-        Assert.NotNull(weeks.Single(week => week.Start == new DateOnly(2026, 10, 5)).Caption);
+        // The first week after the days enters October, which no day names; the
+        // next is still in it.
+        Assert.Equal("W41", weeks[0].Label);
+        Assert.Equal("W42", weeks[1].Label);
+        Assert.NotNull(weeks[0].Caption);
+        Assert.Null(weeks[1].Caption);
     }
 
     [Fact]
@@ -175,10 +194,10 @@ public sealed class RoadmapGraduatedAxisTests
         // February and March, 28 and 31 days, are one width.
         Assert.Contains(window.Columns, column => column.Start == new DateOnly(2027, 2, 1));
 
-        // The rest of October after the fourth week is its share of a month.
+        // The rest of October after the weeks is its share of a month.
         var october = window.Columns.First(column => column.Scale == RoadmapColumnScale.Month);
-        Assert.Equal(13, october.TotalDays);
-        Assert.Equal(geometry.ColumnWidthRem(RoadmapColumnScale.Month) * 13 / 31, geometry.WidthFor(october.Start, october.End), 6);
+        Assert.Equal(6, october.TotalDays);
+        Assert.Equal(geometry.ColumnWidthRem(RoadmapColumnScale.Month) * 6 / 31, geometry.WidthFor(october.Start, october.End), 6);
     }
 
     [Fact]
@@ -196,9 +215,9 @@ public sealed class RoadmapGraduatedAxisTests
         Assert.Equal(geometry.XFor(window.End.AddDays(1)), geometry.TrackWidthRem, 6);
 
         // A bar spanning two tiers is as wide as its share of each.
-        var across = geometry.WidthFor(new DateOnly(2026, 10, 12), new DateOnly(2026, 10, 25));
+        var across = geometry.WidthFor(new DateOnly(2026, 10, 19), new DateOnly(2026, 10, 31));
         Assert.Equal(
-            geometry.ColumnWidthRem(RoadmapColumnScale.Week) + geometry.ColumnWidthRem(RoadmapColumnScale.Month) * 7 / 31,
+            geometry.ColumnWidthRem(RoadmapColumnScale.Week) + geometry.ColumnWidthRem(RoadmapColumnScale.Month) * 6 / 31,
             across,
             6);
     }
@@ -211,14 +230,11 @@ public sealed class RoadmapGraduatedAxisTests
 
         var view = RenderPlan(context);
 
-        Assert.Equal(7, view.FindAll(".roadmap-timeline__quarter--day").Count);
-        // Four weeks of history before this week, three after it.
-        Assert.Equal(7, view.FindAll(".roadmap-timeline__quarter--week").Count);
+        // Last week, this week and next in days; three weeks either side of them.
+        Assert.Equal(21, view.FindAll(".roadmap-timeline__quarter--day").Count);
+        Assert.Equal(6, view.FindAll(".roadmap-timeline__quarter--week").Count);
         Assert.Equal(6, view.FindAll(".roadmap-timeline__quarter--month").Count);
-
-        // The rest of October, though under a fortnight, is still wide enough to be named.
-        Assert.Equal(1, view.FindAll(".roadmap-timeline__quarter--month")[0].QuerySelectorAll(".roadmap-timeline__quarter-label").Length);
-        // Where history's weeks meet this week's days, then weeks, then months.
+        // Where history's weeks meet the days, then weeks, then months.
         Assert.Equal(3, view.FindAll(".roadmap-timeline__rule--scale").Count);
 
         // One label column row per track row, the group named once, and the lane
@@ -241,7 +257,7 @@ public sealed class RoadmapGraduatedAxisTests
     }
 
     [Fact]
-    public void AMeasuredScroller_StretchesTheChart_SoFromThisWeekOnItFillsTheWidth()
+    public void AMeasuredScroller_StretchesTheChart_SoFromLastWeekOnItFillsTheWidth()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -252,7 +268,7 @@ public sealed class RoadmapGraduatedAxisTests
         var history = LeftOf(view.Find(".roadmap-timeline__quarter--day").GetAttribute("style")!);
         var shown = natural - history;
 
-        // Wider than the chart from this week on: every column widens by the same
+        // Wider than the chart from last week on: every column widens by the same
         // factor until that stretch is exactly the scroller's width — the history to
         // its left widening with it — and the days name their weekdays.
         view.InvokeAsync(() => view.Instance.Measured(shown * 2));
@@ -267,7 +283,7 @@ public sealed class RoadmapGraduatedAxisTests
     }
 
     [Fact]
-    public void AMeasuredScroller_OpensOnThisWeek_WithHistoryToTheLeft()
+    public void AMeasuredScroller_OpensOnLastWeek_WithOlderHistoryToTheLeft()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
