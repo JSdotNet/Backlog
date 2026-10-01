@@ -50,14 +50,14 @@ The keyboard does the same: Tab to a bar, Space to pick it up, arrows to move it
     </Story>
 
     <Story Name="Adding in place, and work with nothing behind it yet"
-           Description="With `OnSlotActivated` set, a double-click on an empty stretch of a row proposes that row and the week under the pointer; the host decides what goes there. This page adds a fortnight of work on a bar row and a date on the Dates row, straight away — the product opens its dialog on that place instead.
+           Description="With `OnSlotActivated` set, a double-click on an empty stretch of a row proposes that row and the week under the pointer, and a drag across one proposes the whole weeks it covered, outlined under the pointer as it goes; the host decides what goes there. This page adds that span — a fortnight for a double-click — of work on a bar row and a date on the Dates row, straight away — the product opens its dialog on that place instead.
 
 A bar marked `Tentative` is intent alone, nothing set up to carry it out yet: an outline with a faint hatch and an italic title, where a bar somebody has picked up is filled. Dotted, because dashed already means a bar is fixed. The host says it in the detail too, since an outline is not heard."
            Code="@PlaceCode">
         <RoadmapTimeline Groups="@EditablePlan"
                          Bars="@_placed"
                          Milestones="@_placedDates"
-                         Title="Double-click a row"
+                         Title="Double-click or drag across a row"
                          HeadingLevel="3"
                          Window="@EditWindow"
                          OnBarChanged="ApplyPlaced"
@@ -423,7 +423,9 @@ Every action is a real button named for its plan, and the shelf is a region name
 
     private void PlaceHere(RoadmapSlot slot)
     {
-        _lastSlot = $"{slot.RowId}, week of {slot.On:d MMM}";
+        _lastSlot = slot.Until is { } until
+            ? $"{slot.RowId}, {slot.On:d MMM} to {until:d MMM}"
+            : $"{slot.RowId}, week of {slot.On:d MMM}";
         var id = $"new-{_placed.Length + _placedDates.Length}";
 
         if (slot.Kind == RoadmapRowKind.Milestones)
@@ -432,7 +434,7 @@ Every action is a real button named for its plan, and the shelf is a region name
             return;
         }
 
-        _placed = [.. _placed, new RoadmapBar(id, slot.RowId, "New work", slot.On, slot.On.AddDays(13),
+        _placed = [.. _placed, new RoadmapBar(id, slot.RowId, "New work", slot.On, slot.Until ?? slot.On.AddDays(13),
             Detail: "no task yet", Tentative: true)];
     }
 
@@ -562,11 +564,11 @@ Every action is a real button named for its plan, and the shelf is a region name
                          OnSlotActivated="PlaceHere" />
 
         // Proposed, not created: the row and the first day of the week under
-        // the pointer. The host decides what goes there — the product opens its
+        // the pointer, and for a drag the last day of the week it was let go in. The host decides what goes there — the product opens its
         // "Plan work" dialog on that place.
         private void PlaceHere(RoadmapSlot slot) =>
             _bars = [.. _bars, new RoadmapBar(NewId(), slot.RowId, "New work",
-                slot.On, slot.On.AddDays(13),
+                slot.On, slot.Until ?? slot.On.AddDays(13),
                 Detail: "no task yet", Tentative: true)];
         """;
 

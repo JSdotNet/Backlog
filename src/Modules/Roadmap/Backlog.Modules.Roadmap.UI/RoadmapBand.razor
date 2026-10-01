@@ -546,9 +546,9 @@
     }
 
     /// <summary>
-    /// A double-click on an empty place on the chart: the same two dialogs the heading
-    /// opens, opened on where it was — the week, and for work the band's repository and
-    /// the row's lane. Nothing is added until the dialog is saved, so a stray
+    /// A double-click on an empty place on the chart, or a drag across one: the same two
+    /// dialogs the heading opens, opened on where it was — the week, or the weeks
+    /// dragged across, and for work the band's repository and the row's lane. Nothing is added until the dialog is saved, so a stray
     /// double-click costs a Cancel, never an item.
     /// </summary>
     private void PlaceHere(RoadmapSlot slot)
@@ -561,7 +561,7 @@
         }
 
         PlanSomething();
-        _placement = new RoadmapItemPlacement(slot.On, RepositoryOf(slot.RowId), RoadmapPlanView.LaneOf(slot.RowId));
+        _placement = new RoadmapItemPlacement(slot.On, RepositoryOf(slot.RowId), RoadmapPlanView.LaneOf(slot.RowId), slot.Until);
     }
 
     /// <summary>The configured repository a row's band stands for, or null for the

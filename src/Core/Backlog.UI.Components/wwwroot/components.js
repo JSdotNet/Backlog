@@ -3592,13 +3592,119 @@
                 event.preventDefault();
             };
 
+            /*
+                The add-in-place drag: pressed on an empty place on a row and pulled
+                along it. Like the link draft, the outline under the pointer is
+                feedback, not state, so it lives here; but where it is drawn is asked
+                of .NET, which snaps it to the weeks the release will propose — so the
+                outline is never a span the dialog then disagrees with. One question is
+                in flight at a time and the latest point wins, which keeps a fast drag
+                from queueing a round trip per frame.
+
+                It only becomes a drag once the pointer has travelled: a press that
+                stays put is the first half of a click or a double-click, and those
+                keep meaning what they meant. A finger is left to scroll the chart.
+            */
+            const draw = { pending: false, active: false, pointerId: null, row: null, rowId: null, startX: 0, fromRem: 0, toRem: 0, ghost: null, label: null, inFlight: false, queued: false, run: 0 };
+
+            const remAlong = (row, clientX) => (clientX - row.getBoundingClientRect().left) / backlogRootFontSize();
+
+            const endDraw = () => {
+                if (draw.row && draw.pointerId !== null && draw.row.hasPointerCapture?.(draw.pointerId)) {
+                    draw.row.releasePointerCapture(draw.pointerId);
+                }
+                draw.ghost?.remove();
+                draw.pending = false;
+                draw.active = false;
+                draw.pointerId = null;
+                draw.row = null;
+                draw.rowId = null;
+                draw.ghost = null;
+                draw.label = null;
+                draw.queued = false;
+                draw.run += 1;
+                element.classList.remove('roadmap-timeline--drawing');
+            };
+
+            const paintDraft = (draft) => {
+                if (!draw.ghost) return;
+                draw.ghost.hidden = !draft;
+                if (!draft) return;
+                draw.ghost.style.left = `${draft.leftRem}rem`;
+                draw.ghost.style.width = `${draft.widthRem}rem`;
+                draw.label.textContent = draft.label;
+            };
+
+            const askForDraft = () => {
+                if (draw.inFlight) {
+                    draw.queued = true;
+                    return;
+                }
+
+                const run = draw.run;
+                draw.inFlight = true;
+                reference.invokeMethodAsync('SlotDrawPreview', draw.rowId, draw.fromRem, draw.toRem)
+                    .then((draft) => { if (run === draw.run) paintDraft(draft); })
+                    .catch(() => { })
+                    .finally(() => {
+                        draw.inFlight = false;
+                        if (run === draw.run && draw.queued) {
+                            draw.queued = false;
+                            askForDraft();
+                        }
+                    });
+            };
+
+            const beginDraw = () => {
+                draw.active = true;
+                element.classList.add('roadmap-timeline--drawing');
+
+                draw.ghost = document.createElement('div');
+                draw.ghost.className = 'roadmap-timeline__draft-bar';
+                draw.ghost.setAttribute('aria-hidden', 'true');
+                draw.ghost.hidden = true;
+                draw.label = document.createElement('span');
+                draw.label.className = 'roadmap-timeline__draft-label';
+                draw.ghost.appendChild(draw.label);
+                draw.row.appendChild(draw.ghost);
+            };
+
+            const pressEmptyRow = (event) => {
+                if (event.pointerType === 'touch') return;
+                if (event.target.closest?.('[data-roadmap-bar], [data-roadmap-node], button, a, input, select, textarea')) return;
+
+                const row = event.target.closest?.('[data-roadmap-slot]');
+                if (!row || !element.contains(row) || !row.dataset.roadmapSlot) return;
+
+                draw.pending = true;
+                draw.pointerId = event.pointerId;
+                draw.row = row;
+                draw.rowId = row.dataset.roadmapSlot;
+                draw.startX = event.clientX;
+                draw.fromRem = remAlong(row, event.clientX);
+                draw.toRem = draw.fromRem;
+                row.setPointerCapture?.(event.pointerId);
+
+                // Otherwise the press starts a text selection that the drag then
+                // stretches across every label it passes. Click and double-click
+                // still arrive: they are not the mouse events this suppresses.
+                event.preventDefault();
+            };
+
             const onPointerDown = (event) => {
                 // Secondary buttons open menus; a drag started on one would run
                 // under a context menu the reader is trying to read.
-                if (event.button !== 0 || drag.active || link.active) return;
+                if (event.button !== 0 || drag.active || link.active || draw.active) return;
+
+                // A press that never came back up here — released over a dialog, say — is
+                // not still waiting to become a drag.
+                if (draw.pending) endDraw();
 
                 const grip = event.target.closest('[data-roadmap-grip]');
-                if (!grip || !element.contains(grip)) return;
+                if (!grip || !element.contains(grip)) {
+                    pressEmptyRow(event);
+                    return;
+                }
 
                 const bar = grip.closest('[data-roadmap-bar]');
                 if (!bar) return;
@@ -3643,6 +3749,17 @@
                     return;
                 }
 
+                if (draw.pending && event.pointerId === draw.pointerId) {
+                    // Half a rem of travel before it counts: less is a hand that
+                    // twitched on the way to a double-click.
+                    if (!draw.active && Math.abs(event.clientX - draw.startX) < backlogRootFontSize() / 2) return;
+                    if (!draw.active) beginDraw();
+
+                    draw.toRem = remAlong(draw.row, event.clientX);
+                    askForDraft();
+                    return;
+                }
+
                 if (!drag.active || event.pointerId !== drag.pointerId) return;
 
                 const rem = backlogRootFontSize();
@@ -3671,6 +3788,16 @@
                     return;
                 }
 
+                if (draw.pending && event.pointerId === draw.pointerId) {
+                    const drawn = draw.active;
+                    const rowId = draw.rowId;
+                    const fromRem = draw.fromRem;
+                    const toRem = remAlong(draw.row, event.clientX);
+                    endDraw();
+                    if (drawn) reference.invokeMethodAsync('SlotDrawn', rowId, fromRem, toRem);
+                    return;
+                }
+
                 if (!drag.active || event.pointerId !== drag.pointerId) return;
 
                 reset();
@@ -3680,6 +3807,11 @@
             const onPointerCancel = (event) => {
                 if (link.active && event.pointerId === link.pointerId) {
                     endLink();
+                    return;
+                }
+
+                if (draw.pending && event.pointerId === draw.pointerId) {
+                    endDraw();
                     return;
                 }
 
@@ -3696,6 +3828,11 @@
             const onKeyDown = (event) => {
                 if (link.active && event.key === 'Escape') {
                     endLink();
+                    return;
+                }
+
+                if (draw.pending && event.key === 'Escape') {
+                    endDraw();
                     return;
                 }
 
@@ -3726,7 +3863,7 @@
                 in rem, as every other distance here is.
             */
             const onDoubleClick = (event) => {
-                if (event.button !== 0 || drag.active || link.active) return;
+                if (event.button !== 0 || drag.active || link.active || draw.active) return;
                 if (event.target.closest?.('[data-roadmap-bar], [data-roadmap-node], button, a, input, select, textarea')) return;
 
                 const row = event.target.closest?.('[data-roadmap-slot]');
@@ -3777,6 +3914,7 @@
                 backlogRoadmapScrollers.delete(id);
                 reset();
                 endLink();
+                endDraw();
                 element.removeEventListener('pointerdown', onPointerDown);
                 element.removeEventListener('dblclick', onDoubleClick);
                 element.removeEventListener('pointermove', onPointerMove);

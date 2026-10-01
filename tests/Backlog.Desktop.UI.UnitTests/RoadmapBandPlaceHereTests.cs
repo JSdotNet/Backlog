@@ -44,6 +44,22 @@ public class RoadmapBandPlaceHereTests : RoadmapBandHarness
     }
 
     [Fact]
+    public async Task ADragAcrossALaneOpensTheEditorOnTheSpanItCovered()
+    {
+        Configure("JSdotNet/Backlog");
+
+        using var context = Context();
+        var band = await PlannedAsync(context);
+
+        await PlaceAsync(band, new RoadmapSlot("backlog::Planned", Week, RoadmapRowKind.Bars, Week.AddDays(27)));
+        band.WaitForElement("[data-testid=\"roadmap-editor\"]");
+
+        Assert.Equal(new RoadmapItemPlacement(Week, "backlog", "Planned", Week.AddDays(27)), band.FindComponent<RoadmapItemEditor>().Instance.Placement);
+        Assert.Equal("2026-02-02", Value(band, "roadmap-editor-start"));
+        Assert.Equal("2026-03-01", Value(band, "roadmap-editor-end"));
+    }
+
+    [Fact]
     public async Task SavingWhatWasPlacedFilesItWhereItWasPut()
     {
         Configure("JSdotNet/Backlog");
