@@ -20,7 +20,7 @@
 
     @if (!Repositories.Current.Repositories.Any())
     {
-        <EmptyState Title="No repositories configured."
+        <EmptyState Title="No repositories configured"
                     Description="Add a repository and local clone directory in Settings to read its instruction files."
                     data-testid="instructions-empty-state" />
     }
@@ -67,7 +67,7 @@
 
                 @if (activeRepository.Message is not null)
                 {
-                    <EmptyState Title="No instruction content to show."
+                    <EmptyState Title="No instruction content to show"
                                 Description="@activeRepository.Message"
                                 data-testid="instructions-repository-empty" />
                 }

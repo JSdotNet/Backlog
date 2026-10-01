@@ -42,13 +42,13 @@
     }
     else if (_answer is null || string.IsNullOrWhiteSpace(_query))
     {
-        <EmptyState Title="Search every area at once."
+        <EmptyState Title="Search every area at once"
                     Description="Results name the chapter they came from, so you can open it."
                     TestId="devbook-search-prompt" />
     }
     else if (_answer.Hits.Count == 0)
     {
-        <EmptyState Title="No chapter uses those words."
+        <EmptyState Title="No chapter uses those words"
                     Description="Try fewer words, or a word a chapter would spell exactly."
                     role="status"
                     TestId="devbook-search-none" />
