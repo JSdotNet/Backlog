@@ -131,6 +131,96 @@ public sealed class RoadmapTimelineSlotTests
         Assert.Contains("roadmap-timeline--insertable", listening.Find(".roadmap-timeline").ClassName);
     }
 
+    // --- Drawing a span -------------------------------------------------------
+
+    [Fact]
+    public async Task A_drag_across_a_row_proposes_whole_weeks_from_the_press_through_the_release()
+    {
+        using var context = new BunitContext();
+
+        var slots = new List<RoadmapSlot>();
+        var view = Chart(context, parameters => parameters.Add(timeline => timeline.OnSlotActivated, slot => slots.Add(slot)));
+        var geometry = new RoadmapGeometry(Q1);
+
+        // Pressed on a Wednesday, released on the Tuesday a fortnight on: both ends snap
+        // outward to the weeks they landed in.
+        await view.InvokeAsync(() => view.Instance.SlotDrawn("build", geometry.XFor(On(1, 21)) + 0.1, geometry.XFor(On(2, 3)) + 0.1));
+
+        Assert.Equal([new RoadmapSlot("build", On(1, 19), RoadmapRowKind.Bars, On(2, 8))], slots);
+    }
+
+    [Fact]
+    public async Task A_drag_to_the_left_proposes_the_same_span_as_one_to_the_right()
+    {
+        using var context = new BunitContext();
+
+        var slots = new List<RoadmapSlot>();
+        var view = Chart(context, parameters => parameters.Add(timeline => timeline.OnSlotActivated, slot => slots.Add(slot)));
+        var geometry = new RoadmapGeometry(Q1);
+
+        await view.InvokeAsync(() => view.Instance.SlotDrawn("build", geometry.XFor(On(2, 3)) + 0.1, geometry.XFor(On(1, 21)) + 0.1));
+
+        Assert.Equal(On(1, 19), Assert.Single(slots).On);
+        Assert.Equal(On(2, 8), slots[0].Until);
+    }
+
+    [Fact]
+    public async Task A_drag_inside_one_week_proposes_that_week()
+    {
+        using var context = new BunitContext();
+
+        var slots = new List<RoadmapSlot>();
+        var view = Chart(context, parameters => parameters.Add(timeline => timeline.OnSlotActivated, slot => slots.Add(slot)));
+        var geometry = new RoadmapGeometry(Q1);
+
+        await view.InvokeAsync(() => view.Instance.SlotDrawn("build", geometry.XFor(On(1, 20)), geometry.XFor(On(1, 22))));
+
+        Assert.Equal(new RoadmapSlot("build", On(1, 19), RoadmapRowKind.Bars, On(1, 25)), Assert.Single(slots));
+    }
+
+    [Fact]
+    public async Task A_drag_on_a_milestones_row_proposes_a_day_not_a_span()
+    {
+        using var context = new BunitContext();
+
+        var slots = new List<RoadmapSlot>();
+        var view = Chart(context, parameters => parameters.Add(timeline => timeline.OnSlotActivated, slot => slots.Add(slot)));
+        var geometry = new RoadmapGeometry(Q1);
+
+        await view.InvokeAsync(() => view.Instance.SlotDrawn("moments", geometry.XFor(On(2, 3)), geometry.XFor(On(3, 3))));
+
+        Assert.Equal(new RoadmapSlot("moments", On(2, 2), RoadmapRowKind.Milestones), Assert.Single(slots));
+    }
+
+    [Fact]
+    public void The_drawn_preview_is_where_the_proposed_span_will_be_drawn()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, parameters => parameters.Add(timeline => timeline.OnSlotActivated, _ => { }));
+        var geometry = new RoadmapGeometry(Q1);
+
+        var draft = view.Instance.SlotDrawPreview("build", geometry.XFor(On(1, 21)) + 0.1, geometry.XFor(On(2, 3)) + 0.1);
+
+        Assert.NotNull(draft);
+        Assert.Equal(geometry.XFor(On(1, 19)), draft.LeftRem, 3);
+        Assert.Equal(geometry.WidthFor(On(1, 19), On(2, 8)), draft.WidthRem, 3);
+        Assert.Contains("3 weeks", draft.Label);
+    }
+
+    [Fact]
+    public void Nothing_is_previewed_where_nothing_would_be_drawn()
+    {
+        using var context = new BunitContext();
+
+        var silent = Chart(context);
+        Assert.Null(silent.Instance.SlotDrawPreview("build", 1, 9));
+
+        var listening = Chart(context, parameters => parameters.Add(timeline => timeline.OnSlotActivated, _ => { }));
+        Assert.Null(listening.Instance.SlotDrawPreview("moments", 1, 9));
+        Assert.Null(listening.Instance.SlotDrawPreview("nowhere", 1, 9));
+    }
+
     // --- Intent drawn apart from work -----------------------------------------
 
     [Fact]

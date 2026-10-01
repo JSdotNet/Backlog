@@ -444,10 +444,11 @@
             _title = string.Empty;
             // A fortnight, which is a plan-shaped default: long enough to be a piece
             // of work, short enough that nobody leaves it as it arrived. From the week
-            // it was put in when it was put somewhere, else from today.
+            // it was put in when it was put somewhere, else from today. A span dragged
+            // out on the chart is the length the reader asked for instead.
             var start = Placement?.Start ?? Today;
             _start = Iso(start);
-            _end = Iso(start.AddDays(13));
+            _end = Iso(Placement?.End ?? start.AddDays(13));
             _priority = MediumPriority;
             _lane = Placement?.Lane ?? string.Empty;
             _notes = string.Empty;

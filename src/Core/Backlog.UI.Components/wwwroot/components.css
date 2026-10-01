@@ -12478,11 +12478,54 @@ select.field__input {
 }
 
 /*
-  Where a double-click adds something, the pointer says so. Only on the empty
+  Where a double-click or a drag adds something, the pointer says so. Only on the empty
   row: a bar keeps its own grab cursor.
 */
 .roadmap-timeline--insertable .roadmap-timeline__row[data-roadmap-slot] {
     cursor: cell;
+}
+
+/*
+  The span being dragged out across an empty row: drawn as the intent it is —
+  the tentative bar's dotted outline — at the weeks the release will propose, with
+  those dates written on it. The script places it; it never takes the pointer.
+*/
+.roadmap-timeline__draft-bar {
+    position: absolute;
+    top: var(--spacing-xs);
+    bottom: var(--spacing-xs);
+    display: flex;
+    align-items: center;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width-2) dashed var(--roadmap-group-color, var(--color-primary));
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--roadmap-group-color, var(--color-primary)) 14%, transparent);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.roadmap-timeline__draft-bar[hidden] {
+    display: none;
+}
+
+/* A few weeks is narrower than the dates it covers, and the dates are the point —
+   so the label runs past the outline on a chip of its own rather than being cut. */
+.roadmap-timeline__draft-label {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    box-shadow: var(--shadow-sm);
+}
+
+.roadmap-timeline--drawing,
+.roadmap-timeline--drawing .roadmap-timeline__row {
+    cursor: ew-resize;
+    user-select: none;
 }
 
 /* Padding holds nothing, but under a band's last lane it is where a reader aims
