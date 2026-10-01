@@ -1667,6 +1667,77 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// Escape closes a takeover even after focus has left it for <c>&lt;body&gt;</c>.
+    /// <para>
+    /// A focused Refresh button that goes disabled while its read runs drops focus
+    /// to the body, outside the surface's <c>@onkeydown</c>, and the surface stayed
+    /// open on Escape. The shell now registers with a document listener that hears
+    /// that press and calls back; bUnit has no document, so the callback is invoked
+    /// the way the script invokes it, and the surface marker the script looks for
+    /// is asserted beside it.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("tools-toggle-button", "tools-surface")]
+    [InlineData("dashboard-toggle-button", "dashboard-surface")]
+    [InlineData("sessions-toggle-button", "sessions-surface")]
+    [InlineData("pull-requests-toggle-button", "pull-requests-surface")]
+    public async Task Escape_heard_at_the_document_closes_the_takeover(string toggle, string surface)
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+            Assert.Single(
+                harness.Context.JSInterop.Invocations["backlogTakeoverEscape.register"],
+                invocation => invocation.Arguments.Count == 1));
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll($"[data-testid='{toggle}']")));
+        component.Find($"[data-testid='{toggle}']").Click();
+        component.WaitForAssertion(() =>
+            Assert.True(component.Find($"[data-testid='{surface}']").HasAttribute("data-escape-closes")));
+
+        await component.InvokeAsync(component.Instance.CloseSurfaceOnEscapeAsync);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll($"[data-testid='{surface}']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+        });
+    }
+
+    /// <summary>The Roadmap keeps Escape for its own grabbed bars and dialogs, so it
+    /// carries no marker for the document listener and the callback leaves it open.</summary>
+    [Fact]
+    public async Task Escape_heard_at_the_document_leaves_the_roadmap_open()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        OpenTheRoadmap(component);
+
+        Assert.False(component.Find("[data-testid='roadmap-surface']").HasAttribute("data-escape-closes"));
+
+        await component.InvokeAsync(component.Instance.CloseSurfaceOnEscapeAsync);
+
+        Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
+    }
+
+    [Fact]
+    public async Task Disposing_the_shell_unregisters_its_escape_listener()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+            Assert.NotEmpty(harness.Context.JSInterop.Invocations["backlogTakeoverEscape.register"]));
+
+        await harness.Context.DisposeAsync();
+
+        Assert.Single(harness.Context.JSInterop.Invocations["backlogTakeoverEscape.unregister"]);
+    }
+
     /// <summary>Presses the Pull requests segment and waits for the list to take the
     /// screen.</summary>
     private static void OpenPullRequests(IRenderedComponent<Home> component)

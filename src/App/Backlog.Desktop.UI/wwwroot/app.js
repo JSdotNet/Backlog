@@ -77,6 +77,38 @@ window.backlogDiagrams.renderDevbookAtlas = async (element, id, graph, dotnet) =
 };
 
 
+// Escape on a takeover whose focus has fallen to <body>. Each surface's <main>
+// closes on Escape through its own @onkeydown, which hears only the keys pressed
+// inside it. A focused control that becomes disabled — a Refresh button while
+// its read runs — drops focus to <body>, outside the Blazor root, and the next
+// Escape went nowhere. This catches exactly that press and nothing else:
+//
+// - only with focus on <body>, so a key pressed inside the surface stays the
+//   surface's own handler's, and one pressed in the header stays the header's;
+// - only when a surface that closes on Escape is open — the Roadmap carries no
+//   `data-escape-closes`, because Escape means something else there;
+// - never when something already took the key (defaultPrevented) or a modal is
+//   open, since Escape belongs to the dialog first.
+window.backlogTakeoverEscape = (() => {
+    let owner = null;
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' || event.defaultPrevented || !owner) return;
+        if (event.target !== document.body && event.target !== document.documentElement) return;
+        if (!document.querySelector('main[data-escape-closes]')) return;
+        if (document.querySelector('[aria-modal="true"], dialog[open]')) return;
+
+        event.preventDefault();
+        owner.invokeMethodAsync('CloseSurfaceOnEscapeAsync');
+    });
+
+    // Keyless, like the shell's resizer registration: there is one shell.
+    return {
+        register: (dotnet) => { owner = dotnet; },
+        unregister: () => { owner = null; }
+    };
+})();
+
 // An attached image is evidence for a bug report, not a photograph: it is
 // committed to the repository and embedded in the issue, so it is held to a
 // budget rather than sent at whatever size it arrived. Named because two
