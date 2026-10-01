@@ -156,7 +156,7 @@ public class ActivityListingCacheTests : IDisposable
     [Fact]
     public void Forgetting_a_repository_nothing_was_stored_for_is_not_an_error()
     {
-        Cache().ForgetRepository(Backlog);
+        Assert.Null(Record.Exception(() => Cache().ForgetRepository(Backlog)));
     }
 
     /// <summary>

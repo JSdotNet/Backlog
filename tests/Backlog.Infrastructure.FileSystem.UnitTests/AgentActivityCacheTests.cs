@@ -274,7 +274,7 @@ public class AgentActivityCacheTests : IDisposable
     [Fact]
     public void Forgetting_when_nothing_was_ever_stored_is_not_an_error()
     {
-        Cache().Forget();
+        Assert.Null(Record.Exception(() => Cache().Forget()));
     }
 
     private static AgentActivityEntry Entry((int From, int To)[] runs, (int From, int To)[] waits) =>

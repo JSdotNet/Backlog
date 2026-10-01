@@ -2,7 +2,6 @@ extern alias DesktopHarness;
 
 using System.Net;
 using System.Text;
-using System.Text.Json;
 
 using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
@@ -56,17 +55,6 @@ public class TelemetryEndpointGateTests
         {
             Changed?.Invoke();
             return null;
-        }
-    }
-
-    private sealed class RecordingTelemetry : IDeliveryRunTelemetry
-    {
-        public List<string> Events { get; } = [];
-
-        public Task RecordAsync(JsonElement hookEvent, CancellationToken cancellationToken = default)
-        {
-            Events.Add(hookEvent.GetProperty("hook_event_name").GetString()!);
-            return Task.CompletedTask;
         }
     }
 

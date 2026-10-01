@@ -3,6 +3,7 @@ using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.Services;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Dashboard.UnitTests;
 
@@ -226,9 +227,9 @@ public class TaskInsightsTests
         Assert.Contains("The plan file is locked.", result.Availability.Reason, StringComparison.Ordinal);
     }
 
-    private static TaskInsights Insights(ICompletedTaskSource source) => new(source, new StubPlanSource(), new FixedClock(Now));
+    private static TaskInsights Insights(ICompletedTaskSource source) => new(source, new StubPlanSource(), new FakeTimeProvider(Now));
 
-    private static TaskInsights Insights(IPlanProgressSource plan) => new(new StubSource(), plan, new FixedClock(Now));
+    private static TaskInsights Insights(IPlanProgressSource plan) => new(new StubSource(), plan, new FakeTimeProvider(Now));
 
     private static PlanItemProgress Item(
         string title,
@@ -303,14 +304,5 @@ public class TaskInsightsTests
             if (Throw is not null) throw Throw;
             return Task.FromResult(Enabled ? new PlanReading(true, Pace, items) : PlanReading.Off);
         }
-    }
-
-    /// <summary>A clock stopped at one instant, in UTC both ways, so the local date the
-    /// plan's outlook is read on does not depend on the machine running the test.</summary>
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
-
-        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
     }
 }

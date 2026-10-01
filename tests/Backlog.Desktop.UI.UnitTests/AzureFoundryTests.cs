@@ -535,23 +535,6 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         _paths.Add(path);
         return path;
     }
-
-    private sealed class RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
-    {
-        public HttpRequestMessage? Request { get; private set; }
-
-        public string? Body { get; private set; }
-
-        public int RequestCount { get; private set; }
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            RequestCount++;
-            Request = request;
-            Body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
-            return respond(request);
-        }
-    }
 }
 
 /// <summary>

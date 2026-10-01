@@ -6,6 +6,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Api.Endpoints;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
@@ -330,13 +331,8 @@ public sealed class InboxCaptureEndpointTests : IDisposable
 
     private static SyncServiceFactory AtFixedTime() => new()
     {
-        TestServices = services => services.Replace(ServiceDescriptor.Singleton<TimeProvider>(new FixedClock(Now))),
+        TestServices = services => services.Replace(ServiceDescriptor.Singleton<TimeProvider>(new FakeTimeProvider(Now))),
     };
-
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
-    }
 
     private async Task<HttpClient> Device() => await _service.CreateClient().RegisteredDevice("Phone");
 }

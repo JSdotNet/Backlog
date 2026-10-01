@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Claude.Dashboard;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Claude.UnitTests;
 
@@ -93,7 +94,7 @@ public sealed class ClaudeSpendSourceTests
             [new ClaudeCodeModelUsage("claude-opus-5", new ClaudeTokenUsage(10, 5, 0, 0), 7.50m, "USD")]));
 
         var usage = new StubUsage { [personal] = ("me@example.com", 1.25m) };
-        var source = new ClaudeSpendSource(usage, store.Store, days, new FixedClock(Today));
+        var source = new ClaudeSpendSource(usage, store.Store, days, new FakeTimeProvider(Today));
 
         var day = new DateOnly(2026, 9, 10);
         var report = await source.GetSpendAsync(day, day, TestContext.Current.CancellationToken);
@@ -111,7 +112,7 @@ public sealed class ClaudeSpendSourceTests
 
         var days = new RememberingDays();
         var usage = new StubUsage { [personal] = ("me@example.com", 1.25m) };
-        var source = new ClaudeSpendSource(usage, store.Store, days, new FixedClock(Today));
+        var source = new ClaudeSpendSource(usage, store.Store, days, new FakeTimeProvider(Today));
 
         var day = new DateOnly(2026, 9, 10);
         _ = await source.GetSpendAsync(day, day, TestContext.Current.CancellationToken);
@@ -132,7 +133,7 @@ public sealed class ClaudeSpendSourceTests
 
         var days = new RememberingDays();
         var usage = new StubUsage { [personal] = ("someone-else@example.com", 9.99m) };
-        var source = new ClaudeSpendSource(usage, store.Store, days, new FixedClock(Today));
+        var source = new ClaudeSpendSource(usage, store.Store, days, new FakeTimeProvider(Today));
 
         var day = new DateOnly(2026, 9, 10);
         _ = await source.GetSpendAsync(day, day, TestContext.Current.CancellationToken);
@@ -160,7 +161,7 @@ public sealed class ClaudeSpendSourceTests
         }
 
         var usage = new StubUsage { [personal] = ("me@example.com", 1.25m) };
-        var source = new ClaudeSpendSource(usage, store.Store, days, new FixedClock(Today));
+        var source = new ClaudeSpendSource(usage, store.Store, days, new FakeTimeProvider(Today));
 
         var report = await source.GetSpendAsync(
             new DateOnly(2026, 9, 14),
@@ -184,7 +185,7 @@ public sealed class ClaudeSpendSourceTests
 
         var days = new RememberingDays();
         var usage = new StubUsage { [personal] = ("me@example.com", 1.25m), Refuses = true };
-        var source = new ClaudeSpendSource(usage, store.Store, days, new FixedClock(Today));
+        var source = new ClaudeSpendSource(usage, store.Store, days, new FakeTimeProvider(Today));
 
         var day = new DateOnly(2026, 9, 10);
         var report = await source.GetSpendAsync(day, day, TestContext.Current.CancellationToken);
@@ -199,11 +200,6 @@ public sealed class ClaudeSpendSourceTests
         store.Store.SetAdminApiKey(id, "sk-ant-admin01-personal");
         store.Store.SetActor(id, actor);
         return id;
-    }
-
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
     }
 
     /// <summary>The day cache, in memory: what is pinned here is the adapter's use

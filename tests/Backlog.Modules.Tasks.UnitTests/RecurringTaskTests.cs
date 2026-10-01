@@ -272,44 +272,4 @@ public sealed class RecurringTaskTests
         Assert.True(result.IsSuccess);
         return result.Value;
     }
-
-    /// <summary>The store a host would supply, small enough to read. Entries are
-    /// held as the aggregates themselves rather than as serialized text, because
-    /// what is under test is the spawn rather than the storage format.</summary>
-    private sealed class InMemoryTaskRepository : ITaskRepository
-    {
-        public Dictionary<Guid, TaskItem> Entries { get; } = [];
-
-        /// <summary>The one entry that is not the one saved — which is what a
-        /// successor is, and asserting there is exactly one of them is half of
-        /// what these tests are for.</summary>
-        public TaskItem Successor(Guid completedId) =>
-            Assert.Single(Entries.Values, entry => entry.Id != completedId);
-
-        public Task SaveAsync(TaskItem entry, CancellationToken cancellationToken = default)
-        {
-            Entries[entry.Id] = entry;
-            return Task.CompletedTask;
-        }
-
-        // Both reads hide a tombstoned entry, the way the port says they must.
-        public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.TryGetValue(id, out var entry) && entry.DeletedAt is null ? entry : null);
-
-        // And the one read that does not, for the merge that has to tell
-        // "deleted here" from "never seen here".
-        public Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.TryGetValue(id, out var entry) ? entry : null);
-
-        public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Values.Where(entry => entry.DeletedAt is null)]);
-
-        // And the list that does not either, for the push that has to carry a
-        // deletion off the machine.
-        public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(
-            DateTimeOffset since,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>(
-                [.. Entries.Values.Where(entry => entry.UpdatedAt > since).OrderBy(entry => entry.UpdatedAt)]);
-    }
 }

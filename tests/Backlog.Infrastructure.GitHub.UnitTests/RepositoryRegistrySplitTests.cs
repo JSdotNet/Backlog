@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.GitHub;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 
@@ -39,13 +40,6 @@ public class RepositoryRegistrySplitTests : IDisposable
         new(LocalPath(install), () => WorkspaceRoot, clock);
 
     private static GitHubRepositoryRef Repository(string alias, string name) => new(alias, "JSdotNet", name);
-
-    /// <summary>A clock that stands still, so the stamp a rename record carries
-    /// can be read back exactly.</summary>
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
-    }
 
     // --- The split itself -----------------------------------------------------
 
@@ -120,7 +114,7 @@ public class RepositoryRegistrySplitTests : IDisposable
     public void Renaming_a_repository_carries_everything_and_records_the_move()
     {
         var clone = Path.Combine(_root, "clone");
-        var clock = new FixedClock(new DateTimeOffset(2026, 9, 18, 10, 0, 0, TimeSpan.Zero));
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 9, 18, 10, 0, 0, TimeSpan.Zero));
 
         var store = Store(clock: clock);
         Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
