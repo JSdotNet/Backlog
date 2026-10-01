@@ -3900,17 +3900,51 @@
                 measured = width;
                 reference.invokeMethodAsync('Measured', width / backlogRootFontSize());
             };
+
+            /*
+                The names column, kept level with the track. Where a host lets the
+                track scroll down as well as across, the column beside it is a second
+                scroller of the same rows; each one's scrollTop is copied to the other,
+                so the wheel works over either. Copying an equal value fires nothing,
+                so the two cannot chase each other. The track's horizontal scrollbar
+                takes height the column does not have; it is published on the frame
+                as --roadmap-scrollbar-height for the column to pad its end with.
+            */
+            const frame = scroller?.parentElement ?? null;
+            const sidebar = frame?.querySelector(':scope > .roadmap-timeline__sidebar') ?? null;
+            const follow = (from, to) => () => {
+                if (to.scrollTop !== from.scrollTop) to.scrollTop = from.scrollTop;
+            };
+            const fromTrack = sidebar ? follow(scroller, sidebar) : null;
+            const fromSidebar = sidebar ? follow(sidebar, scroller) : null;
+            const gutter = () => {
+                if (!frame) return;
+                frame.style.setProperty('--roadmap-scrollbar-height', `${Math.max(0, scroller.offsetHeight - scroller.clientHeight)}px`);
+            };
+            if (sidebar) {
+                scroller.addEventListener('scroll', fromTrack, { passive: true });
+                sidebar.addEventListener('scroll', fromSidebar, { passive: true });
+            }
+
             // The window's resize as well as the observer: an observer only reports
-            // on a rendered frame, and a page that is not painting still resizes.
-            const resizes = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+            // on a rendered frame, and a page that is not painting still resizes. The
+            // track is observed too, because its width is what decides whether the
+            // horizontal scrollbar is there at all.
+            const resized = () => { measure(); gutter(); };
+            const resizes = typeof ResizeObserver === 'function' ? new ResizeObserver(resized) : null;
             if (scroller) resizes?.observe(scroller);
-            window.addEventListener('resize', measure);
-            measure();
+            resizes?.observe(element);
+            window.addEventListener('resize', resized);
+            resized();
             backlogRoadmapScrollers.set(id, scroller);
 
             backlogRoadmapTimelines.set(id, () => {
                 resizes?.disconnect();
-                window.removeEventListener('resize', measure);
+                if (sidebar) {
+                    scroller.removeEventListener('scroll', fromTrack);
+                    sidebar.removeEventListener('scroll', fromSidebar);
+                }
+                window.removeEventListener('resize', resized);
                 backlogRoadmapScrollers.delete(id);
                 reset();
                 endLink();
