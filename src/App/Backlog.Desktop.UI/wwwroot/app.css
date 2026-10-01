@@ -5959,13 +5959,8 @@ h1, h2, h3 {
     align-items: center;
 }
 
-.pull-requests-panel__eyebrow,
-.pull-requests-panel__title,
-.pull-requests-panel__subtitle {
-    margin: 0;
-}
-
 .pull-requests-panel__eyebrow {
+    margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     font-weight: 700;
@@ -5974,10 +5969,12 @@ h1, h2, h3 {
 }
 
 .pull-requests-panel__title {
+    margin: 0;
     font-size: var(--font-size-lg);
 }
 
 .pull-requests-panel__subtitle {
+    margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }

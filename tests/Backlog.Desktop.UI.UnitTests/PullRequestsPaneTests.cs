@@ -492,7 +492,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         }
 
         var context = new BunitContext();
-        context.Services.AddSingleton(new GitHubIntegration(settings, client, new StubProbe()));
+        context.Services.AddSingleton(new GitHubIntegration(settings, client, new Backlog.Tests.StubProbe(new GitHubConnection(true, "Connected."))));
         context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource(sessions ?? []));
         if (toasts) TasksTestHost.AddToastChannel(context.Services);
 
@@ -645,16 +645,6 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
-    }
-
-    private sealed class StubProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
-        }
     }
 
     private sealed class StubSessionSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
