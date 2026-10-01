@@ -8,8 +8,7 @@ paths:
 # File and folder naming
 
 Naming **inside** `.devbook/` — including the underscore prefix that marks tooling
-assets such as `_meta/` and `_tools/` — is `devbook-naming.md`'s. This file covers
-only the rest of the repository.
+assets such as `_meta/` and `_tools/` — is `devbook-naming.md`'s.
 
 ## Casing
 
