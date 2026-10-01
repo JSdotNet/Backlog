@@ -827,10 +827,11 @@
         // Started work has a start that is a fact and an end that is a forecast. Its
         // bar offers the end alone, and dragging it pins that end: the forecast stops
         // deciding it until the person hands it back ("Use forecast" in the editor).
-        // Nothing else about the item moves, so this is not a reschedule.
+        // Nothing else about the item moves, so this is not a reschedule. An earlier
+        // segment of a hand-over moves the item's end as far as its own end was dragged.
         var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
         var rescheduled = bar is { Locked: true, EndResizable: true }
-            ? await Planning.PinItemEndAsync(itemId.Value, change.End)
+            ? await Planning.PinItemEndAsync(itemId.Value, RoadmapPlanView.PinnedEndFor(_view.Bars, bar, change))
             : await RescheduleAsync(change, itemId.Value);
 
         // Reload either way. On success the plan is the truth; on failure the
