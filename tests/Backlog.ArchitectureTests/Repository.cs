@@ -63,6 +63,60 @@ internal static class Repository
     public static bool IsUserInterface(FileInfo project) =>
         project.Name.EndsWith(".UI.csproj", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Every source file of <c>Backlog.Desktop.Composition</c>, the one copy of
+    /// what the two desktop heads compose, read as one text; <see langword="null"/>
+    /// when the project is not there.
+    /// </summary>
+    public static string? DesktopCompositionSource()
+    {
+        var folder = new DirectoryInfo(Path.Combine(Root.FullName, "src", "App", "Backlog.Desktop.Composition"));
+
+        if (!folder.Exists) return null;
+
+        return string.Join(
+            '\n',
+            folder.EnumerateFiles("*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.FullName.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                         && !f.FullName.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+                .OrderBy(f => f.FullName, StringComparer.Ordinal)
+                .Select(f => File.ReadAllText(f.FullName)));
+    }
+
+    /// <summary>
+    /// A composition root's text with the shared registrations it calls read in
+    /// after it: the desktop composition when the root calls
+    /// <c>AddDesktopComposition(</c>, and the Sqlite registration when what has
+    /// been read so far calls <c>AddSqlite(</c>.
+    ///
+    /// <para>The text-scanning rules ask whether a head that opts into something
+    /// also registers what it needs. Once the head hands that registration to a
+    /// shared extension the answer lives in the extension's file, so a rule that
+    /// read the head alone would fail on a head that is correct — and one that
+    /// stopped asking would pass on a shared composition that dropped the line.
+    /// Following the call keeps the question and moves where it looks. Only calls
+    /// the text actually makes are followed, so a head that composes by hand is
+    /// still read by itself.</para>
+    /// </summary>
+    public static string ComposedText(string rootText)
+    {
+        var text = rootText;
+
+        if (text.Contains("AddDesktopComposition(", StringComparison.Ordinal))
+        {
+            text += "\n" + DesktopCompositionSource();
+        }
+
+        var sqlite = Path.Combine(Root.FullName, "src", "Infrastructure", "Backlog.Infrastructure.Sqlite", "SqliteRegistration.cs");
+
+        if (text.Contains(".AddSqlite(", StringComparison.Ordinal) && File.Exists(sqlite))
+        {
+            text += "\n" + File.ReadAllText(sqlite);
+        }
+
+        return text;
+    }
+
     public static IEnumerable<string> ReferencedProjectNames(FileInfo project)
     {
         return XDocument.Load(project.FullName)

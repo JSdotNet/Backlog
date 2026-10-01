@@ -13,4 +13,11 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The container, for SqliteRegistrationTests: they resolve what AddSqlite
+         registers rather than reading descriptors alone. Logging is the package
+         in the central set that carries Microsoft.Extensions.DependencyInjection. -->
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    What both desktop heads compose: every module, adapter, Ask AI source and
+    settings page the MAUI head (src/App/Backlog.Desktop) and the desktop web
+    harness (src/Harness/Backlog.Desktop.WebHarness) share, behind one call,
+    AddDesktopComposition. The heads used to write this by hand, line for line,
+    and only the harness copy was ever started by a test.
+
+    Its own project rather than a folder in Backlog.Desktop.UI: composition sees
+    the module implementations — AddTasksModule() is in Backlog.Modules.Tasks —
+    and a .UI project may not (ModuleSurfaceTests). It is not a UI project and
+    holds no component; the heads reference it and nothing else does.
+
+    No Microsoft.AspNetCore.App here, and no package that carries it: local ADR
+    0012 puts that reference in Backlog.Desktop.csproj alone. The MCP server and
+    its transport stay in each head for the same reason.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Desktop.Composition</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The modules the heads compose: picking the adapter behind each and calling
+         its Add*Module() means seeing both sides of it. -->
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />
+    <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture\Backlog.Modules.Capture.csproj" />
+    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />
+    <!-- Dev PC Management's port, which each head answers differently and hands in
+         through the options. -->
+    <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Capture\Backlog.Infrastructure.Capture.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sessions\Backlog.Infrastructure.Sessions.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
+    <!-- The shell and, through it, every context's screen project: the window's
+         state, the Ask AI sources and the settings pages are registered from
+         there. -->
+    <ProjectReference Include="..\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
+  </ItemGroup>
+
+</Project>
