@@ -12,6 +12,10 @@
 @using Backlog.Desktop.UI.Devbook
 @using Backlog.Modules.DevPc.UI
 @using Backlog.Modules.Sessions.UI
+@* The pull requests list is the Sessions context's too, but it reads GitHub
+   through the adapter, which no Sessions project may reference — so it lives in
+   this project, in a folder of its own, and is composed from here like the rest. *@
+@using Backlog.Desktop.UI.PullRequests
 @using Backlog.Modules.Roadmap.UI
 @using Backlog.Modules.Dashboard.UI
 @using Backlog.Modules.Dashboard.Abstractions

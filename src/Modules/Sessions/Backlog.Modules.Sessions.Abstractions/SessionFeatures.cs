@@ -31,4 +31,16 @@ public static class SessionFeatures
     /// twice.
     /// </para></summary>
     public const string Sessions = "sessions";
+
+    /// <summary>List the open pull requests of every registered repository, and update,
+    /// ready or merge them from that list.
+    /// <para>
+    /// This context's and not the Tasks context's, though a task's row can merge a
+    /// pull request too: the list is what the sessions shipped, read across every
+    /// repository at once, and each row leads back to the session that opened it. Its
+    /// own key rather than <see cref="Sessions"/>, because the two are different
+    /// screens with different costs — this one asks GitHub on every opening — and
+    /// somebody can want the list of sessions without it.
+    /// </para></summary>
+    public const string PullRequests = "pull-requests";
 }

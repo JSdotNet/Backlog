@@ -34,10 +34,10 @@
     choose between. The `.shell` class on the wrapper is the older name and stays,
     because it is what every layout rule in app.css is written against.
 
-    There are five, and exactly one of them renders: the workspace, which is the
-    global panes; the roadmap; the tools surface; the dashboard; and the session
-    list. The last four are takeovers — Roadmap, Dev PC Management, the Dashboard
-    and Sessions are whole domains, and opening one means
+    There are six, and exactly one of them renders: the workspace, which is the
+    global panes; the roadmap; the tools surface; the dashboard; the session list;
+    and the pull requests list. The last five are takeovers — Roadmap, Dev PC
+    Management, the Dashboard and Sessions are whole domains, and opening one means
     the reader has stopped looking at the backlog, so it takes the screen and hides
     every other domain concern rather than docking beside them. Whichever branch
     renders owns the page's single <main> landmark.
@@ -249,6 +249,27 @@
                             <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
                                                 Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
                                                 TestId="sessions-feature-status" />
+                        </ToggleButton>
+                    }
+
+                    @* Pull requests, right after Sessions because it is the same
+                       context's second list: what the sessions shipped, across every
+                       registered repository. Its own segment and its own flag, since
+                       it asks GitHub on every opening and the session list asks
+                       nothing. *@
+                    @if (PullRequestsOffered)
+                    {
+                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="PullRequestsVisible"
+                                      id="pull-requests-toggle-button"
+                                      TestId="pull-requests-toggle-button"
+                                      aria-controls="pull-requests-surface"
+                                      PressedChanged="TogglePullRequests">
+                            Pull requests
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.PullRequests)"
+                                                Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
+                                                TestId="pull-requests-feature-status" />
                         </ToggleButton>
                     }
 
@@ -586,6 +607,24 @@
                           FocusSessionId="@_focusSessionId" />
         </main>
     }
+    else if (PullRequestsVisible)
+    {
+        <main class="workspace-surface"
+              id="pull-requests-surface"
+              data-testid="pull-requests-surface"
+              tabindex="-1"
+              @ref="_surfaceElement"
+              @onkeydown="OnSurfaceKeyDown"
+              aria-label="Pull requests">
+            <PullRequestsPane OnClose="CloseSurface"
+                              RepositoryScope="@State.SelectedRepositoryAliases"
+                              RepositoryAlias="@RepositoryAliasFor"
+                              RepositoryColour="@RepositoryColourFor"
+                              PullRequestTask="PullRequestTaskFor"
+                              OnOpenTask="OpenPlanEntryAsync"
+                              OnOpenSession="OpenSessionAsync" />
+        </main>
+    }
     else
     {
         <main class="workspace" id="workspace" data-testid="workspace">
@@ -844,9 +883,15 @@
 
     private bool SessionsOffered => IsFeatureEnabled(SessionFeatures.Sessions);
 
+    /// <summary>Whether the pull requests list is on screen. The same shape again,
+    /// and the same context as the session list, under a flag of its own.</summary>
+    private bool PullRequestsVisible => _surface == WorkspaceSurface.PullRequests && PullRequestsOffered;
+
+    private bool PullRequestsOffered => IsFeatureEnabled(SessionFeatures.PullRequests);
+
     /// <summary>Whether the panes are on screen. Anything that is not a takeover
     /// is the workspace, including a surface whose feature has been switched off.</summary>
-    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !RoadmapVisible;
+    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !RoadmapVisible;
 
     /// <summary>Whether the task list is in front of the reader — on screen in the
     /// workspace, not merely selected underneath a takeover. The GitHub check acts
@@ -854,10 +899,11 @@
     private bool TasksListOnScreen => WorkspaceVisible && TasksPaneVisible;
 
     /// <summary>Whether what is on screen can show several repositories at once:
-    /// the task list, the Dashboard, or the session list. Devbook reads one, and
-    /// Tools reads none, so on those a chip is a single select and the scope is
-    /// kept to its anchor.</summary>
-    private bool RepositoryScopeTakesSeveral => TasksListOnScreen || DashboardVisible || SessionsVisible;
+    /// the task list, the Dashboard, the session list, or the pull requests list.
+    /// Devbook reads one, and Tools reads none, so on those a chip is a single
+    /// select and the scope is kept to its anchor.</summary>
+    private bool RepositoryScopeTakesSeveral =>
+        TasksListOnScreen || DashboardVisible || SessionsVisible || PullRequestsVisible;
 
     /// <summary>Offered while the feature is on and there is an area to ask about.
     /// It used to be the task list alone; every area answers now, so the button
@@ -948,7 +994,8 @@
     /// in it. Each takeover keeps its own segment gated on its own feature, so this
     /// is the "is there a segment beyond Workspace" question and nothing more.</summary>
     private bool SurfaceSwitcherVisible =>
-        IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered || SessionsOffered || RoadmapPaneOptionVisible;
+        IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered || SessionsOffered || PullRequestsOffered
+        || RoadmapPaneOptionVisible;
 
     /// <summary>Whether the Roadmap option is offered at all. The same two-level
     /// split as <see cref="InboxPaneOptionVisible"/>: the feature decides whether
@@ -1008,6 +1055,8 @@
     private void ToggleDashboard() => ToggleSurface(WorkspaceSurface.Dashboard);
 
     private void ToggleSessions() => ToggleSurface(WorkspaceSurface.Sessions);
+
+    private void TogglePullRequests() => ToggleSurface(WorkspaceSurface.PullRequests);
 
     private void ToggleRoadmap() => ToggleSurface(WorkspaceSurface.Roadmap);
 
@@ -1188,7 +1237,32 @@
             candidate.Id is not null
             && candidate.SessionLinks.Any(link => string.Equals(link.SessionId, sessionId, StringComparison.OrdinalIgnoreCase)));
 
-        return row is { Id: { } id }
+        return TaskReference(row);
+    }
+
+    /// <summary>
+    /// The entry that recorded a pull request, as the pull requests list asks for it:
+    /// the entry's own <c>pull-request</c> projection, written by the Backlog server's
+    /// <c>link_change</c>, naming the same <c>owner/name</c> and number. Answered here
+    /// for the reason <see cref="SessionTaskFor"/> is — the record is on the entry and
+    /// the pull request is in another pane — and by stored id, so opening it is the
+    /// surest match <see cref="OpenPlanEntryAsync"/> makes.
+    /// </summary>
+    private DeliveryRunReference? PullRequestTaskFor(string repositoryFullName, int number)
+    {
+        var row = State.Rows.FirstOrDefault(candidate =>
+            candidate.Id is not null
+            && candidate.PullRequestLinks.Any(link =>
+                link.Number == number
+                && string.Equals(link.Repository, repositoryFullName, StringComparison.OrdinalIgnoreCase)));
+
+        return TaskReference(row);
+    }
+
+    /// <summary>An entry as a task reference another pane can hand back: its title, or
+    /// the first block of its id where it has none, and the id itself to open it by.</summary>
+    private static DeliveryRunReference? TaskReference(EntryRow? row) =>
+        row is { Id: { } id }
             ? new DeliveryRunReference(
                 DeliveryRunReferenceKind.Task,
                 string.IsNullOrWhiteSpace(row.PreviewTitle) ? id.ToString()[..8] : row.PreviewTitle,
@@ -1197,7 +1271,6 @@
                 Repository: null,
                 EntryId: id)
             : null;
-    }
 
     private void OnSurfaceKeyDown(KeyboardEventArgs e)
     {

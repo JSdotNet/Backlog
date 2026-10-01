@@ -3,11 +3,11 @@ namespace Backlog.Desktop.UI.Shell;
 /// <summary>
 /// Which surface the shell is showing below its chrome.
 /// <para>
-/// One field with five states, rather than a flag per takeover, and that is the
+/// One field with six states, rather than a flag per takeover, and that is the
 /// whole point: a takeover cannot coexist with the workspace, and the takeovers
 /// cannot coexist with each other. Each belongs to one context — Roadmap to
-/// Roadmap, Tools to Dev PC Management, Dashboard to the Dashboard, Sessions to
-/// Sessions — and opening
+/// Roadmap, Tools to Dev PC Management, Dashboard to the Dashboard, Sessions and
+/// Pull requests to Sessions — and opening
 /// any of them means the
 /// reader has stopped looking at the backlog, so there is no arrangement in which
 /// one shares the screen with the panes or with another. Two booleans would have
@@ -60,5 +60,13 @@ internal enum WorkspaceSurface
     /// <see cref="Roadmap"/> because the navigation file stores names, and "Sessions"
     /// is the name every earlier build wrote for the list — as a surface and, while
     /// it was a Dashboard tab, for that tab — so each of those files reopens here.</summary>
-    Sessions
+    Sessions,
+
+    /// <summary>The open pull requests of every registered repository, taking the
+    /// whole screen — the Sessions context's second surface, what its sessions
+    /// shipped. Appended, as <see cref="Roadmap"/> and <see cref="Sessions"/> were:
+    /// the navigation file stores names, so every surface an earlier build wrote
+    /// reopens unchanged, and a new name is simply one no earlier file holds. The
+    /// header orders its segments for itself; this order is nobody's layout.</summary>
+    PullRequests
 }

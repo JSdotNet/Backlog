@@ -81,6 +81,45 @@ public interface IGitHubClient
         CancellationToken cancellationToken = default) =>
         Task.FromException(new GitHubException("This GitHub client cannot merge a pull request."));
 
+    /// <summary>
+    /// The repository's open pull requests, most recently updated first — up to fifty,
+    /// with what the pull requests list shows about each and what its acts need. One
+    /// GraphQL query. See <see cref="GitHubOpenPullRequest"/>.
+    /// <para>
+    /// A default body for the reason <see cref="GetPullRequestAsync"/> has one: a test
+    /// double that is not about pull requests answers like a GitHub that refused, which
+    /// the list already reports per repository.
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyList<GitHubOpenPullRequest>> ListOpenPullRequestsAsync(
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<IReadOnlyList<GitHubOpenPullRequest>>(new GitHubException("This GitHub client cannot list pull requests."));
+
+    /// <summary>Takes a draft out of draft — GitHub's "Ready for review".</summary>
+    /// <param name="pullRequestId">The pull request's GraphQL node id, from
+    /// <see cref="ListOpenPullRequestsAsync"/>.</param>
+    Task MarkReadyForReviewAsync(
+        GitHubRepositoryRef repository,
+        string pullRequestId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException(new GitHubException("This GitHub client cannot mark a pull request ready for review."));
+
+    /// <summary>
+    /// Merges the base branch into the pull request's head — GitHub's "Update branch".
+    /// GitHub does the merge on its side and answers before it has finished, so the
+    /// caller reads the pull request again rather than trusting the answer.
+    /// </summary>
+    /// <param name="expectedHeadSha">The head commit the caller read. GitHub refuses
+    /// when the branch has moved since, rather than merging into commits nobody here
+    /// has seen. Null updates whatever the head is.</param>
+    Task UpdateBranchAsync(
+        GitHubRepositoryRef repository,
+        int number,
+        string? expectedHeadSha,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException(new GitHubException("This GitHub client cannot update a pull request's branch."));
+
     /// <summary>Commits <paramref name="content"/> to <paramref name="path"/> on
     /// <paramref name="branch"/>, creating the branch off the repository's default
     /// branch first if it does not already exist, and returns the raw URL the
@@ -251,6 +290,52 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         }
         """;
 
+    private const string ReadyForReviewMutation = """
+        mutation($id: ID!) {
+          markPullRequestReadyForReview(input: { pullRequestId: $id }) { clientMutationId }
+        }
+        """;
+
+    /// <summary>
+    /// The list query: the status query's fields for every open pull request at once,
+    /// plus what a list shows that a single link does not — the branches, the author,
+    /// and the merge state's other answers. The merge settings ride along for the
+    /// reason they do on <see cref="StatusQuery"/>.
+    /// <para>
+    /// Fifty, most recently updated first, and no paging. A repository with more open
+    /// pull requests than that has a queue nobody reads row by row, and the ones at
+    /// the top are the ones that moved; a second page would be cost with no reader.
+    /// </para>
+    /// </summary>
+    private const string OpenPullRequestsQuery = """
+        query($owner: String!, $name: String!) {
+          repository(owner: $owner, name: $name) {
+            mergeCommitAllowed
+            squashMergeAllowed
+            rebaseMergeAllowed
+            pullRequests(states: OPEN, first: 50, orderBy: { field: UPDATED_AT, direction: DESC }) {
+              nodes {
+                id
+                number
+                title
+                url
+                isDraft
+                headRefName
+                headRefOid
+                baseRefName
+                mergeStateStatus
+                mergeable
+                viewerDidAuthor
+                author { login }
+                autoMergeRequest { enabledAt }
+                updatedAt
+                commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+              }
+            }
+          }
+        }
+        """;
+
     public async Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(
         GitHubRepositoryRef repository,
         int number,
@@ -310,7 +395,67 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         CancellationToken cancellationToken = default) =>
         MutateAsync(repository, MergeMutation, pullRequestId, method, cancellationToken);
 
-    /// <summary>One of the three merge mutations. Nothing in their payloads is read:
+    public async Task<IReadOnlyList<GitHubOpenPullRequest>> ListOpenPullRequestsAsync(
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        var data = await GitHubGraphQl.SendAsync(
+            transport,
+            repository,
+            OpenPullRequestsQuery,
+            new Dictionary<string, object?>
+            {
+                ["owner"] = repository.Owner,
+                ["name"] = repository.Name
+            },
+            cancellationToken,
+            tolerate: OnlyTheListsCheckRollupsWereRefused).ConfigureAwait(false);
+
+        return ReadOpenPullRequests(data, repository.FullName);
+    }
+
+    /// <summary>The list's version of <see cref="OnlyTheCheckRollupWasRefused"/>: the
+    /// same refusal, once per pull request, and the same reason to read around it —
+    /// a token that cannot see checks can still see which pull requests are open.</summary>
+    private static bool OnlyTheListsCheckRollupsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data) =>
+        errors.All(error => GitHubGraphQl.PathPassesThrough(error, "statusCheckRollup"))
+        && data.TryGetProperty("repository", out var repository)
+        && repository.ValueKind == JsonValueKind.Object;
+
+    public Task MarkReadyForReviewAsync(
+        GitHubRepositoryRef repository,
+        string pullRequestId,
+        CancellationToken cancellationToken = default) =>
+        MutateAsync(repository, ReadyForReviewMutation, pullRequestId, method: null, cancellationToken);
+
+    /// <summary>
+    /// REST rather than GraphQL, because GraphQL's <c>updatePullRequestBranch</c> takes
+    /// the same inputs and nothing more, while this endpoint is the one GitHub documents
+    /// <c>expected_head_sha</c> on and the one its own button calls.
+    /// </summary>
+    public async Task UpdateBranchAsync(
+        GitHubRepositoryRef repository,
+        int number,
+        string? expectedHeadSha,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        // An empty object rather than no body when there is no head to name: the
+        // endpoint is a PUT, and the CLI transport sends a body only when given one.
+        var payload = new Dictionary<string, object?>();
+        if (!string.IsNullOrWhiteSpace(expectedHeadSha)) payload["expected_head_sha"] = expectedHeadSha;
+
+        await transport.SendAsync(
+            HttpMethod.Put,
+            $"repos/{repository.Owner}/{repository.Name}/pulls/{number}/update-branch",
+            payload,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>One of the pull request mutations. Nothing in their payloads is read:
     /// success is the absence of an <c>errors</c> entry, and the caller re-reads the
     /// status to see what it did.</summary>
     private async Task MutateAsync(
@@ -324,7 +469,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
 
         if (string.IsNullOrWhiteSpace(pullRequestId))
         {
-            throw new GitHubException("A pull request has to be read before it can be merged.");
+            throw new GitHubException("A pull request has to be read before it can be acted on.");
         }
 
         var variables = new Dictionary<string, object?> { ["id"] = pullRequestId };
@@ -377,6 +522,70 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             pull.TryGetProperty("autoMergeRequest", out var autoMerge) && autoMerge.ValueKind == JsonValueKind.Object,
             String(pull, "mergeStateStatus") is { } mergeState && MergeableNow.Contains(mergeState),
             PreferredMergeMethod(repository));
+    }
+
+    /// <summary>
+    /// The list query's <c>data</c>, as the records the pull requests list reads. A
+    /// missing repository is a not-found, the answer every other read gives for one;
+    /// a node without an id or a number is left out rather than drawn as a row no act
+    /// could name.
+    /// </summary>
+    internal static IReadOnlyList<GitHubOpenPullRequest> ReadOpenPullRequests(JsonElement data, string repositoryFullName)
+    {
+        if (!data.TryGetProperty("repository", out var repository) || repository.ValueKind != JsonValueKind.Object)
+        {
+            throw new GitHubException($"GitHub couldn't find {repositoryFullName}.")
+            {
+                Status = System.Net.HttpStatusCode.NotFound
+            };
+        }
+
+        if (!repository.TryGetProperty("pullRequests", out var connection) || connection.ValueKind != JsonValueKind.Object
+            || !connection.TryGetProperty("nodes", out var nodes) || nodes.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var method = PreferredMergeMethod(repository);
+        var pulls = new List<GitHubOpenPullRequest>();
+
+        foreach (var pull in nodes.EnumerateArray())
+        {
+            if (pull.ValueKind != JsonValueKind.Object) continue;
+
+            var nodeId = String(pull, "id");
+            var number = pull.TryGetProperty("number", out var n) && n.TryGetInt32(out var value) ? value : 0;
+            if (string.IsNullOrWhiteSpace(nodeId) || number == 0) continue;
+
+            var mergeState = String(pull, "mergeStateStatus");
+            var author = pull.TryGetProperty("author", out var who) && who.ValueKind == JsonValueKind.Object
+                ? String(who, "login")
+                : null;
+
+            pulls.Add(new GitHubOpenPullRequest(
+                number,
+                String(pull, "url") ?? $"https://github.com/{repositoryFullName}/pull/{number}",
+                String(pull, "title") ?? string.Empty,
+                repositoryFullName,
+                nodeId,
+                IsDraft: pull.TryGetProperty("isDraft", out var draft) && draft.ValueKind == JsonValueKind.True,
+                HeadRefName: String(pull, "headRefName") ?? string.Empty,
+                HeadSha: String(pull, "headRefOid"),
+                BaseRefName: String(pull, "baseRefName") ?? string.Empty,
+                AuthorLogin: author,
+                ViewerDidAuthor: pull.TryGetProperty("viewerDidAuthor", out var mine) && mine.ValueKind == JsonValueKind.True,
+                Checks: ReadChecks(pull),
+                AutoMergeEnabled: pull.TryGetProperty("autoMergeRequest", out var autoMerge) && autoMerge.ValueKind == JsonValueKind.Object,
+                MergeReady: mergeState is not null && MergeableNow.Contains(mergeState),
+                IsBehind: string.Equals(mergeState, "BEHIND", StringComparison.Ordinal),
+                HasConflicts: string.Equals(mergeState, "DIRTY", StringComparison.Ordinal)
+                    || string.Equals(String(pull, "mergeable"), "CONFLICTING", StringComparison.Ordinal),
+                MergeStateStatus: mergeState,
+                PreferredMergeMethod: method,
+                UpdatedAt: Timestamp(pull, "updatedAt")));
+        }
+
+        return pulls;
     }
 
     /// <summary>

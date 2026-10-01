@@ -89,6 +89,7 @@ public sealed class AppFeatureSettingsStoreTests
                 DevbookFeatures.SemanticSearch,
                 DevPcFeatures.SystemTools,
                 SessionFeatures.Sessions,
+                SessionFeatures.PullRequests,
                 DashboardFeatures.Dashboard,
                 SyncFeatures.Sync,
 
