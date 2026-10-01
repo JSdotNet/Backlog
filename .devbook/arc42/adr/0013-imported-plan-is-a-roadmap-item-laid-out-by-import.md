@@ -1,7 +1,7 @@
 # ADR 0013: An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it
 
 ```meta
-related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering", ".devbook/domain/roadmap/features.md#laying-out-imported-plans", ".devbook/domain/roadmap/features.md#sequencing-work-into-tracks", ".devbook/domain/roadmap/dependencies.md", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#re-importing-an-updated-plan", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
+related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering", ".devbook/domain/roadmap/features.md#laying-out-imported-plans", ".devbook/domain/roadmap/features.md#sequencing-work-into-tracks", ".devbook/domain/roadmap/dependencies.md", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#re-importing-an-updated-plan", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
 ```
 
 ## Status
@@ -69,7 +69,9 @@ For the `confirm-rulings` entry, in one screen. The reasoning is in
    several repositories is placed at the lowest of their paces. Amended
    2026-09-27: a window still sized by effort is re-projected by itself from the
    effort **not yet done**, from today, whenever the plan is read on a new day or
-   a task changes — see [ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch).*
+   a task changes — see [ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch).
+   Amended 2026-10-01 by local ADR 0019: the length counts the person's working
+   week in hours, and a window never starts on a day they do not work.*
 5. **[Provenance and re-import](#5-placed_by_import-and-what-a-re-import-may-touch).**
    An import-created item carries `placed_by_import`, cleared the moment a person
    reschedules it by hand. A roadmap-level re-import, matched by tag, replaces
@@ -349,6 +351,13 @@ default of 5 is a working week, the smallest span that reads as "a plan" rather
 than "a day", and it applies whenever the total would be a number invented from
 nothing.
 
+*Amended 2026-10-01 by local ADR 0019: Roadmap now models a working week, and
+the calendar-day reading above no longer holds. A window counts the person's
+working hours forward from its start and skips the days and hours they do not
+work. A start that falls on a day not worked moves to the next worked day. The
+default span is one working week of hours. The rule is in
+`.devbook/arc42/adr/0019-roadmap-counts-the-working-week.md`.*
+
 **Velocity** is a workspace-level setting, *story points per day*, default `1`,
 kept with the other workspace settings (`.devbook/arc42/08-crosscutting-concepts.md`:
 per-device JSON, deliberately not replicated). Entry `velocity-setting` builds
@@ -371,7 +380,10 @@ from today, by itself; the rule is in
 typed pace, the chosen source and the per-repository pairs travel between paired
 devices as a `planning-pace` document on the task feed, beside the plan. A pace
 that stayed behind would redraw a shared plan's effort-placed items differently on
-each device. The working week and the measured paces stay per device.* So
+each device. The working week and the measured paces stay per device.
+Amended 2026-10-01 by local ADR 0019: the working week now travels inside the
+`planning-pace` document, because placement reads it. The measured paces still
+stay per device.* So
 `.devbook/domain/roadmap/domain.md`'s invariant stands with one word added to it: the
 total is plain arithmetic over registered points, and the *length* is plain
 arithmetic over that total and a factor the person set.
@@ -578,7 +590,9 @@ Changed on the owner's request, on 2026-09-25:
   and a file holding only the old `storyPointsPerDay` reads as seven times it.
   A measured pace is effort finished over 2, 4 or 8 weeks. Placement multiplies
   by seven before dividing, so 4 points at 4 a week is exactly 7 days rather than
-  a hair over, rounded up to 8.
+  a hair over, rounded up to 8. (*Amended 2026-10-01 by local ADR 0019: a week is
+  now the hours of the person's working week. Placement multiplies by those hours
+  before dividing, so 4 points at 4 a week is exactly one working week.*)
 - **[Ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch): a pace change
   re-lengthens every `effort`-placed item**, as amended there. Built as
   `Features/RelengthenPlan`, reached through
@@ -687,6 +701,9 @@ Negative:
 - A window computed from effort ignores the working week. An item of 10 points
   at velocity 1 spans 10 calendar days, weekends included. Until Roadmap models
   a calendar, that is the honest reading; the person's velocity can absorb it.
+  *Amended 2026-10-01 by local ADR 0019: Roadmap now counts the person's working
+  week in hours, so a window skips the days and hours they do not work. Holidays
+  and one-off days off are still not modelled.*
 - Steps drawn as proportions inside a dated bar look like dates and are not.
   The surface has to say so; entry `steps-in-item` owes that.
 

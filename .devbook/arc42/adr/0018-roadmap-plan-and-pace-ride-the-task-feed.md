@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-09-29
-related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/domain/roadmap/context.md", ".devbook/domain/roadmap/context.md#story-points-a-week", ".devbook/domain/roadmap/features.md#syncing-the-plan-between-devices", ".devbook/domain/roadmap/features.md#carrying-the-pace-with-the-person", ".devbook/domain/roadmap/domain.md#roadmap-plan", ".devbook/domain/tasks/features.md#multi-device-sync"]
+related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/domain/roadmap/context.md", ".devbook/domain/roadmap/context.md#story-points-a-week", ".devbook/domain/roadmap/features.md#syncing-the-plan-between-devices", ".devbook/domain/roadmap/features.md#carrying-the-pace-with-the-person", ".devbook/domain/roadmap/domain.md#roadmap-plan", ".devbook/domain/tasks/features.md#multi-device-sync"]
 ```
 
 The roadmap plan replicates between paired devices as one whole document on the
@@ -34,6 +34,9 @@ not open questions:
 This record picks how the pace travels. It **answers** the open question ADR 0005
 left about the roadmap plan, and it **amends** ADR 0013 ruling 4, which kept the
 pace per device and not replicated. Both records carry a dated note pointing here.
+
+*Amended 2026-10-01 by local ADR 0019 (proposed), which adds the working week to
+the `planning-pace` document. §2 and the Rejected list carry the note.*
 
 ## Context
 
@@ -132,6 +135,12 @@ keep that boundary.
 plan's window is in calendar days and a measured pace counts whole calendar weeks
 (ADR 0013 ruling 4). It can be separated from the pace, so it stays per device
 with the other workspace settings.
+
+*Amended 2026-10-01 by local ADR 0019: placement now reads the working week. A
+window counts the person's working hours, so the week travels as a `workingWeek`
+key inside this `planning-pace` document, under its one stamp. The paragraph
+above no longer holds. See
+`.devbook/arc42/adr/0019-roadmap-counts-the-working-week.md`.*
 
 Per-repository pairs are keyed by repository alias. The alias is the name a
 repository has on every device (ADR 0011, ADR 0005 §Session records). A device
@@ -270,6 +279,8 @@ Neutral:
   every load.
 - **Replicating the working week with the pace.** Placement does not read it, so
   the two can be separated. It stays with the per-device workspace settings.
+  *Reversed 2026-10-01 by local ADR 0019: placement reads the working week now,
+  so it travels with the pace.*
 
 ## Verification
 
