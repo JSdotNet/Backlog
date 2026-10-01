@@ -40,6 +40,11 @@ namespace Backlog.UI.Components.Roadmap;
 /// pulling its start stay refused. For a span whose start is a fact (work began) but
 /// whose end is a prediction the reader may overrule. Ignored on a bar that is not
 /// locked, which can be resized at both edges anyway.</param>
+/// <param name="Tentative">Whether the bar is intent alone — nothing has been set up
+/// to carry it out yet. Drawn as an outline rather than a filled span, so a plan's
+/// guesses read apart from the work somebody has already picked up. Only the caller
+/// knows what "carried out" means; say it in <paramref name="Detail"/> as well,
+/// because the outline is not something a screen reader hears.</param>
 public sealed record RoadmapBar(
     string Id,
     string RowId,
@@ -51,7 +56,8 @@ public sealed record RoadmapBar(
     string? Detail = null,
     bool Locked = false,
     IReadOnlyList<RoadmapStep>? Steps = null,
-    bool EndResizable = false)
+    bool EndResizable = false,
+    bool Tentative = false)
 {
     public IReadOnlyList<RoadmapFacet> FacetList => Facets ?? [];
 
@@ -145,3 +151,19 @@ public enum RoadmapMarker
 /// <param name="FromId">The thing that must happen first.</param>
 /// <param name="ToId">The thing that waits for it.</param>
 public sealed record RoadmapLink(string FromId, string ToId);
+
+/// <summary>
+/// An empty place on the chart the reader asked to put something: a row, and the
+/// week under the pointer.
+/// <para>
+/// Proposed, not created — like <see cref="RoadmapChange"/>, what goes there and
+/// whether it may is the host's. The week is snapped to its first day, because every
+/// gesture on a timeline snaps to the week.
+/// </para>
+/// </summary>
+/// <param name="RowId">The row it is on. A band's padding reports the lane drawn
+/// nearest it, which is where a bar dragged into the padding would land too.</param>
+/// <param name="On">The first day of the week under the pointer.</param>
+/// <param name="Kind">Whether the row takes bars or milestones, so a host can tell
+/// "plan work here" from "add a date here" without parsing the row id.</param>
+public sealed record RoadmapSlot(string RowId, DateOnly On, RoadmapRowKind Kind);

@@ -23,7 +23,7 @@
     save, and what else has to move with them.
 *@
 
-<section class="roadmap-timeline @CssClass"
+<section class="roadmap-timeline @(OnSlotActivated.HasDelegate ? "roadmap-timeline--insertable" : null) @CssClass"
          style="@Metrics"
          aria-labelledby="@(string.IsNullOrWhiteSpace(LabelledBy) ? _headingId : LabelledBy)"
          data-testid="@TestId">
@@ -86,6 +86,10 @@
         @if (OnLinkCreated.HasDelegate)
         {
             <text>With a pointer, drag the dot past a bar's end onto another bar or a date to make that one wait for it.</text>
+        }
+        @if (OnSlotActivated.HasDelegate)
+        {
+            <text>With a pointer, double-click an empty place on a row to add something there, in that week.</text>
         }
     </p>
 
@@ -287,6 +291,7 @@
                                      class="roadmap-timeline__row roadmap-timeline__row--padding"
                                      style="top: @Rem(Geometry.RowTop(placed.Index)); height: @Rem(Geometry.RowHeightRem); @GroupStyle(placed.Group)"
                                      aria-hidden="true"
+                                     data-roadmap-slot="@SlotRowId(PaddingLane(placed))"
                                      data-testid="@Suffix($"padding-{Slug(placed.Row.Id)}")"></div>
                                 continue;
                             }
@@ -327,6 +332,7 @@
                                  role="group"
                                  aria-label="@Context(placed)"
                                  data-roadmap-row="@placed.Row.Id"
+                                 data-roadmap-slot="@SlotRowId(placed.Row)"
                                  data-testid="@Suffix($"row-{Slug(placed.Row.Id)}")">
 
                                 @foreach (var bar in BarsOn(placed.Row.Id))
@@ -601,6 +607,19 @@
     /// </summary>
     [Parameter]
     public EventCallback<RoadmapLink> OnLinkCreated { get; set; }
+
+    /// <summary>
+    /// An empty place on a row the reader double-clicked, to put something there:
+    /// the row and the week. Proposed, not created — what to add, and whether it may
+    /// go there, is the host's, and it appears when the host hands it back.
+    /// <para>
+    /// A pointer shortcut and nothing more. Left unset, a double-click on a row does
+    /// nothing, and a host that sets it still owes a keyboard way to add — the button
+    /// that adds without saying where.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<RoadmapSlot> OnSlotActivated { get; set; }
 
     /// <summary>What is being filtered on now, for a host that wants to mirror
     /// it into a URL. The narrowing itself is done here — which bars are on
@@ -1103,6 +1122,29 @@
 
         StateHasChanged();
     }
+
+    /// <summary>
+    /// A double-click on an empty place on <paramref name="rowId"/>,
+    /// <paramref name="xRem"/> in from the track's left edge. Answered with the week
+    /// under the pointer, snapped to its first day; a row the chart does not draw, or
+    /// one that takes nothing, says nothing.
+    /// </summary>
+    [JSInvokable]
+    public async Task SlotActivated(string rowId, double xRem)
+    {
+        if (!OnSlotActivated.HasDelegate) return;
+
+        var row = Rows.FirstOrDefault(placed => placed.Step is null && !placed.Padding && placed.Row.Id == rowId)?.Row;
+        if (row is null) return;
+
+        var on = RoadmapWindow.StartOfWeek(Geometry.DateAt(xRem), WeekStart);
+
+        await OnSlotActivated.InvokeAsync(new RoadmapSlot(row.Id, on, row.Kind));
+    }
+
+    /// <summary>The row a double-click there adds to, or null — no attribute, so the
+    /// script ignores it — when nothing is listening.</summary>
+    private string? SlotRowId(RoadmapRow? row) => OnSlotActivated.HasDelegate ? row?.Id : null;
 
     /// <summary>
     /// The dependency handle of <paramref name="fromId"/> was dropped on

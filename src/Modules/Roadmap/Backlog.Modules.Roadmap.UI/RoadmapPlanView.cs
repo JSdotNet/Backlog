@@ -131,7 +131,13 @@ public static class RoadmapPlanView
         var drawn = groups.SelectMany(group => group.RowList).Select(row => row.Id).ToHashSet();
 
         var bars = items
-            .Select(part => Bar(part, stacked.RowOf[part.BarId], contradicting, configured, drawnFromWork.GetValueOrDefault(part.Item.Id)))
+            .Select(part => Bar(
+                part,
+                stacked.RowOf[part.BarId],
+                contradicting,
+                configured,
+                drawnFromWork.GetValueOrDefault(part.Item.Id),
+                HasNoTask(part.Item, rollups)))
             .Where(bar => drawn.Contains(bar.RowId))
             .ToList();
 
@@ -702,7 +708,8 @@ public static class RoadmapPlanView
         string rowId,
         HashSet<Guid> contradicting,
         List<PlannedRepository> configured,
-        DrawnFrom? drawnFrom) =>
+        DrawnFrom? drawnFrom,
+        bool noTask) =>
         new(
             part.BarId,
             rowId,
@@ -711,13 +718,27 @@ public static class RoadmapPlanView
             part.End,
             Shade(part.Item.Priority),
             Facets(part.Item, part.Aliases, configured),
-            Detail(part.Item, contradicting, part.PartCount, part.IsSegment, drawnFrom),
+            Detail(part.Item, contradicting, part.PartCount, part.IsSegment, drawnFrom, noTask),
             Locked: drawnFrom is not null,
             Steps: part.Steps,
             // Work in flight has a start that is a fact and an end that is a forecast, so
             // the end alone may be dragged to pin it. Only the bar that reaches the item's
             // end: an earlier segment of a hand-over is a slice of it, not where it ends.
-            EndResizable: drawnFrom is { Finished: false } && part.End == part.Item.End);
+            EndResizable: drawnFrom is { Finished: false } && part.End == part.Item.End,
+            Tentative: noTask);
+
+    /// <summary>
+    /// Whether nothing in the backlog carries an item out yet: no task linked to it
+    /// that still exists, and none gathered by its tag. The whole item's answer, not a
+    /// part's — work filed in one repository makes every band's part of the item real.
+    /// <para>
+    /// Unanswerable without the gathered work, and then it is not claimed: a plan read
+    /// with no rollups at all would otherwise draw every bar as untouched intent.
+    /// </para>
+    /// </summary>
+    private static bool HasNoTask(RoadmapItemDto item, IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups) =>
+        rollups is not null
+        && (rollups.GetValueOrDefault(item.Id)?.BacklogEntries.Count ?? 0) == 0;
 
     /// <summary>
     /// How an item drawn from its work was drawn: finished, or in flight with its end
@@ -937,9 +958,13 @@ public static class RoadmapPlanView
         HashSet<Guid> contradicting,
         int partCount,
         bool segment = false,
-        DrawnFrom? drawnFrom = null)
+        DrawnFrom? drawnFrom = null,
+        bool noTask = false)
     {
         var parts = new List<string> { $"{Word(item.Priority)} priority" };
+
+        // Said, because the outline a task-less bar is drawn with is not heard.
+        if (noTask) parts.Add("no task yet");
 
         // Said, because a locked bar otherwise only says it cannot be moved, not why.
         if (drawnFrom is not null)

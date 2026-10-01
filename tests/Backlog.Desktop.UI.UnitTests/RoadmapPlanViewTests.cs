@@ -1030,4 +1030,41 @@ public class RoadmapPlanViewTests
 
         Assert.False(Assert.Single(view.Bars).HasSteps);
     }
+
+    // --- Work nothing carries out yet -------------------------------------------
+
+    [Fact]
+    public void AnItemNoTaskCarriesOutIsDrawnAsIntentAndSaysSo()
+    {
+        var bar = Drawn(Item("Plan"), RoadmapItemRollupDto.Empty);
+
+        Assert.True(bar.Tentative);
+        Assert.Contains("no task yet", bar.Detail);
+    }
+
+    [Fact]
+    public void AnItemWithATaskIsDrawnAsWork()
+    {
+        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto([Task("a")], []));
+
+        Assert.False(bar.Tentative);
+        Assert.DoesNotContain("no task yet", bar.Detail);
+    }
+
+    [Fact]
+    public void AnItemThatGatheredOnlyKnowledgeStillHasNoTask()
+    {
+        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto(
+            [], [new RoadmapGatheredLink("chapter.md#x", "Chapter", null, RollupOrigin.Tag)]));
+
+        Assert.True(bar.Tentative);
+    }
+
+    [Fact]
+    public void WithoutTheGatheredWorkNothingIsClaimedAboutTasks()
+    {
+        var view = RoadmapPlanView.From(Plan([Item("Plan")]), Configured);
+
+        Assert.False(Assert.Single(view.Bars).Tentative);
+    }
 }

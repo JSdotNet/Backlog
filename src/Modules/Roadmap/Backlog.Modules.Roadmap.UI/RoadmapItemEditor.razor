@@ -267,6 +267,11 @@
     [Parameter]
     public RoadmapItemDto? Item { get; set; }
 
+    /// <summary>Where on the chart new work was asked for, when it was — read only
+    /// while <see cref="Item"/> is null. Null opens on the plain defaults.</summary>
+    [Parameter]
+    public RoadmapItemPlacement? Placement { get; set; }
+
     /// <summary>
     /// What this item has gathered — its linked and tagged backlog entries, its
     /// referenced and tag-named knowledge chapters, and the effort arithmetic over
@@ -437,16 +442,18 @@
         if (Item is null)
         {
             _title = string.Empty;
-            // A fortnight from today, which is a plan-shaped default: long enough to
-            // be a piece of work, short enough that nobody leaves it as it arrived.
-            _start = Iso(Today);
-            _end = Iso(Today.AddDays(13));
+            // A fortnight, which is a plan-shaped default: long enough to be a piece
+            // of work, short enough that nobody leaves it as it arrived. From the week
+            // it was put in when it was put somewhere, else from today.
+            var start = Placement?.Start ?? Today;
+            _start = Iso(start);
+            _end = Iso(start.AddDays(13));
             _priority = MediumPriority;
-            _lane = string.Empty;
+            _lane = Placement?.Lane ?? string.Empty;
             _notes = string.Empty;
             _tag = string.Empty;
             _tagEdited = false;
-            _repositories = [];
+            _repositories = Placement?.Repository is { } repository ? [repository] : [];
             _dependsOn = [];
             _knowledge = [];
             return;

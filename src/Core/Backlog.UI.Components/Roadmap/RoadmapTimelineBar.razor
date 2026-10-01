@@ -284,7 +284,8 @@
         Dragging ? "roadmap-bar--dragging" : null,
         Invalid ? "roadmap-bar--invalid" : null,
         Bar.Locked ? "roadmap-bar--locked" : null,
-        EndOnlyResizable ? "roadmap-bar--end-resizable" : null
+        EndOnlyResizable ? "roadmap-bar--end-resizable" : null,
+        Bar.Tentative ? "roadmap-bar--tentative" : null
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
     private string? FixedNote => !Bar.Locked
