@@ -472,8 +472,9 @@ Full authoring rules: `.agents/rules/devbook-tech.md`.
   MAUI Blazor Hybrid, WinUI 3 head).
 - Transitive package pinning is deliberately off
   (`.devbook/tech/tooling.md#central-package-management`). Turning it on is a reviewed
-  change nobody has scheduled, and `YamlDotNet` is the visible symptom: pinned
-  centrally, referenced by nothing.
+  change nobody has scheduled. `YamlDotNet` was its visible symptom, pinned
+  centrally and referenced by nothing, until the pin was dropped; it now
+  arrives only transitively.
 - The Azure tier's ratings wait on the deployment view. `cloud.md` holds Cosmos
   DB, Container Apps, Blob Storage, Key Vault and Azure Monitor at `candidate`
   because `.devbook/arc42/07-deployment-view.md#cloud-deployment-azure` says
