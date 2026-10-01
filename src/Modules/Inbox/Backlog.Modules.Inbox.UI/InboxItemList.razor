@@ -165,7 +165,7 @@
         {
             @if (State.FilteredOut)
             {
-                <EmptyState Title="@($"No {FilteredKindsLabel()} items in {State.SliceName}.")"
+                <EmptyState Title="@($"No {FilteredKindsLabel()} items in {State.SliceName}")"
                             Description="The chips above are hiding every row here."
                             BaseClass="empty-state inbox-pane__empty-state"
                             TestId="inbox-pane-empty"
@@ -177,7 +177,7 @@
             }
             else if (State.SelectedListId is not null)
             {
-                <EmptyState Title="@($"Nothing in {State.SliceName}.")"
+                <EmptyState Title="@($"Nothing in {State.SliceName}")"
                             Description="Open an item and choose Move to list to file it here."
                             BaseClass="empty-state inbox-pane__empty-state"
                             TestId="inbox-pane-empty"
@@ -185,7 +185,7 @@
             }
             else
             {
-                <EmptyState Title="Nothing captured yet."
+                <EmptyState Title="Nothing captured yet"
                             Description="Press Add to write one down, or capture one from your phone — it lands here on the next sync."
                             BaseClass="empty-state inbox-pane__empty-state"
                             TestId="inbox-pane-empty"

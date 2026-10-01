@@ -131,7 +131,13 @@ public static class RoadmapPlanView
         var drawn = groups.SelectMany(group => group.RowList).Select(row => row.Id).ToHashSet();
 
         var bars = items
-            .Select(part => Bar(part, stacked.RowOf[part.BarId], contradicting, configured, drawnFromWork.GetValueOrDefault(part.Item.Id)))
+            .Select(part => Bar(
+                part,
+                stacked.RowOf[part.BarId],
+                contradicting,
+                configured,
+                drawnFromWork.GetValueOrDefault(part.Item.Id),
+                HasNoTask(part.Item, rollups)))
             .Where(bar => drawn.Contains(bar.RowId))
             .ToList();
 
@@ -396,7 +402,8 @@ public static class RoadmapPlanView
                 partCount,
                 window.Start,
                 window.End,
-                waitsFor));
+                waitsFor,
+                Ran: ran.ContainsKey((phase, band))));
         }
 
         foreach (var (groupId, aliases) in bands.Where(band =>
@@ -448,6 +455,25 @@ public static class RoadmapPlanView
         item.End.AddDays(change.End.DayNumber - bar.End.DayNumber)
     );
 
+    /// <summary>
+    /// The end to pin for started work after the end of one of its bars was dragged to
+    /// <paramref name="change"/>: the item's drawn end — the latest end of any of its bars
+    /// — moved as far as that bar's end did. For the bar that reaches the item's end that
+    /// is the dropped date itself. For an earlier segment of a hand-over it is not where
+    /// the segment lands: the open segments share the new window out by effort again.
+    /// </summary>
+    public static DateOnly PinnedEndFor(IEnumerable<RoadmapBar> bars, RoadmapBar bar, RoadmapChange change)
+    {
+        var node = NodeIdOf(bar.Id);
+        var drawnEnd = bars
+            .Where(candidate => NodeIdOf(candidate.Id) == node)
+            .Select(candidate => candidate.End)
+            .Append(bar.End)
+            .Max();
+
+        return drawnEnd.AddDays(change.End.DayNumber - bar.End.DayNumber);
+    }
+
     /// <summary>What separates a part's band from its place in the sequence, in the id
     /// of one segment of an item whose tasks hand over between repositories:
     /// <c>&lt;item id&gt;@&lt;band&gt;#&lt;phase&gt;</c>.</summary>
@@ -473,7 +499,8 @@ public static class RoadmapPlanView
         int PartCount,
         DateOnly? SegmentStart = null,
         DateOnly? SegmentEnd = null,
-        IReadOnlyList<string>? WaitsForParts = null)
+        IReadOnlyList<string>? WaitsForParts = null,
+        bool Ran = false)
     {
         public DateOnly Start => SegmentStart ?? Item.Start;
 
@@ -702,7 +729,8 @@ public static class RoadmapPlanView
         string rowId,
         HashSet<Guid> contradicting,
         List<PlannedRepository> configured,
-        DrawnFrom? drawnFrom) =>
+        DrawnFrom? drawnFrom,
+        bool noTask) =>
         new(
             part.BarId,
             rowId,
@@ -711,15 +739,39 @@ public static class RoadmapPlanView
             part.End,
             Shade(part.Item.Priority),
             Facets(part.Item, part.Aliases, configured),
-            Detail(part.Item, contradicting, part.PartCount, part.IsSegment, drawnFrom),
+            Detail(part.Item, contradicting, part.PartCount, part.IsSegment, drawnFrom, noTask),
             Locked: drawnFrom is not null,
-            Steps: part.Steps);
+            Steps: part.Steps,
+            // Work in flight has a start that is a fact and an end that is a forecast, so
+            // the end alone may be dragged to pin it. Every part still open offers it — an
+            // earlier segment of a hand-over too, whose end moves the item's by as much
+            // (PinnedEndFor). A segment drawn where its work ran is history, and stays put.
+            EndResizable: drawnFrom is { Finished: false } && !part.Ran,
+            Tentative: noTask);
+
+    /// <summary>
+    /// Whether nothing in the backlog carries an item out yet: no task linked to it
+    /// that still exists, and none gathered by its tag. The whole item's answer, not a
+    /// part's — work filed in one repository makes every band's part of the item real.
+    /// <para>
+    /// Unanswerable without the gathered work, and then it is not claimed: a plan read
+    /// with no rollups at all would otherwise draw every bar as untouched intent.
+    /// </para>
+    /// </summary>
+    private static bool HasNoTask(RoadmapItemDto item, IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups) =>
+        rollups is not null
+        && (rollups.GetValueOrDefault(item.Id)?.BacklogEntries.Count ?? 0) == 0;
 
     /// <summary>
     /// How an item drawn from its work was drawn: finished, or in flight with its end
     /// forecast — and the first day its open work can be drawn on.
     /// </summary>
-    private sealed record DrawnFrom(bool Finished, DateOnly OpenFrom);
+    private sealed record DrawnFrom(
+        bool Finished,
+        DateOnly OpenFrom,
+        DateOnly? ForecastEnd = null,
+        decimal? Pace = null,
+        bool EndPinned = false);
 
     /// <summary>
     /// An item as it is drawn: where it was planned, or — once work on it has begun —
@@ -793,8 +845,15 @@ public static class RoadmapPlanView
         var left = rollup.BacklogEntries.Where(link => !link.IsDone).Sum(link => Math.Max(0, link.Effort ?? 1));
         var days = (int)Math.Clamp(Math.Ceiling(left * 7m / pace), 1, 3650);
 
-        drawnFromWork[item.Id] = new DrawnFrom(Finished: false, openFrom);
-        return item with { Start = from, End = openFrom.AddDays(days - 1) };
+        var forecastEnd = openFrom.AddDays(days - 1);
+
+        // A pinned end is a person's date and outranks the forecast — but never ends
+        // before the first day open work can be drawn on. The forecast is kept and said
+        // in the bar's detail, so pinning does not hide what the pace says.
+        var drawnEnd = item.EndPinned ? Max(item.End, openFrom) : forecastEnd;
+
+        drawnFromWork[item.Id] = new DrawnFrom(Finished: false, openFrom, forecastEnd, pace, item.EndPinned);
+        return item with { Start = from, End = drawnEnd };
     }
 
     /// <summary>When a segment's work ran: its first task's start — or, for one
@@ -921,16 +980,29 @@ public static class RoadmapPlanView
         HashSet<Guid> contradicting,
         int partCount,
         bool segment = false,
-        DrawnFrom? drawnFrom = null)
+        DrawnFrom? drawnFrom = null,
+        bool noTask = false)
     {
         var parts = new List<string> { $"{Word(item.Priority)} priority" };
+
+        // Said, because the outline a task-less bar is drawn with is not heard.
+        if (noTask) parts.Add("no task yet");
 
         // Said, because a locked bar otherwise only says it cannot be moved, not why.
         if (drawnFrom is not null)
         {
             parts.Add(drawnFrom.Finished
                 ? "finished, drawn where the work ran"
-                : "in progress, drawn from when the work began to when what is left should be done");
+                : drawnFrom.EndPinned
+                    ? "in progress, drawn from when the work began to the end you pinned"
+                    : "in progress, drawn from when the work began to when what is left should be done");
+
+            if (drawnFrom is { EndPinned: true, ForecastEnd: { } forecastEnd, Pace: { } pace })
+            {
+                parts.Add(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Forecast: {forecastEnd:d MMM yyyy} at {Math.Round(pace, MidpointRounding.AwayFromZero):0} pt/wk"));
+            }
         }
 
         if (!string.IsNullOrEmpty(item.Tag)) parts.Add($"tagged {item.Tag}");

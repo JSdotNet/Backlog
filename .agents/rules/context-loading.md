@@ -24,6 +24,9 @@ write, not the first action. Never go straight from exploration to implementatio
 | A dependency, package or framework move | `delivery:flow-update-packages` |
 | Creating, governing or scaffolding a repository | `delivery:flow-project` |
 
+Changes under `plugins/`, `tools/`, `build/`, `.github/` and `.claude/` are the first
+row's tooling, CI and scripting, so they route through `delivery:flow-code` as well.
+
 This repository ships no repo-native `flow-*` skill; all four come from the `delivery`
 plugin. The repository owner authorizes running any of them, and the agents they hand
 stages to, without per-session confirmation.

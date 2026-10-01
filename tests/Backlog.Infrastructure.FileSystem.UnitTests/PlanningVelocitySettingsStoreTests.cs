@@ -305,6 +305,39 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Setting_a_repositorys_own_pace_writes_the_pace_and_the_choice_as_one_change()
+    {
+        var store = Store();
+        var raised = 0;
+        store.Changed += () => raised++;
+
+        Assert.Null(store.SetOwn("5.25", "backlog"));
+        Assert.Null(store.SetOwn("5.25", "backlog")); // unchanged: nothing to write
+
+        Assert.Equal(1, raised);
+        var reread = Store();
+        Assert.Equal(5.25m, reread.StoryPointsPerWeekFor("backlog"));
+        Assert.Equal(PaceSource.Set, reread.SourceFor("backlog"));
+        Assert.Equal(PaceSource.Manual, reread.Source);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("2,5")]
+    public void A_pace_of_its_own_that_is_not_a_pace_is_refused_and_chooses_nothing(string refused)
+    {
+        var store = Store();
+        var raised = 0;
+        store.Changed += () => raised++;
+
+        Assert.NotNull(store.SetOwn(refused, "backlog"));
+
+        Assert.Equal(0, raised);
+        Assert.False(store.KeepsOwnPace("backlog"));
+    }
+
+    [Fact]
     public void A_value_that_is_not_a_pace_source_is_refused()
     {
         var store = Store();
@@ -442,6 +475,56 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
         Assert.Equal(PaceSource.Manual, reopened.SourceFor("backlog"));
         Assert.Equal(5m, reopened.StoryPointsPerWeekFor("site"));
         Assert.Equal(PaceSource.LastEightWeeks, reopened.SourceFor("site"));
+    }
+
+    [Fact]
+    public void A_pace_set_by_hand_survives_a_restart_by_name_for_a_repository_and_globally()
+    {
+        var store = Store();
+        Assert.Null(store.Set(6.25m, "backlog"));
+        Assert.Null(store.Choose(PaceSource.Set, "backlog"));
+        Assert.Null(store.Choose(PaceSource.Set));
+
+        var reopened = Store();
+
+        Assert.Equal(PaceSource.Set, reopened.SourceFor("backlog"));
+        Assert.Equal(6.25m, reopened.StoryPointsPerWeekFor("backlog"));
+        Assert.Equal(PaceSource.Set, reopened.Source);
+        Assert.Contains("\"Set\"", File.ReadAllText(reopened.SettingsPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_repository_never_inherits_a_global_pace_set_by_hand_and_reads_its_own_two_weeks()
+    {
+        var store = Store();
+        Assert.Null(store.Set(10m));
+        Assert.Null(store.Choose(PaceSource.Set));
+
+        // Set is the scope's own typed pace: the global one is the heading's figure.
+        Assert.Equal(PaceSource.Set, store.Source);
+        Assert.Equal(PaceSource.Manual, store.SourceFor("backlog"));
+        Assert.Equal(PaceSource.Set, store.SourceFor(null));
+
+        // And a repository with an entry that chose nothing reads the same.
+        Assert.Null(store.Set(9m, "backlog"));
+        Assert.Equal(PaceSource.Manual, store.SourceFor("backlog"));
+    }
+
+    [Fact]
+    public void A_repositorys_first_entry_does_not_copy_a_global_pace_set_by_hand()
+    {
+        var store = Store();
+        Assert.Null(store.Choose(PaceSource.Set));
+
+        Assert.Null(store.Set(9m, "backlog"));
+
+        var reopened = Store();
+        Assert.Equal(PaceSource.Manual, reopened.SourceFor("backlog"));
+        Assert.Equal(PaceSource.Set, reopened.Source);
+
+        // "Set" is written once, for the global choice, and not into backlog's entry.
+        var written = File.ReadAllText(reopened.SettingsPath);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(written, "\"Set\""));
     }
 
     [Fact]

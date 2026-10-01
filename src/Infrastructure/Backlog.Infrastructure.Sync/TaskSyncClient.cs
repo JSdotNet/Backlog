@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net.Http.Json;
 
 using Backlog.Modules.Sync.Abstractions;
@@ -90,19 +89,6 @@ public sealed class TaskSyncClient
         int maxItems = DefaultMaxItems,
         CancellationToken cancellationToken = default) =>
         await SyncHttp.SendAsync<PullTasksResponse>(
-            () => _http.GetAsync(PullRoute(since, maxItems), cancellationToken),
+            () => _http.GetAsync(ReplicaRoutes.PullRoute(SyncRoutes.Tasks, since, maxItems), cancellationToken),
             cancellationToken).ConfigureAwait(false);
-
-    /// <summary>The pull URL with its query. The cursor is escaped rather than
-    /// concatenated: it is base64 of a signed payload, so <c>+</c> and <c>=</c>
-    /// are ordinary characters in it and a raw <c>+</c> would arrive as a space
-    /// and fail its own signature check.</summary>
-    private static string PullRoute(string? since, int maxItems)
-    {
-        var route = $"{SyncRoutes.Absolute(SyncRoutes.Tasks)}?maxItems={maxItems.ToString(CultureInfo.InvariantCulture)}";
-
-        return string.IsNullOrWhiteSpace(since)
-            ? route
-            : $"{route}&since={Uri.EscapeDataString(since)}";
-    }
 }

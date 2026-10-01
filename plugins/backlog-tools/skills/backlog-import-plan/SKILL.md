@@ -15,7 +15,7 @@ Backlog app, executes a generated prompt, or touches GitHub.
 
 Read `assets/backlog-import-grammar.md` before writing anything. It carries the exact
 entry/sub-item shape, every metadata token and its values, and the plan-identity/re-import
-mechanics; do not invent syntax beyond it.
+mechanics; use only the syntax it defines.
 
 ## Inputs
 
@@ -93,7 +93,7 @@ approval before a pull request.
      everything else in the entry, titled `Setup: ...`.
    - **Knowledge/devbook reminder.** One more `##` sub-item reminding whoever runs the
      prompt to update the target repository's own knowledge folders or devbook once it is
-     done. Every prompt carries this; never skip it.
+     done. Every prompt carries this.
 
    For each **`task`** entry: a title naming what the user does, then a body addressed to
    the user — what to do and what "done" looks like, concise. No marker, no session-name

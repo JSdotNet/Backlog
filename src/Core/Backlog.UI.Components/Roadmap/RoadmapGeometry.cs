@@ -86,6 +86,37 @@ public sealed record RoadmapGeometry(
         return x + (date.DayNumber - tail.End.DayNumber - 1) * DayWidthIn(tail);
     }
 
+    /// <summary>
+    /// The day drawn at a distance from the track's left edge — <see cref="XFor"/>
+    /// read the other way, for a pointer that landed somewhere between the bars.
+    /// Past either end of the window it carries on at the nearest end's width, as
+    /// <see cref="XFor"/> does.
+    /// </summary>
+    public DateOnly DateAt(double xRem)
+    {
+        if (!Window.IsGraduated) return Window.Start.AddDays((int)Math.Floor(xRem / DayWidthRem));
+
+        var columns = Window.Columns;
+
+        if (xRem < 0) return columns[0].Start.AddDays((int)Math.Floor(xRem / DayWidthIn(columns[0])));
+
+        var x = 0.0;
+
+        foreach (var column in columns)
+        {
+            var dayWidth = DayWidthIn(column);
+            var width = column.TotalDays * dayWidth;
+
+            if (xRem < x + width) return column.Start.AddDays(Math.Min(column.TotalDays - 1, (int)Math.Floor((xRem - x) / dayWidth)));
+
+            x += width;
+        }
+
+        var tail = columns[^1];
+
+        return tail.End.AddDays(1 + (int)Math.Floor((xRem - x) / DayWidthIn(tail)));
+    }
+
     /// <summary>How wide a span is, counting both end days.</summary>
     public double WidthFor(DateOnly start, DateOnly end) =>
         Math.Max(MinBarWidthRem, XFor(end.AddDays(1)) - XFor(start));

@@ -49,6 +49,27 @@ The keyboard does the same: Tab to a bar, Space to pick it up, arrows to move it
         </p>
     </Story>
 
+    <Story Name="Adding in place, and work with nothing behind it yet"
+           Description="With `OnSlotActivated` set, a double-click on an empty stretch of a row proposes that row and the week under the pointer, and a drag across one proposes the whole weeks it covered, outlined under the pointer as it goes; the host decides what goes there. This page adds that span — a fortnight for a double-click — of work on a bar row and a date on the Dates row, straight away — the product opens its dialog on that place instead.
+
+A bar marked `Tentative` is intent alone, nothing set up to carry it out yet: an outline with a faint hatch and an italic title, where a bar somebody has picked up is filled. Dotted, because dashed already means a bar is fixed. The host says it in the detail too, since an outline is not heard."
+           Code="@PlaceCode">
+        <RoadmapTimeline Groups="@EditablePlan"
+                         Bars="@_placed"
+                         Milestones="@_placedDates"
+                         Title="Double-click or drag across a row"
+                         HeadingLevel="3"
+                         Window="@EditWindow"
+                         OnBarChanged="ApplyPlaced"
+                         OnSlotActivated="PlaceHere"
+                         ShowFilters="false"
+                         TestId="placed" />
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.Ghost" OnClick="ResetPlaced">Put it all back</AppButton>
+        </div>
+        <p class="sb-state" data-testid="placed-state">Last slot: @(_lastSlot ?? "(none)")</p>
+    </Story>
+
     <Story Name="Dependencies, and what happens when one end is missing"
            Description="`Dependencies` are pairs of bar ids; the badge on a bar counts how many arrows point at it. Both are resolved from where the two ends are drawn right now, including a bar part-way through a drag, so an arrow is never stale. Move the second bar and watch the arrow follow.
 
@@ -129,6 +150,27 @@ Every gesture arrives as a `Preview` — a proposed placement the bar draws itse
                                     Geometry="@SoloGeometry"
                                     ContextLabel="Product, Jamie"
                                     TestId="solo-locked" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Work in flight: only the end can be dragged"
+           Description="A locked bar that is also `EndResizable`: started work, whose start is a fact and whose end is a forecast the reader may overrule. Only the end grip is drawn, and the dashed body still refuses to be moved. With the keyboard, Space picks the bar up and Shift with Left or Right moves the end; moving and Alt for the start are refused. The host decides what a change to the end means — the roadmap pins the end and keeps the forecast in the bar's detail, so a pinned end can be handed back."
+           Code="@InFlightCode">
+        <div class="sb-stack">
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@SoloInFlight"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Product, Jamie"
+                                    TestId="solo-in-flight" />
+            </div>
+            <div class="sb-bar-track">
+                <RoadmapTimelineBar Bar="@SoloInFlight"
+                                    Geometry="@SoloGeometry"
+                                    ContextLabel="Product, Jamie"
+                                    Grabbed="true"
+                                    Preview="@SoloInFlightPreview"
+                                    TestId="solo-in-flight-grabbed" />
             </div>
         </div>
     </Story>
@@ -363,6 +405,46 @@ Every action is a real button named for its plan, and the shelf is a region name
 
     private static IReadOnlyList<RoadmapLink> EditableLinks => [new("a", "b")];
 
+    // --- Adding in place ------------------------------------------------------
+
+    private static readonly RoadmapBar[] PlacedStart =
+    [
+        new("picked-up", "first", "Somebody is on this", On(2, 2), On(3, 29)),
+        new("intent", "second", "Nothing behind this yet", On(3, 2), On(4, 26), 1,
+            Detail: "no task yet", Tentative: true)
+    ];
+
+    private RoadmapBar[] _placed = [.. PlacedStart];
+    private RoadmapMilestone[] _placedDates = [];
+    private string? _lastSlot;
+
+    private void ApplyPlaced(RoadmapChange change) =>
+        Bind(ref _placed, change, out _);
+
+    private void PlaceHere(RoadmapSlot slot)
+    {
+        _lastSlot = slot.Until is { } until
+            ? $"{slot.RowId}, {slot.On:d MMM} to {until:d MMM}"
+            : $"{slot.RowId}, week of {slot.On:d MMM}";
+        var id = $"new-{_placed.Length + _placedDates.Length}";
+
+        if (slot.Kind == RoadmapRowKind.Milestones)
+        {
+            _placedDates = [.. _placedDates, new RoadmapMilestone(id, slot.RowId, "New date", slot.On)];
+            return;
+        }
+
+        _placed = [.. _placed, new RoadmapBar(id, slot.RowId, "New work", slot.On, slot.Until ?? slot.On.AddDays(13),
+            Detail: "no task yet", Tentative: true)];
+    }
+
+    private void ResetPlaced()
+    {
+        _placed = [.. PlacedStart];
+        _placedDates = [];
+        _lastSlot = null;
+    }
+
     // --- Dependencies -------------------------------------------------------
 
     private static IReadOnlyList<RoadmapGroup> DependencyPlan =>
@@ -435,6 +517,18 @@ Every action is a real button named for its plan, and the shelf is a region name
 
     private static RoadmapBar SoloLocked => Solo with { Id = "solo-locked", Title = "Somebody else's commitment", Locked = true };
 
+    private static RoadmapBar SoloInFlight => Solo with
+    {
+        Id = "solo-in-flight",
+        Title = "Move devbook",
+        Locked = true,
+        EndResizable = true,
+        Detail = "in progress, drawn from when the work began to when what is left should be done"
+    };
+
+    private static RoadmapChange? SoloInFlightPreview =>
+        new("solo-in-flight", "row", On(1, 19), On(6, 7), RoadmapDrag.ResizeEnd);
+
     private static RoadmapChange? SoloPreview =>
         new("solo", "row", On(2, 16), On(5, 10), RoadmapDrag.Move);
 
@@ -462,6 +556,20 @@ Every action is a real button named for its plan, and the shelf is a region name
 
         // A row of point-in-time markers instead of spans.
         new RoadmapRow("milestones", "Milestones", RoadmapRowKind.Milestones)
+        """;
+
+    private const string PlaceCode = """
+        <RoadmapTimeline Groups="@Plan"
+                         Bars="@_bars"
+                         OnSlotActivated="PlaceHere" />
+
+        // Proposed, not created: the row and the first day of the week under
+        // the pointer, and for a drag the last day of the week it was let go in. The host decides what goes there — the product opens its
+        // "Plan work" dialog on that place.
+        private void PlaceHere(RoadmapSlot slot) =>
+            _bars = [.. _bars, new RoadmapBar(NewId(), slot.RowId, "New work",
+                slot.On, slot.Until ?? slot.On.AddDays(13),
+                Detail: "no task yet", Tentative: true)];
         """;
 
     private const string EditCode = """
@@ -530,6 +638,12 @@ Every action is a real button named for its plan, and the shelf is a region name
                                 bar.Id, bar.RowId,
                                 new(2026, 2, 16), new(2026, 5, 10),
                                 RoadmapDrag.Move))" />
+        """;
+
+    private const string InFlightCode = """
+        // Locked refuses everything; EndResizable gives back the end alone.
+        <RoadmapTimelineBar Bar="@(bar with { Locked = true, EndResizable = true })"
+                            Geometry="@geometry" />
         """;
 
     // --- Steps inside an item ----------------------------------------------

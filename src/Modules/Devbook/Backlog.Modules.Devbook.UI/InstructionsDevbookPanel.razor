@@ -19,7 +19,7 @@
     {
         <EmptyState BaseClass="devbook-empty"
                     TestId="instructions-empty-state"
-                    Title="@(string.IsNullOrWhiteSpace(RepositoryAlias) ? "Select a repository to read its instructions." : "No instruction source is configured.")"
+                    Title="@(string.IsNullOrWhiteSpace(RepositoryAlias) ? "Select a repository to read its instructions" : "No instruction source is configured")"
                     TitleCssClass="@(null)"
                     ActionCssClass="@(null)"
                     role="status">
@@ -43,7 +43,7 @@
                 {
                     <EmptyState BaseClass="devbook-empty"
                                 TestId="instructions-repository-empty"
-                                Title="No instruction content to show."
+                                Title="No instruction content to show"
                                 TitleCssClass="@(null)"
                                 Description="@activeRepository.Message"
                                 DescriptionCssClass="@(null)"

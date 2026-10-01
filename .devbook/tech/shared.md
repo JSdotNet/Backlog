@@ -260,7 +260,7 @@ The web host underneath every HTTP surface in the solution
 ```meta
 status: adopted
 type: framework
-version: "13.5.3"
+version: "13.6.0"
 depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/shared.md#c-language"]
 related: [".devbook/tech/tooling.md#aspire-cli", ".devbook/tech/shared.md#opentelemetry", ".devbook/arc42/07-deployment-view.md"]
 alternatives: ["Docker Compose only", "no orchestration"]
@@ -360,7 +360,7 @@ The ADO.NET provider the SQLite adapter is written against.
 ```meta
 status: adopted
 type: package
-version: "10.0.11"
+version: "10.0.12"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 ```
 
@@ -377,7 +377,7 @@ The container abstraction each module registers itself into.
 ```meta
 status: adopted
 type: package
-version: "10.0.11"
+version: "10.0.12"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 ```
 
@@ -450,7 +450,7 @@ Logical-name resolution for service endpoints.
 ```meta
 status: adopted
 type: package
-version: "10.0.11"
+version: "10.0.12"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/tech/shared.md#opentelemetry"]
 ```
@@ -467,17 +467,16 @@ The logging abstraction, plus the debug provider on the two MAUI heads.
 ```meta
 status: hold
 type: package
-version: "18.1.0"
 depends-on: [".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md"]
 alternatives: ["Markdig", "hand-written meta-block parser"]
 ```
 
-A YAML serializer, pinned centrally but no longer referenced by any project.
+A YAML serializer, no longer pinned or referenced by any project.
 
 - **Used for** — nothing directly today. It reaches the build transitively
-  through the Aspire AppHost; the `PackageVersion` entry records the version
-  that resolution lands on.
+  through the Aspire AppHost, at whatever version that resolution lands on;
+  `Directory.Packages.props` no longer carries a `PackageVersion` entry for it.
 - **Why `hold`** — it was the frontmatter serializer for the markdown task store
   that `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md` retired, and
   that ADR names its round-trip repair pass as one of the reasons for the move.

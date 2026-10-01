@@ -90,7 +90,7 @@ public abstract class RoadmapBandHarness : IDisposable
         // file, counting whatever the test put in Finished, as of PaceToday.
         context.Services.AddSingleton(TasksTestHost.PaceFor(
             PaceFile,
-            new ListedWork(Finished, RepositorySettings),
+            Work,
             PaceClock));
         return context;
     }
@@ -212,17 +212,43 @@ public abstract class RoadmapBandHarness : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>How many times the pace control and the band have read the finished
+    /// work — each one a read of the whole backlog in the app.</summary>
+    protected int ReadsOfFinished => Work.Reads;
+
+    /// <summary>Holds every read of the finished work until it is let go, so a test
+    /// can look at the screen while a pace is still being read back.</summary>
+    protected void HoldReadsOfFinished() => Work.Hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    protected void ReleaseReadsOfFinished()
+    {
+        var held = Work.Hold;
+        Work.Hold = null;
+        held?.SetResult();
+    }
+
+    private ListedWork Work => _work ??= new ListedWork(Finished, RepositorySettings);
+    private ListedWork? _work;
+
     /// <summary>What the test put in Finished, and — as the real adapter answers — the
     /// repositories the test configured, by alias.</summary>
     private sealed class ListedWork(List<CompletedEffortDto> finished, GitHubSettingsStore configured)
         : IRoadmapCompletedWork
     {
+        public int Reads { get; private set; }
+
+        public TaskCompletionSource? Hold { get; set; }
+
         public IReadOnlyList<string> Repositories =>
             [.. configured.Current.Repositories.Select(repository => repository.Alias)];
 
-        public Task<IReadOnlyList<CompletedEffortDto>> CompletedSinceAsync(
+        public async Task<IReadOnlyList<CompletedEffortDto>> CompletedSinceAsync(
             DateOnly since,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<CompletedEffortDto>>([.. finished.Where(entry => entry.CompletedOn >= since)]);
+            CancellationToken cancellationToken = default)
+        {
+            Reads++;
+            if (Hold is { } hold) await hold.Task;
+            return [.. finished.Where(entry => entry.CompletedOn >= since)];
+        }
     }
 }

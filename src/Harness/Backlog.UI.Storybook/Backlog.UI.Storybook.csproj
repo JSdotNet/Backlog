@@ -20,7 +20,7 @@
   <!--
     The design guidelines, embedded rather than read off disk.
 
-    Every page here links the `.design` chapters that govern it and renders them
+    Every page here links the `.devbook/design` chapters that govern it and renders them
     inline, so the rule a reviewer is checking against is on the same screen as
     the component. Embedding is what makes that work wherever the host runs: a
     relative path out of the project would resolve differently under `dotnet run`,

@@ -20,6 +20,7 @@
      style="left: @Rem(Left); width: @Rem(Width)"
      data-roadmap-bar="@Bar.Id"
      data-roadmap-locked="@(Bar.Locked ? "true" : "false")"
+     data-roadmap-end-resizable="@(EndOnlyResizable ? "true" : "false")"
      data-testid="@TestId"
      @onpointerenter="() => OnTrace.InvokeAsync(Bar.Id)"
      @onpointerleave="() => OnUntrace.InvokeAsync(Bar.Id)"
@@ -95,6 +96,11 @@
     @if (Resizable)
     {
         <span class="roadmap-bar__grip roadmap-bar__grip--start" data-roadmap-grip="start" data-roadmap-week-rem="@RoadmapGeometry.N(Geometry.WeekWidthAt(Bar.Start))" aria-hidden="true"></span>
+    }
+
+    @* A locked bar whose end is still the reader's to overrule draws that one edge. *@
+    @if (Resizable || EndOnlyResizable)
+    {
         <span class="roadmap-bar__grip roadmap-bar__grip--end" data-roadmap-grip="end" data-roadmap-week-rem="@RoadmapGeometry.N(Geometry.WeekWidthAt(Bar.End.AddDays(-6)))" aria-hidden="true"></span>
     }
 
@@ -219,6 +225,10 @@
 
     private bool Resizable => AllowResize && !Bar.Locked;
 
+    /// <summary>A locked bar that still offers its end: the start and the body stay
+    /// refused, so only the end grip is drawn.</summary>
+    private bool EndOnlyResizable => AllowResize && Bar.Locked && Bar.EndResizable;
+
     /// <summary>Whether the bar is showing its steps. Only meaningful for a bar
     /// that has some.</summary>
     [Parameter]
@@ -273,8 +283,14 @@
         Grabbed ? "roadmap-bar--grabbed" : null,
         Dragging ? "roadmap-bar--dragging" : null,
         Invalid ? "roadmap-bar--invalid" : null,
-        Bar.Locked ? "roadmap-bar--locked" : null
+        Bar.Locked ? "roadmap-bar--locked" : null,
+        EndOnlyResizable ? "roadmap-bar--end-resizable" : null,
+        Bar.Tentative ? "roadmap-bar--tentative" : null
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    private string? FixedNote => !Bar.Locked
+        ? null
+        : EndOnlyResizable ? "Start is fixed, the end can be resized" : "Fixed, cannot be moved";
 
     private string Dates => $"{DateLabel(Placement.Start)} to {DateLabel(Placement.End)}";
 
@@ -284,7 +300,7 @@
     private string Tooltip => RoadmapDetail.Report(
         new[] { Placement.Title, Dates, Progress }
             .Concat(RoadmapDetail.Lines(Bar.Detail))
-            .Append(Bar.Locked ? "Fixed, cannot be moved" : null));
+            .Append(FixedNote));
 
     /// <summary>
     /// Everything the bar is that its label does not say. Read after the title,
@@ -302,7 +318,7 @@
             1 => "1 dependency",
             _ => $"{DependencyCount} dependencies"
         },
-        Bar.Locked ? "Fixed, cannot be moved" : null,
+        FixedNote,
         Grabbed ? "Grabbed" : null
     }.Where(part => !string.IsNullOrWhiteSpace(part))) + ".";
 

@@ -37,18 +37,24 @@ public sealed class DevbookStackLayoutTests
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
         var ruleStart = css.IndexOf(".devbook-stack__section > .devbook-pane--arc42,", StringComparison.Ordinal);
 
-        Assert.True(ruleStart >= 0, "Architecture and Domain panels should share an outer containment rule.");
+        Assert.True(ruleStart >= 0, "The Architecture panel should keep its outer containment rule.");
 
         var ruleEnd = css.IndexOf("}\n", ruleStart, StringComparison.Ordinal);
         Assert.True(ruleEnd > ruleStart, "The outer containment rule should be complete.");
 
         var rule = css[ruleStart..ruleEnd];
 
-        Assert.Contains(".devbook-stack__section > .domain-devbook", rule, StringComparison.Ordinal);
-        Assert.Contains("max-height: 100%;", rule, StringComparison.Ordinal);
-        Assert.Contains("min-height: 0;", rule, StringComparison.Ordinal);
-        Assert.Contains("overflow: hidden;", rule, StringComparison.Ordinal);
-        Assert.DoesNotContain("overflow: auto;", rule, StringComparison.Ordinal);
+        // The domain panel has one rule of its own, after the shared one, so the
+        // values it ends up with are written in one place (issue #760).
+        var domain = RuleBody(css, ".devbook-stack__section > .domain-devbook {");
+
+        foreach (var panel in new[] { rule, domain })
+        {
+            Assert.Contains("max-height: 100%;", panel, StringComparison.Ordinal);
+            Assert.Contains("min-height: 0;", panel, StringComparison.Ordinal);
+            Assert.Contains("overflow: hidden;", panel, StringComparison.Ordinal);
+            Assert.DoesNotContain("overflow: auto;", panel, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -104,7 +110,7 @@ public sealed class DevbookStackLayoutTests
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        var cardRuleStart = css.IndexOf(".design-token,\n.folder-section,\n.domain-document,\n", StringComparison.Ordinal);
+        var cardRuleStart = css.IndexOf(".design-token,\n.folder-section,\n.domain-document", StringComparison.Ordinal);
         Assert.True(cardRuleStart >= 0, "The knowledge card rule should still exist for the documents that are lists of files rather than one file.");
 
         var cardRuleEnd = css.IndexOf("}\n", cardRuleStart, StringComparison.Ordinal);
@@ -288,6 +294,27 @@ public sealed class DevbookStackLayoutTests
         Assert.Contains("min-height: 0;", frame, StringComparison.Ordinal);
         // `auto`, not `scroll`: a plan that fits shows no scrollbar at all.
         Assert.Contains("overflow-y: auto;", frame, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The chart's two columns are each as tall as the frame or their own rows, whichever
+    /// is taller. Stretched, both were clamped to the frame's visible height: the track
+    /// clipped its last lanes, and scrolled down the horizontal scrollbar sat mid-chart
+    /// over blank lanes. With the frame's height as a minimum, a short plan still puts the
+    /// scrollbar on the frame's bottom edge.
+    /// </summary>
+    [Fact]
+    public void The_roadmap_columns_grow_with_their_rows_and_keep_the_scrollbar_at_the_bottom()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var frame = RuleBody(css, ".roadmap-band__timeline .roadmap-timeline__frame {");
+        Assert.Contains("align-items: flex-start;", frame, StringComparison.Ordinal);
+
+        var columns = RuleBody(
+            css,
+            ".roadmap-band__timeline .roadmap-timeline__sidebar,\n.roadmap-band__timeline .roadmap-timeline__scroll {");
+        Assert.Contains("min-height: 100%;", columns, StringComparison.Ordinal);
     }
 
     /// <summary>

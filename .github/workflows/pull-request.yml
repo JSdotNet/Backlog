@@ -1,7 +1,11 @@
 name: Pull request
 
 on:
+  # ready_for_review is listed beside the defaults so marking a draft ready
+  # builds it again: auto-merge.yml starts on that event and judges the head
+  # commit's latest check runs, which would otherwise be the draft's.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
   workflow_dispatch:

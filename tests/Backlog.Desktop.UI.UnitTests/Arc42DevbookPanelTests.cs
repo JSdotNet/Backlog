@@ -261,7 +261,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
 
         var component = harness.Render(DecisionPath);
 
-        component.WaitForAssertion(() => Assert.Contains("No arc42 folder here yet.", component.Markup, StringComparison.Ordinal));
+        component.WaitForAssertion(() => Assert.Contains("No arc42 folder here yet", component.Markup, StringComparison.Ordinal));
         Assert.Empty(component.FindAll("[data-testid='devbook-chapter-surface']"));
         Assert.Empty(component.FindAll("[data-testid='arc42-chapter-file-edit']"));
     }

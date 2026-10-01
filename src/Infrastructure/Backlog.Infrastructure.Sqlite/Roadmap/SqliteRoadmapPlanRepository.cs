@@ -272,48 +272,25 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
     /// DDL run on every open. An existing <c>backlog.db</c> full of tasks gains this
     /// table and loses nothing.
     /// </para></summary>
-    private static async Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken)
+    private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
+        SqliteSchema.OpenAsync(databasePath, EnsureSchemaAsync, cancellationToken);
+
+    private static async Task EnsureSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
-        var directory = Path.GetDirectoryName(databasePath);
-        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        await SqliteSchema.EnsureAsync(connection, """
+            CREATE TABLE IF NOT EXISTS roadmap_plan (
+                id         TEXT PRIMARY KEY NOT NULL,
+                document   TEXT NOT NULL,
+                -- NOT NULL, unlike the tasks table's updated_at. That one had to
+                -- tolerate null because ALTER TABLE added it to a table that
+                -- already had rows; this column ships with its table, so there has
+                -- never been a row without one. ADR 0006's nullable-always rule is
+                -- about columns added to a populated table, and this is not one.
+                updated_at TEXT NOT NULL
+            );
+            """, cancellationToken).ConfigureAwait(false);
 
-        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = databasePath,
-            Mode = SqliteOpenMode.ReadWriteCreate
-        }.ToString());
-
-        try
-        {
-            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-
-            await using var command = connection.CreateCommand();
-            command.CommandText =
-                """
-                PRAGMA journal_mode = WAL;
-
-                CREATE TABLE IF NOT EXISTS roadmap_plan (
-                    id         TEXT PRIMARY KEY NOT NULL,
-                    document   TEXT NOT NULL,
-                    -- NOT NULL, unlike the tasks table's updated_at. That one had to
-                    -- tolerate null because ALTER TABLE added it to a table that
-                    -- already had rows; this column ships with its table, so there has
-                    -- never been a row without one. ADR 0006's nullable-always rule is
-                    -- about columns added to a populated table, and this is not one.
-                    updated_at TEXT NOT NULL
-                );
-                """;
-            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
-            // No index. The table holds one row and every read is by primary key, so
-            // there is nothing an index could accelerate.
-
-            return connection;
-        }
-        catch
-        {
-            await connection.DisposeAsync().ConfigureAwait(false);
-            throw;
-        }
+        // No index. The table holds one row and every read is by primary key, so
+        // there is nothing an index could accelerate.
     }
 }

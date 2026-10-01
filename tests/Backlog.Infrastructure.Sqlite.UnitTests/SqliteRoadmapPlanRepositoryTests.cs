@@ -445,6 +445,46 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task APinnedEndSurvivesTheRoundTrip_UnderAnExplicitKey()
+    {
+        var plan = RoadmapPlan.Empty();
+        var pinned = plan.AddItem("Pinned", Window(5, 9)).Value;
+        plan.AddItem("Free", Window(5, 9));
+        plan.PinEnd(pinned.Id, new DateOnly(2026, 3, 20));
+
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
+        var json = await StoredDocumentAsync();
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
+
+        // Written once, for the pinned item only: a free item costs no key. The key is
+        // persisted and synced, so its spelling is pinned here rather than left to the
+        // naming policy.
+        Assert.NotNull(json);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(json, "\"endPinned\":true"));
+        Assert.DoesNotContain("\"endPinned\":false", json, StringComparison.Ordinal);
+        Assert.Equal([true, false], loaded.Items.Select(item => item.EndPinned));
+        Assert.Equal(new DateOnly(2026, 3, 20), loaded.Items[0].Window.End);
+    }
+
+    [Fact]
+    public async Task AnItemStoredBeforeEndsCouldBePinned_ReadsAsNotPinned()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            version = 1,
+            items = new[]
+            {
+                new { id = Guid.NewGuid().ToString(), title = "Older", start = "2026-01-05", end = "2026-01-09" }
+            }
+        });
+        await StoreDocumentAsync(json);
+
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(Assert.Single(loaded.Items).EndPinned);
+    }
+
+    [Fact]
     public async Task EverySaveStampsAnInstantThatSurvivesTheRoundTrip_AndTheNextSaveMovesItOn()
     {
         var plan = RoadmapPlan.Empty();

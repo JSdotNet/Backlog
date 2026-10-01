@@ -265,146 +265,124 @@ public sealed class SqliteTaskRepository : ITaskRepository
     /// the alternative — caching which paths have been prepared — would be wrong
     /// the first time somebody moved or deleted the file underneath a running
     /// app.</summary>
-    private static async Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken)
+    private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
+        SqliteSchema.OpenAsync(databasePath, EnsureSchemaAsync, cancellationToken);
+
+    private static async Task EnsureSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
-        var directory = Path.GetDirectoryName(databasePath);
-        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        await SqliteSchema.EnsureAsync(connection, """
+            CREATE TABLE IF NOT EXISTS tasks (
+                id                   TEXT PRIMARY KEY NOT NULL,
+                title                TEXT NOT NULL,
+                content_md           TEXT NOT NULL DEFAULT '',
+                type                 TEXT NOT NULL,
+                status               TEXT NOT NULL,
+                priority             TEXT NOT NULL,
+                sort_order           INTEGER NOT NULL DEFAULT 0,
+                area                 TEXT NULL,
+                created_at           TEXT NOT NULL,
+                source_inbox_id      TEXT NULL,
+                recurrence_source_id TEXT NULL,
+                due_on               TEXT NULL,
+                remind_at            TEXT NULL,
+                recurrence           TEXT NULL,
+                in_my_day_on         TEXT NULL,
+                view                 TEXT NULL,
+                tags                 TEXT NOT NULL DEFAULT '[]',
+                repo_ids             TEXT NOT NULL DEFAULT '[]',
+                depends_on           TEXT NOT NULL DEFAULT '[]',
+                sub_items            TEXT NOT NULL DEFAULT '[]',
+                usage_events         TEXT NOT NULL DEFAULT '[]',
+                projections          TEXT NOT NULL DEFAULT '[]',
+                effort               INTEGER NULL,
+                import_plan_id       TEXT NULL,
+                import_item_id       TEXT NULL,
+                -- Nullable even though the domain's UpdatedAt is not: this has
+                -- to match the column ALTER TABLE can add to a database that
+                -- already has rows, and the read coalesces a null to created_at.
+                updated_at           TEXT NULL,
+                deleted_at           TEXT NULL,
+                attachment_path      TEXT NULL,
+                completed_on         TEXT NULL,
+                started_on           TEXT NULL
+            );
 
-        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = databasePath,
-            Mode = SqliteOpenMode.ReadWriteCreate
-        }.ToString());
+            CREATE INDEX IF NOT EXISTS ix_tasks_rank ON tasks (sort_order, created_at DESC);
+            """, cancellationToken).ConfigureAwait(false);
 
-        try
-        {
-            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        // CREATE TABLE IF NOT EXISTS leaves a table that already exists exactly
+        // as it was, so a column added to the schema above never reaches a
+        // database an earlier build created. This store keeps no migration
+        // machinery on purpose (see the class remarks), so an additive column
+        // is brought in by hand: ask the table what it has and add only what it
+        // is missing. Cheap — one PRAGMA against a single-table file — and
+        // idempotent, so it is safe to run on the way into every operation the
+        // same way the CREATE above is. Additive-only, which is the only shape
+        // of change this local store's one table has ever needed.
+        await EnsureColumnAsync(connection, "effort", "INTEGER NULL", cancellationToken).ConfigureAwait(false);
+        await EnsureColumnAsync(connection, "import_plan_id", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+        await EnsureColumnAsync(connection, "import_item_id", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+        await EnsureColumnAsync(connection, "updated_at", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+        await EnsureColumnAsync(connection, "deleted_at", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+        await EnsureColumnAsync(connection, "attachment_path", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+        await EnsureColumnAsync(connection, "completed_on", "TEXT NULL", cancellationToken).ConfigureAwait(false);
 
-            await using var command = connection.CreateCommand();
-            command.CommandText = """
-                PRAGMA journal_mode = WAL;
+        // No backfill: nobody recorded when older work started, and the
+        // roadmap falls back to the creation date for a row without one.
+        await EnsureColumnAsync(connection, "started_on", "TEXT NULL", cancellationToken).ConfigureAwait(false);
 
-                CREATE TABLE IF NOT EXISTS tasks (
-                    id                   TEXT PRIMARY KEY NOT NULL,
-                    title                TEXT NOT NULL,
-                    content_md           TEXT NOT NULL DEFAULT '',
-                    type                 TEXT NOT NULL,
-                    status               TEXT NOT NULL,
-                    priority             TEXT NOT NULL,
-                    sort_order           INTEGER NOT NULL DEFAULT 0,
-                    area                 TEXT NULL,
-                    created_at           TEXT NOT NULL,
-                    source_inbox_id      TEXT NULL,
-                    recurrence_source_id TEXT NULL,
-                    due_on               TEXT NULL,
-                    remind_at            TEXT NULL,
-                    recurrence           TEXT NULL,
-                    in_my_day_on         TEXT NULL,
-                    view                 TEXT NULL,
-                    tags                 TEXT NOT NULL DEFAULT '[]',
-                    repo_ids             TEXT NOT NULL DEFAULT '[]',
-                    depends_on           TEXT NOT NULL DEFAULT '[]',
-                    sub_items            TEXT NOT NULL DEFAULT '[]',
-                    usage_events         TEXT NOT NULL DEFAULT '[]',
-                    projections          TEXT NOT NULL DEFAULT '[]',
-                    effort               INTEGER NULL,
-                    import_plan_id       TEXT NULL,
-                    import_item_id       TEXT NULL,
-                    -- Nullable even though the domain's UpdatedAt is not: this has
-                    -- to match the column ALTER TABLE can add to a database that
-                    -- already has rows, and the read coalesces a null to created_at.
-                    updated_at           TEXT NULL,
-                    deleted_at           TEXT NULL,
-                    attachment_path      TEXT NULL,
-                    completed_on         TEXT NULL,
-                    started_on           TEXT NULL
-                );
+        // And one value the vocabulary retired. `follow_up` was a task type until
+        // a follow-up became a relationship between two entries instead of a
+        // classification of one, and `EnumMap.ParseType` no longer knows the
+        // word — so a row still carrying it would throw on every read, which is
+        // somebody's entry lost to a rename. This rewrites the retired value to
+        // the type those entries always were.
+        //
+        // Deliberately not the start of a migration system: there is no version
+        // column, no ordered script list, and nothing here reads what ran
+        // before. It is the same shape as the additive columns above — a
+        // statement that is true after it runs and true again the next time, so
+        // it is safe on every open. An UPDATE that matches no row is a scan of a
+        // one-table local file and costs nothing, which is what makes running it
+        // unconditionally cheaper than remembering whether it has run.
+        await NormalizeRetiredTypeAsync(connection, cancellationToken).ConfigureAwait(false);
 
-                CREATE INDEX IF NOT EXISTS ix_tasks_rank ON tasks (sort_order, created_at DESC);
-                """;
-            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        // And one value the new columns need seeding with. A row written before
+        // updated_at existed has no idea when it last changed, and the only true
+        // thing this machine knows about it is when it was created — which is
+        // also the weakest correct statement, since a task nobody has edited
+        // since really did last change when it was made.
+        //
+        // Not left null, because null is unusable rather than merely unknown:
+        // the push asks for documents changed since a watermark, and
+        // `null > watermark` is never true, so a row left null would never
+        // travel and would stay invisible to the person's other machine for
+        // good. deleted_at gets no equivalent — there, null is the value.
+        //
+        // Same shape and the same disclaimer as the normalization above: no
+        // version column, no ordered script list, nothing reads what ran
+        // before, and after it runs no row matches it again. Additive and
+        // non-destructive, which is the only kind of change this schema has
+        // needed and the boundary at which this approach stops being enough —
+        // see .devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md.
+        await BackfillUpdatedAtAsync(connection, cancellationToken).ConfigureAwait(false);
 
-            // CREATE TABLE IF NOT EXISTS leaves a table that already exists exactly
-            // as it was, so a column added to the schema above never reaches a
-            // database an earlier build created. This store keeps no migration
-            // machinery on purpose (see the class remarks), so an additive column
-            // is brought in by hand: ask the table what it has and add only what it
-            // is missing. Cheap — one PRAGMA against a single-table file — and
-            // idempotent, so it is safe to run on the way into every operation the
-            // same way the CREATE above is. Additive-only, which is the only shape
-            // of change this local store's one table has ever needed.
-            await EnsureColumnAsync(connection, "effort", "INTEGER NULL", cancellationToken).ConfigureAwait(false);
-            await EnsureColumnAsync(connection, "import_plan_id", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-            await EnsureColumnAsync(connection, "import_item_id", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-            await EnsureColumnAsync(connection, "updated_at", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-            await EnsureColumnAsync(connection, "deleted_at", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-            await EnsureColumnAsync(connection, "attachment_path", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-            await EnsureColumnAsync(connection, "completed_on", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-
-            // No backfill: nobody recorded when older work started, and the
-            // roadmap falls back to the creation date for a row without one.
-            await EnsureColumnAsync(connection, "started_on", "TEXT NULL", cancellationToken).ConfigureAwait(false);
-
-            // And one value the vocabulary retired. `follow_up` was a task type until
-            // a follow-up became a relationship between two entries instead of a
-            // classification of one, and `EnumMap.ParseType` no longer knows the
-            // word — so a row still carrying it would throw on every read, which is
-            // somebody's entry lost to a rename. This rewrites the retired value to
-            // the type those entries always were.
-            //
-            // Deliberately not the start of a migration system: there is no version
-            // column, no ordered script list, and nothing here reads what ran
-            // before. It is the same shape as the additive columns above — a
-            // statement that is true after it runs and true again the next time, so
-            // it is safe on every open. An UPDATE that matches no row is a scan of a
-            // one-table local file and costs nothing, which is what makes running it
-            // unconditionally cheaper than remembering whether it has run.
-            await NormalizeRetiredTypeAsync(connection, cancellationToken).ConfigureAwait(false);
-
-            // And one value the new columns need seeding with. A row written before
-            // updated_at existed has no idea when it last changed, and the only true
-            // thing this machine knows about it is when it was created — which is
-            // also the weakest correct statement, since a task nobody has edited
-            // since really did last change when it was made.
-            //
-            // Not left null, because null is unusable rather than merely unknown:
-            // the push asks for documents changed since a watermark, and
-            // `null > watermark` is never true, so a row left null would never
-            // travel and would stay invisible to the person's other machine for
-            // good. deleted_at gets no equivalent — there, null is the value.
-            //
-            // Same shape and the same disclaimer as the normalization above: no
-            // version column, no ordered script list, nothing reads what ran
-            // before, and after it runs no row matches it again. Additive and
-            // non-destructive, which is the only kind of change this schema has
-            // needed and the boundary at which this approach stops being enough —
-            // see .devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md.
-            await BackfillUpdatedAtAsync(connection, cancellationToken).ConfigureAwait(false);
-
-            // And one value the tick needs seeding with. Until the checkbox became
-            // its own fact, a Done entry *was* a ticked one; the split read every
-            // existing Done row as unticked, and a sync service built before the
-            // split then stripped the tick from every copy it stored, so a person's
-            // finished work kept coming back onto their list.
-            //
-            // The seed shape of ADR 0006, with one bound that makes it idempotent by
-            // construction: `WHERE completed_on IS NULL` alone is not, because
-            // unticked is also a value a person sets — a Done entry deliberately
-            // unticked would be ticked again on every open. So only rows last
-            // changed before a fixed instant match. Any later write, an untick
-            // included, stamps updated_at past it, and the row never matches again.
-            // Not restamped: each device runs this on its own rows, and a restamp
-            // would make every one a fresh edit that beats whatever the other
-            // machine has not pushed yet.
-            await BackfillCompletedOnForDoneAsync(connection, cancellationToken).ConfigureAwait(false);
-
-            return connection;
-        }
-        catch
-        {
-            await connection.DisposeAsync().ConfigureAwait(false);
-            throw;
-        }
+        // And one value the tick needs seeding with. Until the checkbox became
+        // its own fact, a Done entry *was* a ticked one; the split read every
+        // existing Done row as unticked, and a sync service built before the
+        // split then stripped the tick from every copy it stored, so a person's
+        // finished work kept coming back onto their list.
+        //
+        // The seed shape of ADR 0006, with one bound that makes it idempotent by
+        // construction: `WHERE completed_on IS NULL` alone is not, because
+        // unticked is also a value a person sets — a Done entry deliberately
+        // unticked would be ticked again on every open. So only rows last
+        // changed before a fixed instant match. Any later write, an untick
+        // included, stamps updated_at past it, and the row never matches again.
+        // Not restamped: each device runs this on its own rows, and a restamp
+        // would make every one a fresh edit that beats whatever the other
+        // machine has not pushed yet.
+        await BackfillCompletedOnForDoneAsync(connection, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Rewrites the one retired <c>type</c> value to the type it became.

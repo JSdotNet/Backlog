@@ -48,6 +48,28 @@ public sealed class ShellNavigationTests
     }
 
     /// <summary>
+    /// An address the app has no page for is not a dead end: it says so in a
+    /// fragment, the way every empty state does, and links back to the Inbox.
+    /// </summary>
+    [Fact]
+    public void An_unknown_address_says_nothing_is_there_and_links_back_to_the_inbox()
+    {
+        using var host = ShellHost.Paired();
+        var app = host.Open();
+
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='capture-field'] input")));
+
+        host.Navigation.NavigateTo("no-such-page");
+
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='not-found']")));
+        var notFound = app.Find("[data-testid='not-found']");
+        Assert.Equal("Nothing here", notFound.QuerySelector(".empty-state__title")!.TextContent.Trim());
+        var home = Assert.Single(notFound.QuerySelectorAll("a"));
+        Assert.Equal("", home.GetAttribute("href"));
+        Assert.Equal("Back to the Inbox", home.TextContent.Trim());
+    }
+
+    /// <summary>
     /// The Router remounts a page on every navigation, so text held in the
     /// Inbox's own fields would be gone after a look at another tab. This is the
     /// round trip that used to lose it.

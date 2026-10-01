@@ -23,7 +23,7 @@
     save, and what else has to move with them.
 *@
 
-<section class="roadmap-timeline @CssClass"
+<section class="roadmap-timeline @(OnSlotActivated.HasDelegate ? "roadmap-timeline--insertable" : null) @CssClass"
          style="@Metrics"
          aria-labelledby="@(string.IsNullOrWhiteSpace(LabelledBy) ? _headingId : LabelledBy)"
          data-testid="@TestId">
@@ -79,11 +79,17 @@
         Press Enter to open. Press Space to pick the bar up, then Left and Right to move it a week,
         Up and Down to move it to another row, Shift with Left or Right to change its end date,
         and Alt with Left or Right to change its start date. Space drops it, Escape puts it back.
+        A bar that shows a dashed outline cannot be moved, and its start stays fixed; where it offers
+        its end, Shift with Left or Right changes that end date alone.
         A bar with steps has a button beside it that shows or hides them, one row each.
         A step is drawn by its share of the effort, not by date.
         @if (OnLinkCreated.HasDelegate)
         {
             <text>With a pointer, drag the dot past a bar's end onto another bar or a date to make that one wait for it.</text>
+        }
+        @if (OnSlotActivated.HasDelegate)
+        {
+            <text>With a pointer, double-click an empty place on a row to add something there, in that week, or drag across one to add something that long.</text>
         }
     </p>
 
@@ -285,6 +291,7 @@
                                      class="roadmap-timeline__row roadmap-timeline__row--padding"
                                      style="top: @Rem(Geometry.RowTop(placed.Index)); height: @Rem(Geometry.RowHeightRem); @GroupStyle(placed.Group)"
                                      aria-hidden="true"
+                                     data-roadmap-slot="@SlotRowId(PaddingLane(placed))"
                                      data-testid="@Suffix($"padding-{Slug(placed.Row.Id)}")"></div>
                                 continue;
                             }
@@ -325,6 +332,7 @@
                                  role="group"
                                  aria-label="@Context(placed)"
                                  data-roadmap-row="@placed.Row.Id"
+                                 data-roadmap-slot="@SlotRowId(placed.Row)"
                                  data-testid="@Suffix($"row-{Slug(placed.Row.Id)}")">
 
                                 @foreach (var bar in BarsOn(placed.Row.Id))
@@ -599,6 +607,19 @@
     /// </summary>
     [Parameter]
     public EventCallback<RoadmapLink> OnLinkCreated { get; set; }
+
+    /// <summary>
+    /// An empty place on a row the reader double-clicked or dragged across, to put
+    /// something there: the row and the week, and for a drag the weeks it covered. Proposed, not created — what to add, and whether it may
+    /// go there, is the host's, and it appears when the host hands it back.
+    /// <para>
+    /// A pointer shortcut and nothing more. Left unset, a double-click on a row does
+    /// nothing, and a host that sets it still owes a keyboard way to add — the button
+    /// that adds without saying where.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<RoadmapSlot> OnSlotActivated { get; set; }
 
     /// <summary>What is being filtered on now, for a host that wants to mirror
     /// it into a URL. The narrowing itself is done here — which bars are on
@@ -877,16 +898,17 @@
 
     private RoadmapGeometry Geometry => new(Span, QuarterWidth * Stretch, RowHeight, BarHeight);
 
-    /// <summary>Where the part of the chart that has to fill the screen begins: this
-    /// week when it is on the chart, so history to the left is scrolled to rather
-    /// than squeezed in, and the window's start otherwise.</summary>
+    /// <summary>Where the part of the chart that has to fill the screen begins: the
+    /// week before this one when it is on the chart — so the days either side of
+    /// today are what it opens on, and older history to the left is scrolled to
+    /// rather than squeezed in — and the window's start otherwise.</summary>
     private DateOnly FillFrom
     {
         get
         {
             if (Today is not { } today || !Span.Contains(today)) return Span.Start;
 
-            var week = RoadmapWindow.StartOfWeek(today, WeekStart);
+            var week = RoadmapWindow.StartOfWeek(today, WeekStart).AddDays(Span.IsGraduated ? -7 * RoadmapWindow.GraduatedDayWeeks : 0);
 
             return week < Span.Start ? Span.Start : week;
         }
@@ -1036,6 +1058,10 @@
     [JSInvokable]
     public void DragBegin(string barId, string grip)
     {
+        // The script already refuses these; this is the same rule where it cannot be
+        // bypassed. A locked bar yields its end grip and nothing else.
+        if (Bar(barId) is { Locked: true } locked && !(EndOnly(locked) && grip == "end")) return;
+
         _clickEndsADrag = false;
         _dragId = barId;
         _grabbedId = null;
@@ -1099,6 +1125,87 @@
     }
 
     /// <summary>
+    /// A double-click on an empty place on <paramref name="rowId"/>,
+    /// <paramref name="xRem"/> in from the track's left edge. Answered with the week
+    /// under the pointer, snapped to its first day; a row the chart does not draw, or
+    /// one that takes nothing, says nothing.
+    /// </summary>
+    [JSInvokable]
+    public async Task SlotActivated(string rowId, double xRem)
+    {
+        if (SlotRow(rowId) is not { } row) return;
+
+        var on = RoadmapWindow.StartOfWeek(Geometry.DateAt(xRem), WeekStart);
+
+        await OnSlotActivated.InvokeAsync(new RoadmapSlot(row.Id, on, row.Kind));
+    }
+
+    /// <summary>
+    /// Where a span dragged across an empty place on <paramref name="rowId"/>, from
+    /// <paramref name="fromRem"/> to <paramref name="toRem"/>, would be drawn — the
+    /// weeks <see cref="SlotDrawn"/> would propose for the same two points, so what the
+    /// reader sees while dragging is what the release asks for. Null on a row that
+    /// takes no span: a milestones row, a row the chart does not draw, or any row when
+    /// nothing is listening.
+    /// </summary>
+    [JSInvokable]
+    public RoadmapSlotDraft? SlotDrawPreview(string rowId, double fromRem, double toRem)
+    {
+        if (SlotRow(rowId) is not { Kind: RoadmapRowKind.Bars }) return null;
+
+        var (start, end) = SlotSpan(fromRem, toRem);
+        var weeks = (end.DayNumber - start.DayNumber + 1) / 7;
+
+        return new RoadmapSlotDraft(
+            Geometry.XFor(start),
+            Geometry.WidthFor(start, end),
+            $"{DateLabel(start)} – {DateLabel(end)}, {weeks} {(weeks == 1 ? "week" : "weeks")}");
+    }
+
+    /// <summary>
+    /// A drag across an empty place on <paramref name="rowId"/> was released: proposed
+    /// as the whole weeks from the one pressed in through the one let go in, whichever
+    /// way the pointer travelled. A milestones row takes the pressed week alone, as a
+    /// double-click there does — a date has no length to drag out.
+    /// </summary>
+    [JSInvokable]
+    public async Task SlotDrawn(string rowId, double fromRem, double toRem)
+    {
+        if (SlotRow(rowId) is not { } row) return;
+
+        if (row.Kind == RoadmapRowKind.Milestones)
+        {
+            await OnSlotActivated.InvokeAsync(new RoadmapSlot(row.Id, RoadmapWindow.StartOfWeek(Geometry.DateAt(fromRem), WeekStart), row.Kind));
+            return;
+        }
+
+        var (start, end) = SlotSpan(fromRem, toRem);
+
+        await OnSlotActivated.InvokeAsync(new RoadmapSlot(row.Id, start, row.Kind, end));
+    }
+
+    /// <summary>The row an add-in-place gesture names, when somebody is listening and the
+    /// chart draws it as a row of its own.</summary>
+    private RoadmapRow? SlotRow(string rowId) =>
+        OnSlotActivated.HasDelegate
+            ? Rows.FirstOrDefault(placed => placed.Step is null && !placed.Padding && placed.Row.Id == rowId)?.Row
+            : null;
+
+    /// <summary>Two points along a row widened to the whole weeks they fall in: the
+    /// first day of the earlier one's week through the last day of the later one's.</summary>
+    private (DateOnly Start, DateOnly End) SlotSpan(double fromRem, double toRem)
+    {
+        var start = RoadmapWindow.StartOfWeek(Geometry.DateAt(Math.Min(fromRem, toRem)), WeekStart);
+        var end = RoadmapWindow.StartOfWeek(Geometry.DateAt(Math.Max(fromRem, toRem)), WeekStart).AddDays(6);
+
+        return (start, end);
+    }
+
+    /// <summary>The row a double-click there adds to, or null — no attribute, so the
+    /// script ignores it — when nothing is listening.</summary>
+    private string? SlotRowId(RoadmapRow? row) => OnSlotActivated.HasDelegate ? row?.Id : null;
+
+    /// <summary>
     /// The dependency handle of <paramref name="fromId"/> was dropped on
     /// <paramref name="toId"/>. Dropping it back on its own bar, or on nothing the
     /// timeline drew, says nothing and is ignored.
@@ -1137,17 +1244,20 @@
                 return;
             }
 
-            if (bar.Locked || (!AllowMove && !AllowResize)) return;
+            if (bar.Locked && !EndOnly(bar)) return;
+            if (!AllowMove && !AllowResize) return;
 
             _dragId = null;
             _grabbedId = bar.Id;
             _pointerRows = false;
-            _kind = RoadmapDrag.Move;
+            _kind = bar.Locked ? RoadmapDrag.ResizeEnd : RoadmapDrag.Move;
             _steps = 0;
             _rowOffset = 0;
 
             Invalidate();
-            Announce($"Grabbed {bar.Title}. Use arrow keys to move, Space to drop, Escape to cancel.");
+            Announce(bar.Locked
+                ? $"Grabbed {bar.Title}. Its start is fixed. Use Shift with the arrow keys to move its end, Space to drop, Escape to cancel."
+                : $"Grabbed {bar.Title}. Use arrow keys to move, Space to drop, Escape to cancel.");
             return;
         }
 
@@ -1182,6 +1292,9 @@
 
             if (kind == RoadmapDrag.Move && !AllowMove) return;
             if (kind != RoadmapDrag.Move && !AllowResize) return;
+
+            // A locked bar that offers its end moves nothing else.
+            if (bar.Locked && kind != RoadmapDrag.ResizeEnd) return;
 
             if (kind != _kind)
             {
@@ -1257,6 +1370,10 @@
 
         Invalidate();
     }
+
+    /// <summary>Whether a locked bar still offers its end — and so is grabbed, but
+    /// only to move that.</summary>
+    private bool EndOnly(RoadmapBar bar) => AllowResize && bar.Locked && bar.EndResizable;
 
     private static RoadmapDrag GripKind(string grip) => grip switch
     {

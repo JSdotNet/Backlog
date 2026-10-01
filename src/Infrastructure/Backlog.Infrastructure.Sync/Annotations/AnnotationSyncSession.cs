@@ -108,7 +108,7 @@ public sealed class AnnotationSyncSession
             pushed += response.Value.Accepted;
             refused += Math.Max(0, batch.Count - response.Value.Accepted);
 
-            if (WatermarkAfter(batch, final: start + batch.Count >= pending.Count) is { } advanced)
+            if (ReplicaRoutes.WatermarkAfter(batch, final: start + batch.Count >= pending.Count, annotation => annotation.UpdatedAt) is { } advanced)
             {
                 _state.Save(_state.Current with { PushWatermark = advanced });
             }
@@ -142,7 +142,7 @@ public sealed class AnnotationSyncSession
 
             if (page.IsFailure)
             {
-                if (startedOver || cursor is null || !Retired(page.Error.Code))
+                if (startedOver || cursor is null || !ReplicaRoutes.Retired(page.Error.Code))
                 {
                     return Result.Failure<AnnotationSyncSummary>(page.Error);
                 }
@@ -182,24 +182,5 @@ public sealed class AnnotationSyncSession
             pull.Value.Pulled,
             pull.Value.Applied,
             _time.GetUtcNow()));
-    }
-
-    private static bool Retired(string code) =>
-        code is SyncErrorCodes.SyncCursorExpired or SyncErrorCodes.SyncCursorMalformed;
-
-    /// <summary>How far the watermark may move once a batch has been accepted,
-    /// or null when it may not move at all — the last stamp on the final batch,
-    /// otherwise the highest stamp strictly below the batch's last, so an
-    /// annotation sharing that stamp in the next batch is still selected.</summary>
-    private static DateTimeOffset? WatermarkAfter(IReadOnlyList<DevbookAnnotation> batch, bool final)
-    {
-        if (final) return batch[^1].UpdatedAt;
-
-        var boundary = batch[^1].UpdatedAt;
-
-        return batch
-            .Where(annotation => annotation.UpdatedAt < boundary)
-            .Select(annotation => (DateTimeOffset?)annotation.UpdatedAt)
-            .Max();
     }
 }

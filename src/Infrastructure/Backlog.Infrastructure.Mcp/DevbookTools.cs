@@ -178,7 +178,7 @@ public sealed class DevbookTools(
         }
 
         var notes = review
-            ? ChapterReading.Notes(annotations, scope.Alias, ChapterReading.Spellings(normalized, relative))
+            ? ChapterReading.Notes(annotations, scope.Alias, normalized)
             : [];
 
         return ChapterReading.Build(scope.Id, scope.Alias, folder.Key, normalized, markdown, review, notes);
@@ -208,15 +208,12 @@ public sealed class DevbookTools(
                 "A chapter path is required, repository-relative — e.g. .devbook/arc42/05-building-block-view.md."));
         }
 
-        // The area-relative spelling too, where a configured folder claims the
-        // path — see ChapterReading.Spellings for why there are two. No file is
-        // touched here and the folder's own switch is not read: an unavailable or
-        // switched-off area still has notes, and a note about a chapter somebody
-        // has stopped showing is still what somebody said.
-        var relative = ChapterPaths.Split(folders.Folders(scope.Alias), normalized)?.RelativePath;
-
+        // One question, and the store canonicalizes it. No file is touched here
+        // and no folder is resolved: an unavailable or switched-off area still has
+        // notes, and a note about a chapter somebody has stopped showing is still
+        // what somebody said.
         var notes = ChapterReading
-            .Notes(annotations, scope.Alias, ChapterReading.Spellings(normalized, relative))
+            .Notes(annotations, scope.Alias, normalized)
             .Select(Projections.Note)
             .ToList();
 

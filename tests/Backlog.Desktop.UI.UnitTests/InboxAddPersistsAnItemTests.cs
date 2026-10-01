@@ -136,8 +136,8 @@ public sealed class InboxAddPersistsAnItemTests
 
     // --- Capture ----------------------------------------------------------
 
-    /// <summary>The sources are configured on the pane itself now, so the
-    /// line points at the panel under it rather than at a Settings tab.</summary>
+    /// <summary>The sources are configured on the pane itself, on its own
+    /// tab, so the line points at that tab rather than at a Settings tab.</summary>
     [Fact]
     public async Task Capture_with_nothing_enabled_points_at_the_sources_panel()
     {
@@ -153,15 +153,16 @@ public sealed class InboxAddPersistsAnItemTests
             var result = component.Find("[data-testid='inbox-pane-capture-result']");
             Assert.Equal("status", result.GetAttribute("role"));
             Assert.Contains("No capture sources are enabled", result.TextContent, StringComparison.Ordinal);
-            Assert.Contains("Sources", result.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Sources tab", result.TextContent, StringComparison.Ordinal);
             Assert.DoesNotContain("Settings", result.TextContent, StringComparison.Ordinal);
         });
 
-        // And the panel it points at is on the pane, folded, with its trigger
-        // saying nothing is on.
-        Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-sources'] [data-testid='capture-sources-toggle']"));
-        Assert.Equal("false", component.Find("[data-testid='capture-sources-toggle']").GetAttribute("aria-expanded"));
-        Assert.Equal("none on", component.Find("[data-testid='capture-sources-summary']").TextContent.Trim());
+        // And the tab it points at is on the pane, beside the queue, with the
+        // panel behind it saying nothing is on.
+        Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-tabs'] [data-testid='inbox-pane-tab-sources']"));
+        await component.Find("[data-testid='inbox-pane-tab-sources']").ClickAsync(new());
+        component.WaitForAssertion(() =>
+            Assert.Equal("None of 3 sources on", component.Find("[data-testid='inbox-pane-sources'] [data-testid='capture-sources-summary']").TextContent.Trim()));
     }
 
     /// <summary>The feature seen from the pane: a source switched on in the
@@ -176,14 +177,14 @@ public sealed class InboxAddPersistsAnItemTests
         var component = Render(harness);
         await WaitForInboxAsync(component);
 
-        await component.Find("[data-testid='capture-sources-toggle']").ClickAsync(new());
+        await component.Find("[data-testid='inbox-pane-tab-sources']").ClickAsync(new());
         component.WaitForAssertion(() =>
-            Assert.Equal("true", component.Find("[data-testid='capture-sources-toggle']").GetAttribute("aria-expanded")));
+            Assert.Equal("true", component.Find("[data-testid='inbox-pane-tab-sources']").GetAttribute("aria-selected")));
 
         component.Find("[data-testid='capture-source-youtube-enabled'] input").Change(true);
         Assert.True(harness.CaptureSources.Current.For(CaptureSourceKind.YouTube).Enabled);
         component.WaitForAssertion(() =>
-            Assert.Equal("1 of 3 on", component.Find("[data-testid='capture-sources-summary']").TextContent.Trim()));
+            Assert.Equal("1 of 3 sources on", component.Find("[data-testid='capture-sources-summary']").TextContent.Trim()));
         Assert.Equal("Never captured.", component.Find("[data-testid='capture-source-youtube-last-run']").TextContent.Trim());
 
         await component.Find("[data-testid='inbox-pane-capture']").ClickAsync(new());

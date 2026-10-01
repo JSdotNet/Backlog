@@ -39,7 +39,7 @@ The HTTP surface of the cloud service.
 ```meta
 status: adopted
 type: package
-version: "10.0.11"
+version: "10.0.12"
 depends-on: [".devbook/tech/shared.md#aspnet-core"]
 related: [".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/08-crosscutting-concepts.md#task-sync"]
 ```
@@ -69,7 +69,7 @@ The token library the sync service issues its own device tokens with.
   token (`sub`, `owner_id`, `jti`, `iat`, `nbf`, `exp`) that a device presents
   on every sync call.
 - **Why** — pinned as a direct reference, at the version
-  `Microsoft.AspNetCore.Authentication.JwtBearer` 10.0.11 already resolves
+  `Microsoft.AspNetCore.Authentication.JwtBearer` already resolves
   transitively, so the code that signs a token and the code that validates it
   share one build of the same library rather than two that could drift apart.
 
@@ -217,7 +217,7 @@ The attachment store beside the Cosmos replica (local ADR 0014).
 - **Used for** — the files on a phone capture, in a private `attachments`
   container keyed `{ownerId}/{attachmentId}`, reached only through the sync
   service. `Backlog.Infrastructure.BlobStorage` uses `Azure.Storage.Blobs`
-  12.28.0 through the `Aspire.Azure.Storage.Blobs` client integration; locally
+  12.29.2 through the `Aspire.Azure.Storage.Blobs` client integration; locally
   the AppHost runs Azurite in its place.
 - **Why** — a capture document carries metadata only, and a device never holds
   a storage credential.

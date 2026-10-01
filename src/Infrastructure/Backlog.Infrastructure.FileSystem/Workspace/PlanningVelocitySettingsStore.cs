@@ -192,22 +192,7 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
     /// </summary>
     public string? Set(decimal storyPointsPerWeek, string? repository = null)
     {
-        if (storyPointsPerWeek <= 0)
-        {
-            return "Give a pace above zero — a week that gets through no points has no length to draw.";
-        }
-
-        // Rounded to what is actually storable before the value is published, so the
-        // figure the roadmap divides by is the same one the file will hold. Rounding
-        // at the write instead would let the store keep a pace its own file cannot
-        // express, and lose it at the next start.
-        var storable = Normalize(storyPointsPerWeek);
-
-        if (storable < Smallest)
-        {
-            return FormattableString.Invariant(
-                $"Give a pace of at least {Smallest} - anything finer than that rounds away to nothing.");
-        }
+        if (Refusal(storyPointsPerWeek, out var storable) is { } refused) return refused;
 
         // Unchanged is nothing to write — and, for a repository still reading the
         // global pace, no reason to give it one of its own.
@@ -215,6 +200,57 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
         if (current.StoryPointsPerWeek == storable) return null;
 
         return Save(With(_pace, repository, current with { StoryPointsPerWeek = storable }));
+    }
+
+    /// <summary>
+    /// Sets the pace and chooses <see cref="PaceSource.Set"/> — for
+    /// <paramref name="repository"/>, or globally for <c>null</c> — as one change:
+    /// what a band's slider does when it is let go. One write and one
+    /// <see cref="Changed"/>, where <see cref="Set(decimal, string?)"/> then
+    /// <see cref="Choose"/> would be two of each, and every pace on screen would read
+    /// the backlog again for both. A refused figure chooses nothing.
+    /// </summary>
+    public string? SetOwn(decimal storyPointsPerWeek, string? repository = null)
+    {
+        if (Refusal(storyPointsPerWeek, out var storable) is { } refused) return refused;
+
+        var own = new Setting(storable, PaceSource.Set);
+        if (Effective(_pace, repository) == own) return null;
+
+        return Save(With(_pace, repository, own));
+    }
+
+    /// <summary><see cref="SetOwn(decimal, string?)"/> over what a text field hands
+    /// back, through the one parsing rule <see cref="Set(string?, string?)"/> uses.</summary>
+    public string? SetOwn(string? typed, string? repository = null) =>
+        TryParse(typed, out var storyPointsPerWeek)
+            ? SetOwn(storyPointsPerWeek, repository)
+            : NotANumber;
+
+    /// <summary>Why <paramref name="storyPointsPerWeek"/> cannot be kept, or
+    /// <c>null</c> with <paramref name="storable"/> set to the figure the file will
+    /// hold.
+    /// <para>
+    /// Rounded to what is actually storable before the value is published, so the
+    /// figure the roadmap divides by is the same one the file will hold. Rounding
+    /// at the write instead would let the store keep a pace its own file cannot
+    /// express, and lose it at the next start.
+    /// </para></summary>
+    private static string? Refusal(decimal storyPointsPerWeek, out decimal storable)
+    {
+        storable = 0m;
+
+        if (storyPointsPerWeek <= 0)
+        {
+            return "Give a pace above zero — a week that gets through no points has no length to draw.";
+        }
+
+        storable = Normalize(storyPointsPerWeek);
+
+        return storable < Smallest
+            ? FormattableString.Invariant(
+                $"Give a pace of at least {Smallest} - anything finer than that rounds away to nothing.")
+            : null;
     }
 
     /// <summary>Chooses the pace the roadmap places by — for
@@ -236,19 +272,15 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
     /// does not carry a second copy of the parsing rule. Invariant on purpose: the
     /// <c>number</c> input reports its value with a dot whatever the machine's
     /// locale is.</summary>
-    public string? Set(string? typed, string? repository = null)
-    {
-        if (!decimal.TryParse(
-                typed,
-                PaceStyles,
-                CultureInfo.InvariantCulture,
-                out var storyPointsPerWeek))
-        {
-            return "Give a pace as a number, like 5 or 7.5.";
-        }
+    public string? Set(string? typed, string? repository = null) =>
+        TryParse(typed, out var storyPointsPerWeek)
+            ? Set(storyPointsPerWeek, repository)
+            : NotANumber;
 
-        return Set(storyPointsPerWeek, repository);
-    }
+    private const string NotANumber = "Give a pace as a number, like 5 or 7.5.";
+
+    private static bool TryParse(string? typed, out decimal storyPointsPerWeek) =>
+        decimal.TryParse(typed, PaceStyles, CultureInfo.InvariantCulture, out storyPointsPerWeek);
 
     private string? Save(Pace pace)
     {
@@ -413,14 +445,23 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
         string.IsNullOrWhiteSpace(repository) ? null : repository.Trim().ToLowerInvariant();
 
     /// <summary>What <paramref name="repository"/> reads: its own entry, each half of
-    /// it falling back to the global one where it holds none.</summary>
+    /// it falling back to the global one where it holds none.
+    /// <para>
+    /// Except that <see cref="PaceSource.Set"/> is never inherited: it means "this
+    /// scope's own typed pace, set by hand", and the global one is the heading's figure
+    /// the default band's slider wrote. A repository that chose nothing reads
+    /// <see cref="PaceSource.Manual"/> — its own last two weeks — rather than being
+    /// drawn at a figure typed for another scope.
+    /// </para></summary>
     private static Setting Effective(Pace pace, string? repository)
     {
-        var global = new Setting(pace.StoryPointsPerWeek, pace.Source);
+        if (Key(repository) is not { } key) return new Setting(pace.StoryPointsPerWeek, pace.Source);
 
-        return Key(repository) is { } key && pace.Repositories.TryGetValue(key, out var own)
-            ? new Setting(own.StoryPointsPerWeek ?? global.StoryPointsPerWeek, own.Source ?? global.Source)
-            : global;
+        var inherited = pace.Source == PaceSource.Set ? PaceSource.Manual : pace.Source;
+
+        return pace.Repositories.TryGetValue(key, out var own)
+            ? new Setting(own.StoryPointsPerWeek ?? pace.StoryPointsPerWeek, own.Source ?? inherited)
+            : new Setting(pace.StoryPointsPerWeek, inherited);
     }
 
     /// <summary>The published figure with <paramref name="setting"/> as the global pace

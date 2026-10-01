@@ -76,6 +76,56 @@ public class RoadmapPlanViewHandOverTests
     }
 
     [Fact]
+    public void AnItemInFlight_OffersTheEndOfEveryOpenSegment_AndNoneWhereTheWorkRan()
+    {
+        // Backlog finished its first part; fincent and then backlog again are still
+        // open. Today is the 10th.
+        var item = Item();
+        var rollups = new Dictionary<Guid, RoadmapItemRollupDto>
+        {
+            [item.Id] = new(
+            [
+                Done("a", "JSdotNet/Backlog", 1, 2),
+                new RoadmapGatheredLink("b", "B", 3, RollupOrigin.Tag, RoadmapProgress.InProgress, ["a"], ["JSdotNet/Fincent"],
+                    StartedOn: new DateOnly(2026, 1, 3)),
+                new RoadmapGatheredLink("c", "C", 2, RollupOrigin.Tag, RoadmapProgress.Ready, ["b"], ["JSdotNet/Backlog"])
+            ], [])
+        };
+
+        var view = RoadmapPlanView.From(
+            new RoadmapPlanDto([item], [], [], null),
+            Configured,
+            rollups,
+            forecast: new RoadmapForecast(new DateOnly(2026, 1, 10), new PacesInUseDto(7m, new Dictionary<string, decimal>())));
+
+        var bars = view.Bars.OrderBy(bar => bar.Start).ToList();
+        Assert.Equal(3, bars.Count);
+        Assert.All(bars, bar => Assert.True(bar.Locked));
+        Assert.Equal([false, true, true], bars.Select(bar => bar.EndResizable));
+    }
+
+    [Fact]
+    public void PullingAnEarlierSegmentsEnd_PinsTheItemsEnd_AsManyDaysLater()
+    {
+        var item = Item();
+        var bars = new[]
+        {
+            new RoadmapBar($"{item.Id}@backlog#1", "row", "Spans both", new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 12), Locked: true, EndResizable: true),
+            new RoadmapBar($"{item.Id}@fincent#2", "row", "Spans both", new DateOnly(2026, 1, 13), new DateOnly(2026, 1, 20), Locked: true, EndResizable: true)
+        };
+
+        // The first segment's end, pulled out four days: the item ends four days later.
+        var earlier = RoadmapPlanView.PinnedEndFor(bars, bars[0],
+            new RoadmapChange(bars[0].Id, "row", bars[0].Start, new DateOnly(2026, 1, 16), RoadmapDrag.ResizeEnd));
+        Assert.Equal(new DateOnly(2026, 1, 24), earlier);
+
+        // The last segment's end is the item's: it pins where it was dropped.
+        var last = RoadmapPlanView.PinnedEndFor(bars, bars[1],
+            new RoadmapChange(bars[1].Id, "row", bars[1].Start, new DateOnly(2026, 1, 27), RoadmapDrag.ResizeEnd));
+        Assert.Equal(new DateOnly(2026, 1, 27), last);
+    }
+
+    [Fact]
     public void TasksHandingOverBetweenRepositories_AreDrawnAsConsecutiveSegments()
     {
         var item = Item();
