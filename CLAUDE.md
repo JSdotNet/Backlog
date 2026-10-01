@@ -21,6 +21,9 @@ matching flow:**
 | A dependency, package or framework move | `delivery:flow-update-packages` |
 | Creating, governing or scaffolding a repository | `delivery:flow-project` |
 
+Changes under `plugins/`, `tools/`, `build/`, `.github/` and `.claude/` are the first
+row's tooling, CI and scripting, so they route through `delivery:flow-code` as well.
+
 Reading, searching, and exploring are always allowed first — the gate is on the first
 write, not the first action, so orienting yourself does not consume it.
 
@@ -49,12 +52,15 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 `.devbook/config.json` holds the bindings, extensions, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. Neither of its skills changes the
-paragraph above: `backlog-import-plan` is user-invoked (`disable-model-invocation: true`)
-and one-shot, so it is not a flow and does not go through the gate;
-`backlog-run-plan-item` is model-invoked when a plan item is pasted in, but it runs the
-item's instructions *through* the gate — the matching flow — rather than adding an
-execution path beside it.
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its four skills changes the
+paragraph above. `backlog-import-plan` and `backlog-import-inbox` are user-invoked
+(`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
+app, so neither is a flow and neither goes through the gate. `backlog-run-plan-item` is
+model-invoked when a plan item is pasted in, but it runs the item's instructions *through*
+the gate — the matching flow — rather than adding an execution path beside it.
+`backlog-answer-notes` is model-invoked when asked to answer the Devbook notes; it writes
+only `annotation` fences, through `.devbook/_tools/devbook-meta/annotations.mjs`, offers the
+commit and never pushes.
 
 `.agents/rules/context-loading.md` says how a change confined to `.devbook/` is verified.
 
@@ -154,3 +160,7 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   plan (ADR 0007) from an agreed specification; user-invoked only.
 - `plugins/backlog-tools/skills/backlog-run-plan-item/SKILL.md` — runs one item of such a
   plan pasted back out of the Backlog app, after checking it is still outstanding.
+- `plugins/backlog-tools/skills/backlog-import-inbox/SKILL.md` — turns an export from another
+  to-do tool into an inbox import manifest (ADR 0017); user-invoked only.
+- `plugins/backlog-tools/skills/backlog-answer-notes/SKILL.md` — answers the reading notes left
+  on Devbook chapters in the Backlog app as `annotation` fences and resolves each note.

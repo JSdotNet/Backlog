@@ -2,7 +2,7 @@
 
 **Nothing in this folder is deployed.**
 
-These are Blazor Server hosts that exist for one reason: the shipped UI lives in
+The Blazor Server hosts here exist for one reason: the shipped UI lives in
 .NET MAUI Blazor Hybrid heads (`src/App/Backlog.Desktop`, `src/App/Backlog.Mobile`),
 and a MAUI head cannot be started as an Aspire project resource on CI or driven by
 Playwright. Each harness hosts the *same* Razor component library the real head
@@ -14,8 +14,14 @@ an Android emulator.
 | `Backlog.Desktop.WebHarness` | `src/App/Backlog.Desktop.UI` | `desktop-web-harness` |
 | `Backlog.Mobile.WebHarness` | `src/App/Backlog.Mobile.UI` (phone width) | `mobile-web-harness` |
 | `Backlog.UI.Storybook` | `src/Core/Backlog.UI.Components` on its own | `ui-storybook` |
+| `Backlog.AzureFoundry.TestService` | no UI: a local stand-in for the Azure Foundry chat endpoint | `azure-foundry-test` |
 
-`Backlog.UI.Storybook` is the odd one out: it hosts no app UI. It references the shared
+`Backlog.AzureFoundry.TestService` is not a Blazor host. It is a minimal-API web service that
+answers the Azure Foundry chat-completions and Cost Management calls deterministically, so the
+desktop harness can exercise its Azure features in an Aspire run with no Azure deployment behind
+them.
+
+Among the Blazor hosts, `Backlog.UI.Storybook` is the odd one out: it hosts no app UI. It references the shared
 component library and `Backlog.Aspire.ServiceDefaults` and nothing else, so it renders every
 component with realistic content and no domain behind it. That missing reference is load-bearing
 — if a component ever grew a dependency on a module, the storybook would stop compiling.
@@ -48,9 +54,9 @@ Use it to review a component, and to test one without starting the application.
   starts needing behaviour of its own, that behaviour is a component the library
   is missing.
 - **A page says how a component is used; it does not say what the design rule is.**
-  The rules live in `.design`, and every page renders the chapters that govern it
+  The rules live in `.devbook/design/`, and every page renders the chapters that govern it
   from a *Design rules* block in its header — `DesignGuideline` slices the anchored
-  section out of the `.design` files the csproj embeds, and `GuidelineChapter` draws
+  section out of the `.devbook/design` files the csproj embeds, and `GuidelineChapter` draws
   it with `MarkdownView`. A page whose prose argued for a tone, a hierarchy or a
   contrast ratio would be keeping a second copy of one of those files. See
   `.devbook/design/README.md#living-reference-the-ui-storybook`.
