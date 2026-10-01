@@ -492,129 +492,107 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
     /// <see cref="SqliteTaskRepository"/> gives: the statements are idempotent,
     /// and caching which paths have been prepared would be wrong the first time
     /// somebody moved or deleted the file underneath a running app.</summary>
-    private static async Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken)
+    private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
+        SqliteSchema.OpenAsync(databasePath, EnsureSchemaAsync, cancellationToken);
+
+    private static async Task EnsureSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
-        var directory = Path.GetDirectoryName(databasePath);
-        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        await SqliteSchema.EnsureAsync(connection, """
+            CREATE TABLE IF NOT EXISTS inbox_groups (
+                id          TEXT PRIMARY KEY NOT NULL,
+                name        TEXT NOT NULL,
+                sort_order  INTEGER NOT NULL DEFAULT 0,
+                created_at  TEXT NOT NULL,
+                updated_at  TEXT NOT NULL
+            );
 
-        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = databasePath,
-            Mode = SqliteOpenMode.ReadWriteCreate
-        }.ToString());
+            CREATE TABLE IF NOT EXISTS inbox_lists (
+                id          TEXT PRIMARY KEY NOT NULL,
+                name        TEXT NOT NULL,
+                -- No foreign key on purpose: SQLite leaves FK enforcement off
+                -- by default, and ungrouping is a handler write rather than a
+                -- cascade the store may or may not run.
+                group_id    TEXT NULL,
+                sort_order  INTEGER NOT NULL DEFAULT 0,
+                created_at  TEXT NOT NULL,
+                updated_at  TEXT NOT NULL
+            );
 
-        try
-        {
-            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            CREATE TABLE IF NOT EXISTS inbox_items (
+                -- The replica capture id when replica_backed = 1, so intake is
+                -- idempotent by primary key.
+                id                   TEXT PRIMARY KEY NOT NULL,
+                title                TEXT NOT NULL,
+                body_md              TEXT NOT NULL DEFAULT '',
+                source_url           TEXT NULL,
+                captured_at          TEXT NOT NULL,
+                received_at          TEXT NOT NULL,
+                status               TEXT NOT NULL,
+                deferred_until       TEXT NULL,
+                -- A CaptureKinds slug; one this build does not know is kept
+                -- verbatim rather than rewritten to the nearest member.
+                kind                 TEXT NOT NULL,
+                channel              TEXT NOT NULL,
+                person               TEXT NULL,
+                tags                 TEXT NOT NULL DEFAULT '[]',
+                repo_ids             TEXT NOT NULL DEFAULT '[]',
+                list_id              TEXT NULL,
+                routing_domain       TEXT NULL,
+                routing_repo_ids     TEXT NOT NULL DEFAULT '[]',
+                routing_task_ids     TEXT NOT NULL DEFAULT '[]',
+                routed_at            TEXT NULL,
+                replica_backed       INTEGER NOT NULL DEFAULT 0,
+                replica_ack_pending  INTEGER NOT NULL DEFAULT 0,
+                -- NOT NULL, unlike the tasks table's updated_at: that column
+                -- was added to a populated table and had to tolerate null.
+                -- These three ship with their tables, so no row has ever
+                -- lacked one (local ADR 0006's asymmetry note).
+                updated_at           TEXT NOT NULL
+            );
 
-            await using var command = connection.CreateCommand();
-            command.CommandText = """
-                PRAGMA journal_mode = WAL;
+            CREATE INDEX IF NOT EXISTS ix_inbox_items_captured ON inbox_items (captured_at DESC);
+            CREATE INDEX IF NOT EXISTS ix_inbox_items_list     ON inbox_items (list_id);
+            CREATE INDEX IF NOT EXISTS ix_inbox_items_ack      ON inbox_items (replica_ack_pending);
 
-                CREATE TABLE IF NOT EXISTS inbox_groups (
-                    id          TEXT PRIMARY KEY NOT NULL,
-                    name        TEXT NOT NULL,
-                    sort_order  INTEGER NOT NULL DEFAULT 0,
-                    created_at  TEXT NOT NULL,
-                    updated_at  TEXT NOT NULL
-                );
+            -- The files a capture arrived with (local ADR 0014), one row each.
+            -- A table of its own added beside the others rather than a column
+            -- on inbox_items: additive, so a database written before it
+            -- simply has none (local ADR 0006). The first five columns are
+            -- what the capture said and never change; the last three are
+            -- this machine's copy.
+            CREATE TABLE IF NOT EXISTS inbox_item_attachments (
+                item_id        TEXT NOT NULL,
+                attachment_id  TEXT NOT NULL,
+                name           TEXT NOT NULL,
+                content_type   TEXT NOT NULL,
+                size_bytes     INTEGER NOT NULL,
+                sha256         TEXT NOT NULL,
+                local_path     TEXT NULL,
+                downloaded_at  TEXT NULL,
+                last_error     TEXT NULL,
+                sort_order     INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (item_id, attachment_id)
+            );
 
-                CREATE TABLE IF NOT EXISTS inbox_lists (
-                    id          TEXT PRIMARY KEY NOT NULL,
-                    name        TEXT NOT NULL,
-                    -- No foreign key on purpose: SQLite leaves FK enforcement off
-                    -- by default, and ungrouping is a handler write rather than a
-                    -- cascade the store may or may not run.
-                    group_id    TEXT NULL,
-                    sort_order  INTEGER NOT NULL DEFAULT 0,
-                    created_at  TEXT NOT NULL,
-                    updated_at  TEXT NOT NULL
-                );
+            -- What is left of a deleted replica-backed item until the phone
+            -- has its tombstone (local ADR 0009): enough to rebuild the
+            -- capture document, and nothing else. A table of its own, so the
+            -- item row really is gone, and additive (local ADR 0006).
+            CREATE TABLE IF NOT EXISTS inbox_deleted_captures (
+                id           TEXT PRIMARY KEY NOT NULL,
+                title        TEXT NOT NULL,
+                captured_at  TEXT NOT NULL,
+                deleted_at   TEXT NOT NULL
+            );
+            """, cancellationToken).ConfigureAwait(false);
 
-                CREATE TABLE IF NOT EXISTS inbox_items (
-                    -- The replica capture id when replica_backed = 1, so intake is
-                    -- idempotent by primary key.
-                    id                   TEXT PRIMARY KEY NOT NULL,
-                    title                TEXT NOT NULL,
-                    body_md              TEXT NOT NULL DEFAULT '',
-                    source_url           TEXT NULL,
-                    captured_at          TEXT NOT NULL,
-                    received_at          TEXT NOT NULL,
-                    status               TEXT NOT NULL,
-                    deferred_until       TEXT NULL,
-                    -- A CaptureKinds slug; one this build does not know is kept
-                    -- verbatim rather than rewritten to the nearest member.
-                    kind                 TEXT NOT NULL,
-                    channel              TEXT NOT NULL,
-                    person               TEXT NULL,
-                    tags                 TEXT NOT NULL DEFAULT '[]',
-                    repo_ids             TEXT NOT NULL DEFAULT '[]',
-                    list_id              TEXT NULL,
-                    routing_domain       TEXT NULL,
-                    routing_repo_ids     TEXT NOT NULL DEFAULT '[]',
-                    routing_task_ids     TEXT NOT NULL DEFAULT '[]',
-                    routed_at            TEXT NULL,
-                    replica_backed       INTEGER NOT NULL DEFAULT 0,
-                    replica_ack_pending  INTEGER NOT NULL DEFAULT 0,
-                    -- NOT NULL, unlike the tasks table's updated_at: that column
-                    -- was added to a populated table and had to tolerate null.
-                    -- These three ship with their tables, so no row has ever
-                    -- lacked one (local ADR 0006's asymmetry note).
-                    updated_at           TEXT NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS ix_inbox_items_captured ON inbox_items (captured_at DESC);
-                CREATE INDEX IF NOT EXISTS ix_inbox_items_list     ON inbox_items (list_id);
-                CREATE INDEX IF NOT EXISTS ix_inbox_items_ack      ON inbox_items (replica_ack_pending);
-
-                -- The files a capture arrived with (local ADR 0014), one row each.
-                -- A table of its own added beside the others rather than a column
-                -- on inbox_items: additive, so a database written before it
-                -- simply has none (local ADR 0006). The first five columns are
-                -- what the capture said and never change; the last three are
-                -- this machine's copy.
-                CREATE TABLE IF NOT EXISTS inbox_item_attachments (
-                    item_id        TEXT NOT NULL,
-                    attachment_id  TEXT NOT NULL,
-                    name           TEXT NOT NULL,
-                    content_type   TEXT NOT NULL,
-                    size_bytes     INTEGER NOT NULL,
-                    sha256         TEXT NOT NULL,
-                    local_path     TEXT NULL,
-                    downloaded_at  TEXT NULL,
-                    last_error     TEXT NULL,
-                    sort_order     INTEGER NOT NULL DEFAULT 0,
-                    PRIMARY KEY (item_id, attachment_id)
-                );
-
-                -- What is left of a deleted replica-backed item until the phone
-                -- has its tombstone (local ADR 0009): enough to rebuild the
-                -- capture document, and nothing else. A table of its own, so the
-                -- item row really is gone, and additive (local ADR 0006).
-                CREATE TABLE IF NOT EXISTS inbox_deleted_captures (
-                    id           TEXT PRIMARY KEY NOT NULL,
-                    title        TEXT NOT NULL,
-                    captured_at  TEXT NOT NULL,
-                    deleted_at   TEXT NOT NULL
-                );
-                """;
-            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
-            // Columns added after inbox_items had rows. Every column above shipped
-            // with its table; these arrive on a database written before them, so
-            // each carries a default a row written then can stand on.
-            await EnsureColumnAsync(connection, "inbox_items", "dismissed_suggestions", "TEXT NOT NULL DEFAULT '[]'", cancellationToken)
-                .ConfigureAwait(false);
-            await EnsureColumnAsync(connection, "inbox_items", "duplicate_of", "TEXT NULL", cancellationToken)
-                .ConfigureAwait(false);
-
-            return connection;
-        }
-        catch
-        {
-            await connection.DisposeAsync().ConfigureAwait(false);
-            throw;
-        }
+        // Columns added after inbox_items had rows. Every column above shipped
+        // with its table; these arrive on a database written before them, so
+        // each carries a default a row written then can stand on.
+        await EnsureColumnAsync(connection, "inbox_items", "dismissed_suggestions", "TEXT NOT NULL DEFAULT '[]'", cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureColumnAsync(connection, "inbox_items", "duplicate_of", "TEXT NULL", cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>Adds a column to one of the inbox tables when it is not already

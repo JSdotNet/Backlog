@@ -31,8 +31,7 @@ chapter where a reviewer will find it, and mark the remark answered.
    code, the decision, the neighbouring chapters. Work out the answer before writing
    anything. A remark you cannot answer stays open; say which and why.
 4. **Write the fence**, in the session's checkout, with the devbook plugin's own
-   `annotations.mjs` (`tools/devbook-meta/annotations.mjs`; this repository has no copy of
-   its own until the contract v6 adoption lands):
+   `annotations.mjs` (`.devbook/_tools/devbook-meta/annotations.mjs`):
    - `annotations.mjs add --chapter <path#slug> --after "<the block's text>" --author "<the
      person>" --date <the note's date> --kind question --body "<the remark, in their words>"`
      — `--after` both places the fence under the block the remark's `BlockIndex` names and

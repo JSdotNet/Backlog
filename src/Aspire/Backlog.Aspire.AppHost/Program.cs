@@ -17,20 +17,18 @@ var builder = DistributedApplication.CreateBuilder(args);
 // sessions indexing policy are NOT expressed here — the emulator honours neither,
 // and duplicating them would create a second place for them to drift from
 // infra/sync/main.bicep, which is where ADR 0005 puts them.
-#pragma warning disable ASPIRECOSMOSDB001 // RunAsPreviewEmulator is experimental; see comment below.
-// The preview (vNext) emulator rather than the original: it is the smaller image,
-// it does not need its self-signed certificate trusted on the host first, and it
-// ships the Data Explorer. It is still not quick — the image is ~2.5 GB and a cold
-// start takes a couple of minutes — which is why nothing below waits on it.
-// The API is still marked experimental, so the suppression is scoped to this call
-// rather than added to the project's NoWarn.
+// The vNext emulator, which RunAsEmulator selects since Aspire 13.6, rather than
+// the classic one (RunAsClassicEmulator): it is the smaller image and it does not
+// need its self-signed certificate trusted on the host first. Aspire leaves its
+// Data Explorer off by default, so it is asked for explicitly. It is still not
+// quick — the image is ~2.5 GB and a cold start takes a couple of minutes — which
+// is why nothing below waits on it.
 var cosmos = builder.AddAzureCosmosDB("cosmos")
-    .RunAsPreviewEmulator(emulator => emulator
+    .RunAsEmulator(emulator => emulator
         .WithDataExplorer()
         // Persistent, so the container survives between AppHost runs and only the
         // first one on a machine pays that cold start.
         .WithLifetime(ContainerLifetime.Persistent));
-#pragma warning restore ASPIRECOSMOSDB001
 
 var cosmosDatabase = cosmos.AddCosmosDatabase("backlog");
 cosmosDatabase.AddContainer("tasks", "/ownerId");

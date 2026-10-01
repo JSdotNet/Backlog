@@ -253,7 +253,7 @@ public sealed class MyDayScopeTests
 
         var empty = pane.Find("[data-testid='empty-state']").TextContent;
 
-        Assert.Contains("Nothing matches these filters.", empty, StringComparison.Ordinal);
+        Assert.Contains("Nothing matches these filters", empty, StringComparison.Ordinal);
         Assert.DoesNotContain("Write your first entry", empty, StringComparison.Ordinal);
     }
 

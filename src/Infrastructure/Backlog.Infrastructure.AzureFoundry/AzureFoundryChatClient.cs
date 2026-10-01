@@ -207,7 +207,7 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
         var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            throw new AzureFoundryException($"Azure Foundry returned {(int)response.StatusCode}: {TrimForMessage(payload)}");
+            throw new AzureFoundryException($"Azure Foundry returned {(int)response.StatusCode}: {FoundryMessages.TrimForMessage(payload)}");
         }
 
         var completion = JsonSerializer.Deserialize<ChatCompletionResponse>(payload, JsonOptions);
@@ -275,12 +275,6 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
 
         var body = text[(firstLineEnd + 1)..^3];
         return body.Trim();
-    }
-
-    private static string TrimForMessage(string value)
-    {
-        var trimmed = value.Trim();
-        return trimmed.Length <= 300 ? trimmed : trimmed[..300] + "...";
     }
 
     private sealed record ChatCompletionRequest(IReadOnlyList<ChatMessage> Messages);

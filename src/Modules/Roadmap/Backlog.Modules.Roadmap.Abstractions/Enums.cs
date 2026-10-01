@@ -82,5 +82,10 @@ public enum PaceSource
     LastFourWeeks,
 
     /// <summary>Effort finished over the last eight weeks, per day.</summary>
-    LastEightWeeks
+    LastEightWeeks,
+
+    /// <summary>The scope's own pace, set by hand on its slider. Appended after the
+    /// stretches: it is persisted by name, and a build that does not know it reads it
+    /// as no choice.</summary>
+    Set
 }

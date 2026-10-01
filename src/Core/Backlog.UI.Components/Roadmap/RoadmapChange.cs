@@ -66,7 +66,9 @@ public sealed record RoadmapChange(
         string? rowId,
         DayOfWeek weekStart)
     {
-        if (bar.Locked) return null;
+        // A locked bar refuses everything, except the end of one that offers it: started
+        // work has a start that is a fact and an end the reader may overrule.
+        if (bar.Locked && !(bar.EndResizable && kind == RoadmapDrag.ResizeEnd)) return null;
 
         return kind switch
         {

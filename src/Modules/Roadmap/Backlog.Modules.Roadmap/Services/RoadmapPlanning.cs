@@ -8,6 +8,7 @@ using Backlog.Modules.Roadmap.Features.RemoveMilestone;
 using Backlog.Modules.Roadmap.Features.UpdateMilestone;
 using Backlog.Modules.Roadmap.Features.GetPlan;
 using Backlog.Modules.Roadmap.Features.ImportPlanItems;
+using Backlog.Modules.Roadmap.Features.PinItemEnd;
 using Backlog.Modules.Roadmap.Features.PrioritiseItem;
 using Backlog.Modules.Roadmap.Features.RelengthenItem;
 using Backlog.Modules.Roadmap.Features.RemoveDependency;
@@ -28,6 +29,8 @@ internal sealed class RoadmapPlanning(
     IQueryHandler<GetPlanQuery, RoadmapPlanDto> getPlan,
     ICommandHandler<AddItemCommand, Result<RoadmapItemDto>> addItem,
     ICommandHandler<RescheduleItemCommand, Result<RoadmapItemDto>> rescheduleItem,
+    ICommandHandler<PinItemEndCommand, Result<RoadmapItemDto>> pinItemEnd,
+    ICommandHandler<UnpinItemEndCommand, Result<RoadmapItemDto>> unpinItemEnd,
     ICommandHandler<UpdateItemCommand, Result<RoadmapItemDto>> updateItem,
     ICommandHandler<PrioritiseItemCommand, Result<RoadmapItemDto>> prioritiseItem,
     ICommandHandler<RemoveItemCommand, Result> removeItem,
@@ -92,6 +95,17 @@ internal sealed class RoadmapPlanning(
         string? lane = null,
         CancellationToken cancellationToken = default) =>
         Announce(rescheduleItem.Handle(new RescheduleItemCommand(itemId, start, end, lane), cancellationToken));
+
+    public Task<Result<RoadmapItemDto>> PinItemEndAsync(
+        Guid itemId,
+        DateOnly end,
+        CancellationToken cancellationToken = default) =>
+        Announce(pinItemEnd.Handle(new PinItemEndCommand(itemId, end), cancellationToken));
+
+    public Task<Result<RoadmapItemDto>> UnpinItemEndAsync(
+        Guid itemId,
+        CancellationToken cancellationToken = default) =>
+        Announce(unpinItemEnd.Handle(new UnpinItemEndCommand(itemId), cancellationToken));
 
     public Task<Result<RoadmapItemDto>> PrioritiseItemAsync(
         Guid itemId,

@@ -42,4 +42,6 @@ public sealed class PlanningVelocitySource : IPlanningVelocitySettings
     public string? SetManual(string? typed, string? repository = null) => _settings.Set(typed, repository);
 
     public string? Choose(PaceSource source, string? repository = null) => _settings.Choose(source, repository);
+
+    public string? SetOwn(string? typed, string? repository = null) => _settings.SetOwn(typed, repository);
 }

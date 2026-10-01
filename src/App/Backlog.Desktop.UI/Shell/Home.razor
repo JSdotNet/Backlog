@@ -1503,26 +1503,18 @@
     private bool _captureRunning;
     private string? _captureMessage;
 
-    /// <summary>Whether the sources panel on the Inbox pane is open. Held
-    /// here for the same reason the run's result is: the pane re-mounts when
-    /// it changes slot, and a panel that snapped shut on that would be one the
-    /// reader has to keep reopening.</summary>
-    private bool _captureSourcesOpen;
-
     /// <summary>
     /// The Inbox pane as this shell composes it, once, for both slots it can
     /// sit in: the Capture button answered by <see cref="RunCaptureAsync"/>,
-    /// and the Capture context's own sources panel in the pane's sources slot.
-    /// The pane draws that slot without naming what is in it, so the Inbox
-    /// stays free of Capture's types while its button and its switches sit
-    /// together on screen.
+    /// and the Capture context's own sources panel in the pane's sources slot,
+    /// which the pane shows as its Sources tab. The pane draws that slot
+    /// without naming what is in it, so the Inbox stays free of Capture's
+    /// types while its button and its switches sit together on one pane.
     /// </summary>
     private RenderFragment InboxPaneContent =>
         @<InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage">
             <Sources>
-                <CaptureSourcesPanel Expanded="_captureSourcesOpen"
-                                     ExpandedChanged="open => _captureSourcesOpen = open"
-                                     OnImported="ImportedAsync" />
+                <CaptureSourcesPanel OnImported="ImportedAsync" />
             </Sources>
         </InboxPane>;
 
@@ -1590,7 +1582,7 @@
     }
 
     /// <summary>A run's result in one line. Nothing enabled points at the
-    /// panel that would change that — it is on the same pane, under this line;
+    /// tab that would change that — it is on the same pane, beside the queue;
     /// otherwise each source's own sentence — which already carries that
     /// source's count — and, when there was more than one source, the total,
     /// so a reader is not left adding up.</summary>
@@ -1598,7 +1590,7 @@
     {
         if (run.NothingEnabled)
         {
-            return "No capture sources are enabled. Open Sources below and switch one on.";
+            return "No capture sources are enabled. Open the Sources tab and switch one on.";
         }
 
         var sources = string.Join(" ", run.Sources.Select(source => source.Message));

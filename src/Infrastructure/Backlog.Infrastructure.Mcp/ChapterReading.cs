@@ -41,32 +41,6 @@ internal static class ChapterReading
     internal const string AnnotationFenceLanguage = "annotation";
 
     /// <summary>
-    /// The chapter spellings a note may have been filed under.
-    /// <para>
-    /// Two, because the panels disagree: the domain panel keys its notes by a
-    /// repository-relative path (<c>.devbook/domain/sessions/domain.md</c>) and the arc42
-    /// panel by an area-relative one (<c>adr/0012-….md</c>), each passing its own
-    /// store's document path straight to
-    /// <see cref="IDevbookAnnotationStore.List"/>. A tool that picked one spelling
-    /// would answer nothing for half the chapters in the product, so it asks for
-    /// both and merges. Neither is invented: both are spellings the store is
-    /// holding today.
-    /// </para>
-    /// </summary>
-    internal static IReadOnlyList<string> Spellings(string chapterPath, string? folderRelativePath)
-    {
-        var spellings = new List<string> { chapterPath };
-
-        if (!string.IsNullOrEmpty(folderRelativePath)
-            && !string.Equals(folderRelativePath, chapterPath, StringComparison.OrdinalIgnoreCase))
-        {
-            spellings.Add(folderRelativePath);
-        }
-
-        return spellings;
-    }
-
-    /// <summary>
     /// The notes on a chapter: live and typed into.
     /// <para>
     /// <c>List</c> already drops tombstones and keeps drafts, so the one filter
@@ -74,28 +48,23 @@ internal static class ChapterReading
     /// that closing the pane does not lose it, and never replicated. Neither
     /// existing method gives live-and-not-draft on its own.
     /// </para>
+    /// <para>
+    /// One question, in whatever spelling the caller holds: the store
+    /// canonicalizes the path it is asked with as well as the paths it files
+    /// under (<see cref="DevbookChapterKey.Canonical"/>), so every configured
+    /// spelling of a chapter names the same notes.
+    /// </para>
     /// </summary>
     internal static IReadOnlyList<DevbookAnnotation> Notes(
         IDevbookAnnotationStore store,
         string? repositoryAlias,
-        IEnumerable<string> spellings)
-    {
-        var seen = new HashSet<Guid>();
-        var notes = new List<DevbookAnnotation>();
-
-        foreach (var spelling in spellings)
-        {
-            foreach (var note in store.List(repositoryAlias, spelling))
-            {
-                if (note.IsDraft) continue;
-                if (!seen.Add(note.Id)) continue;
-
-                notes.Add(note);
-            }
-        }
-
-        return [.. notes.OrderBy(note => note.BlockIndex).ThenBy(note => note.CreatedAt)];
-    }
+        string chapterPath) =>
+        [
+            .. store.List(repositoryAlias, chapterPath)
+                .Where(note => !note.IsDraft)
+                .OrderBy(note => note.BlockIndex)
+                .ThenBy(note => note.CreatedAt)
+        ];
 
     /// <summary>
     /// The chapter, in one mode or the other.

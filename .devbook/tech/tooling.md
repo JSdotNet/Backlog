@@ -284,7 +284,7 @@ Automated dependency and security updates.
 ```meta
 status: adopted
 type: tool
-version: "1.9.0"
+version: "1.13.0"
 depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#json", ".devbook/tech/ai-development.md#devbook-plugin"]
 related: [".devbook/tech/tooling.md#github-actions", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
 ```
@@ -385,7 +385,7 @@ writer it is held to.
 ```meta
 status: adopted
 type: tool
-version: "2.15.0"
+version: "2.16.0"
 depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#mermaid"]
 related: [".devbook/tech/tooling.md#ajv", ".devbook/tech/tooling.md#simple-icons"]
 ```

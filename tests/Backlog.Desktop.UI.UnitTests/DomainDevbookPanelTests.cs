@@ -53,6 +53,97 @@ public sealed class DomainDevbookPanelTests : IDisposable
         Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Every parameter set starts a chapter read, so a reader who moves on while a
+    /// file is still coming off disk has two reads out at once, and they can finish
+    /// in either order. The one for the chapter they left used to land last and
+    /// win: the context map's text was drawn under the context's name, its
+    /// baselines were taken for the wrong file, and Edit opened the context map's
+    /// buffer on the context's file.
+    /// </summary>
+    [Fact]
+    public async Task A_chapter_read_that_finishes_after_a_newer_one_is_dropped()
+    {
+        await using var harness = CreateHarness();
+        Directory.CreateDirectory(Path.Combine(harness.Root, ".domain", "orders"));
+        File.WriteAllText(Path.Combine(harness.Root, ".domain", "orders", "context.md"), "# Orders\n\nOrders prose.\n");
+        var reader = new HeldChapterFileReader("context-map.md");
+        harness.Context.Services.AddSingleton<DevbookChapterFileReader>(reader);
+
+        var component = harness.Render(ContextMapPath);
+        await reader.Started.WaitAsync(TestContext.Current.CancellationToken);
+
+        component.Render(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
+            .Add(panel => panel.SelectedPath, ".domain/orders/context.md"));
+        component.WaitForAssertion(() => Assert.Contains("Orders prose.", component.Markup, StringComparison.Ordinal));
+
+        // The held read's own parameter set ends in a render whichever way the
+        // read is taken up, so that render is what says the stale text had its
+        // chance to land.
+        var renders = component.RenderCount;
+        reader.Release();
+        await reader.Returned.WaitAsync(TestContext.Current.CancellationToken);
+        component.WaitForState(() => component.RenderCount > renders);
+
+        Assert.Equal("Orders", component.Find(".file-view__name").TextContent.Trim());
+        Assert.Contains("Orders prose.", component.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Original prose.", component.Markup, StringComparison.Ordinal);
+
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-chapter-file-edit']").Click());
+        component.WaitForAssertion(() => Assert.Equal(
+            "# Orders\n\nOrders prose.\n",
+            component.Find("[data-testid='devbook-chapter-surface'] textarea").GetAttribute("value")));
+    }
+
+    /// <summary>
+    /// A dropped read can be the only one that saw the chapter change. Here the
+    /// reader edits the context map, picks a context whose read is held, and a
+    /// folder change reloads that same context before the held read is back: the
+    /// reload is the read that lands, and it has to know it is opening a different
+    /// file from the one on screen. Decided against the chapter last asked for, it
+    /// saw the context both times, kept the context map's baselines and left the
+    /// editor open on a file the reader never chose to edit.
+    /// </summary>
+    [Fact]
+    public async Task A_reload_that_overtakes_a_dropped_read_still_opens_the_new_chapter_fresh()
+    {
+        await using var harness = CreateHarness();
+        Directory.CreateDirectory(Path.Combine(harness.Root, ".domain", "orders"));
+        File.WriteAllText(Path.Combine(harness.Root, ".domain", "orders", "context.md"), "# Orders\n\nOrders prose.\n");
+        var reader = new HeldChapterFileReader("context.md");
+        harness.Context.Services.AddSingleton<DevbookChapterFileReader>(reader);
+        var folders = UnreadableDevbookFolderSource.Install(harness.Context);
+
+        var component = harness.Render(ContextMapPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']")));
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-chapter-file-edit']").Click());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-chapter-surface'] textarea")));
+
+        component.Render(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
+            .Add(panel => panel.SelectedPath, ".domain/orders/context.md"));
+        await reader.Started.WaitAsync(TestContext.Current.CancellationToken);
+
+        // The reload's read of the same context goes straight through, so it is
+        // the one that lands first — with a record of its own, past the
+        // reference-identity guard.
+        reader.Holding = false;
+        folders.NotifyContentChanged();
+        component.WaitForAssertion(() => Assert.Contains("Orders prose.", component.Markup, StringComparison.Ordinal));
+
+        var renders = component.RenderCount;
+        reader.Release();
+        await reader.Returned.WaitAsync(TestContext.Current.CancellationToken);
+        component.WaitForState(() => component.RenderCount > renders);
+
+        Assert.Equal("Orders", component.Find(".file-view__name").TextContent.Trim());
+        Assert.DoesNotContain("Original prose.", component.Markup, StringComparison.Ordinal);
+        Assert.Empty(component.FindAll("[data-testid='devbook-chapter-surface']"));
+        Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-compare-view']"));
+        Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']"));
+    }
+
     [Fact]
     public async Task A_selected_chapter_opens_as_the_file_read_and_offers_a_way_in()
     {

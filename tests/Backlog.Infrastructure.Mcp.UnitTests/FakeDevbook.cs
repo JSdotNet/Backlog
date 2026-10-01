@@ -77,6 +77,13 @@ internal sealed class FakeDevbookFolderSource(string rootPath, params DevbookFol
 /// <summary>
 /// The private reading notes, in a list.
 /// <para>
+/// Keyed the way the real stores key them: both the stored path and the one
+/// asked for go through <see cref="DevbookChapterKey.Canonical"/> against
+/// <see cref="Folders"/>, so a test about which spelling a tool asks with is
+/// answered by the store's contract rather than by how this double compares
+/// strings.
+/// </para>
+/// <para>
 /// <c>SetResolved</c> works, because <c>resolve_annotation</c> is a real write and
 /// the tests about it need to see what it did — <see cref="Resolved"/> records
 /// every call. Every other write is refused: no tool here may add, edit, delete
@@ -87,8 +94,13 @@ internal sealed class FakeDevbookAnnotationStore(params DevbookAnnotation[] anno
 {
     private readonly List<DevbookAnnotation> _annotations = [.. annotations];
 
+    /// <summary>The folders the chapter keys are canonicalized against — the
+    /// repository's configuration, as the real store reads it from its folder
+    /// source. Null reads the conventional folders.</summary>
+    public IReadOnlyList<DevbookFolderSetting>? Folders { get; init; }
+
     /// <summary>The (alias, chapter) pairs that were asked for, in order. What
-    /// shows which spellings a tool tried.</summary>
+    /// shows how many times, and with which spelling, a tool asked.</summary>
     public List<(string? Alias, string ChapterPath)> Listed { get; } = [];
 
     /// <summary>Every <c>SetResolved</c> call, in order — so a test can tell a
@@ -105,6 +117,8 @@ internal sealed class FakeDevbookAnnotationStore(params DevbookAnnotation[] anno
     {
         Listed.Add((repositoryAlias, chapterPath));
 
+        var chapter = DevbookChapterKey.Canonical(chapterPath, Folders);
+
         // The real store's own contract: live remarks, drafts included, oldest
         // first. A double that dropped drafts here would make "the tool excludes
         // drafts" true of the double.
@@ -113,7 +127,7 @@ internal sealed class FakeDevbookAnnotationStore(params DevbookAnnotation[] anno
             .. _annotations
                 .Where(annotation => annotation.IsLive)
                 .Where(annotation => string.Equals(annotation.RepositoryAlias, repositoryAlias ?? string.Empty, StringComparison.OrdinalIgnoreCase))
-                .Where(annotation => string.Equals(annotation.ChapterPath, chapterPath, StringComparison.OrdinalIgnoreCase))
+                .Where(annotation => string.Equals(DevbookChapterKey.Canonical(annotation.ChapterPath, Folders), chapter, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(annotation => annotation.CreatedAt)
         ];
     }

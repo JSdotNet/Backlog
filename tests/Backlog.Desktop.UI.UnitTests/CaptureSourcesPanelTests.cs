@@ -30,15 +30,18 @@ public sealed class CaptureSourcesPanelTests
 {
     private static readonly DateTimeOffset Noon = new(2026, 9, 16, 12, 0, 0, TimeSpan.Zero);
 
+    /// <summary>The panel has the Inbox's Sources tab to itself, so it is
+    /// drawn open: no fold to find the switches behind. The summary line still
+    /// says at a glance whether Capture will do anything.</summary>
     [Fact]
-    public void The_panel_opens_folded_with_a_summary_of_what_is_on()
+    public void The_panel_is_drawn_open_with_a_summary_of_what_is_on()
     {
         using var panel = RenderPanel();
 
-        var trigger = panel.Component.Find("[data-testid='capture-sources-toggle']");
-        Assert.Equal("false", trigger.GetAttribute("aria-expanded"));
-        Assert.Equal("none on", panel.Component.Find("[data-testid='capture-sources-summary']").TextContent.Trim());
-        Assert.True(panel.Component.Find("[data-testid='capture-sources']").ParentElement!.HasAttribute("hidden"));
+        Assert.Empty(panel.Component.FindAll("[data-testid='capture-sources-toggle']"));
+        Assert.Equal("None of 3 sources on", panel.Component.Find("[data-testid='capture-sources-summary']").TextContent.Trim());
+        Assert.False(panel.Component.Find("[data-testid='capture-sources']").HasAttribute("hidden"));
+        Assert.NotEmpty(panel.Component.FindAll("[data-testid='capture-source-youtube-enabled']"));
     }
 
     [Fact]
@@ -50,26 +53,13 @@ public sealed class CaptureSourcesPanelTests
             store.SetEnabled(CaptureSourceKind.Email, true);
         });
 
-        Assert.Equal("2 of 3 on", panel.Component.Find("[data-testid='capture-sources-summary']").TextContent.Trim());
-    }
-
-    /// <summary>The fold is the host's: the panel asks, and shows what it is
-    /// told. A host that does not answer leaves it where it was.</summary>
-    [Fact]
-    public void The_trigger_asks_the_host_to_open_it()
-    {
-        var asked = new List<bool>();
-        using var panel = RenderPanel(expanded: false, expandedChanged: asked.Add);
-
-        panel.Component.Find("[data-testid='capture-sources-toggle']").Click();
-
-        Assert.Equal([true], asked);
+        Assert.Equal("2 of 3 sources on", panel.Component.Find("[data-testid='capture-sources-summary']").TextContent.Trim());
     }
 
     [Fact]
     public void Every_monitorable_source_gets_a_toggle_a_targets_field_and_a_last_run()
     {
-        using var panel = RenderPanel(expanded: true);
+        using var panel = RenderPanel();
 
         foreach (var kind in CaptureSourceKinds.Monitorable)
         {
@@ -87,7 +77,7 @@ public sealed class CaptureSourcesPanelTests
     [Fact]
     public void Toggling_a_source_is_stored_straight_away()
     {
-        using var panel = RenderPanel(expanded: true);
+        using var panel = RenderPanel();
 
         panel.Component.Find("[data-testid='capture-source-youtube-enabled'] input").Change(true);
 
@@ -102,7 +92,7 @@ public sealed class CaptureSourcesPanelTests
     [Fact]
     public void Committed_targets_are_stored_one_per_line()
     {
-        using var panel = RenderPanel(expanded: true);
+        using var panel = RenderPanel();
 
         var field = panel.Component.Find("[data-testid='capture-source-website-targets'] textarea");
         field.Input("https://example.com/blog\n\n  https://example.org/changelog  \n");
@@ -117,7 +107,6 @@ public sealed class CaptureSourcesPanelTests
     public void The_field_opens_showing_what_is_in_force()
     {
         using var panel = RenderPanel(
-            expanded: true,
             before: store => store.SetTargets(CaptureSourceKind.Email, ["news@example.com", "digest@example.org"]));
 
         var field = panel.Component.Find("[data-testid='capture-source-email-targets'] textarea");
@@ -129,7 +118,7 @@ public sealed class CaptureSourcesPanelTests
     [Fact]
     public void A_store_error_is_shown_on_the_field()
     {
-        using var panel = RenderPanel(expanded: true, captureSources: new RefusingCaptureSources());
+        using var panel = RenderPanel(captureSources: new RefusingCaptureSources());
 
         panel.Component.Find("[data-testid='capture-source-email-enabled'] input").Change(true);
 
@@ -140,7 +129,7 @@ public sealed class CaptureSourcesPanelTests
     [Fact]
     public void A_sources_last_run_is_its_date_and_count()
     {
-        using var panel = RenderPanel(expanded: true, log: log => log.Record(new CaptureRunResultDto(
+        using var panel = RenderPanel(log: log => log.Record(new CaptureRunResultDto(
             [
                 new CaptureRunSourceResult(CaptureSourceKind.YouTube, 2, "YouTube: 2 new items."),
                 new CaptureRunSourceResult(CaptureSourceKind.Website, 1, "Website: 1 new item.")
@@ -164,7 +153,7 @@ public sealed class CaptureSourcesPanelTests
     [Fact]
     public void A_run_written_after_the_panel_opened_lands_on_the_row()
     {
-        using var panel = RenderPanel(expanded: true);
+        using var panel = RenderPanel();
 
         panel.Log.Record(new CaptureRunResultDto([new CaptureRunSourceResult(CaptureSourceKind.Email, 0, "Email: 0 new items.")], Noon));
 
@@ -175,7 +164,7 @@ public sealed class CaptureSourcesPanelTests
     [Fact]
     public void The_log_button_opens_that_sources_runs_newest_first()
     {
-        using var panel = RenderPanel(expanded: true, log: log =>
+        using var panel = RenderPanel(log: log =>
         {
             log.Record(new CaptureRunResultDto([new CaptureRunSourceResult(CaptureSourceKind.YouTube, 1, "YouTube: 1 new item.")], Noon));
             log.Record(new CaptureRunResultDto(
@@ -216,7 +205,7 @@ public sealed class CaptureSourcesPanelTests
     [Fact]
     public void An_empty_log_says_so_rather_than_showing_nothing()
     {
-        using var panel = RenderPanel(expanded: true);
+        using var panel = RenderPanel();
 
         panel.Component.Find("[data-testid='capture-source-email-log-toggle']").Click();
 
@@ -229,7 +218,7 @@ public sealed class CaptureSourcesPanelTests
     [Fact]
     public void The_import_row_offers_a_file_and_its_own_last_run()
     {
-        using var panel = RenderPanel(expanded: true);
+        using var panel = RenderPanel();
 
         var row = panel.Component.Find("[data-testid='capture-source-import']");
         Assert.Contains("Import file", row.TextContent, StringComparison.Ordinal);
@@ -248,7 +237,7 @@ public sealed class CaptureSourcesPanelTests
     public void A_picked_manifest_is_imported_and_its_line_shown()
     {
         var imported = new List<CaptureRunResultDto>();
-        using var panel = RenderPanel(expanded: true, imported: imported.Add);
+        using var panel = RenderPanel(imported: imported.Add);
         const string manifest = "---\nschema: 1\ntool: microsoft-todo\n---\n";
 
         var input = panel.Component.FindComponent<InputFile>();
@@ -274,7 +263,6 @@ public sealed class CaptureSourcesPanelTests
     public void The_import_logs_last_run_is_read_like_a_monitors()
     {
         using var panel = RenderPanel(
-            expanded: true,
             log: store => store.Record(new CaptureRunResultDto(
                 [new CaptureRunSourceResult(CaptureSourceKind.Import, 3, "Import (microsoft-todo): 3 new items · 0 already known.")],
                 Noon)));
@@ -289,7 +277,7 @@ public sealed class CaptureSourcesPanelTests
     [Fact]
     public void The_panel_says_where_the_choices_are_kept()
     {
-        using var panel = RenderPanel(expanded: true);
+        using var panel = RenderPanel();
 
         Assert.Contains(
             panel.CaptureSources.SettingsPath,
@@ -298,8 +286,6 @@ public sealed class CaptureSourcesPanelTests
     }
 
     private static PanelRenderContext RenderPanel(
-        bool expanded = false,
-        Action<bool>? expandedChanged = null,
         ICaptureSourceSettings? captureSources = null,
         Action<ICaptureSourceSettings>? before = null,
         Action<ICaptureRunLog>? log = null,
@@ -320,8 +306,6 @@ public sealed class CaptureSourcesPanelTests
         context.Services.AddSingleton<ICaptureRunner>(runner);
 
         var component = context.Render<CaptureSourcesPanel>(parameters => parameters
-            .Add(p => p.Expanded, expanded)
-            .Add(p => p.ExpandedChanged, open => expandedChanged?.Invoke(open))
             .Add(p => p.OnImported, run => imported?.Invoke(run)));
 
         return new PanelRenderContext(root, context, component, captureSources, runLog, runner);

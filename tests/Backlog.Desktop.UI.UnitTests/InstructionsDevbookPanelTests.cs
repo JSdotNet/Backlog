@@ -88,6 +88,51 @@ public sealed class InstructionsDevbookPanelTests
         Assert.Empty(component.FindAll("[data-testid='devbook-chapter-edit']"));
     }
 
+    /// <summary>
+    /// Every parameter set starts a chapter read, so a reader who moves on while a
+    /// file is still coming off disk has two reads out at once, and they can finish
+    /// in either order. The one for the file they left used to land last and win:
+    /// its text was drawn under the name of the file they picked, and Edit opened
+    /// a buffer that would have saved it over that file.
+    /// </summary>
+    [Fact]
+    public async Task A_chapter_read_that_finishes_after_a_newer_one_is_dropped()
+    {
+        await using var harness = CreateCloneHarness();
+        var reader = new HeldChapterFileReader("copilot-instructions.md");
+        harness.Context.Services.AddSingleton<DevbookChapterFileReader>(reader);
+
+        var component = harness.Context.Render<InstructionsDevbookPanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog")
+            .Add(parameter => parameter.SelectedPath, ".github/copilot-instructions.md"));
+        await reader.Started.WaitAsync(TestContext.Current.CancellationToken);
+
+        component.Render(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog")
+            .Add(parameter => parameter.SelectedPath, "CLAUDE.md"));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-document-edit']")));
+
+        // The held read's own parameter set ends in a render whichever way the
+        // read is taken up, so that render is what says the stale text had its
+        // chance to land.
+        var renders = component.RenderCount;
+        reader.Release();
+        await reader.Returned.WaitAsync(TestContext.Current.CancellationToken);
+        component.WaitForState(() => component.RenderCount > renders);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("CLAUDE.md", component.Find(".file-view__path").TextContent.Trim());
+            Assert.Contains("As the list found it.", component.Markup, StringComparison.Ordinal);
+            Assert.DoesNotContain("Repository-wide guidance.", component.Markup, StringComparison.Ordinal);
+        });
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-document-edit']").Click());
+        component.WaitForAssertion(() => Assert.Equal(
+            "# Claude\n\nAs the list found it.\n",
+            component.Find("[data-testid='devbook-chapter-surface'] textarea").GetAttribute("value")));
+    }
+
     [Fact]
     public async Task The_file_view_header_carries_the_agent_the_scope_and_the_size()
     {

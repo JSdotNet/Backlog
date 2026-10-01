@@ -9,8 +9,6 @@ Backlog is a local-first, AI-first work management product: desktop, mobile, and
 channels plus a thin cloud sync service. Solution: `Backlog.sln`. Product code under
 `src/` (including development-time hosts under `src/Harness/`), tests under `tests/`.
 
-This file carries the repository rules that apply to **Claude Code**.
-
 ## Delivery gate
 
 **Before the first `Edit` or `Write` to any file under `src/` or `tests/`, invoke the
@@ -22,6 +20,9 @@ matching flow:**
 | A devbook chapter, decision record or debt record under `.devbook/` | `delivery:flow-spec` |
 | A dependency, package or framework move | `delivery:flow-update-packages` |
 | Creating, governing or scaffolding a repository | `delivery:flow-project` |
+
+Changes under `plugins/`, `tools/`, `build/`, `.github/` and `.claude/` are the first
+row's tooling, CI and scripting, so they route through `delivery:flow-code` as well.
 
 Reading, searching, and exploring are always allowed first — the gate is on the first
 write, not the first action, so orienting yourself does not consume it.
@@ -51,16 +52,17 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 `.devbook/config.json` holds the bindings, extensions, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. Neither of its skills changes the
-paragraph above: `backlog-import-plan` is user-invoked (`disable-model-invocation: true`)
-and one-shot, so it is not a flow and does not go through the gate;
-`backlog-run-plan-item` is model-invoked when a plan item is pasted in, but it runs the
-item's instructions *through* the gate — the matching flow — rather than adding an
-execution path beside it.
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its four skills changes the
+paragraph above. `backlog-import-plan` and `backlog-import-inbox` are user-invoked
+(`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
+app, so neither is a flow and neither goes through the gate. `backlog-run-plan-item` is
+model-invoked when a plan item is pasted in, but it runs the item's instructions *through*
+the gate — the matching flow — rather than adding an execution path beside it.
+`backlog-answer-notes` is model-invoked when asked to answer the Devbook notes; it writes
+only `annotation` fences, through `.devbook/_tools/devbook-meta/annotations.mjs`, offers the
+commit and never pushes.
 
-Changes confined to the devbook folders under `.devbook/` (`arc42/`, `domain/`, `tech/`,
-`design/`, `ai/`) run through `delivery:flow-spec`, not the code gate.
-`.agents/rules/context-loading.md` says how they are verified instead.
+`.agents/rules/context-loading.md` says how a change confined to `.devbook/` is verified.
 
 ## Delivery surfaces
 
@@ -75,14 +77,13 @@ without explicit user approval.
 
 ## Runtime configuration
 
-The runtime facts a flow needs are the procedures': `.agents/skills/start.md` runs the
-Aspire AppHost, says what healthy startup looks like and which harness answers which
-question; `show.md` picks the harness for a branch's change; `debug.md` queries logs and
-traces. QA depth is the engine's per change kind, capped by `policy` in
-`.devbook/config.json`.
+The runtime facts a flow needs are the procedures': the `run` skill
+(`.claude/skills/run-backlog/SKILL.md`) runs the Aspire AppHost, says what healthy startup
+looks like and which harness answers which question; `show.md` picks the harness for a
+branch's change; `debug.md` queries logs and traces. QA depth is the engine's per change
+kind, capped by `policy` in `.devbook/config.json`.
 
-This repository configures no model overrides. Flows use each plugin's default model per
-category unless a run is given an explicit model instruction.
+This repository configures no model overrides.
 
 ## Running and testing
 
@@ -100,8 +101,7 @@ dotnet build Backlog.sln
 dotnet test Backlog.sln
 ```
 
-`desktop`, `mobile-android`, `ide-vscode-build`, and `ide-vscode-host` use
-`WithExplicitStart()`. Them sitting `NotStarted` is expected, not a failed startup.
+`.claude/skills/run-backlog/SKILL.md` names the resources whose healthy state is `NotStarted`.
 
 ## Devbook
 
@@ -135,28 +135,11 @@ product reads `.devbook/<name>` first and a root-level `.<name>` as the legacy f
 `.github/workflows/devbook-metadata.yml` beside the installed `devbook-meta.yml`.
 `.claude/commands/update-devbook-index.md` runs the build check.
 
-## UI components
-
-A screen under `src/App/` or `src/Modules/` renders the shared library's component
-(`src/Core/Backlog.UI.Components`) rather than writing its own version of one. That covers
-both a raw `button`/`input`/`select`/`textarea` and a plain `div`/`span`/`p` wearing a
-component's own class. When a component cannot wear the screen's classes, add the hook to
-the library — `BaseClass`, `CssClass`, `Bare`, or a per-part class parameter usually
-already exists — rather than hand-rolling a second implementation.
-
-`tests/Backlog.ArchitectureTests/SharedControlAdoptionTests.cs` enforces this and holds the
-documented exceptions. See `.agents/rules/ui-components.md` for the full
-rule, including what the test cannot see.
-
 ## Authoritative guidance
 
-Repository guidance is **checked in, not fetched**: `.devbook/arc42/adr/guidelines/` holds
-the inherited organization decisions that govern the .NET code (read the one that governs
-your change; its `README.md` indexes them), `.devbook/arc42/adr/` Backlog's own — both
-start at 0001, so name the folder when citing one — and `.devbook/design/` the design and
-UX guidance. A skill that says to consult a guidelines MCP server reads
-`.devbook/arc42/adr/guidelines/` instead; the absent server is not a blocked precondition.
-`.agents/rules/mcp-usage.md` has the full authority order and the MCP servers still in use.
+Repository guidance is **checked in, not fetched**; `.agents/rules/mcp-usage.md` holds the
+authority order and what replaces a guidelines MCP server. `.devbook/arc42/adr/guidelines/`
+and `.devbook/arc42/adr/` both number from 0001, so name the folder when citing a decision.
 
 ## Further guidance
 
@@ -171,8 +154,13 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
 - `.agents/rules/storybook.md` — authoring a storybook page and a
   story; the rules it satisfies are in `.devbook/design/README.md#living-reference-the-ui-storybook`.
 - `.agents/rules/mcp-usage.md` — guidance authority order and which MCP servers remain in use.
-- `.agents/skills/` — the `start`, `show`, `capture`, `debug` and `estimate` procedures.
+- `.claude/skills/run-backlog/SKILL.md` — the `run` procedure; `.agents/skills/` holds the
+  `show`, `capture`, `debug` and `estimate` procedures.
 - `plugins/backlog-tools/skills/backlog-import-plan/SKILL.md` — generates a Backlog import
   plan (ADR 0007) from an agreed specification; user-invoked only.
 - `plugins/backlog-tools/skills/backlog-run-plan-item/SKILL.md` — runs one item of such a
   plan pasted back out of the Backlog app, after checking it is still outstanding.
+- `plugins/backlog-tools/skills/backlog-import-inbox/SKILL.md` — turns an export from another
+  to-do tool into an inbox import manifest (ADR 0017); user-invoked only.
+- `plugins/backlog-tools/skills/backlog-answer-notes/SKILL.md` — answers the reading notes left
+  on Devbook chapters in the Backlog app as `annotation` fences and resolves each note.

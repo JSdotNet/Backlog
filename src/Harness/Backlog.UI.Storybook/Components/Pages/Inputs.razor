@@ -233,6 +233,28 @@
         </Checkbox>
     </Story>
 
+    <Story Name="Slider"
+           Description="A number picked along a line, for a figure with a sensible range and no need to be exact — a pace in points a week, rather than a field to type it in. It is a native range input, so arrows, Home, End and the page keys work and a screen reader announces a slider. `ValueChanged` is the commit: it is raised when the thumb is let go, so a host that saves on change saves once per choice. `ValueInput` is the live one, raised on every movement, for a host that echoes the number as it is chosen — and it is not attached at all when nobody listens. `ValueText` is what a screen reader hears in place of the bare number, because the unit is what a position cannot say. A value outside the range is drawn at the nearer end; the host is the one to widen the range when it means to keep it."
+           Code="@SliderCode">
+        <div class="sb-stack">
+            <div>
+                <Slider Min="2"
+                        Max="12"
+                        Step="0.25m"
+                        Value="_pace"
+                        ValueInput="v => _paceLive = v"
+                        ValueChanged="v => { _pace = v; _paceLive = v; }"
+                        AriaLabel="Pace"
+                        ValueText="@($"{_paceLive:0.##} points a week")"
+                        TestId="input-slider" />
+                <p class="sb-state" data-testid="input-slider-value">
+                    Moving: @_paceLive.ToString("0.##") pt/wk &nbsp;|&nbsp; Committed: @_pace.ToString("0.##") pt/wk
+                </p>
+            </div>
+            <Slider Min="2" Max="12" Value="7" AriaLabel="Pace, disabled" Disabled="true" />
+        </div>
+    </Story>
+
     <Story Name="A date, a time and a repeat"
            Description="The three fields a scheduled thing is set with. `Type=&quot;date&quot;` takes and returns `yyyy-MM-dd`, `Type=&quot;time&quot;` takes `HH:mm`, and `Type=&quot;datetime-local&quot;` takes `yyyy-MM-ddTHH:mm` — the native wire formats, invariant. What each is called on screen is the browser's, from the locale.
 
@@ -463,6 +485,8 @@ It exists because two panels had each written a private class to get here, which
 
     private string _repos = "JSdotNet/Backlog\nJSdotNet/Infra";
     private bool _folderEnabled = true;
+    private decimal _pace = 7m;
+    private decimal _paceLive = 7m;
     private bool _syncEnabled = true;
     private bool _showArchived;
     private bool _githubFlag = true;
@@ -519,6 +543,15 @@ It exists because two panels had each written a private class to get here, which
 
     private const string SearchCode = """
         <SearchBox Value="@_query" ValueChanged="v => _query = v" DebounceMilliseconds="300" />
+        """;
+
+    private const string SliderCode = """
+        <Slider Min="2" Max="12" Step="0.25m"
+                Value="_pace"
+                ValueInput="v => _paceLive = v"
+                ValueChanged="v => { _pace = v; _paceLive = v; }"
+                AriaLabel="Pace"
+                ValueText="@($"{_paceLive:0.##} points a week")" />
         """;
 
     private const string ToggleCode = """

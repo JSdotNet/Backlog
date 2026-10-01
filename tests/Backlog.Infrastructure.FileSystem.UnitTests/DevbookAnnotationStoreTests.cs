@@ -502,6 +502,37 @@ public class DevbookAnnotationStoreTests : IDisposable
     }
 
     /// <summary>
+    /// A remark keyed with no folder segment — <c>adr/0001-decision.md</c> — is
+    /// not migrated on load: no area claims the path, so the key it was filed
+    /// under is the key it keeps, with every stamp as it was. It is not lost
+    /// either, and it answers to that spelling alone. No build of the arc42
+    /// panel files one (<c>DevbookChapterKeyTests</c> shows the catalog's paths
+    /// always carry their folder), which is what makes asking under the
+    /// canonical spelling alone safe.
+    /// </summary>
+    [Fact]
+    public void A_remark_keyed_without_its_folder_keeps_that_key_when_the_store_reads_it()
+    {
+        const string Folderless = "adr/0001-decision.md";
+
+        var before = Store();
+        var written = before.Add(Repository, Folderless, 0, "DEV-TOWER");
+        before.Edit(written.Id, "Filed without a folder.");
+        var stamped = before.Find(written.Id)!;
+
+        var store = Store(Arc42At("docs/arch"));
+
+        Assert.Empty(store.List(Repository, Decision));
+
+        var listed = Assert.Single(store.List(Repository, Folderless));
+        Assert.Equal(written.Id, listed.Id);
+        Assert.Equal(Folderless, listed.ChapterPath);
+        Assert.Equal(stamped.CreatedAt, listed.CreatedAt);
+        Assert.Equal(stamped.UpdatedAt, listed.UpdatedAt);
+        Assert.Empty(store.ListChangedSince(stamped.UpdatedAt));
+    }
+
+    /// <summary>
     /// What <see cref="DevbookAnnotationStore.Add"/> hands back is what the store
     /// holds, under every configuration.
     /// <para>

@@ -15,7 +15,7 @@ Backlog app, executes a generated prompt, or touches GitHub.
 
 Read `assets/backlog-import-grammar.md` before writing anything. It carries the exact
 entry/sub-item shape, every metadata token and its values, and the plan-identity/re-import
-mechanics; do not invent syntax beyond it.
+mechanics; use only the syntax it defines.
 
 ## Inputs
 
@@ -27,11 +27,26 @@ mechanics; do not invent syntax beyond it.
 - **Output.** A file path, or "paste it here" — ask if neither is stated. The review view
   (step 7) is produced either way; it is not an option.
 - **Level.** Step-level (the default) or, when asked, [roadmap-level](#roadmap-level-mode).
+- **The user's answers.** Gathered by the [interview](#interview) while the plan is written,
+  never assumed.
+
+## Prompts first
+
+The user prefers work an AI session runs over work they do themselves, and wants every
+question a step would raise answered while the plan is written, not when a step runs.
+`prompt` is the default kind. A step is a `task` or `test` only when it is the closing
+sign-off, or when the interview offered to hand it to an AI session and the user kept it.
+A prompt runs to the end without asking anything the plan could have settled; the only
+stops left in it are the gates the target repository's own process sets, such as its
+approval before a pull request.
 
 ## Workflow
 
 1. Read the source material in full, following any `depends-on`/prerequisite references it
-   names, so ordering is grounded in what is agreed rather than guessed.
+   names, so ordering is grounded in what is agreed rather than guessed. Note each open
+   question as you read: an unresolved decision, an alternative left open, a `TBD`, an
+   `annotation` fence, a value the work needs but the source does not give.
+   Then run the [interview](#interview)'s first round, before drafting any entry.
 2. Derive the plan's `+tag`: one slug from the plan subject, written with the `+` sigil
    Backlog stores plan tags under (a `#slug` is a general tag and a different plan from
    the `+slug` the app's picker offers). Reuse the exact same slug if
@@ -43,11 +58,14 @@ mechanics; do not invent syntax beyond it.
    states a date; no `effort:`, `!status`, `id:` or body boilerplate.
    Then break the work into ordered step entries, one per unit of work. Every step is
    exactly one of three kinds, decided by who does it — see the grammar's `## Entry kinds`:
-   - **`prompt`** — work an AI session runs.
-   - **`task`** — work only the user can do: a decision, a sign-off, an action in an
-     account or on a machine the AI cannot reach.
+   - **`prompt`** — work an AI session runs. Draft every step as one unless it cannot be.
+   - **`task`** — work only the user can do even with access they could grant: an action
+     in an account or on a machine no AI session can reach, or the sign-off. A decision is
+     never a task — the interview asks it now.
    - **`test`** — a check the user runs by hand against work already landed, where the
-     source material asks for manual acceptance or exploratory testing.
+     source asks for manual acceptance or exploratory testing. Draft it first as a QA
+     prompt: an AI session starts the application the way the target repository says,
+     drives the scenarios in a browser or harness, and captures evidence of each pass.
 
    Never combine a prompt with either of the others. A manual step is never a sub-item, checklist line or body
    instruction inside a prompt, and a task never carries instructions for an AI. When one
@@ -67,18 +85,22 @@ mechanics; do not invent syntax beyond it.
      a colon, then the entry's numbered title exactly as written (grammar's
      `## Step numbers`). Every prompt carries it, worded the same way.
    - **Instructions next.** The rest of the body — concise, no padding — is the entry's
-     primary content.
+     primary content. Write every interview answer the step depends on into it as a
+     settled fact — the chosen option, the exact name, value or wording — never as
+     "confirm with the user", "decide whether", "TBD" or a choice left between options.
    - **Setup sub-items.** A `##` sub-item per repository prerequisite the instructions
      assume (installing a plugin, updating one, wiring a related change), ordered ahead of
      everything else in the entry, titled `Setup: ...`.
    - **Knowledge/devbook reminder.** One more `##` sub-item reminding whoever runs the
      prompt to update the target repository's own knowledge folders or devbook once it is
-     done. Every prompt carries this; never skip it.
+     done. Every prompt carries this.
 
    For each **`task`** entry: a title naming what the user does, then a body addressed to
    the user — what to do and what "done" looks like, concise. No marker, no session-name
    line, no `Setup:` or knowledge sub-item: those direct an AI session, and a task has
-   none. `- [ ]` checklist lines are fine for the user's own steps.
+   none. `- [ ]` checklist lines are fine for the user's own steps. Every task or test but
+   the sign-off closes its body with one line, `Kept manual: <reason>`, in the user's
+   words from the interview.
 
    A **`test`** entry is shaped like a task: a title naming what is checked, a body saying
    what to exercise and what a pass looks like, `- [ ]` lines for the individual checks,
@@ -98,16 +120,7 @@ mechanics; do not invent syntax beyond it.
    `+tag`; and only the `*priority`, `@area` or `due:` the source material actually
    implies.
 
-   **Ask before a step stays manual.** Once the steps are drafted, and before sizing them,
-   ask the user about every step drafted as a `task` or `test` — in one round, a question
-   per step — whether an AI session could do it instead, and what it would take: access it
-   could be given (a signed-in CLI, an MCP server, a test account, the running harness), or
-   a decision the user can make right now. A step the user hands to an AI becomes a
-   `prompt`, shaped as above, with a `Setup:` sub-item for the access it needs; a decision
-   answered on the spot is written into the prompts that needed it and its task dropped,
-   with their `after:` on it removed. A step stays a `task` or `test` only when the user
-   says it does. The closing sign-off is never asked about; with no task or test drafted,
-   there is nothing to ask.
+   Once the steps are drafted, and before sizing them, run the interview's second round.
 4. Close every step-level plan with two entries, in this order and last in the document.
    Never omit either, however small the plan.
    - The **review prompt**, titled `Review the <plan subject> plan for anything missed`. It
@@ -145,10 +158,36 @@ mechanics; do not invent syntax beyond it.
    glance what the plan gets wrong; when the user reports a failed check, fix the plan and
    regenerate the view rather than patching the view.
 8. Report the output location (if written), the review view's link or path, the entry
-   count, the repositories targeted, the dependency chain, which drafted tasks or tests the
-   user's answers turned into prompts, and which sizing answered — the
+   count, the repositories targeted, the dependency chain, the interview's answers and the
+   prompts each went into, which drafted tasks or tests became prompts, every step kept
+   manual with its reason, and which sizing answered — the
    `estimate` skill, or this skill's fallback and the step it anchored on. Stop — do
    not open the Backlog app, run a prompt, or create a pull request.
+
+## Interview
+
+Ask with the host's question tool where it has one — several questions per round, each
+with the options the source supports and a recommended one first — otherwise as one
+numbered list in chat, and wait for the answers. Ask only what the source and the target
+repository do not already answer; read the repository before asking about it.
+
+- **Round one, before drafting** — everything a prompt would otherwise stop to ask:
+  - *Decisions:* each open question noted while reading, and each choice the work forces
+    that the source leaves open — an approach, a name, a scope edge, wording a user sees.
+  - *Values:* inputs the work needs that are not in the source or the repository — a
+    version, an endpoint, an identifier, a date. Never ask for a secret's value; ask where
+    the session will find it (a signed-in CLI, a user-secret, an environment variable).
+  - *Access:* for work in an account, a service or on a machine, whether an AI session can
+    be given a way in — a signed-in CLI, an MCP server, a test account, the running
+    harness. Access the user grants becomes a `Setup:` sub-item of the prompt that uses it.
+  - *Acceptance:* for each check the source leaves to a person, what a pass looks like, so
+    a QA prompt can run it.
+- **Round two, after drafting** — one question per step still drafted as a `task` or
+  `test`, the sign-off aside: hand it to an AI session (as a prompt, with the access it
+  needs), or keep it manual, and why. A handed-over step becomes a `prompt`; a kept one
+  records the reason as its `Kept manual:` line. Skip the round when nothing is left.
+- **Further rounds** whenever writing a prompt turns up a question the answers do not
+  settle. Never guess an answer and never leave one for the step to ask.
 
 ## Sizing the steps
 
@@ -186,9 +225,10 @@ under the same tag. Steps 5–8 apply unchanged.
   `repo:`, and the plan's shared `+tag`; every prompt also opens with the marker line, then the
   session-name line naming `<tag>:<its title>`.
 - No prompt contains a manual step in any form — no `Manual:` sub-item, no "ask the user
-  to…" instruction — and no task or test contains instructions for an AI.
+  to…" instruction — or an open decision: no "confirm with", "decide whether", `TBD`, or
+  choice left between options. No task or test contains instructions for an AI.
 - Every task or test other than the sign-off is one the user was asked about and kept
-  manual; the rest became prompts.
+  manual, and says why on its `Kept manual:` line; the rest became prompts.
 - `after:` correctly expresses the plan's dependency order, including cross-repository
   dependencies and prompts that wait on a task, and never names the other level.
 - The last two entries are the plan review, waiting on every leaf of that order, and the

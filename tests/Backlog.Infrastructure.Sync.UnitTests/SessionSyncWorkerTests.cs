@@ -160,6 +160,78 @@ public sealed class SessionSyncWorkerTests
         Assert.NotEqual(TaskSyncWorker.FirstCycleDelay, SessionSyncWorker.FirstCycleDelay);
     }
 
+    // --- A token refused mid-cycle --------------------------------------------
+
+    /// <summary>
+    /// The first cycle after the service restarted with a new signing key, which
+    /// the footer's "Sync now" reaches too: the token this device holds is
+    /// refused although it has not expired, and the cycle runs once more with a
+    /// fresh one instead of ending on "Unauthorized". The task loop's rule, for
+    /// the task loop's reason.
+    /// </summary>
+    [Fact]
+    public async Task A_cycle_whose_token_was_refused_runs_once_more_at_once()
+    {
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            authenticated: true,
+            respond: (request, index) => index == 0
+                ? new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                : Fixture.Ordinary(request));
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(SessionSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Null(fixture.Worker.LastError);
+        Assert.NotNull(fixture.Worker.LastSummary);
+        Assert.Equal(2, fixture.Handler.Requests.Count);
+        Assert.Equal(2, fixture.TokenRequests);
+    }
+
+    /// <summary>Inherited ADR 0015: the one extra cycle is spent on a dropped
+    /// token, not on a service that refuses this device. A second refusal is
+    /// shown rather than asked again.</summary>
+    [Fact]
+    public async Task A_cycle_refused_twice_shows_the_failure_and_runs_no_third_time()
+    {
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            authenticated: true,
+            respond: (_, _) => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(SessionSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(fixture.Worker.LastError);
+        Assert.Equal(2, fixture.Handler.Requests.Count);
+    }
+
+    /// <summary>A failure no token had a part in is left to the schedule and
+    /// the button.</summary>
+    [Fact]
+    public async Task A_failure_with_no_token_refused_is_not_run_again_at_once()
+    {
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            authenticated: true,
+            respond: (_, _) => StubHttpMessageHandler.Problem(
+                HttpStatusCode.ServiceUnavailable,
+                SyncErrorCodes.ReplicaUnavailable,
+                "The replica is not reachable yet."));
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(SessionSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Contains("not reachable", fixture.Worker.LastError, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(fixture.Handler.Requests);
+    }
+
     // --- Starting over ---------------------------------------------------------
 
     /// <summary>
@@ -219,6 +291,7 @@ public sealed class SessionSyncWorkerTests
         private readonly HttpClient _http;
         private readonly bool _compose;
         private readonly AgentSession[] _sessions;
+        private readonly TokenPipeline? _tokens;
         private int _sessionsResolved;
 
         private Fixture(
@@ -229,11 +302,13 @@ public sealed class SessionSyncWorkerTests
             InMemoryDeviceCredentialStore credentials,
             FakeTimeProvider clock,
             bool compose,
-            AgentSession[] sessions)
+            AgentSession[] sessions,
+            TokenPipeline? tokens)
         {
             _http = http;
             _compose = compose;
             _sessions = sessions;
+            _tokens = tokens;
 
             Handler = handler;
             State = state;
@@ -242,7 +317,7 @@ public sealed class SessionSyncWorkerTests
             Clock = clock;
 
             Worker = new SessionSyncWorker(
-                new SessionProvider(BuildSession),
+                new SessionProvider(BuildSession, tokens?.Provider),
                 features,
                 credentials,
                 state,
@@ -263,36 +338,49 @@ public sealed class SessionSyncWorkerTests
 
         public int SessionsResolved => Volatile.Read(ref _sessionsResolved);
 
+        /// <summary>How many tokens were minted, where the fixture was composed
+        /// <c>authenticated</c>.</summary>
+        public int TokenRequests => _tokens?.Endpoint.Requests.Count ?? 0;
+
+        /// <summary>What the scripted service answers when a test does not
+        /// say: nothing accepted, nothing to pull.</summary>
+        public static HttpResponseMessage Ordinary(HttpRequestMessage request) =>
+            request.Method == HttpMethod.Post
+                ? StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":0}""")
+                : StubHttpMessageHandler.Json(
+                    HttpStatusCode.OK,
+                    """{"sessions":[],"since":"cursor-1","hasMore":false}""");
+
         public static Fixture Create(
             bool featureOn,
             bool paired,
             bool compose = true,
             Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
             SessionSyncState? initialState = null,
-            AgentSession[]? sessions = null)
+            AgentSession[]? sessions = null,
+            bool authenticated = false)
         {
             var handler = new StubHttpMessageHandler((request, index) =>
-            {
-                if (respond is not null) return respond(request, index);
+                respond is not null ? respond(request, index) : Ordinary(request));
 
-                return request.Method == HttpMethod.Post
-                    ? StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":0}""")
-                    : StubHttpMessageHandler.Json(
-                        HttpStatusCode.OK,
-                        """{"sessions":[],"since":"cursor-1","hasMore":false}""");
-            });
+            var credentials = paired ? new InMemoryDeviceCredentialStore(Paired) : new InMemoryDeviceCredentialStore();
+            var clock = new FakeTimeProvider(Noon);
 
-            var http = new HttpClient(handler) { BaseAddress = new Uri("https://sync.test") };
+            // Authenticated, the wire is the one a host composes; see
+            // TaskSyncWorkerTests for why.
+            var tokens = authenticated ? TokenPipeline.Create(credentials, clock) : null;
+            var http = new HttpClient(tokens?.InFrontOf(handler) ?? handler) { BaseAddress = new Uri("https://sync.test") };
 
             return new Fixture(
                 http,
                 handler,
                 new InMemorySessionSyncStateStore(initialState),
                 new StubFeatureSettings(featureOn),
-                paired ? new InMemoryDeviceCredentialStore(Paired) : new InMemoryDeviceCredentialStore(),
-                new FakeTimeProvider(Noon),
+                credentials,
+                clock,
                 compose,
-                sessions ?? []);
+                sessions ?? [],
+                tokens);
         }
 
         /// <summary>
@@ -325,6 +413,7 @@ public sealed class SessionSyncWorkerTests
         {
             Worker.Dispose();
             _http.Dispose();
+            _tokens?.Dispose();
         }
 
         private SessionSyncSession? BuildSession()
@@ -347,9 +436,11 @@ public sealed class SessionSyncWorkerTests
     /// <summary>The one service the worker is allowed to ask for, and a count of how
     /// often it asked. Anything else answers null, which is what a container does for
     /// a service nobody registered.</summary>
-    private sealed class SessionProvider(Func<SessionSyncSession?> session) : IServiceProvider
+    private sealed class SessionProvider(Func<SessionSyncSession?> session, SyncTokenProvider? tokens) : IServiceProvider
     {
         public object? GetService(Type serviceType) =>
-            serviceType == typeof(SessionSyncSession) ? session() : null;
+            serviceType == typeof(SessionSyncSession) ? session()
+            : serviceType == typeof(SyncTokenProvider) ? tokens
+            : null;
     }
 }

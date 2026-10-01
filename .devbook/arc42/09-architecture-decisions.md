@@ -212,14 +212,14 @@ related: [".devbook/arc42/04-solution-strategy.md"]
   background when a repository is first read, and `build-database.mjs` stays as
   CI's build check and the reference a comparison test holds the C# builder to.
 - **[ADR 0016 — The knowledge folders adopt the devbook convention under `.devbook/`; the derived layer stays a local build output](adr/0016-knowledge-folders-adopt-the-devbook-convention.md)**
-  *(accepted, partly built)*: all five folders, including a new `ai/`, sit under
+  *(accepted, built)*: all five folders, including a new `ai/`, sit under
   `.devbook/` at the installed contract. `.backlog/` and every
   `_reading-order.json` are retired. The generated database stays uncommitted,
   so `devbook-derived` is not adopted, and the repo-native writer imports the
-  installed generator at `.devbook/_tools/devbook-meta/`. The four procedures
-  and the schedule catalog are adopted as shipped. The delivery engine replaces
-  the orch-* gate, with its roles bound to the `jsdotnet-ai-plugins` agents.
-  Local ADR 0011 stands unchanged.
+  installed generator at `.devbook/_tools/devbook-meta/`. The procedures and the
+  schedule catalog are adopted; the record's status table says which ones
+  landed. The delivery engine replaces the orch-* gate, with its roles bound to
+  the `jsdotnet-ai-plugins` agents. Local ADR 0011 stands unchanged.
 - **[ADR 0017 — Inbox import is a capture source; its manifest is Markdown with front matter, not entry text](adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md)**
   *(accepted, not yet built)*: importing another tool's items, Microsoft To Do
   first, is the `import` `Capture Source`, not an Inbox feature. Dedup is the

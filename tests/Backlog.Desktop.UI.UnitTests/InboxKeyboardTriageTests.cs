@@ -2,6 +2,7 @@ using Backlog.Desktop.UI.Inbox;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -58,6 +59,27 @@ public sealed class InboxKeyboardTriageTests
 
         await PressAsync(pane, "j");
         Assert.Equal(items[2].Id, harness.State.SelectedItemId);
+    }
+
+    /// <summary>On the Sources tab the rows are not on screen, so a triage
+    /// key would decide an item the reader cannot see. Only ? still answers.</summary>
+    [Fact]
+    public async Task Triage_keys_do_nothing_while_the_sources_tab_is_shown()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "Keep me");
+        var pane = await harness.RenderAsync(withSources: true);
+        await harness.SelectAsync(pane, items[0].Id);
+
+        await pane.InvokeAsync(() => harness.State.ShowSources(true));
+        await PressAsync(pane, "a");
+        await PressAsync(pane, "j");
+
+        Assert.Equal(InboxStatus.Unprocessed, harness.Inbox.Find(items[0].Id)!.Status);
+        Assert.Equal(items[0].Id, harness.State.SelectedItemId);
+
+        await PressAsync(pane, "?");
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-shortcuts-list']"));
     }
 
     [Fact]
@@ -348,9 +370,12 @@ public sealed class InboxKeyboardTriageTests
             return new Harness(context, inbox);
         }
 
-        public async Task<IRenderedComponent<InboxPane>> RenderAsync()
+        public async Task<IRenderedComponent<InboxPane>> RenderAsync(bool withSources = false)
         {
-            var pane = Context.Render<InboxPane>();
+            var pane = withSources
+                ? Context.Render<InboxPane>(parameters => parameters
+                    .Add(p => p.Sources, (RenderFragment)(builder => builder.AddContent(0, "switches"))))
+                : Context.Render<InboxPane>();
             await pane.InvokeAsync(State.InitializeAsync);
             return pane;
         }

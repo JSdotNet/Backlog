@@ -474,12 +474,18 @@
       const txt = [...e.instructions, ...e.subs.flatMap(s => [s.title, ...s.lines])].join('\n');
       if (/\bask the user\b/i.test(txt)) return { level: 'warn', text: '"ask the user" — a step only the user can do is a task entry' };
     });
+    onPrompts('No prompt leaves a decision open', e => {
+      const txt = [...e.instructions, ...e.subs.flatMap(s => [s.title, ...s.lines])].join('\n');
+      const open = /\bTBD\b|\bto be decided\b|\b(confirm|check|agree) with (the )?(user|owner|team|design|product|stakeholders?)\b|\bdecide (whether|which|on|if)\b|\bask (whether|which|if)\b/i.exec(txt);
+      return open && { level: 'warn', text: `"${open[0]}" — ask it while writing the plan and write the answer in` };
+    });
 
     // Tasks and tests — the user's own work
     const onTasks = (label, fn) => over(manual, label, fn);
     onTasks('No task or test carries a marker or session-name line', e => (e.hasMarkerAnywhere || e.hasSessionAnywhere) && { text: `those direct an AI session; a ${e.type} has none` });
     onTasks('No task or test carries Setup: or knowledge sub-items', e => e.subs.some(s => s.kind === 'setup' || s.kind === 'knowledge') && { text: `those direct an AI session; a ${e.type} has none` });
     onTasks('Every task or test says what to do', e => !e.instructions.some(l => l.trim()) && { text: 'empty body' });
+    over(manual.filter(e => e.id !== 'sign-off-plan'), 'Every task or test the user kept says why (Kept manual:)', e => !e.instructions.some(l => /^kept manual:\s*\S/i.test(l.trim())) && { text: `no "Kept manual:" line — prompts are the default, so offer this ${e.type} to an AI session or record why the user kept it` });
 
     // Closing pair — a step-level plan only; a roadmap-level document has no steps to review
     if (steps.length) {

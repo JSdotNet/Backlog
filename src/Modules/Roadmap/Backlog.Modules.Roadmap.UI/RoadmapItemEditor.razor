@@ -209,6 +209,17 @@
             </AppButton>
         }
 
+        @* Only for started work whose end somebody pinned: the drawing reads the pin
+           instead of the forecast, and this is how the forecast takes over again. *@
+        @if (CanUseForecast && Item is { } pinned)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       OnClick="() => OnUseForecast.InvokeAsync(pinned.Id)"
+                       TestId="roadmap-editor-use-forecast">
+                Use forecast
+            </AppButton>
+        }
+
         <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="roadmap-editor-cancel">
             Cancel
         </AppButton>
@@ -255,6 +266,11 @@
     /// <summary>The item being edited, or null to plan something new.</summary>
     [Parameter]
     public RoadmapItemDto? Item { get; set; }
+
+    /// <summary>Where on the chart new work was asked for, when it was — read only
+    /// while <see cref="Item"/> is null. Null opens on the plain defaults.</summary>
+    [Parameter]
+    public RoadmapItemPlacement? Placement { get; set; }
 
     /// <summary>
     /// What this item has gathered — its linked and tagged backlog entries, its
@@ -307,6 +323,16 @@
     /// <see cref="Refuse"/>.</summary>
     [Parameter]
     public EventCallback<RoadmapRelengthProposalDto> OnUpdateFromTasks { get; set; }
+
+    /// <summary>Whether the item's pinned end is being read instead of its forecast, so
+    /// handing it back is worth offering. The band decides; the dialog only shows
+    /// it.</summary>
+    [Parameter]
+    public bool CanUseForecast { get; set; }
+
+    /// <summary>Raised when the person hands the end back to the forecast.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnUseForecast { get; set; }
 
     private bool IsNew => Item is null;
 
@@ -416,16 +442,19 @@
         if (Item is null)
         {
             _title = string.Empty;
-            // A fortnight from today, which is a plan-shaped default: long enough to
-            // be a piece of work, short enough that nobody leaves it as it arrived.
-            _start = Iso(Today);
-            _end = Iso(Today.AddDays(13));
+            // A fortnight, which is a plan-shaped default: long enough to be a piece
+            // of work, short enough that nobody leaves it as it arrived. From the week
+            // it was put in when it was put somewhere, else from today. A span dragged
+            // out on the chart is the length the reader asked for instead.
+            var start = Placement?.Start ?? Today;
+            _start = Iso(start);
+            _end = Iso(Placement?.End ?? start.AddDays(13));
             _priority = MediumPriority;
-            _lane = string.Empty;
+            _lane = Placement?.Lane ?? string.Empty;
             _notes = string.Empty;
             _tag = string.Empty;
             _tagEdited = false;
-            _repositories = [];
+            _repositories = Placement?.Repository is { } repository ? [repository] : [];
             _dependsOn = [];
             _knowledge = [];
             return;

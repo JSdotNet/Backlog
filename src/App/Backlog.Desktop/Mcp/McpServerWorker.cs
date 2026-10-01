@@ -91,7 +91,6 @@ public sealed class McpServerWorker : IDisposable
     private readonly Lock _gate = new();
 
     private readonly IServiceProvider _services;
-    private readonly IAppFeatureSettings _features;
     private readonly WorkspaceSettingsStore _settings;
     private readonly ILogger _log;
 
@@ -106,10 +105,10 @@ public sealed class McpServerWorker : IDisposable
     /// Every start and every release this worker has queued, in order, as one
     /// chain.
     /// <para>
-    /// The chain is what makes a flip of the feature switch safe to do twice in a
+    /// The chain is what makes a change of the port safe to do twice in a
     /// second. Releasing a listener means disposing its host, which blocks until
     /// Kestrel has closed the socket; starting one means binding that same port.
-    /// Run concurrently, the second flip's start meets the first flip's release
+    /// Run concurrently, the second change's start meets the first change's release
     /// still holding 5757 and reports a collision with itself — and this server
     /// does not retry on another port. Chained, the release is always finished
     /// before the next bind begins, and <see cref="_listener"/> — assigned under
@@ -118,8 +117,8 @@ public sealed class McpServerWorker : IDisposable
     /// </para>
     /// <para>
     /// Continued on <see cref="TaskScheduler.Default"/> on purpose: that is what
-    /// takes the release off the thread that raised the event, which during a
-    /// flip on the Settings screen is the one drawing it.
+    /// takes the release off the thread that raised the event, which may be the
+    /// one drawing a screen.
     /// </para>
     /// </summary>
     private Task _pending = Task.CompletedTask;
@@ -133,23 +132,18 @@ public sealed class McpServerWorker : IDisposable
 
     public McpServerWorker(
         IServiceProvider services,
-        IAppFeatureSettings features,
         WorkspaceSettingsStore settings,
         ILogger<McpServerWorker>? log = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(features);
         ArgumentNullException.ThrowIfNull(settings);
 
         _services = services;
-        _features = features;
         _settings = settings;
         _log = log ?? NullLogger<McpServerWorker>.Instance;
 
-        // Both gates can move while the app is running, and each of them moving
-        // is somebody watching to see whether it worked: the feature switch on
-        // the Settings screen, and the port beside it.
-        _features.Changed += OnGateChanged;
+        // The port can move while the app is running, and somebody changing it
+        // is watching to see whether the listener followed.
         _settings.McpChanged += OnGateChanged;
 
         ApplyGates();
@@ -183,11 +177,6 @@ public sealed class McpServerWorker : IDisposable
     /// the configured port.</summary>
     public Uri? Address { get; private set; }
 
-    /// <summary>The one gate. Unlike the sync loops there is no second
-    /// condition: a token is generated on demand and a port always has a value,
-    /// so the feature switch is the whole of the question.</summary>
-    private bool ShouldRun => _features.IsEnabled(AppFeatures.McpServer);
-
     /// <summary>What a person is told when the port could not be taken. The
     /// exception's own message names a socket error code and an address, which
     /// is written for whoever reads the log rather than for a settings screen;
@@ -220,7 +209,6 @@ public sealed class McpServerWorker : IDisposable
             Address = null;
         }
 
-        _features.Changed -= OnGateChanged;
         _settings.McpChanged -= OnGateChanged;
 
         _lifetime.Cancel();
@@ -232,13 +220,12 @@ public sealed class McpServerWorker : IDisposable
         // process still holding 5757, and this server does not retry on another
         // port; it would simply report a collision with itself.
         //
-        // That reasoning is shutdown's alone. A flip of the feature switch goes
-        // the other way - see ApplyGates - because there the thread being blocked
-        // is drawing the screen the person just flipped, and the app carries on
-        // afterwards.
+        // That reasoning is shutdown's alone. A port change goes the other way -
+        // see ApplyGates - because there the thread being blocked may be drawing
+        // a screen, and the app carries on afterwards.
         if (listener is not null) Release(listener);
 
-        // And whatever the chain still owes, bounded. A listener queued by a flip
+        // And whatever the chain still owes, bounded. A listener queued by a port change
         // the window closed on top of is one this method never saw, and it holds
         // the port until its release runs. The wait is short and swallowed: a
         // chain that has not finished by now is not worth keeping the window open
@@ -273,9 +260,9 @@ public sealed class McpServerWorker : IDisposable
     private static void Release(WebApplication listener) => ((IDisposable)listener).Dispose();
 
     /// <summary>
-    /// Brings the listener into line with the gate and the configured port:
-    /// started when the feature is on, gone when it is off, and rebound when the
-    /// port moved under it.
+    /// Brings the listener into line with the configured port: started when
+    /// there is none, and rebound when the port moved under it. There is no
+    /// switch to turn it off — the MCP server is always on while the app runs.
     /// <para>
     /// An already-running listener on the port it was asked for is left alone
     /// rather than recycled — the same reasoning <c>TaskSyncWorker.ApplyGates</c>
@@ -287,8 +274,7 @@ public sealed class McpServerWorker : IDisposable
     /// </para>
     /// <para>
     /// <b>Nothing blocks here, and that is the point.</b> This runs on the thread
-    /// that raised the event, which for <c>IAppFeatureSettings.Changed</c> is the
-    /// Settings screen's own. Releasing a listener in place would block that
+    /// that raised the event, which may be a screen's own. Releasing a listener in place would block that
     /// thread inside <c>Host.Dispose()</c> — <c>StopAsync().GetAwaiter().GetResult()</c>,
     /// up to <see cref="HostOptions.ShutdownTimeout"/>, and with a session holding
     /// the Streamable-HTTP stream open it really does take that long — while
@@ -308,7 +294,7 @@ public sealed class McpServerWorker : IDisposable
             WebApplication? releasing = null;
             WebApplication? starting = null;
 
-            if (_listener is not null && (!ShouldRun || port != _boundPort))
+            if (_listener is not null && port != _boundPort)
             {
                 releasing = _listener;
                 _listener = null;
@@ -317,7 +303,7 @@ public sealed class McpServerWorker : IDisposable
                 LastError = null;
             }
 
-            if (ShouldRun && _listener is null)
+            if (_listener is null)
             {
                 _boundPort = port;
                 _listener = starting = CreateListener(port);
@@ -341,7 +327,7 @@ public sealed class McpServerWorker : IDisposable
     /// <para>
     /// <c>Unwrap</c> because the continuation is itself asynchronous: without it
     /// the chain would carry the task that <em>starts</em> the transition rather
-    /// than the one that finishes it, and the next flip would run on top of this
+    /// than the one that finishes it, and the next change would run on top of this
     /// one. <see cref="CancellationToken.None"/> for the same reason
     /// <see cref="Dispose"/> waits: a queued release still has to run when the
     /// window is closing, because it is what gives the port back.
@@ -359,7 +345,7 @@ public sealed class McpServerWorker : IDisposable
     /// <summary>Let the old listener go, then bind the new one. Never throws:
     /// every failure inside it is caught and reported through
     /// <see cref="LastError"/> and the log, so the chain is never faulted and the
-    /// next flip is never queued behind a broken task.</summary>
+    /// next change is never queued behind a broken task.</summary>
     private async Task TransitionAsync(WebApplication? releasing, WebApplication? starting, int port)
     {
         if (releasing is not null)
@@ -377,8 +363,8 @@ public sealed class McpServerWorker : IDisposable
             }
 
             // The port is free and the screen says "not listening" already - but
-            // only now is that true, and a person who flipped the switch off is
-            // watching the row say so.
+            // only now is that true, and a person who moved the port is watching
+            // the row say so.
             Changed?.Invoke();
         }
 
@@ -408,7 +394,7 @@ public sealed class McpServerWorker : IDisposable
         // matters is written through _log, which is the head's.
         builder.Logging.ClearProviders();
 
-        // Shutdown is a flip of a switch here, not a deployment draining traffic.
+        // Shutdown is a port change here, not a deployment draining traffic.
         // See ShutdownTimeout: the host's own thirty seconds is spent in full
         // whenever a session holds the stream open.
         builder.Services.Configure<HostOptions>(options => options.ShutdownTimeout = ShutdownTimeout);
@@ -468,8 +454,8 @@ public sealed class McpServerWorker : IDisposable
     /// <summary>
     /// Binds the port, and reports it either way.
     /// <para>
-    /// Never awaited by the thread that asked for it: the constructor and a flag
-    /// flip both run on the thread drawing the window, and what happened arrives
+    /// Never awaited by the thread that asked for it: the constructor and a port
+    /// change both run on the thread drawing the window, and what happened arrives
     /// through <see cref="Changed"/> the way a sync cycle's result does. It is
     /// awaited inside <see cref="TransitionAsync"/> only so the next transition
     /// queues behind this bind rather than beside it. Everything is caught, so
@@ -491,9 +477,9 @@ public sealed class McpServerWorker : IDisposable
 
             lock (_gate)
             {
-                // Somebody switched the feature off, or moved the port, while
-                // this was binding: that listener has already been disposed and
-                // this one is not ours to report.
+                // Somebody moved the port while this was binding: that
+                // listener has already been disposed and this one is not ours
+                // to report.
                 if (!ReferenceEquals(_listener, listener)) return;
 
                 IsListening = true;

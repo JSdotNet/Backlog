@@ -259,7 +259,7 @@ public class RelengthenItemTests
             plan.Items.Select(item => new RoadmapItem(
                 item.Id, item.Title, item.Window, item.Priority, item.Scope, item.Lane,
                 Dependencies.Of(item.Dependencies.All), item.TaskId, item.Notes, item.Tag,
-                item.KnowledgeRefs, item.PlacedByImport)),
+                item.KnowledgeRefs, item.PlacedByImport, item.EndPinned)),
             plan.Milestones.Select(milestone => new Milestone(
                 milestone.Id, milestone.Title, milestone.On, milestone.Kind, milestone.Scope, milestone.Lane,
                 Dependencies.Of(milestone.Dependencies.All), milestone.IsPlanWide)),

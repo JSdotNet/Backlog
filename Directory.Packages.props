@@ -27,10 +27,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.0" />
+    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.6.0" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.0" />
+    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.6.0" />
     <!--
       The Azure sign-in the Foundry cost reader borrows: Azure CLI, Azure
       Developer CLI, or Visual Studio. Cost Management is a Resource Manager API
@@ -39,13 +39,13 @@
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <!--
       Foundry Local and the MAUI project resource ship one preview build per
-      Aspire release, so their versions are the 13.5.3 build rather than a
+      Aspire release, so their versions are that release's preview build rather than a
       version of their own. They move with Aspire.Hosting.AppHost above; a
       hosting package from another release binds against a different
       Aspire.Hosting than the AppHost resolves.
     -->
-    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.5.3-preview.1.26425.3" />
-    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.5.3-preview.1.26425.3" />
+    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.6.0-preview.1.26479.8" />
+    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.6.0-preview.1.26479.8" />
 
     <!--
       The client-side half of the Cosmos wiring: it reads the connection string
@@ -53,7 +53,7 @@
       Backlog.Infrastructure.Cosmos resolves. It moves with the hosting packages
       above for the same reason they move with each other.
     -->
-    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.6.0" />
 
     <!--
       The client-side half of the attachment store (local ADR 0014): it reads the
@@ -61,16 +61,16 @@
       the BlobContainerClient that Backlog.Infrastructure.BlobStorage resolves.
       Moves with the hosting packages above, like the Cosmos one.
     -->
-    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.0" />
 
     <!--
-      Pinned to the version Aspire.Azure.Storage.Blobs 13.5.3 resolves
+      Pinned to the version Aspire.Azure.Storage.Blobs above resolves
       transitively, for the reason Microsoft.Azure.Cosmos below is: the blob
       adapter stages and commits blocks through the SDK's own types, and naming a
       different version would put the adapter and the Aspire wiring on two builds
       of one assembly. Bump the two together or not at all.
     -->
-    <PackageVersion Include="Azure.Storage.Blobs" Version="12.28.0" />
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.29.2" />
     <PackageVersion Include="bunit" Version="2.11.3" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
@@ -80,7 +80,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
 
     <!--
-      Pinned to the version Aspire.Microsoft.Azure.Cosmos 13.5.3 already resolves
+      Pinned to the version Aspire.Microsoft.Azure.Cosmos above already resolves
       transitively. The replica adapter is written against the SDK's own types —
       CosmosClient, Container, FeedRange, ChangeFeedStartFrom — so the package is
       a direct reference rather than something only Aspire touches, and naming a
@@ -88,7 +88,7 @@
       configures its client on two builds of one assembly. Bump the two together
       or not at all.
     -->
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.61.0" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.63.0" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />

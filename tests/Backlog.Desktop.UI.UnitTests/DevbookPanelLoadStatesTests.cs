@@ -115,7 +115,7 @@ public sealed class DevbookPanelLoadStatesTests
     /// which is still the load succeeding.</summary>
     private static string Loaded(string panel) => panel switch
     {
-        "arc42" => "No arc42 folder here yet.",
+        "arc42" => "No arc42 folder here yet",
         "domain" => "Context Map: Alpha",
         "technology" => "Open repository settings",
         _ => "Design: Alpha"

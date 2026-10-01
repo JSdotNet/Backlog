@@ -10,8 +10,9 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbo
 ```meta
 ```
 
-Accepted, 2026-09-26, for the `devbook-adoption` plan. Partly built: the move
-landed first, so this record is written after the fact rather than beforehand.
+Accepted, 2026-09-26, for the `devbook-adoption` plan. Built: every part of the
+decision had landed by 2026-09-30. The move landed first, so this record was
+written after the fact rather than beforehand.
 
 The plan asked for this record before any folder moved, numbered 0014. It is
 late because pull request #645 adopted `devbook` 1.7.0 and moved the folders
@@ -20,16 +21,23 @@ before the record was written. It is numbered 0016 because local 0014
 already taken. The plan was written against contract 16. The installation
 landed at **contract 17**, and this record states what landed.
 
-| Part of the decision | Where it stands on 2026-09-26 |
+The table below tracks progress, so it moves while the decision text above and
+below stays as written. A later contract, procedure, or schedule change is a
+stack update recorded in `.devbook/config.json`, not a new decision (see
+Consequences).
+
+| Part of the decision | Where it stands on 2026-09-30 |
 |---|---|
-| Five folders under `.devbook/`, contract 17 | Built (#645) |
-| `ai/` created | Scaffolded (#645); filled by the plan's `write-ai-adoption-record` |
+| Five folders under `.devbook/`, contract 17 | Built (#645). The contract has since moved with the plugin, as the Consequences allow: 18 in #674 (1.9.0), 19 in #781 (1.10.0), and **24** in #854 (1.13.0) |
+| `ai/` created | Built: scaffolded in #645 and filled by the plan's `write-ai-adoption-record` |
 | Derived layer stays a local build output | Built (ADR 0004; in app storage since ADR 0015) |
 | Writer imports the installed generator | Built for the `.devbook/` layout (`tools/devbook/generator.mjs`) |
-| Four procedures, schedule catalog | Built (#645: four procedures in `.agents/skills/`, `components.schedule` stamped) |
+| Four procedures | Built, and grown to **five**. #645 adopted `start`, `show`, `capture`, and `debug`; `estimate` joined on 2026-09-26 (#667); 1.13.0 moved `start` to the `run` recipe in `.claude/skills/run-backlog/` (#854). `components.devbook-procedures` adopts `run`, `show`, `capture`, `debug`, and `estimate` |
+| Schedule catalog enabled as it shipped | Built with two exceptions. **Eleven of the thirteen** catalog schedules are enabled under `components.schedule`. `security-review` stays unselected at the owner's decision, because CodeQL and Dependabot run in CI instead. `devbook-update`, which 1.10.0 added, was not taken (#781). The schedules run on the local scheduler since #781 |
+| `devbook-collaboration` enabled (asked by `decide-adoption-scope`) | Dropped at the owner's decision, recorded in the plan's `unblock-routines` item on 2026-09-28. It is not installed or stamped here |
 | `.backlog/` retired | Built (`move-and-install`): the folder is gone; `DevbookFolder.Backlog` stays |
 | `_reading-order.json` retired, all six | Built (`move-and-install`): all six are gone and ignored in any repository; both writers take the order from the generator's convention, `reading-order.mjs` is gone, and `01-introduction-and-goals.md` and the `adr/` READMEs carry `index: root` |
-| Delivery engine replaces the orch-* gate | Partly built: `bindings["delivery.roles"]` and `extensions` are written (`move-and-install`); `CLAUDE.md` still describes the orch-* gate (`reroute-orchestration-gate`) |
+| Delivery engine replaces the orch-* gate | Built: `bindings["delivery.roles"]` and `extensions` are written (#674), and `CLAUDE.md` routes the gate through the four `delivery:flow-*` flows (#730) |
 
 ## Context
 

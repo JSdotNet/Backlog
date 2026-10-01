@@ -24,7 +24,7 @@ public sealed class MyDayScreenTests
         app.WaitForAssertion(() => Assert.Equal(1, tasks.Pulls));
 
         var empty = app.Find("[data-testid='tasks-empty']");
-        Assert.Contains("Nothing picked for today.", empty.TextContent);
+        Assert.Contains("Nothing picked for today", empty.TextContent);
         Assert.Contains("Add one below, or pick tasks on the desktop.", empty.TextContent);
         Assert.Equal("Only adding happens here — edit on the desktop.", app.Find("[data-testid='tasks-read-only']").TextContent.Trim());
     }

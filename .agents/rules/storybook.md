@@ -16,8 +16,7 @@ surface for everything `.devbook/design/` specifies.
 page or a story.** They cover what a page may show, when a subject earns its own
 page, that every sample is its own section, and what folds. This file does not
 repeat them — a rule written in two places is a rule that can disagree with
-itself, which is the split the storybook exists to hold. What follows is how to
-satisfy them in code.
+itself, which is the split the storybook exists to hold.
 
 ## The three chrome components
 
@@ -119,15 +118,13 @@ as exceptions because the rule is written.
    introduced — nothing is shown before its parts — and each bend the index
    records is listed in the test's `RecordedBends`, and nothing else is.
 
-`UiLibraryBoundaryTests` keeps all of that possible by proving the library
-references no module, adapter, or application — a component that reads state
-instead of taking a parameter cannot be rendered here at all.
+`UiLibraryBoundaryTests` keeps all of that possible; see
+`.agents/rules/ui-components.md#where-the-library-is-reviewed`.
 
 Nothing yet checks that a story carries its usage, or that a page stays on its
 own subject. Those are review concerns until a test claims them.
 
 ## Related
 
-- `.devbook/design/README.md#living-reference-the-ui-storybook` — the rules.
 - `.agents/rules/ui-components.md` — why the library exists
   and when a screen must adopt from it rather than grow its own copy.

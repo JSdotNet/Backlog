@@ -19,10 +19,8 @@
     --workspace-min-width: 22rem;
     --pane-min-width: var(--workspace-min-width);
 
-    /* How much of the Inbox pane the open sources fold may take, and how much
-       of the queue it must leave standing. The fold scrolls inside the first;
-       the second is what stops it squeezing the rows away. */
-    --inbox-sources-max-height: 24rem;
+    /* How much of the Inbox queue must stay standing when the pane is short:
+       below it the pane scrolls rather than squeezing the rows away. */
     --inbox-queue-min-height: 16rem;
 
     /* Saved-confirmation flash uses a smooth ease-out rather than the org
@@ -124,11 +122,6 @@ h1, h2, h3 {
     margin: 0 auto;
     padding: var(--spacing-lg);
     overflow: hidden;
-}
-
-.shell--wide {
-    max-width: none;
-    margin: 0;
 }
 
 /*
@@ -2249,6 +2242,7 @@ h1, h2, h3 {
 
 .shell--wide {
     max-width: none;
+    margin: 0;
 }
 
 .setting {
@@ -2562,39 +2556,6 @@ h1, h2, h3 {
     margin: var(--spacing-md) 0;
 }
 
-.repo-subpage {
-    font: inherit;
-    font-size: var(--font-size-sm);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm);
-    color: var(--color-text-secondary);
-    background: var(--color-background);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    cursor: pointer;
-    text-align: left;
-    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
-}
-
-.repo-subpage:hover {
-    color: var(--color-text-primary);
-    border-color: var(--color-border-strong);
-}
-
-.repo-subpage:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
-
-.repo-subpage--active {
-    color: var(--color-text-primary);
-    border-color: var(--color-primary);
-    background: rgba(242, 193, 78, 0.1);
-}
-
 .repo-card {
     background: var(--color-background);
     border: var(--border-width) solid var(--color-border);
@@ -2785,97 +2746,6 @@ h1, h2, h3 {
     justify-content: space-between;
     gap: var(--spacing-md);
     margin-bottom: var(--spacing-md);
-}
-
-.instructions-layout {
-    display: grid;
-    grid-template-columns: minmax(14rem, 0.35fr) minmax(0, 1fr);
-    gap: var(--spacing-md);
-}
-
-.instructions-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-}
-
-.instructions-list__item {
-    font: inherit;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm);
-    color: var(--color-text-secondary);
-    background: var(--color-background);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    cursor: pointer;
-    text-align: left;
-    overflow-wrap: anywhere;
-}
-
-.instructions-list__item:hover {
-    color: var(--color-text-primary);
-    border-color: var(--color-border-strong);
-}
-
-.instructions-list__item:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
-
-.instructions-list__item--active {
-    color: var(--color-text-primary);
-    border-color: var(--color-primary);
-    background: rgba(242, 193, 78, 0.1);
-}
-
-.instructions-list__title {
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
-}
-
-.instructions-list__meta,
-.instruction-doc__meta {
-    color: var(--color-text-disabled);
-    font-size: var(--font-size-xs);
-}
-
-.instruction-doc {
-    min-width: 0;
-    background: var(--color-background);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-}
-
-.instruction-doc__header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--spacing-md);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-bottom: var(--border-width) solid var(--color-border);
-}
-
-.instruction-doc__title {
-    font-size: var(--font-size-base);
-}
-
-.instruction-doc__header code {
-    color: var(--color-text-disabled);
-    overflow-wrap: anywhere;
-}
-
-.instruction-doc__content {
-    margin: 0;
-    padding: var(--spacing-md);
-    max-height: 70vh;
-    overflow: auto;
-    color: var(--color-text-primary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
-    line-height: 1.6;
-    white-space: pre-wrap;
 }
 
 @media (max-width: 720px) {
@@ -3443,43 +3313,64 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-/* --- Capture sources ---------------------------------------------------- */
+/* --- The Inbox's two tabs ------------------------------------------------ */
 /*
-   The sources panel the shell folds into the Inbox pane's sources slot: a
-   library FoldControl wearing capture-sources beside its own fold class, so
-   the trigger and the chevron are the library's and only the region inside is
-   styled here. Folded, it is one line; open, it is a card per source with the
-   same flag-row switch the feature flags use, the library's textarea under it,
-   and the last run's line with the log beneath. Every colour is a token.
+   When the shell fills the sources slot the pane grows a tab strip, bare, so
+   the list and both panels are children of the pane's own flex column. Each
+   panel takes all the height the strip leaves: the queue as a column its body
+   or triage view grows into, the sources as a region that scrolls on its own.
+   The panel not chosen stays in the DOM, empty and hidden, and its display
+   rule would beat the hidden attribute without the rule after these two.
 */
-/* Open, the fold is taller than the pane can spare: it scrolls inside a
-   bounded region and may shrink below that, so the queue beneath keeps its
-   own minimum rather than being the one child the column squeezes to 0px. */
-.inbox-pane__sources {
-    flex: 0 1 auto;
+.inbox-pane__queue {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
     min-width: 0;
     min-height: 0;
-    max-height: var(--inbox-sources-max-height);
+}
+
+.inbox-pane__sources {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
     overflow-y: auto;
 }
 
-.capture-sources .fold__trigger {
-    font-size: var(--font-size-sm);
+.inbox-pane__queue[hidden],
+.inbox-pane__sources[hidden] {
+    display: none;
 }
 
-.capture-sources__label {
-    font-weight: 700;
+.inbox-pane__tabs {
+    flex: none;
+}
+
+/* --- Capture sources ---------------------------------------------------- */
+/*
+   The sources panel the shell puts on the Inbox pane's Sources tab: a line
+   saying how many sources are on, then a card per source — the same flag-row
+   switch the feature flags use, the library's textarea under it, and the last
+   run's line with the log beneath — side by side as far as the width allows.
+   Every colour is a token.
+*/
+.capture-sources {
+    display: grid;
+    gap: var(--spacing-md);
 }
 
 .capture-sources__summary {
-    margin-left: var(--spacing-xs);
-    color: var(--color-text-secondary);
+    margin-right: var(--spacing-xs);
+    color: var(--color-text-primary);
 }
 
-.capture-sources__body {
+/* The cards fill the tab's width in columns of a readable measure, and fall
+   back to one column when the pane is narrow. */
+.capture-sources__grid {
     display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
     gap: var(--spacing-md);
-    padding-top: var(--spacing-xs);
+    align-items: start;
 }
 
 .capture-sources__description,
@@ -3610,10 +3501,10 @@ h1, h2, h3 {
 /* The side menu is a fixed column; the split beside it takes the rest and
    divides itself. The body grows into what the header leaves, and min-height: 0
    on both children is what lets each column scroll on its own instead of the
-   pane growing to fit the longest. The body itself keeps a floor, because the
-   sources fold above it would otherwise take every pixel it gives up, and its
-   basis is 0 rather than its content: with the rows' full height as a basis it
-   out-bids the folded sources line in the shrink and squeezes that to a pixel. */
+   pane growing to fit the longest. The body itself keeps a floor, so a short
+   pane scrolls rather than squeezing the rows away, and its basis is 0 rather
+   than its content, so it grows into what the header leaves instead of
+   out-bidding the header's own lines in the shrink. */
 .inbox-pane__body {
     display: grid;
     flex: 1 1 0;
@@ -4430,18 +4321,13 @@ h1, h2, h3 {
 }
 
 .tools-panel__eyebrow,
-.tools-panel__title,
 .tools-panel__subtitle,
 .tools-panel__message {
     margin: 0;
 }
 
-.tools-panel__eyebrow,
-.tools-panel__title {
-    color: var(--color-primary);
-}
-
 .tools-panel__eyebrow {
+    color: var(--color-primary);
     font-size: var(--font-size-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -4449,6 +4335,8 @@ h1, h2, h3 {
 }
 
 .tools-panel__title {
+    margin: 0;
+    color: var(--color-primary);
     font-size: var(--font-size-lg);
 }
 
@@ -5106,12 +4994,13 @@ h1, h2, h3 {
     font-size: var(--font-size-lg);
 }
 
-/* A band's pace, under its name in the chart's sidebar: the stretches that
-   measured something, each with its figure, wrapping onto a second line within the
-   sidebar's own width — or, with none, one line saying the reader's own pace is
-   used. Sized to that width and to the rows the band asks for
-   (RoadmapPlanView.PaceRows), so every measure here is the smallest the library
-   offers. The reader's own pace — "Mine", the field and its unit — sits once in the
+/* A band's pace, under its name in the chart's sidebar, in the two rows the band
+   reserves for it (RoadmapPlanView.PaceRows): on the first a slider and the figure
+   it is at, on the second the "Measured" reset and - only when something needs
+   saying - one short note. The info mark with what the lane managed sits at the end
+   of the band's name, in the band's top-right corner (.roadmap-pace__hint). Sized to the
+   sidebar's own width, so every measure here is the smallest the library offers.
+   The reader's own pace - "Mine", the field and its unit - sits once in the
    roadmap's heading (.roadmap-pace--mine). */
 .roadmap-pace {
     display: grid;
@@ -5142,31 +5031,70 @@ h1, h2, h3 {
 }
 
 .roadmap-pace__unit,
-.roadmap-pace__note {
+.roadmap-pace__note,
+.roadmap-pace__value {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     white-space: nowrap;
 }
 
-/* Wrapping, not a strip: however many choices measured something, each keeps its
-   figure on one line, and a second line takes the ones the first cannot. Each
-   button keeps its own corners, since once wrapped none of them is an end. */
-.roadmap-pace .roadmap-pace__options.btn-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px;
+/* The slider takes what the figure beside it leaves. */
+.roadmap-pace__slider {
+    flex: 1 1 auto;
+    min-width: 2rem;
 }
 
-.roadmap-pace .roadmap-pace__options.btn-group > .btn {
-    display: inline-flex;
-    gap: var(--spacing-2xs);
+/* A fixed width, wide enough for "999 pt/wk", so the slider beside it keeps its
+   length while the figure changes under a drag. A figure that grew or shrank the
+   slider moved the line under the pointer, and the thumb stuttered. */
+.roadmap-pace__value {
+    flex: 0 0 auto;
+    width: 9ch;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.roadmap-pace .roadmap-pace__measured.btn {
+    flex: 0 0 auto;
     padding: 1px var(--spacing-2xs);
     border-radius: var(--border-radius-sm);
     white-space: nowrap;
 }
 
-.roadmap-pace__option-value {
-    font-variant-numeric: tabular-nums;
+/* What the lane managed, as two short lines in the bubble the library draws. */
+.roadmap-pace__hint-line {
+    display: block;
+}
+
+/* The info mark, at the end of the band's name. The mark is lifted out of the
+   content box, which starts under the name, onto the name's line - centred on it,
+   since the name is centred on the band's first row and the box starts a fixed
+   0.75rem under that centre (RoadmapTimeline.ContentGapUnderName). The hint is made
+   static, so the content box is the bubble's containing block (the arrangement
+   components.css offers for a wider anchor): the bubble opens under the band's pace,
+   as wide as the sidebar allows, rather than off the mark at the sidebar's edge. */
+.roadmap-pace .roadmap-pace__hint {
+    position: static;
+}
+
+.roadmap-pace__hint .info-hint__trigger {
+    position: absolute;
+    top: -0.75rem;
+    right: var(--spacing-sm);
+    transform: translateY(-50%);
+}
+
+/* The band's content is clipped to the rows it asked for. A band carrying a pace is
+   not: the mark sits above the box, on the name's line, and the bubble lies over the
+   lanes below. The pace's own lines fit the rows, so nothing else leaves the box. */
+.roadmap-timeline__group-content:has(> .roadmap-pace) {
+    overflow: visible;
+}
+
+/* Room at the end of the band's name for the mark, so a long name is cut short
+   before it rather than running under it. */
+.roadmap-timeline__group--slotted:has(.roadmap-pace__hint) .roadmap-timeline__group-name {
+    margin-right: 1.25rem;
 }
 
 .roadmap-pace__note {
@@ -5207,9 +5135,20 @@ h1, h2, h3 {
 /* The scrollbar goes where the rows are. A plan that fits shows none — `auto`, not
    `scroll`. */
 .roadmap-band__timeline .roadmap-timeline__frame {
+    align-items: flex-start;
     min-height: 0;
     overflow-y: auto;
     scrollbar-width: thin;
+}
+
+/* The two columns are each the frame's height or their rows', whichever is taller.
+   Stretched, a flex line in a frame of fixed height is that height: the track clipped
+   its last lanes, and scrolled down its horizontal scrollbar sat mid-chart over them.
+   The frame's height as a floor keeps that scrollbar on the frame's bottom edge when
+   the plan is short. */
+.roadmap-band__timeline .roadmap-timeline__sidebar,
+.roadmap-band__timeline .roadmap-timeline__scroll {
+    min-height: 100%;
 }
 
 /* The chart's heading row, once it is carrying the view's own heading: the heading
@@ -6628,11 +6567,6 @@ h1, h2, h3 {
     scrollbar-gutter: auto;
 }
 
-.devbook-stack__section > .tech-devbook-pane {
-    max-height: 100%;
-    overflow: hidden;
-}
-
 .tech-devbook-pane > .tabs {
     display: flex;
     flex-direction: column;
@@ -6778,16 +6712,6 @@ h1, h2, h3 {
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
-.tech-node {
-    display: grid;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border);
-    border-left: 4px solid var(--color-border-strong);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background);
-}
-
 .tech-node--accepted {
     border-left-color: var(--color-primary);
 }
@@ -6851,8 +6775,7 @@ h1, h2, h3 {
 
 .devbook-stack__header,
 .devbook-stack__section > .devbook-pane,
-.devbook-stack__section > .folder-devbook,
-.devbook-stack__section > .domain-devbook {
+.devbook-stack__section > .folder-devbook {
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-lg);
     background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
@@ -6954,8 +6877,7 @@ h1, h2, h3 {
 }
 
 .devbook-stack__section > .devbook-pane,
-.devbook-stack__section > .folder-devbook,
-.devbook-stack__section > .domain-devbook {
+.devbook-stack__section > .folder-devbook {
     position: static;
     max-height: none;
     overflow: visible;
@@ -6964,8 +6886,25 @@ h1, h2, h3 {
 
 .devbook-stack__section > .devbook-pane--arc42,
 .devbook-stack__section > .instructions-devbook,
-.devbook-stack__section > .folder-devbook--chapter,
+.devbook-stack__section > .folder-devbook--chapter {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* The domain panel used to sit in the three lists above, and two of them
+   disagreed: one said `max-height: none; overflow: visible`, the last the
+   opposite. The last had always won, so the panel clips at the section's height
+   and its document scrolls inside it. */
 .devbook-stack__section > .domain-devbook {
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
+    box-shadow: var(--shadow-md);
+    position: static;
+    padding: var(--spacing-md);
     display: flex;
     flex-direction: column;
     max-height: 100%;
@@ -7494,8 +7433,20 @@ h1, h2, h3 {
    — but it always holds a file view now, so a card here is a card around a card. */
 .design-token,
 .folder-section,
-.domain-document,
+.domain-document {
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+/* The `border` after `border-left` resets it, as it did when the two sat in
+   separate rules, so neither this accent nor the status colours above it show.
+   Kept as it was: folding the rules was not meant to change what is drawn. */
 .tech-node {
+    display: grid;
+    gap: var(--spacing-sm);
+    border-left: 4px solid var(--color-border-strong);
     padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
@@ -7922,6 +7873,8 @@ h1, h2, h3 {
     border-radius: var(--border-radius-md);
     padding: var(--spacing-sm) var(--spacing-md);
     cursor: pointer;
+    text-align: left;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .repo-subpage:hover {
@@ -7969,6 +7922,7 @@ h1, h2, h3 {
     border-radius: var(--border-radius-md);
     padding: var(--spacing-sm);
     cursor: pointer;
+    overflow-wrap: anywhere;
 }
 
 .instructions-list__item:hover {
@@ -8030,6 +7984,10 @@ h1, h2, h3 {
     max-height: min(72vh, 52rem);
     overflow: auto;
     color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+    white-space: pre-wrap;
 }
 
 .instruction-doc__content > :first-child {

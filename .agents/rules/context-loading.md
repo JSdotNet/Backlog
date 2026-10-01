@@ -7,10 +7,9 @@ paths:
 
 # Repository delivery and context policy
 
-The one repository context file for delivery: how work is routed here, what the flows lean
-on, and how much of the devbook they may read. `CLAUDE.md` restates the gate for Claude
-Code; keep both in step. The folder rules themselves live in `AGENTS.md`'s devbook section
-and `.agents/rules/devbook-*.md` and are not restated here.
+`CLAUDE.md` restates the gate for Claude Code; keep both in step. The folder rules themselves
+live in `AGENTS.md`'s devbook section and `.agents/rules/devbook-*.md` and are not restated
+here.
 
 ## The gate
 
@@ -24,6 +23,9 @@ write, not the first action. Never go straight from exploration to implementatio
 | A devbook chapter, decision record or debt record under `.devbook/` | `delivery:flow-spec` |
 | A dependency, package or framework move | `delivery:flow-update-packages` |
 | Creating, governing or scaffolding a repository | `delivery:flow-project` |
+
+Changes under `plugins/`, `tools/`, `build/`, `.github/` and `.claude/` are the first
+row's tooling, CI and scripting, so they route through `delivery:flow-code` as well.
 
 This repository ships no repo-native `flow-*` skill; all four come from the `delivery`
 plugin. The repository owner authorizes running any of them, and the agents they hand
@@ -51,11 +53,11 @@ call a run complete without the person's explicit approval.
   `qa:qa` for QA, `domain-design:domain-architect` for domain, `ux-design:ux-designer` for
   UX, `documentation:documentation` for docs, and `csharp-coding:coding` for
   implementation. Product and security are deliberately unbound.
-- **Procedures** — `.agents/skills/start.md` starts the Aspire AppHost and says what healthy
-  looks like and which harness answers which question; `show.md` walks a branch's change in
-  the harness that serves it; `capture.md` places evidence; `debug.md` finds a cause from
-  logs and traces; `estimate.md` sizes work. A flow calls `start` at `app.start` rather than
-  guessing a command.
+- **Procedures** — `.claude/skills/run-backlog/SKILL.md` (the `run` skill) starts the
+  Aspire AppHost and says what healthy looks like and which harness answers which question;
+  under `.agents/skills/`, `show.md` walks a branch's change in the harness that serves it;
+  `capture.md` places evidence; `debug.md` finds a cause from logs and traces; `estimate.md`
+  sizes work. A flow calls `run` at `app.start` rather than guessing a command.
 - **QA depth** — the engine picks it from the change kind: full Playwright QA with capture
   for new behaviour, targeted checks for a fix, startup-only for a dependency move, and
   skipped when nothing runs. `policy` in the config caps it at `full`.
@@ -83,7 +85,6 @@ Every edit to a devbook folder routes through `delivery:flow-spec`; say so when 
 
 - Architecture, arc42, ADR and TDR work — `flow-spec` on `.devbook/arc42/` and
   `architecture:architect` — may load `.devbook/arc42/`, but only the chapters in scope.
-  A chapter, a decision record and a debt record all route that way.
 - Domain modelling — `flow-spec` on `.devbook/domain/` and `domain-design:domain-architect`
   — may load `.devbook/domain/`, but only the bounded contexts in scope.
 - Design and UX work — `ux-design:ux-designer` — may load `.devbook/design/`, and stack,

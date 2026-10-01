@@ -877,7 +877,7 @@ public sealed class GlobalPaneMarkupTests
         // region it cannot name, and nothing else.
         Assert.Contains("<InboxPane OnCapture=\"RunCaptureAsync\" CaptureRunning=\"_captureRunning\" CaptureMessage=\"@_captureMessage\">", home, StringComparison.Ordinal);
         Assert.Contains("<Sources>", home, StringComparison.Ordinal);
-        Assert.Contains("<CaptureSourcesPanel Expanded=", home, StringComparison.Ordinal);
+        Assert.Contains("<CaptureSourcesPanel OnImported=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
         Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" />", home, StringComparison.Ordinal);
@@ -933,9 +933,12 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains(".backlog-list {", css, StringComparison.Ordinal);
         Assert.Contains(".entry-detail {", css, StringComparison.Ordinal);
 
-        var halves = Block(components, ".split-pane__start,\n.split-pane__end {");
-        Assert.Contains("overflow: auto;", halves, StringComparison.Ordinal);
-        Assert.Contains("min-height: 0;", halves, StringComparison.Ordinal);
+        foreach (var half in new[] { ".split-pane__start {", ".split-pane__end {" })
+        {
+            var halfRule = Block(components, half);
+            Assert.Contains("overflow: auto;", halfRule, StringComparison.Ordinal);
+            Assert.Contains("min-height: 0;", halfRule, StringComparison.Ordinal);
+        }
 
         var list = Block(css, ".backlog-list {");
         Assert.DoesNotContain("overflow", list, StringComparison.Ordinal);

@@ -25,8 +25,10 @@ public class ContinuousIntegrationWorkflowTests
 
     /// <summary>
     /// The timeout each workflow's jobs carry: 60 for release and deploy jobs,
-    /// whose workload installs and provisioning are slow when healthy, and 30 for
-    /// the rest, the nightly test run included. A workflow added without a row
+    /// whose workload installs and provisioning are slow when healthy, and for the
+    /// auto-merge gate, which waits out every other check on the pull request and
+    /// so must outlast their 30 plus their time in the queue; 30 for the rest, the
+    /// nightly test run included. A workflow added without a row
     /// here fails the test, so the next one gets a decision rather than the
     /// platform default.
     /// </summary>
@@ -44,6 +46,7 @@ public class ContinuousIntegrationWorkflowTests
         ["deploy-foundry.yml"] = 60,
         ["deploy-sync.yml"] = 60,
         ["deploy-all.yml"] = 60,
+        ["auto-merge.yml"] = 60,
     };
 
     /// <summary>The workflows whose <c>setup-node</c> steps must agree on one version.</summary>

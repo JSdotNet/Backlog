@@ -228,7 +228,7 @@ public sealed class AzureFoundryCostClient(
             $"Azure has no resource at the cost scope in Settings ({scope}). Check the resource ID against the portal.",
         HttpStatusCode.TooManyRequests =>
             "Azure Cost Management is rate-limiting this account; try again in a minute.",
-        _ => $"Azure Cost Management returned {(int)status}: {TrimForMessage(payload)}"
+        _ => $"Azure Cost Management returned {(int)status}: {FoundryMessages.TrimForMessage(payload)}"
     };
 
     /// <summary>The send, with the transport's failures translated into this
@@ -251,11 +251,5 @@ public sealed class AzureFoundryCostClient(
         {
             throw new AzureFoundryException("Azure Cost Management did not answer before the request timed out.", ex);
         }
-    }
-
-    private static string TrimForMessage(string value)
-    {
-        var trimmed = value.Trim();
-        return trimmed.Length <= 300 ? trimmed : trimmed[..300] + "...";
     }
 }

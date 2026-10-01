@@ -791,6 +791,147 @@ public sealed class RoadmapTimelineTests
         Assert.Equal(["alpha"], opened);
     }
 
+    // --- A locked bar whose end can still be resized ---------------------------
+
+    private static readonly IReadOnlyList<RoadmapBar> InFlight =
+    [
+        new("alpha", "build", "Alpha", On(1, 5), On(1, 16), Locked: true, EndResizable: true),
+        new("beta", "ship", "Beta", On(1, 19), On(1, 30), Locked: true)
+    ];
+
+    [Fact]
+    public void A_locked_bar_that_offers_its_end_draws_the_end_grip_only()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, InFlight);
+
+        var alpha = view.Find("[data-testid='rm-bar-alpha']");
+        Assert.Equal("true", alpha.GetAttribute("data-roadmap-end-resizable"));
+        Assert.Single(alpha.QuerySelectorAll("[data-roadmap-grip='end']"));
+        Assert.Empty(alpha.QuerySelectorAll("[data-roadmap-grip='start']"));
+
+        var beta = view.Find("[data-testid='rm-bar-beta']");
+        Assert.Equal("false", beta.GetAttribute("data-roadmap-end-resizable"));
+        Assert.Empty(beta.QuerySelectorAll("[data-roadmap-grip='end']"));
+    }
+
+    [Fact]
+    public void An_end_resizable_bar_is_not_offered_its_end_when_resizing_is_off()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, InFlight, extra: parameters => parameters.Add(timeline => timeline.AllowResize, false));
+
+        Assert.Empty(view.FindAll("[data-roadmap-grip='end']"));
+    }
+
+    [Fact]
+    public void Shift_and_an_arrow_moves_the_end_of_a_locked_bar_that_offers_it()
+    {
+        using var context = new BunitContext();
+        RoadmapChange? reported = null;
+
+        var view = Chart(context, InFlight, extra: parameters => parameters.Add(
+            timeline => timeline.OnBarChanged,
+            (RoadmapChange change) => reported = change));
+
+        var bar = view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body");
+
+        bar.KeyDown(new KeyboardEventArgs { Key = " " });
+        Assert.Contains("start is fixed", Announcement(view), StringComparison.OrdinalIgnoreCase);
+
+        bar.KeyDown(new KeyboardEventArgs { Key = "ArrowRight", ShiftKey = true });
+        bar.KeyDown(new KeyboardEventArgs { Key = " " });
+
+        Assert.NotNull(reported);
+        Assert.Equal("alpha", reported.BarId);
+        Assert.Equal(RoadmapDrag.ResizeEnd, reported.Kind);
+        Assert.Equal(On(1, 5), reported.Start);
+        Assert.True(reported.End > On(1, 16));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    public void Moving_and_start_resizing_are_refused_on_a_locked_bar_that_offers_its_end(bool shift, bool alt)
+    {
+        using var context = new BunitContext();
+        RoadmapChange? reported = null;
+
+        var view = Chart(context, InFlight, extra: parameters => parameters.Add(
+            timeline => timeline.OnBarChanged,
+            (RoadmapChange change) => reported = change));
+
+        var bar = view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body");
+
+        bar.KeyDown(new KeyboardEventArgs { Key = " " });
+        bar.KeyDown(new KeyboardEventArgs { Key = "ArrowRight", ShiftKey = shift, AltKey = alt });
+        bar.KeyDown(new KeyboardEventArgs { Key = " " });
+
+        Assert.Null(reported);
+    }
+
+    [Fact]
+    public void A_plain_locked_bar_still_cannot_be_grabbed_by_the_keyboard()
+    {
+        using var context = new BunitContext();
+        RoadmapChange? reported = null;
+
+        var view = Chart(context, InFlight, extra: parameters => parameters.Add(
+            timeline => timeline.OnBarChanged,
+            (RoadmapChange change) => reported = change));
+
+        var bar = view.Find("[data-testid='rm-bar-beta'] .roadmap-bar__body");
+
+        bar.KeyDown(new KeyboardEventArgs { Key = " " });
+        bar.KeyDown(new KeyboardEventArgs { Key = "ArrowRight", ShiftKey = true });
+        bar.KeyDown(new KeyboardEventArgs { Key = " " });
+
+        Assert.Null(reported);
+    }
+
+    [Fact]
+    public async Task A_pointer_drag_of_the_end_grip_reports_the_end_and_a_drag_of_the_body_reports_nothing()
+    {
+        using var context = new BunitContext();
+        var reported = new List<RoadmapChange>();
+
+        var view = Chart(context, InFlight, extra: parameters => parameters.Add(
+            timeline => timeline.OnBarChanged,
+            (RoadmapChange change) => reported.Add(change)));
+
+        await view.InvokeAsync(() => view.Instance.DragBegin("alpha", "move"));
+        await view.InvokeAsync(() => view.Instance.DragPreview(2, 0));
+        await view.InvokeAsync(() => view.Instance.DragCommit());
+        Assert.Empty(reported);
+
+        await view.InvokeAsync(() => view.Instance.DragBegin("alpha", "start"));
+        await view.InvokeAsync(() => view.Instance.DragPreview(-1, 0));
+        await view.InvokeAsync(() => view.Instance.DragCommit());
+        Assert.Empty(reported);
+
+        await view.InvokeAsync(() => view.Instance.DragBegin("alpha", "end"));
+        await view.InvokeAsync(() => view.Instance.DragPreview(2, 0));
+        await view.InvokeAsync(() => view.Instance.DragCommit());
+
+        var change = Assert.Single(reported);
+        Assert.Equal(RoadmapDrag.ResizeEnd, change.Kind);
+        Assert.Equal(On(1, 5), change.Start);
+        Assert.True(change.End > On(1, 16));
+    }
+
+    [Theory]
+    [InlineData(RoadmapDrag.Move)]
+    [InlineData(RoadmapDrag.ResizeStart)]
+    public void An_end_resizable_locked_bar_refuses_every_gesture_but_the_end(RoadmapDrag kind)
+    {
+        var bar = new RoadmapBar("alpha", "build", "Alpha", On(1, 5), On(1, 16), Locked: true, EndResizable: true);
+
+        Assert.Null(RoadmapChange.For(bar, kind, 3, "ship", DayOfWeek.Monday));
+        Assert.NotNull(RoadmapChange.For(bar, RoadmapDrag.ResizeEnd, 3, "ship", DayOfWeek.Monday));
+    }
+
     [Fact]
     public void An_arrow_key_then_space_drops_the_bar_a_week_later()
     {

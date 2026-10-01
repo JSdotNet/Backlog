@@ -141,29 +141,6 @@ public sealed class ToolsPaneTests
     }
 
     /// <summary>
-    /// A machine that has the MCP server switched off still draws the row, and
-    /// still offers nothing.
-    ///
-    /// <para>Drawn rather than hidden, because a registration made while it was on
-    /// is on the machine either way and still names the port. And offering
-    /// nothing, because registering calls <c>EnsureToken</c> — minting a secret
-    /// for a server nobody switched on is the one thing this button must not
-    /// do.</para>
-    /// </summary>
-    [Fact]
-    public void The_feature_being_off_says_so_and_offers_nothing()
-    {
-        const string note = "The MCP server is switched off, so nothing answers at the registered address.";
-        using var context = Context(FakeDevToolService.With(EndpointServer(drifted: false, note)));
-
-        var pane = context.Render<ToolsPane>();
-
-        Assert.Equal(note, pane.Find("[data-testid='tools-row-note']").TextContent.Trim());
-        Assert.Equal("Registered by the URL it declares", pane.Find(".tools-inventory__meta").TextContent.Split(" · ")[^1]);
-        Assert.Empty(pane.FindAll("[data-testid='tools-row-reregister']"));
-    }
-
-    /// <summary>
     /// A port somebody else is holding is a fact about the listener, not about
     /// the registration.
     ///

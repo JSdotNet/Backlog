@@ -8,8 +8,12 @@ while reading.
 - **`backlog-import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
   a `prompt` an AI session runs, or a `task` or `test` only the user does — never both in one
-  entry. Before a step stays a `task` or `test`, it asks you whether an AI session could do
-  it instead, and every step, whatever its kind, names its repository with `repo:`. It always ships a review view next to the raw plan — one HTML page built from
+  entry. Prompts are the default: while it writes the plan it interviews you — the open
+  decisions, the values and access the work needs, what a pass looks like — and writes the
+  answers into the prompts, so no step stops to ask when it runs. A manual check is offered
+  as an AI-run QA prompt first, and a step stays a `task` or `test` only when you keep it,
+  with a `Kept manual:` line saying why. Every step, whatever its kind, names its
+  repository with `repo:`. It always ships a review view next to the raw plan — one HTML page built from
   `skills/backlog-import-plan/assets/plan-review.html` that parses the embedded plan
   itself and shows its checks, dependency order and entries, published as an artifact where
   the host has one and written beside the plan otherwise. User-invoked only

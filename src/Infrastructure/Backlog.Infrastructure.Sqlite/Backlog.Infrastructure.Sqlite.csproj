@@ -38,4 +38,10 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The shared open (SqliteSchema) is internal to this project and asserted
+         directly, rather than only through whichever repository calls it. -->
+    <InternalsVisibleTo Include="Backlog.Infrastructure.Sqlite.UnitTests" />
+  </ItemGroup>
+
 </Project>

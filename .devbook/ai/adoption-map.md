@@ -58,6 +58,18 @@ flowchart LR
 - **Production does not reach `plan` yet.** The one usage that would close the loop from
   `monitor` — alerts to work items — is a `candidate` whose workflow fails its preflight.
 
+## What the adoption left out
+
+The `devbook-adoption` plan took the stack almost whole. Local ADR 0016's status table
+records what landed. Three parts were left out on purpose, and none of them has a chapter,
+because nobody works that way here:
+
+| Left out | Why |
+| --- | --- |
+| `devbook-collaboration` | Dropped at the owner's decision on 2026-09-28, although `decide-adoption-scope` had asked for it. It is not installed or stamped. |
+| The `security-review` schedule | The owner kept it unselected: CodeQL and Dependabot run in CI instead. `05-unattended-runs.md` keeps it as a `candidate`. |
+| The `devbook-update` schedule | Added to the catalog in 1.10.0 and not taken. Stack updates run by hand through `devbook-config:update`. |
+
 ## Reading and extending the folder
 
 Every chapter carries `stage`, `status`, and `date`. `status` rates the **usage**, on the

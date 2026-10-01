@@ -109,6 +109,11 @@
     [Parameter]
     public RoadmapMilestoneDto? Milestone { get; set; }
 
+    /// <summary>The day a new date was put on the chart at, when it was — read only
+    /// while <see cref="Milestone"/> is null. Null opens a month out.</summary>
+    [Parameter]
+    public DateOnly? PlacedOn { get; set; }
+
     [Parameter]
     public IReadOnlyList<PlannedRepository> Repositories { get; set; } = [];
 
@@ -165,7 +170,7 @@
             _title = string.Empty;
             // A month out. A date being added is usually one somebody already has in
             // mind, so this is a starting point to overwrite rather than a guess.
-            _on = Iso(Today.AddDays(28));
+            _on = Iso(PlacedOn ?? Today.AddDays(28));
             _kind = ReleaseKind;
             _planWide = false;
             _repositories = [];

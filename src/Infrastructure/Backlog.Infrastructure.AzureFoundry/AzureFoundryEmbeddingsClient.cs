@@ -104,7 +104,7 @@ public sealed class AzureFoundryEmbeddingsClient(HttpClient httpClient, AzureFou
         var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            throw new AzureFoundryException($"Azure Foundry returned {(int)response.StatusCode}: {TrimForMessage(payload)}");
+            throw new AzureFoundryException($"Azure Foundry returned {(int)response.StatusCode}: {FoundryMessages.TrimForMessage(payload)}");
         }
 
         var embeddings = JsonSerializer.Deserialize<EmbeddingResponse>(payload, JsonOptions);
@@ -120,12 +120,6 @@ public sealed class AzureFoundryEmbeddingsClient(HttpClient httpClient, AzureFou
         }
 
         return new AzureFoundryEmbeddingResponse(embeddings?.Model ?? request.Deployment, vectors);
-    }
-
-    private static string TrimForMessage(string value)
-    {
-        var trimmed = value.Trim();
-        return trimmed.Length <= 300 ? trimmed : trimmed[..300] + "...";
     }
 
     private sealed record EmbeddingRequest(IReadOnlyList<string> Input);
