@@ -88,6 +88,10 @@ approval before a pull request.
      primary content. Write every interview answer the step depends on into it as a
      settled fact — the chosen option, the exact name, value or wording — never as
      "confirm with the user", "decide whether", "TBD" or a choice left between options.
+     A figure stated about the source material — rows, bullets, files, chapters — comes
+     from a command run while writing the plan, never from counting by hand, and the entry
+     names that command so whoever runs the step can re-derive it. Where no command can
+     produce a figure, state none.
    - **Setup sub-items.** A `##` sub-item per repository prerequisite the instructions
      assume (installing a plugin, updating one, wiring a related change), ordered ahead of
      everything else in the entry, titled `Setup: ...`.
