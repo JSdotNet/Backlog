@@ -1,0 +1,728 @@
+@using Backlog.Modules.Sessions.Abstractions
+@using Backlog.UI.Components.Data
+@using Backlog.UI.Components.Integrations
+@inject IServiceProvider Services
+
+@*
+    The pull requests pane: the open pull requests of every registered repository, in
+    one table, with the three things a person does to one from a list — bring its
+    branch up to date, take it out of draft, merge it — and the way back to the task
+    and the session it came from.
+
+    It is the Sessions context's second surface, what the sessions shipped, and it
+    lives in the shell project rather than beside SessionsPane for one reason: it
+    reads GitHub through the GitHub adapter, and ModuleBoundaryTests holds every
+    Sessions project to referencing no infrastructure at all. The shell already
+    takes that adapter for Settings and the Tasks merge menu, so the screen sits
+    where the reference is allowed rather than the rule bending to where the screen
+    would otherwise sit.
+
+    Like the sessions pane it owns its own loading and is not a monitor: it reads
+    GitHub when it opens, when somebody presses Refresh, and — for one repository —
+    after an act, and never on a timer. A list that re-read itself would spend a
+    GraphQL query per repository every few seconds to tell a reader what they could
+    have asked for.
+
+    Every repository is read, and the header's chips narrow what is drawn, the way
+    the session list narrows its rows. Reading only the scoped ones would make every
+    press on a chip a round trip to GitHub, and the chips are pressed far more often
+    than the list goes stale.
+
+    What a row links to is the shell's to answer. A task is an entry, which belongs to
+    Tasks; this pane asks for the reference by repository and number and hands it
+    back on a click. A session is matched here, because the sessions are this
+    context's own: first the session whose transcript recorded the pull request's
+    address, then the most recent session that ran on its head branch in the same
+    repository — the second is how a Copilot session, which records no pull request,
+    still leads back to the work.
+
+    The ✕ only reports that it was pressed; what that closes is the shell's business.
+*@
+
+<section @key=@("pull-requests-pane") class="pull-requests-panel" id="pull-requests-pane" aria-labelledby="pull-requests-title" data-testid="pull-requests-panel">
+    <SectionHeader BaseClass="pull-requests-panel__header"
+                   TextCssClass=""
+                   EyebrowCssClass="pull-requests-panel__eyebrow"
+                   TitleCssClass="pull-requests-panel__title"
+                   DescriptionCssClass="pull-requests-panel__subtitle"
+                   DescriptionTestId="pull-requests-subtitle"
+                   ActionsCssClass="pull-requests-panel__header-actions"
+                   Eyebrow="Pull requests"
+                   TitleId="pull-requests-title"
+                   Title="Open on GitHub"
+                   Description="@Subtitle">
+        <Actions>
+            @if (Configured)
+            {
+                <Badge BaseClass="pull-requests-panel__count" Kind="" TestId="pull-requests-count">@CountLabel</Badge>
+            }
+            <IconButton AriaLabel="Close pull requests pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
+        </Actions>
+    </SectionHeader>
+
+    @if (!Configured)
+    {
+        @* Nothing to read until a repository is registered, and the sentence says
+           where that is done rather than drawing an empty table that suggests the
+           repositories have no pull requests. *@
+        <EmptyState Title="No repositories registered"
+                    Description="Register a GitHub repository in Settings, and its open pull requests are listed here."
+                    TestId="pull-requests-not-configured" />
+    }
+    else
+    {
+        <div class="pull-requests-panel__filters" data-testid="pull-requests-filters">
+            @* A one-of-many strip, like the session list's Show, and for its reason:
+               it comes back to Mine on every open, and a switch that forgot its
+               setting would read as broken where a strip that returns to its first
+               option reads as where you are looking. *@
+            <div class="pull-requests-filter">
+                <span class="pull-requests-filter__label">Show</span>
+                <ButtonGroup AriaLabel="Whose pull requests to show" TestId="pull-requests-author-filter">
+                    <ToggleButton Pressed="_mine"
+                                  PressedChanged="_ => _mine = true"
+                                  TestId="pull-requests-filter-mine">
+                        Mine
+                    </ToggleButton>
+                    <ToggleButton Pressed="!_mine"
+                                  PressedChanged="_ => _mine = false"
+                                  TestId="pull-requests-filter-everyone">
+                        Everyone's
+                    </ToggleButton>
+                </ButtonGroup>
+            </div>
+
+            <div class="pull-requests-filter pull-requests-filter--end">
+                <AppButton Variant="ButtonVariant.Secondary"
+                           Disabled="@_loading"
+                           TestId="pull-requests-refresh"
+                           OnClick="RefreshAsync">
+                    @(_loading ? "Reading..." : "Refresh")
+                </AppButton>
+            </div>
+        </div>
+
+        <div class="pull-requests-panel__content" id="pull-requests-content" aria-busy="@(_loading ? "true" : null)">
+            @if (_notice is not null)
+            {
+                @* Only where the host composed no toast channel: an act's outcome has
+                   to reach the reader somewhere, and this is the pane's own line for
+                   it. *@
+                <Alert Message="@_notice" BaseClass="pull-requests-panel__notice" Role="status" TestId="pull-requests-outcome" />
+            }
+            @if (_listing.Failures.Count > 0)
+            {
+                @* Named per repository, and a failure rather than news: that
+                   repository's read did not complete. The rows below are every
+                   other repository's, complete, which the sentence says so a reader
+                   does not wonder whether the whole list is suspect. *@
+                <Alert Message="@FailureMessage"
+                       BaseClass="pull-requests-panel__notice"
+                       Role="alert"
+                       ActionLabel="Retry"
+                       OnAction="RefreshAsync"
+                       ActionTestId="pull-requests-unreadable-retry"
+                       TestId="pull-requests-unreadable" />
+            }
+            @if (_sessionsUnreadable)
+            {
+                <Alert Message="Couldn't read the session records on this PC, so no pull request is matched to a session."
+                       BaseClass="pull-requests-panel__notice"
+                       Role="status"
+                       TestId="pull-requests-sessions-unreadable" />
+            }
+
+            @if (_loading && !_read)
+            {
+                <div class="pull-requests-panel__loading" data-testid="pull-requests-loading" aria-hidden="true">
+                    @foreach (var width in SkeletonWidths)
+                    {
+                        <Skeleton Shape="SkeletonShape.Block" Width="@width" />
+                    }
+                </div>
+            }
+            else
+            {
+                <DataTable TItem="GitHubOpenPullRequest"
+                           Columns="Columns"
+                           Items="Visible"
+                           RowKey="@(pull => (object)Key(pull))"
+                           RowAttributes="@RowAttributes"
+                           RowNoun="pull request"
+                           AriaLabel="Open pull requests in the registered repositories"
+                           EmptyMessage="@EmptyMessage"
+                           EmptyDescription="@EmptyDescription"
+                           TestId="pull-requests-table">
+                    <Row Context="pull">
+                        <td class="data-table__mono">
+                            <span class="@RepositoryClass(pull)" title="@pull.RepositoryFullName" data-testid="pull-request-repository">@RepositoryLabel(pull)</span>
+                        </td>
+
+                        <td class="pull-requests-table__pull-request">
+                            <IntegrationLink Link="@Link(pull)"
+                                             CssClass="pull-requests-table__link"
+                                             TestId="pull-request-link" />
+                        </td>
+
+                        @* Head, then where it would merge: the order GitHub's own
+                           header reads, and clamped like every branch in this
+                           product, with both names in the title. *@
+                        <td class="data-table__mono">
+                            <span class="data-table__clamp pull-requests-table__branch"
+                                  title="@($"{pull.HeadRefName} → {pull.BaseRefName}")">@pull.HeadRefName → @pull.BaseRefName</span>
+                        </td>
+
+                        @* Words, each in the library's own badge: the state chip says
+                           draft or open with its glyph, and every other fact a reader
+                           acts on is its own badge, so none of them is carried by
+                           colour alone. GitHub's raw merge state is in the title. *@
+                        <td title="@StatusTitle(pull)">
+                            <span class="pull-requests-table__facts">
+                                <IntegrationStateChip Artifact="@(pull.IsDraft ? IntegrationArtifactState.Draft : IntegrationArtifactState.Open)"
+                                                      Kind="IntegrationLinkKind.PullRequest"
+                                                      TestId="pull-request-state" />
+                                @if (ChecksLabel(pull.Checks) is { } checks)
+                                {
+                                    <Badge Kind="@ChecksKind(pull.Checks)" Slug="@ChecksSlug(pull.Checks)" TestId="pull-request-checks">@checks</Badge>
+                                }
+                                @if (pull.IsBehind)
+                                {
+                                    <Badge Kind="finding" Slug="warning" TestId="pull-request-behind">Behind</Badge>
+                                }
+                                @if (pull.HasConflicts)
+                                {
+                                    <Badge Kind="finding" Slug="error" TestId="pull-request-conflicts">Conflicts</Badge>
+                                }
+                                @if (pull.AutoMergeEnabled)
+                                {
+                                    <Badge Kind="kind" TestId="pull-request-auto-merge">Auto-merge on</Badge>
+                                }
+                            </span>
+                        </td>
+
+                        @* Inert text where the shell wired no way to open one, as the
+                           Integrations family draws every reference nobody can follow;
+                           an em dash where nothing links the two. *@
+                        <td>
+                            @if (TaskFor(pull) is { } task)
+                            {
+                                <IntegrationLink Link="@TaskLink(task)"
+                                                 ShowTitle="false"
+                                                 OnOpen="@TaskOpener(task)"
+                                                 TestId="pull-request-task" />
+                            }
+                            else
+                            {
+                                <span data-testid="pull-request-no-task">@Missing</span>
+                            }
+                        </td>
+
+                        <td>
+                            @if (SessionFor(pull) is { } session)
+                            {
+                                <IntegrationLink Link="@SessionLink(session)"
+                                                 ShowTitle="false"
+                                                 OnOpen="SessionOpener"
+                                                 TestId="pull-request-session" />
+                            }
+                            else
+                            {
+                                <span data-testid="pull-request-no-session">@Missing</span>
+                            }
+                        </td>
+
+                        <td class="pull-requests-table__actions">
+                            @if (pull.IsBehind)
+                            {
+                                <AppButton Size="ButtonSize.Small"
+                                           Disabled="@Busy(pull)"
+                                           TestId="pull-request-update-branch"
+                                           OnClick="() => UpdateBranchAsync(pull)">
+                                    Update branch
+                                </AppButton>
+                            }
+                            @if (pull.IsDraft)
+                            {
+                                <AppButton Size="ButtonSize.Small"
+                                           Disabled="@Busy(pull)"
+                                           TestId="pull-request-ready"
+                                           OnClick="() => MarkReadyAsync(pull)">
+                                    Ready for review
+                                </AppButton>
+                            }
+                            @if (MergeActFor(pull) is { } act)
+                            {
+                                <AppButton Size="ButtonSize.Small"
+                                           Variant="@(act is PullRequestMerge.Now ? ButtonVariant.Primary : ButtonVariant.Secondary)"
+                                           Disabled="@Busy(pull)"
+                                           TestId="pull-request-merge"
+                                           OnClick="() => MergeAsync(pull)">
+                                    @MergeLabel(act)
+                                </AppButton>
+                            }
+                        </td>
+                    </Row>
+                </DataTable>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    /// <summary>The headings, in the order the row template writes its cells.</summary>
+    private static readonly DataTableColumn[] Columns =
+    [
+        new("Repository"),
+        new("Pull request"),
+        new("Branch"),
+        new("Status"),
+        new("Task"),
+        new("Session"),
+        new("Actions")
+    ];
+
+    /// <summary>An em dash: nothing links this pull request to one. Not an empty
+    /// cell, which would read as a value that happens to be blank.</summary>
+    private const string Missing = "—";
+
+    private static readonly string[] SkeletonWidths = ["100%", "92%", "96%", "88%"];
+
+    private GitHubIntegration? _gitHub;
+    private IAgentSessionSource? _sessionSource;
+    private IToastChannel? _toasts;
+
+    private GitHubPullRequestListing _listing = GitHubPullRequestListing.Empty;
+    private IReadOnlyList<AgentSession> _sessions = [];
+    private bool _sessionsUnreadable;
+    private bool _loading;
+
+    /// <summary>Whether the list has been read once, so the placeholder rows are a
+    /// first read's and never a refresh's.</summary>
+    private bool _read;
+
+    /// <summary>Mine by default and on every open: the list a person opens this for
+    /// is their own, and a stored choice would open it on everybody's without their
+    /// having asked.</summary>
+    private bool _mine = true;
+
+    /// <summary>The rows an act is running on, by <see cref="Key"/>. Their actions
+    /// are disabled until the re-read after the act has landed, because a second act
+    /// started in between would act on a row the first has just made stale.</summary>
+    private readonly HashSet<string> _busy = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>An act's outcome, where the host composed no toast channel.</summary>
+    private string? _notice;
+
+    /// <summary>Raised when somebody dismisses the pane; what that closes is the
+    /// shell's decision.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    /// <summary>The repositories the shell has scoped, by alias, in the order taken;
+    /// empty for all of them. Read on every render, as the session list reads it.</summary>
+    [Parameter]
+    public IReadOnlyList<string> RepositoryScope { get; set; } = [];
+
+    /// <summary>What a repository is called here — the configured alias for an
+    /// <c>owner/name</c> — or null for one this workspace does not know. The shell's
+    /// to answer, as it is for the session list; without it the pane asks the
+    /// adapter's own registry, which is the same list.</summary>
+    [Parameter]
+    public Func<string?, string?>? RepositoryAlias { get; set; }
+
+    /// <summary>Which identity hue a repository wears, or null. The shell's, for the
+    /// reason <c>SessionsPane.RepositoryColour</c> is.</summary>
+    [Parameter]
+    public Func<string?, int?>? RepositoryColour { get; set; }
+
+    /// <summary>
+    /// The Backlog entry that recorded a pull request, by the pull request's
+    /// <c>owner/name</c> and number, or null. Asked of the shell because the record
+    /// is on the entry, and entries belong to Tasks.
+    /// </summary>
+    [Parameter]
+    public Func<string, int, DeliveryRunReference?>? PullRequestTask { get; set; }
+
+    /// <summary>How the shell opens that entry. Without it the task renders as inert
+    /// text rather than as a control that would have to refuse the click.</summary>
+    [Parameter]
+    public EventCallback<DeliveryRunReference> OnOpenTask { get; set; }
+
+    /// <summary>How the shell opens the session list on one session, by its id.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenSession { get; set; }
+
+    /// <summary>Whether there is anything to read: the adapter composed, and at least
+    /// one repository registered with it.</summary>
+    private bool Configured => _gitHub is { IsConfigured: true };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Each one optional, the way the session list resolves its record keeper: a
+        // host without GitHub is the not-configured state, a host without sessions
+        // simply links no session, and a host without toasts gets the inline line.
+        _gitHub = Services.GetService<GitHubIntegration>();
+        _sessionSource = Services.GetService<IAgentSessionSource>();
+        _toasts = Services.GetService<IToastChannel>();
+
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_gitHub is not { IsConfigured: true } gitHub) return;
+
+        _loading = true;
+
+        try
+        {
+            // Both in flight together: GitHub and the session folders are two
+            // readers that need nothing from each other until both are in.
+            var listing = gitHub.ListOpenPullRequestsAsync(gitHub.Repositories);
+            var sessions = ReadSessionsAsync();
+
+            _listing = await listing;
+            _sessions = await sessions;
+            _read = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    /// <summary>The sessions to match rows against, or none when there is no source.
+    /// A source that cannot be read is said out loud and costs the session column
+    /// only: the pull requests are GitHub's and do not depend on it.</summary>
+    private async Task<IReadOnlyList<AgentSession>> ReadSessionsAsync()
+    {
+        _sessionsUnreadable = false;
+
+        if (_sessionSource is null) return [];
+
+        try
+        {
+            return (await _sessionSource.GetSessionsAsync()).Sessions;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            _sessionsUnreadable = true;
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Reads one repository again and puts its rows in place of the old ones. After
+    /// an act, because only that repository can have moved because of it — and a
+    /// merged pull request leaves the list here, which is the act's own answer.
+    /// </summary>
+    private async Task RereadAsync(string repositoryFullName)
+    {
+        if (_gitHub is not { } gitHub) return;
+
+        var repository = gitHub.Repositories.FirstOrDefault(candidate =>
+                string.Equals(candidate.FullName, repositoryFullName, StringComparison.OrdinalIgnoreCase))
+            ?? RepositoryOf(gitHub, repositoryFullName);
+
+        if (repository is null) return;
+
+        var reread = await gitHub.ListOpenPullRequestsAsync([repository]);
+
+        bool Other(string fullName) => !string.Equals(fullName, repositoryFullName, StringComparison.OrdinalIgnoreCase);
+
+        _listing = new GitHubPullRequestListing(
+            [.. _listing.PullRequests.Where(pull => Other(pull.RepositoryFullName))
+                .Concat(reread.PullRequests)
+                .OrderByDescending(pull => pull.UpdatedAt)],
+            [.. _listing.Failures.Where(failure => Other(failure.RepositoryFullName)).Concat(reread.Failures)]);
+    }
+
+    private static GitHubRepositoryRef? RepositoryOf(GitHubIntegration gitHub, string fullName)
+    {
+        var parts = fullName.Split('/', 2);
+        return parts.Length == 2 ? gitHub.RepositoryFor(parts[0], parts[1]) : null;
+    }
+
+    private Task UpdateBranchAsync(GitHubOpenPullRequest pull) =>
+        ActAsync(pull, gitHub => gitHub.UpdateBranchAsync(pull), $"Asked GitHub to update the branch of {Subject(pull)}.");
+
+    private Task MarkReadyAsync(GitHubOpenPullRequest pull) =>
+        ActAsync(pull, gitHub => gitHub.MarkReadyForReviewAsync(pull), $"{Subject(pull)} is ready for review.");
+
+    /// <summary>The merge act, re-derived at the click from the row as it stands —
+    /// the same answer as when the button was drawn unless a read landed in between,
+    /// and then the newer one is the one to act on.</summary>
+    private Task MergeAsync(GitHubOpenPullRequest pull) => MergeActFor(pull) switch
+    {
+        PullRequestMerge.Now => ActAsync(pull, gitHub => gitHub.MergePullRequestAsync(pull.ToStatus()), $"Merged {Subject(pull)}."),
+        PullRequestMerge.WhenChecksPass => ActAsync(pull, gitHub => gitHub.EnableAutoMergeAsync(pull.ToStatus()), $"{Subject(pull)} will merge when its checks pass."),
+        PullRequestMerge.CancelAutoMerge => ActAsync(pull, gitHub => gitHub.DisableAutoMergeAsync(pull.ToStatus()), $"Cancelled auto-merge for {Subject(pull)}."),
+        _ => Task.CompletedTask
+    };
+
+    /// <summary>
+    /// One act, and the read that follows it whether it worked or not. After a
+    /// success the read is what shows the result; after a refusal it is what corrects
+    /// a row that had moved on since it was drawn. The refusal itself arrives already
+    /// worded by the adapter, naming the act and the pull request.
+    /// </summary>
+    private async Task ActAsync(GitHubOpenPullRequest pull, Func<GitHubIntegration, Task> act, string done)
+    {
+        if (_gitHub is not { } gitHub || !_busy.Add(Key(pull))) return;
+
+        try
+        {
+            try
+            {
+                await act(gitHub);
+                Publish(ToastMessage.Info(done, "pull-requests-act-done"));
+            }
+            catch (Exception exception) when (exception is GitHubException or GitHubNotConfiguredException or HttpRequestException)
+            {
+                Publish(ToastMessage.Error(exception.Message, "pull-requests-act-failed"));
+            }
+
+            await RereadAsync(pull.RepositoryFullName);
+        }
+        finally
+        {
+            _busy.Remove(Key(pull));
+        }
+    }
+
+    private void Publish(ToastMessage message)
+    {
+        if (_toasts is not null)
+        {
+            _toasts.Publish(message);
+            return;
+        }
+
+        _notice = message.Message;
+    }
+
+    private bool Busy(GitHubOpenPullRequest pull) => _busy.Contains(Key(pull));
+
+    private static string Key(GitHubOpenPullRequest pull) => $"{pull.RepositoryFullName}#{pull.Number}";
+
+    private static string Subject(GitHubOpenPullRequest pull) => $"{pull.RepositoryFullName}#{pull.Number}";
+
+    /// <summary>What the merge button does for this row, or null for none. Queued
+    /// already comes first, for the reason the task row's merge menu gives: enabling
+    /// again would be refused, and merging now would jump the queue it was put in on
+    /// purpose. A draft is offered nothing else — GitHub merges no draft, and "Ready
+    /// for review" is the act it is waiting on. Nor is a branch in conflict: "when
+    /// checks pass" would wait on checks that may already pass while the conflict,
+    /// which only a change to the branch resolves, is what holds it — the Conflicts
+    /// badge says so instead.</summary>
+    internal static PullRequestMerge? MergeActFor(GitHubOpenPullRequest pull) =>
+        pull.AutoMergeEnabled ? PullRequestMerge.CancelAutoMerge
+        : pull.IsDraft || pull.HasConflicts ? null
+        : pull.MergeReady ? PullRequestMerge.Now
+        : PullRequestMerge.WhenChecksPass;
+
+    private static string MergeLabel(PullRequestMerge act) => act switch
+    {
+        PullRequestMerge.Now => "Merge now",
+        PullRequestMerge.CancelAutoMerge => "Cancel auto-merge",
+        _ => "Merge when checks pass"
+    };
+
+    // --- What is drawn --------------------------------------------------------
+
+    private bool Scoped => RepositoryScope.Count > 0;
+
+    private string ScopeLabel => string.Join(", ", RepositoryScope);
+
+    /// <summary>The alias a repository goes by here: the shell's answer, else the
+    /// adapter's registry, else nothing.</summary>
+    private string? AliasOf(string? repository)
+    {
+        if (string.IsNullOrWhiteSpace(repository)) return null;
+
+        return RepositoryAlias?.Invoke(repository)
+            ?? _gitHub?.Repositories.FirstOrDefault(candidate =>
+                string.Equals(candidate.FullName, repository, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(candidate.Alias, repository, StringComparison.OrdinalIgnoreCase))?.Alias;
+    }
+
+    private bool InScope(GitHubOpenPullRequest pull) =>
+        !Scoped
+        || (AliasOf(pull.RepositoryFullName) is { } alias && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>The scope, then whose: the scope decides which repositories exist
+    /// here at all, and Mine narrows what is left. Newest update first, as read.</summary>
+    private IReadOnlyList<GitHubOpenPullRequest> InScopeRows => [.. _listing.PullRequests.Where(InScope)];
+
+    private IReadOnlyList<GitHubOpenPullRequest> Visible =>
+        _mine ? [.. InScopeRows.Where(pull => pull.ViewerDidAuthor)] : InScopeRows;
+
+    private string CountLabel
+    {
+        get
+        {
+            var total = InScopeRows.Count;
+            var shown = Visible.Count;
+            var noun = total == 1 ? "pull request" : "pull requests";
+
+            return shown == total ? $"{total} {noun}" : $"{shown} of {total} {noun}";
+        }
+    }
+
+    private string Subtitle
+    {
+        get
+        {
+            if (!Configured) return "The open pull requests of the repositories registered in Settings.";
+
+            var reading = "The open pull requests of every registered repository, most recently updated first — up to fifty per repository.";
+
+            return Scoped ? $"{reading} Narrowed to {ScopeLabel}." : reading;
+        }
+    }
+
+    private string EmptyMessage =>
+        _listing.PullRequests.Count == 0
+            ? "No open pull requests."
+            : Scoped && InScopeRows.Count == 0
+                ? $"No open pull requests in {ScopeLabel}."
+                : "None of the open pull requests is yours.";
+
+    private string EmptyDescription =>
+        _listing.PullRequests.Count == 0
+            ? "Nothing is open in the repositories that could be read."
+            : Scoped && InScopeRows.Count == 0
+                ? "Clear the repository scope in the header to see every repository's."
+                : $"Choose Everyone's to see the {InScopeRows.Count} opened by somebody else.";
+
+    private string FailureMessage =>
+        string.Join(" ", _listing.Failures.Select(failure => $"Couldn't read {failure.RepositoryFullName}: {failure.Message.TrimEnd('.')}."))
+        + " Every other repository below is complete.";
+
+    private IReadOnlyDictionary<string, object>? RowAttributes(GitHubOpenPullRequest pull) =>
+        new Dictionary<string, object>
+        {
+            ["data-testid"] = "pull-request-row",
+            ["data-pull-request"] = Key(pull)
+        };
+
+    private string RepositoryLabel(GitHubOpenPullRequest pull) => AliasOf(pull.RepositoryFullName) ?? pull.RepositoryFullName;
+
+    /// <summary>The repository cell plus its identity mark where the host placed one,
+    /// beside the name rather than down the row, as on the session list.</summary>
+    private string RepositoryClass(GitHubOpenPullRequest pull)
+    {
+        const string stem = "data-table__clamp pull-requests-table__repository";
+        var colour = RepositoryColour?.Invoke(pull.RepositoryFullName);
+
+        return colour is null ? stem : $"{stem} repo-mark repo-mark--{colour}";
+    }
+
+    /// <summary>The pull request as the Integrations family draws one: the number,
+    /// its title, an anchor to GitHub. The status column says the rest in words.</summary>
+    private static IntegrationLinkRef Link(GitHubOpenPullRequest pull) =>
+        IntegrationLinkRef.PullRequest(
+            pull.Url,
+            $"#{pull.Number}",
+            pull.IsDraft ? IntegrationArtifactState.Draft : IntegrationArtifactState.Open,
+            pull.Title,
+            pull.Url);
+
+    private static string? ChecksLabel(GitHubCheckState checks) => checks switch
+    {
+        GitHubCheckState.Passing => "Checks passing",
+        GitHubCheckState.Failing => "Checks failing",
+        GitHubCheckState.Pending => "Checks pending",
+        _ => null
+    };
+
+    /// <summary>Failing and pending wear the library's finding tones, because each is
+    /// something standing between the pull request and a merge; passing is a plain
+    /// fact and wears the quiet outlined kind the auto-merge badge does.</summary>
+    private static string ChecksKind(GitHubCheckState checks) =>
+        checks is GitHubCheckState.Failing or GitHubCheckState.Pending ? "finding" : "kind";
+
+    private static string? ChecksSlug(GitHubCheckState checks) => checks switch
+    {
+        GitHubCheckState.Failing => "error",
+        GitHubCheckState.Pending => "warning",
+        _ => null
+    };
+
+    /// <summary>GitHub's own merge state and author, for a reader who wants the word
+    /// the badges were derived from.</summary>
+    private static string StatusTitle(GitHubOpenPullRequest pull)
+    {
+        var state = pull.MergeStateStatus is { } mergeState ? $"GitHub's merge state: {mergeState}." : "GitHub did not say how it would merge.";
+        return pull.AuthorLogin is { } author ? $"Opened by {author}. {state}" : state;
+    }
+
+    private DeliveryRunReference? TaskFor(GitHubOpenPullRequest pull) =>
+        PullRequestTask?.Invoke(pull.RepositoryFullName, pull.Number);
+
+    private static IntegrationLinkRef TaskLink(DeliveryRunReference task) =>
+        new(task.EntryId?.ToString() ?? task.Label, IntegrationProvider.None, IntegrationLinkKind.Other, task.Label, Title: $"Open {task.Label} in the task list");
+
+    private EventCallback<IntegrationLinkRef> TaskOpener(DeliveryRunReference task) =>
+        OnOpenTask.HasDelegate
+            ? EventCallback.Factory.Create<IntegrationLinkRef>(this, () => OnOpenTask.InvokeAsync(task))
+            : default;
+
+    /// <summary>
+    /// The session behind a pull request: the one whose transcript recorded its
+    /// address, else the most recently active one on its head branch in its
+    /// repository. The second is a match on two facts the agent and GitHub both
+    /// state, not a guess — but a branch name can be reused, so the address wins
+    /// whenever there is one.
+    /// </summary>
+    internal AgentSession? SessionFor(GitHubOpenPullRequest pull)
+    {
+        var recorded = _sessions
+            .Where(session => session.PullRequests?.Any(link =>
+                string.Equals(link.Url, pull.Url, StringComparison.OrdinalIgnoreCase)) == true)
+            .MaxBy(session => session.LastActivityAt);
+
+        if (recorded is not null) return recorded;
+
+        if (string.IsNullOrWhiteSpace(pull.HeadRefName)) return null;
+
+        return _sessions
+            .Where(session => string.Equals(session.Branch, pull.HeadRefName, StringComparison.Ordinal)
+                && (SameRepository(session.Repository, pull.RepositoryFullName)
+                    || SameRepository(session.ResolvedRepository, pull.RepositoryFullName)))
+            .MaxBy(session => session.LastActivityAt);
+    }
+
+    /// <summary>Whether a session's repository — recorded as <c>owner/name</c> or,
+    /// on a replicated record, as an alias — is the pull request's.</summary>
+    private bool SameRepository(string? sessionRepository, string fullName) =>
+        !string.IsNullOrWhiteSpace(sessionRepository)
+        && (string.Equals(sessionRepository, fullName, StringComparison.OrdinalIgnoreCase)
+            || (AliasOf(sessionRepository) is { } alias
+                && string.Equals(alias, AliasOf(fullName), StringComparison.OrdinalIgnoreCase)));
+
+    private static IntegrationLinkRef SessionLink(AgentSession session) =>
+        IntegrationLinkRef.Session(
+            session.Id,
+            SessionLabel(session),
+            session.Kind is AgentSessionKind.Copilot ? IntegrationProvider.Copilot : IntegrationProvider.Claude,
+            session.State switch
+            {
+                AgentSessionState.Running => IntegrationSessionState.Running,
+                AgentSessionState.Stalled => IntegrationSessionState.Stalled,
+                _ => IntegrationSessionState.Finished
+            },
+            title: $"Session {session.Id} — open in Sessions");
+
+    /// <summary>The session's title, or the first eight characters of its id where it
+    /// has none of its own — a replicated record names itself with its id.</summary>
+    private static string SessionLabel(AgentSession session) =>
+        !string.IsNullOrWhiteSpace(session.Title) && !string.Equals(session.Title, session.Id, StringComparison.Ordinal)
+            ? session.Title
+            : session.Id.Length <= 8 ? session.Id : session.Id[..8];
+
+    private EventCallback<IntegrationLinkRef> SessionOpener =>
+        OnOpenSession.HasDelegate
+            ? EventCallback.Factory.Create<IntegrationLinkRef>(this, (IntegrationLinkRef link) => OnOpenSession.InvokeAsync(link.Id))
+            : default;
+}

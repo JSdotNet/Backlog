@@ -12,6 +12,7 @@ using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
+using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.SharedKernel.Ai;
 using Bunit;
@@ -243,7 +244,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='global-pane-multiselect']")));
 
-        foreach (var surface in new[] { "roadmap", "tools", "dashboard", "sessions" })
+        foreach (var surface in new[] { "roadmap", "tools", "dashboard", "sessions", "pull-requests" })
         {
             component.Find($"[data-testid='{surface}-toggle-button']").Click();
 
@@ -575,7 +576,7 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        string[] surfaces = ["tools", "dashboard", "sessions", "tools"];
+        string[] surfaces = ["tools", "dashboard", "sessions", "pull-requests", "tools"];
 
         foreach (var surface in surfaces)
         {
@@ -1504,6 +1505,177 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// The pull requests list is a takeover of its own, with its own segment right
+    /// after Sessions, and the way back is the pane's ✕ as much as the header's
+    /// Workspace option.
+    /// </summary>
+    [Fact]
+    public void Opening_pull_requests_replaces_every_pane_and_its_close_returns_to_them()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        OpenPullRequests(component);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='pull-requests-surface'] [data-testid='pull-requests-panel']"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='workspace']"));
+            Assert.Single(component.FindAll("main"));
+            Assert.Equal("true", component.Find("[data-testid='pull-requests-toggle-button']").GetAttribute("aria-pressed"));
+
+            // Next to Sessions in the switcher, as the same context's second list.
+            var options = component.FindAll("[data-testid='workspace-surface-switcher'] > *")
+                .Select(option => option.GetAttribute("data-testid"))
+                .ToList();
+            Assert.Equal(options.IndexOf("sessions-toggle-button") + 1, options.IndexOf("pull-requests-toggle-button"));
+        });
+
+        component.Find("[data-testid='pull-requests-panel'] button.btn--ghost").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='pull-requests-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-layout']"));
+        });
+    }
+
+    /// <summary>The flag is the whole gate: off, there is no segment and no list, and
+    /// a surface remembered from when it was on reopens on the workspace instead.</summary>
+    [Fact]
+    public void With_the_pull_requests_feature_off_there_is_no_segment_and_no_list()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            shellNavigation.SetLastSurface("PullRequests");
+
+            using var harness = CreateHarness(
+                features => features.SetEnabled(SessionFeatures.PullRequests, false),
+                shellNavigation);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='sessions-toggle-button']"));
+                Assert.Empty(component.FindAll("[data-testid='pull-requests-toggle-button']"));
+                Assert.Empty(component.FindAll("[data-testid='pull-requests-panel']"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    [Fact]
+    public void The_shell_reopens_on_a_remembered_pull_requests_surface()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            shellNavigation.SetLastSurface("PullRequests");
+
+            using var harness = CreateHarness(shellNavigation: shellNavigation);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll("[data-testid='pull-requests-surface'] [data-testid='pull-requests-panel']"));
+                Assert.Empty(component.FindAll("[data-testid='workspace']"));
+            });
+
+            component.Find("[data-testid='workspace-surface-option']").Click();
+            component.Find("[data-testid='pull-requests-toggle-button']").Click();
+
+            component.WaitForAssertion(() => Assert.Equal("PullRequests", shellNavigation.LastSurface));
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The pull requests list asks the shell which entry recorded a pull request, and
+    /// the shell answers from the entry's own pull request links — <c>owner/name</c>
+    /// and number, the repository compared without regard to case — by stored id.
+    /// </summary>
+    [Fact]
+    public void The_entry_that_recorded_a_pull_request_is_the_pull_request_s_task()
+    {
+        using var harness = CreateHarness(seed: PlanEntryText);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForState(() => state.Rows.FirstOrDefault()?.Id is not null);
+
+        var row = state.Rows[0];
+        row.PullRequestLinks = [new EntryPullRequestLink("JSdotNet/Backlog", 712)];
+
+        OpenPullRequests(component);
+
+        var pane = component.FindComponent<PullRequestsPane>().Instance;
+
+        Assert.NotNull(pane.PullRequestTask);
+
+        var task = pane.PullRequestTask!("jsdotnet/backlog", 712);
+
+        Assert.NotNull(task);
+        Assert.Equal(DeliveryRunReferenceKind.Task, task!.Kind);
+        Assert.Equal(row.Id, task.EntryId);
+        Assert.Equal("Read delivery run files", task.Label);
+
+        Assert.Null(pane.PullRequestTask("JSdotNet/Backlog", 713));
+        Assert.Null(pane.PullRequestTask("JSdotNet/Archify", 712));
+
+        // And opening it is the shell's ordinary way to an entry.
+        component.InvokeAsync(() => pane.OnOpenTask.InvokeAsync(task));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='pull-requests-panel']"));
+            Assert.Contains("Read delivery run files", Assert.Single(component.FindAll(".task-item--selected")).TextContent);
+        });
+    }
+
+    /// <summary>A session opened from the pull requests list is the session list on
+    /// that session, as it is from a task.</summary>
+    [Fact]
+    public async Task Opening_a_session_from_the_pull_requests_list_shows_the_sessions_surface_on_it()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        OpenPullRequests(component);
+
+        var pane = component.FindComponent<PullRequestsPane>().Instance;
+
+        await component.InvokeAsync(() => pane.OnOpenSession.InvokeAsync("session-1"));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='pull-requests-surface']"));
+            Assert.Equal("session-1", component.FindComponent<SessionsPane>().Instance.FocusSessionId);
+        });
+    }
+
+    /// <summary>Presses the Pull requests segment and waits for the list to take the
+    /// screen.</summary>
+    private static void OpenPullRequests(IRenderedComponent<Home> component)
+    {
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='pull-requests-toggle-button']")));
+        component.Find("[data-testid='pull-requests-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='pull-requests-panel']")));
+    }
+
     /// <summary>Presses the Sessions segment and waits for the list to take the
     /// screen.</summary>
     private static void OpenSessions(IRenderedComponent<Home> component)
@@ -1716,6 +1888,7 @@ public sealed class HomeWorkspaceSurfaceTests
         _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
+        _ = featureSettings.SetEnabled(SessionFeatures.PullRequests, true);
         _ = featureSettings.SetEnabled(DevbookFeatures.DevbookSections, true);
         _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);

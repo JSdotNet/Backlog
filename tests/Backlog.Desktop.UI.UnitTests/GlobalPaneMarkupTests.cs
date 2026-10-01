@@ -275,7 +275,7 @@ public sealed class GlobalPaneMarkupTests
             home,
             StringComparison.Ordinal);
         Assert.Contains(
-            "private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !RoadmapVisible;",
+            "private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !RoadmapVisible;",
             home,
             StringComparison.Ordinal);
         Assert.Contains("private void ToggleRoadmap() => ToggleSurface(WorkspaceSurface.Roadmap);", home, StringComparison.Ordinal);
@@ -516,8 +516,8 @@ public sealed class GlobalPaneMarkupTests
     /// <summary>
     /// Tools and the Dashboard are takeovers, not panes. Each is the page's single
     /// <c>main</c> landmark while it is open, which is only true as long as the
-    /// branches stay mutually exclusive in the markup. The session list is a
-    /// takeover too, with a branch of its own.
+    /// branches stay mutually exclusive in the markup. The session list and the pull
+    /// requests list are takeovers too, each with a branch of its own.
     /// </summary>
     [Fact]
     public void Only_one_surface_renders_and_it_owns_the_main_landmark()
@@ -529,15 +529,17 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("else if (DashboardVisible)", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"roadmap-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("else if (SessionsVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("else if (PullRequestsVisible)", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"tools-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"dashboard-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"sessions-surface\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"pull-requests-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"workspace\"", home, StringComparison.Ordinal);
 
         // One landmark per branch, and the branches are exclusive, so the page has
         // exactly one. Two <main> elements is the failure this counts, which is why
         // the number moves with each takeover rather than being loosened to "some".
-        Assert.Equal(5, CountOccurrences(home, "<main class="));
+        Assert.Equal(6, CountOccurrences(home, "<main class="));
 
         // The pane row keeps the test id the resizer's JavaScript selects on; what
         // changed is that it is no longer the landmark itself.

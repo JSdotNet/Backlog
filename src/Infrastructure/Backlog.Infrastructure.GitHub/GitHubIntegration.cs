@@ -196,11 +196,95 @@ public sealed partial class GitHubIntegration(
                 cancellationToken));
     }
 
+    /// <summary>
+    /// The open pull requests of every repository given, read side by side, most
+    /// recently updated first across all of them.
+    /// <para>
+    /// Concurrently, because each repository is its own GraphQL round trip and the
+    /// list waits on the slowest of them either way. And each one's refusal is caught
+    /// and kept as that repository's failure rather than thrown: a repository the
+    /// account cannot read says nothing about the ones it can, and the list is worth
+    /// having without it. Cancellation is not a refusal and still ends the read.
+    /// </para>
+    /// </summary>
+    public async Task<GitHubPullRequestListing> ListOpenPullRequestsAsync(
+        IEnumerable<GitHubRepositoryRef> repositories,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repositories);
+
+        var reads = repositories
+            .DistinctBy(repository => repository.FullName, StringComparer.OrdinalIgnoreCase)
+            .Select(repository => ReadOneAsync(repository, cancellationToken))
+            .ToList();
+
+        var answers = await Task.WhenAll(reads).ConfigureAwait(false);
+
+        return new GitHubPullRequestListing(
+            [.. answers.SelectMany(answer => answer.PullRequests).OrderByDescending(pull => pull.UpdatedAt)],
+            [.. answers.Where(answer => answer.Failure is not null).Select(answer => answer.Failure!)]);
+    }
+
+    private async Task<(IReadOnlyList<GitHubOpenPullRequest> PullRequests, GitHubRepositoryFailure? Failure)> ReadOneAsync(
+        GitHubRepositoryRef repository,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return (await client.ListOpenPullRequestsAsync(repository, cancellationToken).ConfigureAwait(false), null);
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
+        {
+            return ([], new GitHubRepositoryFailure(repository.FullName, ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Brings a pull request's branch up to date with its base — GitHub's "Update
+    /// branch". The head the list read travels with it, so a branch that moved since
+    /// is refused rather than merged into.
+    /// </summary>
+    /// <exception cref="GitHubException">As <see cref="EnableAutoMergeAsync"/>.</exception>
+    public Task UpdateBranchAsync(GitHubOpenPullRequest pullRequest, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pullRequest);
+
+        return Explained(
+            MergeAct.UpdateBranch,
+            pullRequest.ToStatus(),
+            () => client.UpdateBranchAsync(
+                RepositoryForFullName(pullRequest.RepositoryFullName),
+                pullRequest.Number,
+                pullRequest.HeadSha,
+                cancellationToken));
+    }
+
+    /// <summary>Takes a draft out of draft, so its reviewers are asked and it can
+    /// merge.</summary>
+    /// <exception cref="GitHubException">As <see cref="EnableAutoMergeAsync"/>.</exception>
+    public Task MarkReadyForReviewAsync(GitHubOpenPullRequest pullRequest, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pullRequest);
+
+        return Explained(
+            MergeAct.MarkReady,
+            pullRequest.ToStatus(),
+            () => client.MarkReadyForReviewAsync(
+                RepositoryForFullName(pullRequest.RepositoryFullName),
+                pullRequest.NodeId,
+                cancellationToken));
+    }
+
+    /// <summary>The acts on a pull request whose refusals are put into words here.
+    /// The name is older than the last two members: every act it held was a merge's
+    /// until the pull requests list added two that prepare one.</summary>
     private enum MergeAct
     {
         EnableAutoMerge,
         DisableAutoMerge,
-        Merge
+        Merge,
+        UpdateBranch,
+        MarkReady
     }
 
     /// <summary>
@@ -244,12 +328,27 @@ public sealed partial class GitHubIntegration(
         {
             MergeAct.EnableAutoMerge => $"Couldn't turn on auto-merge for {subject}",
             MergeAct.DisableAutoMerge => $"Couldn't cancel auto-merge for {subject}",
+            MergeAct.UpdateBranch => $"Couldn't update the branch of {subject}",
+            MergeAct.MarkReady => $"Couldn't mark {subject} ready for review",
             _ => $"Couldn't merge {subject}"
         };
 
         var said = refusal.Message;
 
         bool Says(string phrase) => said.Contains(phrase, StringComparison.OrdinalIgnoreCase);
+
+        // The head the list read is the one the update was asked against; GitHub
+        // names the parameter when the branch has moved on since.
+        if (act is MergeAct.UpdateBranch && Says("expected head sha"))
+        {
+            return $"{what}: the branch has moved since it was read. Refresh the list and try again.";
+        }
+
+        if (act is MergeAct.UpdateBranch && Says("merge conflict"))
+        {
+            return $"{what}: the base branch conflicts with it, and GitHub can't merge that by itself. "
+                + "Resolve the conflicts on the branch, then push.";
+        }
 
         if (Says("auto merge is not allowed") || Says("auto-merge is not allowed"))
         {
@@ -286,7 +385,14 @@ public sealed partial class GitHubIntegration(
             || Says("resource not accessible")
             || MustHavePermission().IsMatch(said))
         {
-            return $"{what}: the GitHub account in use doesn't have permission to merge in "
+            var permission = act switch
+            {
+                MergeAct.UpdateBranch => "push to branches",
+                MergeAct.MarkReady => "change pull requests",
+                _ => "merge"
+            };
+
+            return $"{what}: the GitHub account in use doesn't have permission to {permission} in "
                 + $"{pullRequest.RepositoryFullName} — it needs write access to the repository.";
         }
 

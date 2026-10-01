@@ -4915,7 +4915,8 @@ h1, h2, h3 {
 /* The panel inside a takeover is the scroll container. */
 .workspace-surface > .tools-panel,
 .workspace-surface > .dashboard-panel,
-.workspace-surface > .sessions-panel {
+.workspace-surface > .sessions-panel,
+.workspace-surface > .pull-requests-panel {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
@@ -5926,6 +5927,151 @@ h1, h2, h3 {
 
 .sessions-table__branch {
     max-width: 16rem;
+}
+
+/* The pull requests takeover. The session list's frame, for the reason that one
+   repeats the dashboard's — a takeover is a takeover — and its own block rather than
+   a shared one, so the two lists can move apart without one dragging the other. */
+.pull-requests-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
+    box-shadow: var(--shadow-md);
+}
+
+.pull-requests-panel__header {
+    display: flex;
+    flex: none;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.pull-requests-panel__header-actions {
+    display: flex;
+    flex: none;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.pull-requests-panel__eyebrow {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.pull-requests-panel__title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+}
+
+.pull-requests-panel__subtitle {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.pull-requests-panel__count {
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.pull-requests-panel__filters {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: var(--spacing-md) var(--spacing-lg);
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.pull-requests-filter {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    min-width: 0;
+}
+
+.pull-requests-filter--end {
+    margin-left: auto;
+}
+
+.pull-requests-filter__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.pull-requests-panel__content {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-md);
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+.pull-requests-panel__notice {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.pull-requests-panel__loading {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.pull-requests-table__repository {
+    max-width: 12rem;
+}
+
+/* The title is the one value a reader looks for, so this cell takes the width the
+   others leave; the link clamps its own title. */
+.pull-requests-table__pull-request {
+    min-width: 16rem;
+}
+
+.pull-requests-table__branch {
+    max-width: 18rem;
+}
+
+/* The state chip and the badges after it wrap as a group, never one word per line.
+   On a span inside the cell, because a cell that is itself a flex box stops being
+   a table cell. */
+.pull-requests-table__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs);
+    align-items: center;
+}
+
+/* Each act is its own button, so a row offers exactly what fits its state rather
+   than a menu of acts GitHub would refuse. */
+.pull-requests-table__actions {
+    white-space: nowrap;
+}
+
+.pull-requests-table__actions > .btn + .btn {
+    margin-left: var(--spacing-2xs);
 }
 
 /* A delivery run, under the session that drove it or in a row of the runs table.

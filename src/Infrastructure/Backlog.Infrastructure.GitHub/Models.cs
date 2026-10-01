@@ -95,6 +95,87 @@ public sealed record GitHubPullRequestStatus(
     bool MergeReady,
     GitHubMergeMethod PreferredMergeMethod);
 
+/// <summary>
+/// One open pull request as the pull requests list shows it: where it lives, whose
+/// it is, which branch it would merge where, and everything the three acts on that
+/// list — update the branch, mark it ready, merge it — have to know beforehand.
+/// <para>
+/// Its own record rather than a wider <see cref="GitHubPullRequestStatus"/>, because
+/// that one is what an entry's link reads about a pull request somebody already
+/// recorded, and its every field is something a merge act needs. The list asks a
+/// different question — which pull requests are there at all — and the head branch,
+/// the author and the distance from the base are its answer, not a merge's. The two
+/// meet in <see cref="ToStatus"/>, so the merge acts are written once.
+/// </para>
+/// </summary>
+/// <param name="HeadSha">The head commit, sent back as <c>expected_head_sha</c> when
+/// the branch is updated so GitHub refuses rather than merges into a branch that
+/// moved since it was read.</param>
+/// <param name="ViewerDidAuthor">Whether the account this repository is read as
+/// opened it — GitHub's own answer, per repository, so "mine" means the identity the
+/// repository is bound to rather than a login this app would have to guess.</param>
+/// <param name="MergeReady">As <see cref="GitHubPullRequestStatus.MergeReady"/>.</param>
+/// <param name="IsBehind">GitHub's <c>mergeStateStatus</c> is <c>BEHIND</c>: the base
+/// branch moved on and the repository requires the head to be up to date, which is
+/// the state "Update branch" exists for.</param>
+/// <param name="HasConflicts"><c>mergeStateStatus</c> is <c>DIRTY</c>, or
+/// <c>mergeable</c> is <c>CONFLICTING</c>. Both, because GitHub computes the merge
+/// state lazily and a list read can carry the one before the other.</param>
+/// <param name="MergeStateStatus">GitHub's word, verbatim, for the title of the
+/// status cell; null where GitHub did not say.</param>
+public sealed record GitHubOpenPullRequest(
+    int Number,
+    string Url,
+    string Title,
+    string RepositoryFullName,
+    string NodeId,
+    bool IsDraft,
+    string HeadRefName,
+    string? HeadSha,
+    string BaseRefName,
+    string? AuthorLogin,
+    bool ViewerDidAuthor,
+    GitHubCheckState Checks,
+    bool AutoMergeEnabled,
+    bool MergeReady,
+    bool IsBehind,
+    bool HasConflicts,
+    string? MergeStateStatus,
+    GitHubMergeMethod PreferredMergeMethod,
+    DateTimeOffset? UpdatedAt)
+{
+    /// <summary>Draft or open: the list asks for open pull requests only, so these
+    /// are the two states one can be in.</summary>
+    public GitHubItemState State => IsDraft ? GitHubItemState.Draft : GitHubItemState.Open;
+
+    /// <summary>The same pull request as the merge acts take it, so
+    /// <see cref="GitHubIntegration.MergePullRequestAsync"/> and its two siblings act
+    /// on a listed pull request exactly as they act on a recorded one.</summary>
+    public GitHubPullRequestStatus ToStatus() =>
+        new(Number, RepositoryFullName, NodeId, State, Checks, AutoMergeEnabled, MergeReady, PreferredMergeMethod);
+}
+
+/// <summary>One repository whose open pull requests could not be read, in the
+/// sentence GitHub or the transport refused with.</summary>
+public sealed record GitHubRepositoryFailure(string RepositoryFullName, string Message);
+
+/// <summary>
+/// The open pull requests of several repositories, read together, and the ones that
+/// could not be read.
+/// <para>
+/// The failures travel beside the pull requests rather than as an exception, because
+/// the repositories are independent: a token that lost access to one, or one renamed
+/// on GitHub, says nothing about the others, and a list that went blank because of it
+/// would be hiding everything it did read behind the one thing it could not.
+/// </para>
+/// </summary>
+public sealed record GitHubPullRequestListing(
+    IReadOnlyList<GitHubOpenPullRequest> PullRequests,
+    IReadOnlyList<GitHubRepositoryFailure> Failures)
+{
+    public static GitHubPullRequestListing Empty { get; } = new([], []);
+}
+
 /// <summary>Everything one refresh learned about a pushed entry: the issue and
 /// the pull requests that mention it.</summary>
 public sealed record GitHubIssueSnapshot(
