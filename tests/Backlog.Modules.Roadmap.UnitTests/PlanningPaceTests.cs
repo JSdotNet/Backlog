@@ -298,7 +298,7 @@ public class PlanningPaceTests
         var finished = new Finished(
             [new(Today, 28) { RepositoryAliases = ["backlog"] }, new(Today, 28) { RepositoryAliases = ["site"] }],
             "backlog", "site");
-        var pace = new PlanningPace(settings, finished, new FixedClock(Today));
+        var pace = new PlanningPace(settings, finished, new FakeTimeProvider(Noon));
 
         Assert.Null(pace.SetOwn(2.25m, "backlog"));
 
@@ -321,7 +321,7 @@ public class PlanningPaceTests
     public async Task TheGlobalScopesOwnPaceIsTheHeadingsTypedPace()
     {
         var settings = new Settings(3m, PaceSource.Manual);
-        var pace = new PlanningPace(settings, new Finished([]), new FixedClock(Today));
+        var pace = new PlanningPace(settings, new Finished([]), new FakeTimeProvider(Noon));
 
         Assert.Null(pace.SetOwn(4.5m));
 
@@ -338,7 +338,7 @@ public class PlanningPaceTests
     {
         var settings = new Settings(7m, PaceSource.Manual);
         var finished = new Finished([new(Today, 28) { RepositoryAliases = ["backlog"] }], "backlog", "site");
-        var pace = new PlanningPace(settings, finished, new FixedClock(Today));
+        var pace = new PlanningPace(settings, finished, new FakeTimeProvider(Noon));
 
         Assert.Null(pace.SetOwn(2m, "site"));
         Assert.Equal(2m, await pace.GetStoryPointsPerWeekAsync(["backlog", "site"], TestContext.Current.CancellationToken));
@@ -353,7 +353,7 @@ public class PlanningPaceTests
         var settings = new Settings(3m, PaceSource.Manual);
         var raised = 0;
         settings.Changed += () => raised++;
-        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FixedClock(Today));
+        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FakeTimeProvider(Noon));
 
         Assert.Null(pace.SetOwn(2.25m, "backlog"));
 
@@ -366,7 +366,7 @@ public class PlanningPaceTests
     public void AFigureThatIsNotAPaceIsRefusedAndChoosesNothing(int refused)
     {
         var settings = new Settings(3m, PaceSource.Manual);
-        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FixedClock(Today));
+        var pace = new PlanningPace(settings, new Finished([], "backlog"), new FakeTimeProvider(Noon));
 
         Assert.NotNull(pace.SetOwn(refused, "backlog"));
 
