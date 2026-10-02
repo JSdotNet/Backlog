@@ -1,3 +1,5 @@
+using Backlog.SharedKernel;
+
 namespace Backlog.Modules.Dashboard.Abstractions.Services;
 
 /// <summary>
@@ -70,6 +72,11 @@ public sealed record PlanItemProgress(
 /// answered with no items, so the section can tell "nothing planned" from "no plan".</param>
 public sealed record PlanReading(bool RoadmapEnabled, PlanPace Pace, IReadOnlyList<PlanItemProgress> Items)
 {
+    /// <summary>The working week the roadmap counts its paces and windows in (local ADR
+    /// 0019), so an outlook projects through the same hours as the bar it is set
+    /// beside. The default week when the roadmap keeps none.</summary>
+    public WorkingHours Week { get; init; } = WorkingHours.Default;
+
     /// <summary>The reading when the roadmap is switched off: nothing was read.</summary>
     public static PlanReading Off { get; } = new(false, new PlanPace(0m, PlanPaceBasis.Manual), []);
 }

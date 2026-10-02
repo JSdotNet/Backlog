@@ -165,9 +165,11 @@ can differ between the two devices until the older build is upgraded.
 ```
 
 In the graduated axis, each day column's head shows that day's working hours,
-such as "Wed 23 · 8.5h". Each week column's head shows the week's working hours,
-such as "Wk 41 · 42.5h". A day column the week does not work is shaded, and its
-head shows no hours. Month and quarter columns are unchanged.
+and each week column's head shows the week's. A wide column reads them inline,
+such as "Wed 23 · 8.5h" and "W41 · 42.5h". A narrow column shows them on a line
+of their own under the label, such as "8.5h" and "42.5h", and drops the unit
+when the figure would not fit. A day column the week does not work is hatched,
+and its head shows no hours. Month and quarter columns are unchanged.
 
 Every column keeps its width. The axis is still time, so a drag still moves a
 bar by days, and a bar still spans the days off inside it.
@@ -271,5 +273,6 @@ The implementing `flow-code` run turns these into tests:
    the device's `working-hours.json` alone, and placement reads that file. The
    device's next pace change writes and pushes the key.
 9. **The axis shows hours and shades days off.** On the default week, a day head
-   reads "Wed 23 · 8.5h", a week head reads "Wk 41 · 42.5h", and Saturday and
+   carries "8.5h", a week head carries "42.5h" at the default width and reads
+   "W41 · 42.5h" when wide, and Saturday and
    Sunday columns are shaded at the same width as the others.

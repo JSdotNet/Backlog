@@ -1,3 +1,5 @@
+using Backlog.SharedKernel;
+
 namespace Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 
 /// <summary>
@@ -13,9 +15,10 @@ namespace Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 /// </summary>
 /// <param name="Manual">The pace the reader typed, in story points a week — the
 /// fallback every scope shares. Always positive.</param>
-/// <param name="LastTwoWeeks">Effort finished in the last 14 days, over 2 weeks.</param>
-/// <param name="LastFourWeeks">Effort finished in the last 28 days, over 4 weeks.</param>
-/// <param name="LastEightWeeks">Effort finished in the last 56 days, over 8 weeks.</param>
+/// <param name="LastTwoWeeks">Effort finished in the last 14 days, over the working hours
+/// in them, times the hours of a working week (local ADR 0019) — the effort over 2 weeks.</param>
+/// <param name="LastFourWeeks">The same over the last 28 days and 4 weeks.</param>
+/// <param name="LastEightWeeks">The same over the last 56 days and 8 weeks.</param>
 /// <param name="Source">The stretch the reader chose. <see cref="PaceSource.Manual"/>
 /// is no stretch chosen, which reads as the last two weeks; <see cref="PaceSource.Set"/>
 /// is the scope's own pace, set by hand (<see cref="Own"/>).</param>
@@ -27,6 +30,15 @@ public sealed record PlanningPacesDto(
     PaceSource Source)
 {
     private decimal? _own;
+
+    /// <summary>The working week these paces are counted in — a week of the pace is the
+    /// hours of this week (local ADR 0019). The default week when the reader never set
+    /// one; a week with no working hours reads as the default too.</summary>
+    public WorkingHours Week
+    {
+        get;
+        init => field = (value ?? WorkingHours.Default).Effective;
+    } = WorkingHours.Default;
 
     /// <summary>The scope's own typed pace, set on its slider — what
     /// <see cref="PaceSource.Set"/> stands for. The global scope's is the heading's
@@ -106,6 +118,15 @@ public sealed record CompletedEffortDto(DateOnly CompletedOn, int Effort)
 /// value is positive.</param>
 public sealed record PacesInUseDto(decimal Global, IReadOnlyDictionary<string, decimal> ByRepository)
 {
+    /// <summary>The working week every pace here is counted in, and every window it
+    /// sizes is counted through (local ADR 0019). The default week when the reader never
+    /// set one; a week with no working hours reads as the default too.</summary>
+    public WorkingHours Week
+    {
+        get;
+        init => field = (value ?? WorkingHours.Default).Effective;
+    } = WorkingHours.Default;
+
     /// <summary>
     /// The pace an item filed under <paramref name="repositoryAliases"/> is placed at.
     /// <para>

@@ -1,6 +1,7 @@
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Dashboard.Services;
 
@@ -102,7 +103,7 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
                 || item.RepositoryAliases.Any(scope.Repositories.Contains))
             .OrderBy(item => item.Start)
             .ThenBy(item => item.Title, StringComparer.Ordinal)
-            .Select(item => Outlook(item, today))
+            .Select(item => Outlook(item, today, reading.Week))
             .ToList();
 
         return InsightResult<PlanInsight>.Ready(new PlanInsight(true, reading.Pace, items));
@@ -114,8 +115,9 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
     /// </summary>
     /// <remarks>
     /// The projection is the roadmap's own arithmetic for a window drawn from its work —
-    /// effort × 7 ÷ points a week in calendar days, never under one nor over ten years,
-    /// the pace read per item — so a dashboard that says behind never contradicts the bar
+    /// the effort left at points a working week, counted through the working week's
+    /// hours from today (local ADR 0019), never under a day nor over ten years, the pace
+    /// read per item — so a dashboard that says behind never contradicts the bar
     /// drawn past its end. It departs in one place: an open entry nobody estimated counts
     /// nothing here where the bar counts it a point, because the section reports it as
     /// unestimated and a figure that also guessed at it would count it twice. An item
@@ -125,7 +127,7 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
     /// is no promised end for it to be behind. Once its work has begun the roadmap draws
     /// it from the work instead; this section reports the effort-sized end either way.
     /// </remarks>
-    private static PlanItemInsight Outlook(PlanItemProgress item, DateOnly today)
+    private static PlanItemInsight Outlook(PlanItemProgress item, DateOnly today, WorkingHours week)
     {
         if (item.IsFinished) return new(item, PlanOutlook.Finished, item.LastCompletedOn);
         if (item.PlacedByEffort) return new(item, PlanOutlook.PlacedByEffort, item.End);
@@ -133,8 +135,9 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
         if (item.PacePointsPerWeek <= 0) return new(item, PlanOutlook.NoPace, null);
 
         var remaining = Math.Max(0, item.TotalEffort - item.DoneEffort);
-        var days = (int)Math.Clamp(Math.Ceiling(remaining * 7m / item.PacePointsPerWeek), 1, 3650);
-        var projected = today.AddDays(days - 1);
+        var counted = remaining <= 0 ? week.FirstWorkedDay(today) : week.LastDayOf(today, remaining, item.PacePointsPerWeek);
+        var latest = today.AddDays(LongestProjectionDays - 1);
+        var projected = counted > latest ? latest : counted;
 
         var outlook = item.End < today
             ? PlanOutlook.Overdue
@@ -142,6 +145,9 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
 
         return new(item, outlook, projected);
     }
+
+    /// <summary>Ten years: the longest a projection runs, as the roadmap's forecast.</summary>
+    private const int LongestProjectionDays = 3650;
 
     private static DateTimeOffset InstantOf(CompletedTask task) =>
         new(task.CompletedOn.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);

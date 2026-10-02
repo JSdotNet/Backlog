@@ -23,7 +23,7 @@
     save, and what else has to move with them.
 *@
 
-<section class="roadmap-timeline @(OnSlotActivated.HasDelegate ? "roadmap-timeline--insertable" : null) @CssClass"
+<section class="roadmap-timeline @(OnSlotActivated.HasDelegate ? "roadmap-timeline--insertable" : null) @(WorkingHoursByDay is null ? null : "roadmap-timeline--hours") @CssClass"
          style="@Metrics"
          aria-labelledby="@(string.IsNullOrWhiteSpace(LabelledBy) ? _headingId : LabelledBy)"
          data-testid="@TestId">
@@ -177,7 +177,7 @@
                         {
                             <div class="@ColumnClass(column)"
                                  style="left: @Rem(Geometry.XFor(column.Start)); width: @Rem(Geometry.WidthFor(column.Start, column.End))"
-                                 title="@(IsCurrentWeek(column) ? column.LongLabel + " (this week)" : IsCurrent(column) ? column.LongLabel + " (today)" : column.LongLabel)"
+                                 title="@ColumnTitle(column)"
                                  aria-current="@(IsCurrent(column) ? "date" : null)">
                                 @* A week clipped to a few days at a month start has no
                                    room for its number; the tooltip still names it. *@
@@ -185,6 +185,13 @@
                                 {
                                     <span class="roadmap-timeline__quarter-label">@HeadLabel(column)</span>
                                     <span class="roadmap-timeline__quarter-year">@column.Caption</span>
+                                    @* Given a working week, every head keeps a third line for
+                                       the hours, empty where there are none, so all heads read
+                                       along one baseline as the caption line does. *@
+                                    @if (WorkingHoursByDay is not null)
+                                    {
+                                        <span class="roadmap-timeline__quarter-hours">@HoursCaption(column)</span>
+                                    }
                                 }
                             </div>
                         }
@@ -201,9 +208,11 @@
                                       style="left: @Rem(Geometry.XFor(thisWeek.Start)); width: @Rem(Geometry.WidthFor(thisWeek.Start, thisWeek.End))"></span>
                             }
 
-                            @* The weekend, where the axis is ruled in days. A coarser
-                               column has no room to show two days of seven. *@
-                            @foreach (var day in Span.Columns.Where(IsWeekend))
+                            @* The days off, where the axis is ruled in days, shaded down
+                               the chart at their own width: the axis stays time, so a bar
+                               still spans the days off inside it (local ADR 0019). A
+                               coarser column has no room to show two days of seven. *@
+                            @foreach (var day in Span.Columns.Where(IsDayOff))
                             {
                                 <span class="roadmap-timeline__weekend"
                                       style="left: @Rem(Geometry.XFor(day.Start)); width: @Rem(Geometry.WidthFor(day.Start, day.End))"></span>
@@ -508,6 +517,15 @@
     /// because a component that read the clock could not be tested twice.</summary>
     [Parameter]
     public DateOnly? Today { get; set; }
+
+    /// <summary>
+    /// The hours worked on each day of the week, for the heads to show and the days
+    /// off to be shaded (local ADR 0019). A day missing or at zero is not worked. Left
+    /// unset, the axis says nothing about a working week. The caller's, as a plain map,
+    /// because this library knows no working week of its own.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyDictionary<DayOfWeek, double>? WorkingHoursByDay { get; set; }
 
     /// <summary>Which day a week starts on here, and so where a drag lands.</summary>
     [Parameter]
@@ -1931,12 +1949,109 @@
         }
     }
 
-    /// <summary>What a column head reads. A day column too narrow for its weekday
-    /// gives up the name and keeps the number.</summary>
-    private string HeadLabel(RoadmapColumn column) =>
-        column.Scale == RoadmapColumnScale.Day && Geometry.WidthFor(column.Start, column.End) < MinNamedDayRem
-            ? column.Start.Day.ToString(CultureInfo.CurrentCulture)
-            : column.Label;
+    /// <summary>How wide a day column has to be to carry its working hours as well —
+    /// "Wed 23 · 8.5h".</summary>
+    private const double MinHoursDayRem = 5.5;
+
+    /// <summary>How wide a week column has to be to carry its working hours —
+    /// "W41 · 42.5h".</summary>
+    private const double MinHoursWeekRem = 5;
+
+    /// <summary>
+    /// What a column head reads. A day column too narrow for its weekday gives up the
+    /// name and keeps the number. Where a working week is given, a worked day's head and
+    /// a week's head carry their working hours when there is room for them; the tooltip
+    /// always says them.
+    /// </summary>
+    private string HeadLabel(RoadmapColumn column)
+    {
+        if (column.Scale == RoadmapColumnScale.Day && Geometry.WidthFor(column.Start, column.End) < MinNamedDayRem)
+        {
+            return column.Start.Day.ToString(CultureInfo.CurrentCulture);
+        }
+
+        return HoursInline(column) && HoursIn(column) is { } hours ? $"{column.Label} · {Hours(hours)}" : column.Label;
+    }
+
+    /// <summary>Whether a column is wide enough to say its hours on the head's own line,
+    /// "Wed 23 · 8.5h".</summary>
+    private bool HoursInline(RoadmapColumn column)
+    {
+        var room = column.Scale == RoadmapColumnScale.Day ? MinHoursDayRem : MinHoursWeekRem;
+        return Geometry.WidthFor(column.Start, column.End) >= room;
+    }
+
+    /// <summary>The caption font's size and a figure's rough width in it, in rem — what
+    /// decides whether "8.5h" fits under a day or gives up its unit.</summary>
+    private const double CaptionFontRem = 0.75;
+
+    private const double CaptionCharEm = 0.55;
+
+    /// <summary>The padding a head keeps either side of its text.</summary>
+    private const double HeadPaddingRem = 0.25;
+
+    /// <summary>
+    /// The hours on the head's third line, for a column too narrow to say them inline:
+    /// "8.5h" under a day and "42.5h" under a week — and "8.5" where the unit would not
+    /// fit, since the week's head beside it says what the figure counts. Nothing for a
+    /// month, a quarter, a day off, or a column that says its hours inline.
+    /// </summary>
+    private string? HoursCaption(RoadmapColumn column)
+    {
+        if (HoursIn(column) is not { } hours || HoursInline(column)) return null;
+
+        var withUnit = Hours(hours);
+        var room = Geometry.WidthFor(column.Start, column.End) - HeadPaddingRem;
+
+        return withUnit.Length * CaptionCharEm * CaptionFontRem <= room ? withUnit : withUnit[..^1];
+    }
+
+    /// <summary>The column's tooltip: its long label, whether it is now, and its working
+    /// hours — or that it is not worked.</summary>
+    private string ColumnTitle(RoadmapColumn column)
+    {
+        var title = IsCurrentWeek(column) ? column.LongLabel + " (this week)"
+            : IsCurrent(column) ? column.LongLabel + " (today)"
+            : column.LongLabel;
+
+        if (WorkingHoursByDay is not null && IsDayOff(column)) return title + " · not worked";
+
+        return HoursIn(column) is { } hours ? $"{title} · {Hours(hours)}" : title;
+    }
+
+    /// <summary>
+    /// The working hours in a day or week column, or null where the axis says none: no
+    /// working week given, a month or quarter, or a day not worked.
+    /// </summary>
+    private double? HoursIn(RoadmapColumn column)
+    {
+        if (WorkingHoursByDay is null) return null;
+        if (column.Scale is not (RoadmapColumnScale.Day or RoadmapColumnScale.Week)) return null;
+
+        var hours = 0d;
+        for (var day = column.Start; day <= column.End; day = day.AddDays(1)) hours += WorkedOn(day.DayOfWeek);
+
+        return column.Scale == RoadmapColumnScale.Day && hours <= 0 ? null : hours;
+    }
+
+    private double WorkedOn(DayOfWeek day) =>
+        WorkingHoursByDay is { } week && week.TryGetValue(day, out var hours) && hours > 0 ? hours : 0;
+
+    /// <summary>
+    /// Whether a column is a day ruled on its own that is not worked: one the working
+    /// week does not work, or — given no week — a Saturday or a Sunday, so a caller
+    /// without one still sees the weekend.
+    /// </summary>
+    private bool IsDayOff(RoadmapColumn column) =>
+        column.Scale == RoadmapColumnScale.Day
+        && (WorkingHoursByDay is null
+            ? column.Start.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday
+            : WorkedOn(column.Start.DayOfWeek) <= 0);
+
+    /// <summary>Hours as a head says them: invariant, at most two decimals, and none
+    /// for a whole hour — "8h", "8.5h", "42.5h".</summary>
+    private static string Hours(double hours) =>
+        Math.Round(hours, 2).ToString("0.##", CultureInfo.InvariantCulture) + "h";
 
     private double MinLabelled(RoadmapColumn column) =>
         column.Scale == RoadmapColumnScale.Day ? MinLabelledDayRem : MinLabelledColumnRem;
@@ -1946,12 +2061,8 @@
 
     private string ColumnClass(RoadmapColumn column) =>
         $"roadmap-timeline__quarter roadmap-timeline__quarter--{column.Scale.ToString().ToLowerInvariant()}"
-        + (IsWeekend(column) ? " roadmap-timeline__quarter--weekend" : null)
+        + (IsDayOff(column) ? " roadmap-timeline__quarter--weekend" : null)
         + (IsCurrent(column) ? " roadmap-timeline__quarter--current" : null);
-
-    /// <summary>Whether a column is a Saturday or a Sunday ruled as a day of its own.</summary>
-    private static bool IsWeekend(RoadmapColumn column) =>
-        column.Scale == RoadmapColumnScale.Day && column.Start.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
 
     private static string MilestoneClass(RoadmapMilestone milestone) =>
         "roadmap-milestone roadmap-milestone--" + milestone.Marker.ToString().ToLowerInvariant();

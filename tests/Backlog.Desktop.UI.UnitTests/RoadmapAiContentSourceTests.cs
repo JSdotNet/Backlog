@@ -4,6 +4,7 @@ using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.UI;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Ai;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -69,14 +70,15 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
             [new PlanImportEntryDto("Ship sync", "sync", RepositoryAliases: ["backlog"])],
             cancellationToken: TestContext.Current.CancellationToken)).IsSuccess);
         var stored = Assert.Single((await planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
-        Assert.Equal(5, stored.Days); // nothing gathered at import: the default span
+        // Nothing gathered at import: one working week from the first worked day.
+        Assert.Equal(EffortWindow.EndFrom(stored.Start, 0, 7m, WorkingHours.Default), stored.End);
 
         var content = await new RoadmapAiContentSource(planning, new EveryItemGathers(14), new GlobalPace(14m))
             .ComposeAsync(new AiContentRequest("when does sync ship?", 6000), TestContext.Current.CancellationToken);
 
-        // 14 points at 14 a week: a week from the planned start.
+        // 14 points at 14 a week: one working week from the planned start.
         Assert.Contains(
-            $"Item: Ship sync, {Iso(stored.Start)} to {Iso(stored.Start.AddDays(6))},",
+            $"Item: Ship sync, {Iso(stored.Start)} to {Iso(EffortWindow.EndFrom(stored.Start, 14, 14m, WorkingHours.Default))},",
             content.Body,
             StringComparison.Ordinal);
     }

@@ -12267,6 +12267,57 @@ select.field__input {
     background: color-mix(in srgb, var(--color-primary) 7%, transparent);
 }
 
+/* A day the working week does not work: its head and its column down the chart
+   hatched, at the same width as every other day, so the axis stays time (local
+   ADR 0019). The hatch is drawn in --color-text-disabled, the scheme's token for
+   "unavailable" (design/color-scheme.md), over the alternate background — neutral
+   rather than a hue, because a day off is not a status — and it leans the other
+   way from a tentative bar's 135° hatch, so the two never read as one. A tint
+   alone read only as "not this week's colour" beside the current-week shading.
+   Today keeps its own highlight when it is a day off. */
+.roadmap-timeline {
+    --roadmap-off-day-hatch: repeating-linear-gradient(
+        45deg,
+        color-mix(in srgb, var(--color-text-disabled) 35%, transparent) 0 0.125rem,
+        transparent 0.125rem 0.375rem);
+}
+
+.roadmap-timeline__quarter--off:not(.roadmap-timeline__quarter--current) {
+    background: var(--roadmap-off-day-hatch), var(--color-background-alt);
+    color: var(--color-text-secondary);
+}
+
+.roadmap-timeline__off-day {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background:
+        var(--roadmap-off-day-hatch),
+        color-mix(in srgb, var(--color-background-alt) 70%, transparent);
+    opacity: 0.8;
+}
+
+/* Given a working week, every head carries a third line for its hours — "8.5h"
+   under a day, "42.5h" under a week — where the column is too narrow to say them
+   beside its name. The line is kept even when empty, as the caption's is, so every
+   head reads along one baseline; the axis grows by that line and no more. */
+.roadmap-timeline--hours {
+    --roadmap-axis-height: 3.5rem;
+}
+
+.roadmap-timeline--hours .roadmap-timeline__quarter {
+    grid-template-rows: auto auto auto;
+}
+
+.roadmap-timeline__quarter-hours {
+    min-height: calc(var(--font-size-xs) * 1.1);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
 .roadmap-timeline__body {
     position: relative;
     /* Banding drawn rather than applied per row: the rows are absolutely

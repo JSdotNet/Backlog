@@ -335,8 +335,9 @@ short plan never leaves the right of it empty, and the chart opens on last week.
 
 The day and week columns also show the person's
 [working week](domain.md#working-week). Each day head carries that day's working
-hours, such as "Wed 23 · 8.5h", and each week head the week's, such as
-"Wk 41 · 42.5h". A day the person does not work is shaded, and its head shows no
+hours, and each week head the week's. A wide column reads them inline, such as
+"Wed 23 · 8.5h" and "W41 · 42.5h". A narrow one shows them on a line under the
+label. A day the person does not work is hatched, and its head shows no
 hours. Every column keeps its width, because the axis is still time. Narrowing the
 days off was rejected: a drag of the same distance would then move a bar by a
 different number of days

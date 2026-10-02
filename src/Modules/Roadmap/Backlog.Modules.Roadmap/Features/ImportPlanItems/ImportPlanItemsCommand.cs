@@ -142,7 +142,8 @@ public sealed class ImportPlanItemsCommandHandler(
                 start,
                 current.Entry.Due,
                 effort.GetValueOrDefault(item.Tag.Value),
-                paces.For(item.Scope.Aliases));
+                paces.For(item.Scope.Aliases),
+                paces.Week);
 
             var placed = plan.PlaceByImport(item.Id, window, placement);
             if (placed.IsFailure) return Result.Failure<PlanImportResultDto>(placed.Error);
@@ -221,7 +222,8 @@ public sealed class ImportPlanItemsCommandHandler(
                 previous.Start,
                 due: null,
                 total,
-                paces.For(item.Scope.Aliases));
+                paces.For(item.Scope.Aliases),
+                paces.Week);
             if (window == previous) continue;
 
             var placed = plan.PlaceByImport(item.Id, window, placement);

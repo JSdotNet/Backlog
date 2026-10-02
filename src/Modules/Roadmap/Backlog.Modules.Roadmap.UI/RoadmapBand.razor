@@ -83,6 +83,7 @@
                                  Links="@_view.Links"
                                  Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
                                  Graduated="true"
+                                 WorkingHoursByDay="@WorkingHoursByDay"
                                  TitleContent="@BandHeading"
                                  LabelledBy="roadmap-band-title"
                                  ShowSteps="false"
@@ -170,6 +171,15 @@
     // change rather than patched in place: the plan decides what a reschedule did,
     // and a locally applied guess is one more thing that can disagree with it.
     private RoadmapTimelineModel _view = RoadmapTimelineModel.Empty;
+
+    /// <summary>The working week the paces were last read in — what the axis heads show
+    /// and shade (local ADR 0019).</summary>
+    private Backlog.SharedKernel.WorkingHours _week = Backlog.SharedKernel.WorkingHours.Default;
+
+    /// <summary>The week as the timeline takes it: hours per weekday, a day not worked
+    /// at zero.</summary>
+    private IReadOnlyDictionary<DayOfWeek, double> WorkingHoursByDay =>
+        Backlog.SharedKernel.WorkingHours.Week.ToDictionary(day => day, day => _week.WorkedOn(day).TotalHours);
 
     /// <summary>Whether the first read has come back. Only the first: every later
     /// load redraws over a chart that is already on screen.</summary>
@@ -309,9 +319,15 @@
         // that is sized by its effort, to where that effort reaches at the same pace
         // (RoadmapPlanView.AsDrawn).
         // Every band's pace from one read of the finished work, not one read per band.
+        var paces = await Paces.ReadPacesInUseAsync();
+
+        // The week the paces are counted in, which every window is counted through and
+        // the axis heads show (local ADR 0019).
+        _week = paces.Week;
+
         var forecast = new RoadmapForecast(
             Today ?? DateOnly.FromDateTime(DateTime.Today),
-            await Paces.ReadPacesInUseAsync());
+            paces);
 
         _view = RoadmapPlanView.From(_plan, configured, rollups, forecast);
 

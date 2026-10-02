@@ -5,6 +5,7 @@ using Backlog.Modules.Roadmap.DomainModels;
 using Backlog.Modules.Roadmap.Features.ImportPlanItems;
 using Backlog.Modules.Roadmap.Features.RescheduleItem;
 using Backlog.Modules.Roadmap.Features.UpdateItem;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
@@ -90,7 +91,7 @@ public class ImportPlanItemsTests
 
         await ImportedAsync([Entry("plan-a")], new PlanTagEffortDto("plan-a", 7, 1));
 
-        Assert.Equal(4, Stored("plan-a").Window.Days); // 7 points at 14 a week = 3.5 days, rounded up
+        Assert.Equal(3, Stored("plan-a").Window.Days); // 7 points at 14 a week = 21.25 working hours
     }
 
     [Fact]
@@ -107,8 +108,8 @@ public class ImportPlanItemsTests
             new PlanTagEffortDto("plan-a", 14, 0),
             new PlanTagEffortDto("plan-b", 14, 0));
 
-        Assert.Equal(7, Stored("plan-a").Window.Days);  // 14 points at 14 a week
-        Assert.Equal(14, Stored("plan-b").Window.Days); // 14 points at 7 a week
+        Assert.Equal(5, Stored("plan-a").Window.Days);  // 14 points at 14 a week: Monday to Friday
+        Assert.Equal(12, Stored("plan-b").Window.Days); // 14 points at 7 a week: to the next Friday
         Assert.Equal(1, _velocity.Reads);
     }
 
@@ -127,8 +128,8 @@ public class ImportPlanItemsTests
             new PlanTagEffortDto("plan-both", 14, 0),
             new PlanTagEffortDto("plan-unfiled", 14, 0));
 
-        Assert.Equal(14, Stored("plan-both").Window.Days);   // at site's 7 a week
-        Assert.Equal(4, Stored("plan-unfiled").Window.Days); // at the global 28 a week, 3.5 rounded up
+        Assert.Equal(12, Stored("plan-both").Window.Days);  // at site's 7 a week: two working weeks
+        Assert.Equal(3, Stored("plan-unfiled").Window.Days); // at the global 28 a week: 21.25 hours
     }
 
     [Fact]
@@ -174,6 +175,34 @@ public class ImportPlanItemsTests
         Assert.Single(_plans.Current.Items);
     }
 
+    /// <summary>ADR 0019 Verification 2, for the importer: imported on a Saturday, an
+    /// item waiting on nothing opens on the Monday.</summary>
+    [Fact]
+    public async Task ImportedOnASaturday_AnItemOpensOnTheMonday()
+    {
+        _clock.SetUtcNow(new DateTimeOffset(new DateOnly(2026, 3, 7), new TimeOnly(9, 0), TimeSpan.Zero));
+
+        await ImportedAsync([Entry("plan-a")], new PlanTagEffortDto("plan-a", 7, 0));
+
+        Assert.Equal(new DateOnly(2026, 3, 9), Stored("plan-a").Window.Start);
+        Assert.Equal(new DateOnly(2026, 3, 13), Stored("plan-a").Window.End);
+    }
+
+    /// <summary>The importer counts the week the paces were read with.</summary>
+    [Fact]
+    public async Task TheImporterCountsThePersonsWorkingWeek()
+    {
+        _velocity.ByRepository["backlog"] = 38;
+        _velocity.Week = new WorkingHours
+        {
+            Days = [new WorkingDay(DayOfWeek.Friday, true, new TimeOnly(9, 0), new TimeOnly(13, 0))]
+        };
+
+        await ImportedAsync([Entry("plan-a")], new PlanTagEffortDto("plan-a", 34, 0));
+
+        Assert.Equal(new DateOnly(2026, 3, 5), Stored("plan-a").Window.End); // Monday to Thursday's 34 hours
+    }
+
     // --- Dependencies -----------------------------------------------------
 
     [Fact]
@@ -188,7 +217,11 @@ public class ImportPlanItemsTests
         var design = Stored("design");
         var build = Stored("build");
         Assert.Equal([design.Id], build.Dependencies.All);
-        Assert.Equal(design.Window.End.AddDays(1), build.Window.Start);
+
+        // Design takes one working week, Monday to Friday; the day after is a Saturday,
+        // so build opens on the Monday (local ADR 0019, Verification 2).
+        Assert.Equal(new DateOnly(2026, 3, 6), design.Window.End);
+        Assert.Equal(new DateOnly(2026, 3, 9), build.Window.Start);
     }
 
     [Fact]
@@ -216,7 +249,7 @@ public class ImportPlanItemsTests
 
         var item = Stored("plan-a");
         Assert.Equal([existing.Id], item.Dependencies.All);
-        Assert.Equal(new DateOnly(2026, 4, 11), item.Window.Start);
+        Assert.Equal(new DateOnly(2026, 4, 13), item.Window.Start); // the Friday's next day is a Saturday
     }
 
     [Fact]
@@ -304,7 +337,7 @@ public class ImportPlanItemsTests
         var result = await ImportedAsync([Entry("plan-a")], new PlanTagEffortDto("plan-a", 12, 0));
 
         var item = Stored("plan-a");
-        Assert.Equal(12, item.Window.Days);
+        Assert.Equal(11, item.Window.Days); // 12 points at 7 a week: 72.9 hours, to the second Thursday
         Assert.Equal(ImportPlacement.Effort, item.PlacedByImport);
         var scheduled = Assert.Single(result.Scheduled);
         Assert.Equal(before.Start, scheduled.PreviousStart);
@@ -420,7 +453,7 @@ public class ImportPlanItemsTests
 
         await ImportedAsync([], new PlanTagEffortDto("plan-a", 4, 0));
 
-        Assert.Equal(14, Stored("plan-a").Window.Days); // 4 points at 2 a week
+        Assert.Equal(12, Stored("plan-a").Window.Days); // 4 points at 2 a week: two working weeks
     }
 
     [Fact]

@@ -1,63 +1,102 @@
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Roadmap.Abstractions;
 
 /// <summary>
-/// The length of a window sized by its effort: the gathered effort over the pace, a
-/// week being seven days — rounded up, never under <see cref="MinimumSpanDays"/>, and
-/// <see cref="DefaultSpanDays"/> when nothing estimated was gathered (ADR 0013, ruling
-/// 4). Days are calendar days, because the roadmap models no working week.
+/// The window an effort sizes: the hours it needs, counted forward through the person's
+/// working week from its start (local ADR 0019, amending ADR 0013 ruling 4).
 /// <para>
-/// One formula for the two places a window is sized: the import that places an item
-/// and stores its window, and every reader that draws or reports one still sized by
-/// its effort. The second is why it lives here rather than in the module: the roadmap
-/// view, the dashboard, the MCP tool and the assistant's content read the plan through
-/// the abstractions and cannot reach the module's own code.
+/// The hours needed are the gathered effort × the week's hours ÷ the pace in story points
+/// a working week. From the start — moved to the next worked day when it is not one —
+/// each worked day takes its whole hours off what is left, and the window ends on the day
+/// nothing is left. A day counts whole, so a window that starts today counts all of
+/// today. Days not worked add nothing and are still part of the window, so a window
+/// always runs from one worked day to another. Nothing gathered, or nothing estimated,
+/// needs one working week of hours. A week with no working hours at all reads as
+/// <see cref="WorkingHours.Default"/>.
+/// </para>
+/// <para>
+/// One formula for every place a window is sized: the import that places an item and
+/// stores its window, and every reader that draws or reports one still sized by its
+/// effort. The second is why it lives here rather than in the module: the roadmap view,
+/// the dashboard, the MCP tool and the assistant's content read the plan through the
+/// abstractions and cannot reach the module's own code.
 /// </para>
 /// <para>
 /// <b>Read, not stored.</b> An item the import placed by its effort keeps the start the
 /// plan stores, and its end is derived each time it is read, from the effort its tasks
-/// register now and the pace in use now (local ADR 0018). A pace change therefore moves
-/// every such bar without writing the plan — a plan write would carry a newer stamp to
-/// the other PCs and overwrite an edit made there in the same interval — and a PC that
-/// pulls the pace draws the bars the PC that set it draws.
+/// register now, the pace in use now and the week the pace is counted in (local ADR
+/// 0018, 0019). A pace or week change therefore moves every such bar without writing the
+/// plan — a plan write would carry a newer stamp to the other PCs and overwrite an edit
+/// made there in the same interval — and a PC that pulls the pace draws the bars the PC
+/// that set it draws.
 /// </para>
 /// </summary>
 public static class EffortWindow
 {
-    /// <summary>The shortest window a length can make: a window is at least a day.</summary>
-    public const int MinimumSpanDays = 1;
-
-    /// <summary>The span when the total would be a number invented from nothing — a
-    /// working week, the smallest span that reads as a plan rather than a day.</summary>
-    public const int DefaultSpanDays = 5;
-
-    /// <summary>How many calendar days a gathered total spans at a velocity in story
-    /// points a week.
-    /// <para>
-    /// Multiplied by seven before dividing, never divided by a per-day figure: 4 a
-    /// week is 0.571428… a day, which no decimal holds exactly, and 4 points over it
-    /// would come to a hair over 7 days and round up to 8.
-    /// </para>
-    /// </summary>
-    /// <param name="velocity">Story points per week; always positive.</param>
-    public static int Days(int gatheredEffort, decimal velocity)
+    /// <summary>The first worked day on or after <paramref name="day"/> — where a window
+    /// from <paramref name="day"/> starts.</summary>
+    public static DateOnly FirstWorkedDay(DateOnly day, WorkingHours week)
     {
-        if (gatheredEffort <= 0) return DefaultSpanDays;
-        if (velocity <= 0) throw new ArgumentOutOfRangeException(nameof(velocity), velocity, "Velocity is always positive.");
-
-        var days = Math.Ceiling(gatheredEffort * 7m / velocity);
-        return days >= int.MaxValue ? int.MaxValue : Math.Max(MinimumSpanDays, (int)days);
+        ArgumentNullException.ThrowIfNull(week);
+        return week.FirstWorkedDay(day);
     }
 
-    /// <summary>The last day of a window from <paramref name="start"/> that spans
-    /// <see cref="Days"/>. Clamped so an absurd total cannot run the window off the
-    /// calendar.</summary>
-    public static DateOnly EndFrom(DateOnly start, int gatheredEffort, decimal velocity)
+    /// <summary>
+    /// The last day of a window from <paramref name="start"/> that a gathered total
+    /// needs at <paramref name="velocity"/>, counted in <paramref name="week"/>
+    /// (<see cref="WorkingHours.LastDayOf(DateOnly, decimal, decimal)"/>).
+    /// <para>
+    /// The effort is multiplied by the week's length before dividing by the pace, never
+    /// divided by a per-hour figure: 4 points at 4 a week is then exactly one week of
+    /// hours, rather than a hair over it that spills into the next worked day.
+    /// </para>
+    /// </summary>
+    /// <param name="gatheredEffort">The story points gathered; zero or less is nothing
+    /// estimated, which needs one working week.</param>
+    /// <param name="velocity">Story points per working week; always positive.</param>
+    public static DateOnly EndFrom(DateOnly start, int gatheredEffort, decimal velocity, WorkingHours week)
     {
-        var lastDay = Math.Min((long)start.DayNumber + Days(gatheredEffort, velocity) - 1, DateOnly.MaxValue.DayNumber);
-        return DateOnly.FromDayNumber((int)lastDay);
+        ArgumentNullException.ThrowIfNull(week);
+        if (velocity <= 0) throw new ArgumentOutOfRangeException(nameof(velocity), velocity, "Velocity is always positive.");
+
+        return gatheredEffort <= 0
+            ? week.LastDayOf(start, week.Effective.PerWeek)
+            : week.LastDayOf(start, gatheredEffort, velocity);
+    }
+
+    /// <summary>The longest a forecast of work in flight is drawn, in calendar days —
+    /// ten years, so a stray estimate cannot stretch a bar across the calendar.</summary>
+    public const int LongestForecastDays = 3650;
+
+    /// <summary>
+    /// Where the work left on an item already in flight should be done: the
+    /// <paramref name="openEffort"/> left, counted from <paramref name="openFrom"/> at
+    /// <paramref name="velocity"/> through the working week, the way a window is. Unlike
+    /// a window, nothing left is not a default week: the open work ends on the first
+    /// worked day it can be drawn on. Never more than <see cref="LongestForecastDays"/>.
+    /// </summary>
+    /// <param name="velocity">Story points per working week; always positive.</param>
+    public static DateOnly ForecastEnd(DateOnly openFrom, int openEffort, decimal velocity, WorkingHours week)
+    {
+        ArgumentNullException.ThrowIfNull(week);
+
+        var end = openEffort <= 0
+            ? week.FirstWorkedDay(openFrom)
+            : EndFrom(openFrom, openEffort, velocity, week);
+
+        var latest = Math.Min((long)openFrom.DayNumber + LongestForecastDays - 1, DateOnly.MaxValue.DayNumber);
+        return end.DayNumber > latest ? DateOnly.FromDayNumber((int)latest) : end;
+    }
+
+    /// <summary>The last day of a window from <paramref name="start"/> that needs
+    /// <paramref name="needed"/> working time.</summary>
+    public static DateOnly EndAfter(DateOnly start, TimeSpan needed, WorkingHours week)
+    {
+        ArgumentNullException.ThrowIfNull(week);
+        return week.LastDayOf(start, needed);
     }
 
     /// <summary>Whether <paramref name="item"/>'s end is derived when it is read — the
@@ -70,8 +109,9 @@ public static class EffortWindow
 
     /// <summary>
     /// <paramref name="item"/> as it reads now: when it is sized by its effort, gathers
-    /// work and is not finished, its stored start and an end derived from the effort
-    /// gathered at the pace in use for its repositories — the window the import's own
+    /// work and is not finished, its stored start — moved to the next worked day when it
+    /// is not one — and an end derived from the effort gathered at the pace in use for
+    /// its repositories, counted in the paces' working week — the window the import's own
     /// placement would store. Anything else is handed back as stored: a due date or a
     /// window a person placed is theirs, an item that gathers nothing has no effort to
     /// read, and a finished one is history.
@@ -87,8 +127,9 @@ public static class EffortWindow
         var pace = paces.For(item.RepositoryAliases);
         if (pace <= 0) return item;
 
-        var end = EndFrom(item.Start, Math.Max(0, rollup.TotalEffort), pace);
-        return end == item.End ? item : item with { End = end };
+        var start = FirstWorkedDay(item.Start, paces.Week);
+        var end = EndFrom(start, Math.Max(0, rollup.TotalEffort), pace, paces.Week);
+        return start == item.Start && end == item.End ? item : item with { Start = start, End = end };
     }
 
     /// <summary>Every item of <paramref name="items"/> as it reads now; see

@@ -6,6 +6,7 @@ using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -24,8 +25,9 @@ namespace Backlog.Infrastructure.FileSystem;
 /// </para>
 /// <para>
 /// This is a <em>reading preference</em> (ADR 0013, ruling 4). It decides how long
-/// an imported plan's bar is drawn when the plan states no due date — gathered
-/// effort ÷ this, in calendar days, rounded up — and it registers no estimate
+/// an imported plan's bar is drawn when the plan states no due date — the gathered
+/// effort's share of a working week, counted through the working week in hours
+/// (local ADR 0019) — and it registers no estimate
 /// against anything. A change is re-drawn by the roadmap, which reads every window
 /// the importer still owns at the pace in use and writes nothing to the plan (ADR
 /// 0013, ruling 5 as amended; local ADR 0018).
@@ -61,8 +63,17 @@ namespace Backlog.Infrastructure.FileSystem;
 /// document's stamp. A file written before it has none and is stamped from its
 /// last-write time, because that is when the reader last set it. A copy from
 /// another device replaces the file whole, at the stamp it arrived with, keeping
-/// any key this build does not know. The working week is not in here and stays on
-/// the device.
+/// any key this build does not know.
+/// </para>
+/// <para>
+/// <b>The working week travels in it too</b>, under <c>workingWeek</c>, in the shape
+/// <c>working-hours.json</c> has (local ADR 0019, §3), because a week of the pace is
+/// the hours of that week and two devices counting different weeks would draw the
+/// same plan to different dates. <c>working-hours.json</c> stays the device's copy,
+/// always equal to the last week this device held: a change to it writes the key here
+/// and stamps the document, and a copy from another device that carries the key
+/// replaces it. A copy without the key leaves the device's week alone, and the
+/// device's next change writes the key back.
 /// </para>
 /// </summary>
 public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
@@ -126,26 +137,51 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
     /// </summary>
     private Pace _pace;
 
+    /// <summary>The device's copy of the working week, kept equal to the one this
+    /// document carries; <c>null</c> for a store given none, which then reads the week
+    /// the file holds.</summary>
+    private readonly WorkingHoursSettingsStore? _workingHours;
+
+    /// <summary>The thread replacing the device's week from a pulled copy, so the
+    /// change it causes is not taken for the person's own and stamped as a newer
+    /// document — which would send the copy straight back. Zero otherwise.</summary>
+    private int _pullingOn;
+
     public PlanningVelocitySettingsStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                "planning-velocity.json"))
+        : this(DefaultPath)
     {
     }
+
+    /// <summary>The per-user file, carrying the device's working week with the pace
+    /// (local ADR 0019, §3) — what a desktop host composes.</summary>
+    public PlanningVelocitySettingsStore(WorkingHoursSettingsStore workingHours)
+        : this(DefaultPath, time: null, workingHours ?? throw new ArgumentNullException(nameof(workingHours)))
+    {
+    }
+
+    private static string DefaultPath =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Backlog",
+            "planning-velocity.json");
 
     /// <summary>Names the settings file separately from the per-user location.
     /// Public rather than internal because it is the only way to give a test — or
     /// the web harness, which scopes its settings to its content root — a store
     /// that does not fight over the real per-user file.</summary>
     /// <param name="time">What stamps a change; the system clock when null.</param>
-    public PlanningVelocitySettingsStore(string path, TimeProvider? time = null)
+    /// <param name="workingHours">The device's copy of the working week, which this
+    /// document carries between devices and keeps equal (local ADR 0019, §3).</param>
+    public PlanningVelocitySettingsStore(
+        string path,
+        TimeProvider? time = null,
+        WorkingHoursSettingsStore? workingHours = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         _path = path;
         _time = time ?? TimeProvider.System;
+        _workingHours = workingHours;
 
         var directory = Path.GetDirectoryName(path);
 
@@ -155,9 +191,45 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
         }
 
         _pace = Read();
+
+        // A singleton beside a singleton, for the life of the host: never unhooked.
+        if (_workingHours is not null) _workingHours.Changed += OnWorkingWeekChanged;
     }
 
     public event Action? Changed;
+
+    /// <summary>
+    /// The person's working week, which a week of the pace means (local ADR 0019): the
+    /// device's copy when this store keeps one, otherwise the week the file carries, and
+    /// the default week when it carries none. Not yet made effective — a week with no
+    /// working hours is the roadmap's to read as the default.
+    /// </summary>
+    public WorkingHours WorkingWeek => _workingHours?.Current ?? _pace.WorkingWeek ?? WorkingHours.Default;
+
+    /// <summary>
+    /// The person changed the device's week: the document carries the new one, stamped,
+    /// so it travels at the next push. A change this store made itself, from a pulled
+    /// copy, is that copy's and is not stamped again.
+    /// <para>
+    /// A device that never set a pace has no document, and the week does not make one
+    /// (local ADR 0019, §3; ADR 0018, §3): a document created here would carry the default
+    /// pace under a fresh stamp and win over the pace another device set. Only
+    /// <c>working-hours.json</c> is written; the key follows at this device's first pace
+    /// change or first pull. The roadmap still hears of it, because it counts the week.
+    /// </para>
+    /// </summary>
+    private void OnWorkingWeekChanged()
+    {
+        if (_pullingOn == Environment.CurrentManagedThreadId) return;
+
+        if (!File.Exists(_path))
+        {
+            Changed?.Invoke();
+            return;
+        }
+
+        Save(_pace);
+    }
 
     /// <summary>The global pace. Always a positive number, and always one
     /// <see cref="Format"/> can write without losing it: anything else was refused on
@@ -297,6 +369,13 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
             {
                 UpdatedAt = pace.UpdatedAt is { } stamp ? FormatStamp(stamp) : null,
                 StoryPointsPerWeek = pace.StoryPointsPerWeek,
+                // Written on every change, so a document that arrived without it —
+                // from a build that predates it — carries it again from here. A store
+                // that keeps no device week and was handed none has no week to say,
+                // and never sends the default over somebody's own.
+                WorkingWeek = _workingHours is not null || pace.WorkingWeek is not null
+                    ? WorkingHoursSettingsStore.ToJson(WorkingWeek)
+                    : null,
                 Source = pace.Source.ToString(),
                 // Left out while no repository has a pace of its own, so a reader who
                 // never set one keeps the file's old shape.
@@ -403,6 +482,23 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
         File.WriteAllText(_path, document.ToJsonString(JsonOptions));
 
         _pace = Read();
+
+        // A copy carrying the week replaces the device's, at the inbound stamp. One
+        // without it — an older build's — leaves the device's week alone, and that is
+        // what placement reads until the next change writes the key back.
+        if (_workingHours is not null && _pace.WorkingWeek is { } week)
+        {
+            _pullingOn = Environment.CurrentManagedThreadId;
+            try
+            {
+                _workingHours.Replace(week);
+            }
+            finally
+            {
+                _pullingOn = 0;
+            }
+        }
+
         Changed?.Invoke();
 
         return Task.FromResult(true);
@@ -525,7 +621,10 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
             var updatedAt = ParseStamp(dto?.UpdatedAt)
                 ?? new DateTimeOffset(File.GetLastWriteTimeUtc(_path), TimeSpan.Zero);
 
-            return new Pace(storyPointsPerWeek, source, RepositoriesOf(dto?.Repositories), updatedAt);
+            return new Pace(storyPointsPerWeek, source, RepositoriesOf(dto?.Repositories), updatedAt)
+            {
+                WorkingWeek = WorkingHoursSettingsStore.FromJson(dto?.WorkingWeek)
+            };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -568,7 +667,12 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
         decimal StoryPointsPerWeek,
         PaceSource Source,
         IReadOnlyDictionary<string, RepositoryPace> Repositories,
-        DateTimeOffset? UpdatedAt = null);
+        DateTimeOffset? UpdatedAt = null)
+    {
+        /// <summary>The working week the file carries, or <c>null</c> for a file
+        /// without the key, or with one this build cannot read.</summary>
+        public WorkingHours? WorkingWeek { get; init; }
+    }
 
     /// <summary>A repository's own pace. A half that is <c>null</c> reads the global
     /// one — only ever the case for a hand-edited file, since a change writes both.</summary>
@@ -613,6 +717,13 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
         /// before repositories had one, and from any file where none has.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public Dictionary<string, RepositoryPaceDto?>? Repositories { get; init; }
+
+        /// <summary>The person's working week, in the shape working-hours.json holds
+        /// (local ADR 0019, §3). A node rather than a typed shape, so a week this build
+        /// cannot read costs the week and not the pace. Absent from a file written
+        /// before the week travelled.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public JsonNode? WorkingWeek { get; init; }
     }
 
     /// <summary>One repository's entry, spelled as the global pace is and read as
