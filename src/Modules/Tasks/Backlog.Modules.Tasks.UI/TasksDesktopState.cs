@@ -294,32 +294,33 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     public bool NoRepositoryOnly { get; private set; }
 
     /// <summary>
-    /// True while the view is narrowed to the entries that are not waiting on
-    /// anything: open, and with every step they named finished.
+    /// True while the view is narrowed to the entries marked <c>!ready</c> that
+    /// are filed under a <c>+plan</c>: the work a plan has lined up to pick up.
     /// <para>
-    /// The domain's readiness (<c>.devbook/domain/tasks/domain.md#readiness</c>), asked as
-    /// a scope. "Ready" is the answer this keeps, and it is not the <c>ready</c>
-    /// status two groups to the right: status is recorded, readiness is concluded
-    /// from <c>after:</c>, and a row can be <c>!ready</c> and still waiting. That
-    /// is why the chip says what it keeps in the row's own words — "Waiting for"
-    /// is the line it takes out of view — rather than reusing a word the bar
-    /// already means something else by.
+    /// The recorded status, not the readiness concluded from <c>after:</c>
+    /// (<see cref="IsNotWaiting"/>). A draft waiting on nothing is not something
+    /// the person said was ready, and work in no plan is not what the reader is
+    /// scanning a plan for. A ready row still waiting on a step stays in: its
+    /// "Waiting for" line already says so.
     /// </para>
     /// <para>
-    /// A finished row is out too. It is not waiting, but readiness has three
-    /// answers and done is its own, and the question a reader presses this to ask
-    /// is what they could pick up now. Composes with every other scope the way
-    /// My Day and "no repository" do.
+    /// A ticked-off row is out, whatever its status still says. Composes with
+    /// every other scope the way My Day and "no repository" do.
     /// </para>
     /// </summary>
-    public bool NotWaitingOnly { get; private set; }
+    public bool ReadyInPlanOnly { get; private set; }
 
-    /// <summary>Whether a row is open and waiting on nothing — the rows
-    /// <see cref="NotWaitingOnly"/> keeps. Read by the chip for its count, and
-    /// answered from <see cref="TaskChain"/> over every row the store holds
-    /// rather than worked out here again, so the chip, the filter and the
-    /// "Waiting for" line on the row are one derivation. Rebuilt on every
-    /// <see cref="ApplyFilter"/>, which every change to the rows passes through.</summary>
+    /// <summary>Whether a row is the ready plan work <see cref="ReadyInPlanOnly"/>
+    /// keeps. Read by the chip for its count, so the chip and the filter are one
+    /// question. Off the preview, the reader the status filter uses.</summary>
+    public bool IsReadyInPlan(EntryRow row) =>
+        row.PreviewStatus is EntryStatus.Ready && !IsFinished(row) && HasPlan(row);
+
+    /// <summary>Whether a row is open and waiting on nothing. Answered from
+    /// <see cref="TaskChain"/> over every row the store holds rather than worked
+    /// out here again, so the open-work report and the "Waiting for" line on the
+    /// row are one derivation. Rebuilt on every <see cref="ApplyFilter"/>, which
+    /// every change to the rows passes through.</summary>
     public bool IsNotWaiting(EntryRow row) => _readyTaskIds.Contains(row.TaskId);
 
     private HashSet<string> _readyTaskIds = new(StringComparer.Ordinal);
@@ -920,11 +921,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ApplyFilter();
     }
 
-    /// <summary>Turns the "not waiting" scope on or off. See
-    /// <see cref="NotWaitingOnly"/> for what it keeps and why done is out.</summary>
-    public void SetNotWaitingFilter(bool only)
+    /// <summary>Turns the "ready in a plan" scope on or off. See
+    /// <see cref="ReadyInPlanOnly"/> for what it keeps.</summary>
+    public void SetReadyInPlanFilter(bool only)
     {
-        NotWaitingOnly = only;
+        ReadyInPlanOnly = only;
         ApplyFilter();
     }
 
@@ -1014,11 +1015,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         // The scope most likely to be the one in the way here: a "waiting for"
-        // name is followed off a blocked row, and the step it names may well be
-        // waiting on something itself.
-        if (NotWaitingOnly && !IsNotWaiting(row))
+        // name is followed off a ready row, and the step it names is often a
+        // draft, or in no plan.
+        if (ReadyInPlanOnly && !IsReadyInPlan(row))
         {
-            NotWaitingOnly = false;
+            ReadyInPlanOnly = false;
             widened = true;
         }
 
@@ -3476,13 +3477,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             rows = rows.Where(x => RepositoryFor(x) is null);
         }
 
-        // And the "not waiting" scope, on the same terms again. Asked of the
-        // readiness derived over every row rather than over what is in view, for
-        // the reason the pane hands TaskListView the whole store as its universe:
-        // a wait on an entry the repository scope hid is still a wait.
-        if (NotWaitingOnly)
+        // And the "ready in a plan" scope, on the same terms again.
+        if (ReadyInPlanOnly)
         {
-            rows = rows.Where(IsNotWaiting);
+            rows = rows.Where(IsReadyInPlan);
         }
 
         // The tag bar is built from what every scope left in view, not the

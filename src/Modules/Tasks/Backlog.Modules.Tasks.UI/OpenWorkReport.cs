@@ -143,7 +143,7 @@ public sealed record OpenWorkReport(
     public bool IsEmpty => Totals.Open == 0;
 
     /// <param name="rows">The rows the repository scope leaves in view, before any
-    /// status, tag, My Day or Not waiting filter — the population the chip counts
+    /// status, tag, My Day or Ready-in-a-plan filter — the population the chip counts
     /// use.</param>
     /// <param name="today">The reader's local date.</param>
     /// <param name="isReady">Whether an open row is waiting on nothing.</param>
