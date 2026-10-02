@@ -197,6 +197,14 @@
                                       style="left: @Rem(Geometry.XFor(thisWeek.Start)); width: @Rem(Geometry.WidthFor(thisWeek.Start, thisWeek.End))"></span>
                             }
 
+                            @* The weekend, where the axis is ruled in days. A coarser
+                               column has no room to show two days of seven. *@
+                            @foreach (var day in Span.Columns.Where(IsWeekend))
+                            {
+                                <span class="roadmap-timeline__weekend"
+                                      style="left: @Rem(Geometry.XFor(day.Start)); width: @Rem(Geometry.WidthFor(day.Start, day.End))"></span>
+                            }
+
                             @for (var index = 1; index < Span.Columns.Count; index++)
                             {
                                 var column = Span.Columns[index];
@@ -1802,7 +1810,12 @@
 
     private string ColumnClass(RoadmapColumn column) =>
         $"roadmap-timeline__quarter roadmap-timeline__quarter--{column.Scale.ToString().ToLowerInvariant()}"
+        + (IsWeekend(column) ? " roadmap-timeline__quarter--weekend" : null)
         + (IsCurrent(column) ? " roadmap-timeline__quarter--current" : null);
+
+    /// <summary>Whether a column is a Saturday or a Sunday ruled as a day of its own.</summary>
+    private static bool IsWeekend(RoadmapColumn column) =>
+        column.Scale == RoadmapColumnScale.Day && column.Start.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
 
     private static string MilestoneClass(RoadmapMilestone milestone) =>
         "roadmap-milestone roadmap-milestone--" + milestone.Marker.ToString().ToLowerInvariant();

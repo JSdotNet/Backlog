@@ -12178,6 +12178,24 @@ select.field__input {
     border-left-color: color-mix(in srgb, var(--color-border) 50%, transparent);
 }
 
+/* The weekend, where the axis is ruled in days: a neutral tint in the head that
+   carries on down the chart and fades out, so it marks the days off without
+   competing with the bars or with this week's primary shade. */
+.roadmap-timeline__quarter--weekend {
+    background: color-mix(in srgb, var(--color-text-primary) 14%, var(--color-background));
+}
+
+.roadmap-timeline__weekend {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--color-text-primary) 12%, transparent) 0,
+        color-mix(in srgb, var(--color-text-primary) 3%, transparent) 100%
+    );
+}
+
 /* This week: its head in the primary hue, its column shaded down the chart. The
    primary is the one saturated hue the scheme allows, spent here on "now" the
    same way the today line spends it. */
