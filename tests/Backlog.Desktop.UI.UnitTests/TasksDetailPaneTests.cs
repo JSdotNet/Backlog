@@ -612,6 +612,32 @@ public sealed class TasksDetailPaneTests
         Assert.False(host.State.CanSortVisibleByStatus);
     }
 
+    /// <summary>
+    /// Within one status, a title that starts with a number sorts by it —
+    /// numerically, so 10 follows 9 — ahead of the unnumbered rows, which keep
+    /// their hand-made order. What a row waits for still comes first.
+    /// </summary>
+    [Fact]
+    public async Task Sorting_by_status_orders_numbered_titles_within_a_status()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Unnumbered\n`task` `!ready`\n");
+        await host.WriteEntryAsync("# 3D printer\n`task` `!draft`\n");
+        var ten = await host.WriteEntryAsync("# 10 - Move\n`task` `!ready`\n");
+        await host.WriteEntryAsync("# 9 - Land\n`task` `!ready`\n");
+        await host.WriteEntryAsync("# 2. Decide\n`task` `!draft`\n");
+        await host.WriteEntryAsync("# 1.2 - Sub step\n`task` `!ready`\n");
+        await host.WriteEntryAsync($"# 3 - Waits on ten\n`task` `!ready` `after:{ten.Id!.Value}`\n");
+        await host.WriteEntryAsync("# 1 Plain number\n`task` `!ready`\n");
+
+        await host.State.SortVisibleByStatusAsync();
+
+        Assert.Equal(
+            ["1 Plain number", "1.2 - Sub step", "9 - Land", "10 - Move", "3 - Waits on ten", "Unnumbered", "2. Decide", "3D printer"],
+            host.State.Rows.Select(row => row.PreviewTitle));
+        Assert.False(host.State.CanSortVisibleByStatus);
+    }
+
     [Fact]
     public async Task The_sort_button_reorders_the_list_and_disables_once_sorted()
     {
