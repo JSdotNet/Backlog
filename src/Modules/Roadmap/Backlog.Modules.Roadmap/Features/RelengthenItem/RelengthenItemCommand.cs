@@ -56,11 +56,13 @@ public sealed class RelengthenItemCommandHandler(IRoadmapPlanRepository plans, I
         }
 
         var previous = item.Window;
+        var paces = await velocity.ReadPacesInUseAsync(cancellationToken);
         var (window, placement) = ImportedPlanPlacement.Place(
             previous.Start,
             due: null,
             Math.Max(0, command.GatheredEffort),
-            await velocity.GetStoryPointsPerWeekAsync(item.Scope.Aliases, cancellationToken));
+            paces.For(item.Scope.Aliases),
+            paces.Week);
 
         // Nothing to write, and a save that changes nothing is still a write the other
         // devices would sync.

@@ -1,5 +1,6 @@
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
 
@@ -17,6 +18,9 @@ internal sealed class FixedVelocity(decimal storyPointsPerWeek) : IPlanningVeloc
     /// <summary>Per configured repository alias, its pace in use.</summary>
     public Dictionary<string, decimal> ByRepository { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The working week the paces are counted in (local ADR 0019).</summary>
+    public WorkingHours Week { get; set; } = WorkingHours.Default;
+
     /// <summary>How many times the paces were read — one read per handler call is
     /// the contract, however many items it places.</summary>
     public int Reads { get; private set; }
@@ -26,7 +30,10 @@ internal sealed class FixedVelocity(decimal storyPointsPerWeek) : IPlanningVeloc
         Reads++;
         return Task.FromResult(new PacesInUseDto(
             StoryPointsPerWeek,
-            new Dictionary<string, decimal>(ByRepository, StringComparer.OrdinalIgnoreCase)));
+            new Dictionary<string, decimal>(ByRepository, StringComparer.OrdinalIgnoreCase))
+        {
+            Week = Week
+        });
     }
 
     public async Task<decimal> GetStoryPointsPerWeekAsync(

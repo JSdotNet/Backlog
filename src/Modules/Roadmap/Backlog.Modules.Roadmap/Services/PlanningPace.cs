@@ -3,6 +3,7 @@ using System.Globalization;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Roadmap.Services;
 
@@ -11,12 +12,12 @@ namespace Backlog.Modules.Roadmap.Services;
 /// the estimated work they finished over the last two, four and eight weeks — once
 /// globally and once for each configured repository.
 /// <para>
-/// Every pace is story points a week. A measured one is finished effort over the
-/// whole weeks of its stretch, and placement turns a week into seven
-/// <em>calendar</em> days, weekends included, because that is what the roadmap draws
-/// in: a window is placed in calendar days and ignores the working week (ADR 0013).
-/// Taking the week as five working days instead would draw every bar about a third
-/// shorter than the stretch it was measured over actually took.
+/// Every pace is story points a working week, a week being the hours of the person's
+/// working week (local ADR 0019). A measured one is the finished effort over the working
+/// hours in its stretch, times the hours of a week; every stretch is whole weeks, and
+/// any seven days in a row hold the whole week once, so that is the effort over the
+/// weeks, whatever the pattern. Placement counts the same hours forward
+/// (<c>EffortWindow</c>), so a bar spans the days the work was measured to take.
 /// </para>
 /// <para>
 /// A repository's measured paces count only the work filed under it, and work filed
@@ -72,7 +73,7 @@ internal sealed class PlanningPace(
             byRepository[key] = PacesOf(key, finished, today).InUse;
         }
 
-        return new PacesInUseDto(PacesOf(null, finished, today).InUse, byRepository);
+        return new PacesInUseDto(PacesOf(null, finished, today).InUse, byRepository) { Week = Week };
     }
 
     public async Task<decimal> GetStoryPointsPerWeekAsync(
@@ -97,25 +98,41 @@ internal sealed class PlanningPace(
         PaceSource source,
         IReadOnlyList<CompletedEffortDto> finished,
         DateOnly today,
-        decimal? own = null) =>
-        new(
+        decimal? own = null,
+        WorkingHours? week = null)
+    {
+        var counted = (week ?? WorkingHours.Default).Effective;
+
+        return new(
             manual,
-            Measured(finished, today, 2),
-            Measured(finished, today, 4),
-            Measured(finished, today, LongestWeeks),
+            Measured(finished, today, 2, counted),
+            Measured(finished, today, 4, counted),
+            Measured(finished, today, LongestWeeks, counted),
             source)
         {
-            Own = own ?? manual
+            Own = own ?? manual,
+            Week = counted
         };
+    }
 
     /// <summary>
     /// Effort finished in the <paramref name="weeks"/> weeks ending today, today
-    /// included, per week — four decimals, the finest pace the typed one can
-    /// hold. <c>null</c> when nothing estimated was finished: that stretch measured
-    /// no pace, which is not the same as a pace of zero.
+    /// included, per working week: the effort over the working hours in the stretch,
+    /// times the hours of <paramref name="week"/> (local ADR 0019) — four decimals, the
+    /// finest pace the typed one can hold. <c>null</c> when nothing estimated was
+    /// finished: that stretch measured no pace, which is not the same as a pace of zero.
+    /// <para>
+    /// Multiplied before dividing, and counted in ticks, so a stretch of whole weeks
+    /// measures exactly the effort over the weeks.
+    /// </para>
     /// </summary>
-    internal static decimal? Measured(IReadOnlyList<CompletedEffortDto> finished, DateOnly today, int weeks)
+    internal static decimal? Measured(
+        IReadOnlyList<CompletedEffortDto> finished,
+        DateOnly today,
+        int weeks,
+        WorkingHours? week = null)
     {
+        var counted = (week ?? WorkingHours.Default).Effective;
         var from = StartOf(today, weeks);
         var effort = finished
             .Where(entry => entry.CompletedOn >= from && entry.CompletedOn <= today && entry.Effort > 0)
@@ -123,8 +140,15 @@ internal sealed class PlanningPace(
 
         if (effort <= 0) return null;
 
-        return Math.Round(effort / weeks, 4, MidpointRounding.AwayFromZero);
+        long stretch = 0;
+        for (var day = from; day <= today; day = day.AddDays(1)) stretch += counted.WorkedOn(day.DayOfWeek).Ticks;
+
+        return Math.Round(effort * counted.PerWeek.Ticks / stretch, 4, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>The week every pace is counted in and every window counted through:
+    /// the one kept with the pace, or the default when it works no hours.</summary>
+    private WorkingHours Week => settings.WorkingWeek.Effective;
 
     /// <summary>One read of the longest stretch, which every pace of every scope is
     /// counted from.</summary>
@@ -142,14 +166,14 @@ internal sealed class PlanningPace(
     private PlanningPacesDto PacesOf(string? repository, IReadOnlyList<CompletedEffortDto> finished, DateOnly today)
     {
         // The global scope's own pace is the heading's typed one.
-        if (repository is null) return Paces(settings.Manual(), settings.Source(), finished, today);
+        if (repository is null) return Paces(settings.Manual(), settings.Source(), finished, today, week: Week);
 
         IReadOnlyList<CompletedEffortDto> own =
         [
             .. finished.Where(entry => entry.RepositoryAliases.Contains(repository, StringComparer.OrdinalIgnoreCase))
         ];
 
-        return Paces(settings.Manual(), settings.Source(repository), own, today, settings.Manual(repository));
+        return Paces(settings.Manual(), settings.Source(repository), own, today, settings.Manual(repository), Week);
     }
 
     /// <summary>The configured repository an alias names, or <c>null</c> — the global

@@ -166,7 +166,10 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             FeatureSettings = _ => new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(_appData, "features.json")),
             WorkingHoursSettings = _ => new WorkingHoursSettingsStore(Path.Combine(_appData, "working-hours.json")),
             UsageResetSettings = _ => new UsageResetSettingsStore(Path.Combine(_appData, "usage-reset.json")),
-            PlanningVelocitySettings = _ => new PlanningVelocitySettingsStore(Path.Combine(_appData, "planning-velocity.json")),
+            PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(
+                Path.Combine(_appData, "planning-velocity.json"),
+                time: null,
+                sp.GetRequiredService<WorkingHoursSettingsStore>()),
             ShellNavigation = _ => new ShellNavigationStore(Path.Combine(_appData, "shell-navigation.json")),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(_appData, "capture-sources.json")),
             CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(_appData, "capture-runs.json")),
