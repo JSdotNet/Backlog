@@ -109,8 +109,16 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     /// that the reader can see what it did. A file saying Monday to Friday is
     /// that promise kept.
     /// </para>
+    /// <para>
+    /// A week that already is the default is left as it is, file and all, and nothing
+    /// is announced, as <see cref="SetDay"/> and <see cref="Replace"/> do. A listener
+    /// re-stamps the pace document on every change (local ADR 0019, §3), so an
+    /// announced non-change would let this device's older pace win over a newer one
+    /// from another device.
+    /// </para>
     /// </summary>
-    public string? ResetToDefault() => Save(WorkingHours.Default);
+    public string? ResetToDefault() =>
+        SameWeek(Current, WorkingHours.Default) ? null : Save(WorkingHours.Default);
 
     /// <summary>
     /// Replaces the whole week with one that arrived from another device, inside the
@@ -146,9 +154,14 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
         return JsonSerializer.SerializeToNode(ToDto(Normalize(hours)), JsonOptions)!;
     }
 
-    /// <summary>A week in this file's shape, or <c>null</c> for anything that is not
-    /// one. Read as forgivingly as the file: an unreadable day is filled from the
-    /// default.</summary>
+    /// <summary>
+    /// A week in this file's shape, or <c>null</c> for anything that is not one. Read
+    /// as forgivingly as the file once one day is legible: an unreadable day is filled
+    /// from the default. Unlike the file, an object with no legible day at all — empty,
+    /// or a shape a later build writes — is no week rather than the default one, so a
+    /// document carrying it leaves the device's own week alone: a week this build
+    /// cannot read costs the week, never the pace.
+    /// </summary>
     public static WorkingHours? FromJson(JsonNode? node)
     {
         if (node is not JsonObject) return null;
@@ -156,7 +169,9 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
         try
         {
             var dto = node.Deserialize<WorkingHoursDto>(JsonOptions);
-            return dto is null ? null : FromDto(dto);
+            if (dto is null || !(dto.Days ?? []).Select(ReadDay).OfType<WorkingDay>().Any()) return null;
+
+            return FromDto(dto);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
         {

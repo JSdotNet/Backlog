@@ -114,7 +114,7 @@ public sealed class PlanningVelocityWorkingWeekTests : IDisposable
         Assert.Null(a.Pace.Set(9m));
 
         clock.Advance(TimeSpan.FromMinutes(5));
-        Assert.Null(a.Week.ResetToDefault());
+        Assert.Null(a.Week.SetDay(DayOfWeek.Friday, true, Nine, new TimeOnly(13, 0)));
 
         var written = await Replica(a.Pace).ReadAsync(Cancellation);
         Assert.NotNull(written);
@@ -162,6 +162,41 @@ public sealed class PlanningVelocityWorkingWeekTests : IDisposable
 
         Assert.Equal(6m, b.Pace.StoryPointsPerWeek);
         Assert.False(b.Week.Current.IsWorked(DayOfWeek.Tuesday));
+    }
+
+    /// <summary>An object with no day this build can read — empty, or a shape a later
+    /// build writes — is no week either: it leaves the device's week as it was rather
+    /// than replacing it with the default.</summary>
+    [Theory]
+    [InlineData("""{}""")]
+    [InlineData("""{ "pattern": "Mon-Fri", "hours": 40 }""")]
+    public async Task A_week_object_with_no_readable_day_leaves_the_device_week_alone(string workingWeek)
+    {
+        var b = Device("b");
+        Assert.Null(b.Week.SetDay(DayOfWeek.Tuesday, false, Nine, new TimeOnly(17, 30)));
+
+        var copy = new RoadmapReplicaCopyDto($$"""{ "storyPointsPerWeek": 6, "workingWeek": {{workingWeek}} }""", Morning);
+        Assert.True(await Replica(b.Pace).TryWriteAsync(copy, Cancellation));
+
+        Assert.Equal(6m, b.Pace.StoryPointsPerWeek);
+        Assert.False(b.Week.Current.IsWorked(DayOfWeek.Tuesday));
+        Assert.False(b.Pace.WorkingWeek.IsWorked(DayOfWeek.Tuesday));
+    }
+
+    /// <summary>Going back to the default week on a device already on it is no change,
+    /// so the pace document keeps its stamp: a re-stamp would let this device's pace win
+    /// over a newer one from another device.</summary>
+    [Fact]
+    public async Task Going_back_to_the_default_week_from_it_leaves_the_stamp()
+    {
+        var clock = new FakeTimeProvider(Morning);
+        var a = Device("a", clock);
+        Assert.Null(a.Pace.Set(9m));
+
+        clock.Advance(TimeSpan.FromMinutes(5));
+        Assert.Null(a.Week.ResetToDefault());
+
+        Assert.Equal(Morning, (await Replica(a.Pace).ReadAsync(Cancellation))!.UpdatedAt);
     }
 
     /// <summary>A store given no device week reads the week its file carries, and the

@@ -214,6 +214,47 @@ public class WorkingHoursSettingsStoreTests : IDisposable
         Assert.Equal(new TimeOnly(9, 0), reopened.On(DayOfWeek.Saturday).Start);
     }
 
+    /// <summary>Going back to the default from the default changes nothing, so it
+    /// announces nothing: a listener that stamps the pace document on every change
+    /// would otherwise make a stale device's pace look newer than another's.</summary>
+    [Fact]
+    public void Going_back_to_the_default_from_the_default_announces_nothing()
+    {
+        var store = Store();
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.ResetToDefault());
+
+        Assert.Equal(0, announced);
+        Assert.False(File.Exists(SettingsFile));
+    }
+
+    /// <summary>A week this build cannot read is no week at all, not the default one:
+    /// a pulled document carrying it must leave the device's own week alone.</summary>
+    [Theory]
+    [InlineData("""{}""")]
+    [InlineData("""{ "days": [] }""")]
+    [InlineData("""{ "pattern": "Mon-Fri", "hours": 40 }""")]
+    [InlineData("""{ "days": [ { "weekday": 1, "from": "09:00", "to": "17:00" } ] }""")]
+    public void A_week_with_no_readable_day_reads_as_none(string json)
+    {
+        Assert.Null(WorkingHoursSettingsStore.FromJson(System.Text.Json.Nodes.JsonNode.Parse(json)));
+    }
+
+    /// <summary>One readable day is enough to say something; the rest come from the
+    /// default, as they do in the file.</summary>
+    [Fact]
+    public void A_week_with_one_readable_day_reads_the_rest_from_the_default()
+    {
+        var week = WorkingHoursSettingsStore.FromJson(System.Text.Json.Nodes.JsonNode.Parse(
+            """{ "days": [ { "day": "Friday", "working": false, "start": "09:00", "end": "17:30" }, { "day": "Someday" } ] }"""));
+
+        Assert.NotNull(week);
+        Assert.False(week.IsWorked(DayOfWeek.Friday));
+        Assert.True(week.IsWorked(DayOfWeek.Monday));
+    }
+
     /// <summary>The file is meant to be read and hand-edited, and
     /// <c>HH:mm</c> is what a person writes - not the round-trip form, which
     /// would carry a precision nobody chose.</summary>
