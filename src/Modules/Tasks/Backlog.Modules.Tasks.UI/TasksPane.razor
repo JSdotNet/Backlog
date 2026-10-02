@@ -163,20 +163,16 @@
                             <FolderOffIcon CssClass="chip__icon" /><span class="sr-only">No repo</span><span class="chip__count">@NoRepositoryCount</span>
                         </ToggleButton>
 
-                        @* The domain's readiness as a scope: what is open and
-                           waiting on nothing, which is what a reader scanning for
-                           something to pick up is asking. Worded off the row's own
-                           "Waiting for" line rather than as "Ready", because the
-                           status group already means something else by that word
-                           and a row can be `!ready` and still waiting — see
-                           TasksDesktopState.NotWaitingOnly. *@
+                        @* What a plan has lined up to pick up: entries marked
+                           `!ready` and filed under a `+plan` — see
+                           TasksDesktopState.ReadyInPlanOnly. *@
                         <ToggleButton BaseClass="chip chip--filter chip--scope"
                                       PressedCssClass="chip--active"
-                                      Pressed="@State.NotWaitingOnly"
-                                      TestId="notwaiting-filter-option"
-                                      Title="@(State.NotWaitingOnly ? "Show everything again" : "Show only what is open and waiting on nothing")"
-                                      PressedChanged="State.SetNotWaitingFilter">
-                            <PlayIcon CssClass="chip__icon" /><span class="sr-only">Not waiting</span><span class="chip__count">@NotWaitingCount</span>
+                                      Pressed="@State.ReadyInPlanOnly"
+                                      TestId="readyinplan-filter-option"
+                                      Title="@(State.ReadyInPlanOnly ? "Show everything again" : "Show only what is ready in a plan")"
+                                      PressedChanged="State.SetReadyInPlanFilter">
+                            <PlayIcon CssClass="chip__icon" /><span class="sr-only">Ready in a plan</span><span class="chip__count">@ReadyInPlanCount</span>
                         </ToggleButton>
                     </div>
 
@@ -2249,10 +2245,10 @@
     /// working the answer out a second way here.</summary>
     private int NoRepositoryCount => State.ScopedRows.Count(row => State.RepositoryFor(row) is null);
 
-    /// <summary>How many of those same rows are open and waiting on nothing. The
-    /// same arrangement as No repo: the state derives readiness, and the count asks
-    /// it — see <c>TasksDesktopState.IsNotWaiting</c>.</summary>
-    private int NotWaitingCount => State.ScopedRows.Count(State.IsNotWaiting);
+    /// <summary>How many of those same rows are ready in a plan. The same
+    /// arrangement as No repo: the state decides, and the count asks it — see
+    /// <c>TasksDesktopState.IsReadyInPlan</c>.</summary>
+    private int ReadyInPlanCount => State.ScopedRows.Count(State.IsReadyInPlan);
 
     // --- The open-work summary and its report --------------------------------
 
