@@ -168,6 +168,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// nothing is waiting. See <see cref="ScheduleSaveStateSettle"/>.</summary>
     private CancellationTokenSource? _saveStateSettle;
 
+    /// <summary>The background read of never-read pull requests, whether one is
+    /// running, and whether another pass is owed behind it. See
+    /// <see cref="CheckUnreadPullRequestsAsync"/>.</summary>
+    private Task _pullRequestCheck = Task.CompletedTask;
+    private bool _pullRequestCheckRunning;
+    private bool _pullRequestCheckOwed;
+
     public TasksDesktopState(
         ITaskStore store,
         ITaskItems entryUseCases,
@@ -2602,21 +2609,174 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // that landed in the meantime — undoing the act's own, newer re-read.
         foreach (var pr in row.PullRequestLinks.ToList())
         {
-            if (await TryReadPullRequestStatusAsync(pr) is { } status)
+            if (await TryReadPullRequestAsync(pr) is { } read)
             {
-                RecordPullRequestRead(row, pr, status.State, status);
-            }
-            else if (await TryReadPullRequestStateAsync(pr) is { } state)
-            {
-                // The state alone, so the merged colour survives a server that
-                // cannot answer the status query. The status is dropped rather
-                // than kept from an earlier read: a stale one would draw checks
-                // and offer a merge the state beside it may no longer allow.
-                RecordPullRequestRead(row, pr, state, status: null);
+                RecordPullRequestRead(row, pr, read.State, read.Status);
             }
         }
 
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Reads, in the background, the pull requests of Done entries that have never
+    /// been read, so a merged one shows merged without the reader pressing the sync
+    /// button. The shell asks after the list loads and after every reload; the list
+    /// is already on screen by then and nothing about it waits on this.
+    /// <para>
+    /// Only what was never read. A state already on the row is the sync button's to
+    /// refresh: asking again here would put a round trip behind every write somebody
+    /// else makes, and the reload that writes set off carries the last read across
+    /// anyway (<see cref="CarryGitHubRead"/>). Only Done entries, because that is
+    /// where a recorded pull request is the work waiting to land.
+    /// </para>
+    /// <para>
+    /// Quiet throughout — no toast, no line on the row. Nobody asked for this read,
+    /// so nobody is owed word of its failure; a pull request that cannot be read
+    /// simply stays unread for the sync button to try. And it is tried once, not on
+    /// every reload: an agent's every write reloads the list, and a pull request
+    /// GitHub will not answer for would otherwise spend two requests of the rate
+    /// limit each time. <see cref="SyncGitHubAsync"/> forgets those failures, so the
+    /// button is the retry.
+    /// </para>
+    /// <para>
+    /// One check at a time. A request that arrives while one runs is owed a single
+    /// further pass after it, which is what picks up a pull request recorded in the
+    /// meantime; the returned task is the one that will cover the request. Ends at
+    /// <see cref="Dispose"/>, between reads: the GitHub reads take no token, so one
+    /// already in flight finishes and its answer is dropped.
+    /// </para>
+    /// </summary>
+    public Task CheckUnreadPullRequestsAsync()
+    {
+        if (_disposed || !GitHubConfigured) return Task.CompletedTask;
+
+        _pullRequestCheckOwed = true;
+        if (_pullRequestCheckRunning) return _pullRequestCheck;
+
+        // The running flag and the task are both in place before the first read
+        // starts. A read that answers synchronously raises Changed from inside the
+        // run, and a re-render that asks again from there must be handed this run,
+        // not the one before it.
+        _pullRequestCheckRunning = true;
+        var completion = new TaskCompletionSource();
+        _pullRequestCheck = completion.Task;
+        _ = RunPullRequestChecksAsync(completion);
+        return completion.Task;
+    }
+
+    private async Task RunPullRequestChecksAsync(TaskCompletionSource completion)
+    {
+        Exception? failure = null;
+
+        try
+        {
+            while (_pullRequestCheckOwed && !_untilDisposed.IsCancellationRequested)
+            {
+                _pullRequestCheckOwed = false;
+                await ReadUnreadPullRequestsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handed on to whoever awaits the check rather than kept: every read
+            // already has its own catch, so what lands here came from somewhere else.
+            failure = ex;
+        }
+        finally
+        {
+            _pullRequestCheckRunning = false;
+        }
+
+        // After the flag is down, so a continuation that asks again starts a run.
+        if (failure is null) completion.SetResult();
+        else completion.SetException(failure);
+    }
+
+    /// <summary>
+    /// One pass of <see cref="CheckUnreadPullRequestsAsync"/>.
+    /// <para>
+    /// By id rather than by row, and the row looked up again after every read. A
+    /// reload replaces every row while a read is in flight — the writes that set
+    /// one off are an agent recording exactly this kind of work — and a read written
+    /// onto the row it started from would land on a row nobody can see any more.
+    /// </para>
+    /// </summary>
+    private async Task ReadUnreadPullRequestsAsync()
+    {
+        var ids = Rows
+            .Where(row => row.Id is not null && row.Status is EntryStatus.Done && UnreadPullRequests(row).Any())
+            .Select(row => row.Id!.Value)
+            .Distinct()
+            .ToList();
+
+        foreach (var id in ids)
+        {
+            if (RowById(id) is not { } row) continue;
+
+            foreach (var pr in UnreadPullRequests(row).Where(pr => !_unreadablePullRequests.Contains(pr)).ToList())
+            {
+                PullRequestRead? read;
+
+                try
+                {
+                    read = await TryReadPullRequestAsync(pr);
+                }
+                catch (Exception) when (!_untilDisposed.IsCancellationRequested)
+                {
+                    // Anything the reads do not already expect — a client defect, a
+                    // timeout surfacing as a cancellation — is that pull request's
+                    // failure alone, so the rest are still read. The state has no
+                    // logger, and nobody asked for this read; it is retried from the
+                    // sync button like any other failure.
+                    read = null;
+                }
+
+                if (_untilDisposed.IsCancellationRequested) return;
+
+                if (read is null)
+                {
+                    _unreadablePullRequests.Add(pr);
+                    continue;
+                }
+
+                // Somebody else's read may have landed while this one was out — the
+                // sync button's, or a merge act's — and it is no older than this.
+                if (RowById(id) is not { } current) break;
+                if (!current.PullRequestLinks.Contains(pr) || current.PullRequestStates.ContainsKey(pr)) continue;
+
+                RecordPullRequestRead(current, pr, read.Value.State, read.Value.Status);
+                Changed?.Invoke();
+            }
+        }
+    }
+
+    private EntryRow? RowById(Guid id) => Rows.FirstOrDefault(row => row.Id == id);
+
+    /// <summary>The pull requests the background check could not read, which it
+    /// does not ask about again until <see cref="SyncGitHubAsync"/> forgets them.
+    /// Only touched on the renderer's dispatcher, as the rows are.</summary>
+    private readonly HashSet<EntryPullRequestLink> _unreadablePullRequests = [];
+
+    private static IEnumerable<EntryPullRequestLink> UnreadPullRequests(EntryRow row) =>
+        row.PullRequestLinks.Where(pr => !row.PullRequestStates.ContainsKey(pr));
+
+    /// <summary>What one read of a pull request found: its state, and its status
+    /// when the status query answered.</summary>
+    private readonly record struct PullRequestRead(GitHubItemState State, GitHubPullRequestStatus? Status);
+
+    /// <summary>One pull request read, or null when neither query could read it.</summary>
+    private async Task<PullRequestRead?> TryReadPullRequestAsync(EntryPullRequestLink pr)
+    {
+        if (await TryReadPullRequestStatusAsync(pr) is { } status) return new PullRequestRead(status.State, status);
+
+        // The state alone, so the merged colour survives a server that cannot
+        // answer the status query. The status is dropped rather than kept from an
+        // earlier read: a stale one would draw checks and offer a merge the state
+        // beside it may no longer allow.
+        if (await TryReadPullRequestStateAsync(pr) is { } state) return new PullRequestRead(state, Status: null);
+
+        return null;
     }
 
     /// <summary>
@@ -2815,12 +2975,19 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private void AnnounceRowFailure(EntryRow row, string message, string testId) =>
         _toasts?.Publish(ToastMessage.Error($"{row.PreviewTitle}: {message}", testId));
 
-    /// <summary>Refreshes every linked row. Explicit rather than automatic on
-    /// load: the backlog must open instantly and offline, so nothing about it
-    /// waits on the network until asked.</summary>
+    /// <summary>Refreshes every linked row, re-reading everything it has read
+    /// before. Explicit rather than automatic on load: the backlog must open
+    /// instantly and offline, so nothing about it waits on the network until asked.
+    /// The one read that happens unasked is
+    /// <see cref="CheckUnreadPullRequestsAsync"/>'s, which only fills in pull
+    /// requests never read, after the list is already on screen.</summary>
     public async Task SyncGitHubAsync()
     {
         if (GitHubSyncing) return;
+
+        // The explicit retry: what the background check gave up on is read below,
+        // and the check may ask about it again afterwards.
+        _unreadablePullRequests.Clear();
 
         GitHubSyncing = true;
         Changed?.Invoke();

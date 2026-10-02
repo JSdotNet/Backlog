@@ -96,6 +96,19 @@ public interface IGitHubClient
         CancellationToken cancellationToken = default) =>
         Task.FromException<IReadOnlyList<GitHubOpenPullRequest>>(new GitHubException("This GitHub client cannot list pull requests."));
 
+    /// <summary>
+    /// The repository's pull requests merged at or after <paramref name="mergedSince"/>,
+    /// with when and by whom each was merged, in the order GitHub lists them — most
+    /// recently updated first, because GitHub cannot order by merge time. Paged until the
+    /// window is passed or a page cap is reached, which the answer says.
+    /// A default body for the reason <see cref="ListOpenPullRequestsAsync"/> has one.
+    /// </summary>
+    Task<GitHubMergedPullRequestRead> ListMergedPullRequestsAsync(
+        GitHubRepositoryRef repository,
+        DateTimeOffset mergedSince,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<GitHubMergedPullRequestRead>(new GitHubException("This GitHub client cannot list merged pull requests."));
+
     /// <summary>Takes a draft out of draft — GitHub's "Ready for review".</summary>
     /// <param name="pullRequestId">The pull request's GraphQL node id, from
     /// <see cref="ListOpenPullRequestsAsync"/>.</param>
@@ -336,6 +349,46 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         }
         """;
 
+    /// <summary>How many merged pull requests one page of the merged query asks for —
+    /// GitHub's maximum for a connection. Sent as the query's <c>$first</c>, so the
+    /// query and this number cannot disagree.</summary>
+    public const int MergedPageSize = 100;
+
+    /// <summary>How many pages one merged read follows at most: five hundred pull
+    /// requests, a fortnight of a repository merging thirty-five a day. A bound so one
+    /// very busy repository cannot hold the whole view on a long walk of GraphQL calls;
+    /// reaching it inside the window is reported, not hidden.</summary>
+    public const int MergedPageCap = 5;
+
+    /// <summary>
+    /// The merged view's query, one page of it. Ordered by update because GitHub's
+    /// <c>IssueOrderField</c> has no merge time; a merge updates the pull request, so a
+    /// pull request merged inside the window was updated inside it too, and the walk
+    /// can stop at the first page that reaches back past the window.
+    /// </summary>
+    private const string MergedPullRequestsQuery = """
+        query($owner: String!, $name: String!, $first: Int!, $after: String) {
+          repository(owner: $owner, name: $name) {
+            pullRequests(states: MERGED, first: $first, after: $after, orderBy: { field: UPDATED_AT, direction: DESC }) {
+              pageInfo { hasNextPage endCursor }
+              nodes {
+                updatedAt
+                id
+                number
+                title
+                url
+                headRefName
+                baseRefName
+                author { login }
+                viewerDidAuthor
+                mergedAt
+                mergedBy { login }
+              }
+            }
+          }
+        }
+        """;
+
     public async Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(
         GitHubRepositoryRef repository,
         int number,
@@ -414,6 +467,61 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             tolerate: OnlyTheListsCheckRollupsWereRefused).ConfigureAwait(false);
 
         return ReadOpenPullRequests(data, repository.FullName);
+    }
+
+    /// <summary>
+    /// Every page sent the way the open list is, through the repository's own GraphQL
+    /// path, so the account bound to the repository is the one that answers. The walk
+    /// stops when GitHub has no next page, when a page's oldest update is before
+    /// <paramref name="mergedSince"/> — nothing after it in the order can have been
+    /// merged inside the window — or at <see cref="MergedPageCap"/>, which is reported
+    /// as truncation only if the window had not been passed yet.
+    /// </summary>
+    public async Task<GitHubMergedPullRequestRead> ListMergedPullRequestsAsync(
+        GitHubRepositoryRef repository,
+        DateTimeOffset mergedSince,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        var pulls = new List<GitHubMergedPullRequest>();
+        var seen = new HashSet<int>();
+        string? after = null;
+
+        for (var page = 1; ; page++)
+        {
+            var data = await GitHubGraphQl.SendAsync(
+                transport,
+                repository,
+                MergedPullRequestsQuery,
+                new Dictionary<string, object?>
+                {
+                    ["owner"] = repository.Owner,
+                    ["name"] = repository.Name,
+                    ["first"] = MergedPageSize,
+                    ["after"] = after
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            var read = ReadMergedPullRequests(data, repository.FullName);
+            // A pull request updated between two pages moves up the order and can come
+            // back on the next one; the first sighting stands, because the table keys
+            // its rows by repository and number and a second row would collide.
+            pulls.AddRange(read.PullRequests.Where(pull => pull.MergedAt >= mergedSince && seen.Add(pull.Number)));
+
+            var passedTheWindow = read.OldestUpdate is { } oldest && oldest < mergedSince;
+            if (!read.HasNextPage || read.EndCursor is null || passedTheWindow)
+            {
+                return new GitHubMergedPullRequestRead(pulls, Truncated: false);
+            }
+
+            if (page >= MergedPageCap)
+            {
+                return new GitHubMergedPullRequestRead(pulls, Truncated: true);
+            }
+
+            after = read.EndCursor;
+        }
     }
 
     /// <summary>The list's version of <see cref="OnlyTheCheckRollupWasRefused"/>: the
@@ -587,6 +695,80 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
 
         return pulls;
     }
+
+    /// <summary>
+    /// The merged query's <c>data</c>, as the records the merged view reads. A missing
+    /// repository is a not-found, as for the open list; a node without a number or a
+    /// merge time is left out, because the view is windowed and ordered by that time
+    /// and a row without one would belong nowhere in it. The page's oldest update counts
+    /// every node, left out or not: it is where the page reaches back to.
+    /// </summary>
+    internal static MergedPage ReadMergedPullRequests(JsonElement data, string repositoryFullName)
+    {
+        if (!data.TryGetProperty("repository", out var repository) || repository.ValueKind != JsonValueKind.Object)
+        {
+            throw new GitHubException($"GitHub couldn't find {repositoryFullName}.")
+            {
+                Status = System.Net.HttpStatusCode.NotFound
+            };
+        }
+
+        if (!repository.TryGetProperty("pullRequests", out var connection) || connection.ValueKind != JsonValueKind.Object
+            || !connection.TryGetProperty("nodes", out var nodes) || nodes.ValueKind != JsonValueKind.Array)
+        {
+            return new MergedPage([], null, false, null);
+        }
+
+        connection.TryGetProperty("pageInfo", out var pageInfo);
+        var hasNextPage = pageInfo.ValueKind == JsonValueKind.Object
+            && pageInfo.TryGetProperty("hasNextPage", out var next) && next.ValueKind == JsonValueKind.True;
+        var endCursor = pageInfo.ValueKind == JsonValueKind.Object ? String(pageInfo, "endCursor") : null;
+
+        var pulls = new List<GitHubMergedPullRequest>();
+        DateTimeOffset? oldestUpdate = null;
+
+        foreach (var pull in nodes.EnumerateArray())
+        {
+            if (pull.ValueKind != JsonValueKind.Object) continue;
+
+            if (Timestamp(pull, "updatedAt") is { } updated && (oldestUpdate is null || updated < oldestUpdate))
+            {
+                oldestUpdate = updated;
+            }
+
+            var number = pull.TryGetProperty("number", out var n) && n.TryGetInt32(out var value) ? value : 0;
+            if (number == 0 || Timestamp(pull, "mergedAt") is not { } mergedAt) continue;
+
+            pulls.Add(new GitHubMergedPullRequest(
+                number,
+                String(pull, "url") ?? $"https://github.com/{repositoryFullName}/pull/{number}",
+                String(pull, "title") ?? string.Empty,
+                repositoryFullName,
+                HeadRefName: String(pull, "headRefName") ?? string.Empty,
+                BaseRefName: String(pull, "baseRefName") ?? string.Empty,
+                AuthorLogin: Login(pull, "author"),
+                ViewerDidAuthor: pull.TryGetProperty("viewerDidAuthor", out var mine) && mine.ValueKind == JsonValueKind.True,
+                MergedAt: mergedAt,
+                MergedByLogin: Login(pull, "mergedBy")));
+        }
+
+        return new MergedPage(pulls, oldestUpdate, hasNextPage, endCursor);
+    }
+
+    /// <summary>One page of the merged query: its rows, how far back it reached, and
+    /// where the next page starts.</summary>
+    internal sealed record MergedPage(
+        IReadOnlyList<GitHubMergedPullRequest> PullRequests,
+        DateTimeOffset? OldestUpdate,
+        bool HasNextPage,
+        string? EndCursor);
+
+    /// <summary>An actor's login, or null where GitHub answered with no actor — a
+    /// deleted account comes back as <c>null</c>.</summary>
+    private static string? Login(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var actor) && actor.ValueKind == JsonValueKind.Object
+            ? String(actor, "login")
+            : null;
 
     /// <summary>
     /// The merge states in which the pull request can merge right now, and in which

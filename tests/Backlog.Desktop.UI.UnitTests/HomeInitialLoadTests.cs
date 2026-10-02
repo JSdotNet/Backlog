@@ -3,6 +3,8 @@ using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -39,7 +41,72 @@ public sealed class HomeInitialLoadTests
         });
     }
 
-    private static async Task<Harness> CreateHarnessAsync(string entryText)
+    /// <summary>
+    /// Once the list is on screen, a Done entry's pull request that was never read
+    /// is asked about in the background — but only while the GitHub integration is
+    /// switched on. Off, the shell asks GitHub nothing at all.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_done_entrys_unread_pull_request_is_read_after_load_only_with_github_on(bool gitHubOn)
+    {
+        var client = new CountingGitHubClient();
+        using var harness = await CreateHarnessAsync(
+            "# Seeded entry\n`task` `!done` `repo:backlog`\n",
+            client,
+            gitHubOn,
+            linkPullRequest: 708);
+        harness.Context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var component = harness.Context.Render<Home>();
+
+        component.WaitForAssertion(() =>
+            Assert.Contains("Seeded entry", component.Find("[data-testid='entry-list']").TextContent));
+
+        // The flag-off case is only meaningful if there was something to read.
+        Assert.NotEmpty(Assert.Single(harness.Context.Services.GetRequiredService<TasksDesktopState>().Rows).PullRequestLinks);
+
+        if (gitHubOn)
+        {
+            component.WaitForAssertion(() => Assert.True(client.StatusReads > 0));
+        }
+        else
+        {
+            Assert.Equal(0, client.StatusReads);
+            Assert.Equal(0, client.StateReads);
+        }
+    }
+
+    /// <summary>Switching the GitHub integration on after the list loaded checks
+    /// then, rather than waiting for a reload that may not come.</summary>
+    [Fact]
+    public async Task Turning_github_on_later_reads_the_unread_pull_requests()
+    {
+        var client = new CountingGitHubClient();
+        using var harness = await CreateHarnessAsync(
+            "# Seeded entry\n`task` `!done` `repo:backlog`\n",
+            client,
+            gitHubOn: false,
+            linkPullRequest: 708);
+        harness.Context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var component = harness.Context.Render<Home>();
+        component.WaitForAssertion(() =>
+            Assert.Contains("Seeded entry", component.Find("[data-testid='entry-list']").TextContent));
+        Assert.Equal(0, client.StatusReads);
+
+        var features = Assert.IsType<AppFeatureSettingsStore>(harness.Context.Services.GetRequiredService<IAppFeatureSettings>());
+        _ = features.SetEnabled(TasksFeatures.GitHubIntegration, true);
+
+        component.WaitForAssertion(() => Assert.True(client.StatusReads > 0));
+    }
+
+    private static async Task<Harness> CreateHarnessAsync(
+        string entryText,
+        IGitHubClient? gitHubClient = null,
+        bool gitHubOn = false,
+        int? linkPullRequest = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-home-initial-load", Guid.NewGuid().ToString("n"));
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
@@ -50,6 +117,21 @@ public sealed class HomeInitialLoadTests
         Assert.True(saved.IsSuccess);
 
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
+
+        if (linkPullRequest is { } number)
+        {
+            var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog");
+            gitHubSettings.SetRepositories(repositories);
+
+            var linked = await TasksTestHost.EntriesFor(store).LinkToIssueAsync(
+                saved.Value!.Entry.Id,
+                "JSdotNet/Backlog",
+                number.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                EntryProjectionDto.PullRequestTargetType,
+                TestContext.Current.CancellationToken);
+            Assert.True(linked.IsSuccess);
+        }
+
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
 
         foreach (var feature in new[]
@@ -66,7 +148,9 @@ public sealed class HomeInitialLoadTests
             _ = featureSettings.SetEnabled(feature, false);
         }
 
-        var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
+        if (gitHubOn) _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, true);
+
+        var gitHub = new GitHubIntegration(gitHubSettings, gitHubClient ?? new StubGitHubClient(), new StubProbe());
         var devbookFolderSource = new DevbookFolderSource(gitHubSettings, store);
 
         var context = new BunitContext();
@@ -112,8 +196,11 @@ public sealed class HomeInitialLoadTests
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
-        context.Services.AddScoped(sp => TasksTestHost.StateFor(
-            sp.GetRequiredService<WorkspaceSettingsStore>(),
+        // Over a registry that knows the configured repository, so the start-up
+        // reconcile leaves a recorded pull request's owner/name as it was written.
+        context.Services.AddScoped(sp => new TasksDesktopState(
+            TasksTestHost.TaskStoreFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
+            TasksTestHost.EntriesFor(TasksTestHost.RepositoryFor(sp.GetRequiredService<WorkspaceSettingsStore>()), new ConfiguredRepositoryDirectory()),
             sp.GetRequiredService<GitHubIntegration>(),
             TasksCopilotCli.Unavailable,
             toasts: sp.GetRequiredService<IToastChannel>()));
@@ -133,6 +220,58 @@ public sealed class HomeInitialLoadTests
         _ = InboxTestHost.AddInboxState(context.Services);
 
         return new Harness(root, context);
+    }
+
+    /// <summary>Counts the pull request reads and answers each like a GitHub that
+    /// cannot find it — the count is the whole question here.</summary>
+    private sealed class CountingGitHubClient : IGitHubClient
+    {
+        private int _statusReads;
+        private int _stateReads;
+
+        public int StatusReads => Volatile.Read(ref _statusReads);
+        public int StateReads => Volatile.Read(ref _stateReads);
+
+        public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<GitHubIssueSnapshot> GetIssueAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _statusReads);
+            return Task.FromException<GitHubPullRequestStatus>(new GitHubException("Not Found"));
+        }
+
+        public Task<GitHubPullRequest> GetPullRequestAsync(GitHubRepositoryRef repository, int number, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _stateReads);
+            return Task.FromException<GitHubPullRequest>(new GitHubException("Not Found"));
+        }
+
+        public Task<GitHubUploadedFile> UploadFileAsync(GitHubRepositoryRef repository, string path, string branch, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+    }
+
+    /// <summary>The one repository the harness configures, under its own
+    /// owner/name; everything else is unknown and forgotten once registered.</summary>
+    private sealed class ConfiguredRepositoryDirectory : IRepositoryDirectory
+    {
+        private static readonly TasksRepositoryRef Backlog = new("backlog", "JSdotNet", "Backlog");
+
+        public IReadOnlyList<TasksRepositoryRef> Repositories => [Backlog];
+
+        public TasksRepositoryRef? Resolve(string name) =>
+            string.Equals(name, Backlog.Id, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, Backlog.Alias, StringComparison.OrdinalIgnoreCase)
+                ? Backlog
+                : null;
+
+        public Result<TasksRepositoryRef> Register(string name) => new TasksRepositoryRef(name, name, name);
     }
 
     private sealed record Harness(string Root, BunitContext Context) : IDisposable
