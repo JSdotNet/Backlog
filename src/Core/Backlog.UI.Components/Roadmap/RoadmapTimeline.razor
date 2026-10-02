@@ -1986,10 +1986,17 @@
     /// "Mo W41" fits under a week's first day.</summary>
     private const double CaptionFontRem = 0.75;
 
-    private const double CaptionCharEm = 0.55;
+    /// <summary>A letter, digit or space in Inter at the caption size, rounded up from
+    /// the browser's own measure: "Mo W39" lays out 45.25px at 12px, about 0.63em a
+    /// character.</summary>
+    private const double CaptionCharEm = 0.65;
 
-    /// <summary>The padding a head keeps either side of its text.</summary>
-    private const double HeadPaddingRem = 0.25;
+    /// <summary>A decimal point or comma, which Inter draws at about half a digit, so
+    /// "8.5h" still fits under a 2rem day.</summary>
+    private const double CaptionPunctuationEm = 0.3;
+
+    /// <summary>What a head loses to its left border (1px); it has no padding.</summary>
+    private const double HeadBorderRem = 0.0625;
 
     /// <summary>
     /// The hours on the head's third line, for a column too narrow to say them inline:
@@ -2043,9 +2050,10 @@
     }
 
     /// <summary>Whether <paramref name="text"/> fits on a head's caption line inside
-    /// the column's padding, at the caption font's rough character width.</summary>
+    /// the column's border, at the caption font's character widths.</summary>
     private bool FitsCaption(RoadmapColumn column, string text) =>
-        text.Length * CaptionCharEm * CaptionFontRem <= Geometry.WidthFor(column.Start, column.End) - HeadPaddingRem;
+        text.Sum(character => character is '.' or ',' ? CaptionPunctuationEm : CaptionCharEm) * CaptionFontRem
+            <= Geometry.WidthFor(column.Start, column.End) - HeadBorderRem;
 
     /// <summary>The column's tooltip: its long label, whether it is now, and its working
     /// hours — or that it is not worked.</summary>
