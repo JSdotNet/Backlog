@@ -166,7 +166,7 @@
                  role="region"
                  tabindex="0"
                  aria-label="@ScrollLabel">
-                <div @ref="_track" class="roadmap-timeline__track" style="width: @Rem(Geometry.TrackWidthRem)">
+                <div @ref="_track" class="roadmap-timeline__track" style="width: @Rem(Geometry.TrackWidthRem)" data-roadmap-snaps="@ResizeSnaps">
 
                     <div class="roadmap-timeline__axis" data-testid="@Suffix("axis")">
                         @foreach (var column in Span.Columns)
@@ -1074,7 +1074,8 @@
         StateHasChanged();
     }
 
-    /// <summary>How far the drag has got, in whole weeks and whole rows. Called
+    /// <summary>How far the drag has got, in whole weeks and whole rows — or, for an
+    /// edge on a graduated axis, in column lines crossed. Called
     /// only when that answer changes, which is why it is cheap enough to redraw
     /// the whole chart — arrows included — on every one.</summary>
     [JSInvokable]
@@ -1392,8 +1393,19 @@
     {
         if (!Is(ActiveId, barId) || Bar(barId) is not { } bar) return null;
 
-        return RoadmapChange.For(bar, _kind, _steps, Landing(bar) ?? bar.RowId, WeekStart);
+        return RoadmapChange.For(bar, _kind, _steps, Landing(bar) ?? bar.RowId, WeekStart, ResizeBoundaries);
     }
+
+    /// <summary>The lines a resized edge snaps to when the axis is graduated — its own
+    /// columns, so an edge near today moves by the day — or null on a plain window,
+    /// whose quarter columns are too coarse and whose edges snap to the week.</summary>
+    private IReadOnlyList<DateOnly>? ResizeBoundaries => Span.IsGraduated ? Span.ColumnBoundaries : null;
+
+    /// <summary>Where each of <see cref="ResizeBoundaries"/> is drawn, for the script
+    /// to count the lines a dragged edge has crossed; null leaves it counting weeks.</summary>
+    private string? ResizeSnaps => ResizeBoundaries is { } boundaries
+        ? string.Join(' ', boundaries.Select(boundary => RoadmapGeometry.N(Geometry.XFor(boundary))))
+        : null;
 
     /// <summary>
     /// Which row a move would land on, or null when it would land somewhere it
