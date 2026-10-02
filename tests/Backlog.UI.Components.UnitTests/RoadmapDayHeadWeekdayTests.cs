@@ -186,6 +186,75 @@ public sealed class RoadmapDayHeadWeekdayTests
         });
     }
 
+    /// <summary>
+    /// Vietnamese abbreviates the weekdays "CN", "Th 2" … "Th 7": two letters would read
+    /// "Th" six times, so the whole abbreviation is used, and a day too narrow for it
+    /// keeps its number alone rather than a name that tells it from nothing.
+    /// </summary>
+    [Fact]
+    public void Where_two_letters_name_two_days_the_whole_abbreviation_is_used()
+    {
+        WithCulture("vi-VN", () =>
+        {
+            using var context = new BunitContext();
+            context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+            var view = Render(context, NarrowQuarter);
+
+            Assert.Equal("Th 4", CaptionOfDay(view, "23"));
+            Assert.Equal("CN", CaptionOfDay(view, "27"));
+            var tuesdayToSunday = Enumerable.Range(22, 6).Select(day => CaptionOfDay(view, day.ToString(CultureInfo.InvariantCulture))).ToList();
+            Assert.Equal(6, tuesdayToSunday.Distinct().Count());
+            Assert.DoesNotContain(string.Empty, tuesdayToSunday);
+
+            var tight = Render(context, TightQuarter);
+
+            Assert.Equal("23", LabelOfDay(tight, "23"));
+            Assert.Equal(string.Empty, CaptionOfDay(tight, "23"));
+            Assert.Equal("CN", CaptionOfDay(tight, "27"));
+            Assert.Equal("W39", CaptionOfDay(tight, "21"));
+        });
+    }
+
+    /// <summary>A CJK weekday is one full-width character, which takes about a whole em
+    /// rather than a Latin letter's: "月 W39" does not fit under a 2.75rem day, where it
+    /// would if "月" were counted as narrow as "M".</summary>
+    [Fact]
+    public void A_full_width_weekday_is_measured_at_its_full_width()
+    {
+        WithCulture("ja-JP", () =>
+        {
+            using var context = new BunitContext();
+            context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+            var narrow = Render(context, NarrowQuarter);
+
+            Assert.Equal("水", CaptionOfDay(narrow, "23"));
+            Assert.Equal("W39", CaptionOfDay(narrow, "21"));
+
+            var roomy = Render(context, RoomyQuarter);
+
+            Assert.Equal("月 W39", CaptionOfDay(roomy, "21"));
+        });
+    }
+
+    /// <summary>Chinese abbreviates in two full-width characters, "周一" … "周日": two
+    /// text elements that differ from day to day, so they are kept whole.</summary>
+    [Fact]
+    public void A_two_character_CJK_weekday_is_kept_whole()
+    {
+        WithCulture("zh-CN", () =>
+        {
+            using var context = new BunitContext();
+            context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+            var view = Render(context, NarrowQuarter);
+
+            Assert.Equal("周三", CaptionOfDay(view, "23"));
+            Assert.Equal("W39", CaptionOfDay(view, "21"));
+        });
+    }
+
     /// <summary>Monday to Friday, 8.5 hours a day.</summary>
     private static readonly IReadOnlyDictionary<DayOfWeek, double> FiveDays = new Dictionary<DayOfWeek, double>
     {
@@ -218,6 +287,17 @@ public sealed class RoadmapDayHeadWeekdayTests
 
     private static string CaptionOf(IRenderedComponent<RoadmapTimeline> view, string titleStart) =>
         ColumnOf(view, titleStart).QuerySelector(".roadmap-timeline__quarter-year")!.TextContent.Trim();
+
+    /// <summary>A narrow day column found by the number on its head — what every culture
+    /// here writes the same way — for cultures whose tooltips are not English.</summary>
+    private static AngleSharp.Dom.IElement DayNumbered(IRenderedComponent<RoadmapTimeline> view, string number) =>
+        Assert.Single(view.FindAll(".roadmap-timeline__quarter--day"), column => column.QuerySelector(".roadmap-timeline__quarter-label")?.TextContent.Trim() == number);
+
+    private static string LabelOfDay(IRenderedComponent<RoadmapTimeline> view, string number) =>
+        DayNumbered(view, number).QuerySelector(".roadmap-timeline__quarter-label")!.TextContent.Trim();
+
+    private static string CaptionOfDay(IRenderedComponent<RoadmapTimeline> view, string number) =>
+        DayNumbered(view, number).QuerySelector(".roadmap-timeline__quarter-year")!.TextContent.Trim();
 
     private static void WithCulture(string name, Action test)
     {

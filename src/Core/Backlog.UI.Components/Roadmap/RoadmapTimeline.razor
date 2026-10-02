@@ -1995,6 +1995,10 @@
     /// "8.5h" still fits under a 2rem day.</summary>
     private const double CaptionPunctuationEm = 0.3;
 
+    /// <summary>A full-width East Asian character — "月", "周" — which takes the whole
+    /// em a Latin letter takes two thirds of.</summary>
+    private const double CaptionFullWidthEm = 1;
+
     /// <summary>What a head loses to its left border (1px); it has no padding.</summary>
     private const double HeadBorderRem = 0.0625;
 
@@ -2016,7 +2020,8 @@
     /// <summary>
     /// The head's caption line. A day too narrow to name its weekday beside its number
     /// names it here instead, in two letters of the culture's own — "Mo", "ma" — so every
-    /// day column says which day it is. On the week's first day the week's number rides
+    /// day column with room for its name says which day it is; one without keeps just its
+    /// number, and the tooltip names the day. On the week's first day the week's number rides
     /// here too: "Mo W41" where both fit, else "W41" alone, because the number is the
     /// one thing no other head says and the tooltip still names the day. Every other
     /// column keeps the caption the window gave it.
@@ -2029,7 +2034,7 @@
         }
 
         var weekday = ShortWeekday(column.Start.DayOfWeek);
-        if (column.Caption is not { } week) return weekday;
+        if (column.Caption is not { } week) return FitsCaption(column, weekday) ? weekday : null;
 
         var both = $"{weekday} {week}";
         return FitsCaption(column, both) ? both : week;
@@ -2040,20 +2045,56 @@
     /// "di". Not <see cref="DateTimeFormatInfo.ShortestDayNames"/>: under ICU, which .NET
     /// uses on every head, that is a single letter, and "T" and "S" each name two days.
     /// Counted in text elements so a combined character is never split.
+    /// <para>
+    /// Where two letters do not tell the seven days apart — Vietnamese "Th 2" … "Th 7",
+    /// Hebrew and Arabic, whose abbreviations share a prefix — the whole abbreviation is
+    /// used, and <see cref="FitsCaption"/> decides whether a day has room for it.
+    /// </para>
     /// </summary>
     private static string ShortWeekday(DayOfWeek day)
     {
-        var abbreviated = CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedDayName(day).TrimEnd('.');
-        var letters = new StringInfo(abbreviated);
+        var format = CultureInfo.CurrentCulture.DateTimeFormat;
+        var twoLetters = AllWeekdays.Select(other => TwoLetters(format.GetAbbreviatedDayName(other).TrimEnd('.')));
 
+        return twoLetters.Distinct(StringComparer.Ordinal).Count() == AllWeekdays.Length
+            ? TwoLetters(format.GetAbbreviatedDayName(day).TrimEnd('.'))
+            : format.GetAbbreviatedDayName(day).TrimEnd('.');
+    }
+
+    /// <summary>Every day of the week, in the order <see cref="DayOfWeek"/> numbers them.</summary>
+    private static readonly DayOfWeek[] AllWeekdays = Enum.GetValues<DayOfWeek>();
+
+    private static string TwoLetters(string abbreviated)
+    {
+        var letters = new StringInfo(abbreviated);
         return letters.LengthInTextElements <= 2 ? abbreviated : letters.SubstringByTextElements(0, 2);
     }
 
     /// <summary>Whether <paramref name="text"/> fits on a head's caption line inside
-    /// the column's border, at the caption font's character widths.</summary>
+    /// the column's border, at the caption font's character widths: an East Asian
+    /// full-width character about a whole em, a decimal point or comma about half a
+    /// digit, anything else a Latin letter's.</summary>
     private bool FitsCaption(RoadmapColumn column, string text) =>
-        text.Sum(character => character is '.' or ',' ? CaptionPunctuationEm : CaptionCharEm) * CaptionFontRem
+        text.EnumerateRunes().Sum(CaptionEm) * CaptionFontRem
             <= Geometry.WidthFor(column.Start, column.End) - HeadBorderRem;
+
+    private static double CaptionEm(System.Text.Rune character) =>
+        character.Value is '.' or ',' ? CaptionPunctuationEm
+        : IsFullWidth(character.Value) ? CaptionFullWidthEm
+        : CaptionCharEm;
+
+    /// <summary>A full-width East Asian character: Hangul jamo and syllables, the CJK
+    /// blocks from radicals to Yi, compatibility ideographs, the full-width forms and
+    /// the ideographic planes.</summary>
+    private static bool IsFullWidth(int codePoint) =>
+        codePoint is (>= 0x1100 and <= 0x115F)
+            or (>= 0x2E80 and <= 0xA4CF)
+            or (>= 0xAC00 and <= 0xD7A3)
+            or (>= 0xF900 and <= 0xFAFF)
+            or (>= 0xFE30 and <= 0xFE4F)
+            or (>= 0xFF00 and <= 0xFF60)
+            or (>= 0xFFE0 and <= 0xFFE6)
+            or (>= 0x20000 and <= 0x3FFFD);
 
     /// <summary>The column's tooltip: its long label, whether it is now, and its working
     /// hours — or that it is not worked.</summary>

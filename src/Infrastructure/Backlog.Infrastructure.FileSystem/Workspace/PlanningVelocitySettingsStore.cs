@@ -78,9 +78,10 @@ namespace Backlog.Infrastructure.FileSystem;
 /// </summary>
 public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
 {
-    /// <summary>Seven story points a week — one a calendar day, what the roadmap
-    /// divided by when the pace was a day, so a reader who never set one sees no bar
-    /// change length. It is deliberately not zero: a velocity of
+    /// <summary>Seven story points a working week — the figure kept from when the pace
+    /// meant one point a calendar day. Since local ADR 0019 a week is the hours of the
+    /// person's working week, so on the default week it is about 1.4 points a worked day
+    /// and a bar placed at it is longer than it was. It is deliberately not zero: a velocity of
     /// zero has no length to give, and a default nobody chose should place a plan
     /// rather than refuse to.</summary>
     public const decimal Default = 7m;

@@ -194,7 +194,9 @@ public sealed class ImportPlanItemsCommandHandler(
     /// <summary>
     /// Re-lengthens the item each gathered tag names that no entry of this import
     /// touched, while its window is still effort-placed (ADR 0013, ruling 5): the end is
-    /// recomputed from the newly gathered effort and the start stays. A due-date-placed
+    /// recomputed from the newly gathered effort, counted in working hours through the
+    /// person's week, and the start stays — unless the week no longer works that day, when
+    /// it moves to the next worked day (local ADR 0019, §1). A due-date-placed
     /// item keeps the end the person wrote; a hand-placed one is untouched. When several
     /// items carry the tag, the first by creation order, as for an entry. Each at the
     /// pace of the repositories that item is filed under.
