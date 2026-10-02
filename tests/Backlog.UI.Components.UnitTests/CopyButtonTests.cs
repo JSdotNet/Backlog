@@ -37,6 +37,35 @@ public sealed class CopyButtonTests
         Assert.Equal("true", button.Find(".copy-button").GetAttribute("data-copied"));
     }
 
+    [Fact]
+    public void A_confirmation_stands_for_three_seconds_unless_the_host_says_otherwise()
+    {
+        using var context = new BunitContext();
+
+        var button = context.Render<CopyButton>(parameters => parameters
+            .Add(c => c.Text, "Something worth keeping."));
+
+        Assert.Equal(TimeSpan.FromSeconds(3), button.Instance.ConfirmationDuration);
+    }
+
+    [Fact]
+    public void The_check_clears_once_the_hosts_duration_has_passed()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+
+        var button = context.Render<CopyButton>(parameters => parameters
+            .Add(c => c.Text, "Something worth keeping.")
+            .Add(c => c.ConfirmationDuration, TimeSpan.FromMilliseconds(50))
+            .Add(c => c.ButtonTestId, "copy"));
+
+        button.Find("[data-testid='copy']").Click();
+
+        button.WaitForAssertion(
+            () => Assert.Equal("false", button.Find(".copy-button__glyphs").GetAttribute("data-copied")),
+            TimeSpan.FromSeconds(2));
+    }
+
     /// <summary>
     /// Both glyphs are in the markup at once, because the swap is a cross-fade
     /// between them rather than a replacement: an element that only appears when
