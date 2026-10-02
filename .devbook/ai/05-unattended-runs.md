@@ -97,7 +97,37 @@ the technology graph from the package inventories as a draft pull request.
 - **Adopted by** — the four schedules, since 2026-09-25 and 2026-09-26.
 - **Evidence** — `devbook-validate` has fired; nothing published yet.
 - **Limits** — `prose-check` carries no editor on purpose, and `devbook-verify` writes no
-  chapter: prose and content change only through `flow-spec`.
+  chapter: prose and content change only through `flow-spec`. From delivery-schedule 1.16.0
+  it covers only the sync units whose direction is `report` and skips `off`; the two sweeps
+  below take the rest.
+
+## Scheduled devbook sync sweeps
+
+```meta
+status: candidate
+type: workflow
+stage: [code, operate]
+depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech/ai-development.md#devbook-plugin"]
+related: [".devbook/ai/05-unattended-runs.md#scheduled-devbook-upkeep"]
+date: 2026-10-02
+```
+
+Two catalog schedules act on the drift `devbook-verify` only reports, each on the sync units
+whose `sync` direction asks for it. `devbook-pull-sweep` runs on Mondays and turns a
+`code-ahead` verdict into chapters through `capture-specs`, up to three groups a run. Its
+added chapters land at `draft`. `devbook-push-sweep` runs on Wednesdays and turns a
+`spec-ahead` verdict on an agreed chapter into code through `apply-change`, one group a run.
+Each group lands as a draft pull request on a `schedule/devbook-<direction>-sweep/<date>/<group>`
+branch, and a group whose verdicts conflict goes to a person.
+
+- **Used for** — nothing yet. Every unit here resolves to `report`, the default, because no
+  context, page, or unit sets `sync`. The chapters are ready for it: every domain event names
+  its raiser in `related`, and `units.mjs --groups` reports no orphan and no set-aside group.
+- **Adopted by** — nobody: neither schedule is selected. They follow once directions are set
+  and the delivery-schedule release that ships them is installed.
+- **Evidence** — none.
+- **Limits** — push writes no chapter and removes no code, and skips a draft or unagreed
+  chapter; pull changes only chapters and never raises a status above `draft`.
 
 ## Scheduled instruction review
 

@@ -455,7 +455,7 @@ writes — not to the plan, not to a task, not to a chapter.
 ```meta
 type: domain-event
 status: draft
-related: [.devbook/domain/monitoring/domain.md#progress-signal]
+related: [.devbook/domain/roadmap/domain.md#roadmap-plan]
 ```
 
 Published when a Roadmap Item's Planned Window is set or changed — on creation,
