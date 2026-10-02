@@ -4653,6 +4653,14 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-primary);
 }
 
+/* A reader copying several rows in turn tracks which are done by the check, so
+   it stands for a minute (TaskItem sets the duration) and wears the accent
+   rather than the text colour: a row already copied has to read as different
+   from the rest at a glance, hovered or not. */
+.task-item__copy .copy-button__glyphs[data-copied="true"] {
+    color: var(--color-primary);
+}
+
 /* The confirmation would push the row's width around if it took part in the
    layout, so it is announced and not drawn. Every reader who needs it hears it;
    nobody's list reflows because someone copied a line. */
