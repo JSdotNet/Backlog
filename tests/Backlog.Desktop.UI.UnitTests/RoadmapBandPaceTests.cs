@@ -697,8 +697,8 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
 
     /// <summary>
     /// Local ADR 0019 §4, through the band: the axis is handed the working week the
-    /// paces are counted in, so this week's Saturday and Sunday are shaded and every
-    /// other day carries its hours in its tooltip.
+    /// paces are counted in, so every Saturday and Sunday ruled in days is shaded and
+    /// every other day carries its hours in its tooltip.
     /// </summary>
     [Fact]
     public async Task The_band_hands_the_axis_the_working_week()
@@ -712,9 +712,12 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         band.WaitForAssertion(() =>
         {
             var days = band.FindAll(".roadmap-timeline__quarter--day");
-            Assert.Equal(7, days.Count);
-            Assert.Equal(2, days.Count(day => day.ClassList.Contains("roadmap-timeline__quarter--weekend")));
-            Assert.Equal(5, days.Count(day => (day.GetAttribute("title") ?? string.Empty).EndsWith(" · 8.5h", StringComparison.Ordinal)));
+            var shaded = days.Where(day => day.ClassList.Contains("roadmap-timeline__quarter--weekend")).ToList();
+            Assert.NotEmpty(shaded);
+            Assert.All(shaded, day => Assert.EndsWith(" · not worked", day.GetAttribute("title") ?? string.Empty, StringComparison.Ordinal));
+            Assert.Equal(
+                days.Count - shaded.Count,
+                days.Count(day => (day.GetAttribute("title") ?? string.Empty).EndsWith(" · 8.5h", StringComparison.Ordinal)));
         });
     }
 

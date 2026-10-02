@@ -264,7 +264,9 @@ public sealed class RoadmapGraduatedAxisTests
 
         var view = RenderPlan(context);
 
-        // The days run 14 September to 4 October: three weekends, six days.
+        // Given no working week, the days off are the weekend (local ADR 0019 shades the
+        // week's own days off when one is given). The days run 14 September to 4 October:
+        // three weekends, six days.
         var heads = view.FindAll(".roadmap-timeline__quarter--weekend");
         Assert.Equal(6, heads.Count);
         Assert.All(heads, head => Assert.Contains("roadmap-timeline__quarter--day", head.ClassList));

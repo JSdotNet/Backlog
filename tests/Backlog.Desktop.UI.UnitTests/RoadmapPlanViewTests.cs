@@ -766,11 +766,14 @@ public class RoadmapPlanViewTests
     [Fact]
     public void AnEffortPlacedItemNobodyStarted_IsDrawnThroughTheWorkingWeek()
     {
-        var forecast = OnTheDefaultWeek with { Paces = OnTheDefaultWeek.Paces with { Global = 5m } };
+        var forecast = OnTheDefaultWeek with
+        {
+            Paces = OnTheDefaultWeek.Paces with { ByRepository = new Dictionary<string, decimal> { ["backlog"] = 5m } }
+        };
 
         var bar = Forecasted(
             forecast,
-            Item("Plan", startDay: 5, endDay: 9, placedBy: ImportPlacement.Effort),
+            Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort),
             Sized("a", 10, RoadmapProgress.Planned));
 
         Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);

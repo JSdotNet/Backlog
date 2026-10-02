@@ -230,7 +230,7 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
 
         await a.EntryAsync("# Ship the sync\n`task` `!ready` `+ship` `effort:14`\n");
         var imported = await a.Planning(planning => planning.ImportPlanItemsAsync(
-            [new PlanImportEntryDto("Ship", "ship", RepositoryAliases: [])],
+            [new PlanImportEntryDto("Ship", "ship", RepositoryAliases: ["backlog"])],
             cancellationToken: Cancellation));
         Assert.True(imported.IsSuccess);
         Assert.True((await a.SyncAsync()).IsSuccess);

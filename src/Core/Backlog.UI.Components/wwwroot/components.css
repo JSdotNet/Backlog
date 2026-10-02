@@ -12229,7 +12229,8 @@ select.field__input {
     border-left-color: color-mix(in srgb, var(--color-border) 50%, transparent);
 }
 
-/* The weekend, where the axis is ruled in days: a neutral tint in the head that
+/* The days off, where the axis is ruled in days — the working week's when one is
+   given (local ADR 0019), else Saturday and Sunday: a neutral tint in the head that
    carries on down the chart and fades out, so it marks the days off without
    competing with the bars or with this week's primary shade. */
 .roadmap-timeline__quarter--weekend {
@@ -12265,36 +12266,6 @@ select.field__input {
     top: 0;
     bottom: 0;
     background: color-mix(in srgb, var(--color-primary) 7%, transparent);
-}
-
-/* A day the working week does not work: its head and its column down the chart
-   hatched, at the same width as every other day, so the axis stays time (local
-   ADR 0019). The hatch is drawn in --color-text-disabled, the scheme's token for
-   "unavailable" (design/color-scheme.md), over the alternate background — neutral
-   rather than a hue, because a day off is not a status — and it leans the other
-   way from a tentative bar's 135° hatch, so the two never read as one. A tint
-   alone read only as "not this week's colour" beside the current-week shading.
-   Today keeps its own highlight when it is a day off. */
-.roadmap-timeline {
-    --roadmap-off-day-hatch: repeating-linear-gradient(
-        45deg,
-        color-mix(in srgb, var(--color-text-disabled) 35%, transparent) 0 0.125rem,
-        transparent 0.125rem 0.375rem);
-}
-
-.roadmap-timeline__quarter--off:not(.roadmap-timeline__quarter--current) {
-    background: var(--roadmap-off-day-hatch), var(--color-background-alt);
-    color: var(--color-text-secondary);
-}
-
-.roadmap-timeline__off-day {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    background:
-        var(--roadmap-off-day-hatch),
-        color-mix(in srgb, var(--color-background-alt) 70%, transparent);
-    opacity: 0.8;
 }
 
 /* Given a working week, every head carries a third line for its hours — "8.5h"

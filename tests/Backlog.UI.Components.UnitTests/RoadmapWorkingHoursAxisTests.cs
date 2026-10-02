@@ -50,12 +50,13 @@ public sealed class RoadmapWorkingHoursAxisTests
             var sunday = ColumnOf(view, "Sunday 27");
             var wednesday = ColumnOf(view, "Wednesday 23");
 
-            Assert.Contains("roadmap-timeline__quarter--off", saturday.ClassName);
-            Assert.Contains("roadmap-timeline__quarter--off", sunday.ClassName);
-            Assert.DoesNotContain("roadmap-timeline__quarter--off", wednesday.ClassName);
+            Assert.Contains("roadmap-timeline__quarter--weekend", saturday.ClassName);
+            Assert.Contains("roadmap-timeline__quarter--weekend", sunday.ClassName);
+            Assert.DoesNotContain("roadmap-timeline__quarter--weekend", wednesday.ClassName);
             Assert.Equal("Sat 26", HeadOf(view, "Saturday 26").TextContent.Trim());
             Assert.Contains("not worked", saturday.GetAttribute("title"));
-            Assert.Equal(2, view.FindAll(".roadmap-timeline__off-day").Count);
+            Assert.Equal(ShadedTitles(view), DayTitles(view, DayOfWeek.Saturday, DayOfWeek.Sunday));
+            Assert.Equal(ShadedTitles(view).Count, view.FindAll(".roadmap-timeline__weekend").Count);
 
             Assert.Equal(WidthOf(wednesday), WidthOf(saturday), 6);
             Assert.Equal(WidthOf(wednesday), WidthOf(sunday), 6);
@@ -129,9 +130,10 @@ public sealed class RoadmapWorkingHoursAxisTests
         Assert.Equal(plain, counted);
     }
 
-    /// <summary>Without a week the axis says nothing about one.</summary>
+    /// <summary>Without a week the axis says no hours, and the days it shades are the
+    /// weekend's — the same shading a week's days off get, never a second one.</summary>
     [Fact]
-    public void WithoutAWeek_NoHoursAndNoShade()
+    public void WithoutAWeek_NoHours_AndTheWeekendIsShaded()
     {
         WithCulture("en-US", () =>
         {
@@ -142,9 +144,36 @@ public sealed class RoadmapWorkingHoursAxisTests
 
             Assert.Equal("Wed 23", HeadOf(view, "Wednesday 23").TextContent.Trim());
             Assert.Equal("W41", HeadOf(view, "Week 41").TextContent.Trim());
-            Assert.Empty(view.FindAll(".roadmap-timeline__quarter--off"));
-            Assert.Empty(view.FindAll(".roadmap-timeline__off-day"));
             Assert.Empty(view.FindAll(".roadmap-timeline__quarter-hours"));
+
+            Assert.Contains("roadmap-timeline__quarter--weekend", ColumnOf(view, "Saturday 26").ClassName);
+            Assert.Contains("roadmap-timeline__quarter--weekend", ColumnOf(view, "Sunday 27").ClassName);
+            Assert.Equal(ShadedTitles(view), DayTitles(view, DayOfWeek.Saturday, DayOfWeek.Sunday));
+            Assert.Equal(ShadedTitles(view).Count, view.FindAll(".roadmap-timeline__weekend").Count);
+
+            // Nothing says a day is not worked when nobody gave a week to say it by.
+            Assert.DoesNotContain("not worked", ColumnOf(view, "Saturday 26").GetAttribute("title"));
+        });
+    }
+
+    /// <summary>Given a week, its days off are the ones shaded, not the weekend: a week
+    /// worked Tuesday to Saturday shades Sunday and Monday, and Saturday shows its hours.</summary>
+    [Fact]
+    public void AWeeksOwnDaysOffAreShaded_NotTheWeekend()
+    {
+        WithCulture("en-US", () =>
+        {
+            using var context = new BunitContext();
+            context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+            var week = new Dictionary<DayOfWeek, double>(DefaultWeek) { [DayOfWeek.Monday] = 0, [DayOfWeek.Saturday] = 8.5 };
+            var view = Render(context, week, quarterWidth: 48);
+
+            Assert.Equal(ShadedTitles(view), DayTitles(view, DayOfWeek.Sunday, DayOfWeek.Monday));
+            Assert.Contains(ShadedTitles(view), title => title.StartsWith("Monday 21", StringComparison.Ordinal));
+            Assert.Equal(ShadedTitles(view).Count, view.FindAll(".roadmap-timeline__weekend").Count);
+            Assert.DoesNotContain("roadmap-timeline__quarter--weekend", ColumnOf(view, "Saturday 26").ClassName);
+            Assert.Equal("Sat 26 · 8.5h", HeadOf(view, "Saturday 26").TextContent.Trim());
         });
     }
 
@@ -179,6 +208,22 @@ public sealed class RoadmapWorkingHoursAxisTests
             // 16 is the default; 48 is wide enough for every head to say its hours inline.
             .Add(timeline => timeline.QuarterWidth, quarterWidth)
             .Add(timeline => timeline.WorkingHoursByDay, week));
+
+    /// <summary>The tooltips of the day heads shaded as days off, left to right.</summary>
+    private static List<string> ShadedTitles(IRenderedComponent<RoadmapTimeline> view) =>
+        view.FindAll(".roadmap-timeline__quarter--weekend").Select(column => column.GetAttribute("title") ?? string.Empty).ToList();
+
+    /// <summary>The tooltips of the day heads that fall on <paramref name="days"/>, left
+    /// to right — however many weeks the axis rules in days.</summary>
+    private static List<string> DayTitles(IRenderedComponent<RoadmapTimeline> view, params DayOfWeek[] days)
+    {
+        var names = days.Select(day => CultureInfo.CurrentCulture.DateTimeFormat.GetDayName(day) + " ").ToList();
+
+        return view.FindAll(".roadmap-timeline__quarter--day")
+            .Select(column => column.GetAttribute("title") ?? string.Empty)
+            .Where(title => names.Any(name => title.StartsWith(name, StringComparison.Ordinal)))
+            .ToList();
+    }
 
     private static AngleSharp.Dom.IElement ColumnOf(IRenderedComponent<RoadmapTimeline> view, string titleStart) =>
         Assert.Single(view.FindAll(".roadmap-timeline__quarter"), column => (column.GetAttribute("title") ?? string.Empty).StartsWith(titleStart, StringComparison.Ordinal));

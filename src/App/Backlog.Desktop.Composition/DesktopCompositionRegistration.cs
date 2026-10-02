@@ -27,6 +27,7 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
+using Backlog.SharedKernel;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -77,7 +78,15 @@ public static class DesktopCompositionRegistration
         // points the reader gets through in a week, which Roadmap reads through
         // IPlanningVelocitySettings over this store (AddRoadmapCrossContextAdapters).
         // And which surface the shell was last showing, so it reopens there.
+        // The roadmap counts the same week, and its pace document carries it between
+        // devices (local ADR 0019): resolving the week resolves the pace store too, so
+        // a change made on the settings screen is always written into the document.
         services.AddSingleton(options.WorkingHoursSettings);
+        services.AddSingleton<IWorkingHoursSettings>(sp =>
+        {
+            _ = sp.GetRequiredService<PlanningVelocitySettingsStore>();
+            return sp.GetRequiredService<WorkingHoursSettingsStore>();
+        });
         services.AddSingleton(options.UsageResetSettings);
         services.AddSingleton(options.PlanningVelocitySettings);
         services.AddSingleton(options.ShellNavigation);

@@ -87,7 +87,7 @@ public class PlanningPaceTests
     public async Task AnEmptyWeek_MeasuresAsTheDefaultWeek()
     {
         var settings = new Settings(5m, PaceSource.Manual) { Week = WeekOf("nothing worked") };
-        var pace = new PlanningPace(settings, new Finished([new(Today, 10)]), new FixedClock(Today));
+        var pace = new PlanningPace(settings, new Finished([new(Today, 10)]), new FakeTimeProvider(Noon));
 
         var paces = await pace.ReadAsync(cancellationToken: TestContext.Current.CancellationToken);
         var inUse = await pace.ReadPacesInUseAsync(TestContext.Current.CancellationToken);
@@ -104,7 +104,7 @@ public class PlanningPaceTests
     {
         var week = WeekOf("short friday");
         var settings = new Settings(5m, PaceSource.Manual) { Week = week };
-        var pace = new PlanningPace(settings, new Finished([]), new FixedClock(Today));
+        var pace = new PlanningPace(settings, new Finished([]), new FakeTimeProvider(Noon));
 
         var inUse = await pace.ReadPacesInUseAsync(TestContext.Current.CancellationToken);
 
