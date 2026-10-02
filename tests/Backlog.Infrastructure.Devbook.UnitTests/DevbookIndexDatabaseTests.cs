@@ -1,10 +1,8 @@
 using System.Text.RegularExpressions;
 
-using Backlog.Infrastructure.Devbook;
-
 using Microsoft.Data.Sqlite;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Infrastructure.Devbook.UnitTests;
 
 /// <summary>
 /// <c>DevbookIndexDocument</c> against the generated database, which is where

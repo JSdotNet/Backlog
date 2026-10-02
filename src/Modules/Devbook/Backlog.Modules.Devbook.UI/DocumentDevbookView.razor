@@ -746,7 +746,7 @@
     private DocumentDevbookFile? SelectedFile =>
         _model is null || string.IsNullOrWhiteSpace(SelectedPath)
             ? null
-            : _model.Files.FirstOrDefault(file => PathMatches(file.FileName, SelectedPath));
+            : _model.Files.FirstOrDefault(file => DevbookPath.Matches(file.FileName, SelectedPath));
 
     /// <summary>The ref to hand the editing surface for this document, or null so
     /// the sections render instead. Matched on the file name because the loaded
@@ -765,16 +765,6 @@
 
     private string FileAnchor(DocumentDevbookFile file) =>
         $"{Folder.AreaKey}-file-{Path.GetFileNameWithoutExtension(file.FileName).ToLowerInvariant()}";
-
-    private static bool PathMatches(string candidate, string selectedPath)
-    {
-        var candidatePath = NormalizePath(candidate);
-        var selected = NormalizePath(selectedPath);
-        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
-            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
 
     private static string TokenName(DocumentDevbookTable table, IReadOnlyList<string> row) =>
         Cell(table, row, "Token") ?? row.FirstOrDefault() ?? string.Empty;

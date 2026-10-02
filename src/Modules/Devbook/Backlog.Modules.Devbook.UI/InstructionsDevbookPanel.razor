@@ -546,7 +546,7 @@
 
         if (!string.IsNullOrWhiteSpace(SelectedPath))
         {
-            return repository.Documents.FirstOrDefault(d => PathMatches(d.RelativePath, SelectedPath))
+            return repository.Documents.FirstOrDefault(d => DevbookPath.MatchesKeepingDotFolder(d.RelativePath, SelectedPath))
                 ?? TryReadSelectedInstructionFile(repository, SelectedPath);
         }
 
@@ -560,7 +560,9 @@
     {
         if (string.IsNullOrWhiteSpace(repository.LocalRoot)) return null;
 
-        var relativePath = NormalizePath(selectedPath);
+        // The dot is kept: .github and .claude are the folders an instruction
+        // source lives in, and github/ is not one of them.
+        var relativePath = DevbookPath.NormalizeKeepingDotFolder(selectedPath);
         if (!IsInstructionRootPath(relativePath)) return null;
 
         var root = Path.GetFullPath(repository.LocalRoot);
@@ -584,14 +586,6 @@
             info.LastWriteTimeUtc);
     }
 
-    private static bool PathMatches(string candidate, string selectedPath)
-    {
-        var candidatePath = NormalizePath(candidate);
-        var selected = NormalizePath(selectedPath);
-        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
-            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase);
-    }
-
     private static bool IsInstructionRootPath(string path) =>
         path.StartsWith(".github/", StringComparison.OrdinalIgnoreCase)
         || path.StartsWith(".claude/", StringComparison.OrdinalIgnoreCase)
@@ -604,7 +598,5 @@
         if (path.StartsWith(".claude/", StringComparison.OrdinalIgnoreCase)) return "Claude Code";
         return "Agent instructions";
     }
-
-    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/').Insert(0, path.TrimStart().StartsWith('.') ? "." : string.Empty);
 }
 

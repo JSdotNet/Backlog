@@ -2,16 +2,15 @@ using System.Runtime.Versioning;
 using Backlog.Aspire.ServiceDefaults;
 using Backlog.Desktop.Composition;
 using Backlog.Desktop.UI.AppUpdate;
+using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
-using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.DevPc.Abstractions;
-using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Desktop.UI.Inbox;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Desktop.UI.Tasks;
@@ -148,6 +147,38 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.IsType<DevToolService>(provider.GetRequiredService<IDevToolService>());
     }
 
+    /// <summary>
+    /// Every service the head's inline Devbook block used to register still resolves,
+    /// now that <c>AddDevbookModule</c> registers them through the shared composition —
+    /// and this head's choices survive the move: the domain store is one object for the
+    /// window, and the Copilot launcher behind the Devbook offers is the one that
+    /// starts the CLI.
+    /// </summary>
+    [Fact]
+    public void The_maui_head_resolves_every_devbook_service()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+        using var first = provider.CreateScope();
+        using var second = provider.CreateScope();
+
+        foreach (var service in DevbookModuleServices.All)
+        {
+            Assert.NotNull(first.ServiceProvider.GetRequiredService(service));
+        }
+
+        Assert.Same(
+            first.ServiceProvider.GetRequiredService<DomainDevbookStore>(),
+            second.ServiceProvider.GetRequiredService<DomainDevbookStore>());
+        Assert.IsType<ArchifyDiagramArtifacts>(provider.GetRequiredService<IDiagramArtifactSource>());
+        Assert.IsType<ProcessCopilotCliLauncher>(provider.GetRequiredService<ICopilotCliLauncher>());
+    }
+
     [SupportedOSPlatform("windows")]
     private ServiceProvider BuildMauiShaped(bool validateScopes)
     {
@@ -200,47 +231,12 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         });
     }
 
-    /// <summary>What <c>MauiProgram</c> registers beside the shared composition:
-    /// the Devbook block issue #738 will move, the MCP endpoint the tools adapter
-    /// reads, and the cost client.</summary>
+    /// <summary>What <c>MauiProgram</c> registers beside the shared composition: the
+    /// MCP endpoint the tools adapter reads, and the cost client. There is no Devbook
+    /// block here any more: <c>AddDesktopComposition</c> calls <c>AddDevbookModule</c>
+    /// (issue #738), so neither the head nor this restatement of it registers one.</summary>
     private static void AddMauiHeadRegistrations(IServiceCollection services)
     {
-        services.AddSingleton<IDevbookSnapshotCache>(sp => new DevbookSnapshotCache(
-            () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
-            sp.GetRequiredService<IGitHubTreeClient>(),
-            sp.GetRequiredService<IGitHubBranchCatalog>()));
-        services.AddSingleton(sp => DevbookDatabaseRefresher.StartForApp(
-            () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
-            sp.GetService<ILogger<DevbookDatabaseRefresher>>()));
-        services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(
-            sp.GetRequiredService<GitHubSettingsStore>(),
-            sp.GetRequiredService<WorkspaceSettingsStore>(),
-            sp.GetRequiredService<IDevbookSnapshotCache>()));
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.DesignDevbookProvider>();
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.AiDevbookProvider>();
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.TechnologyDevbookService>();
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.DevbookAtlasService>();
-        services.AddSingleton<IDevbookSearch>(sp =>
-            new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
-        services.AddSingleton<IDevbookVectorSearch>(sp =>
-            new DevbookSemanticSearch(sp.GetRequiredService<IDevbookFolderSource>(), DevbookEmbeddingModel.Default));
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.InstructionSourceDiscovery>();
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.DevbookMenu>();
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.DevbookCopilotCli>();
-        services.AddSingleton<IDiagramArtifactSource, Backlog.Desktop.UI.Devbook.ArchifyDiagramArtifacts>();
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.DevbookScope>();
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.DevbookUpdateService>();
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.DevbookSourceSelection>();
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.DevbookFolderOpenService>();
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.Arc42DevbookStore>();
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.C4DevbookStore>();
-        services.AddSingleton<Backlog.Desktop.UI.Devbook.DevbookChapterWriter>();
-        services.AddSingleton(sp => new Backlog.Desktop.UI.Devbook.DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
-        services.AddSingleton<IDevbookAnnotationStore>(sp =>
-            new DevbookAnnotationStore(
-                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
-                folders: sp.GetRequiredService<IDevbookFolderSource>()));
-
         // DesktopMcpEndpointSource over McpServerWorker is the head's own; the
         // stand-in answers the same port so the tools adapter can be composed.
         services.TryAddSingleton<IMcpEndpointSource>(new SwitchedOffMcpEndpoint());

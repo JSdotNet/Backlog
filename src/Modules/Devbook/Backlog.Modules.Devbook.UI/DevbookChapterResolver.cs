@@ -19,7 +19,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// before the path is believed. What differs is the leniency — that writer serves
 /// stores whose document paths are always prefixed, while a selection here can
 /// also come straight from the menu, which names a chapter relative to the area
-/// folder. The panels' own <c>PathMatches</c> helpers already treat the two
+/// folder. <see cref="DevbookPath.Matches"/>, which the panels select by, already treats the two
 /// spellings as one selection; refusing either here would make an area editable
 /// from the document list and not from the menu beside it.
 /// </para>
