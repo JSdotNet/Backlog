@@ -395,7 +395,10 @@
         <div class="app-header__status">
             @* Monitoring is a deliberate act, not a background poll: the backlog has
                to open instantly and offline, so nothing here waits on GitHub until
-               somebody asks it to.
+               somebody asks it to. This re-reads everything; the only read made
+               unasked is CheckUnreadPullRequestsAfterLoad's, which fills in pull
+               requests never read once the list is already showing, and blocks
+               nothing when GitHub cannot be reached.
 
                Only while the task list is on screen — the list is what a check
                refreshes, and the dashboard fetches from GitHub on its own. *@
@@ -763,6 +766,7 @@
         InboxState.Routed += HandleInboxRouted;
         InboxState.BatchRouted += HandleInboxBatchRouted;
         Features.Changed += HandleFeaturesChanged;
+        _gitHubIntegrationWasOn = IsFeatureEnabled(TasksFeatures.GitHubIntegration);
 
         // Optional, the way Settings resolves it: a host without task sync
         // composes no worker, and a test rendering this page should not have to.
@@ -776,6 +780,25 @@
 
         await State.InitializeAsync();
         SynchronizePaneAvailability();
+        CheckUnreadPullRequestsAfterLoad();
+    }
+
+    /// <summary>
+    /// Has the Tasks state read, in the background, the pull requests of Done
+    /// entries it has never read — so work that merged shows merged without the
+    /// sync button. Called after the list loads and after every reload of it.
+    /// <para>
+    /// Not awaited: the list is already on screen and must stay usable offline, and
+    /// the state keeps its own one-at-a-time guard and stays quiet on failure. The
+    /// flag is checked here because only the shell knows the feature switches; the
+    /// state checks for a configured repository itself.
+    /// </para>
+    /// </summary>
+    private void CheckUnreadPullRequestsAfterLoad()
+    {
+        if (!IsFeatureEnabled(TasksFeatures.GitHubIntegration)) return;
+
+        _ = State.CheckUnreadPullRequestsAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1452,8 +1475,20 @@
     private void HandleFeaturesChanged() => _ = InvokeAsync(() =>
     {
         SynchronizePaneAvailability();
+
+        // Switched on after the list loaded: check now rather than at a reload
+        // that may not come. Only on the switch, so another flag moving does not
+        // set off a check of its own.
+        var gitHubOn = IsFeatureEnabled(TasksFeatures.GitHubIntegration);
+        if (gitHubOn && !_gitHubIntegrationWasOn) CheckUnreadPullRequestsAfterLoad();
+        _gitHubIntegrationWasOn = gitHubOn;
+
         StateHasChanged();
     });
+
+    /// <summary>Whether the GitHub integration was on when the feature switches
+    /// were last looked at. See <see cref="HandleFeaturesChanged"/>.</summary>
+    private bool _gitHubIntegrationWasOn;
 
     /// <summary>Whether the Inbox has been told to load. Once per page: the
     /// state itself outlives the page and keeps what it loaded, so a second
@@ -1520,6 +1555,7 @@
             try
             {
                 await State.ReloadFromStoreAsync();
+                CheckUnreadPullRequestsAfterLoad();
             }
             catch (Exception ex)
             {
@@ -1571,6 +1607,7 @@
             {
                 _tasksReloadOwed = false;
                 await State.ReloadFromStoreAsync();
+                CheckUnreadPullRequestsAfterLoad();
             }
         }
         catch (Exception ex)
@@ -1822,6 +1859,7 @@
         try
         {
             await State.ReloadFromStoreAsync();
+            CheckUnreadPullRequestsAfterLoad();
         }
         catch (Exception ex)
         {

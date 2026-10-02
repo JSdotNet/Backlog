@@ -6054,6 +6054,26 @@ h1, h2, h3 {
     max-width: 18rem;
 }
 
+/* The link is the clamp: its title span already ellipsizes, but an inline-flex
+   link grows to whatever its content asks, so one long title set the whole
+   table's width and pushed Task and Session off the right edge. The full title
+   stays in the link's own tooltip. */
+.pull-requests-table__link {
+    max-width: 26rem;
+}
+
+/* A task title or a worktree-named session runs as long as a pull request title
+   and is worth less of the row, so it is cut sooner. */
+.pull-requests-table__reference .integration-link {
+    max-width: 16rem;
+}
+
+.pull-requests-table__reference .integration-link__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
 /* The state chip and the badges after it wrap as a group, never one word per line.
    On a span inside the cell, because a cell that is itself a flex box stops being
    a table cell. */

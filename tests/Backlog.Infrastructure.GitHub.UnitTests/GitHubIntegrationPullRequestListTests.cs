@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Backlog.Infrastructure.GitHub;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 
@@ -87,6 +88,96 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         var transport = new RoutingTransport().Returns("graphql#JSdotNet/Backlog", List(Node(1, "2026-10-01T08:00:00Z")));
 
         var listing = await Integration(transport).ListOpenPullRequestsAsync(
+            [Backlog, Backlog with { Alias = "other" }],
+            TestContext.Current.CancellationToken);
+
+        Assert.Single(listing.PullRequests);
+        Assert.Equal(1, transport.CallsTo("graphql"));
+    }
+
+    /// <summary>The recently merged list is ordered by when each was merged, across
+    /// repositories — the question it answers is "what landed lately", not "what was
+    /// touched lately", which is the order GitHub can be asked for.</summary>
+    [Fact]
+    public async Task Merged_pull_requests_are_listed_newest_merge_first_across_repositories()
+    {
+        var transport = new RoutingTransport()
+            .Returns("graphql#JSdotNet/Backlog", MergedList(Merged(1, "2026-10-01T08:00:00Z"), Merged(3, "2026-09-30T08:00:00Z")))
+            .Returns("graphql#JSdotNet/Archify", MergedList(Merged(2, "2026-10-01T10:00:00Z")));
+
+        var listing = await Integration(transport).ListMergedPullRequestsAsync([Backlog, Archify], TestContext.Current.CancellationToken);
+
+        Assert.Equal([2, 1, 3], listing.PullRequests.Select(pull => pull.Number));
+        Assert.Equal(["JSdotNet/Archify", "JSdotNet/Backlog", "JSdotNet/Backlog"], listing.PullRequests.Select(pull => pull.RepositoryFullName));
+        Assert.Empty(listing.Failures);
+    }
+
+    [Fact]
+    public async Task A_repository_whose_merged_pull_requests_cannot_be_read_is_reported_and_the_others_still_come_back()
+    {
+        var transport = new RoutingTransport()
+            .Returns("graphql#JSdotNet/Backlog", MergedList(Merged(1, "2026-10-01T08:00:00Z")))
+            .Refuses("graphql#octo/broken", "gh: Could not resolve to a Repository with the name 'octo/broken'.")
+            .Returns("graphql#JSdotNet/Archify", MergedList(Merged(2, "2026-10-01T10:00:00Z")));
+
+        var listing = await Integration(transport).ListMergedPullRequestsAsync([Backlog, Broken, Archify], TestContext.Current.CancellationToken);
+
+        Assert.Equal([2, 1], listing.PullRequests.Select(pull => pull.Number));
+
+        var failure = Assert.Single(listing.Failures);
+        Assert.Equal("octo/broken", failure.RepositoryFullName);
+        Assert.Contains("Could not resolve", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Fourteen days back from the clock, inclusive: older merges are what
+    /// GitHub's own merged list is for, and GitHub returns them because it can only
+    /// be asked for the most recently updated.</summary>
+    [Fact]
+    public async Task Merges_older_than_the_window_are_left_out()
+    {
+        var transport = new RoutingTransport().Returns(
+            "graphql#JSdotNet/Backlog",
+            MergedList(
+                Merged(1, "2026-10-01T08:00:00Z"),
+                Merged(2, "2026-09-17T12:00:00Z"),
+                Merged(3, "2026-09-17T11:59:59Z"),
+                Merged(4, "2026-08-01T08:00:00Z")));
+
+        var listing = await Integration(transport).ListMergedPullRequestsAsync([Backlog], TestContext.Current.CancellationToken);
+
+        Assert.Equal([1, 2], listing.PullRequests.Select(pull => pull.Number));
+        Assert.Equal(TimeSpan.FromDays(14), GitHubIntegration.RecentlyMergedWindow);
+    }
+
+    /// <summary>A repository whose window the page cap could not reach the end of is
+    /// named beside the rows, so the view does not pass a partial fortnight off as the
+    /// whole one; a repository read to the end is not.</summary>
+    [Fact]
+    public async Task A_repository_the_page_cap_stopped_inside_the_window_is_named()
+    {
+        var busy = Enumerable.Range(1, GitHubClient.MergedPageCap + 1)
+            .Select(page => $$"""
+                { "data": { "repository": { "pullRequests": {
+                    "pageInfo": { "hasNextPage": true, "endCursor": "cursor-{{page}}" },
+                    "nodes": [ {{Merged(page, "2026-09-30T08:00:00Z")}} ] } } } }
+                """)
+            .ToArray();
+        var transport = new RoutingTransport()
+            .ReturnsInTurn("graphql#JSdotNet/Backlog", busy)
+            .Returns("graphql#JSdotNet/Archify", MergedList(Merged(100, "2026-10-01T10:00:00Z")));
+
+        var listing = await Integration(transport).ListMergedPullRequestsAsync([Backlog, Archify], TestContext.Current.CancellationToken);
+
+        Assert.Equal(["JSdotNet/Backlog"], listing.Truncated);
+        Assert.Equal(GitHubClient.MergedPageCap + 1, listing.PullRequests.Count);
+    }
+
+    [Fact]
+    public async Task A_repository_named_twice_has_its_merged_pull_requests_read_once()
+    {
+        var transport = new RoutingTransport().Returns("graphql#JSdotNet/Backlog", MergedList(Merged(1, "2026-10-01T08:00:00Z")));
+
+        var listing = await Integration(transport).ListMergedPullRequestsAsync(
             [Backlog, Backlog with { Alias = "other" }],
             TestContext.Current.CancellationToken);
 
@@ -197,13 +288,27 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
           "autoMergeRequest": null, "updatedAt": "{{updatedAt}}", "commits": { "nodes": [] } }
         """;
 
+    /// <summary>The clock every listing here is read at.</summary>
+    private static readonly DateTimeOffset Now = new(2026, 10, 1, 12, 0, 0, TimeSpan.Zero);
+
+    private static string MergedList(params string[] nodes) => $$"""
+        { "data": { "repository": { "pullRequests": { "nodes": [ {{string.Join(",", nodes)}} ] } } } }
+        """;
+
+    private static string Merged(int number, string mergedAt) => $$"""
+        { "id": "PR_{{number}}", "number": {{number}}, "title": "#{{number}}", "url": "https://github.com/x/y/pull/{{number}}",
+          "headRefName": "branch-{{number}}", "baseRefName": "main", "viewerDidAuthor": true, "author": { "login": "JSdotNet" },
+          "mergedAt": "{{mergedAt}}", "mergedBy": { "login": "JSdotNet" } }
+        """;
+
     private GitHubIntegration Integration(RoutingTransport transport)
     {
         Directory.CreateDirectory(_root);
         return new GitHubIntegration(
             new GitHubSettingsStore(Path.Combine(_root, "github.json")),
             new GitHubClient(transport),
-            new NoProbe());
+            new NoProbe(),
+            time: new FakeTimeProvider(Now));
     }
 
     private sealed class NoProbe : IGitHubConnectionProbe
