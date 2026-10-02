@@ -257,6 +257,29 @@ public sealed class RoadmapGraduatedAxisTests
     }
 
     [Fact]
+    public void AGraduatedTimeline_ShadesItsWeekendDays_AndNoCoarserColumn()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = RenderPlan(context);
+
+        // The days run 14 September to 4 October: three weekends, six days.
+        var heads = view.FindAll(".roadmap-timeline__quarter--weekend");
+        Assert.Equal(6, heads.Count);
+        Assert.All(heads, head => Assert.Contains("roadmap-timeline__quarter--day", head.ClassList));
+        Assert.Equal(["19", "20", "26", "27", "3", "4"], heads.Select(head => head.QuerySelector(".roadmap-timeline__quarter-label")!.TextContent.Trim()));
+
+        // Shaded down the chart too, each a day wide where its head is.
+        var bands = view.FindAll(".roadmap-timeline__weekend");
+        Assert.Equal(6, bands.Count);
+        Assert.Equal(
+            heads.Select(head => LeftOf(head.GetAttribute("style")!)),
+            bands.Select(band => LeftOf(band.GetAttribute("style")!)));
+        Assert.All(bands, band => Assert.Contains("width: 2rem", band.GetAttribute("style")));
+    }
+
+    [Fact]
     public void AMeasuredScroller_StretchesTheChart_SoFromLastWeekOnItFillsTheWidth()
     {
         using var context = new BunitContext();
