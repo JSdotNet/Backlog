@@ -184,7 +184,7 @@
                                 @if (Geometry.WidthFor(column.Start, column.End) >= MinLabelled(column))
                                 {
                                     <span class="roadmap-timeline__quarter-label">@HeadLabel(column)</span>
-                                    <span class="roadmap-timeline__quarter-year">@column.Caption</span>
+                                    <span class="roadmap-timeline__quarter-year">@HeadCaption(column)</span>
                                     @* Given a working week, every head keeps a third line for
                                        the hours, empty where there are none, so all heads read
                                        along one baseline as the caption line does. *@
@@ -1958,8 +1958,8 @@
     private const double MinHoursWeekRem = 5;
 
     /// <summary>
-    /// What a column head reads. A day column too narrow for its weekday gives up the
-    /// name and keeps the number. Where a working week is given, a worked day's head and
+    /// What a column head reads. A day column too narrow for its weekday keeps the
+    /// number here and names the day on the caption line (<see cref="HeadCaption"/>). Where a working week is given, a worked day's head and
     /// a week's head carry their working hours when there is room for them; the tooltip
     /// always says them.
     /// </summary>
@@ -1981,8 +1981,9 @@
         return Geometry.WidthFor(column.Start, column.End) >= room;
     }
 
-    /// <summary>The caption font's size and a figure's rough width in it, in rem — what
-    /// decides whether "8.5h" fits under a day or gives up its unit.</summary>
+    /// <summary>The caption font's size and a character's rough width in it, in rem —
+    /// what decides whether "8.5h" fits under a day or gives up its unit, and whether
+    /// "Mo W41" fits under a week's first day.</summary>
     private const double CaptionFontRem = 0.75;
 
     private const double CaptionCharEm = 0.55;
@@ -2001,10 +2002,50 @@
         if (HoursIn(column) is not { } hours || HoursInline(column)) return null;
 
         var withUnit = Hours(hours);
-        var room = Geometry.WidthFor(column.Start, column.End) - HeadPaddingRem;
 
-        return withUnit.Length * CaptionCharEm * CaptionFontRem <= room ? withUnit : withUnit[..^1];
+        return FitsCaption(column, withUnit) ? withUnit : withUnit[..^1];
     }
+
+    /// <summary>
+    /// The head's caption line. A day too narrow to name its weekday beside its number
+    /// names it here instead, in two letters of the culture's own — "Mo", "ma" — so every
+    /// day column says which day it is. On the week's first day the week's number rides
+    /// here too: "Mo W41" where both fit, else "W41" alone, because the number is the
+    /// one thing no other head says and the tooltip still names the day. Every other
+    /// column keeps the caption the window gave it.
+    /// </summary>
+    private string? HeadCaption(RoadmapColumn column)
+    {
+        if (column.Scale != RoadmapColumnScale.Day || Geometry.WidthFor(column.Start, column.End) >= MinNamedDayRem)
+        {
+            return column.Caption;
+        }
+
+        var weekday = ShortWeekday(column.Start.DayOfWeek);
+        if (column.Caption is not { } week) return weekday;
+
+        var both = $"{weekday} {week}";
+        return FitsCaption(column, both) ? both : week;
+    }
+
+    /// <summary>
+    /// A weekday in two letters of the culture's own abbreviation — "Mo", "Tu"; "ma",
+    /// "di". Not <see cref="DateTimeFormatInfo.ShortestDayNames"/>: under ICU, which .NET
+    /// uses on every head, that is a single letter, and "T" and "S" each name two days.
+    /// Counted in text elements so a combined character is never split.
+    /// </summary>
+    private static string ShortWeekday(DayOfWeek day)
+    {
+        var abbreviated = CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedDayName(day).TrimEnd('.');
+        var letters = new StringInfo(abbreviated);
+
+        return letters.LengthInTextElements <= 2 ? abbreviated : letters.SubstringByTextElements(0, 2);
+    }
+
+    /// <summary>Whether <paramref name="text"/> fits on a head's caption line inside
+    /// the column's padding, at the caption font's rough character width.</summary>
+    private bool FitsCaption(RoadmapColumn column, string text) =>
+        text.Length * CaptionCharEm * CaptionFontRem <= Geometry.WidthFor(column.Start, column.End) - HeadPaddingRem;
 
     /// <summary>The column's tooltip: its long label, whether it is now, and its working
     /// hours — or that it is not worked.</summary>

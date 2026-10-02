@@ -12215,6 +12215,12 @@ select.field__input {
     line-height: 1.1;
 }
 
+/* A narrow day names its weekday on the caption line — "Mo", or "Mo W41" on the
+   week's first day — and that line never wraps, so every head keeps one baseline. */
+.roadmap-timeline__quarter--day .roadmap-timeline__quarter-year {
+    white-space: nowrap;
+}
+
 /* A week's head is its number, quieter than a month's or a quarter's; the month
    it enters rides underneath only where the month changes. */
 .roadmap-timeline__quarter--week .roadmap-timeline__quarter-label,
