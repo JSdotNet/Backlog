@@ -109,10 +109,12 @@ public sealed class RoadmapBandShelfTests : RoadmapBandHarness
     [Fact]
     public async Task The_shelf_is_not_rendered_when_every_imported_plan_is_already_planned()
     {
+        Configure("JSdotNet/Backlog");
         await Planning.AddItemAsync(
             "Shelf",
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
+            repositoryAliases: ["backlog"],
             tag: "shelf",
             cancellationToken: TestContext.Current.CancellationToken);
 
@@ -152,6 +154,8 @@ public sealed class RoadmapBandShelfTests : RoadmapBandHarness
     [Fact]
     public async Task Plan_it_imports_one_item_placed_from_the_effort_its_tasks_registered()
     {
+        Configure("JSdotNet/Backlog");
+
         using var context = ContextWith(Shelf, Release);
         var band = Loaded(context);
 

@@ -40,6 +40,7 @@ public sealed class RoadmapBandPinnedEndTests : RoadmapBandHarness
 
     private async Task<Guid> StartedItemAsync()
     {
+        Configure("JSdotNet/Backlog");
         var added = await Planning.AddItemAsync(
             "Move devbook",
             new DateOnly(2026, 1, 5),

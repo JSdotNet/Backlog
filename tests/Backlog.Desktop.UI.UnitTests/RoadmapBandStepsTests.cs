@@ -51,6 +51,7 @@ public sealed class RoadmapBandStepsTests : RoadmapBandHarness
     [Fact]
     public async Task The_band_gathers_the_whole_plan_once_on_load_and_no_item_on_its_own()
     {
+        Configure("JSdotNet/Backlog");
         using var context = Context();
         var rollup = new CountingRollup(Gathered);
         context.Services.AddSingleton<IRoadmapItemRollup>(rollup);
@@ -68,6 +69,7 @@ public sealed class RoadmapBandStepsTests : RoadmapBandHarness
     [Fact]
     public async Task An_item_carries_its_gathered_progress_and_never_opens_into_its_tasks()
     {
+        Configure("JSdotNet/Backlog");
         using var context = Context();
         context.Services.AddSingleton<IRoadmapItemRollup>(new CountingRollup(Gathered));
 
