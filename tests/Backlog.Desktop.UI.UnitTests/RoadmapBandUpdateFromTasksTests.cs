@@ -50,6 +50,7 @@ public sealed class RoadmapBandUpdateFromTasksTests : RoadmapBandHarness
     /// when it was imported.</summary>
     private async Task<(RoadmapItemDto First, RoadmapItemDto Second)> ImportedAsync()
     {
+        Configure("JSdotNet/Backlog");
         var imported = await Planning.ImportPlanItemsAsync(
             [
                 new PlanImportEntryDto("Plan A", "plan-a", RepositoryAliases: ["backlog"]),

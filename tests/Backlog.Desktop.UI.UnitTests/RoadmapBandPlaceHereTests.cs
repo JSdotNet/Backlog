@@ -83,18 +83,6 @@ public class RoadmapBandPlaceHereTests : RoadmapBandHarness
     }
 
     [Fact]
-    public async Task TheUnfiledBandFilesNewWorkAgainstNoRepository()
-    {
-        using var context = Context();
-        var band = await PlannedAsync(context);
-
-        await PlaceAsync(band, new RoadmapSlot("unfiled::Planned", Week, RoadmapRowKind.Bars));
-        band.WaitForElement("[data-testid=\"roadmap-editor\"]");
-
-        Assert.Null(band.FindComponent<RoadmapItemEditor>().Instance.Placement!.Repository);
-    }
-
-    [Fact]
     public async Task ADoubleClickOnTheDatesRowOpensTheDateEditorOnThatWeek()
     {
         Configure("JSdotNet/Backlog");

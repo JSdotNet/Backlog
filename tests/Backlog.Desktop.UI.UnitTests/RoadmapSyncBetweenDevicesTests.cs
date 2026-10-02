@@ -181,7 +181,7 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         // One plan sized by its effort: 14 points gathered by its tag, nobody started.
         await a.EntryAsync("# Ship the sync\n`task` `!ready` `+ship` `effort:14`\n");
         var imported = await a.Planning(planning => planning.ImportPlanItemsAsync(
-            [new PlanImportEntryDto("Ship", "ship", RepositoryAliases: [])],
+            [new PlanImportEntryDto("Ship", "ship", RepositoryAliases: ["backlog"])],
             cancellationToken: Cancellation));
         Assert.True(imported.IsSuccess);
         Assert.True((await a.SyncAsync()).IsSuccess);
@@ -282,7 +282,13 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
             services.AddSingleton(_ => new RootedSqliteRoadmapPlanRepository(() => workspace.RootDirectory));
             services.AddSingleton<IRoadmapPlanRepository>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
             services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
-            services.AddSingleton(new GitHubSettingsStore(Path.Combine(root, "github", "github.json")));
+            // Both devices configure the one repository the shared plan is filed under:
+            // the roadmap draws only work filed under a configured repository.
+            var repositories = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
+            var (configured, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+            Assert.Empty(errors);
+            Assert.Null(repositories.SetRepositories(configured));
+            services.AddSingleton(repositories);
             services.AddSingleton(Pace);
             services.AddTasksAdapters();
             services.AddTasksModule();

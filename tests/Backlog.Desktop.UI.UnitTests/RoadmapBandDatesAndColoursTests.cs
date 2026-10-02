@@ -234,7 +234,7 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
 
         // "Nobody chose" is not "no colour": the band is still one project's row and
         // still has to be told from the next one. What it must not be is neutral, which
-        // is reserved for the unfiled band.
+        // is reserved for the dates band, which is not a repository.
         Assert.Equal(
             "var(--color-band-1)",
             band.FindComponent<RoadmapTimeline>().Instance.Groups.Single(group => group.Id == "backlog").Color);
