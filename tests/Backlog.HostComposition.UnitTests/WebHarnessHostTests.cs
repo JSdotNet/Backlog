@@ -336,4 +336,19 @@ public class WebHarnessHostTests
         var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
         Assert.Contains(sections, section => section.Id == "inbox" && section.Title == "Inbox");
     }
+
+    /// <summary>
+    /// The desktop harness carries the Dashboard's settings section too, without a
+    /// line of its own: the shared composition's <c>AddDashboardUi()</c> registers it.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_registers_the_dashboard_settings_section_through_the_shared_composition()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using var scope = harness.Services.CreateScope();
+
+        var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
+        Assert.Single(sections, section => section.Id == "dashboard" && section.Title == "Dashboard");
+    }
 }
