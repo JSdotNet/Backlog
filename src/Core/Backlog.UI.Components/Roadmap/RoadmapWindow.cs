@@ -65,6 +65,15 @@ public sealed record RoadmapWindow
     /// width everywhere along the track.</summary>
     public bool IsGraduated { get; }
 
+    /// <summary>
+    /// Every day a column begins on, in order, then the day after the last column —
+    /// the lines the axis is ruled with, and what a resized edge of a
+    /// <see cref="Graduated"/> window snaps to: a day near today, a week a little
+    /// further out, a month and a quarter beyond. A plain window's columns are
+    /// quarters, too coarse to resize by, so its edges keep snapping to the week.
+    /// </summary>
+    public IReadOnlyList<DateOnly> ColumnBoundaries => [.. Columns.Select(column => column.Start), End.AddDays(1)];
+
     /// <summary>How many days the window spans, counting both ends. Never zero,
     /// so it is always safe to divide by.</summary>
     public int TotalDays => End.DayNumber - Start.DayNumber + 1;

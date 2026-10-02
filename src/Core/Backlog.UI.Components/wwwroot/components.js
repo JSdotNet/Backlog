@@ -3497,6 +3497,26 @@
         is converted here at the moment of the drag so a reader who has zoomed
         their text still moves a bar one week per week's width on their screen.
     */
+    /*
+        How many column lines an edge dragged from edgeRem to pointerRem has
+        crossed, signed: the line nearest the pointer, counted from the edge
+        the way RoadmapChange.Step counts back — only lines strictly past the
+        edge, so an edge between two lines reaches the nearer one first.
+    */
+    const backlogRoadmapLinesCrossed = (lines, edgeRem, pointerRem) => {
+        const near = 0.01;
+        let nearest = lines[0];
+        for (const line of lines) {
+            if (Math.abs(line - pointerRem) < Math.abs(nearest - pointerRem)) nearest = line;
+        }
+
+        if (Math.abs(nearest - edgeRem) < near) return 0;
+
+        return nearest > edgeRem
+            ? lines.filter((line) => line > edgeRem + near && line <= nearest + near).length
+            : -lines.filter((line) => line < edgeRem - near && line >= nearest - near).length;
+    };
+
     const backlogRoadmapTimelines = new Map();
     const backlogRoadmapScrollers = new Map();
 
@@ -3728,6 +3748,13 @@
                 // Read per grip: on a graduated axis a week is wider near today
                 // than a year out, so the grip says what a week is where it sits.
                 drag.weekRem = Number(grip.dataset.roadmapWeekRem) || weekRem;
+                // An edge on a graduated axis snaps to the columns it is ruled
+                // with — a day near today, a month a quarter out — so it counts
+                // the lines it crosses instead of weeks. The track lists where
+                // they are drawn; a plain axis lists none and keeps the week.
+                const snaps = grip.dataset.roadmapGrip !== 'move' ? element.dataset.roadmapSnaps : null;
+                drag.snaps = snaps ? snaps.split(' ').map(Number) : null;
+                drag.edgeRem = Number(grip.dataset.roadmapEdgeRem) || 0;
                 drag.steps = 0;
                 drag.rows = 0;
 
@@ -3763,7 +3790,9 @@
                 if (!drag.active || event.pointerId !== drag.pointerId) return;
 
                 const rem = backlogRootFontSize();
-                const steps = Math.round((event.clientX - drag.startX) / rem / drag.weekRem);
+                const steps = drag.snaps
+                    ? backlogRoadmapLinesCrossed(drag.snaps, drag.edgeRem, drag.edgeRem + (event.clientX - drag.startX) / rem)
+                    : Math.round((event.clientX - drag.startX) / rem / drag.weekRem);
 
                 // An edge has no row to land on, so vertical travel while
                 // resizing is a wobble in the reader's hand, not an instruction.
