@@ -12026,7 +12026,7 @@ select.field__input {
   a few letters of it — and read left to right it is the first thing a reader
   looks for.
 
-  The whole sidebar is aria-hidden, so nothing here is read out: every row in
+  The names are aria-hidden, so none of them is read out: every row in
   the track carries "group, row" as its accessible name, and every bar repeats
   it. This column is the sighted reader's copy of that.
 */
@@ -12086,6 +12086,49 @@ select.field__input {
 */
 .roadmap-timeline__group--slotted {
     position: relative;
+}
+
+/*
+  A band that folds to one lane (RoadmapTimeline.Collapsible): its toggle sits
+  before the name on the band's first row, outside the hidden names column so it
+  is a control a screen reader reaches, and the name moves over to make room.
+*/
+.roadmap-timeline__group--collapsible {
+    position: relative;
+}
+
+.roadmap-timeline__group--collapsible .roadmap-timeline__group-name {
+    padding-left: 1.125rem;
+}
+
+.roadmap-timeline__group-toggle {
+    position: absolute;
+    top: calc(var(--roadmap-row-height, 2.75rem) / 2);
+    left: var(--spacing-xs);
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    padding: 0;
+    translate: 0 -50%;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.roadmap-timeline__group-toggle:hover {
+    background: var(--color-background-alt);
+}
+
+.roadmap-timeline__group-toggle:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
 }
 
 .roadmap-timeline__group-content {
