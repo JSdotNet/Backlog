@@ -1416,7 +1416,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>
     /// Re-ranks the rows the filters show by status — done, in progress, ready,
-    /// draft, archived — and keeps the hand-made order inside each status.
+    /// draft, archived — and inside each status by the number a title starts
+    /// with, keeping the hand-made order among the unnumbered rows after them.
     /// <para>
     /// Only among the slots those rows already hold in the whole list: a row the
     /// filters hide keeps its exact position, so narrowing the list and sorting it
@@ -1457,8 +1458,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// stopping at a done or archived predecessor — that one is no longer waited
     /// for, and sorts by its own status. A predecessor takes the best rank of
     /// anything waiting on it, so a draft first step of in-progress work rises
-    /// with it instead of sinking the work below the drafts. Ties keep the
-    /// hand-made order; a cycle, which only a hand edit can write, is broken at
+    /// with it instead of sinking the work below the drafts. Ties go by the
+    /// title's leading number (<see cref="TitleNumber"/>), then the hand-made
+    /// order; a cycle, which only a hand edit can write, is broken at
     /// its best-ranked row rather than refusing to sort.
     /// </para>
     /// </summary>
@@ -1485,13 +1487,19 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             }
         }
 
+        var number = visible.ToDictionary(row => row, row => TitleNumber(row.PreviewTitle));
         var remaining = visible.ToList();
         var placed = new HashSet<EntryRow>();
         var sorted = new List<EntryRow>(visible.Count);
         while (remaining.Count > 0)
         {
             var unblocked = remaining.Where(row => waitsFor[row].All(placed.Contains)).ToList();
-            var next = (unblocked.Count > 0 ? unblocked : remaining).MinBy(row => rank[row])!;
+            var next = (unblocked.Count > 0 ? unblocked : remaining)
+                .Aggregate((best, row) =>
+                    rank[row] < rank[best]
+                    || (rank[row] == rank[best] && CompareTitleNumbers(number[row], number[best]) < 0)
+                        ? row
+                        : best);
 
             remaining.Remove(next);
             placed.Add(next);
@@ -1543,6 +1551,54 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         EntryStatus.Draft => 3,
         _ => 4,
     };
+
+    /// <summary>
+    /// The number <paramref name="title"/> starts with, as its dot-separated
+    /// parts — "9 - Land" is [9], "1.2. Step" is [1, 2] — or null when it starts
+    /// with none. The number must end at a space, punctuation or the title's
+    /// end, so "3D printer" is unnumbered.
+    /// </summary>
+    private static int[]? TitleNumber(string? title)
+    {
+        var text = (title ?? string.Empty).TrimStart().TrimStart('#');
+        var parts = new List<int>();
+        var i = 0;
+        while (true)
+        {
+            var start = i;
+            while (i < text.Length && char.IsAsciiDigit(text[i])) i++;
+            if (i == start || !int.TryParse(text.AsSpan(start, i - start), NumberStyles.None, CultureInfo.InvariantCulture, out var part))
+            {
+                return null;
+            }
+
+            parts.Add(part);
+            if (i + 1 < text.Length && text[i] == '.' && char.IsAsciiDigit(text[i + 1]))
+            {
+                i++;
+                continue;
+            }
+
+            return i == text.Length || char.IsWhiteSpace(text[i]) || char.IsPunctuation(text[i]) || char.IsSymbol(text[i])
+                ? [.. parts]
+                : null;
+        }
+    }
+
+    /// <summary>Orders title numbers part by part, a prefix first; a numbered
+    /// title before an unnumbered one; two unnumbered titles as equal.</summary>
+    private static int CompareTitleNumbers(int[]? left, int[]? right)
+    {
+        if (left is null || right is null) return (left is null ? 1 : 0) - (right is null ? 1 : 0);
+
+        for (var i = 0; i < Math.Min(left.Length, right.Length); i++)
+        {
+            var compared = left[i].CompareTo(right[i]);
+            if (compared != 0) return compared;
+        }
+
+        return left.Length.CompareTo(right.Length);
+    }
 
     // --- Sub-items -------------------------------------------------------
 
