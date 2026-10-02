@@ -28,7 +28,7 @@ Consequences).
 
 | Part of the decision | Where it stands on 2026-09-30 |
 |---|---|
-| Five folders under `.devbook/`, contract 17 | Built (#645). The contract has since moved with the plugin, as the Consequences allow: 18 in #674 (1.9.0), 19 in #781 (1.10.0), and **24** in #854 (1.13.0) |
+| Five folders under `.devbook/`, contract 17 | Built (#645). The contract has since moved with the plugin, as the Consequences allow: 18 in #674 (1.9.0), 19 in #781 (1.10.0), 24 in #854 (1.13.0), and **25** with the `sync` field and `units.mjs` (1.16.0) |
 | `ai/` created | Built: scaffolded in #645 and filled by the plan's `write-ai-adoption-record` |
 | Derived layer stays a local build output | Built (ADR 0004; in app storage since ADR 0015) |
 | Writer imports the installed generator | Built for the `.devbook/` layout (`tools/devbook/generator.mjs`) |

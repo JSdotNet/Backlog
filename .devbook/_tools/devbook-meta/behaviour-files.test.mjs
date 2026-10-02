@@ -145,6 +145,20 @@ const coverage = [
         warnings: 1,
     },
     {
+        name: "a deprecated requirement owes no scenario — a withdrawn promise has no case",
+        type: "requirement",
+        meta: { status: "deprecated" },
+        scenarios: 0,
+        warnings: 0,
+    },
+    {
+        name: "a deprecated requirement is still held to the level of the tests it names",
+        type: "requirement",
+        meta: { status: "deprecated", tests: "unit:dotnet:A.B" },
+        scenarios: 0,
+        warnings: 1,
+    },
+    {
         name: "an invariant proved unit, with no scenario, is clean — its claim is the case",
         type: "invariant",
         meta: { tests: "unit:dotnet:A.B" },

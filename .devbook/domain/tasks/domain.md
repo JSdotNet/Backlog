@@ -405,7 +405,7 @@ task.
 ```meta
 type: domain-event
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/monitoring/domain.md#progress-signal]
+related: [.devbook/domain/tasks/domain.md#task]
 ```
 
 Published when a `Task` changes `Task Status`.
@@ -432,7 +432,7 @@ Published when a `Task` changes `Task Status`.
 ```meta
 type: domain-event
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection, .devbook/domain/monitoring/domain.md#progress-signal]
+related: [.devbook/domain/tasks/domain.md#projection]
 ```
 
 Published when a `Task` begins external execution and the Projection
@@ -460,7 +460,7 @@ policy creates one downstream artifact per targeted repository.
 ```meta
 type: domain-event
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection, .devbook/domain/monitoring/domain.md#progress-signal]
+related: [.devbook/domain/tasks/domain.md#projection]
 ```
 
 Published when a completed `Task` closes its downstream projections.
@@ -486,7 +486,7 @@ Published when a completed `Task` closes its downstream projections.
 ```meta
 type: domain-event
 status: proposed
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#occurrence-spawning, .devbook/domain/monitoring/domain.md#progress-signal]
+related: [.devbook/domain/tasks/domain.md#occurrence-spawning]
 ```
 
 Published when a completed repeating `Task` produces its successor.
@@ -515,7 +515,7 @@ Published when a completed repeating `Task` produces its successor.
 ```meta
 type: domain-event
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/productivity/domain.md#productivity-ledger]
+related: [.devbook/domain/tasks/domain.md#task]
 ```
 
 Published when a Task records that an AI-assisted action contributed to
@@ -721,7 +721,7 @@ sets it.
 ```meta
 type: term
 status: draft
-aliases: [roadmap tag, tag]
+aliases: [roadmap tag]
 related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/features.md#filing-a-task-against-a-roadmap-tag]
 ```
 

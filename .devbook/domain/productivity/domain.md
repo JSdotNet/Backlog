@@ -112,7 +112,7 @@ a report.
 ```meta
 type: domain-event
 status: draft
-related: [.devbook/domain/productivity/domain.md#productivity-ledger, .devbook/domain/monitoring/domain.md#progress-signal]
+related: [.devbook/domain/productivity/domain.md#productivity-ledger]
 ```
 
 Published when a productivity-relevant activity is appended to the Productivity

@@ -252,14 +252,14 @@ status: adopted
 type: tool
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/shared.md#nodejs"]
 related: [".devbook/tech/tooling.md#devbook-meta-generator", ".devbook/tech/tooling.md#devbook-tech-inventory-scripts", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
-version: "1.13.0"
-date: 2026-09-30
+version: "1.16.0"
+date: 2026-10-02
 ```
 
 The `devbook` plugin from `JSdotNet/devbook`, which owns the devbook folder
 convention this repository follows.
 
-- **Used for** — all five folders under `.devbook/` at contract 24; the folder
+- **Used for** — all five folders under `.devbook/` at contract 25; the folder
   rules installed as `.agents/rules/devbook-*.md` with a wrapper per host; the
   checker at `.devbook/_tools/devbook-meta/` and the inventory scripts at
   `.devbook/_tools/devbook-tech/`; and the chapter skills (`validate`,

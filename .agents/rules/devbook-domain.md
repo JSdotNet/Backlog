@@ -60,6 +60,9 @@ across `domain/`, ADRs, and code module names where practical.
     flow.<name>.md          #   enough to stand alone. See "A split file" below.
     domain.<name>.invariants.md  # what the aggregate on domain.<name>.md
                                  # enforces, beside it
+    demo.html               # optional: what a person sees in the context,
+                            # counted with context.md
+    <page>.demo.html        # optional: the screens of <page>.md, beside it
 ```
 
 When starting a new bounded context, create the folder with `context.md`,
@@ -235,6 +238,36 @@ skill names `domain.md`, `features.md`, `skills.md`, `requirements.md`,
 one names the invariants subpage, it means `domain.invariants.md` or any
 `domain.<name>.invariants.md`.
 
+**A demo is the one HTML file a context holds.** It is the agreed, clickable
+picture of what a person sees, and it is not a chapter: it carries no `meta`
+block, has no reading position, and names no page. Its name says what it
+belongs to:
+
+| Name | Belongs to |
+|---|---|
+| `demo.html` | The context itself, counted with `context.md`. One per context with a user interface. |
+| `<page>.demo.html` | `<page>.md`, beside it. |
+| Any other `*.demo.html` | The chapters whose `demo` field names it, per `devbook-chapter-metadata.md`. |
+
+A page-named demo pairs the way an invariants subpage does: it exists only
+beside its page, and a split moves it with the chapter — splitting `## Checkout`
+out of `features.md` moves the checkout screens from `features.demo.html` to
+`features.checkout.demo.html` in the same change. There is no product-level
+demo; a journey that crosses contexts belongs to the context it ends in.
+
+A demo under `domain/` carries exactly one variant: the agreed one, with every
+alternative a prototype tried trimmed out before it lands. Its hard-coded data
+is at real density — as many rows, as long a name, as deep a history as the
+product shows — because a screen agreed over three tidy rows is not the screen
+people will use.
+
+The file is one HTML document built on the repository's demo template,
+`.devbook/design/demo-template.html`: every style, script, and image inline and
+nothing fetched, the template's managed region kept byte for byte, and no
+`<script>` outside it except `demo-model` and `demo-meta`. It aims at 500 KB and may exceed it.
+Only `/prototype` writes one, and it reaches `domain/` only as a delta of a
+change, per `devbook-changes.md`; it is never edited in place.
+
 Reading order comes from this convention, not from a metadata field and not from
 filenames. `context-map.md` is `domain/`'s root document and is read first,
 followed by the bounded contexts in alphabetical order; inside a context,
@@ -291,7 +324,9 @@ Adding a context or a file needs no declaration anywhere; just regenerate
   - Domain Service chapters describe the service's responsibility and the
     aggregates/policies it coordinates.
   - Domain Event chapters are first-class addressable chapters and carry
-    metadata blocks like other `domain.md` chapters.
+    metadata blocks like other `domain.md` chapters. Each names the aggregate
+    or domain service that raises it in `related`, which places it in that
+    unit, per `devbook-chapter-metadata.md`.
   - Value Objects and Enums **shared across multiple aggregates** within the
     context get their own separate chapter — do not duplicate them under each
     aggregate that uses them.
@@ -680,7 +715,9 @@ instructions.
   with no case that exercises it is a sentence nobody can tell has been broken,
   and one a brief cannot derive an acceptance check from. It is a warning and
   not an error because the rule is still worth recording before its cases are
-  written — but a chapter left that way is not finished. An invariant with no
+  written — but a chapter left that way is not finished. A requirement at
+  `status: deprecated` is not reported: it records a withdrawn promise, and a
+  withdrawn promise has no case left to exercise. An invariant with no
   scenarios is complete: its claim and its rejection code are the check.
 - `tests` entries are checked against the file they sit in: `unit` for an
   invariant, `e2e` — or `integration` for a policy no user triggers — for a
@@ -708,6 +745,12 @@ instructions.
   and every synonym resolves to that one chapter. A `term` chapter exists only
   for a word that has no chapter to carry the field, and its `related` field
   points at the chapters it is about.
+- On a `requirement` or `invariant` chapter, `aliases` holds the codes the rule
+  is cited by elsewhere — a requirement code from the document it was captured
+  from, a ticket key — not surface names: a rule is not a word of the language.
+  Rules split from one source row each keep its code, so the same code on
+  several rules is expected. The term register leaves these chapters out, and
+  `verify-change` looks for no identifier named after a code.
 
 ## Templates
 
@@ -928,6 +971,7 @@ What it reacts to is a requirement of the unit that reacts, in
 \`\`\`meta
 status: draft
 type: domain-event
+related: [.devbook/domain/<context>/domain.md#<aggregate-heading-slug>]
 \`\`\`
 
 Published when <business trigger>.

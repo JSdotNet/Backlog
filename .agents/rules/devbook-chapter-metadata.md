@@ -436,6 +436,25 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   "[Linking test cases](#linking-test-cases)" for the format, the level and
   runner vocabularies, and why this field exists where a code-path field
   deliberately does not.
+- **demo** (optional) — list of the places in a demo that show what this
+  chapter or file claims, each `<path>#<id>`: the repository path of a
+  `*.demo.html` and the id of a screen, a state, or a walkthrough its
+  `demo-model` lists, or the bare `<path>` for the demo as a whole:
+
+  ```text
+  demo: [.devbook/domain/ordering/features.demo.html#checkout, .devbook/domain/ordering/features.demo.html#checkout-declined]
+  ```
+
+  Available on any chapter in any folder, and on the file-level blocks of a
+  change's `proposal.md` and `solution.md`, per `devbook-changes.md`. A
+  requirement names one walkthrough per scenario, beside its `tests`: the
+  walkthrough shows the scenario, the test proves it. Links run from Markdown to
+  the demo only. A demo names no chapter, and its own metadata script,
+  `<script type="application/json" id="demo-meta">`, holds `question` — the one
+  question it was prototyped to answer — and nothing else: no stage, status,
+  verdict, or page, because where the file sits already says which it is. What
+  a demo is and where it lives is `devbook-domain.md`'s. Omit the field
+  entirely when no demo shows the chapter.
 - **change** (optional) — the change whose merge last touched this chapter or
   file: its folder name under `openspec/changes/`. Written by
   `delta.mjs --apply`, never by hand. Available in every folder. See
@@ -451,6 +470,11 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   it sorts first; `index: exclude` keeps it out of `_meta/index.json` altogether
   while leaving it in the reference graph. Omit the field for an ordinary listed
   document, which is nearly every file.
+- **sync** (optional, `domain/`, `arc42/`, `design/`) — which way changes flow
+  between this unit and its code: `push`, `pull`, `sync`, `report`, or `off`.
+  Set only at the four levels in
+  "[Sync direction](#sync-direction)", which also says how a unit resolves it.
+  Omit it to inherit.
 
 - **ext** (optional) — the extension namespace: state owned by a plugin layered
   on top of devbook, not by devbook itself. Keys are dotted and namespaced by
@@ -500,6 +524,57 @@ roadmap: [sync-service, mobile-mvp]
 related: [.devbook/domain/sync/features.md#offline-sync]
 \`\`\`
 ```
+
+## Sync direction
+
+`sync` says which way changes flow between a chapter and the code that
+implements it, for the sweeps that keep the two aligned:
+
+| Value | Truth | What a sweep does |
+|---|---|---|
+| `push` | the agreed chapter | turns a `spec-ahead` verdict into code, through `apply-change` |
+| `pull` | the code | turns a `code-ahead` verdict into chapters, through `capture-specs` |
+| `sync` | the verdict | does either, each only on its own verdict; a `conflict` goes to a person |
+| `report` | neither | reports drift and writes nothing — the default |
+| `off` | neither | leaves the unit out of every sweep |
+
+A direction governs a **sync unit**: an aggregate with the entities, value
+objects, and enums it owns, the domain events it raises, its invariants, and the
+requirements and terms that name it; a domain service the same way; a feature
+with its sub-features and requirements; one `feature-flag` or `setting`
+chapter; one `arc42/building-blocks/<name>.md` file; one `##` component chapter
+of `design/component-libraries.md`.
+
+Set it at one of four levels, widest first. Each sets the default for everything
+under it that states nothing:
+
+| Level | The block that carries it |
+|---|---|
+| Folder | the file-level block of `domain/context-map.md`, `arc42/05-building-block-view.md`, or `design/component-libraries.md` |
+| Context | the file-level block of `domain/<context>/context.md` |
+| Page | the file-level block of a context page: `domain.md` and its splits, `features.md`, `skills.md`, and theirs, `actors.md` |
+| Unit | the unit's root chapter: an `aggregate`, `domain-service`, `feature`, `feature-flag`, or `setting` chapter, a building block file, a component chapter |
+
+A unit resolves **nearest wins**: its own chapter, then its page, its context,
+its folder, and `report` when none of them states one. A switch chapter's page
+is its `context.md`, so its page and context are one block.
+
+The check refuses `sync` on a chapter a unit owns — `entity`, `value-object`,
+`enum`, `domain-event`, `invariant`, `requirement`, `sub-feature`, `term` — and
+on a page that holds only such chapters, `requirements.md` and its splits and
+every `*.invariants.md`: each follows its unit and cannot go another way. It
+refuses it on every other block, and in `tech/` and `ai/`, as no level. A value
+no unit inherits — every unit under it states its own, or none sits under it —
+is reported as a warning. `actors.md` is the standing case: a value there is
+allowed and inherited by nothing until an actor kind exists.
+
+A `domain-event` chapter names the `aggregate` or `domain-service` that raises
+it in `related`. That entry is what places the event in its unit; an event
+without it is reported and belongs to none.
+
+Changing a direction lapses no approval: `approved-hash` and `accepted-hash`
+exclude the `meta` blocks, so the flip leaves both standing. It is still a
+chapter edit, reviewed like any other.
 
 ## Linking test cases
 
@@ -618,7 +693,8 @@ The absence rule holds for the two typed levels too: a `requirement` with no
 `tests` is reported for the level by nothing, because it has claimed no
 coverage. What it *is* reported for is having no `#### Scenario:` — a promise
 with no case that exercises it is one nobody can tell has been broken — and that
-is a coverage warning on the same footing. An `invariant` carries no scenario
+is a coverage warning on the same footing, except at `status: deprecated`,
+where the promise is withdrawn. An `invariant` carries no scenario
 and is never reported for lacking one.
 
 A delivered feature, and a domain aggregate whose invariants are pinned,

@@ -14,7 +14,9 @@ style meant for a model. Never copy that style into a chapter.
 
 ## Show it first
 
-Draw a Mermaid diagram when a passage describes one of these:
+When the `show-me` skill is available, follow it for every chapter except `domain.md` and its
+`domain.<name>.md` splits, which keep the diagrams `devbook-domain.md` names. Without it, draw
+a Mermaid diagram when a passage describes one of these:
 
 | The passage describes | Use |
 | --- | --- |
