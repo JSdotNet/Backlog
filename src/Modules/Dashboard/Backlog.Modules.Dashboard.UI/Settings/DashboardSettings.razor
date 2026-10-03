@@ -1,0 +1,161 @@
+@*
+    The Dashboard's page on the settings screen, which the shell draws because the
+    host registered it (AddDashboardSettings, reached through AddDashboardUi) rather
+    than because the shell knows anything about the dashboard. The weekly usage
+    reset was a group under the working week on the shell's Storage page; only the
+    dashboard reads it, so a change to how it is set touches the Dashboard and not
+    the desktop shell.
+
+    The namespace is the project's root rather than the folder's, on the Inbox's
+    precedent: a Backlog.Modules.Dashboard.UI.Settings namespace would shadow the
+    settings screen's own component for everything under this project.
+*@
+@namespace Backlog.Modules.Dashboard.UI
+@using System.Globalization
+@using global::Backlog.SharedKernel
+@using global::Backlog.UI.Components.Inputs
+@inject IUsageResetSettings UsageReset
+
+@* The week the dashboard cuts by. The assistant's allowance resets on a fixed
+   weekday and time, and a week of sessions read against calendar Mondays is a week
+   nobody spends; this is the person's own reading of the "Resets Mon 2:00 PM" on
+   the assistant's usage screen, in their own clock. Detection from the
+   assistant's records stands in while nothing is set, and the status says which
+   is in force. *@
+<div class="setting__group" data-testid="usage-reset-settings">
+    <p class="setting__note">
+        <strong>Weekly usage reset.</strong> When your assistant's weekly allowance
+        resets, as its usage screen shows it in your own clock. The dashboard's
+        weekly columns and hour grids then run from one reset to the next instead
+        of from a calendar Monday. Leave it unset and the dashboard uses the reset
+        it can detect from the assistant's own records, and calendar weeks when it
+        has seen none.
+    </p>
+
+    <div class="working-day" data-testid="usage-reset-row">
+        <SelectField Form="true"
+                     Label="Reset day"
+                     Id="usage-reset-day"
+                     TestId="usage-reset-day"
+                     CurrentValue="@(UsageReset.Current?.Day.ToString() ?? string.Empty)"
+                     IncludeEmptyOption="true"
+                     EmptyLabel="Not set"
+                     Options="@UsageResetDayOptions"
+                     OnChanged="SetUsageResetDay" />
+
+        <TextField Bare="true"
+                   InputCssClass="setting__input"
+                   AriaLabel="Reset time"
+                   Id="usage-reset-time"
+                   data-testid="usage-reset-time"
+                   Type="time"
+                   autocomplete="off"
+                   aria-describedby="usage-reset-status"
+                   Disabled="@(UsageReset.Current is null)"
+                   Value="@_usageResetTimeDraft"
+                   @onchange="ApplyUsageResetTime" />
+    </div>
+
+    <p class="setting__status" id="usage-reset-status" data-testid="usage-reset-status" role="status">
+        @if (_usageResetError is not null)
+        {
+            <span class="setting__status--error">@_usageResetError</span>
+        }
+        else
+        {
+            <span>@UsageResetSummary</span>
+        }
+    </p>
+
+    <div class="setting__actions">
+        <AppButton Variant="ButtonVariant.None"
+                   data-testid="usage-reset-clear-button"
+                   Disabled="@(UsageReset.Current is null)"
+                   OnClick="ClearUsageReset">
+            Back to detecting it
+        </AppButton>
+    </div>
+
+    <p class="setting__note">
+        Kept in <code>@UsageReset.SettingsPath</code>, beside the app's other per-user
+        choices rather than in the backlog folder - it is yours, not the workspace's.
+    </p>
+</div>
+
+@code {
+    private string _usageResetTimeDraft = string.Empty;
+
+    private string? _usageResetError;
+
+    private static readonly IReadOnlyList<SelectorOption> UsageResetDayOptions =
+        [.. WorkingHours.Week.Select(day => new SelectorOption(day.ToString(), day.ToString()))];
+
+    protected override void OnInitialized() => SyncUsageResetDraft();
+
+    /// <summary>Picking a day sets the reset at once — with the time already in force,
+    /// or the assistant's usual afternoon when none was — so a half-configured reset
+    /// never exists; clearing the day forgets the whole reset.</summary>
+    private void SetUsageResetDay(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            _usageResetError = UsageReset.Clear();
+        }
+        else if (Enum.TryParse<DayOfWeek>(value, ignoreCase: true, out var day))
+        {
+            _usageResetError = UsageReset.Set(day, UsageReset.Current?.Time ?? new TimeOnly(14, 0));
+        }
+
+        SyncUsageResetDraft();
+    }
+
+    private void ApplyUsageResetTime(ChangeEventArgs e)
+    {
+        var typed = e.Value?.ToString() ?? string.Empty;
+        _usageResetTimeDraft = typed;
+
+        if (UsageReset.Current is not { } current) return;
+
+        if (!TryReadTime(typed, out var time))
+        {
+            _usageResetError = "Give the reset a time, as HH:mm.";
+            return;
+        }
+
+        _usageResetError = UsageReset.Set(current.Day, time);
+
+        if (_usageResetError is null) SyncUsageResetDraft();
+    }
+
+    private void ClearUsageReset()
+    {
+        _usageResetError = UsageReset.Clear();
+        SyncUsageResetDraft();
+    }
+
+    private void SyncUsageResetDraft() =>
+        _usageResetTimeDraft = UsageReset.Current is { } reset ? FormatTime(reset.Time) : string.Empty;
+
+    private string UsageResetSummary =>
+        UsageReset.Current is { } reset
+            ? $"Weeks run from {reset.Day} {FormatTime(reset.Time)} to the next {reset.Day} {FormatTime(reset.Time)}, on this machine's clock."
+            : "Not set - the dashboard uses the reset it detects from your assistant's records, or calendar weeks.";
+
+    /// <summary>The wire format a <c>time</c> input takes and returns, and the
+    /// one the settings file is written in - invariant, so the two never drift
+    /// apart on a machine whose locale writes times some other way. The shell's
+    /// working-week editor keeps its own copy.</summary>
+    private static string FormatTime(TimeOnly time) =>
+        time.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    /// <summary>Seconds are accepted as well as minutes because a browser is
+    /// entitled to send them, and refusing a time for being more precise than
+    /// the field asked for is a rejection nobody could act on.</summary>
+    private static bool TryReadTime(string text, out TimeOnly time) =>
+        TimeOnly.TryParseExact(
+            text,
+            ["HH:mm", "HH:mm:ss"],
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out time);
+}

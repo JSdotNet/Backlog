@@ -7,8 +7,8 @@ namespace Backlog.Modules.Dashboard.UI.Extensions;
 
 /// <summary>
 /// Wires what the pane itself answers: the machine directory, which wraps no
-/// provider at all, and the Ask AI pair, which reads what one reader's pane is
-/// showing.
+/// provider at all, the Ask AI pair, which reads what one reader's pane is
+/// showing, and the Dashboard's page on the settings screen.
 /// <para>
 /// The provider adapters are not here. Each lives in the infrastructure project it
 /// wraps and is registered there — <c>AddGitHubDashboardAdapters()</c>,
@@ -41,6 +41,8 @@ public static class DashboardUiRegistration
         services.AddSingleton<IMachineDirectory, DeviceMachineDirectory>();
 
         AddDashboardAiContentSource(services);
+
+        services.AddDashboardSettings();
 
         return services;
     }
