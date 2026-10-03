@@ -2,14 +2,15 @@ using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Services;
+using Backlog.SharedKernel;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
 
 /// <summary>
 /// The reader's paces: the typed one, and three measured from finished effort over
-/// the last two, four and eight weeks — per calendar day, today included, because
-/// the roadmap draws its windows in calendar days.
+/// the last two, four and eight weeks, today included — per working week: the effort
+/// over the working hours in the stretch, times the hours of a week (local ADR 0019).
 /// </summary>
 public class PlanningPaceTests
 {
@@ -38,6 +39,77 @@ public class PlanningPaceTests
         Assert.Equal(10.5m, paces.LastFourWeeks);  // 42 over 4 weeks
         Assert.Equal(7m, paces.LastEightWeeks);    // 56 over 8 weeks
         Assert.Equal(2m, paces.Manual);
+    }
+
+    /// <summary>ADR 0019 Verification 5: 20 points finished over the four-week stretch
+    /// measure 5 a week — on the default week and on any other pattern, because every
+    /// stretch is whole weeks.</summary>
+    [Theory]
+    [MemberData(nameof(Patterns))]
+    public void AMeasuredPaceKeepsItsFigure_WhateverTheWorkingWeek(string pattern)
+    {
+        var week = WeekOf(pattern);
+        CompletedEffortDto[] finished = [new(Today, 8), new(Today.AddDays(-20), 12)];
+
+        Assert.Equal(5m, PlanningPace.Measured(finished, Today, 4, week));
+        Assert.Equal(5m, PlanningPace.Paces(1m, PaceSource.Manual, finished, Today, week: week).LastFourWeeks);
+    }
+
+    public static TheoryData<string> Patterns => ["default", "short friday", "weekend only", "uneven", "nothing worked"];
+
+    private static WorkingHours WeekOf(string pattern)
+    {
+        static WorkingDay Day(DayOfWeek day, bool working, int start, int end, int endMinute = 0) =>
+            new(day, working, new TimeOnly(start, 0), new TimeOnly(end, endMinute));
+
+        return pattern switch
+        {
+            "short friday" => new() { Days = [Day(DayOfWeek.Friday, true, 9, 13)] },
+            "weekend only" => new()
+            {
+                Days = [.. WorkingHours.Week.Select(day => Day(day, day is DayOfWeek.Saturday or DayOfWeek.Sunday, 10, 16))]
+            },
+            "uneven" => new()
+            {
+                Days = [.. WorkingHours.Week.Select(day => Day(day, day != DayOfWeek.Wednesday, 7, 15, 20))]
+            },
+            "nothing worked" => new()
+            {
+                Days = [.. WorkingHours.Week.Select(day => Day(day, false, 9, 17))]
+            },
+            _ => WorkingHours.Default
+        };
+    }
+
+    /// <summary>ADR 0019 Verification 6: a week with no worked day measures as the
+    /// default week, and the paces read with it carry the default week.</summary>
+    [Fact]
+    public async Task AnEmptyWeek_MeasuresAsTheDefaultWeek()
+    {
+        var settings = new Settings(5m, PaceSource.Manual) { Week = WeekOf("nothing worked") };
+        var pace = new PlanningPace(settings, new Finished([new(Today, 10)]), new FakeTimeProvider(Noon));
+
+        var paces = await pace.ReadAsync(cancellationToken: TestContext.Current.CancellationToken);
+        var inUse = await pace.ReadPacesInUseAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(5m, paces.LastTwoWeeks);
+        Assert.Same(WorkingHours.Default, paces.Week);
+        Assert.Same(WorkingHours.Default, inUse.Week);
+    }
+
+    /// <summary>The paces placement reads carry the week the pace is kept with, so a
+    /// window is counted through the person's own week.</summary>
+    [Fact]
+    public async Task ThePacesInUseCarryThePersonsWeek()
+    {
+        var week = WeekOf("short friday");
+        var settings = new Settings(5m, PaceSource.Manual) { Week = week };
+        var pace = new PlanningPace(settings, new Finished([]), new FakeTimeProvider(Noon));
+
+        var inUse = await pace.ReadPacesInUseAsync(TestContext.Current.CancellationToken);
+
+        Assert.Same(week, inUse.Week);
+        Assert.Same(week, (await pace.ReadAsync(cancellationToken: TestContext.Current.CancellationToken)).Week);
     }
 
     [Fact]
@@ -385,6 +457,10 @@ public class PlanningPaceTests
 
         private decimal _manual = manual;
         private PaceSource _source = source;
+
+        public WorkingHours Week { get; init; } = WorkingHours.Default;
+
+        public WorkingHours WorkingWeek => Week;
 
         public decimal Manual(string? repository = null) =>
             repository is not null && Own.TryGetValue(repository, out var own) ? own.Manual : _manual;

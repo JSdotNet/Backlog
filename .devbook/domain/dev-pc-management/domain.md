@@ -194,7 +194,7 @@ external package managers. Invocation semantics: command-invoked orchestration s
 ```meta
 type: domain-event
 status: draft
-related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/domain/monitoring/domain.md#progress-signal]
+related: [.devbook/domain/dev-pc-management/domain.md#machine-registry]
 ```
 
 Published when a registered machine changes runtime status.
@@ -221,7 +221,7 @@ Published when a registered machine changes runtime status.
 ```meta
 type: domain-event
 status: draft
-related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/domain/monitoring/domain.md#progress-signal, .devbook/domain/technology-stack/domain.md#technology-registry]
+related: [.devbook/domain/dev-pc-management/domain.md#machine-registry]
 ```
 
 Published when a machine's compliance score is recalculated against the current

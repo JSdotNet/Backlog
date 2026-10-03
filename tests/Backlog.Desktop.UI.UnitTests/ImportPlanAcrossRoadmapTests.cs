@@ -8,9 +8,11 @@ using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
+using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
+using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -33,7 +35,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
 
     private const string TaskDocument =
         "# First step\n`prompt` `+myplan` `id:first` `effort:3`\n\n"
-        + "# Second step\n`prompt` `+myplan` `id:second` `after:first` `effort:4`\n";
+        + "# Second step\n`prompt` `+myplan` `id:second` `after:first` `effort:5`\n";
 
     private readonly string _tempDir = Path.Combine(
         Path.GetTempPath(),
@@ -76,7 +78,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         Assert.Equal(1, roadmap.Roadmap!.Created);
 
         var created = await SingleItemAsync();
-        Assert.Equal(5, created.Days); // nothing gathered yet: the default span
+        Assert.Equal(EffortWindow.EndFrom(created.Start, 0, 7m, WorkingHours.Default), created.End); // nothing gathered yet: one working week
 
         var tasks = await ImportAsync(TaskDocument);
 
@@ -86,7 +88,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         var item = await SingleItemAsync();
         Assert.Equal(created.Id, item.Id);
         Assert.Equal(created.Start, item.Start);
-        Assert.Equal(7, item.Days); // 3 + 4 points at one a day
+        Assert.Equal(EffortWindow.EndFrom(item.Start, 8, 7m, WorkingHours.Default), item.End); // 3 + 5 points at 7 a working week
         Assert.Equal(["First step", "Second step"], await StepTitlesAsync(item));
     }
 
@@ -104,7 +106,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         var item = await SingleItemAsync();
         Assert.Equal("Imported plans on the roadmap", item.Title);
         Assert.Equal(["backlog"], item.RepositoryAliases);
-        Assert.Equal(7, item.Days); // placed against the effort already there
+        Assert.Equal(EffortWindow.EndFrom(item.Start, 8, 7m, WorkingHours.Default), item.End); // placed against the effort already there
         Assert.Equal(["First step", "Second step"], await StepTitlesAsync(item));
     }
 
@@ -162,7 +164,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         var item = await SingleItemAsync();
         Assert.Equal("Myplan", item.Title);
         Assert.Equal("myplan", item.Tag);
-        Assert.Equal(7, item.Days);
+        Assert.Equal(EffortWindow.EndFrom(item.Start, 8, 7m, WorkingHours.Default), item.End);
         Assert.Equal(["First step", "Second step"], await StepTitlesAsync(item));
     }
 

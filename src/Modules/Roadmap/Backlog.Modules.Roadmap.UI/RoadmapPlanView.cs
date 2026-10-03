@@ -832,12 +832,13 @@ public static class RoadmapPlanView
 
         var began = begun.Select(link => link.StartedOn ?? link.CreatedOn).Where(day => day is not null).Min();
         var from = began is { } day ? Min(day, item.Start) : item.Start;
-        var openFrom = Max(forecast.Today, from);
+        // Open work is drawn from the first worked day it can be done on (local ADR 0019).
+        var openFrom = EffortWindow.FirstWorkedDay(Max(forecast.Today, from), forecast.Paces.Week);
 
         var left = rollup.BacklogEntries.Where(link => !link.IsDone).Sum(link => Math.Max(0, link.Effort ?? 1));
-        var days = (int)Math.Clamp(Math.Ceiling(left * 7m / pace), 1, 3650);
 
-        var forecastEnd = openFrom.AddDays(days - 1);
+        // The same hours through the same working week every other window is counted in.
+        var forecastEnd = EffortWindow.ForecastEnd(openFrom, left, pace, forecast.Paces.Week);
 
         // A pinned end is a person's date and outranks the forecast — but never ends
         // before the first day open work can be drawn on. The forecast is kept and said

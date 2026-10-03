@@ -377,7 +377,7 @@ Invocation semantics:
 ```meta
 type: domain-event
 status: draft
-related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/domain/tasks/domain.md#task, .devbook/domain/devbook/domain.md#knowledge-note]
+related: [.devbook/domain/inbox/domain.md#triage]
 ```
 
 Published by `Triage` when an Inbox Item is routed out of the inbox. The route

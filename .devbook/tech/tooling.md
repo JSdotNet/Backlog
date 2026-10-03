@@ -284,7 +284,7 @@ Automated dependency and security updates.
 ```meta
 status: adopted
 type: tool
-version: "1.13.0"
+version: "1.16.0"
 depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#json", ".devbook/tech/ai-development.md#devbook-plugin"]
 related: [".devbook/tech/tooling.md#github-actions", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
 ```
@@ -297,7 +297,9 @@ references between chapters.
   It writes nothing: the installed check keeps no `_meta/` output, and
   what this repository reads is the database below, built from the same exported
   modules. Not hand-written here: `devbook:init` materialized it under
-  `.devbook/_tools/devbook-meta/` and `devbook:update` refreshes it.
+  `.devbook/_tools/devbook-meta/` and `devbook:update` refreshes it. Beside it,
+  `units.mjs --groups` lists the sync units, their effective `sync` direction,
+  and the orphans and set-aside groups the sync sweeps would skip.
 - **Why** — it is what turns the metadata convention into something checkable,
   and it is where a broken reference is caught.
 - **How** — `.github/workflows/devbook-meta.yml`, installed beside it, runs the

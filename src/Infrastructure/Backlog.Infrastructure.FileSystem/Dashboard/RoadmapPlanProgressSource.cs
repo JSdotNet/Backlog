@@ -102,7 +102,11 @@ public sealed class RoadmapPlanProgressSource(
                         inUse.For(item.RepositoryAliases),
                         item.PlacedByImport == ImportPlacement.Effort);
                 })
-            ]);
+            ])
+        {
+            // The week the bars are counted in, so the outlook projects through it too.
+            Week = inUse.Week
+        };
 
     private static PlanPaceBasis BasisOf(PlanningPacesDto paces) => paces.InEffect switch
     {

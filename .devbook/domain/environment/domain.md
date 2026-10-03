@@ -103,7 +103,7 @@ view is shown or a shortcut is activated.
 ```meta
 type: domain-event
 status: draft
-related: [.devbook/domain/environment/domain.md#environment-catalog, .devbook/domain/productivity/domain.md#productivity-ledger]
+related: [.devbook/domain/environment/domain.md#environment-catalog]
 ```
 
 Published when the person activates an Environment Shortcut.

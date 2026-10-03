@@ -83,7 +83,7 @@ loosely "tags". A `Roadmap Contribution` names a slug owned by
 ```meta
 type: value-object
 status: draft
-aliases: [roadmap, roadmap contribution, contributes to]
+aliases: [roadmap contribution, contributes to]
 ```
 
 A [Roadmap Item](../roadmap/domain.md#roadmap-item) tag this chapter declares it

@@ -98,9 +98,9 @@ public class RelengthenItemTests
         var id = Imported("plan-a");
         _velocity.StoryPointsPerWeek = 14;
 
-        await RelengthenAsync(id, 9); // 9 points at 14 a week = 4.5 days, rounded up
+        await RelengthenAsync(id, 9); // 9 points at 14 a week = 27.3 working hours: into Thursday
 
-        Assert.Equal(PlannedWindow.Of(Start, Start.AddDays(4)), Stored(id).Window);
+        Assert.Equal(PlannedWindow.Of(Start, Start.AddDays(3)), Stored(id).Window);
     }
 
     [Fact]
@@ -110,10 +110,10 @@ public class RelengthenItemTests
         _velocity.ByRepository["site"] = 2;
 
         var proposal = await ProposeAsync(id, 4);
-        await RelengthenAsync(id, 4); // 4 points at 2 a week = 14 days
+        await RelengthenAsync(id, 4); // 4 points at 2 a week = two working weeks
 
-        Assert.Equal(Start.AddDays(13), proposal?.ProposedEnd);
-        Assert.Equal(PlannedWindow.Of(Start, Start.AddDays(13)), Stored(id).Window);
+        Assert.Equal(Start.AddDays(11), proposal?.ProposedEnd);
+        Assert.Equal(PlannedWindow.Of(Start, Start.AddDays(11)), Stored(id).Window);
     }
 
     [Fact]
