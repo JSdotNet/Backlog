@@ -562,17 +562,17 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
     {
         Configure("JSdotNet/Backlog");
         var plan = await ImportedAsync("plan-a", "backlog");
-        Assert.Equal(5, Days(plan)); // nothing gathered at import: the default span
+        Assert.Equal(7, Days(plan)); // nothing gathered at import: one working week, Friday to Thursday
 
         using var context = GatheringContext(14);
         var band = Banded(context);
 
-        // 14 points at Mine's 7 a week is two weeks.
+        // 14 points at Mine's 7 a week is two working weeks.
         band.WaitForAssertion(() => Assert.Equal((plan.Start, 14), DrawnWindow(band, plan.Id)));
 
         Manual(band).Change("14");
 
-        // 14 points at 14 a week is a week, from the same start.
+        // 14 points at 14 a week is a working week, from the same start.
         band.WaitForAssertion(() => Assert.Equal((plan.Start, 7), DrawnWindow(band, plan.Id)));
     }
 
@@ -616,11 +616,11 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
 
         Manual(band).Change("28");
 
-        // Site measured nothing, so its 14 points go at Mine's 28 a week: three and a
-        // half days, rounded up. Backlog's go at its own measured 14 a week: a week.
+        // Site measured nothing, so its 14 points go at Mine's 28 a week: half a working
+        // week, Friday to Tuesday. Backlog's go at its own measured 14 a week: a week.
         band.WaitForAssertion(() =>
         {
-            Assert.Equal((site.Start, 4), DrawnWindow(band, site.Id));
+            Assert.Equal((site.Start, 5), DrawnWindow(band, site.Id));
             Assert.Equal((backlog.Start, 7), DrawnWindow(band, backlog.Id));
         });
         Assert.Equal(28m, PaceFile.StoryPointsPerWeek);
@@ -641,9 +641,10 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
 
         Manual(band).Change("14");
 
+        // Placed by hand at the import's working week and two days more: nine days.
         band.WaitForAssertion(() => Assert.Equal(14m, PaceFile.StoryPointsPerWeek));
-        band.WaitForAssertion(() => Assert.Equal((plan.Start, 7), DrawnWindow(band, plan.Id)));
-        Assert.Equal(7, Days(await StoredAsync("plan-a")));
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 9), DrawnWindow(band, plan.Id)));
+        Assert.Equal(9, Days(await StoredAsync("plan-a")));
     }
 
     [Fact]
@@ -686,12 +687,38 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         band.WaitForAssertion(() => Assert.Equal(28m, PaceFile.StoryPointsPerWeek));
 
         // The bar has been redrawn at the new pace — whatever the change set off has
-        // run — before the store is read. 14 points at 28 a week: four days.
+        // run — before the store is read. 14 points at 28 a week: Friday to Tuesday.
         var plan = await StoredAsync("plan-a");
-        band.WaitForAssertion(() => Assert.Equal((plan.Start, 4), DrawnWindow(band, plan.Id)));
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 5), DrawnWindow(band, plan.Id)));
 
         Assert.Equal(before, await StoredPlanRowAsync());
         Assert.Equal(0, Volatile.Read(ref planChanges));
+    }
+
+    /// <summary>
+    /// Local ADR 0019 §4, through the band: the axis is handed the working week the
+    /// paces are counted in, so every Saturday and Sunday ruled in days is shaded and
+    /// every other day carries its hours in its tooltip.
+    /// </summary>
+    [Fact]
+    public async Task The_band_hands_the_axis_the_working_week()
+    {
+        Configure("JSdotNet/Backlog");
+        await ImportedAsync("plan-a", "backlog");
+
+        using var context = GatheringContext(14);
+        var band = Banded(context);
+
+        band.WaitForAssertion(() =>
+        {
+            var days = band.FindAll(".roadmap-timeline__quarter--day");
+            var shaded = days.Where(day => day.ClassList.Contains("roadmap-timeline__quarter--weekend")).ToList();
+            Assert.NotEmpty(shaded);
+            Assert.All(shaded, day => Assert.EndsWith(" · not worked", day.GetAttribute("title") ?? string.Empty, StringComparison.Ordinal));
+            Assert.Equal(
+                days.Count - shaded.Count,
+                days.Count(day => (day.GetAttribute("title") ?? string.Empty).EndsWith(" · 8.5h", StringComparison.Ordinal)));
+        });
     }
 
     /// <summary>

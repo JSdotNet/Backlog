@@ -6,16 +6,16 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// The backlog, as the port offers it: one read, and the three writes the
+/// The backlog, as the port offers it: one read, and the four writes the
 /// tracker tools are allowed to make.
 /// <para>
-/// <b>The three are recorded; every other write still throws.</b> That split is
+/// <b>The four are recorded; every other write still throws.</b> That split is
 /// the assertion rather than a convenience. It used to be "every write throws",
 /// which stated local ADR 0012's read-only claim in the only place a test could
 /// fail on it, and <see cref="TrackerTools"/> made the blanket form false.
 /// What survives is the part that was always the point: a tool reaching for
-/// <c>DeleteAsync</c>, <c>ReorderAsync</c>, <c>ImportPlanAsync</c> or either
-/// repository pass fails here rather than quietly passing — so the absence of a
+/// <c>DeleteAsync</c>, <c>ReorderAsync</c>, <c>ImportPlanAsync</c>
+/// or either repository pass fails here rather than quietly passing — so the absence of a
 /// delete tool is enforced by this double as well as by the catalog.
 /// </para>
 /// <para>
@@ -47,6 +47,10 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
     /// recorded because getting it wrong is the failure that shows up on a screen
     /// rather than in a payload.</summary>
     public List<LinkCall> Links { get; } = [];
+
+    /// <summary>Every <c>SetDevbookReferencesAsync</c>, in order, the list as it
+    /// arrived.</summary>
+    public List<DevbookReferencesCall> DevbookReferenceWrites { get; } = [];
 
     /// <summary>Every <c>RecordUsageAsync</c>, in order.</summary>
     public List<UsageCall> Usages { get; } = [];
@@ -147,6 +151,42 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
         return Task.FromResult<Result<TaskItemDto>>(linked);
     }
 
+    /// <summary>
+    /// Records the write and replaces the entry's list, refusing a value that
+    /// names no page with the module's own code — a path with neither a folder
+    /// nor a <c>.md</c> ending — so a tool mapping that refusal is exercised
+    /// against the one it will actually meet. Order is kept and repeats dropped,
+    /// as the aggregate does.
+    /// </summary>
+    public Task<Result<TaskItemDto>> SetDevbookReferencesAsync(Guid id, IReadOnlyList<string> references, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        DevbookReferenceWrites.Add(new DevbookReferencesCall(id, [.. references]));
+
+        var existing = _entries.FirstOrDefault(entry => entry.Id == id);
+
+        if (existing is null)
+        {
+            return Task.FromResult<Result<TaskItemDto>>(
+                Error.NotFound("entry.not_found", "That entry no longer exists."));
+        }
+
+        var trimmed = references.Select(reference => (reference ?? string.Empty).Trim()).ToList();
+
+        if (trimmed.FirstOrDefault(reference =>
+                !reference.Split('#')[0].Contains('/', StringComparison.Ordinal)
+                && !reference.Split('#')[0].EndsWith(".md", StringComparison.OrdinalIgnoreCase)) is { } invalid)
+        {
+            return Task.FromResult<Result<TaskItemDto>>(
+                Error.Validation("entry.invalid_devbook_reference", $"'{invalid}' is not a Devbook reference."));
+        }
+
+        var updated = existing with { DevbookReferences = [.. trimmed.Distinct(StringComparer.Ordinal)] };
+        _entries[_entries.IndexOf(existing)] = updated;
+
+        return Task.FromResult<Result<TaskItemDto>>(updated);
+    }
+
     public Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -179,6 +219,9 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
     /// <summary>One link, as it arrived.</summary>
     internal sealed record LinkCall(Guid Id, string RepoId, string ExternalId, string TargetType);
 
+    /// <summary>One reference list, as it arrived.</summary>
+    internal sealed record DevbookReferencesCall(Guid Id, IReadOnlyList<string> References);
+
     /// <summary>One usage event, as it arrived.</summary>
     internal sealed record UsageCall(Guid Id, string Action);
 }
@@ -205,7 +248,8 @@ internal static class Entries
         string body = "",
         IReadOnlyList<string>? tags = null,
         IReadOnlyList<EntryProjectionDto>? projections = null,
-        int totalSubItems = 0) =>
+        int totalSubItems = 0,
+        IReadOnlyList<string>? devbookReferences = null) =>
         new(
             id ?? Guid.NewGuid(),
             title,
@@ -221,5 +265,6 @@ internal static class Entries
             Projections: projections ?? [],
             RepoIds: repoIds,
             ImportPlanId: importPlanId,
-            ImportItemId: importItemId);
+            ImportItemId: importItemId,
+            DevbookReferences: devbookReferences);
 }

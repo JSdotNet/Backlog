@@ -84,6 +84,24 @@ public sealed class TaskListTests
         Assert.Equal("- [ ] Write it down", Assert.Single(context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]);
     }
 
+    /// <summary>
+    /// Copying several rows one after another is the reason a row copies at all,
+    /// and the check is what says which of them are done — so it stands for a
+    /// minute rather than the few seconds a one-off confirmation needs.
+    /// </summary>
+    [Fact]
+    public void A_copied_row_keeps_its_check_for_a_minute()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Write it down"))
+            .Add(t => t.TestId, "row"));
+
+        Assert.Equal(TimeSpan.FromMinutes(1), view.FindComponent<CopyButton>().Instance.ConfirmationDuration);
+    }
+
     [Fact]
     public void A_row_can_be_told_not_to_offer_a_copy_at_all()
     {

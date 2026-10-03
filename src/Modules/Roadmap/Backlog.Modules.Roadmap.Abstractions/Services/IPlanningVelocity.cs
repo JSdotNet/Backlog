@@ -1,4 +1,5 @@
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Roadmap.Abstractions.Services;
 
@@ -8,8 +9,8 @@ namespace Backlog.Modules.Roadmap.Abstractions.Services;
 /// <para>
 /// It is a <em>reading preference the person owns, not an estimate the plan
 /// registers</em> (ADR 0013, ruling 4). Placing an imported plan that states no due
-/// date divides the effort its tasks registered by this, in calendar days — seven to
-/// the week — and rounds up. Which pace
+/// date counts the effort its tasks registered at this pace through the person's
+/// working week, in hours (local ADR 0019; <see cref="EffortWindow"/>). Which pace
 /// that is — typed, or measured over the last two, four or eight weeks — is the
 /// reader's choice on the roadmap (<see cref="IPlanningPace"/>).
 /// </para>
@@ -32,7 +33,7 @@ public interface IPlanningVelocity
     /// <summary>The pace an item filed under <paramref name="repositoryAliases"/> is
     /// placed at: the global pace for none, otherwise the lowest in use among them.
     /// Always positive, so a caller may divide by it without guarding. The reader
-    /// having chosen nothing reads as 7 — one a day.</summary>
+    /// having chosen nothing reads as 7 a working week.</summary>
     Task<decimal> GetStoryPointsPerWeekAsync(
         IReadOnlyCollection<string> repositoryAliases,
         CancellationToken cancellationToken = default);
@@ -111,6 +112,14 @@ public interface IPlanningVelocitySettings
     /// <see cref="Changed"/>, so a slider let go of is heard once. Returns what
     /// <see cref="SetManual"/> would, and chooses nothing for a refused figure.</summary>
     string? SetOwn(string? typed, string? repository = null);
+
+    /// <summary>
+    /// The person's working week, which a week of every pace means and every window is
+    /// counted through (local ADR 0019). It travels with the pace, so every device sizes
+    /// the same bars. <see cref="Changed"/> is raised when it changes too. The default
+    /// week for a host that keeps none.
+    /// </summary>
+    WorkingHours WorkingWeek => WorkingHours.Default;
 }
 
 /// <summary>

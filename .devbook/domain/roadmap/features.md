@@ -113,7 +113,7 @@ part of the plan and do not travel.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/productivity/context.md#working-week]
+related: [.devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/productivity/context.md#working-week, .devbook/domain/roadmap/requirements.md#carrying-the-pace-with-the-person]
 ```
 
 The pace travels too — the typed pace, the chosen source, and each repository's
@@ -127,11 +127,15 @@ finished work it holds.
 
 The working week travels with the pace, inside the same document and under the
 same newer-wins rule
-([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). Every
-device then counts a bar over the same hours and draws it the same length. The
-person has one working week, and the dashboard's hour grids read the same one. A
-pace saved before this change carries no working week. It reads the device's own
-until the next change to the pace or the week writes one.
+([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). Its
+[day overrides](domain.md#day-override) travel inside it. Every device then
+counts a bar over the same hours and draws it the same length. The person has one
+working week. The dashboard's hour grids read its weekly pattern and leave the
+overrides to the roadmap
+([Working week](../productivity/context.md#working-week)). A pace saved before
+this change carries no working week. It reads the device's own until the next
+change to the pace or the week writes one. What travels, and how, is in
+[the requirements](requirements.md#carrying-the-pace-with-the-person).
 
 ## Tagging planned work
 
@@ -322,7 +326,7 @@ edit.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
 The timeline fills the width it is given and is ruled finer the nearer it is to
@@ -334,13 +338,37 @@ widens by the same factor until the chart from last week on fills the screen, so
 short plan never leaves the right of it empty, and the chart opens on last week.
 
 The day and week columns also show the person's
-[working week](domain.md#working-week). Each day head carries that day's working
-hours, such as "Wed 23 · 8.5h", and each week head the week's, such as
-"Wk 41 · 42.5h". A day the person does not work is shaded, and its head shows no
-hours. Every column keeps its width, because the axis is still time. Narrowing the
-days off was rejected: a drag of the same distance would then move a bar by a
-different number of days
-([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)).
+[working week](domain.md#working-week), with the dates they blocked or unblocked.
+Each day head carries that day's working hours, and each week head the week's. A
+wide column reads them inline, such as "Wed 23 · 8.5h" and "W41 · 42.5h". A
+narrow one shows them on a line under the label. A day that has begun also shows
+the [actual hours](domain.md#actual-hours) agents were active, so the plan can be
+read against what happened. Every column keeps its width, because the axis is
+still time. Narrowing the days off was rejected: a drag of the same distance
+would then move a bar by a different number of days
+([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). What the
+heads promise is in
+[the requirements](requirements.md#reading-the-near-term-closely).
+
+### Blocking and unblocking a day
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/requirements.md#blocking-and-unblocking-a-day, .devbook/domain/productivity/context.md#working-week, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+```
+
+Take a single day off, or work a day the week does not, by pressing that day's
+head on the axis. A weekly pattern alone cannot say that next Friday is a holiday, and
+a bar counted over that Friday would land a day early.
+
+Each press records a [day override](domain.md#day-override). Pressing the day
+again returns it to the weekly pattern. A date in the past can be changed too,
+because the measured paces count the hours that were actually there. The weekly
+pattern itself stays in
+[Productivity's setting](../productivity/context.md#working-week). What a press
+promises is in
+[the requirements](requirements.md#blocking-and-unblocking-a-day).
 
 ### Looking back at finished plans
 
@@ -483,7 +511,7 @@ chapter says what the feature does, not why the rulings fell the way they did.
 ```meta
 type: sub-feature
 setting: [.devbook/domain/roadmap/context.md#story-points-a-week]
-related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#plan-sequencing, .devbook/domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/roadmap/domain.md#working-week]
+related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#plan-sequencing, .devbook/domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/requirements.md#placing-a-plan-in-time]
 ```
 
 Give an imported plan a window nobody had to guess. The **end** is the day the
@@ -497,8 +525,10 @@ their working hours forward, skipping the days and hours they do not work, and
 ends on the day the hours run out
 ([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). It is never
 shorter than its start day, and it takes one working week when there is nothing
-gathered yet or nothing sized. Holidays and single days off are not counted; only
-the weekly pattern is. A due date that falls
+gathered yet or nothing sized. The hours are the person's
+[working week](domain.md#working-week), so a date they blocked on the axis counts
+none and a day off they unblocked counts its hours
+([requirements](requirements.md#placing-a-plan-in-time)). A due date that falls
 before the plan could start is kept, and the plan is placed on that one day so
 the [contradiction shows](#surfacing-contradictions-instead-of-fixing-them)
 rather than being smoothed over.

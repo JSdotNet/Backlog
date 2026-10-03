@@ -143,7 +143,7 @@ handoff between Capture and Inbox rather than an in-aggregate state change. Invo
 ```meta
 type: domain-event
 status: draft
-related: [.devbook/domain/capture/domain.md#capture, .devbook/domain/inbox/domain.md#inbox-item]
+related: [.devbook/domain/capture/domain.md#delivery]
 ```
 
 Published by `Delivery` when a normalized Capture is handed off to the Inbox.

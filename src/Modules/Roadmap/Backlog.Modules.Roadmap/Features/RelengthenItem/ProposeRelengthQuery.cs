@@ -34,11 +34,13 @@ public sealed class ProposeRelengthQueryHandler(IRoadmapPlanRepository plans, IP
         if (item?.PlacedByImport is not ImportPlacement.Effort) return null;
 
         var current = item.Window;
+        var paces = await velocity.ReadPacesInUseAsync(cancellationToken);
         var (proposed, _) = ImportedPlanPlacement.Place(
             current.Start,
             due: null,
             Math.Max(0, query.GatheredEffort),
-            await velocity.GetStoryPointsPerWeekAsync(item.Scope.Aliases, cancellationToken));
+            paces.For(item.Scope.Aliases),
+            paces.Week);
 
         return proposed == current
             ? null

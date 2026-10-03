@@ -86,6 +86,12 @@
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
+    /// <summary>How long the confirmation stands — the status line and the check
+    /// together. A host where a reader copies several things in a row and needs
+    /// to see which are done holds it for longer.</summary>
+    [Parameter]
+    public TimeSpan ConfirmationDuration { get; set; } = TimeSpan.FromSeconds(3);
+
     [Parameter]
     public string BaseClass { get; set; } = "copy-button";
 
@@ -150,7 +156,7 @@
     /// <para>
     /// The timer is deliberately not awaited by the click handler: the copy is
     /// finished the moment the clipboard call returns, and holding the handler
-    /// open for three seconds would leave the button looking busy long after the
+    /// open for the confirmation's duration would leave the button looking busy long after the
     /// work was done.
     /// </para>
     /// <para>
@@ -178,7 +184,7 @@
     {
         try
         {
-            await Task.Delay(TimeSpan.FromSeconds(3), token);
+            await Task.Delay(ConfirmationDuration, token);
         }
         catch (TaskCanceledException)
         {

@@ -201,6 +201,259 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.False(row.PullRequestStates.ContainsKey(pr));
     }
 
+    /// <summary>
+    /// The list on screen asks GitHub about the pull requests it has never read, on
+    /// its own, once it is already showing — so a Done entry whose work merged says
+    /// so without anybody pressing the sync button.
+    /// </summary>
+    [Fact]
+    public async Task A_done_entrys_unread_pull_request_is_read_without_a_sync()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        row.PullRequestLinks = [pr];
+        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
+
+        await harness.State.CheckUnreadPullRequestsAsync();
+
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStatuses[pr].State);
+    }
+
+    /// <summary>Only what was never read: a state already on the row is the sync
+    /// button's to refresh, and asking again on every reload would put the network
+    /// behind every write somebody else makes.</summary>
+    [Fact]
+    public async Task A_pull_request_already_read_is_not_read_again_by_the_check()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var read = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        var unread = new EntryPullRequestLink("JSdotNet/Backlog", 710);
+        row.PullRequestLinks = [read, unread];
+        row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState> { [read] = GitHubItemState.Open };
+        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
+        harness.Client.PullRequestStates[710] = GitHubItemState.Merged;
+
+        await harness.State.CheckUnreadPullRequestsAsync();
+
+        Assert.Equal(1, harness.Client.StatusReads);
+        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[read]);
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[unread]);
+    }
+
+    /// <summary>Done is when an entry's work is waiting to land, and the only
+    /// status the check asks about.</summary>
+    [Fact]
+    public async Task An_entry_not_done_is_not_read_by_the_check()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!in-progress` `repo:backlog`\n");
+        row.PullRequestLinks = [new EntryPullRequestLink("JSdotNet/Backlog", 708)];
+        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
+
+        await harness.State.CheckUnreadPullRequestsAsync();
+
+        Assert.NotEqual(EntryStatus.Done, row.Status);
+        Assert.Equal(0, harness.Client.StatusReads);
+        Assert.Empty(row.PullRequestStates);
+    }
+
+    [Fact]
+    public async Task Without_a_configured_repository_the_check_asks_github_nothing()
+    {
+        var harness = Build();
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        row.PullRequestLinks = [new EntryPullRequestLink("JSdotNet/Backlog", 708)];
+        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
+
+        await harness.State.CheckUnreadPullRequestsAsync();
+
+        Assert.Equal(0, harness.Client.StatusReads);
+        Assert.Equal(0, harness.Client.StateReads);
+        Assert.Empty(row.PullRequestStates);
+    }
+
+    /// <summary>Nobody asked for this read, so nobody is told when it fails: the
+    /// pull request stays unread, the issue line stays the issue's, and no toast
+    /// rises over a list the reader only opened.</summary>
+    [Fact]
+    public async Task A_check_that_cannot_read_a_pull_request_says_nothing()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        row.PullRequestLinks = [pr];
+        harness.Client.PullRequestFailure = new GitHubException("Bad credentials");
+
+        await harness.State.CheckUnreadPullRequestsAsync();
+
+        Assert.False(row.PullRequestStates.ContainsKey(pr));
+        Assert.Null(row.GitHubError);
+        Assert.Empty(harness.Toasts.Visible);
+    }
+
+    /// <summary>A pull request GitHub will not answer for is asked about once in
+    /// the background, not once per reload: every write an agent makes reloads the
+    /// list, and asking again each time would spend the rate limit on an answer
+    /// that is not coming. The sync button is the explicit retry.</summary>
+    [Fact]
+    public async Task An_unreadable_pull_request_is_read_once_until_the_sync_button_asks_again()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var written = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var entries = TasksTestHost.EntriesFor(harness.Store);
+        await entries.LinkToIssueAsync(written.Id!.Value, "JSdotNet/Backlog", "708", EntryProjectionDto.PullRequestTargetType, TestContext.Current.CancellationToken);
+        harness.Client.PullRequestFailure = new GitHubException("Not Found");
+
+        for (var reload = 0; reload < 3; reload++)
+        {
+            await harness.State.ReloadFromStoreAsync();
+            await harness.State.CheckUnreadPullRequestsAsync();
+        }
+
+        Assert.Equal(1, harness.Client.StatusReads);
+        Assert.Equal(1, harness.Client.StateReads);
+
+        await harness.State.SyncGitHubAsync();
+
+        Assert.Equal(2, harness.Client.StatusReads);
+        Assert.Empty(harness.Toasts.Visible);
+    }
+
+    /// <summary>A failure nobody anticipated is that pull request's alone: the
+    /// rest are still read, and the check the shell let go of ends cleanly
+    /// rather than as an exception nobody observes.</summary>
+    [Fact]
+    public async Task An_unexpected_failure_on_one_pull_request_does_not_stop_the_next()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var broken = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        var fine = new EntryPullRequestLink("JSdotNet/Backlog", 710);
+        row.PullRequestLinks = [broken, fine];
+        harness.Client.PullRequestFailures[708] = new InvalidOperationException("Unexpected.");
+        harness.Client.PullRequestStates[710] = GitHubItemState.Merged;
+
+        var check = harness.State.CheckUnreadPullRequestsAsync();
+        await check;
+
+        Assert.True(check.IsCompletedSuccessfully);
+        Assert.False(row.PullRequestStates.ContainsKey(broken));
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[fine]);
+        Assert.Null(row.GitHubError);
+        Assert.Empty(harness.Toasts.Visible);
+    }
+
+    /// <summary>A request made from inside the check — a re-render the check's own
+    /// <c>Changed</c> set off — is handed the check that is running, not the one
+    /// before it.</summary>
+    [Fact]
+    public async Task A_check_asked_for_from_inside_the_check_gets_the_running_one()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        row.PullRequestLinks = [new EntryPullRequestLink("JSdotNet/Backlog", 708)];
+        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
+
+        Task? inner = null;
+        harness.State.Changed += () => inner ??= harness.State.CheckUnreadPullRequestsAsync();
+
+        var outer = harness.State.CheckUnreadPullRequestsAsync();
+        await outer;
+
+        Assert.Same(outer, inner);
+    }
+
+    /// <summary>A reload replaces every row while a read is in flight — an agent
+    /// recording its work is exactly what sets one off. The read lands on the row
+    /// that is on screen when it comes back, not the one it started from.</summary>
+    [Fact]
+    public async Task A_reload_during_the_check_still_ends_with_the_read_on_the_current_row()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var written = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var entries = TasksTestHost.EntriesFor(harness.Store);
+        await entries.LinkToIssueAsync(written.Id!.Value, "JSdotNet/Backlog", "708", EntryProjectionDto.PullRequestTargetType, TestContext.Current.CancellationToken);
+        await harness.State.ReloadFromStoreAsync();
+
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
+        var gate = new TaskCompletionSource();
+        harness.Client.StatusGates[708] = gate;
+
+        var check = harness.State.CheckUnreadPullRequestsAsync();
+        await harness.State.ReloadFromStoreAsync();
+        gate.SetResult();
+        await check;
+
+        var row = Assert.Single(harness.State.Rows);
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
+    }
+
+    /// <summary>One check at a time. A reload that asks while one is running is
+    /// owed one more pass after it, which is what picks up a pull request recorded
+    /// in the meantime — and nothing is read twice.</summary>
+    [Fact]
+    public async Task A_check_asked_for_while_one_runs_runs_once_more_after_it()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var first = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        var second = new EntryPullRequestLink("JSdotNet/Backlog", 710);
+        row.PullRequestLinks = [first];
+        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
+        harness.Client.PullRequestStates[710] = GitHubItemState.Open;
+        var gate = new TaskCompletionSource();
+        harness.Client.StatusGates[708] = gate;
+
+        var running = harness.State.CheckUnreadPullRequestsAsync();
+        row.PullRequestLinks = [first, second];
+        var asked = harness.State.CheckUnreadPullRequestsAsync();
+        gate.SetResult();
+        await Task.WhenAll(running, asked);
+
+        Assert.Equal(2, harness.Client.StatusReads);
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[first]);
+        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[second]);
+    }
+
+    /// <summary>A workspace closed while a read is in flight ends the check
+    /// quietly: the read that comes back afterwards writes nothing, and a check
+    /// asked for afterwards asks GitHub nothing.</summary>
+    [Fact]
+    public async Task Disposing_the_list_ends_the_check_without_throwing()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        row.PullRequestLinks = [pr];
+        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
+        var gate = new TaskCompletionSource();
+        harness.Client.StatusGates[708] = gate;
+
+        var check = harness.State.CheckUnreadPullRequestsAsync();
+        harness.State.Dispose();
+        gate.SetResult();
+        await check;
+        await harness.State.CheckUnreadPullRequestsAsync();
+
+        Assert.Equal(1, harness.Client.StatusReads);
+        Assert.False(row.PullRequestStates.ContainsKey(pr));
+    }
+
     /// <summary>The same read that says whether a pull request merged says how its
     /// checks stand and whether GitHub is holding it for auto-merge — one query, so
     /// the link and the menu never disagree about which read they came from.</summary>
@@ -853,11 +1106,23 @@ public sealed class GitHubPushFlowTests : IDisposable
         public Dictionary<int, GitHubItemState> PullRequestStates { get; } = [];
         public Exception? PullRequestFailure { get; set; }
 
+        /// <summary>How many times a pull request's status, and its state over REST,
+        /// were asked for.</summary>
+        public int StatusReads { get; private set; }
+        public int StateReads { get; private set; }
+
+        /// <summary>What one pull request's reads throw, by number, when set.</summary>
+        public Dictionary<int, Exception> PullRequestFailures { get; } = [];
+
         public Task<GitHubPullRequest> GetPullRequestAsync(
             GitHubRepositoryRef repository,
             int number,
             CancellationToken cancellationToken = default)
         {
+            StateReads++;
+
+            if (PullRequestFailures.TryGetValue(number, out var failure)) throw failure;
+
             if (PullRequestFailure is not null) throw PullRequestFailure;
             if (!PullRequestStates.TryGetValue(number, out var state)) throw new GitHubException("Not Found");
 
@@ -900,6 +1165,10 @@ public sealed class GitHubPushFlowTests : IDisposable
             int number,
             CancellationToken cancellationToken = default)
         {
+            StatusReads++;
+
+            if (PullRequestFailures.TryGetValue(number, out var failure)) throw failure;
+
             if (StatusGates.Remove(number, out var gate)) await gate.Task;
 
             if (PullRequestFailure is not null) throw PullRequestFailure;

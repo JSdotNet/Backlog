@@ -84,7 +84,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// changed the same lines. See <see cref="RebaseOnStoreAsync"/>.</summary>
     private const string ChangedElsewhereTestId = "entry-changed-elsewhere";
 
+    /// <summary>The toast an undo or a redo raises to say what it took back or
+    /// put back. See <see cref="UndoAsync"/>.</summary>
+    public const string UndoTestId = "tasks-undo";
+
     private const string CopilotFailureTestId = "copilot-cli-error";
+
+    /// <summary>The toast a refused Devbook reference raises. See
+    /// <see cref="SetDevbookReferencesAsync"/>.</summary>
+    private const string DevbookRefusedTestId = "entry-devbook-refused";
 
     private readonly ITaskStore _store;
     private readonly ITaskItems _entryUseCases;
@@ -92,6 +100,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private readonly TasksIssues _issues;
     private readonly TasksCopilotCli _copilot;
     private readonly IRoadmapTagSource _roadmapTags;
+
+    /// <summary>What an entry's Devbook references point at, and what a picker may
+    /// offer. <see cref="UnavailableDevbookReferenceResolver"/> in a host that
+    /// composes no Devbook.</summary>
+    private readonly IDevbookReferenceResolver _devbookReferences;
 
     /// <summary>Where every task write on this machine is announced, or null in a
     /// host that composes none. See <see cref="OnTaskWritten"/>.</summary>
@@ -113,6 +126,17 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// re-parsing text — never to change an entry, which only ever happens by
     /// saving its text through <see cref="ITaskItems"/>.</summary>
     private readonly Dictionary<Guid, TaskItemDto> _entries = new();
+
+    /// <summary>What Ctrl+Z takes back. See <see cref="UndoAsync"/>.</summary>
+    private readonly TaskUndoHistory _history = new();
+
+    /// <summary>The order this list last read or wrote, so a reorder can be
+    /// recorded as the order it replaced. See <see cref="RecordOrder"/>.</summary>
+    private List<Guid> _persistedOrder = [];
+
+    /// <summary>Whether an undo or redo is writing right now. Its saves are the
+    /// history being walked, not new changes to put on it.</summary>
+    private bool _replaying;
 
     /// <summary>The debounce each row is waiting on, keyed by row. Written by
     /// whoever is typing and read-modified by every callback that fires, which
@@ -168,6 +192,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// nothing is waiting. See <see cref="ScheduleSaveStateSettle"/>.</summary>
     private CancellationTokenSource? _saveStateSettle;
 
+    /// <summary>The background read of never-read pull requests, whether one is
+    /// running, and whether another pass is owed behind it. See
+    /// <see cref="CheckUnreadPullRequestsAsync"/>.</summary>
+    private Task _pullRequestCheck = Task.CompletedTask;
+    private bool _pullRequestCheckRunning;
+    private bool _pullRequestCheckOwed;
+
     public TasksDesktopState(
         ITaskStore store,
         ITaskItems entryUseCases,
@@ -176,7 +207,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         IRoadmapTagSource? roadmapTags = null,
         IToastChannel? toasts = null,
         ITaskChangeSignal? taskWrites = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IDevbookReferenceResolver? devbookReferences = null)
     {
         _store = store;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -185,6 +217,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _issues = new TasksIssues(gitHub);
         _copilot = copilot ?? TasksCopilotCli.Unavailable;
         _roadmapTags = roadmapTags ?? EmptyRoadmapTagSource.Instance;
+        _devbookReferences = devbookReferences ?? UnavailableDevbookReferenceResolver.Instance;
         _untilDisposed = _lifetime.Token;
         _toasts = toasts;
         _store.RootChanged += OnRootChanged;
@@ -294,32 +327,33 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     public bool NoRepositoryOnly { get; private set; }
 
     /// <summary>
-    /// True while the view is narrowed to the entries that are not waiting on
-    /// anything: open, and with every step they named finished.
+    /// True while the view is narrowed to the entries marked <c>!ready</c> that
+    /// are filed under a <c>+plan</c>: the work a plan has lined up to pick up.
     /// <para>
-    /// The domain's readiness (<c>.devbook/domain/tasks/domain.md#readiness</c>), asked as
-    /// a scope. "Ready" is the answer this keeps, and it is not the <c>ready</c>
-    /// status two groups to the right: status is recorded, readiness is concluded
-    /// from <c>after:</c>, and a row can be <c>!ready</c> and still waiting. That
-    /// is why the chip says what it keeps in the row's own words — "Waiting for"
-    /// is the line it takes out of view — rather than reusing a word the bar
-    /// already means something else by.
+    /// The recorded status, not the readiness concluded from <c>after:</c>
+    /// (<see cref="IsNotWaiting"/>). A draft waiting on nothing is not something
+    /// the person said was ready, and work in no plan is not what the reader is
+    /// scanning a plan for. A ready row still waiting on a step stays in: its
+    /// "Waiting for" line already says so.
     /// </para>
     /// <para>
-    /// A finished row is out too. It is not waiting, but readiness has three
-    /// answers and done is its own, and the question a reader presses this to ask
-    /// is what they could pick up now. Composes with every other scope the way
-    /// My Day and "no repository" do.
+    /// A ticked-off row is out, whatever its status still says. Composes with
+    /// every other scope the way My Day and "no repository" do.
     /// </para>
     /// </summary>
-    public bool NotWaitingOnly { get; private set; }
+    public bool ReadyInPlanOnly { get; private set; }
 
-    /// <summary>Whether a row is open and waiting on nothing — the rows
-    /// <see cref="NotWaitingOnly"/> keeps. Read by the chip for its count, and
-    /// answered from <see cref="TaskChain"/> over every row the store holds
-    /// rather than worked out here again, so the chip, the filter and the
-    /// "Waiting for" line on the row are one derivation. Rebuilt on every
-    /// <see cref="ApplyFilter"/>, which every change to the rows passes through.</summary>
+    /// <summary>Whether a row is the ready plan work <see cref="ReadyInPlanOnly"/>
+    /// keeps. Read by the chip for its count, so the chip and the filter are one
+    /// question. Off the preview, the reader the status filter uses.</summary>
+    public bool IsReadyInPlan(EntryRow row) =>
+        row.PreviewStatus is EntryStatus.Ready && !IsFinished(row) && HasPlan(row);
+
+    /// <summary>Whether a row is open and waiting on nothing. Answered from
+    /// <see cref="TaskChain"/> over every row the store holds rather than worked
+    /// out here again, so the open-work report and the "Waiting for" line on the
+    /// row are one derivation. Rebuilt on every <see cref="ApplyFilter"/>, which
+    /// every change to the rows passes through.</summary>
     public bool IsNotWaiting(EntryRow row) => _readyTaskIds.Contains(row.TaskId);
 
     private HashSet<string> _readyTaskIds = new(StringComparer.Ordinal);
@@ -920,11 +954,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ApplyFilter();
     }
 
-    /// <summary>Turns the "not waiting" scope on or off. See
-    /// <see cref="NotWaitingOnly"/> for what it keeps and why done is out.</summary>
-    public void SetNotWaitingFilter(bool only)
+    /// <summary>Turns the "ready in a plan" scope on or off. See
+    /// <see cref="ReadyInPlanOnly"/> for what it keeps.</summary>
+    public void SetReadyInPlanFilter(bool only)
     {
-        NotWaitingOnly = only;
+        ReadyInPlanOnly = only;
         ApplyFilter();
     }
 
@@ -1014,11 +1048,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         // The scope most likely to be the one in the way here: a "waiting for"
-        // name is followed off a blocked row, and the step it names may well be
-        // waiting on something itself.
-        if (NotWaitingOnly && !IsNotWaiting(row))
+        // name is followed off a ready row, and the step it names is often a
+        // draft, or in no plan.
+        if (ReadyInPlanOnly && !IsReadyInPlan(row))
         {
-            NotWaitingOnly = false;
+            ReadyInPlanOnly = false;
             widened = true;
         }
 
@@ -1330,6 +1364,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         CancelDebounce(row);
 
+        // Taken before the row leaves, because undoing the delete puts this text
+        // back in this place.
+        var index = Rows.IndexOf(row);
+        var text = row.RawText;
+
         if (ReferenceEquals(EditingRow, row))
         {
             EditingRow = null;
@@ -1348,7 +1387,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             {
                 await _entryUseCases.DeleteAsync(id);
                 _entries.Remove(id);
+                _persistedOrder.Remove(id);
                 SetSaveState(AppSaveState.Saved);
+
+                if (!_replaying)
+                {
+                    _history.Record(new TaskDeletedUndoStep($"deleting “{row.PreviewTitle}”", id, text, index));
+                }
             }
             catch (Exception exception)
             {
@@ -1359,6 +1404,314 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         Rows.Remove(row);
         return Result.Success();
+    }
+
+    // --- Undo and redo ---------------------------------------------------
+    //
+    // `.devbook/design/interaction-guidelines.md#undo-and-history`: there is no
+    // save gate, so every change lands the moment it is made and Ctrl+Z is how a
+    // reader takes one back. The history records what the store saw — the text
+    // before and after a save, an entry made or deleted, an order replaced — at
+    // the three places every write on this pane already passes through:
+    // ApplySegmentAsync, DeleteOneAsync and NormalizeOrderAsync. Inside a text
+    // field the browser's own undo stays in charge of the keystrokes; this is
+    // what the reader reaches from everywhere else.
+
+    /// <summary>Whether Ctrl+Z has anything to take back.</summary>
+    public bool CanUndo => _history.CanUndo;
+
+    /// <summary>Whether Ctrl+Shift+Z has anything to put back.</summary>
+    public bool CanRedo => _history.CanRedo;
+
+    /// <summary>
+    /// Takes back the last change and says so in a toast.
+    /// <para>
+    /// A save still waiting on its debounce is written first, so the typing it
+    /// carries is part of the history rather than landing after the undo and
+    /// putting the text straight back.
+    /// </para>
+    /// <para>
+    /// A text change is undone as a merge rather than a rewrite: the change is
+    /// taken out of what the store holds now, so a write somebody else made since
+    /// stays (<see cref="EntryTextMerge"/>).
+    /// </para>
+    /// </summary>
+    /// <returns>Whether there was something to undo.</returns>
+    public async Task<bool> UndoAsync()
+    {
+        await FlushPendingSavesAsync();
+
+        if (_history.TakeUndo() is not { } step)
+        {
+            _toasts?.Publish(ToastMessage.Info("Nothing to undo", UndoTestId));
+            return false;
+        }
+
+        _replaying = true;
+        try
+        {
+            _history.Undone(await RevertAsync(step));
+        }
+        finally
+        {
+            _replaying = false;
+        }
+
+        _toasts?.Publish(ToastMessage.Info($"Undid {step.Label}", UndoTestId));
+        ApplyFilter();
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>Puts back the last change <see cref="UndoAsync"/> took back. Any
+    /// new change in between empties what there is to redo.</summary>
+    /// <returns>Whether there was something to redo.</returns>
+    public async Task<bool> RedoAsync()
+    {
+        await FlushPendingSavesAsync();
+
+        if (_history.TakeRedo() is not { } step)
+        {
+            _toasts?.Publish(ToastMessage.Info("Nothing to redo", UndoTestId));
+            return false;
+        }
+
+        _replaying = true;
+        try
+        {
+            _history.Redone(await ReapplyAsync(step));
+        }
+        finally
+        {
+            _replaying = false;
+        }
+
+        _toasts?.Publish(ToastMessage.Info($"Redid {step.Label}", UndoTestId));
+        ApplyFilter();
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>
+    /// Puts one successful save on the history.
+    /// <para>
+    /// A debounced save is <paramref name="open"/>: the reader is still typing,
+    /// and the next save of the same entry joins this step. The flush that ends
+    /// the editor closes it, so one typing session is one Ctrl+Z.
+    /// </para>
+    /// </summary>
+    private void RecordSave(TaskItemDto entry, bool created, string? before, bool open)
+    {
+        if (_replaying) return;
+
+        var after = EntryTextParser.ToRawText(entry);
+        var label = $"editing “{entry.Title}”";
+
+        if (created)
+        {
+            _history.Record(new TaskCreatedUndoStep($"adding “{entry.Title}”", entry.Id, after, open));
+            return;
+        }
+
+        if (before is not null) _history.RecordText(label, entry.Id, before, after, open);
+    }
+
+    /// <summary>Where a just-created entry stands among the entries the store
+    /// already ranks: it is saved with its list position as its rank.</summary>
+    private int PersistedRowsBefore(EntryRow row) =>
+        Math.Min(
+            Rows.TakeWhile(other => !ReferenceEquals(other, row)).Count(other => other.Id is not null),
+            _persistedOrder.Count);
+
+    /// <summary>
+    /// Records <paramref name="ids"/> as the order now stored, and the order it
+    /// replaced as an undo step when the same entries simply moved. An order that
+    /// changed because an entry arrived or left is that arrival's or departure's
+    /// own step, not a reorder.
+    /// </summary>
+    private void RecordOrder(List<Guid> ids)
+    {
+        var before = _persistedOrder;
+        _persistedOrder = ids;
+
+        if (_replaying || before.SequenceEqual(ids) || !before.ToHashSet().SetEquals(ids)) return;
+
+        _history.Record(new TaskOrderUndoStep("reordering", before, ids));
+    }
+
+    private async Task FlushPendingSavesAsync()
+    {
+        List<Guid> pending;
+        lock (_debounceTimers)
+        {
+            pending = [.. _debounceTimers.Keys];
+        }
+
+        foreach (var row in Rows.Where(row => pending.Contains(row.Key)).ToList())
+        {
+            CancelDebounce(row);
+            await SaveRowAsync(row, isFlush: false);
+        }
+    }
+
+    /// <summary>Applies the opposite of <paramref name="step"/> and returns the
+    /// step to keep for redo — the same one, or one that knows what the undo
+    /// found (the text an entry had when its creation was taken back).</summary>
+    private async Task<TaskUndoStep> RevertAsync(TaskUndoStep step)
+    {
+        switch (step)
+        {
+            case TaskTextUndoStep text:
+                await RewriteTowardsAsync(text.Id, from: text.After, to: text.Before);
+                return step;
+
+            case TaskCreatedUndoStep created:
+                return await RemoveRecordedAsync(created.Id) is { } gone
+                    ? created with { Text = gone.Text, Index = gone.Index }
+                    : step;
+
+            case TaskDeletedUndoStep deleted:
+                await RecreateAsync(deleted.Id, deleted.Text, deleted.Index);
+                return step;
+
+            case TaskOrderUndoStep order:
+                await PutInOrderAsync(order.Before);
+                return step;
+
+            case TaskGroupUndoStep group:
+                var reverted = new List<TaskUndoStep>(group.Steps.Count);
+                for (var i = group.Steps.Count - 1; i >= 0; i--)
+                {
+                    reverted.Insert(0, await RevertAsync(group.Steps[i]));
+                }
+
+                return group with { Steps = reverted };
+
+            default:
+                return step;
+        }
+    }
+
+    /// <summary>Applies <paramref name="step"/> again and returns the step to
+    /// keep for the next undo.</summary>
+    private async Task<TaskUndoStep> ReapplyAsync(TaskUndoStep step)
+    {
+        switch (step)
+        {
+            case TaskTextUndoStep text:
+                await RewriteTowardsAsync(text.Id, from: text.Before, to: text.After);
+                return step;
+
+            case TaskCreatedUndoStep created:
+                await RecreateAsync(created.Id, created.Text, created.Index);
+                return step;
+
+            case TaskDeletedUndoStep deleted:
+                return await RemoveRecordedAsync(deleted.Id) is { } gone
+                    ? deleted with { Text = gone.Text, Index = gone.Index }
+                    : step;
+
+            case TaskOrderUndoStep order:
+                await PutInOrderAsync(order.After);
+                return step;
+
+            case TaskGroupUndoStep group:
+                var reapplied = new List<TaskUndoStep>(group.Steps.Count);
+                foreach (var inner in group.Steps)
+                {
+                    reapplied.Add(await ReapplyAsync(inner));
+                }
+
+                return group with { Steps = reapplied };
+
+            default:
+                return step;
+        }
+    }
+
+    private EntryRow? RowFor(Guid recordedId)
+    {
+        var id = _history.Resolve(recordedId);
+        return Rows.FirstOrDefault(row => row.Id == id);
+    }
+
+    /// <summary>
+    /// Takes the change from <paramref name="from"/> to <paramref name="to"/>
+    /// out of — or puts it into — the entry as it stands. A three-way merge with
+    /// <paramref name="from"/> as the base, so an outside write since the change
+    /// is kept and only this change moves.
+    /// </summary>
+    private async Task RewriteTowardsAsync(Guid recordedId, string from, string to)
+    {
+        if (RowFor(recordedId) is not { } row || row.Id is not { } id) return;
+
+        var current = _entries.TryGetValue(id, out var stored) ? EntryTextParser.ToRawText(stored) : row.RawText;
+        var target = string.Equals(current, from, StringComparison.Ordinal)
+            ? to
+            : EntryTextMerge.Merge(from, to, current).Text;
+
+        row.RawText = target;
+        await ApplySegmentAsync(row, target, rewriteText: true);
+    }
+
+    /// <summary>Deletes the entry a step recorded and answers with the text and
+    /// place it had, or null when it is no longer in the list.</summary>
+    private async Task<(string Text, int Index)?> RemoveRecordedAsync(Guid recordedId)
+    {
+        if (RowFor(recordedId) is not { } row) return null;
+
+        var text = row.RawText;
+        var index = Rows.IndexOf(row);
+
+        if ((await DeleteOneAsync(row)).IsFailure) return null;
+
+        await NormalizeOrderAsync();
+        return (text, index);
+    }
+
+    /// <summary>Saves <paramref name="text"/> as a new entry at
+    /// <paramref name="index"/>. The store hands out a new id, which the history
+    /// learns as the recorded one's successor.</summary>
+    private async Task RecreateAsync(Guid recordedId, string text, int index)
+    {
+        var row = new EntryRow { RawText = text };
+        Rows.Insert(index < 0 ? Rows.Count : Math.Min(index, Rows.Count), row);
+
+        await ApplySegmentAsync(row, text, rewriteText: true);
+
+        if (row.Id is { } id)
+        {
+            _history.Alias(recordedId, id);
+        }
+        else
+        {
+            Rows.Remove(row);
+        }
+
+        await NormalizeOrderAsync();
+    }
+
+    /// <summary>Puts the recorded entries back in <paramref name="recordedIds"/>'
+    /// order, among the slots they hold now, so an entry added since keeps its
+    /// place.</summary>
+    private async Task PutInOrderAsync(IReadOnlyList<Guid> recordedIds)
+    {
+        var rank = new Dictionary<Guid, int>();
+        foreach (var recorded in recordedIds)
+        {
+            rank.TryAdd(_history.Resolve(recorded), rank.Count);
+        }
+
+        var moving = Rows.Where(row => row.Id is { } id && rank.ContainsKey(id)).ToList();
+        var slots = moving.Select(row => Rows.IndexOf(row)).Order().ToList();
+        var ordered = moving.OrderBy(row => rank[row.Id!.Value]).ToList();
+
+        for (var i = 0; i < slots.Count; i++)
+        {
+            Rows[slots[i]] = ordered[i];
+        }
+
+        await NormalizeOrderAsync();
     }
 
     // --- Reordering ------------------------------------------------------
@@ -2160,6 +2513,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         if (rows.Count == 0) return BulkEditOutcome.Nothing;
 
+        // One gesture, one undo: Ctrl+Z puts every row of the batch back.
+        using var undoStep = _history.Group($"deleting {rows.Count} tasks");
+
         var deleted = 0;
         var skipped = 0;
         var failures = new List<BulkEditFailure>();
@@ -2213,6 +2569,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var rows = SelectedRows;
 
         if (rows.Count == 0) return BulkEditOutcome.Nothing;
+
+        using var undoStep = _history.Group($"editing {rows.Count} tasks");
 
         var updated = 0;
         var unchanged = 0;
@@ -2448,6 +2806,445 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             .FirstOrDefault(repository => repository is not null);
     }
 
+    // --- Devbook references ------------------------------------------------
+    //
+    // An entry's references are its own field, written as a whole list through the
+    // module's use case and never through the text. What each one points at is
+    // asked of the Devbook port, and only for the entry that is open: the list row
+    // needs a count, which is the stored list's length and costs no read.
+
+    /// <summary>The one answer held for the open entry, keyed by what it was
+    /// asked about, so a render that asks again is a lookup.</summary>
+    private DevbookResolution? _devbookResolution;
+
+    /// <summary>The question in flight, so the renders while it is answered do not
+    /// ask it again.</summary>
+    private string? _devbookResolving;
+
+    /// <summary>What each repository's devbook offers a picker, by alias; the empty
+    /// string for no repository. Guarded by itself: an empty answer's retry is
+    /// armed from a timer, off the render thread that reads it.</summary>
+    private readonly Dictionary<string, DevbookTargetList> _devbookTargets = new(StringComparer.Ordinal);
+
+    private readonly HashSet<string> _devbookTargetsLoading = new(StringComparer.Ordinal);
+
+    /// <summary>Moved on by <see cref="ForgetDevbookTargets"/>, so an answer or a
+    /// retry that set out before the picker was reopened lands nowhere.</summary>
+    private int _devbookTargetsGeneration;
+
+    /// <summary>How long an empty answer stands before it is asked again, and how
+    /// many times. A devbook whose database is still being built answers empty and
+    /// then, a few seconds later, in full; one with no devbook at all answers empty
+    /// every time, and stops being asked after this many.</summary>
+    private static readonly TimeSpan DevbookTargetsRetryDelay = TimeSpan.FromSeconds(2);
+
+    private const int DevbookTargetsMaxRetries = 15;
+
+    private sealed record DevbookResolution(string Key, IReadOnlyList<ResolvedDevbookReference> References);
+
+    /// <summary>One repository's answer, how many empty answers in a row it is, and
+    /// whether the wait before asking again is over.</summary>
+    private sealed record DevbookTargetList(IReadOnlyList<DevbookReferenceTarget> Targets, int EmptyAnswers, bool RetryDue);
+
+    /// <summary>
+    /// The repository whose devbook an entry's references are read against: the
+    /// first <c>repo:</c> it names that resolves, else the repository the list is
+    /// anchored to, else none. The entry's own repository first, because a
+    /// reference is a path inside one repository and the entry says which; the
+    /// anchor only stands in for an entry filed nowhere, where it is the devbook
+    /// the reader is working beside.
+    /// </summary>
+    public string? DevbookRepositoryAliasFor(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (RepositoryFor(row) is { } repository) return repository.Alias;
+
+        return AnchorRepositoryAlias.Length > 0 ? AnchorRepositoryAlias : null;
+    }
+
+    /// <summary>
+    /// What each of the entry's references points at now, in the stored order.
+    /// <para>
+    /// Asked of the Devbook the first time a render wants it for this entry's
+    /// repository and list, and held until either moves — which is how a new
+    /// selection, a reference added or removed, a reload that brought a write from
+    /// elsewhere, and a <c>repo:</c> change all re-read without each of them having
+    /// to remember to. Until the answer lands the references are drawn as
+    /// unverified, under their own text, so the chips appear at once and fill in.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<ResolvedDevbookReference> DevbookReferencesFor(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        var references = row.DevbookReferences;
+        if (references.Count == 0) return [];
+
+        var alias = DevbookRepositoryAliasFor(row);
+        var key = $"{alias}\n{string.Join('\n', references)}";
+
+        if (_devbookResolution is { } held && string.Equals(held.Key, key, StringComparison.Ordinal)) return held.References;
+
+        if (!string.Equals(_devbookResolving, key, StringComparison.Ordinal))
+        {
+            _devbookResolving = key;
+            _ = ResolveDevbookReferencesAsync(key, alias, references);
+        }
+
+        return [.. references.Select(UnavailableDevbookReferenceResolver.Unverified)];
+    }
+
+    private async Task ResolveDevbookReferencesAsync(string key, string? alias, IReadOnlyList<string> references)
+    {
+        IReadOnlyList<ResolvedDevbookReference> resolved;
+        try
+        {
+            resolved = await _devbookReferences.ResolveAsync(alias, references, _untilDisposed);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception)
+        {
+            // The port promises an answer per reference rather than an exception,
+            // so this is a devbook that could not be read at all. The chips still
+            // draw — as unverified, which is the truth: nobody could look.
+            resolved = [.. references.Select(UnavailableDevbookReferenceResolver.Unverified)];
+        }
+
+        if (_disposed || !string.Equals(_devbookResolving, key, StringComparison.Ordinal)) return;
+
+        _devbookResolution = new DevbookResolution(key, resolved);
+        _devbookResolving = null;
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Every page and chapter the entry's repository offers a picker, in reading
+    /// order. Read once per repository and held, because a devbook changes far less
+    /// often than a picker redraws; <see cref="ForgetDevbookTargets"/> is how the
+    /// picker asks again each time it is opened. Empty while the read is in flight
+    /// and for a repository with no devbook to list — a typed reference is still
+    /// accepted.
+    /// <para>
+    /// An empty answer is not held as the last word. A new task's picker used to
+    /// offer nothing but <c>Add "…"</c>: the repository's devbook database was still
+    /// being built when the picker first asked, the empty answer was kept for the
+    /// repository, and nothing asked again while the picker stayed open. So an
+    /// empty answer for a repository arms a retry, and when its wait is over
+    /// <see cref="Changed"/> is raised so the open picker asks again — up to
+    /// <see cref="DevbookTargetsMaxRetries"/> times, which bounds what a repository
+    /// with no devbook costs. A closed picker does not ask, so it stops the retries
+    /// by itself. The answer lands through <see cref="Changed"/> too, which is what
+    /// redraws an open picker with what arrived.
+    /// </para>
+    /// <para>
+    /// The alias is read on every call rather than once per picker, so a
+    /// repository set on the entry while the picker is open is the one asked next.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<DevbookReferenceTarget> DevbookTargetsFor(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        var alias = DevbookRepositoryAliasFor(row) ?? string.Empty;
+        int generation;
+
+        lock (_devbookTargets)
+        {
+            if (_devbookTargets.TryGetValue(alias, out var held) && !held.RetryDue) return held.Targets;
+            if (!_devbookTargetsLoading.Add(alias)) return held?.Targets ?? [];
+            generation = _devbookTargetsGeneration;
+        }
+
+        _ = LoadDevbookTargetsAsync(alias, generation);
+
+        // A port that answers without waiting has answered by now, and this render
+        // can draw it rather than leave it to the next one.
+        lock (_devbookTargets)
+        {
+            return _devbookTargets.TryGetValue(alias, out var answered) ? answered.Targets : [];
+        }
+    }
+
+    /// <summary>Drops what the pickers were offered, so the next one opened reads
+    /// the devbook as it is now.</summary>
+    public void ForgetDevbookTargets()
+    {
+        lock (_devbookTargets)
+        {
+            _devbookTargetsGeneration++;
+            _devbookTargets.Clear();
+            _devbookTargetsLoading.Clear();
+        }
+    }
+
+    private async Task LoadDevbookTargetsAsync(string alias, int generation)
+    {
+        IReadOnlyList<DevbookReferenceTarget> targets;
+        try
+        {
+            targets = await _devbookReferences.ListTargetsAsync(alias.Length == 0 ? null : alias, _untilDisposed);
+        }
+        catch (OperationCanceledException)
+        {
+            lock (_devbookTargets)
+            {
+                if (generation == _devbookTargetsGeneration) _devbookTargetsLoading.Remove(alias);
+            }
+
+            return;
+        }
+        catch (Exception)
+        {
+            // Nothing to offer is still a working picker: a path typed into it is
+            // accepted, and the write is where a bad one is refused. Held as empty,
+            // so it is asked again like any other empty answer.
+            targets = [];
+        }
+
+        bool changed;
+        bool retry;
+
+        lock (_devbookTargets)
+        {
+            if (_disposed || generation != _devbookTargetsGeneration) return;
+
+            _devbookTargetsLoading.Remove(alias);
+
+            _devbookTargets.TryGetValue(alias, out var previous);
+            var emptyAnswers = targets.Count == 0 ? (previous?.EmptyAnswers ?? 0) + 1 : 0;
+            _devbookTargets[alias] = new DevbookTargetList(targets, emptyAnswers, RetryDue: false);
+
+            changed = previous is null || !previous.Targets.SequenceEqual(targets);
+
+            // No repository has no devbook to wait for: the port answers empty for
+            // one by definition, and asking again would only ever hear that.
+            retry = targets.Count == 0 && alias.Length > 0 && emptyAnswers <= DevbookTargetsMaxRetries;
+        }
+
+        if (changed) Changed?.Invoke();
+        if (retry) _ = RetryDevbookTargetsAsync(alias, generation);
+    }
+
+    /// <summary>Waits out <see cref="DevbookTargetsRetryDelay"/>, then marks the
+    /// repository's empty answer as due and says so. The read itself is left to the
+    /// next render that wants the list, so a picker closed in the meantime asks
+    /// nothing.</summary>
+    private async Task RetryDevbookTargetsAsync(string alias, int generation)
+    {
+        try
+        {
+            await Task.Delay(DevbookTargetsRetryDelay, _timeProvider, _untilDisposed);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        lock (_devbookTargets)
+        {
+            if (_disposed || generation != _devbookTargetsGeneration) return;
+            if (!_devbookTargets.TryGetValue(alias, out var held) || held.Targets.Count > 0) return;
+
+            _devbookTargets[alias] = held with { RetryDue = true };
+        }
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>Points the entry at one more page or chapter, after the ones it
+    /// already names. A reference it already holds changes nothing.</summary>
+    public Task AddDevbookReferenceAsync(EntryRow row, string reference)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentNullException.ThrowIfNull(reference);
+
+        var normalized = NormalizeDevbookReference(row, reference);
+
+        return WriteDevbookReferencesAsync(
+            row,
+            current => current.Contains(normalized, StringComparer.Ordinal) ? null : [.. current, normalized]);
+    }
+
+    /// <summary>Drops one reference and keeps the rest in their order.</summary>
+    public Task RemoveDevbookReferenceAsync(EntryRow row, string reference)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return WriteDevbookReferencesAsync(
+            row,
+            current => current.Contains(reference, StringComparer.Ordinal)
+                ? [.. current.Where(existing => !string.Equals(existing, reference, StringComparison.Ordinal))]
+                : null);
+    }
+
+    /// <summary>
+    /// Replaces the entry's references with <paramref name="references"/>, through
+    /// the module, and shows what it kept.
+    /// <para>
+    /// Saved at once rather than debounced: picking a chapter or dropping one is a
+    /// decision, not typing. A refusal — a value that names no page — is said twice,
+    /// the way a GitHub failure is: on the entry, where it stays until the next write
+    /// lands, and on a toast for a reader who has looked away. The band reads Error
+    /// rather than Saved, because nothing was written and the chips still show the
+    /// list as it was. A refused write behind a band still saying Saved is the gap
+    /// this list has had before, and this field does not reopen it.
+    /// </para>
+    /// <para>
+    /// A row the store has not seen yet has nowhere to keep them, so this does
+    /// nothing for one; the pane does not offer the field until the entry has been
+    /// saved once.
+    /// </para>
+    /// </summary>
+    public Task SetDevbookReferencesAsync(EntryRow row, IEnumerable<string> references)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentNullException.ThrowIfNull(references);
+
+        IReadOnlyList<string> whole = [.. references.Select(reference => NormalizeDevbookReference(row, reference))];
+        return WriteDevbookReferencesAsync(row, _ => whole);
+    }
+
+    /// <summary>One reference write at a time. See
+    /// <see cref="WriteDevbookReferencesAsync"/>.</summary>
+    private readonly SemaphoreSlim _devbookWrites = new(1, 1);
+
+    /// <summary>
+    /// Writes the list <paramref name="change"/> makes of the entry's references as
+    /// they stand once every earlier write has landed, or nothing when it answers
+    /// null.
+    /// <para>
+    /// One at a time, and each computed from the list the last one stored. A write
+    /// used to be the row's list plus the pick, and the row learned of a write only
+    /// once it had landed — so a second pick made while the first was saving, or a
+    /// chip removed meanwhile, was computed from the list without the first, and its
+    /// save put that list back. The list is read from the entry the state last
+    /// heard from the store, not from <paramref name="row"/>, because a reload
+    /// between the two builds a new row for the same entry.
+    /// </para>
+    /// </summary>
+    private async Task WriteDevbookReferencesAsync(EntryRow row, Func<IReadOnlyList<string>, IReadOnlyList<string>?> change)
+    {
+        if (row.IsReadOnly || row.Id is not { } id) return;
+
+        try
+        {
+            await _devbookWrites.WaitAsync(_untilDisposed);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        try
+        {
+            var current = _entries.TryGetValue(id, out var known) ? known.DevbookReferences : row.DevbookReferences;
+            if (change(current) is not { } next) return;
+
+            await SaveDevbookReferencesAsync(row, id, next);
+        }
+        finally
+        {
+            _devbookWrites.Release();
+        }
+    }
+
+    private async Task SaveDevbookReferencesAsync(EntryRow row, Guid id, IReadOnlyList<string> references)
+    {
+        SetSaveState(AppSaveState.Saving);
+
+        Result<TaskItemDto> saved;
+        try
+        {
+            saved = await _entryUseCases.SetDevbookReferencesAsync(id, references, _untilDisposed);
+        }
+        catch (OperationCanceledException) when (_untilDisposed.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception)
+        {
+            RefuseDevbookReferences(row, "Couldn't save the Devbook references.");
+            return;
+        }
+
+        if (saved.IsFailure)
+        {
+            RefuseDevbookReferences(row, saved.Error.Message);
+            return;
+        }
+
+        var entry = saved.Value;
+        _entries[entry.Id] = entry;
+
+        // The row the write was made on, and the one a reload since may have put
+        // in its place.
+        foreach (var shown in Rows.Where(candidate => candidate.Id == id).Append(row).Distinct())
+        {
+            shown.DevbookReferences = entry.DevbookReferences;
+            shown.DevbookReferenceError = null;
+        }
+
+        SetSaveState(AppSaveState.Saved);
+        FlashSaved(row);
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// A reference typed without its devbook root, in the form this repository's
+    /// own pages are listed in; anything else exactly as typed.
+    /// <para>
+    /// The module stores a path whose first folder is a devbook area under
+    /// <c>.devbook/</c> for every writer (see <c>TaskDevbookReference</c>), which is
+    /// the current layout. It cannot see which layout a repository is on; this can,
+    /// through the pages the picker was offered, so a repository still on the
+    /// legacy layout — <c>.domain/</c> at its root — gets its own form instead.
+    /// With nothing listed the value is handed on as typed, and the module's rule
+    /// decides.
+    /// </para>
+    /// </summary>
+    public string NormalizeDevbookReference(EntryRow row, string reference)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentNullException.ThrowIfNull(reference);
+
+        if (reference.Length == 0 || reference[0] is '.' or '/') return reference;
+
+        var hash = reference.IndexOf('#');
+        var path = hash < 0 ? reference : reference[..hash];
+        var anchor = hash < 0 ? string.Empty : reference[hash..];
+
+        var page = CachedDevbookTargets(DevbookRepositoryAliasFor(row) ?? string.Empty)
+            .FirstOrDefault(target => target.Level == 0
+                && (string.Equals(target.Reference, DevbookRoot + path, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(target.Reference, "." + path, StringComparison.OrdinalIgnoreCase)));
+
+        return page is null ? reference : page.Reference + anchor;
+    }
+
+    private const string DevbookRoot = ".devbook/";
+
+    /// <summary>What the picker was last offered for a repository, without asking
+    /// the devbook again.</summary>
+    private IReadOnlyList<DevbookReferenceTarget> CachedDevbookTargets(string alias)
+    {
+        lock (_devbookTargets)
+        {
+            return _devbookTargets.TryGetValue(alias, out var held) ? held.Targets : [];
+        }
+    }
+
+    private void RefuseDevbookReferences(EntryRow row, string message)
+    {
+        row.DevbookReferenceError = message;
+        SetSaveState(AppSaveState.Error);
+        AnnounceRowFailure(row, message, DevbookRefusedTestId);
+        Changed?.Invoke();
+    }
+
     /// <summary>True when the rows currently on screen include anything linked
     /// to GitHub — an issue, or a pull request its work recorded — which is what
     /// makes a whole-list sync worth offering.</summary>
@@ -2601,21 +3398,174 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // that landed in the meantime — undoing the act's own, newer re-read.
         foreach (var pr in row.PullRequestLinks.ToList())
         {
-            if (await TryReadPullRequestStatusAsync(pr) is { } status)
+            if (await TryReadPullRequestAsync(pr) is { } read)
             {
-                RecordPullRequestRead(row, pr, status.State, status);
-            }
-            else if (await TryReadPullRequestStateAsync(pr) is { } state)
-            {
-                // The state alone, so the merged colour survives a server that
-                // cannot answer the status query. The status is dropped rather
-                // than kept from an earlier read: a stale one would draw checks
-                // and offer a merge the state beside it may no longer allow.
-                RecordPullRequestRead(row, pr, state, status: null);
+                RecordPullRequestRead(row, pr, read.State, read.Status);
             }
         }
 
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Reads, in the background, the pull requests of Done entries that have never
+    /// been read, so a merged one shows merged without the reader pressing the sync
+    /// button. The shell asks after the list loads and after every reload; the list
+    /// is already on screen by then and nothing about it waits on this.
+    /// <para>
+    /// Only what was never read. A state already on the row is the sync button's to
+    /// refresh: asking again here would put a round trip behind every write somebody
+    /// else makes, and the reload that writes set off carries the last read across
+    /// anyway (<see cref="CarryGitHubRead"/>). Only Done entries, because that is
+    /// where a recorded pull request is the work waiting to land.
+    /// </para>
+    /// <para>
+    /// Quiet throughout — no toast, no line on the row. Nobody asked for this read,
+    /// so nobody is owed word of its failure; a pull request that cannot be read
+    /// simply stays unread for the sync button to try. And it is tried once, not on
+    /// every reload: an agent's every write reloads the list, and a pull request
+    /// GitHub will not answer for would otherwise spend two requests of the rate
+    /// limit each time. <see cref="SyncGitHubAsync"/> forgets those failures, so the
+    /// button is the retry.
+    /// </para>
+    /// <para>
+    /// One check at a time. A request that arrives while one runs is owed a single
+    /// further pass after it, which is what picks up a pull request recorded in the
+    /// meantime; the returned task is the one that will cover the request. Ends at
+    /// <see cref="Dispose"/>, between reads: the GitHub reads take no token, so one
+    /// already in flight finishes and its answer is dropped.
+    /// </para>
+    /// </summary>
+    public Task CheckUnreadPullRequestsAsync()
+    {
+        if (_disposed || !GitHubConfigured) return Task.CompletedTask;
+
+        _pullRequestCheckOwed = true;
+        if (_pullRequestCheckRunning) return _pullRequestCheck;
+
+        // The running flag and the task are both in place before the first read
+        // starts. A read that answers synchronously raises Changed from inside the
+        // run, and a re-render that asks again from there must be handed this run,
+        // not the one before it.
+        _pullRequestCheckRunning = true;
+        var completion = new TaskCompletionSource();
+        _pullRequestCheck = completion.Task;
+        _ = RunPullRequestChecksAsync(completion);
+        return completion.Task;
+    }
+
+    private async Task RunPullRequestChecksAsync(TaskCompletionSource completion)
+    {
+        Exception? failure = null;
+
+        try
+        {
+            while (_pullRequestCheckOwed && !_untilDisposed.IsCancellationRequested)
+            {
+                _pullRequestCheckOwed = false;
+                await ReadUnreadPullRequestsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handed on to whoever awaits the check rather than kept: every read
+            // already has its own catch, so what lands here came from somewhere else.
+            failure = ex;
+        }
+        finally
+        {
+            _pullRequestCheckRunning = false;
+        }
+
+        // After the flag is down, so a continuation that asks again starts a run.
+        if (failure is null) completion.SetResult();
+        else completion.SetException(failure);
+    }
+
+    /// <summary>
+    /// One pass of <see cref="CheckUnreadPullRequestsAsync"/>.
+    /// <para>
+    /// By id rather than by row, and the row looked up again after every read. A
+    /// reload replaces every row while a read is in flight — the writes that set
+    /// one off are an agent recording exactly this kind of work — and a read written
+    /// onto the row it started from would land on a row nobody can see any more.
+    /// </para>
+    /// </summary>
+    private async Task ReadUnreadPullRequestsAsync()
+    {
+        var ids = Rows
+            .Where(row => row.Id is not null && row.Status is EntryStatus.Done && UnreadPullRequests(row).Any())
+            .Select(row => row.Id!.Value)
+            .Distinct()
+            .ToList();
+
+        foreach (var id in ids)
+        {
+            if (RowById(id) is not { } row) continue;
+
+            foreach (var pr in UnreadPullRequests(row).Where(pr => !_unreadablePullRequests.Contains(pr)).ToList())
+            {
+                PullRequestRead? read;
+
+                try
+                {
+                    read = await TryReadPullRequestAsync(pr);
+                }
+                catch (Exception) when (!_untilDisposed.IsCancellationRequested)
+                {
+                    // Anything the reads do not already expect — a client defect, a
+                    // timeout surfacing as a cancellation — is that pull request's
+                    // failure alone, so the rest are still read. The state has no
+                    // logger, and nobody asked for this read; it is retried from the
+                    // sync button like any other failure.
+                    read = null;
+                }
+
+                if (_untilDisposed.IsCancellationRequested) return;
+
+                if (read is null)
+                {
+                    _unreadablePullRequests.Add(pr);
+                    continue;
+                }
+
+                // Somebody else's read may have landed while this one was out — the
+                // sync button's, or a merge act's — and it is no older than this.
+                if (RowById(id) is not { } current) break;
+                if (!current.PullRequestLinks.Contains(pr) || current.PullRequestStates.ContainsKey(pr)) continue;
+
+                RecordPullRequestRead(current, pr, read.Value.State, read.Value.Status);
+                Changed?.Invoke();
+            }
+        }
+    }
+
+    private EntryRow? RowById(Guid id) => Rows.FirstOrDefault(row => row.Id == id);
+
+    /// <summary>The pull requests the background check could not read, which it
+    /// does not ask about again until <see cref="SyncGitHubAsync"/> forgets them.
+    /// Only touched on the renderer's dispatcher, as the rows are.</summary>
+    private readonly HashSet<EntryPullRequestLink> _unreadablePullRequests = [];
+
+    private static IEnumerable<EntryPullRequestLink> UnreadPullRequests(EntryRow row) =>
+        row.PullRequestLinks.Where(pr => !row.PullRequestStates.ContainsKey(pr));
+
+    /// <summary>What one read of a pull request found: its state, and its status
+    /// when the status query answered.</summary>
+    private readonly record struct PullRequestRead(GitHubItemState State, GitHubPullRequestStatus? Status);
+
+    /// <summary>One pull request read, or null when neither query could read it.</summary>
+    private async Task<PullRequestRead?> TryReadPullRequestAsync(EntryPullRequestLink pr)
+    {
+        if (await TryReadPullRequestStatusAsync(pr) is { } status) return new PullRequestRead(status.State, status);
+
+        // The state alone, so the merged colour survives a server that cannot
+        // answer the status query. The status is dropped rather than kept from an
+        // earlier read: a stale one would draw checks and offer a merge the state
+        // beside it may no longer allow.
+        if (await TryReadPullRequestStateAsync(pr) is { } state) return new PullRequestRead(state, Status: null);
+
+        return null;
     }
 
     /// <summary>
@@ -2814,12 +3764,19 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private void AnnounceRowFailure(EntryRow row, string message, string testId) =>
         _toasts?.Publish(ToastMessage.Error($"{row.PreviewTitle}: {message}", testId));
 
-    /// <summary>Refreshes every linked row. Explicit rather than automatic on
-    /// load: the backlog must open instantly and offline, so nothing about it
-    /// waits on the network until asked.</summary>
+    /// <summary>Refreshes every linked row, re-reading everything it has read
+    /// before. Explicit rather than automatic on load: the backlog must open
+    /// instantly and offline, so nothing about it waits on the network until asked.
+    /// The one read that happens unasked is
+    /// <see cref="CheckUnreadPullRequestsAsync"/>'s, which only fills in pull
+    /// requests never read, after the list is already on screen.</summary>
     public async Task SyncGitHubAsync()
     {
         if (GitHubSyncing) return;
+
+        // The explicit retry: what the background check gave up on is read below,
+        // and the check may ask about it again afterwards.
+        _unreadablePullRequests.Clear();
 
         GitHubSyncing = true;
         Changed?.Invoke();
@@ -2904,6 +3861,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         EditingRow = null;
         _editingSubItemCount = -1;
         _entries.Clear();
+
+        // Another folder's entries: nothing on the history is about them.
+        _history.Clear();
+        _persistedOrder = [];
 
         // A reload owed to the old folder is paid by the one below.
         _reloadDeferred = false;
@@ -3043,6 +4004,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var segments = EntryTextParser.SplitSegments(row.RawText);
         List<string> overflow = segments.Count > 1 ? [.. segments.Skip(1)] : [];
 
+        // A split is one gesture however many entries it makes, so one Ctrl+Z
+        // takes all of them back.
+        using var undoStep = isFlush && overflow.Count > 0 ? _history.Group($"splitting “{row.PreviewTitle}”") : null;
+
         if (isFlush && overflow.Count > 0)
         {
             row.RawText = segments[0];
@@ -3133,6 +4098,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         SetSaveState(AppSaveState.Saving);
 
+        // What the store held before this save, for the undo history: the entry
+        // as this list last read or wrote it, which a rebase has already moved on
+        // to an outside write when there was one.
+        var before = row.Id is { } knownId && _entries.TryGetValue(knownId, out var known)
+            ? EntryTextParser.ToRawText(known)
+            : null;
+        var created = row.Id is null;
+
         Result<SavedTaskDto> saved;
         try
         {
@@ -3193,6 +4166,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _entries[entry.Id] = entry;
         row.Id = entry.Id;
         RefreshRowFromEntry(row, entry, rewriteText);
+        if (created) _persistedOrder.Insert(PersistedRowsBefore(row), entry.Id);
+        RecordSave(entry, created, before, open: !rewriteText);
         SetSaveState(AppSaveState.Saved);
         FlashSaved(row);
 
@@ -3241,7 +4216,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         catch
         {
             SetSaveState(AppSaveState.Error);
+            return;
         }
+
+        RecordOrder(ids);
     }
 
     /// <summary>
@@ -3372,6 +4350,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         row.IssueLink = TasksIssues.FindLink(entry);
         row.PullRequestLinks = EntryLinks.PullRequests(entry);
         row.SessionLinks = EntryLinks.Sessions(entry);
+        row.DevbookReferences = entry.DevbookReferences;
         row.CreatedAt = entry.CreatedAt;
         row.ImportPlanId = entry.ImportPlanId;
 
@@ -3413,6 +4392,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         Rows = rows;
+        _persistedOrder = [.. rows.Select(row => row.Id!.Value)];
 
         ApplyFilter();
     }
@@ -3476,13 +4456,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             rows = rows.Where(x => RepositoryFor(x) is null);
         }
 
-        // And the "not waiting" scope, on the same terms again. Asked of the
-        // readiness derived over every row rather than over what is in view, for
-        // the reason the pane hands TaskListView the whole store as its universe:
-        // a wait on an entry the repository scope hid is still a wait.
-        if (NotWaitingOnly)
+        // And the "ready in a plan" scope, on the same terms again.
+        if (ReadyInPlanOnly)
         {
-            rows = rows.Where(IsNotWaiting);
+            rows = rows.Where(IsReadyInPlan);
         }
 
         // The tag bar is built from what every scope left in view, not the
@@ -3898,6 +4875,16 @@ public sealed class EntryRow
     /// <summary>The AI sessions that worked on this entry. Persisted as
     /// projections, like <see cref="IssueLink"/>.</summary>
     public IReadOnlyList<EntrySessionLink> SessionLinks { get; set; } = [];
+
+    /// <summary>The Devbook pages and chapters the entry points at, as stored —
+    /// <c>path</c> or <c>path#anchor</c>, in order. The entry's own field and never
+    /// a token in its text, so it is read off the entry like <see cref="CreatedAt"/>
+    /// and written only through <see cref="TasksDesktopState.SetDevbookReferencesAsync"/>.</summary>
+    public IReadOnlyList<string> DevbookReferences { get; set; } = [];
+
+    /// <summary>Why the last change to <see cref="DevbookReferences"/> was refused,
+    /// in words fit to read, or null. Cleared by the next one that lands.</summary>
+    public string? DevbookReferenceError { get; set; }
 
     /// <summary>Last known issue and pull-request state. Deliberately not
     /// persisted: it is a view of something GitHub owns, and a stale copy in the

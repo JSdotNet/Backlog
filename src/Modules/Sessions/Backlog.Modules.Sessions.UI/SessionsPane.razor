@@ -760,8 +760,12 @@
     /// nearest thing to a folder the run knows — a path would be a guess, and the
     /// key at least identifies the folder to anyone holding the profile.
     /// </summary>
-    private static string RunOnlyLine(SessionRow row) =>
-        $"No session record on this PC. Recorded by {row.Runs[0].Dashboard} under {row.Runs[0].Worktree}.";
+    private static string RunOnlyLine(SessionRow row) => row.Schedule is not null
+        // A schedule's row stands for many worktrees, each cut for one run and gone, so
+        // naming one would describe one run of the row's many. What it rests on is the
+        // schedule and how often it has run.
+        ? $"Scheduled, unattended. {(row.Runs.Count == 1 ? "1 run" : $"{row.Runs.Count} runs")} recorded on this PC."
+        : $"No session record on this PC. Recorded by {row.Runs[0].Dashboard} under {row.Runs[0].Worktree}.";
 
     protected override async Task OnInitializedAsync()
     {
@@ -1117,13 +1121,24 @@
                 ? $"The {_catalog.Sessions.Count} most recent of {_catalog.Discovered} sessions this PC has a record of, most recently active first."
                 : "The sessions this PC has a record of, most recently active first.";
 
-            var runs = _rows.Count(row => row.RunOnly);
+            var runs = _rows.Count(row => row.RunOnly && row.Schedule is null);
 
             if (runs > 0)
             {
                 reading += runs == 1
                     ? " And 1 delivery run no listed session drove, as a row of its own."
                     : $" And {runs} delivery runs no listed session drove, as rows of their own.";
+            }
+
+            // A schedule's runs are counted by schedule: the row is the schedule, and
+            // the runs are its history under it.
+            var schedules = _rows.Count(row => row.Schedule is not null);
+
+            if (schedules > 0)
+            {
+                reading += schedules == 1
+                    ? " And 1 schedule's unattended runs, as one row."
+                    : $" And {schedules} schedules' unattended runs, a row per schedule and repository.";
             }
 
             return Scoped

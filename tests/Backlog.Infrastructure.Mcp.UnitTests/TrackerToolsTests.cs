@@ -190,7 +190,7 @@ public class TrackerToolsTests
     public async Task An_unknown_repository_filter_is_refused_and_never_registered()
     {
         var directory = new FakeRepositoryDirectory([Backlog]);
-        var tools = new TrackerTools(new FakeTaskItems(Entries.Entry("The one")), directory);
+        var tools = new TrackerTools(new FakeTaskItems(Entries.Entry("The one")), directory, new FakeDevbookReferenceResolver());
 
         var failure = await Assert.ThrowsAsync<McpException>(() => tools.FindItemAsync(
             title: "The one",
@@ -207,7 +207,7 @@ public class TrackerToolsTests
     public async Task Finding_an_entry_writes_nothing()
     {
         var entries = new FakeTaskItems(Entries.Entry("The one"));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         await tools.FindItemAsync(title: "The one", cancellationToken: TestContext.Current.CancellationToken);
 
@@ -268,7 +268,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id, order: 7, status: from));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         var answer = await tools.TransitionAsync(id, token, TestContext.Current.CancellationToken);
 
@@ -293,7 +293,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id, status: EntryStatus.Draft));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         var answer = await tools.TransitionAsync(id, "done", TestContext.Current.CancellationToken);
 
@@ -329,7 +329,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id, status: EntryStatus.InProgress));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         var answer = await tools.TransitionAsync(id, "in-progress", TestContext.Current.CancellationToken);
 
@@ -354,7 +354,7 @@ public class TrackerToolsTests
             status: EntryStatus.Ready,
             body: "## First step\n`!ready`\n\n## Second step\n`!ready`"));
 
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         await tools.TransitionAsync(id, "in-progress", TestContext.Current.CancellationToken);
 
@@ -383,7 +383,7 @@ public class TrackerToolsTests
             id: id,
             body: "The parser drops trailing tokens.\n\n## Reproduce it\nNotes.\n\n## Fix it\nMore notes.\n\n- [ ] And a checklist line"));
 
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), Clock());
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
         var answer = await tools.CommentAsync(id, "Picked this up.", TestContext.Current.CancellationToken);
 
@@ -425,7 +425,7 @@ public class TrackerToolsTests
             id: id,
             body: "The parser drops trailing tokens.\n\n## Reproduce it\nNotes."));
 
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), Clock());
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
         var refusal = await Assert.ThrowsAsync<McpException>(
             () => tools.CommentAsync(id, text, TestContext.Current.CancellationToken));
@@ -454,7 +454,7 @@ public class TrackerToolsTests
             id: id,
             body: "The parser drops trailing tokens.\n\n## Reproduce it\nNotes."));
 
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), Clock());
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
         var answer = await tools.CommentAsync(
             id,
@@ -476,7 +476,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), Clock());
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
         await tools.CommentAsync(id, "Opened the pull request.", TestContext.Current.CancellationToken);
 
@@ -497,7 +497,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), Clock());
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
         await tools.CommentAsync(id, "Picked this up.", TestContext.Current.CancellationToken);
 
@@ -515,7 +515,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), Clock());
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
         await tools.CommentAsync(id, "First.", TestContext.Current.CancellationToken);
         await tools.CommentAsync(id, "Second.", TestContext.Current.CancellationToken);
@@ -533,7 +533,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), Clock());
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
             tools.CommentAsync(id, "   ", TestContext.Current.CancellationToken));
@@ -555,7 +555,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog, Other]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog, Other]), new FakeDevbookReferenceResolver());
 
         var answer = await tools.LinkChangeAsync(id, "JSdotNet/Backlog", "582", TestContext.Current.CancellationToken);
 
@@ -576,7 +576,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         await tools.LinkChangeAsync(id, "jsdotnet/backlog", "582", TestContext.Current.CancellationToken);
 
@@ -591,7 +591,7 @@ public class TrackerToolsTests
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
         var directory = new FakeRepositoryDirectory([Backlog]);
-        var tools = new TrackerTools(entries, directory);
+        var tools = new TrackerTools(entries, directory, new FakeDevbookReferenceResolver());
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
             tools.LinkChangeAsync(id, "JSdotNet/Nowhere", "582", TestContext.Current.CancellationToken));
@@ -624,7 +624,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         var answer = await tools.LinkSessionAsync(id, "jsdotnet/backlog", " e711d47d-3e09 ", TestContext.Current.CancellationToken);
 
@@ -644,7 +644,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "abc", TestContext.Current.CancellationToken);
         var second = await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "ABC", TestContext.Current.CancellationToken);
@@ -659,7 +659,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "first", TestContext.Current.CancellationToken);
         await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "second", TestContext.Current.CancellationToken);
@@ -677,7 +677,7 @@ public class TrackerToolsTests
             "Fix the parser",
             id: id,
             projections: [new EntryProjectionDto("JSdotNet/Backlog", "582", EntryProjectionDto.PullRequestTargetType)]));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         var answer = await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "582", TestContext.Current.CancellationToken);
 
@@ -690,7 +690,7 @@ public class TrackerToolsTests
     {
         var id = Guid.NewGuid();
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
             tools.LinkSessionAsync(id, "JSdotNet/Backlog", "  ", TestContext.Current.CancellationToken));
@@ -703,7 +703,7 @@ public class TrackerToolsTests
     public async Task Linking_a_session_to_an_entry_that_is_gone_is_refused()
     {
         var entries = new FakeTaskItems(Entries.Entry("Fix the parser"));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
             tools.LinkSessionAsync(Guid.NewGuid(), "JSdotNet/Backlog", "abc", TestContext.Current.CancellationToken));
@@ -720,7 +720,7 @@ public class TrackerToolsTests
     public async Task Create_item_saves_with_a_null_id_at_the_end_of_the_backlog()
     {
         var entries = new FakeTaskItems(Entries.Entry("First"), Entries.Entry("Second"));
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver());
 
         var answer = await tools.CreateItemAsync(
             "# Write the release notes\n`task` `*high` `!ready`\n\nThe ones for 0.9.",
@@ -742,7 +742,7 @@ public class TrackerToolsTests
     public async Task The_repository_argument_fills_a_gap_and_never_overrides()
     {
         var entries = new FakeTaskItems();
-        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog, Other]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog, Other]), new FakeDevbookReferenceResolver());
 
         await tools.CreateItemAsync(
             "# Needs a home\n`task` `!ready`",
@@ -844,5 +844,5 @@ public class TrackerToolsTests
     }
 
     private static TrackerTools Tools(params TaskItemDto[] entries) =>
-        new(new FakeTaskItems(entries), new FakeRepositoryDirectory([Backlog, Other]), Clock());
+        new(new FakeTaskItems(entries), new FakeRepositoryDirectory([Backlog, Other]), new FakeDevbookReferenceResolver(), Clock());
 }

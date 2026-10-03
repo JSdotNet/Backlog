@@ -96,7 +96,7 @@ present, rather than own, state. Invocation semantics: query/composition service
 ```meta
 type: domain-event
 status: draft
-related: [.devbook/domain/monitoring/domain.md#dashboard, .devbook/domain/inbox/domain.md#inbox-item]
+related: [.devbook/domain/monitoring/domain.md#dashboard]
 ```
 
 Published by `Dashboard` when an observed condition should become a new Inbox item.

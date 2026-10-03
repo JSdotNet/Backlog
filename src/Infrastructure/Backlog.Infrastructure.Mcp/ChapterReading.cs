@@ -89,7 +89,9 @@ internal static class ChapterReading
         string chapterPath,
         string? markdown,
         bool review,
-        IReadOnlyList<DevbookAnnotation> notes)
+        IReadOnlyList<DevbookAnnotation> notes,
+        IReadOnlyList<string>? demosBesidePage = null,
+        Func<string, bool?>? demoExists = null)
     {
         var text = markdown ?? string.Empty;
         var blocks = MarkdownPreview.ParseDocument(text);
@@ -135,7 +137,8 @@ internal static class ChapterReading
             review ? WithNotes(text, segments, blocks, notes) : WithoutPrivateFences(text, segments, blocks),
             blocks.Count,
             emitted,
-            orphans);
+            orphans,
+            ChapterDemos.Of(blocks, demosBesidePage ?? [], demoExists ?? (_ => null)));
     }
 
     /// <summary>

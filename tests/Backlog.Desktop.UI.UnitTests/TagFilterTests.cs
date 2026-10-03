@@ -128,28 +128,28 @@ public sealed class TagFilterTests
     }
 
     /// <summary>The scopes are what the pool <em>is</em>, though, the way the
-    /// repository scope always was: a plan whose only open entry is waiting has
-    /// nothing to offer under "Not waiting", so it has no chip there — pressing one
+    /// repository scope always was: a plan whose only open entry is a draft has
+    /// nothing to offer under "Ready in a plan", so it has no chip there — pressing one
     /// would only ever have emptied the list.</summary>
     [Fact]
     public async Task A_scope_decides_which_tags_the_bar_offers_and_their_counts()
     {
         using var host = await TasksPaneHost.CreateAsync();
 
-        var step = await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `+docs`\n");
-        await host.WriteEntryAsync($"# Publish it\n`task` `!ready` `+release` `+docs` `after:{step.TaskId}`\n");
+        await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `+docs`\n");
+        await host.WriteEntryAsync("# Publish it\n`task` `!draft` `+release` `+docs`\n");
         await host.WriteEntryAsync("# Renew the certificate\n`task` `!ready`\n");
         await host.State.SelectAsync(null);
 
         Assert.Equal(1, Option(host, "+release").OpenCount);
         Assert.Equal(2, Option(host, "+docs").OpenCount);
 
-        host.State.SetNotWaitingFilter(true);
+        host.State.SetReadyInPlanFilter(true);
 
         Assert.DoesNotContain(host.State.TagFilters, option => option.Value == "+release");
         Assert.Equal(1, Option(host, "+docs").OpenCount);
 
-        host.State.SetNotWaitingFilter(false);
+        host.State.SetReadyInPlanFilter(false);
 
         Assert.Equal(1, Option(host, "+release").OpenCount);
         Assert.Equal(2, Option(host, "+docs").OpenCount);

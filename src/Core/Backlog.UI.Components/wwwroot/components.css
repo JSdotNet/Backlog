@@ -522,8 +522,10 @@ button.badge {
    Which is also why `a.badge:hover`'s `border-color` was doing nothing on a
    borderless badge before: the hover state has always been written this way.
 
-   Three families are held out, and one rule covers all three: a kind that already
-   paints per value keeps its own scale. These selectors out-rank a single class,
+   Four families are held out, and one rule covers them all: a kind that already
+   paints per value keeps its own scale. `.badge--sync-verdict` is the fourth, for the
+   reason `.badge--status` is below: its verdicts are filled, and amber ink on the
+   aligned green would say two things at once. These selectors out-rank a single class,
    so without the exclusion they would flatten one.
 
    `.badge--status` and `.badge--feature` are the filled pair. Both set
@@ -539,8 +541,8 @@ button.badge {
    draft the disabled ink. Repainting them all amber would say "followable" about a
    row where every badge is, and lose the only thing the row was distinguishing.
 */
-a.badge:not(.badge--status, .badge--feature, .badge--gh),
-button.badge:not(.badge--status, .badge--feature, .badge--gh) {
+a.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict),
+button.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict) {
     border-color: var(--color-primary-dark);
     color: var(--color-primary-light);
 }
@@ -860,6 +862,54 @@ button.badge:hover {
 .badge--priority-high { border-color: var(--color-primary-dark); color: var(--color-primary-light); }
 .badge--priority-critical { background: var(--color-error); border-color: var(--color-error); color: var(--color-text-primary); }
 .badge--priority-low { color: var(--color-text-disabled); }
+
+/* A devbook block's `sync` direction — which way changes flow between a chapter
+   and its code. Outlined like priority, so it reads as how the sweeps treat the
+   unit and never as a second status. The three directions that write are told
+   apart: push (the chapter drives the code) in the brand colour, pull (the code
+   drives the chapter) on the info surface, and `sync`, which lets either verdict
+   write, in the success ink. `report` is the default and stays quiet; `off`
+   recedes. */
+.badge--sync {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    justify-content: center;
+    margin-left: var(--spacing-xs);
+    padding-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+}
+
+.badge--sync-push { border-color: var(--color-primary); color: var(--color-primary-light); }
+.badge--sync-pull { background: var(--color-info); border-color: var(--color-border-strong); color: var(--color-text-primary); }
+.badge--sync-sync { border-color: var(--color-success-text); color: var(--color-success-text); }
+.badge--sync-off { color: var(--color-text-disabled); border-style: dashed; }
+
+/* The editable form, shaped like .status-editor and positioned for the same
+   reason: it carries the sr-only label naming the control. */
+.sync-editor {
+    position: relative;
+    padding: 0;
+}
+
+.sync-editor__select {
+    min-width: 0;
+    min-height: 1.5rem;
+    padding: 1px var(--spacing-xs);
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.sync-editor__select:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
+}
 
 .badge--progress {
     justify-content: center;
@@ -2450,6 +2500,124 @@ button.md-check {
     color: var(--color-text-secondary);
 }
 
+/*
+  A Devbook page or chapter something else holds — a task's references — as a
+  chip: DevbookReferenceChip.
+
+  Quieter than a badge on purpose. The label keeps the reference's own ink, the
+  link colour .devbook-ref wears, because pressing it goes somewhere; the edge is
+  the plain border token and the surface stays transparent, so the one filled
+  thing on the chip is the status badge, which is the one fact on it that is a
+  state. The construction is .tag-chip--person's — a full-radius outline — with
+  no colour of its own.
+
+  Broken changes the edge from solid to dashed and adds a mark in the error ink,
+  and the label drops to secondary text: three carriers, and the mark's
+  accessible name is the reason in words.
+*/
+.devbook-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+}
+
+.devbook-chip--broken {
+    border-style: dashed;
+}
+
+.devbook-chip__label {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    min-width: 0;
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+button.devbook-chip__label {
+    cursor: pointer;
+}
+
+button.devbook-chip__label:hover:not(:disabled) {
+    color: var(--color-primary-light);
+    text-decoration: underline;
+}
+
+button.devbook-chip__label:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.devbook-chip--broken .devbook-chip__label {
+    color: var(--color-text-secondary);
+}
+
+/* The status inside a chip is as wide as its word and no taller than the chip.
+   `.badge--status` is 7.5rem by 1.5rem because a stack of statuses has to line up
+   as a column; a chip is one line of prose-sized text with nothing to align with,
+   so the column's width left a wide gap after a short word and its height pushed
+   the chip's edge out. The same argument `.file-view__header` makes for its one
+   status, scoped to the chip. Two classes, so it outranks the badge's own rule
+   wherever either is declared. */
+.devbook-chip > .devbook-chip__badge {
+    width: auto;
+    min-width: 0;
+    height: auto;
+    margin-left: 0;
+    padding: 0 var(--spacing-xs);
+    line-height: inherit;
+}
+
+.devbook-chip__broken {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+    cursor: help;
+}
+
+/* Sized to the chip, for the reason .tag-chip__remove gives. */
+.devbook-chip__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+}
+
+.devbook-chip__remove:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+    color: var(--color-text-primary);
+}
+
+.devbook-chip__remove:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.devbook-chip__remove:disabled {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
 /* A plain string field — an alias, a kind, a version, an issue shorthand. It
    names something with no chapter to point at, so it borrows neither the pill
    nor the link: it is simply the value, set in the same mono face as the
@@ -2807,6 +2975,53 @@ button.md-check {
     border: var(--border-width) solid var(--color-border);
 }
 
+/* --- Devbook sync verdicts ----------------------------------------------
+   The last thing a sync sweep said about a chapter, on the scale
+   color-scheme.md#badge-and-chip-tones sets. aligned is settled; code-ahead and
+   spec-ahead are alert — a sweep acts on them; conflict is fault; unresolved is
+   quiet, since nothing could be said; a word outside the vocabulary is archived.
+   A family of its own, apart from `.badge--sync` above: that one is the
+   direction a chapter is swept in, this one what the last sweep found. */
+.badge--sync-verdict {
+    gap: var(--spacing-xs);
+    border: var(--border-width) solid transparent;
+}
+
+.badge--sync-verdict-aligned {
+    background: var(--color-success);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--sync-verdict-code-ahead,
+.badge--sync-verdict-spec-ahead {
+    background: var(--color-warning);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--sync-verdict-conflict {
+    background: var(--color-error);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--sync-verdict-unresolved { background: var(--color-background-raised); color: var(--color-text-secondary); }
+
+.badge--sync-verdict-unknown {
+    background: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+/* What started a run, where it was not a person: quiet and outlined, because
+   it is information about the run rather than something to act on. */
+.badge--trigger {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+}
+
 /* --- Capture kind marker ------------------------------------------------ */
 /*
    The ten content-kind glyphs an inbox row leads with. Sized in px by the
@@ -2952,6 +3167,16 @@ button.md-check {
     align-items: baseline;
     gap: var(--spacing-xs);
     min-width: 0;
+}
+
+/* The host's decoration of a chapter, kept at rest — unlike the copy button it is
+   information, and information a reader has to hunt for is not shown. */
+.md-chapter-head__adornment {
+    display: inline-flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
 }
 
 /* Quiet until it is wanted, the same bargain the per-block comment affordance
@@ -4651,6 +4876,14 @@ button.task-panel__check:focus-visible {
 .task-item__copy-button:hover,
 .task-item__copy-button:focus-visible {
     color: var(--color-text-primary);
+}
+
+/* A reader copying several rows in turn tracks which are done by the check, so
+   it stands for a minute (TaskItem sets the duration) and wears the accent
+   rather than the text colour: a row already copied has to read as different
+   from the rest at a glance, hovered or not. */
+.task-item__copy .copy-button__glyphs[data-copied="true"] {
+    color: var(--color-primary);
 }
 
 /* The confirmation would push the row's width around if it took part in the
@@ -7141,7 +7374,8 @@ select.field__input {
     left: 0;
     right: 0;
     max-height: 14rem;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     margin: var(--spacing-xs) 0 0;
     padding: var(--spacing-xs);
     list-style: none;
@@ -7208,10 +7442,39 @@ select.field__input {
     gap: var(--spacing-sm);
 }
 
+/* One line per option, cut with an ellipsis rather than pushed past the list's
+   edge. A long label beside a long hint — a Devbook chapter beside the page it is
+   a heading of — used to widen the row past the popup and give the list a
+   horizontal scrollbar; the popup scrolls one way only. Both texts are whole in
+   their `title`. The label gives way before the hint does, up to half the row,
+   because the label is the thing being chosen. */
+.tag-select__option-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* An aside on an option — where it comes from — kept quiet enough that it reads
    as a note rather than a second label. */
 .tag-select__hint {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 50%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+}
+
+/* The count of matches a capped list does not draw (TagMultiSelect's MaxOptions).
+   Set like a hint rather than an option, because it is not one: nothing can be
+   picked from it, and the pointer and the active-option fill pass it by. */
+.tag-select__more {
+    padding: var(--spacing-xs) var(--spacing-sm);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     opacity: 0.8;
@@ -12207,6 +12470,12 @@ select.field__input {
     line-height: 1.1;
 }
 
+/* A narrow day names its weekday on the caption line — "Mo", or "Mo W41" on the
+   week's first day — and that line never wraps, so every head keeps one baseline. */
+.roadmap-timeline__quarter--day .roadmap-timeline__quarter-year {
+    white-space: nowrap;
+}
+
 /* A week's head is its number, quieter than a month's or a quarter's; the month
    it enters rides underneath only where the month changes. */
 .roadmap-timeline__quarter--week .roadmap-timeline__quarter-label,
@@ -12221,7 +12490,8 @@ select.field__input {
     border-left-color: color-mix(in srgb, var(--color-border) 50%, transparent);
 }
 
-/* The weekend, where the axis is ruled in days: a neutral tint in the head that
+/* The days off, where the axis is ruled in days — the working week's when one is
+   given (local ADR 0019), else Saturday and Sunday: a neutral tint in the head that
    carries on down the chart and fades out, so it marks the days off without
    competing with the bars or with this week's primary shade. */
 .roadmap-timeline__quarter--weekend {
@@ -12257,6 +12527,27 @@ select.field__input {
     top: 0;
     bottom: 0;
     background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+}
+
+/* Given a working week, every head carries a third line for its hours — "8.5h"
+   under a day, "42.5h" under a week — where the column is too narrow to say them
+   beside its name. The line is kept even when empty, as the caption's is, so every
+   head reads along one baseline; the axis grows by that line and no more. */
+.roadmap-timeline--hours {
+    --roadmap-axis-height: 3.5rem;
+}
+
+.roadmap-timeline--hours .roadmap-timeline__quarter {
+    grid-template-rows: auto auto auto;
+}
+
+.roadmap-timeline__quarter-hours {
+    min-height: calc(var(--font-size-xs) * 1.1);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
 }
 
 .roadmap-timeline__body {

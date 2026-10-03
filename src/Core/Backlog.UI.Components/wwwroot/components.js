@@ -342,6 +342,66 @@
         return !elements.some((element) => element.contains(focused));
     };
 
+    /*
+        Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z and Ctrl+Y for a surface that keeps its own
+        undo history (`.devbook/design/interaction-guidelines.md#undo-and-history`).
+
+        On the document rather than on the surface, because the key most often
+        arrives with focus on <body>: a row just deleted, a picker just closed, a
+        drop just made all leave the focus nowhere. So an owner hears the key when
+        the focus is inside its element or on nothing at all.
+
+        Never from a text field: there the browser's own undo already takes back
+        the keystrokes, and stealing the key would leave typing with no undo.
+        Never past a dialog, which owns the keyboard first, and never a key some
+        other handler already took.
+
+        Keyed by the owner's element id, so a surface's registration is its own
+        and a second surface cannot take it out.
+    */
+    window.backlogUndoKeys = (() => {
+        const owners = new Map();
+
+        const nonText = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file', 'image']);
+        const isTextField = (element) => {
+            if (!(element instanceof HTMLElement)) return false;
+            if (element.isContentEditable) return true;
+            if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) return true;
+            return element instanceof HTMLInputElement && !nonText.has(element.type);
+        };
+
+        const actionFor = (event) => {
+            if (!(event.ctrlKey || event.metaKey) || event.altKey) return null;
+            const key = event.key.toLowerCase();
+            if (key === 'z') return event.shiftKey ? 'RedoFromKeyboardAsync' : 'UndoFromKeyboardAsync';
+            if (key === 'y' && event.ctrlKey && !event.shiftKey) return 'RedoFromKeyboardAsync';
+            return null;
+        };
+
+        document.addEventListener('keydown', (event) => {
+            if (event.defaultPrevented || owners.size === 0) return;
+
+            const action = actionFor(event);
+            if (!action || isTextField(event.target)) return;
+            if (document.querySelector('[aria-modal="true"], dialog[open]')) return;
+
+            const nowhere = event.target === document.body || event.target === document.documentElement;
+            for (const [id, owner] of owners) {
+                const element = document.getElementById(id);
+                if (!element || !(nowhere || element.contains(event.target))) continue;
+
+                event.preventDefault();
+                owner.invokeMethodAsync(action);
+                return;
+            }
+        });
+
+        return {
+            register: (id, dotnet) => { owners.set(id, dotnet); },
+            unregister: (id) => { owners.delete(id); }
+        };
+    })();
+
     // Copying is the browser's job, and the browser is allowed to refuse: the
     // async clipboard needs a secure context and a permission the host WebView
     // may not have granted. The execCommand path is the fallback for exactly

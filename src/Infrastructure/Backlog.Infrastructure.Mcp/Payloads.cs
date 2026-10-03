@@ -71,7 +71,40 @@ public sealed record EntryRefPayload(Guid Id, string Title, string Status);
 /// metadata line and all — byte for byte what the pane would save. A session
 /// reading anything less would be editing against a shape it could not write
 /// back.</param>
-public sealed record EntryTextPayload(Guid Id, string Title, string Status, string Markdown);
+/// <param name="DevbookReferences">The Devbook pages and chapters the entry
+/// points at, as stored (<c>path</c> or <c>path#anchor</c>). Beside the text
+/// rather than in it, because they are never part of it: saving the markdown
+/// leaves them alone, and <c>set_devbook_references</c> is how they change.</param>
+public sealed record EntryTextPayload(Guid Id, string Title, string Status, string Markdown, IReadOnlyList<string> DevbookReferences);
+
+/// <summary>
+/// An entry's Devbook references, each resolved against the repository's
+/// devbook as it stands now.
+/// </summary>
+/// <param name="Repository">The <c>owner/name</c> the references were resolved
+/// in.</param>
+/// <param name="References">In the order the entry keeps them.</param>
+public sealed record DevbookReferencesPayload(Guid Id, string Repository, IReadOnlyList<DevbookReferencePayload> References);
+
+/// <summary>One Devbook reference and what it points at.</summary>
+/// <param name="Reference">As the entry stores it.</param>
+/// <param name="Path">The page, repository-relative.</param>
+/// <param name="Anchor">The heading slug, or null for a whole page.</param>
+/// <param name="State"><c>chapter</c> or <c>page</c> when found;
+/// <c>unknown-heading</c>, <c>unknown-page</c> or <c>outside-devbook</c> when
+/// broken; <c>unverified</c> when the devbook could not be read.</param>
+/// <param name="Title">The heading or page title, else the reference.</param>
+/// <param name="Status">The chapter's <c>meta</c> status, or null.</param>
+/// <param name="Folder">The devbook folder (<c>domain</c>, <c>arc42</c>, …), or
+/// null outside every one.</param>
+public sealed record DevbookReferencePayload(
+    string Reference,
+    string Path,
+    string? Anchor,
+    string State,
+    string Title,
+    string? Status,
+    string? Folder);
 
 /// <summary>
 /// What a requested status change did, or did not do.
@@ -257,6 +290,7 @@ public sealed record ChapterBlockPayload(
 /// <param name="OrphanedNotes">Notes whose block index has gone out of range,
 /// mirroring what the read view does with them: shown at the end rather than
 /// dropped, because a lost note is worse than a stray one.</param>
+/// <param name="Demos">The click demos the page has, by path — never their HTML.</param>
 public sealed record ChapterPayload(
     string Repository,
     string RepositoryAlias,
@@ -266,7 +300,30 @@ public sealed record ChapterPayload(
     string Markdown,
     int BlockCount,
     IReadOnlyList<ChapterBlockPayload> Blocks,
-    IReadOnlyList<ChapterNotePayload> OrphanedNotes);
+    IReadOnlyList<ChapterNotePayload> OrphanedNotes,
+    IReadOnlyList<ChapterDemoPayload> Demos);
+
+/// <summary>
+/// One click demo a chapter's page has.
+/// </summary>
+/// <param name="Path">The <c>*.demo.html</c>, repository-relative.</param>
+/// <param name="Address">What follows the <c>#</c> of the address a <c>demo</c>
+/// field wrote — a screen, <c>screen/anchor?role=…</c>, or
+/// <c>walkthrough/&lt;id&gt;</c> — and null for the demo as a whole.</param>
+/// <param name="PairedBy"><c>name</c> for a demo beside the page whose name pairs
+/// it with the page (<c>features.demo.html</c> with <c>features.md</c>,
+/// <c>demo.html</c> with <c>context.md</c>); <c>field</c> for a place a
+/// <c>demo</c> field names.</param>
+/// <param name="Block">The <c>meta</c> block whose field names it, by the index the
+/// blocks run over; null for a pairing by name.</param>
+/// <param name="Exists">Whether the demo file is there; null when that cannot be
+/// told from here.</param>
+public sealed record ChapterDemoPayload(
+    string Path,
+    string? Address,
+    string PairedBy,
+    int? Block,
+    bool? Exists);
 
 /// <summary>The live, typed-into notes on one chapter.</summary>
 public sealed record AnnotationsPayload(
@@ -389,6 +446,9 @@ public sealed record RunStagePayload(string Name, string Status, long? DurationM
 /// know which spelling of it counts.</param>
 /// <param name="SessionIds">The sessions that drove the run, where the writer
 /// recorded any.</param>
+/// <param name="Trigger">What started the run, where the caller said.</param>
+/// <param name="Schedule">The schedule that fired it, for a scheduled run.</param>
+/// <param name="Repo">The repository it worked in, where the caller said.</param>
 public sealed record RunPayload(
     string Id,
     string Worktree,
@@ -400,7 +460,10 @@ public sealed record RunPayload(
     DateTimeOffset? StartedAt,
     DateTimeOffset UpdatedAt,
     IReadOnlyList<RunStagePayload> Stages,
-    IReadOnlyList<string> SessionIds);
+    IReadOnlyList<string> SessionIds,
+    string? Trigger = null,
+    string? Schedule = null,
+    string? Repo = null);
 
 /// <summary>The runs of one worktree.</summary>
 public sealed record RunsPayload(string Worktree, int Count, IReadOnlyList<RunPayload> Runs);
@@ -417,3 +480,30 @@ public sealed record ScenarioInput(string Name, string Status, string? Notes, IR
 
 /// <summary>What a runtime monitor observed while a stage ran.</summary>
 public sealed record MonitoringInput(string? Summary, IReadOnlyList<string>? Findings);
+
+/// <summary>One chapter of a sync unit's verdict row.</summary>
+/// <param name="Chapter">The chapter id, <c>path#anchor</c>.</param>
+/// <param name="Verdict">aligned, code-ahead, spec-ahead, conflict or unresolved.</param>
+/// <param name="Evidence">One line of evidence.</param>
+public sealed record SyncChapterVerdictInput(string Chapter, string? Verdict, string? Evidence);
+
+/// <summary>One unit row of a devbook sweep's <c>devbook-sync-report</c> block, as
+/// <c>finish_run</c> takes it — the block's own keys.</summary>
+/// <param name="Unit">The unit's root chapter id.</param>
+/// <param name="Kind">The unit kind.</param>
+/// <param name="Sync">The effective sync direction.</param>
+/// <param name="SyncFrom">The block the direction came from, or null.</param>
+/// <param name="Verdict">The rolled-up verdict.</param>
+/// <param name="Action">pr, issue, flagged, waiting, deferred, skipped, failed,
+/// not-assessed or none.</param>
+/// <param name="Link">The pull request or drift issue URL, or null.</param>
+/// <param name="Chapters">Each chapter's own verdict.</param>
+public sealed record SyncUnitVerdictInput(
+    string Unit,
+    string? Kind,
+    string? Sync,
+    string? SyncFrom,
+    string? Verdict,
+    string? Action,
+    string? Link,
+    IReadOnlyList<SyncChapterVerdictInput>? Chapters);

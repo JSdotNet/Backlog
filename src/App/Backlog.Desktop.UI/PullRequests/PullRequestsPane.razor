@@ -23,6 +23,11 @@
     GraphQL query per repository every few seconds to tell a reader what they could
     have asked for.
 
+    It has two views. Open is the one it opens on, with the acts. Recently merged is
+    what the open list cannot show — a pull request merged from it leaves it — and is
+    read on the first switch to it rather than on open, because most opens never look
+    at it; once read it is kept until Refresh, an act, or the next open.
+
     Every repository is read, and the header's chips narrow what is drawn, the way
     the session list narrows its rows. Reading only the scoped ones would make every
     press on a chip a round trip to GitHub, and the chips are pressed far more often
@@ -49,7 +54,7 @@
                    ActionsCssClass="pull-requests-panel__header-actions"
                    Eyebrow="Pull requests"
                    TitleId="pull-requests-title"
-                   Title="Open on GitHub"
+                   Title="@(Merged ? "Recently merged on GitHub" : "Open on GitHub")"
                    Description="@Subtitle">
         <Actions>
             @if (Configured)
@@ -72,6 +77,25 @@
     else
     {
         <div class="pull-requests-panel__filters" data-testid="pull-requests-filters">
+            @* Which list, as a strip beside whose: the two are independent questions,
+               and Mine means the same thing in both views. Back to Open on every
+               open, for the reason Mine comes back. *@
+            <div class="pull-requests-filter">
+                <span class="pull-requests-filter__label">View</span>
+                <ButtonGroup AriaLabel="Which pull requests to list" TestId="pull-requests-view">
+                    <ToggleButton Pressed="!Merged"
+                                  PressedChanged="_ => ShowAsync(PullRequestsView.Open)"
+                                  TestId="pull-requests-view-open">
+                        Open
+                    </ToggleButton>
+                    <ToggleButton Pressed="Merged"
+                                  PressedChanged="_ => ShowAsync(PullRequestsView.RecentlyMerged)"
+                                  TestId="pull-requests-view-merged">
+                        Recently merged
+                    </ToggleButton>
+                </ButtonGroup>
+            </div>
+
             @* A one-of-many strip, like the session list's Show, and for its reason:
                it comes back to Mine on every open, and a switch that forgot its
                setting would read as broken where a strip that returns to its first
@@ -94,15 +118,15 @@
 
             <div class="pull-requests-filter pull-requests-filter--end">
                 <AppButton Variant="ButtonVariant.Secondary"
-                           Disabled="@_loading"
+                           Disabled="@Loading"
                            TestId="pull-requests-refresh"
-                           OnClick="RefreshAsync">
-                    @(_loading ? "Reading..." : "Refresh")
+                           OnClick="RefreshViewAsync">
+                    @(Loading ? "Reading..." : "Refresh")
                 </AppButton>
             </div>
         </div>
 
-        <div class="pull-requests-panel__content" id="pull-requests-content" aria-busy="@(_loading ? "true" : null)">
+        <div class="pull-requests-panel__content" id="pull-requests-content" aria-busy="@(Loading ? "true" : null)">
             @if (_notice is not null)
             {
                 @* Only where the host composed no toast channel: an act's outcome has
@@ -110,7 +134,7 @@
                    it. *@
                 <Alert Message="@_notice" BaseClass="pull-requests-panel__notice" Role="status" TestId="pull-requests-outcome" />
             }
-            @if (_listing.Failures.Count > 0)
+            @if (Failures.Count > 0)
             {
                 @* Named per repository, and a failure rather than news: that
                    repository's read did not complete. The rows below are every
@@ -120,9 +144,18 @@
                        BaseClass="pull-requests-panel__notice"
                        Role="alert"
                        ActionLabel="Retry"
-                       OnAction="RefreshAsync"
+                       OnAction="RefreshViewAsync"
                        ActionTestId="pull-requests-unreadable-retry"
                        TestId="pull-requests-unreadable" />
+            }
+            @if (Merged && _merged is { Truncated.Count: > 0 } truncated)
+            {
+                @* Not a failure — every row below is real — but the window is not
+                   complete for these, and the subtitle promises fourteen days. *@
+                <Alert Message="@TruncatedMessage(truncated.Truncated)"
+                       BaseClass="pull-requests-panel__notice"
+                       Role="status"
+                       TestId="pull-requests-merged-truncated" />
             }
             @if (_sessionsUnreadable)
             {
@@ -132,7 +165,7 @@
                        TestId="pull-requests-sessions-unreadable" />
             }
 
-            @if (_loading && !_read)
+            @if (Loading && !ViewRead)
             {
                 <div class="pull-requests-panel__loading" data-testid="pull-requests-loading" aria-hidden="true">
                     @foreach (var width in SkeletonWidths)
@@ -141,22 +174,71 @@
                     }
                 </div>
             }
+            else if (Merged)
+            {
+                @* Its own table rather than the open one with columns switched off:
+                   the rows are a different record, and a merged row has no status
+                   beyond Merged and no act at all. *@
+                <DataTable TItem="GitHubMergedPullRequest"
+                           Columns="MergedColumns"
+                           Items="MergedVisible"
+                           RowKey="@(pull => (object)Key(pull.RepositoryFullName, pull.Number))"
+                           RowAttributes="@(pull => RowAttributes(pull.RepositoryFullName, pull.Number))"
+                           RowNoun="pull request"
+                           AriaLabel="Pull requests merged recently in the registered repositories"
+                           EmptyMessage="@EmptyMessage"
+                           EmptyDescription="@EmptyDescription"
+                           TestId="pull-requests-merged-table">
+                    <Row Context="pull">
+                        @RepositoryCell(pull.RepositoryFullName)
+
+                        <td class="pull-requests-table__pull-request">
+                            <IntegrationLink Link="@MergedLink(pull)"
+                                             CssClass="pull-requests-table__link"
+                                             TestId="pull-request-link" />
+                        </td>
+
+                        @BranchCell(pull.HeadRefName, pull.BaseRefName)
+
+                        @* Coarse beside the chip, exact in the title: "2h ago" is what
+                           tells a reader whether this is the one they just merged. Who
+                           merged it rides along here rather than in a column of its
+                           own, which would push the table past the pane's width. *@
+                        <td>
+                            <span class="pull-requests-table__facts">
+                                <IntegrationStateChip Artifact="IntegrationArtifactState.Merged"
+                                                      Kind="IntegrationLinkKind.PullRequest"
+                                                      TestId="pull-request-state" />
+                                <span>
+                                    <span title="@MergedTitle(pull)" data-testid="pull-request-merged-at">@MergedAgo(pull)</span>
+                                    @if (pull.MergedByLogin is { } merger)
+                                    {
+                                        @(" · by ")<span data-testid="pull-request-merged-by">@merger</span>
+                                    }
+                                </span>
+                            </span>
+                        </td>
+
+                        @TaskCell(pull.RepositoryFullName, pull.Number)
+
+                        @SessionCell(pull.Url, pull.HeadRefName, pull.RepositoryFullName)
+                    </Row>
+                </DataTable>
+            }
             else
             {
                 <DataTable TItem="GitHubOpenPullRequest"
                            Columns="Columns"
                            Items="Visible"
                            RowKey="@(pull => (object)Key(pull))"
-                           RowAttributes="@RowAttributes"
+                           RowAttributes="@(pull => RowAttributes(pull.RepositoryFullName, pull.Number))"
                            RowNoun="pull request"
                            AriaLabel="Open pull requests in the registered repositories"
                            EmptyMessage="@EmptyMessage"
                            EmptyDescription="@EmptyDescription"
                            TestId="pull-requests-table">
                     <Row Context="pull">
-                        <td class="data-table__mono">
-                            <span class="@RepositoryClass(pull)" title="@pull.RepositoryFullName" data-testid="pull-request-repository">@RepositoryLabel(pull)</span>
-                        </td>
+                        @RepositoryCell(pull.RepositoryFullName)
 
                         <td class="pull-requests-table__pull-request">
                             <IntegrationLink Link="@Link(pull)"
@@ -164,13 +246,7 @@
                                              TestId="pull-request-link" />
                         </td>
 
-                        @* Head, then where it would merge: the order GitHub's own
-                           header reads, and clamped like every branch in this
-                           product, with both names in the title. *@
-                        <td class="data-table__mono">
-                            <span class="data-table__clamp pull-requests-table__branch"
-                                  title="@($"{pull.HeadRefName} → {pull.BaseRefName}")">@pull.HeadRefName → @pull.BaseRefName</span>
-                        </td>
+                        @BranchCell(pull.HeadRefName, pull.BaseRefName)
 
                         @* Words, each in the library's own badge: the state chip says
                            draft or open with its glyph, and every other fact a reader
@@ -200,36 +276,9 @@
                             </span>
                         </td>
 
-                        @* Inert text where the shell wired no way to open one, as the
-                           Integrations family draws every reference nobody can follow;
-                           an em dash where nothing links the two. *@
-                        <td>
-                            @if (TaskFor(pull) is { } task)
-                            {
-                                <IntegrationLink Link="@TaskLink(task)"
-                                                 ShowTitle="false"
-                                                 OnOpen="@TaskOpener(task)"
-                                                 TestId="pull-request-task" />
-                            }
-                            else
-                            {
-                                <span data-testid="pull-request-no-task">@Missing</span>
-                            }
-                        </td>
+                        @TaskCell(pull.RepositoryFullName, pull.Number)
 
-                        <td>
-                            @if (SessionFor(pull) is { } session)
-                            {
-                                <IntegrationLink Link="@SessionLink(session)"
-                                                 ShowTitle="false"
-                                                 OnOpen="SessionOpener"
-                                                 TestId="pull-request-session" />
-                            }
-                            else
-                            {
-                                <span data-testid="pull-request-no-session">@Missing</span>
-                            }
-                        </td>
+                        @SessionCell(pull.Url, pull.HeadRefName, pull.RepositoryFullName)
 
                         <td class="pull-requests-table__actions">
                             @if (pull.IsBehind)
@@ -281,6 +330,25 @@
         new("Actions")
     ];
 
+    /// <summary>The merged view's headings: no status beyond Merged, so the column is
+    /// when and by whom; no acts, so no Actions column standing empty on every row.</summary>
+    private static readonly DataTableColumn[] MergedColumns =
+    [
+        new("Repository"),
+        new("Pull request"),
+        new("Branch"),
+        new("Merged"),
+        new("Task"),
+        new("Session")
+    ];
+
+    /// <summary>The two lists the pane can show.</summary>
+    private enum PullRequestsView
+    {
+        Open,
+        RecentlyMerged
+    }
+
     /// <summary>An em dash: nothing links this pull request to one. Not an empty
     /// cell, which would read as a value that happens to be blank.</summary>
     private const string Missing = "—";
@@ -290,15 +358,49 @@
     private GitHubIntegration? _gitHub;
     private IAgentSessionSource? _sessionSource;
     private IToastChannel? _toasts;
+    private TimeProvider _clock = TimeProvider.System;
 
     private GitHubPullRequestListing _listing = GitHubPullRequestListing.Empty;
     private IReadOnlyList<AgentSession> _sessions = [];
     private bool _sessionsUnreadable;
-    private bool _loading;
+
+    /// <summary>Reads in flight. A count rather than a flag, because switching views
+    /// while the open list is still being read starts the merged read beside it, and
+    /// the first to finish must not say the second has.</summary>
+    private int _reads;
+
+    private bool Loading => _reads > 0;
+
+    private bool Merged => _view is PullRequestsView.RecentlyMerged;
+
+    /// <summary>Whether the view in front of the reader has been read once, so the
+    /// placeholder rows are a first read's and never a refresh's.</summary>
+    private bool ViewRead => Merged ? _merged is not null : _read;
 
     /// <summary>Whether the list has been read once, so the placeholder rows are a
     /// first read's and never a refresh's.</summary>
     private bool _read;
+
+    /// <summary>Open on every open, for the reason <see cref="_mine"/> is Mine.</summary>
+    private PullRequestsView _view = PullRequestsView.Open;
+
+    /// <summary>The merged view's read, or null until the first switch to it — and
+    /// again after Refresh on the open view or an act, either of which can have
+    /// changed what was merged, so the next switch reads it afresh.</summary>
+    private GitHubMergedPullRequestListing? _merged;
+
+    /// <summary>Which merged read may still land. Bumped by every new read and by every
+    /// invalidation, so a read that an act or a newer read overtook while it was out
+    /// cannot write its older answer back over the newer one.</summary>
+    private int _mergedGeneration;
+
+    /// <summary>The merged read in flight, so switching away and back while it is out
+    /// waits on it rather than sending a second.</summary>
+    private Task? _mergedRead;
+
+    /// <summary>When the merged view was read, so "2h ago" is measured against the
+    /// reading and a re-render does not move it.</summary>
+    private DateTimeOffset _mergedReadAt;
 
     /// <summary>Mine by default and on every open: the list a person opens this for
     /// is their own, and a stored choice would open it on everybody's without their
@@ -364,15 +466,54 @@
         _gitHub = Services.GetService<GitHubIntegration>();
         _sessionSource = Services.GetService<IAgentSessionSource>();
         _toasts = Services.GetService<IToastChannel>();
+        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
 
-        await RefreshAsync();
+        await ReadOpenAsync();
     }
 
-    private async Task RefreshAsync()
+    /// <summary>Shows a view, reading the merged one the first time it is shown.</summary>
+    private async Task ShowAsync(PullRequestsView view)
+    {
+        _view = view;
+
+        if (view is PullRequestsView.RecentlyMerged) await EnsureMergedAsync();
+    }
+
+    /// <summary>The merged view's read: none when it is already in, the one in flight
+    /// when there is one, else a new one.</summary>
+    private Task EnsureMergedAsync()
+    {
+        if (_merged is not null) return Task.CompletedTask;
+        if (_mergedRead is { IsCompleted: false } inFlight) return inFlight;
+
+        return _mergedRead = ReadMergedAsync();
+    }
+
+    /// <summary>Drops the merged view's copy and any read still out for it: something
+    /// has happened since that either may not know about.</summary>
+    private void InvalidateMerged()
+    {
+        _merged = null;
+        _mergedRead = null;
+        _mergedGeneration++;
+    }
+
+    /// <summary>Refresh and Retry: the view in front of the reader, read again. A
+    /// fresh look at the open list also drops the merged view's copy, which is older
+    /// than it now and is read again when next shown.</summary>
+    private Task RefreshViewAsync()
+    {
+        if (Merged) return _mergedRead = ReadMergedAsync();
+
+        InvalidateMerged();
+        return ReadOpenAsync();
+    }
+
+    private async Task ReadOpenAsync()
     {
         if (_gitHub is not { IsConfigured: true } gitHub) return;
 
-        _loading = true;
+        _reads++;
 
         try
         {
@@ -387,7 +528,36 @@
         }
         finally
         {
-            _loading = false;
+            _reads--;
+        }
+    }
+
+    /// <summary>One merged read. Its answer is kept only if nothing superseded it while
+    /// it was out — a newer read, or an act or open-list refresh that invalidated it.</summary>
+    private async Task ReadMergedAsync()
+    {
+        if (_gitHub is not { IsConfigured: true } gitHub) return;
+
+        var generation = ++_mergedGeneration;
+        _reads++;
+
+        try
+        {
+            var merged = gitHub.ListMergedPullRequestsAsync(gitHub.Repositories);
+            var sessions = ReadSessionsAsync();
+
+            var listing = await merged;
+            var read = await sessions;
+
+            if (generation != _mergedGeneration) return;
+
+            _merged = listing;
+            _mergedReadAt = _clock.GetUtcNow();
+            _sessions = read;
+        }
+        finally
+        {
+            _reads--;
         }
     }
 
@@ -482,7 +652,15 @@
                 Publish(ToastMessage.Error(exception.Message, "pull-requests-act-failed"));
             }
 
+            // A merge — now, or by auto-merge while the reader looks elsewhere — is
+            // something the merged view's copy cannot know about.
+            InvalidateMerged();
+
             await RereadAsync(pull.RepositoryFullName);
+
+            // The reader may have switched to the merged view while the act was out;
+            // the read it started was just superseded, so it is sent again.
+            if (Merged) await EnsureMergedAsync();
         }
         finally
         {
@@ -503,7 +681,9 @@
 
     private bool Busy(GitHubOpenPullRequest pull) => _busy.Contains(Key(pull));
 
-    private static string Key(GitHubOpenPullRequest pull) => $"{pull.RepositoryFullName}#{pull.Number}";
+    private static string Key(GitHubOpenPullRequest pull) => Key(pull.RepositoryFullName, pull.Number);
+
+    private static string Key(string repositoryFullName, int number) => $"{repositoryFullName}#{number}";
 
     private static string Subject(GitHubOpenPullRequest pull) => $"{pull.RepositoryFullName}#{pull.Number}";
 
@@ -546,24 +726,46 @@
                 || string.Equals(candidate.Alias, repository, StringComparison.OrdinalIgnoreCase))?.Alias;
     }
 
-    private bool InScope(GitHubOpenPullRequest pull) =>
+    private bool InScope(string repositoryFullName) =>
         !Scoped
-        || (AliasOf(pull.RepositoryFullName) is { } alias && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase));
+        || (AliasOf(repositoryFullName) is { } alias && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase));
 
     /// <summary>The scope, then whose: the scope decides which repositories exist
     /// here at all, and Mine narrows what is left. Newest update first, as read.</summary>
-    private IReadOnlyList<GitHubOpenPullRequest> InScopeRows => [.. _listing.PullRequests.Where(InScope)];
+    private IReadOnlyList<GitHubOpenPullRequest> InScopeRows => [.. _listing.PullRequests.Where(pull => InScope(pull.RepositoryFullName))];
 
     private IReadOnlyList<GitHubOpenPullRequest> Visible =>
         _mine ? [.. InScopeRows.Where(pull => pull.ViewerDidAuthor)] : InScopeRows;
+
+    /// <summary>The merged view's rows, narrowed the same two ways. Newest merge
+    /// first, as the adapter ordered them.</summary>
+    private IReadOnlyList<GitHubMergedPullRequest> MergedInScopeRows =>
+        [.. (_merged ?? GitHubMergedPullRequestListing.Empty).PullRequests.Where(pull => InScope(pull.RepositoryFullName))];
+
+    private IReadOnlyList<GitHubMergedPullRequest> MergedVisible =>
+        _mine ? [.. MergedInScopeRows.Where(pull => pull.ViewerDidAuthor)] : MergedInScopeRows;
+
+    /// <summary>The view's three counts: everything read, what the scope leaves, and
+    /// what Mine leaves of that — what the badge and the empty state are worded from.</summary>
+    private (int Read, int InScope, int Shown) Counts =>
+        Merged
+            ? ((_merged ?? GitHubMergedPullRequestListing.Empty).PullRequests.Count, MergedInScopeRows.Count, MergedVisible.Count)
+            : (_listing.PullRequests.Count, InScopeRows.Count, Visible.Count);
+
+    private IReadOnlyList<GitHubRepositoryFailure> Failures =>
+        Merged ? (_merged ?? GitHubMergedPullRequestListing.Empty).Failures : _listing.Failures;
+
+    /// <summary>The window in words, from the adapter's own constant so the sentence
+    /// cannot drift from what was read.</summary>
+    private static string Window => $"the last {GitHubIntegration.RecentlyMergedWindow.TotalDays:0} days";
 
     private string CountLabel
     {
         get
         {
-            var total = InScopeRows.Count;
-            var shown = Visible.Count;
+            var (_, total, shown) = Counts;
             var noun = total == 1 ? "pull request" : "pull requests";
+            if (Merged) noun = $"merged {noun}";
 
             return shown == total ? $"{total} {noun}" : $"{shown} of {total} {noun}";
         }
@@ -575,47 +777,145 @@
         {
             if (!Configured) return "The open pull requests of the repositories registered in Settings.";
 
-            var reading = "The open pull requests of every registered repository, most recently updated first — up to fifty per repository.";
+            var reading = Merged
+                ? $"The pull requests merged in {Window} in every registered repository, most recent merge first."
+                : "The open pull requests of every registered repository, most recently updated first — up to fifty per repository.";
 
             return Scoped ? $"{reading} Narrowed to {ScopeLabel}." : reading;
         }
     }
 
-    private string EmptyMessage =>
-        _listing.PullRequests.Count == 0
-            ? "No open pull requests."
-            : Scoped && InScopeRows.Count == 0
-                ? $"No open pull requests in {ScopeLabel}."
-                : "None of the open pull requests is yours.";
+    private string EmptyMessage
+    {
+        get
+        {
+            var (read, inScope, _) = Counts;
 
-    private string EmptyDescription =>
-        _listing.PullRequests.Count == 0
-            ? "Nothing is open in the repositories that could be read."
-            : Scoped && InScopeRows.Count == 0
-                ? "Clear the repository scope in the header to see every repository's."
-                : $"Choose Everyone's to see the {InScopeRows.Count} opened by somebody else.";
+            return Merged
+                ? read == 0
+                    ? $"No pull requests merged in {Window}."
+                    : Scoped && inScope == 0
+                        ? $"No pull requests merged in {ScopeLabel} in {Window}."
+                        : "None of the recently merged pull requests is yours."
+                : read == 0
+                    ? "No open pull requests."
+                    : Scoped && inScope == 0
+                        ? $"No open pull requests in {ScopeLabel}."
+                        : "None of the open pull requests is yours.";
+        }
+    }
+
+    private string EmptyDescription
+    {
+        get
+        {
+            var (read, inScope, _) = Counts;
+
+            return read == 0
+                ? Merged
+                    ? "Nothing was merged in the repositories that could be read."
+                    : "Nothing is open in the repositories that could be read."
+                : Scoped && inScope == 0
+                    ? "Clear the repository scope in the header to see every repository's."
+                    : Merged
+                        ? $"Choose Everyone's to see the {inScope} that others opened."
+                        : $"Choose Everyone's to see the {inScope} opened by somebody else.";
+        }
+    }
 
     private string FailureMessage =>
-        string.Join(" ", _listing.Failures.Select(failure => $"Couldn't read {failure.RepositoryFullName}: {failure.Message.TrimEnd('.')}."))
+        string.Join(" ", Failures.Select(failure => $"Couldn't read {failure.RepositoryFullName}: {failure.Message.TrimEnd('.')}."))
         + " Every other repository below is complete.";
 
-    private IReadOnlyDictionary<string, object>? RowAttributes(GitHubOpenPullRequest pull) =>
+    private static string TruncatedMessage(IReadOnlyList<string> repositories) =>
+        $"Only the {GitHubClient.MergedPageSize * GitHubClient.MergedPageCap} most recently updated merged pull requests "
+        + $"of {string.Join(", ", repositories)} were read, so some of what merged there in {Window} is missing.";
+
+    private static IReadOnlyDictionary<string, object>? RowAttributes(string repositoryFullName, int number) =>
         new Dictionary<string, object>
         {
             ["data-testid"] = "pull-request-row",
-            ["data-pull-request"] = Key(pull)
+            ["data-pull-request"] = Key(repositoryFullName, number)
         };
 
-    private string RepositoryLabel(GitHubOpenPullRequest pull) => AliasOf(pull.RepositoryFullName) ?? pull.RepositoryFullName;
+    private string RepositoryLabel(string repositoryFullName) => AliasOf(repositoryFullName) ?? repositoryFullName;
 
     /// <summary>The repository cell plus its identity mark where the host placed one,
     /// beside the name rather than down the row, as on the session list.</summary>
-    private string RepositoryClass(GitHubOpenPullRequest pull)
+    private string RepositoryClass(string repositoryFullName)
     {
         const string stem = "data-table__clamp pull-requests-table__repository";
-        var colour = RepositoryColour?.Invoke(pull.RepositoryFullName);
+        var colour = RepositoryColour?.Invoke(repositoryFullName);
 
         return colour is null ? stem : $"{stem} repo-mark repo-mark--{colour}";
+    }
+
+    // The cells both views draw the same way, written once.
+
+    private RenderFragment RepositoryCell(string repositoryFullName) =>
+        @<td class="data-table__mono">
+            <span class="@RepositoryClass(repositoryFullName)" title="@repositoryFullName" data-testid="pull-request-repository">@RepositoryLabel(repositoryFullName)</span>
+        </td>;
+
+    /// <summary>Head, then where it would merge (or did): the order GitHub's own
+    /// header reads, and clamped like every branch in this product, with both names
+    /// in the title.</summary>
+    private static RenderFragment BranchCell(string head, string target) =>
+        @<td class="data-table__mono">
+            <span class="data-table__clamp pull-requests-table__branch"
+                  title="@($"{head} → {target}")">@head → @target</span>
+        </td>;
+
+    /// <summary>Inert text where the shell wired no way to open one, as the
+    /// Integrations family draws every reference nobody can follow; an em dash where
+    /// nothing links the two.</summary>
+    private RenderFragment TaskCell(string repositoryFullName, int number) =>
+        @<td class="pull-requests-table__reference">
+            @if (TaskFor(repositoryFullName, number) is { } task)
+            {
+                <IntegrationLink Link="@TaskLink(task)"
+                                 ShowTitle="false"
+                                 OnOpen="@TaskOpener(task)"
+                                 TestId="pull-request-task" />
+            }
+            else
+            {
+                <span data-testid="pull-request-no-task">@Missing</span>
+            }
+        </td>;
+
+    private RenderFragment SessionCell(string url, string headRefName, string repositoryFullName) =>
+        @<td class="pull-requests-table__reference">
+            @if (SessionFor(url, headRefName, repositoryFullName) is { } session)
+            {
+                <IntegrationLink Link="@SessionLink(session)"
+                                 ShowTitle="false"
+                                 OnOpen="SessionOpener"
+                                 TestId="pull-request-session" />
+            }
+            else
+            {
+                <span data-testid="pull-request-no-session">@Missing</span>
+            }
+        </td>;
+
+    /// <summary>The pull request as a link without a state of its own: every row is
+    /// merged, and the Merged column already says so once.</summary>
+    private static IntegrationLinkRef MergedLink(GitHubMergedPullRequest pull) =>
+        IntegrationLinkRef.PullRequest(pull.Url, $"#{pull.Number}", IntegrationArtifactState.Merged, pull.Title, pull.Url)
+            with { ArtifactState = null };
+
+    /// <summary>How long before the reading it was merged, coarsely — the exact
+    /// moment is in <see cref="MergedTitle"/>.</summary>
+    private string MergedAgo(GitHubMergedPullRequest pull) =>
+        Backlog.UI.Components.Shell.SyncStatusLine.Relative(_mergedReadAt - pull.MergedAt);
+
+    /// <summary>Local time, because a reader matching a merge against their own day is
+    /// not thinking in UTC; the author too, which the merger column does not say.</summary>
+    private static string MergedTitle(GitHubMergedPullRequest pull)
+    {
+        var when = $"Merged {pull.MergedAt.ToLocalTime():ddd d MMM yyyy HH:mm}.";
+        return pull.AuthorLogin is { } author ? $"{when} Opened by {author}." : when;
     }
 
     /// <summary>The pull request as the Integrations family draws one: the number,
@@ -657,8 +957,8 @@
         return pull.AuthorLogin is { } author ? $"Opened by {author}. {state}" : state;
     }
 
-    private DeliveryRunReference? TaskFor(GitHubOpenPullRequest pull) =>
-        PullRequestTask?.Invoke(pull.RepositoryFullName, pull.Number);
+    private DeliveryRunReference? TaskFor(string repositoryFullName, int number) =>
+        PullRequestTask?.Invoke(repositoryFullName, number);
 
     private static IntegrationLinkRef TaskLink(DeliveryRunReference task) =>
         new(task.EntryId?.ToString() ?? task.Label, IntegrationProvider.None, IntegrationLinkKind.Other, task.Label, Title: $"Open {task.Label} in the task list");
@@ -675,21 +975,21 @@
     /// state, not a guess — but a branch name can be reused, so the address wins
     /// whenever there is one.
     /// </summary>
-    internal AgentSession? SessionFor(GitHubOpenPullRequest pull)
+    internal AgentSession? SessionFor(string url, string headRefName, string repositoryFullName)
     {
         var recorded = _sessions
             .Where(session => session.PullRequests?.Any(link =>
-                string.Equals(link.Url, pull.Url, StringComparison.OrdinalIgnoreCase)) == true)
+                string.Equals(link.Url, url, StringComparison.OrdinalIgnoreCase)) == true)
             .MaxBy(session => session.LastActivityAt);
 
         if (recorded is not null) return recorded;
 
-        if (string.IsNullOrWhiteSpace(pull.HeadRefName)) return null;
+        if (string.IsNullOrWhiteSpace(headRefName)) return null;
 
         return _sessions
-            .Where(session => string.Equals(session.Branch, pull.HeadRefName, StringComparison.Ordinal)
-                && (SameRepository(session.Repository, pull.RepositoryFullName)
-                    || SameRepository(session.ResolvedRepository, pull.RepositoryFullName)))
+            .Where(session => string.Equals(session.Branch, headRefName, StringComparison.Ordinal)
+                && (SameRepository(session.Repository, repositoryFullName)
+                    || SameRepository(session.ResolvedRepository, repositoryFullName)))
             .MaxBy(session => session.LastActivityAt);
     }
 

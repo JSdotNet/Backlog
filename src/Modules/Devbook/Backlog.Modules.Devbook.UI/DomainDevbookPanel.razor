@@ -231,6 +231,11 @@
     /// read from a repository branch, which hides the status controls and the
     /// launchers rather than offering changes the next fetch would discard.</summary>
     private bool CanEdit => _view?.CanEdit ?? true;
+
+    /// <summary>The open chapter's sync scope, cascaded to the records the file
+    /// view draws; rebuilt with every read of the chapter, so a direction changed
+    /// on its page, its context or the context map reaches the units under it.</summary>
+    private DevbookSyncScope? _syncScope;
     private DevbookChapterContent _chapter = DevbookChapterContent.None;
     private int _chapterRead;
     /// <summary>Resolved once when the panel starts, never per read: a read a
@@ -366,6 +371,25 @@
 
         _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
         _annotations.Changed += OnAnnotationsChanged;
+
+        // Optional, like the annotation store: a host that keeps no sync verdicts
+        // draws the chapters without them.
+        _syncVerdicts = Services.GetService<IDevbookSyncVerdicts>();
+        if (_syncVerdicts is not null) _syncVerdicts.Changed += OnSyncVerdictsChanged;
+    }
+
+    private IDevbookSyncVerdicts? _syncVerdicts;
+
+    /// <summary>A sweep recorded verdicts while the pane was open: redraw, so the
+    /// badges beside the headings are the latest.</summary>
+    private void OnSyncVerdictsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (!_disposed) StateHasChanged();
+        });
     }
 
     protected override async Task OnParametersSetAsync()
@@ -540,7 +564,12 @@
         var chapter = _view is null || document is null
             ? DevbookChapterContent.None
             : await DevbookChapterContent.LoadAsync("domain", _view.RootPath, document.Path, _view.CanEdit, reader: _chapterReader);
+        var sync = document is null
+            ? DevbookSyncReading.None
+            : await DomainDevbook.ReadSyncAsync(RepositoryAlias, document.Path);
         if (read != _chapterRead) return;
+
+        _syncScope = document is null ? null : sync.Scope(document.Path, CanEdit ? (itemPath, direction) => ChangeSyncAsync(document, itemPath, direction) : null);
 
         _chapterPath = document?.Path;
         _chapterRoot = root;
@@ -865,6 +894,40 @@
     /// it is the only thing that does.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// A sync direction picked in the open chapter, written to the block the scope
+    /// addressed. A failure lands where a failed status write does, on the
+    /// document.
+    /// </summary>
+    private async Task ChangeSyncAsync(DomainDevbookDocument document, string itemPath, string? direction)
+    {
+        _statusErrors.Remove(document.Path);
+        try
+        {
+            await FlushEditorAsync();
+
+            if (direction is null)
+            {
+                await DomainDevbook.ClearSyncAsync(RepositoryAlias, itemPath);
+            }
+            else
+            {
+                await DomainDevbook.UpdateSyncAsync(RepositoryAlias, itemPath, direction);
+            }
+
+            await ReloadAsync();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _statusErrors[document.Path] = ex.Message;
+        }
+
+        // The pick arrives through the record's own callback, which re-renders the
+        // record and not this pane — so the rebuilt scope would never be cascaded,
+        // and every other block on the page would keep the direction it had.
+        StateHasChanged();
+    }
+
     private Task ChangeChapterStatusAsync(DomainDevbookDocument document, DevbookStatusChange change)
     {
         if (change.Heading is not { } heading) return Task.CompletedTask;
@@ -1146,6 +1209,7 @@
                state, a failed write, the Copilot launch, and the linked knowledge
                issue. *@
             <Alert Message="@_chapterSaveError" TestId="domain-chapter-save-error" Role="status" />
+            <CascadingValue Value="@_syncScope" IsFixed="false">
             <FileView @ref="_chapterView"
                       Name="@document.Title"
                       Kind="@document.KindLabel"
@@ -1159,6 +1223,7 @@
                       RenderDevbookMetadataFields="false"
                       DevbookFolder="DevbookFolder.Domain"
                       DevbookDocumentPath="@document.Path"
+                      ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, Services.GetService<IDevbookFolderSource>(), RepositoryAlias, document.Path)"
                       CanEditDevbookStatus="@CanEdit"
                       OnDevbookStatusChanged="change => ChangeChapterStatusAsync(document, change)"
                       OnDevbookNavigate="NavigateDevbookReferenceAsync"
@@ -1176,6 +1241,7 @@
                       CompareBaselines="@ChapterBaselines()"
                       CompareBaselineId="@_baselineId"
                       CompareBaselineIdChanged="OnBaselineChangedAsync" />
+            </CascadingValue>
 
             @* The link out to the architecture model.
                `.domain` carries no C4 model of its own — Structurizr cannot say
@@ -1557,5 +1623,6 @@
         DomainDevbook.Changed -= OnDevbookChanged;
         if (_c4Store is not null) _c4Store.Changed -= OnDevbookChanged;
         _annotations.Changed -= OnAnnotationsChanged;
+        if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
     }
 }

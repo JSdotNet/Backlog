@@ -27,8 +27,14 @@ public sealed partial class GitHubIntegration(
     IGitHubClient client,
     IGitHubConnectionProbe probe,
     IGhCliAccountSource? cliAccounts = null,
-    IGitHubAccountProbe? accountProbe = null)
+    IGitHubAccountProbe? accountProbe = null,
+    TimeProvider? time = null)
 {
+    /// <summary>How far back "Recently merged" reaches. Two weeks: long enough to find
+    /// what landed before a weekend away or over a sprint, short enough that the view
+    /// stays a list of recent work rather than a second copy of GitHub's history.</summary>
+    public static readonly TimeSpan RecentlyMergedWindow = TimeSpan.FromDays(14);
+
     public GitHubSettingsStore Settings => settings;
 
     /// <summary>True once at least one repository is configured. Nothing about
@@ -236,6 +242,54 @@ public sealed partial class GitHubIntegration(
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
         {
             return ([], new GitHubRepositoryFailure(repository.FullName, ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// The pull requests merged within <see cref="RecentlyMergedWindow"/> in every
+    /// repository given, newest merge first across all of them — read side by side,
+    /// each repository's refusal kept as its failure, exactly as
+    /// <see cref="ListOpenPullRequestsAsync"/> reads.
+    /// <para>
+    /// The window's start is taken here, from this adapter's clock, and handed to the
+    /// client, which pages back until it has passed it. A repository whose read stopped
+    /// at the client's page cap inside the window is named in
+    /// <see cref="GitHubMergedPullRequestListing.Truncated"/>.
+    /// </para>
+    /// </summary>
+    public async Task<GitHubMergedPullRequestListing> ListMergedPullRequestsAsync(
+        IEnumerable<GitHubRepositoryRef> repositories,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repositories);
+
+        var since = (time ?? TimeProvider.System).GetUtcNow() - RecentlyMergedWindow;
+
+        var reads = repositories
+            .DistinctBy(repository => repository.FullName, StringComparer.OrdinalIgnoreCase)
+            .Select(repository => ReadMergedAsync(repository, since, cancellationToken))
+            .ToList();
+
+        var answers = await Task.WhenAll(reads).ConfigureAwait(false);
+
+        return new GitHubMergedPullRequestListing(
+            [.. answers.SelectMany(answer => answer.Read.PullRequests).OrderByDescending(pull => pull.MergedAt)],
+            [.. answers.Where(answer => answer.Failure is not null).Select(answer => answer.Failure!)],
+            [.. answers.Where(answer => answer.Read.Truncated).Select(answer => answer.Repository)]);
+    }
+
+    private async Task<(string Repository, GitHubMergedPullRequestRead Read, GitHubRepositoryFailure? Failure)> ReadMergedAsync(
+        GitHubRepositoryRef repository,
+        DateTimeOffset since,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return (repository.FullName, await client.ListMergedPullRequestsAsync(repository, since, cancellationToken).ConfigureAwait(false), null);
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
+        {
+            return (repository.FullName, new GitHubMergedPullRequestRead([], Truncated: false), new GitHubRepositoryFailure(repository.FullName, ex.Message));
         }
     }
 

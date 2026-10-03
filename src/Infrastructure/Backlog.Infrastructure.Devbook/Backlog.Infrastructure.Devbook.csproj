@@ -36,6 +36,11 @@
          take for IDevbookFolderSource, which is also what tells this project
          which repository's database to open. -->
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
+    <!-- Tasks' published surface, for IDevbookReferenceResolver: Tasks asks
+         what a task's Devbook references point at, and this is the adapter that
+         can see both that port and the devbook it answers from - the join
+         ModuleBoundaryTests puts in infrastructure rather than in a screen. -->
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

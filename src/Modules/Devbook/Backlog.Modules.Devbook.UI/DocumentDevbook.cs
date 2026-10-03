@@ -144,6 +144,50 @@ public abstract class DocumentDevbookProvider : IDisposable
     }
 
     /// <summary>
+    /// The <c>sync</c> state of every block in one document: where each
+    /// sits and the direction in force there, read with the blocks above it. Read
+    /// from whatever the folder resolves to, branch snapshot included — a direction
+    /// is part of what the chapter says, and only writing it needs a local folder.
+    /// </summary>
+    public Task<DevbookSyncReading> ReadSyncAsync(string? repositoryAlias, string documentPath, CancellationToken cancellationToken = default)
+    {
+        var location = _source.Resolve(Folder.Key, repositoryAlias);
+        if (!location.Available || location.FullPath is null) return Task.FromResult(DevbookSyncReading.None);
+
+        var folderPath = location.FullPath;
+        return Task.Run(() => DevbookSyncReading.Read(folderPath, Backlog.UI.Components.Devbook.DevbookFolders.FromPath(Folder.PathPrefix), documentPath), cancellationToken);
+    }
+
+    /// <summary>Set the item's <c>sync</c> direction, through the same address and
+    /// the same guard as its status. A block that may not state one is
+    /// refused.</summary>
+    public Task UpdateSyncAsync(string? repositoryAlias, string itemPath, string direction, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
+        if (string.IsNullOrWhiteSpace(direction)) throw new ArgumentException("Sync direction is required.", nameof(direction));
+
+        var folderPath = _source.Resolve(Folder.Key, repositoryAlias).WritablePath(Folder.DisplayName);
+
+        DevbookMarkdownSyncWriter.UpdateSync(folderPath, itemPath, Folder.PathPrefix, direction);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Remove the item's <c>sync</c> field, so it inherits its direction
+    /// from the level above. A separate verb from <see cref="UpdateSyncAsync"/>
+    /// for the reason the status has one.</summary>
+    public Task ClearSyncAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
+
+        var folderPath = _source.Resolve(Folder.Key, repositoryAlias).WritablePath(Folder.DisplayName);
+
+        DevbookMarkdownSyncWriter.RemoveSync(folderPath, itemPath, Folder.PathPrefix);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
     /// The folder in reading order, as the folder convention derives it from the
     /// file names (<see cref="DevbookReadingConvention"/>): the root document
     /// first, then — <c>.ai</c>, whose stage files are numbered — the numbered

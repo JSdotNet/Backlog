@@ -717,17 +717,68 @@ public class RoadmapPlanViewTests
 
     // --- Drawn from the work, forecast at the pace in use ------------------------
 
-    // Saturday 10 January 2026, and a backlog pace of 7 points a week: a point a day.
+    // Saturday 10 January 2026, and a backlog pace of 7 points a week counted in a week
+    // that works every day alike: a point a day, so the forecast's own rules read in
+    // whole days. The working week's own rules are pinned below with the default week.
+    private static readonly SharedKernel.WorkingHours EveryDayAlike = new()
+    {
+        Days = [.. SharedKernel.WorkingHours.Week.Select(day => new SharedKernel.WorkingDay(day, true, new TimeOnly(9, 0), new TimeOnly(17, 0)))]
+    };
+
     private static readonly RoadmapForecast Forecast = new(
         new DateOnly(2026, 1, 10),
-        new PacesInUseDto(14m, new Dictionary<string, decimal> { ["backlog"] = 7m }));
+        new PacesInUseDto(14m, new Dictionary<string, decimal> { ["backlog"] = 7m }) { Week = EveryDayAlike });
 
     private static RoadmapBar Forecasted(RoadmapItemDto item, params RoadmapGatheredLink[] links) =>
+        Forecasted(Forecast, item, links);
+
+    private static RoadmapBar Forecasted(RoadmapForecast forecast, RoadmapItemDto item, params RoadmapGatheredLink[] links) =>
         Assert.Single(RoadmapPlanView.From(
             Plan([item]),
             Configured,
             new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = new(links, []) },
-            forecast: Forecast).Bars);
+            forecast: forecast).Bars);
+
+    /// <summary>The same Saturday, counted in the default week.</summary>
+    private static readonly RoadmapForecast OnTheDefaultWeek = Forecast with
+    {
+        Paces = Forecast.Paces with { Week = SharedKernel.WorkingHours.Default }
+    };
+
+    /// <summary>Local ADR 0019: work in flight on a Saturday is forecast from the
+    /// Monday, counting the working hours — 3 points at 7 a week need 18.2 hours, so the
+    /// Monday, the Tuesday and into the Wednesday.</summary>
+    [Fact]
+    public void AnItemInFlight_IsForecastThroughTheWorkingWeek()
+    {
+        var bar = Forecasted(
+            OnTheDefaultWeek,
+            Item("Plan", startDay: 5, endDay: 31, repositories: ["backlog"]),
+            Sized("a", 3, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 6)));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 14), bar.End);
+    }
+
+    /// <summary>Local ADR 0019 Verification 1, as drawn: an item nobody started, sized
+    /// by its effort, 10 points at 5 a week from a Monday, ends on the next week's
+    /// Friday.</summary>
+    [Fact]
+    public void AnEffortPlacedItemNobodyStarted_IsDrawnThroughTheWorkingWeek()
+    {
+        var forecast = OnTheDefaultWeek with
+        {
+            Paces = OnTheDefaultWeek.Paces with { ByRepository = new Dictionary<string, decimal> { ["backlog"] = 5m } }
+        };
+
+        var bar = Forecasted(
+            forecast,
+            Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort),
+            Sized("a", 10, RoadmapProgress.Planned));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 16), bar.End);
+    }
 
     private static RoadmapGatheredLink Sized(
         string key,
@@ -928,7 +979,7 @@ public class RoadmapPlanViewTests
         var item = Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort);
         var bar = Forecasted(item, Sized("a", 3, RoadmapProgress.Ready), Sized("b", null, RoadmapProgress.Ready));
 
-        Assert.Equal(item.Start.AddDays(EffortWindow.Days(3, 7m) - 1), bar.End);
+        Assert.Equal(EffortWindow.EndFrom(item.Start, 3, 7m, Forecast.Paces.Week), bar.End);
     }
 
     [Fact]

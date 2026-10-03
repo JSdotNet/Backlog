@@ -3,6 +3,7 @@ using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.Modules.Tasks.Abstractions.Services;
 
 namespace Backlog.Infrastructure.Mcp;
 
@@ -37,6 +38,15 @@ internal static class Projections
         entry.ImportPlanId,
         entry.ImportItemId,
         entry.CreatedAt);
+
+    internal static DevbookReferencePayload DevbookReference(ResolvedDevbookReference reference) => new(
+        reference.Reference,
+        reference.Path,
+        reference.Anchor,
+        reference.State.ToWire(),
+        reference.Title,
+        reference.Status,
+        reference.Folder);
 
     internal static RoadmapItemPayload RoadmapItem(RoadmapItemDto item) => new(
         item.Id,
@@ -129,7 +139,10 @@ internal static class Projections
         run.StartedAt,
         run.UpdatedAt,
         [.. run.Stages.Select(stage => new RunStagePayload(stage.Name, stage.Status, stage.DurationMs, stage.DoneCount))],
-        run.SessionIds);
+        run.SessionIds,
+        run.Trigger,
+        run.Schedule,
+        run.Repository);
 
     internal static RunsPayload Runs(string worktree, IReadOnlyList<DeliveryRun> runs) => new(
         worktree,
@@ -151,6 +164,19 @@ internal static class Projections
                 scenario.Status,
                 scenario.Notes,
                 scenario.Evidence))];
+
+    internal static IReadOnlyList<DeliverySyncUnitVerdict>? Verdicts(IReadOnlyList<SyncUnitVerdictInput>? verdicts) =>
+        verdicts is null
+            ? null
+            : [.. verdicts.Select(unit => new DeliverySyncUnitVerdict(
+                unit.Unit,
+                unit.Kind,
+                unit.Sync,
+                unit.SyncFrom,
+                unit.Verdict,
+                unit.Action,
+                unit.Link,
+                [.. (unit.Chapters ?? []).Select(chapter => new DeliverySyncChapterVerdict(chapter.Chapter, chapter.Verdict, chapter.Evidence))]))];
 
     internal static DeliveryMonitoring? Monitoring(MonitoringInput? monitoring) =>
         monitoring is null ? null : new DeliveryMonitoring(monitoring.Summary, monitoring.Findings);

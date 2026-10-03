@@ -47,6 +47,16 @@ internal sealed class RoutingTransport : IGitHubTransport
         return this;
     }
 
+    /// <summary>Answers successive calls to a path containing <paramref name="fragment"/>
+    /// with each JSON in turn, the last one repeating — for a client that pages
+    /// through one GraphQL path with a cursor.</summary>
+    public RoutingTransport ReturnsInTurn(string fragment, params string[] jsons)
+    {
+        var next = 0;
+        _routes.Add((null, fragment, () => jsons[Math.Min(next++, jsons.Length - 1)]));
+        return this;
+    }
+
     /// <summary>As <see cref="Returns(string, string)"/>, for one method only —
     /// the Contents API is read and written at the same path.</summary>
     public RoutingTransport Returns(HttpMethod method, string fragment, string json)

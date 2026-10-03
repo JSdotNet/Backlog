@@ -140,6 +140,7 @@
                    makes that transient a read-only render and not a wedged, exit-less
                    blank editor; when the read succeeds again the reader is back where
                    they were writing. *@
+                <CascadingValue Value="@_syncScope" IsFixed="false">
                 <FileView @ref="_chapterView"
                           Name="@_selected.Title"
                           Kind="@ChapterKind(_selected)"
@@ -153,6 +154,7 @@
                           RenderDevbookMetadataFields="false"
                           DevbookFolder="DevbookFolder.Arc42"
                           DevbookDocumentPath="@DocumentPath(_selected)"
+                          ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, Folders, RepositoryAlias, DocumentPath(_selected))"
                           CanEditDevbookStatus="@CanEdit"
                           OnDevbookStatusChanged="ChangeChapterStatusAsync"
                           OnDevbookNavigate="NavigateDevbookReferenceAsync"
@@ -166,6 +168,7 @@
                           EditingChanged="OnEditingChangedAsync"
                           EditBodyContent="@ChapterEditor()"
                           BodyContent="@(_chapter.Chapter is null ? ParsedChapter(_selected) : null)" />
+                </CascadingValue>
 
                 @* The other half of the reference, under the chapter.
                    It is here rather than in the file view's metadata because this
@@ -262,6 +265,10 @@
     /// read from a repository branch, which hides the status control rather than
     /// offering an edit the next fetch would discard.</summary>
     private bool CanEdit => _catalog?.CanEdit ?? true;
+
+    /// <summary>The open chapter's sync scope, cascaded to the records the file
+    /// view draws; rebuilt with every read of the chapter.</summary>
+    private DevbookSyncScope? _syncScope;
 
     /// <summary>The C4 model beside these chapters. Empty and harmless when the
     /// feature is off, which is what keeps every branch below a no-op rather than a
@@ -371,6 +378,25 @@
 
         _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
         _annotations.Changed += OnAnnotationsChanged;
+
+        // Optional, like the annotation store: a host that keeps no sync verdicts
+        // draws the chapters without them.
+        _syncVerdicts = Services.GetService<IDevbookSyncVerdicts>();
+        if (_syncVerdicts is not null) _syncVerdicts.Changed += OnSyncVerdictsChanged;
+    }
+
+    private IDevbookSyncVerdicts? _syncVerdicts;
+
+    /// <summary>A sweep recorded verdicts while the pane was open: redraw, so the
+    /// badges beside the headings are the latest.</summary>
+    private void OnSyncVerdictsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (!_disposed) StateHasChanged();
+        });
     }
 
     protected override async Task OnParametersSetAsync()
@@ -544,7 +570,12 @@
         var chapter = _selected is null
             ? DevbookChapterContent.None
             : await DevbookChapterContent.LoadAsync("arc42", Folders.Resolve(".arc42", RepositoryAlias), _selected.Path, reader: _chapterReader);
+        var sync = _selected is null
+            ? DevbookSyncReading.None
+            : await Devbook.ReadSyncAsync(RepositoryAlias, _selected.Path);
         if (read != _chapterRead) return;
+
+        _syncScope = document is null ? null : sync.Scope(document.Path, CanEdit ? (itemPath, direction) => ChangeSyncAsync(document, itemPath, direction) : null);
 
         _chapterPath = document?.Path;
         _chapter = chapter;
@@ -654,6 +685,40 @@
     /// says.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// A sync direction picked on a building block or on the building block view,
+    /// written to the block the scope addressed and read back the way a status
+    /// change is — a failure lands in the same alert.
+    /// </summary>
+    private async Task ChangeSyncAsync(DevbookDocument document, string itemPath, string? direction)
+    {
+        _chapterSaveError = null;
+        try
+        {
+            await FlushEditorAsync();
+
+            if (direction is null)
+            {
+                await Devbook.ClearSyncAsync(RepositoryAlias, itemPath);
+            }
+            else
+            {
+                await Devbook.UpdateSyncAsync(RepositoryAlias, itemPath, direction);
+            }
+
+            await RefreshAsync(document.Path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _chapterSaveError = ex.Message;
+        }
+
+        // The pick arrives through the record's own callback, which re-renders the
+        // record and not this pane — so the rebuilt scope would never be cascaded,
+        // and every other block on the page would keep the direction it had.
+        StateHasChanged();
+    }
+
     private async Task ChangeChapterStatusAsync(DevbookStatusChange change)
     {
         if (_chapterDocument is not { } document || change.Heading is not { } heading) return;
@@ -956,5 +1021,6 @@
         Devbook.Changed -= OnDevbookChanged;
         if (_c4Store is not null) _c4Store.Changed -= OnDevbookChanged;
         _annotations.Changed -= OnAnnotationsChanged;
+        if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
     }
 }

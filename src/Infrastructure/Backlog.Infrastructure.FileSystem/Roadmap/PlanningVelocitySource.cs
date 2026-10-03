@@ -1,5 +1,6 @@
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
 
@@ -44,4 +45,8 @@ public sealed class PlanningVelocitySource : IPlanningVelocitySettings
     public string? Choose(PaceSource source, string? repository = null) => _settings.Choose(source, repository);
 
     public string? SetOwn(string? typed, string? repository = null) => _settings.SetOwn(typed, repository);
+
+    /// <summary>The week the pace document carries, kept equal to the device's copy
+    /// (local ADR 0019).</summary>
+    public WorkingHours WorkingWeek => _settings.WorkingWeek;
 }

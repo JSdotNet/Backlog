@@ -98,6 +98,50 @@ public sealed class Arc42DevbookStore : IDisposable
         DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".arc42/");
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// The <c>sync</c> state of every block in one document: where each
+    /// sits and the direction in force there, read with the blocks above it. Read
+    /// from whatever the folder resolves to, branch snapshot included — a direction
+    /// is part of what the chapter says, and only writing it needs a local folder.
+    /// </summary>
+    public Task<DevbookSyncReading> ReadSyncAsync(string? repositoryAlias, string documentPath, CancellationToken cancellationToken = default)
+    {
+        var location = _source.Resolve(".arc42", repositoryAlias);
+        if (!location.Available || location.FullPath is null) return Task.FromResult(DevbookSyncReading.None);
+
+        var folderPath = location.FullPath;
+        return Task.Run(() => DevbookSyncReading.Read(folderPath, Backlog.UI.Components.Devbook.DevbookFolder.Arc42, documentPath), cancellationToken);
+    }
+
+    /// <summary>Set the item's <c>sync</c> direction, through the same address and
+    /// the same guard as its status. A block that may not state one is
+    /// refused.</summary>
+    public Task UpdateSyncAsync(string? repositoryAlias, string itemPath, string direction, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
+        if (string.IsNullOrWhiteSpace(direction)) throw new ArgumentException("Sync direction is required.", nameof(direction));
+
+        var folderPath = _source.Resolve(".arc42", repositoryAlias).WritablePath("Architecture");
+
+        DevbookMarkdownSyncWriter.UpdateSync(folderPath, itemPath, ".arc42/", direction);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Remove the item's <c>sync</c> field, so it inherits its direction
+    /// from the level above. A separate verb from <see cref="UpdateSyncAsync"/>
+    /// for the reason the status has one.</summary>
+    public Task ClearSyncAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
+
+        var folderPath = _source.Resolve(".arc42", repositoryAlias).WritablePath("Architecture");
+
+        DevbookMarkdownSyncWriter.RemoveSync(folderPath, itemPath, ".arc42/");
+        return Task.CompletedTask;
+    }
 }
 
 public static class Arc42DevbookReader

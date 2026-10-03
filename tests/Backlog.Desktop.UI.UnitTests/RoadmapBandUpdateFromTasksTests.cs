@@ -115,8 +115,9 @@ public sealed class RoadmapBandUpdateFromTasksTests : RoadmapBandHarness
     {
         var (first, _) = await ImportedAsync();
 
-        // Five points at seven a week is the five days the import already gave it.
-        using var context = ContextGathering(5);
+        // Seven points at seven a week is the one working week the import already gave
+        // it: Friday to the next Thursday.
+        using var context = ContextGathering(7);
         var band = Drawn(context);
         await OpenAsync(band, first.Id);
 

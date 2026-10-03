@@ -1366,10 +1366,12 @@ public sealed class TasksDetailPaneTests
             schedule.QuerySelector(".task-action-pane__columns")!
                 .Children.Select(child => child.GetAttribute("data-testid")));
 
+        // Under them, the two groups whose value is a list of names: what the
+        // entry waits on, and the Devbook chapters it points at.
         Assert.Equal(
-            "entry-schedule-dependencies",
+            ["entry-schedule-dependencies", "entry-schedule-devbook"],
             schedule.QuerySelector(".task-action-pane__trailing")!
-                .Children.Single().GetAttribute("data-testid"));
+                .Children.Select(child => child.GetAttribute("data-testid")));
     }
 
     /// <summary>"Waiting for" and "Create follow-up" are the two ends of one

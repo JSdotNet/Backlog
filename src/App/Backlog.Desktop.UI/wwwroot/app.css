@@ -1461,6 +1461,18 @@ h1, h2, h3 {
     font-variant-numeric: tabular-nums;
 }
 
+/* The row's mark for the Devbook chapters an entry points at: a book and how
+   many, as quiet as the "+n" beside the work links, because which chapters they
+   are is the open entry's to say. */
+.entry-row__devbook {
+    display: inline-flex;
+    align-items: center;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
 /* --- Scheduling and dependency rows -------------------------------------- */
 
 /* TaskActionPane lays the rows out now — one lead row across the top and the
@@ -1504,6 +1516,30 @@ h1, h2, h3 {
 
 .entry-doc__schedule-depends {
     margin-left: var(--spacing-lg);
+}
+
+/* The entry's Devbook references, indented under the row that adds them the way
+   a picker is, and wrapping: the chips are titles, and a column of one per line
+   would make the panel's height a function of how many chapters were linked. */
+.entry-doc__devbook {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    margin-left: var(--spacing-lg);
+}
+
+.entry-doc__devbook-picker {
+    margin-left: var(--spacing-lg);
+}
+
+/* A reference the module refused, under the chips it would have joined: the
+   error ink the GitHub failure above wears, indented with the group. */
+.entry-doc__devbook-refusal {
+    margin: var(--spacing-xs) 0 0 var(--spacing-lg);
+    font-size: var(--font-size-sm);
+    color: var(--color-error-text);
+    overflow-wrap: anywhere;
 }
 
 /* "Waiting for" and "Create follow-up" on one line: the two ends of one
@@ -6073,6 +6109,26 @@ h1, h2, h3 {
 
 .pull-requests-table__branch {
     max-width: 18rem;
+}
+
+/* The link is the clamp: its title span already ellipsizes, but an inline-flex
+   link grows to whatever its content asks, so one long title set the whole
+   table's width and pushed Task and Session off the right edge. The full title
+   stays in the link's own tooltip. */
+.pull-requests-table__link {
+    max-width: 26rem;
+}
+
+/* A task title or a worktree-named session runs as long as a pull request title
+   and is worth less of the row, so it is cut sooner. */
+.pull-requests-table__reference .integration-link {
+    max-width: 16rem;
+}
+
+.pull-requests-table__reference .integration-link__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 /* The state chip and the badges after it wrap as a group, never one word per line.

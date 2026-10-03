@@ -77,6 +77,8 @@ public sealed partial class DevbookModuleRegistrationTests
         "DevbookChapterWriter.cs",
         "DevbookFolderOpenService.cs",
         "DevbookMarkdownStatusWriter.cs",
+        // Landed on main beside the status writer (#939) while the ratchet was in review.
+        "DevbookMarkdownSyncWriter.cs",
         "DocumentDevbook.cs",
         "DomainDevbookStore.cs",
         "InstructionFileWalk.cs",

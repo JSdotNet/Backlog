@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using Backlog.SharedKernel;
 
@@ -23,6 +24,13 @@ namespace Backlog.Infrastructure.FileSystem;
 /// the file, the field and the reader all say the same thing. The round-trip
 /// form (<c>09:00:00.0000000</c>) would have carried a precision nobody chose
 /// and cost a translation at both ends.
+/// </para>
+/// <para>
+/// This file is the device's copy of a week that is one per person (local ADR
+/// 0019, §3). The roadmap's pace document carries the same shape under
+/// <c>workingWeek</c> (<see cref="ToJson"/>, <see cref="FromJson"/>), and a pace
+/// document pulled from another device replaces this copy through
+/// <see cref="Replace"/>.
 /// </para>
 /// </summary>
 public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
@@ -101,8 +109,89 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     /// that the reader can see what it did. A file saying Monday to Friday is
     /// that promise kept.
     /// </para>
+    /// <para>
+    /// A week that already is the default is left as it is, file and all, and nothing
+    /// is announced, as <see cref="SetDay"/> and <see cref="Replace"/> do. A listener
+    /// re-stamps the pace document on every change (local ADR 0019, §3), so an
+    /// announced non-change would let this device's older pace win over a newer one
+    /// from another device.
+    /// </para>
     /// </summary>
-    public string? ResetToDefault() => Save(WorkingHours.Default);
+    public string? ResetToDefault() =>
+        SameWeek(Current, WorkingHours.Default) ? null : Save(WorkingHours.Default);
+
+    /// <summary>
+    /// Replaces the whole week with one that arrived from another device, inside the
+    /// pace document (local ADR 0019, §3). Unlike <see cref="SetDay"/> it refuses no day:
+    /// the week was set on the other device, and a day ending before it starts already
+    /// reads as not worked. Raises <see cref="Changed"/> only when the week differs, so a
+    /// pull of the week this device already holds redraws nothing.
+    /// </summary>
+    public string? Replace(WorkingHours hours)
+    {
+        ArgumentNullException.ThrowIfNull(hours);
+
+        var replacing = Normalize(hours);
+        if (SameWeek(replacing, Current)) return null;
+
+        return Save(replacing);
+    }
+
+    /// <summary>Whether two weeks say the same of every day.</summary>
+    public static bool SameWeek(WorkingHours first, WorkingHours second)
+    {
+        ArgumentNullException.ThrowIfNull(first);
+        ArgumentNullException.ThrowIfNull(second);
+
+        return WorkingHours.Week.All(day => first.On(day) == second.On(day));
+    }
+
+    /// <summary>The week in the shape this file holds — <c>{ "days": [ … ] }</c>, times
+    /// as <c>HH:mm</c> — for a document that carries it.</summary>
+    public static JsonNode ToJson(WorkingHours hours)
+    {
+        ArgumentNullException.ThrowIfNull(hours);
+        return JsonSerializer.SerializeToNode(ToDto(Normalize(hours)), JsonOptions)!;
+    }
+
+    /// <summary>
+    /// A week in this file's shape, or <c>null</c> for anything that is not one. Read
+    /// as forgivingly as the file once one day is legible: an unreadable day is filled
+    /// from the default. Unlike the file, an object with no legible day at all — empty,
+    /// or a shape a later build writes — is no week rather than the default one, so a
+    /// document carrying it leaves the device's own week alone: a week this build
+    /// cannot read costs the week, never the pace.
+    /// </summary>
+    public static WorkingHours? FromJson(JsonNode? node)
+    {
+        if (node is not JsonObject) return null;
+
+        try
+        {
+            var dto = node.Deserialize<WorkingHoursDto>(JsonOptions);
+            if (dto is null || !(dto.Days ?? []).Select(ReadDay).OfType<WorkingDay>().Any()) return null;
+
+            return FromDto(dto);
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
+        {
+            return null;
+        }
+    }
+
+    private static WorkingHoursDto ToDto(WorkingHours hours) => new()
+    {
+        Days = [.. hours.Days.Select(day => new WorkingDayDto
+        {
+            Day = day.Day.ToString(),
+            Working = day.Working,
+            Start = Format(day.Start),
+            End = Format(day.End)
+        })]
+    };
+
+    private static WorkingHours FromDto(WorkingHoursDto dto) =>
+        Normalize(new WorkingHours { Days = [.. (dto.Days ?? []).Select(ReadDay).OfType<WorkingDay>()] });
 
     private string? Save(WorkingHours hours)
     {
@@ -111,16 +200,7 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
         string? error = null;
         try
         {
-            File.WriteAllText(_path, JsonSerializer.Serialize(new WorkingHoursDto
-            {
-                Days = [.. Current.Days.Select(day => new WorkingDayDto
-                {
-                    Day = day.Day.ToString(),
-                    Working = day.Working,
-                    Start = Format(day.Start),
-                    End = Format(day.End)
-                })]
-            }, JsonOptions));
+            File.WriteAllText(_path, JsonSerializer.Serialize(ToDto(Current), JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -140,7 +220,7 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
             var dto = JsonSerializer.Deserialize<WorkingHoursDto>(File.ReadAllText(_path), JsonOptions);
             if (dto is null) return WorkingHours.Default;
 
-            return Normalize(new WorkingHours { Days = [.. dto.Days.Select(ReadDay).OfType<WorkingDay>()] });
+            return FromDto(dto);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -155,8 +235,9 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     /// which is the same answer a missing line gets and for the same reason:
     /// nothing legible was said, so nothing is claimed on the reader's
     /// behalf.</summary>
-    private static WorkingDay? ReadDay(WorkingDayDto dto)
+    private static WorkingDay? ReadDay(WorkingDayDto? dto)
     {
+        if (dto is null) return null;
         if (!Enum.TryParse<DayOfWeek>(dto.Day, ignoreCase: true, out var day)) return null;
         if (!TryParse(dto.Start, out var start) || !TryParse(dto.End, out var end)) return null;
 

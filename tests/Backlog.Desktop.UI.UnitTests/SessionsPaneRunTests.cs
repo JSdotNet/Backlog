@@ -452,6 +452,82 @@ public sealed class SessionsPaneRunTests
         });
     }
 
+    /// <summary>
+    /// A schedule's runs, each in a worktree of its own and none with a session in the
+    /// list, are one row titled by the schedule with every run a line under it, each
+    /// line carrying the "scheduled" chip.
+    /// </summary>
+    [Fact]
+    public void A_schedules_runs_are_one_row_with_a_scheduled_chip_on_every_line()
+    {
+        DeliveryRun Fired(string id, string worktree, int daysAgo) =>
+            SessionRowsTests.Run(id, worktree, Noon.AddDays(-daysAgo), Noon.AddDays(-daysAgo).AddHours(1), status: "done") with
+            {
+                Trigger = DeliveryRunTriggers.Scheduled,
+                Schedule = "devbook-pull-sweep",
+                Repository = "JSdotNet/Backlog",
+                Verdicts =
+                [
+                    new(".devbook/domain/tasks/domain.md#task", "aggregate", "pull", null, "aligned", "none", null, []),
+                    new(".devbook/domain/inbox/domain.md#inbox-item", "aggregate", "pull", null, "code-ahead", "pr", "https://github.com/JSdotNet/Backlog/pull/951", [])
+                ]
+            };
+
+        using var context = Context([Live], [Fired("pull-2", "sweep-b-00000002", 1), Fired("pull-1", "sweep-a-00000001", 8)]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            var rows = pane.FindAll(".data-table__row");
+
+            Assert.Equal(2, rows.Count);
+
+            var row = rows[1];
+
+            Assert.Contains("devbook-pull-sweep", row.QuerySelector(".sessions-table__title")!.TextContent);
+            Assert.Equal(
+                "Scheduled, unattended. 2 runs recorded on this PC.",
+                row.QuerySelector("[data-testid='sessions-run-only']")!.TextContent.Trim());
+
+            var lines = pane.FindAll(".data-table__row-detail")[1].QuerySelectorAll("[data-testid='sessions-run']");
+
+            Assert.Equal(["pull-2", "pull-1"], lines.Select(line => line.GetAttribute("data-run-id")));
+
+            foreach (var line in lines)
+            {
+                var chip = line.QuerySelector("[data-testid='sessions-run-scheduled']")!;
+
+                Assert.Equal("scheduled", chip.TextContent.Trim());
+                Assert.Contains("badge--trigger", chip.ClassName);
+                Assert.Equal("Fired by the devbook-pull-sweep schedule, unattended", chip.GetAttribute("title"));
+                Assert.Equal("2 units: 1 aligned · 1 code-ahead", line.QuerySelector("[data-testid='sessions-run-verdicts']")!.TextContent.Trim());
+            }
+
+            Assert.Contains("And 1 schedule's unattended runs, as one row.", pane.Find(".sessions-panel__subtitle").TextContent);
+        });
+    }
+
+    [Fact]
+    public void An_attended_run_carries_no_scheduled_chip()
+    {
+        var stray = SessionRowsTests.Run("run-stray", "old-worktree-1a2b3c4d", Noon.AddDays(-5), Noon.AddDays(-5).AddHours(2));
+
+        using var context = Context([Live], [stray]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+            Assert.Empty(pane.FindAll("[data-testid='sessions-run-scheduled']"));
+        });
+    }
+
     /// <summary>The list is one list under every control: a run-only row groups by
     /// the agent whose dashboard wrote it, beside the sessions.</summary>
     [Fact]

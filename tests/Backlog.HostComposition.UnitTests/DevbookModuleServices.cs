@@ -2,6 +2,7 @@ using Backlog.Desktop.UI.Devbook;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.UI.Components.Diagrams;
 
 namespace Backlog.HostComposition.UnitTests;
@@ -26,6 +27,7 @@ internal static class DevbookModuleServices
         typeof(DevbookAtlasService),
         typeof(IDevbookSearch),
         typeof(IDevbookVectorSearch),
+        typeof(IDevbookReferenceResolver),
         typeof(InstructionSourceDiscovery),
         typeof(DevbookMenu),
         typeof(DevbookCopilotCli),

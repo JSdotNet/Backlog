@@ -377,7 +377,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // It used to have to: the record was at the top of the read view, and the
         // read view is not what is on screen while writing.
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-chapter-surface']")));
-        Assert.Single(component.FindAll(".file-view__header .devbook-record__headline select"));
+        Assert.Single(component.FindAll(".file-view__header .devbook-record__headline .status-editor__select"));
         Assert.Empty(component.FindAll("[data-testid='devbook-state-select']"));
     }
 
@@ -473,6 +473,33 @@ public sealed class DomainDevbookPanelTests : IDisposable
         component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-compare']")));
     }
 
+    /// <summary>
+    /// A direction picked on a page's own block reaches every unit on that page at
+    /// once: the scope is rebuilt from the file after the write, and each unit's
+    /// inherit entry names the level it now inherits from.
+    /// </summary>
+    [Fact]
+    public async Task A_direction_set_on_the_context_reaches_the_units_on_the_same_page_without_reopening_it()
+    {
+        await using var harness = CreateHarness();
+        var contextPath = Path.Combine(harness.Root, ".domain", "inbox", "context.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(contextPath)!);
+        File.WriteAllText(contextPath, "# Inbox\n\n```meta\ntype: context\n```\n\n## Inbox Pane\n\n```meta\ntype: feature-flag\nkey: inbox-pane\n```\n\nThe flag.\n");
+
+        var component = harness.Render(".domain/inbox/context.md");
+        component.WaitForAssertion(() => Assert.Contains("sync report · default", UnitInheritLabel(component), StringComparison.Ordinal));
+
+        // The context states nothing but its type, which the header draws as a
+        // mark — and its headline is still there, because it takes a direction.
+        component.Find(".file-view__header select[aria-label='Sync direction']").Change("push");
+
+        component.WaitForAssertion(() => Assert.Contains("sync: push", File.ReadAllText(contextPath), StringComparison.Ordinal));
+        component.WaitForAssertion(() => Assert.Equal("sync push · from context", UnitInheritLabel(component)));
+    }
+
+    private static string UnitInheritLabel(IRenderedComponent<DomainDevbookPanel> component) =>
+        component.Find("select[aria-label='Sync direction for Inbox Pane'] option").TextContent;
+
     [Fact]
     public async Task A_chapter_changed_in_this_sitting_is_offered_a_comparison()
     {
@@ -537,8 +564,8 @@ public sealed class DomainDevbookPanelTests : IDisposable
     private static void ChangeTheChapterState(IRenderedComponent<DomainDevbookPanel> component)
     {
         component.Find("[data-testid='domain-chapter-file-edit']").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header .devbook-record__headline select")));
-        component.Find(".file-view__header .devbook-record__headline select").Change("accepted");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header .devbook-record__headline .status-editor__select")));
+        component.Find(".file-view__header .devbook-record__headline .status-editor__select").Change("accepted");
     }
 
     [Fact]
@@ -784,7 +811,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // The document's own dropdown, which is the only one on the panel: it is in
         // the file view's header, and the header is what stays on screen while the
         // body is being typed into.
-        component.Find(".file-view__header .devbook-record__headline select").Change("accepted");
+        component.Find(".file-view__header .devbook-record__headline .status-editor__select").Change("accepted");
 
         component.WaitForAssertion(
             () =>

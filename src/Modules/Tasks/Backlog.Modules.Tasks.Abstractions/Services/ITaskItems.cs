@@ -14,9 +14,11 @@ namespace Backlog.Modules.Tasks.Abstractions.Services;
 /// "the backlog".
 /// </para>
 /// <para>
-/// Note what is not here: no aggregate, no repository, no way to set a field.
-/// Changing an entry means saving its text, because in this product the text is
-/// the entry.
+/// Note what is not here: no aggregate, no repository, no general way to set a
+/// field. Changing an entry means saving its text, because in this product the
+/// text is the entry. The exceptions are the facts the text does not carry — the
+/// issue an entry became and the Devbook chapters it points at — and each has a
+/// use case of its own.
 /// </para>
 /// </summary>
 public interface ITaskItems
@@ -59,6 +61,22 @@ public interface ITaskItems
         string repoId,
         string externalId,
         string targetType,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Replaces the Devbook pages and chapters an entry points at with
+    /// <paramref name="references"/> — <c>path</c> or <c>path#anchor</c>, normalised,
+    /// order kept, repeats dropped; an empty list clears them. Answers the entry as
+    /// it now stands.
+    /// <para>
+    /// The second field written outside the text, beside the issue link: the
+    /// references are the entry's own and never tokens in it, so
+    /// <see cref="SaveFromTextAsync"/> leaves them alone. A value naming no page
+    /// fails the whole call as a validation error and writes nothing; whether the
+    /// page exists is not asked.
+    /// </para></summary>
+    Task<Result<TaskItemDto>> SetDevbookReferencesAsync(
+        Guid id,
+        IReadOnlyList<string> references,
         CancellationToken cancellationToken = default);
 
     /// <summary>Notes that an entry was actually used for something.</summary>

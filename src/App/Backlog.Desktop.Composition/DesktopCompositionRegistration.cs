@@ -29,6 +29,7 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
+using Backlog.SharedKernel;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -82,7 +83,15 @@ public static class DesktopCompositionRegistration
         // points the reader gets through in a week, which Roadmap reads through
         // IPlanningVelocitySettings over this store (AddRoadmapCrossContextAdapters).
         // And which surface the shell was last showing, so it reopens there.
+        // The roadmap counts the same week, and its pace document carries it between
+        // devices (local ADR 0019): resolving the week resolves the pace store too, so
+        // a change made on the settings screen is always written into the document.
         services.AddSingleton(options.WorkingHoursSettings);
+        services.AddSingleton<IWorkingHoursSettings>(sp =>
+        {
+            _ = sp.GetRequiredService<PlanningVelocitySettingsStore>();
+            return sp.GetRequiredService<WorkingHoursSettingsStore>();
+        });
         services.AddSingleton(options.UsageResetSettings);
         services.AddSingleton(options.PlanningVelocitySettings);
         services.AddSingleton(options.ShellNavigation);
@@ -318,6 +327,11 @@ public static class DesktopCompositionRegistration
             new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
         services.AddSingleton<IDevbookVectorSearch>(sp =>
             new DevbookSemanticSearch(sp.GetRequiredService<IDevbookFolderSource>(), DevbookEmbeddingModel.Default));
+        // What a task's Devbook references point at, for the Tasks detail panel and
+        // the MCP reference tools: Tasks' port, answered over the same database and
+        // folders, falling back to the Markdown where there is no database.
+        services.AddSingleton<IDevbookReferenceResolver>(sp =>
+            new DevbookReferenceResolver(sp.GetRequiredService<IDevbookFolderSource>()));
 
         // A person's remarks on Devbook chapters: one JSON file per repository
         // under the storage folder, following the root the way the inbox store

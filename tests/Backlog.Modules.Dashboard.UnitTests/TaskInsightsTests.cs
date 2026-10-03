@@ -3,6 +3,7 @@ using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.Services;
+using Backlog.SharedKernel;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Dashboard.UnitTests;
@@ -154,17 +155,18 @@ public class TaskInsightsTests
 
     /// <summary>
     /// Today is Thursday 24 September. The projection lays the effort left out from
-    /// today at the item's own pace — seven points a week is a point a day — and judges
-    /// the last day it lands on against the planned end.
+    /// today at the item's own pace, through the default working week's hours (local ADR
+    /// 0019) — seven points a week is 42.5 hours, skipping the weekend — and judges the
+    /// last day it lands on against the planned end.
     /// </summary>
     [Theory]
     [InlineData(true, false, 10, 4, 7, "2026-09-30", PlanOutlook.Finished, "2026-09-20")]
     [InlineData(false, true, 10, 0, 7, "2026-09-26", PlanOutlook.PlacedByEffort, "2026-09-26")]
     [InlineData(false, false, 0, 0, 7, "2026-09-30", PlanOutlook.Unsized, null)]
     [InlineData(false, false, 5, 0, 0, "2026-09-30", PlanOutlook.NoPace, null)]
-    [InlineData(false, false, 5, 0, 7, "2026-09-23", PlanOutlook.Overdue, "2026-09-28")]
-    [InlineData(false, false, 10, 5, 7, "2026-09-30", PlanOutlook.OnTrack, "2026-09-28")]
-    [InlineData(false, false, 10, 0, 7, "2026-09-26", PlanOutlook.Behind, "2026-10-03")]
+    [InlineData(false, false, 5, 0, 7, "2026-09-23", PlanOutlook.Overdue, "2026-09-29")]
+    [InlineData(false, false, 10, 5, 7, "2026-09-30", PlanOutlook.OnTrack, "2026-09-29")]
+    [InlineData(false, false, 10, 0, 7, "2026-09-26", PlanOutlook.Behind, "2026-10-05")]
     [InlineData(false, false, 4, 4, 7, "2026-09-24", PlanOutlook.OnTrack, "2026-09-24")]
     [InlineData(false, false, 3, 0, 14, "2026-09-25", PlanOutlook.OnTrack, "2026-09-25")]
     public async Task The_outlook_projects_the_effort_left_at_the_items_own_pace(
@@ -192,6 +194,27 @@ public class TaskInsightsTests
         var only = Assert.Single(result.Value!.Items);
         Assert.Equal(expected, only.Outlook);
         Assert.Equal(projected is null ? null : DateOnly.Parse(projected, CultureInfo.InvariantCulture), only.ProjectedEnd);
+    }
+
+    /// <summary>The outlook projects through the week the roadmap counts in: with
+    /// Fridays off, 4 points at 7 a week need 19.4 of its 34 hours: Thursday, Monday and
+    /// into Tuesday 29 September — where the default week would end on the Monday.</summary>
+    [Fact]
+    public async Task The_outlook_projects_through_the_roadmaps_working_week()
+    {
+        var plan = new StubPlanSource(Item("Item", end: new DateOnly(2026, 10, 2), totalEffort: 4, pace: 7))
+        {
+            Week = new WorkingHours
+            {
+                Days = [new WorkingDay(DayOfWeek.Friday, false, new TimeOnly(9, 0), new TimeOnly(17, 30))]
+            }
+        };
+
+        var result = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        var only = Assert.Single(result.Value!.Items);
+        Assert.Equal(new DateOnly(2026, 9, 29), only.ProjectedEnd);
+        Assert.Equal(PlanOutlook.OnTrack, only.Outlook);
     }
 
     [Fact]
@@ -290,6 +313,8 @@ public class TaskInsightsTests
 
         public PlanPace Pace { get; init; } = new(7m, PlanPaceBasis.LastTwoWeeks);
 
+        public WorkingHours Week { get; init; } = WorkingHours.Default;
+
         public Exception? Throw { get; init; }
 
         public Task<PlanReading> ReadAsync(
@@ -302,7 +327,7 @@ public class TaskInsightsTests
             To = to;
             Aliases = repositoryAliases;
             if (Throw is not null) throw Throw;
-            return Task.FromResult(Enabled ? new PlanReading(true, Pace, items) : PlanReading.Off);
+            return Task.FromResult(Enabled ? new PlanReading(true, Pace, items) { Week = Week } : PlanReading.Off);
         }
     }
 }
