@@ -80,6 +80,15 @@ public interface IPlanningPace
     /// on release. Returns <c>null</c> when saved, a refusal for a figure that is not
     /// a pace, and a warning when it took but could not be written for next time.</summary>
     string? SetOwn(decimal storyPointsPerWeek, string? repository = null);
+
+    /// <summary>
+    /// Blocks <paramref name="date"/> when it is worked, or unblocks it when it is not —
+    /// what pressing a day column's head does (local ADR 0019, §§4 and 5). Raises
+    /// <see cref="Changed"/> when it took, so every bar still sized by its effort is
+    /// placed again at once. Returns <c>null</c> when saved, a refusal when the host keeps
+    /// no week, and a warning when it took but could not be written for next time.
+    /// </summary>
+    string? ToggleWorkedDay(DateOnly date);
 }
 
 /// <summary>
@@ -120,6 +129,14 @@ public interface IPlanningVelocitySettings
     /// week for a host that keeps none.
     /// </summary>
     WorkingHours WorkingWeek => WorkingHours.Default;
+
+    /// <summary>
+    /// Blocks <paramref name="date"/> when it is worked, or unblocks it when it is not
+    /// (local ADR 0019, §5), in the week <see cref="WorkingWeek"/> answers, and raises
+    /// <see cref="Changed"/>. Returns <c>null</c> when stored, or why not. A host that
+    /// keeps no week has none to change, and says so.
+    /// </summary>
+    string? ToggleWorkedDay(DateOnly date) => "This device keeps no working week to block or unblock a day in.";
 }
 
 /// <summary>

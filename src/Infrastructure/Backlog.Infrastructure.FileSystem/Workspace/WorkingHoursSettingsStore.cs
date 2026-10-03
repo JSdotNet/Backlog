@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 using Backlog.SharedKernel;
 
@@ -32,6 +33,13 @@ namespace Backlog.Infrastructure.FileSystem;
 /// document pulled from another device replaces this copy through
 /// <see cref="Replace"/>.
 /// </para>
+/// <para>
+/// The dates that differ from the pattern (local ADR 0019, §5) sit beside the days as
+/// <c>"overrides": [{ "date": "yyyy-MM-dd", "worked": false }]</c>, left out while there
+/// are none so a week nobody blocked a date in keeps the file's old shape. They are read
+/// one entry at a time: a list that is not a list reads as none, and an entry nobody can
+/// read is dropped without costing the rest.
+/// </para>
 /// </summary>
 public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
 {
@@ -46,6 +54,10 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     /// being more precise than asked would be a rejection nobody could act
     /// on.</summary>
     private static readonly string[] TimeFormats = ["HH:mm", "HH:mm:ss"];
+
+    /// <summary>How an override's date is written and read: the ISO calendar date,
+    /// which is what a person editing the file writes and sorts as text.</summary>
+    private const string DateFormat = "yyyy-MM-dd";
 
     private readonly string _path;
 
@@ -116,9 +128,22 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     /// announced non-change would let this device's older pace win over a newer one
     /// from another device.
     /// </para>
+    /// <para>
+    /// The overrides are kept (<see cref="IWorkingHoursSettings.ResetToDefault"/>): the
+    /// button is about the pattern on the settings screen, and each blocked or unblocked
+    /// date is undone where it was set, on the roadmap's axis.
+    /// </para>
     /// </summary>
-    public string? ResetToDefault() =>
-        SameWeek(Current, WorkingHours.Default) ? null : Save(WorkingHours.Default);
+    public string? ResetToDefault()
+    {
+        var reset = WorkingHours.Default with { Overrides = Current.Overrides };
+        return SameWeek(Current, reset) ? null : Save(reset);
+    }
+
+    /// <summary>Flips <paramref name="date"/> (<see cref="WorkingHours.Toggled"/>) and
+    /// stores the week. A flip always changes the week, so it is always announced, and a
+    /// listener stamps the pace document as it does for a change to a day.</summary>
+    public string? ToggleDate(DateOnly date) => Save(Current.Toggled(date));
 
     /// <summary>
     /// Replaces the whole week with one that arrived from another device, inside the
@@ -137,17 +162,20 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
         return Save(replacing);
     }
 
-    /// <summary>Whether two weeks say the same of every day.</summary>
+    /// <summary>Whether two weeks say the same of every day and of every date that
+    /// differs from the pattern. By content: a record compares its lists by reference.</summary>
     public static bool SameWeek(WorkingHours first, WorkingHours second)
     {
         ArgumentNullException.ThrowIfNull(first);
         ArgumentNullException.ThrowIfNull(second);
 
-        return WorkingHours.Week.All(day => first.On(day) == second.On(day));
+        return WorkingHours.Week.All(day => first.On(day) == second.On(day))
+            && OverridesOf(first).SequenceEqual(OverridesOf(second));
     }
 
     /// <summary>The week in the shape this file holds — <c>{ "days": [ … ] }</c>, times
-    /// as <c>HH:mm</c> — for a document that carries it.</summary>
+    /// as <c>HH:mm</c>, and the <c>overrides</c> when there are any — for a document that
+    /// carries it.</summary>
     public static JsonNode ToJson(WorkingHours hours)
     {
         ArgumentNullException.ThrowIfNull(hours);
@@ -160,7 +188,8 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     /// from the default. Unlike the file, an object with no legible day at all — empty,
     /// or a shape a later build writes — is no week rather than the default one, so a
     /// document carrying it leaves the device's own week alone: a week this build
-    /// cannot read costs the week, never the pace.
+    /// cannot read costs the week, never the pace. Overrides are read as the file reads
+    /// them, and alone they are no week.
     /// </summary>
     public static WorkingHours? FromJson(JsonNode? node)
     {
@@ -187,11 +216,51 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
             Working = day.Working,
             Start = Format(day.Start),
             End = Format(day.End)
-        })]
+        })],
+        Overrides = hours.Overrides.Count == 0
+            ? null
+            : new JsonArray([.. hours.Overrides.Select(entry => (JsonNode)new JsonObject
+            {
+                ["date"] = entry.Date.ToString(DateFormat, CultureInfo.InvariantCulture),
+                ["worked"] = entry.Worked
+            })])
     };
 
     private static WorkingHours FromDto(WorkingHoursDto dto) =>
-        Normalize(new WorkingHours { Days = [.. (dto.Days ?? []).Select(ReadDay).OfType<WorkingDay>()] });
+        Normalize(new WorkingHours
+        {
+            Days = [.. (dto.Days ?? []).Select(ReadDay).OfType<WorkingDay>()],
+            Overrides = ReadOverrides(dto.Overrides)
+        });
+
+    /// <summary>The overrides a list holds, or none for anything that is not a list.
+    /// Each entry is read on its own, so one with a date nobody can read, or a
+    /// <c>worked</c> that is not true or false, is dropped and the rest are kept.</summary>
+    private static List<DayOverride> ReadOverrides(JsonNode? node)
+    {
+        if (node is not JsonArray entries) return [];
+
+        var read = new List<DayOverride>();
+        foreach (var entry in entries)
+        {
+            if (entry is not JsonObject fields) continue;
+            if (fields["date"] is not JsonValue dateValue || !dateValue.TryGetValue<string>(out var spelled)) continue;
+            if (!DateOnly.TryParseExact(spelled, DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) continue;
+            if (fields["worked"] is not JsonValue workedValue || !workedValue.TryGetValue<bool>(out var worked)) continue;
+
+            read.Add(new DayOverride(date, worked));
+        }
+
+        return read;
+    }
+
+    /// <summary>The overrides in the order <see cref="Normalize"/> keeps them: by date,
+    /// one per date, the first entry for a date winning as it does for a day.</summary>
+    private static IEnumerable<DayOverride> OverridesOf(WorkingHours hours) =>
+        hours.Overrides
+            .GroupBy(entry => entry.Date)
+            .Select(group => group.First())
+            .OrderBy(entry => entry.Date);
 
     private string? Save(WorkingHours hours)
     {
@@ -247,7 +316,8 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     /// <summary>
     /// Makes the week whole and puts it in reading order: exactly one entry per
     /// day, Monday first, anything absent taken from the default and any
-    /// duplicate resolved by keeping the first.
+    /// duplicate resolved by keeping the first. The overrides are put in date order
+    /// the same way, one per date.
     /// <para>
     /// A range that ends at or before it starts is deliberately left alone. The
     /// setter refuses one, so it can only arrive by hand-edit, and
@@ -256,9 +326,15 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     /// chose, and a grid quietly showing hours the file does not claim is worse
     /// than one showing none.
     /// </para>
+    /// <para>
+    /// An override that matches its pattern is kept too. It can only arise from a
+    /// pattern changed after the date was set, and dropping it would lose the date
+    /// should the pattern change back: a day of leave on a Friday the person briefly
+    /// marked off would come back as worked.
+    /// </para>
     /// </summary>
     private static WorkingHours Normalize(WorkingHours hours) =>
-        hours with { Days = [.. WorkingHours.Week.Select(hours.On)] };
+        hours with { Days = [.. WorkingHours.Week.Select(hours.On)], Overrides = [.. OverridesOf(hours)] };
 
     private static string Format(TimeOnly time) => time.ToString("HH:mm", CultureInfo.InvariantCulture);
 
@@ -268,6 +344,11 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     private sealed class WorkingHoursDto
     {
         public List<WorkingDayDto> Days { get; init; } = [];
+
+        /// <summary>Kept as written and read entry by entry (<see cref="ReadOverrides"/>),
+        /// so one bad entry cannot fail the whole file the way a typed list would.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public JsonNode? Overrides { get; init; }
     }
 
     private sealed class WorkingDayDto

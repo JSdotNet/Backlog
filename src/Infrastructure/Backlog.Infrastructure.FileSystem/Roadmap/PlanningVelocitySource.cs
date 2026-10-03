@@ -49,4 +49,8 @@ public sealed class PlanningVelocitySource : IPlanningVelocitySettings
     /// <summary>The week the pace document carries, kept equal to the device's copy
     /// (local ADR 0019).</summary>
     public WorkingHours WorkingWeek => _settings.WorkingWeek;
+
+    /// <summary>Through the device's <see cref="IWorkingHoursSettings.ToggleDate"/>,
+    /// which the store holds; <see cref="Changed"/> follows from the store.</summary>
+    public string? ToggleWorkedDay(DateOnly date) => _settings.ToggleWorkedDay(date);
 }

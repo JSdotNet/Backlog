@@ -1,7 +1,9 @@
 using System.Text.Json.Nodes;
 
+using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.SharedKernel;
 
 using Microsoft.Extensions.Time.Testing;
@@ -230,5 +232,158 @@ public sealed class PlanningVelocityWorkingWeekTests : IDisposable
 
         Assert.Equal(1, heard);
         Assert.True(a.Pace.WorkingWeek.IsWorked(DayOfWeek.Saturday));
+    }
+
+    // --- Day overrides (local ADR 0019, §§3 and 5) ---------------------------
+
+    private static readonly DateOnly Friday9Oct = new(2026, 10, 9);
+
+    /// <summary>A toggle on the axis stamps the pace document the way a settings change
+    /// does, and the override travels inside <c>workingWeek</c>.</summary>
+    [Fact]
+    public async Task A_toggle_stamps_the_document_and_writes_the_override_inside_the_week()
+    {
+        var clock = new FakeTimeProvider(Morning);
+        var a = Device("a", clock);
+        Assert.Null(a.Pace.Set(9m));
+
+        clock.Advance(TimeSpan.FromMinutes(5));
+        Assert.Null(a.Week.ToggleDate(Friday9Oct));
+
+        var written = await Replica(a.Pace).ReadAsync(Cancellation);
+        Assert.NotNull(written);
+        Assert.Equal(Morning.AddMinutes(5), written.UpdatedAt);
+
+        var overrides = JsonNode.Parse(written.Content)!["workingWeek"]!["overrides"]!.AsArray();
+        Assert.Equal("2026-10-09", (string)Assert.Single(overrides)!["date"]!);
+        Assert.False((bool)overrides[0]!["worked"]!);
+    }
+
+    /// <summary>ADR 0019 Verification 15 and requirement "A blocked day reaches the
+    /// other device": A blocks a date and syncs; B holds the same override in its
+    /// <c>working-hours.json</c> too, and a later pace change on B keeps it.</summary>
+    [Fact]
+    public async Task Overrides_travel_and_survive_a_later_pace_change()
+    {
+        var clock = new FakeTimeProvider(Morning);
+        var a = Device("a", clock);
+        var b = Device("b", new FakeTimeProvider(Morning.AddHours(1)));
+        Assert.Null(a.Pace.Set(9m));
+        clock.Advance(TimeSpan.FromMinutes(1));
+        Assert.Null(a.Week.ToggleDate(Friday9Oct));
+
+        Assert.True(await Replica(b.Pace).TryWriteAsync((await Replica(a.Pace).ReadAsync(Cancellation))!, Cancellation));
+
+        Assert.False(b.Week.Current.IsWorked(Friday9Oct));
+        Assert.False(b.Pace.WorkingWeek.IsWorked(Friday9Oct));
+        Assert.False(new WorkingHoursSettingsStore(WeekFileOf("b")).Current.IsWorked(Friday9Oct));
+
+        Assert.Null(b.Pace.Set(10m));
+
+        var next = JsonNode.Parse((await Replica(b.Pace).ReadAsync(Cancellation))!.Content)!;
+        Assert.False(WorkingHoursSettingsStore.FromJson(next["workingWeek"])!.IsWorked(Friday9Oct));
+    }
+
+    /// <summary>Requirement "A newer change to the week wins with its overrides": the
+    /// week travels whole under one stamp, so B's newer change to Monday brings B's
+    /// overrides — none — and Friday 9 October is worked on both devices.</summary>
+    [Fact]
+    public async Task A_newer_change_to_the_week_wins_with_its_overrides()
+    {
+        var clockA = new FakeTimeProvider(Morning);
+        var clockB = new FakeTimeProvider(Morning);
+        var a = Device("a", clockA);
+        var b = Device("b", clockB);
+        Assert.Null(a.Pace.Set(9m));
+        Assert.Null(b.Pace.Set(9m));
+
+        clockA.Advance(TimeSpan.FromMinutes(1));
+        Assert.Null(a.Week.ToggleDate(Friday9Oct));
+
+        clockB.Advance(TimeSpan.FromMinutes(2));
+        Assert.Null(b.Week.SetDay(DayOfWeek.Monday, true, new TimeOnly(8, 0), new TimeOnly(16, 0)));
+
+        // Last write wins: B's document is the newer one, and A takes it.
+        var fromB = (await Replica(b.Pace).ReadAsync(Cancellation))!;
+        Assert.True(fromB.UpdatedAt > (await Replica(a.Pace).ReadAsync(Cancellation))!.UpdatedAt);
+        Assert.True(await Replica(a.Pace).TryWriteAsync(fromB, Cancellation));
+
+        Assert.True(WorkingHoursSettingsStore.SameWeek(a.Week.Current, b.Week.Current));
+        Assert.True(a.Week.Current.IsWorked(Friday9Oct));
+        Assert.Empty(a.Week.Current.Overrides);
+    }
+
+    /// <summary>ADR 0019 Verification 16: a <c>workingWeek</c> without the array reads
+    /// as no overrides, and places as the pattern alone.</summary>
+    [Fact]
+    public async Task A_week_without_overrides_reads_none()
+    {
+        var b = Device("b");
+        Assert.Null(b.Week.ToggleDate(Friday9Oct));
+
+        var copy = new RoadmapReplicaCopyDto("""
+            { "storyPointsPerWeek": 7,
+              "workingWeek": { "days": [ { "day": "Monday", "working": true, "start": "09:00", "end": "17:30" } ] } }
+            """, Morning);
+        Assert.True(await Replica(b.Pace).TryWriteAsync(copy, Cancellation));
+
+        Assert.Empty(b.Week.Current.Overrides);
+        Assert.Empty(b.Pace.WorkingWeek.Overrides);
+        Assert.Equal(new DateOnly(2026, 10, 9), b.Pace.WorkingWeek.LastDayOf(new DateOnly(2026, 10, 5), 7m, 7m));
+    }
+
+    /// <summary>A pulled copy carrying overrides keeps every key it carries, the ones this
+    /// build does not read included.</summary>
+    [Fact]
+    public async Task A_copy_with_overrides_keeps_the_keys_this_build_does_not_know()
+    {
+        var b = Device("b");
+
+        var copy = new RoadmapReplicaCopyDto("""
+            { "storyPointsPerWeek": 7, "horizon": "quarter",
+              "workingWeek": {
+                "days": [ { "day": "Monday", "working": true, "start": "09:00", "end": "17:30" } ],
+                "overrides": [ { "date": "2026-10-09", "worked": false, "reason": "leave" } ],
+                "timeZone": "Europe/Amsterdam" } }
+            """, Morning);
+        Assert.True(await Replica(b.Pace).TryWriteAsync(copy, Cancellation));
+
+        var written = JsonNode.Parse(File.ReadAllText(PaceFileOf("b")))!;
+        Assert.Equal("quarter", (string)written["horizon"]!);
+        Assert.Equal("Europe/Amsterdam", (string)written["workingWeek"]!["timeZone"]!);
+        Assert.Equal("leave", (string)written["workingWeek"]!["overrides"]![0]!["reason"]!);
+        Assert.False(b.Week.Current.IsWorked(Friday9Oct));
+    }
+
+    /// <summary>The roadmap's port toggles through the device's week, and the roadmap
+    /// hears of it at once, so the band re-places its bars (ADR 0019 Verification 23).</summary>
+    [Fact]
+    public void The_roadmap_port_toggles_a_date_and_announces_it()
+    {
+        var a = Device("a");
+        Assert.Null(a.Pace.Set(9m));
+        IPlanningVelocitySettings port = new PlanningVelocitySource(a.Pace);
+        var heard = 0;
+        port.Changed += () => heard++;
+
+        Assert.Null(port.ToggleWorkedDay(Friday9Oct));
+
+        Assert.Equal(1, heard);
+        Assert.False(port.WorkingWeek.IsWorked(Friday9Oct));
+        Assert.False(a.Week.Current.IsWorked(Friday9Oct));
+    }
+
+    /// <summary>A store that keeps no device week has none to toggle, and says so.</summary>
+    [Fact]
+    public void Without_a_device_week_a_toggle_is_refused()
+    {
+        IPlanningVelocitySettings port = new PlanningVelocitySource(new PlanningVelocitySettingsStore(PaceFileOf("c")));
+        var heard = 0;
+        port.Changed += () => heard++;
+
+        Assert.NotNull(port.ToggleWorkedDay(Friday9Oct));
+
+        Assert.Equal(0, heard);
+        Assert.True(port.WorkingWeek.IsWorked(Friday9Oct));
     }
 }

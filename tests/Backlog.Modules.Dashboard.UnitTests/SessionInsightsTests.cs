@@ -2916,6 +2916,8 @@ public class SessionInsightsTests
         public string? SetDay(DayOfWeek day, bool working, TimeOnly start, TimeOnly end) => null;
 
         public string? ResetToDefault() => null;
+
+        public string? ToggleDate(DateOnly date) => null;
     }
 
     private static AssistantSessionReport Report(params AssistantSession[] sessions) =>

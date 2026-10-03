@@ -52,4 +52,200 @@ public class WorkingHoursTests
         Assert.Equal(TimeSpan.Zero, empty.PerWeek);
         Assert.Same(WorkingHours.Default, empty.Effective);
     }
+
+    // --- Day overrides (local ADR 0019, §5) ---------------------------------
+
+    private static readonly DateOnly Monday5Oct = new(2026, 10, 5);
+    private static readonly DateOnly Wednesday7Oct = new(2026, 10, 7);
+    private static readonly DateOnly Friday9Oct = new(2026, 10, 9);
+    private static readonly DateOnly Saturday10Oct = new(2026, 10, 10);
+    private static readonly DateOnly Monday12Oct = new(2026, 10, 12);
+
+    [Fact]
+    public void ADateWithNoOverride_ReadsThePattern()
+    {
+        var week = WorkingHours.Default;
+
+        Assert.True(week.IsWorked(Friday9Oct));
+        Assert.Equal(TimeSpan.FromHours(8.5), week.WorkedOn(Friday9Oct));
+        Assert.False(week.IsWorked(Saturday10Oct));
+        Assert.Equal(TimeSpan.Zero, week.WorkedOn(Saturday10Oct));
+        Assert.Null(week.OverrideOn(Friday9Oct));
+    }
+
+    [Fact]
+    public void ABlockedDate_CountsNoHours_AndLeavesTheWeekdayAlone()
+    {
+        var week = WorkingHours.Default.Toggled(Friday9Oct);
+
+        Assert.Equal(new DayOverride(Friday9Oct, false), week.OverrideOn(Friday9Oct));
+        Assert.False(week.IsWorked(Friday9Oct));
+        Assert.Equal(TimeSpan.Zero, week.WorkedOn(Friday9Oct));
+
+        // The pattern and every other Friday are untouched; H never moves.
+        Assert.True(week.IsWorked(DayOfWeek.Friday));
+        Assert.True(week.IsWorked(Friday9Oct.AddDays(7)));
+        Assert.Equal(TimeSpan.FromHours(42.5), week.PerWeek);
+    }
+
+    [Fact]
+    public void AnUnblockedDate_CountsItsWeekdaysStoredHours()
+    {
+        var week = With(new WorkingDay(DayOfWeek.Saturday, false, new TimeOnly(10, 0), new TimeOnly(14, 0)))
+            .Toggled(Saturday10Oct);
+
+        Assert.Equal(new DayOverride(Saturday10Oct, true), week.OverrideOn(Saturday10Oct));
+        Assert.True(week.IsWorked(Saturday10Oct));
+        Assert.Equal(TimeSpan.FromHours(4), week.WorkedOn(Saturday10Oct));
+        Assert.Equal(TimeSpan.Zero, week.WorkedOn(Saturday10Oct.AddDays(7)));
+        Assert.False(week.IsWorked(DayOfWeek.Saturday));
+    }
+
+    [Fact]
+    public void AnUnblockedDateWithAnEmptyWeekdayRange_IsStillNotWorked()
+    {
+        var week = With(new WorkingDay(DayOfWeek.Saturday, false, new TimeOnly(14, 0), new TimeOnly(10, 0)))
+            .Toggled(Saturday10Oct);
+
+        Assert.False(week.IsWorked(Saturday10Oct));
+        Assert.Equal(TimeSpan.Zero, week.WorkedOn(Saturday10Oct));
+
+        // Pressing again still returns the date to its pattern.
+        Assert.Empty(week.Toggled(Saturday10Oct).Overrides);
+    }
+
+    [Fact]
+    public void ToggleBack_RemovesTheOverride()
+    {
+        var blocked = WorkingHours.Default.Toggled(Friday9Oct);
+        var back = blocked.Toggled(Friday9Oct);
+
+        Assert.Single(blocked.Overrides);
+        Assert.Empty(back.Overrides);
+        Assert.Equal(TimeSpan.FromHours(8.5), back.WorkedOn(Friday9Oct));
+    }
+
+    [Fact]
+    public void Overrides_StaySortedByDate_OnePerDate()
+    {
+        var week = WorkingHours.Default
+            .Toggled(Saturday10Oct)
+            .Toggled(Wednesday7Oct)
+            .Toggled(Friday9Oct)
+            .Toggled(Saturday10Oct)
+            .Toggled(Saturday10Oct);
+
+        Assert.Equal(
+            new[] { new DayOverride(Wednesday7Oct, false), new DayOverride(Friday9Oct, false), new DayOverride(Saturday10Oct, true) },
+            week.Overrides);
+    }
+
+    [Fact]
+    public void AnEmptyPattern_FallsBackToTheDefault_KeepingItsOverrides()
+    {
+        var empty = NoDayWorked() with { Overrides = [new DayOverride(Friday9Oct, false)] };
+
+        var effective = empty.Effective;
+
+        Assert.Equal(TimeSpan.FromHours(42.5), effective.PerWeek);
+        Assert.Equal(empty.Overrides, effective.Overrides);
+        Assert.False(effective.IsWorked(Friday9Oct));
+        Assert.True(effective.IsWorked(Friday9Oct.AddDays(-1)));
+    }
+
+    [Fact]
+    public void TheFirstWorkedDay_SkipsABlockedDate()
+    {
+        var week = WorkingHours.Default.Toggled(Monday12Oct);
+
+        Assert.Equal(Monday12Oct.AddDays(1), week.FirstWorkedDay(Monday12Oct));
+        Assert.Equal(Monday12Oct.AddDays(1), week.FirstWorkedDay(Saturday10Oct));
+    }
+
+    [Fact]
+    public void TheFirstWorkedDay_FindsAnUnblockedWeekend()
+    {
+        var week = WorkingHours.Default.Toggled(Saturday10Oct);
+
+        Assert.Equal(Saturday10Oct, week.FirstWorkedDay(Saturday10Oct));
+    }
+
+    [Fact]
+    public void TheFirstWorkedDay_WalksPastMoreThanAWeekOfLeave()
+    {
+        var week = WorkingHours.Default;
+        for (var day = Monday5Oct; day < Monday5Oct.AddDays(12); day = day.AddDays(1))
+        {
+            if (week.IsWorked(day)) week = week.Toggled(day);
+        }
+
+        Assert.Equal(Monday5Oct.AddDays(14), week.FirstWorkedDay(Monday5Oct));
+    }
+
+    /// <summary>Requirement "An effort window counts the overrides": 7 points at 7 a
+    /// week from Monday 5 October end on Friday 9; blocking Wednesday 7 moves the end to
+    /// Monday 12; unblocking Saturday 10 (09:00 to 17:30) then ends it on Saturday 10.</summary>
+    [Fact]
+    public void ABlockedThenAnUnblockedDate_MoveTheEndOfAWindow()
+    {
+        var week = WorkingHours.Default;
+        Assert.Equal(Friday9Oct, week.LastDayOf(Monday5Oct, 7m, 7m));
+
+        var blocked = week.Toggled(Wednesday7Oct);
+        Assert.Equal(Monday12Oct, blocked.LastDayOf(Monday5Oct, 7m, 7m));
+
+        var unblocked = blocked.Toggled(Saturday10Oct);
+        Assert.Equal(Saturday10Oct, unblocked.LastDayOf(Monday5Oct, 7m, 7m));
+    }
+
+    /// <summary>The whole-week skip never jumps an override: a blocked date weeks ahead
+    /// still lengthens a long window by one worked date.</summary>
+    [Fact]
+    public void ALongWindow_CountsABlockedDateWeeksAhead()
+    {
+        var week = WorkingHours.Default;
+        var plain = week.LastDayOf(Monday5Oct, 50m, 5m); // ten weeks: Friday 11 December
+        Assert.Equal(new DateOnly(2026, 12, 11), plain);
+
+        var blocked = week.Toggled(new DateOnly(2026, 11, 18));
+        Assert.Equal(new DateOnly(2026, 12, 14), blocked.LastDayOf(Monday5Oct, 50m, 5m));
+
+        var blockedLastDay = week.Toggled(plain);
+        Assert.Equal(new DateOnly(2026, 12, 14), blockedLastDay.LastDayOf(Monday5Oct, 50m, 5m));
+    }
+
+    [Fact]
+    public void ALongWindow_EndsWhereADayByDayWalkEnds()
+    {
+        var week = WorkingHours.Default
+            .Toggled(new DateOnly(2026, 10, 20))
+            .Toggled(new DateOnly(2026, 10, 24))
+            .Toggled(new DateOnly(2027, 1, 1))
+            .Toggled(new DateOnly(2027, 3, 3));
+
+        foreach (var points in new[] { 1m, 6m, 13m, 40m, 87m, 160m })
+        {
+            Assert.Equal(DayByDay(week, Monday5Oct, points * week.PerWeek.Ticks / 5m), week.LastDayOf(Monday5Oct, points, 5m));
+        }
+    }
+
+    [Fact]
+    public void AnAbsurdAmount_WithOverrides_IsClampedToTheCalendar()
+    {
+        var week = WorkingHours.Default.Toggled(Friday9Oct);
+
+        Assert.Equal(DateOnly.MaxValue, week.LastDayOf(Monday5Oct, int.MaxValue, 0.0001m));
+    }
+
+    private static DateOnly DayByDay(WorkingHours week, DateOnly start, decimal neededTicks)
+    {
+        var day = week.FirstWorkedDay(start);
+        var left = neededTicks;
+        while (true)
+        {
+            left -= week.WorkedOn(day).Ticks;
+            if (left <= 0) return day;
+            day = day.AddDays(1);
+        }
+    }
 }

@@ -14,10 +14,11 @@ namespace Backlog.Modules.Roadmap.Services;
 /// <para>
 /// Every pace is story points a working week, a week being the hours of the person's
 /// working week (local ADR 0019). A measured one is the finished effort over the working
-/// hours in its stretch, times the hours of a week; every stretch is whole weeks, and
-/// any seven days in a row hold the whole week once, so that is the effort over the
-/// weeks, whatever the pattern. Placement counts the same hours forward
-/// (<c>EffortWindow</c>), so a bar spans the days the work was measured to take.
+/// hours in its stretch, times the hours of a week. The hours are counted date by date,
+/// so a blocked date adds none and an unblocked one adds its weekday's; with no override
+/// in the stretch, every stretch being whole weeks, that is the effort over the weeks,
+/// whatever the pattern. Placement counts the same hours forward (<c>EffortWindow</c>),
+/// so a bar spans the days the work was measured to take.
 /// </para>
 /// <para>
 /// A repository's measured paces count only the work filed under it, and work filed
@@ -93,6 +94,11 @@ internal sealed class PlanningPace(
     public string? SetOwn(decimal storyPointsPerWeek, string? repository = null) =>
         settings.SetOwn(storyPointsPerWeek.ToString(CultureInfo.InvariantCulture), Scope(repository));
 
+    /// <summary>Blocks or unblocks a date in the week kept with the pace. The settings
+    /// raise <see cref="Changed"/> when it took, and this event is theirs, so a band
+    /// listening re-places its bars at once.</summary>
+    public string? ToggleWorkedDay(DateOnly date) => settings.ToggleWorkedDay(date);
+
     internal static PlanningPacesDto Paces(
         decimal manual,
         PaceSource source,
@@ -121,6 +127,12 @@ internal sealed class PlanningPace(
     /// times the hours of <paramref name="week"/> (local ADR 0019) — four decimals, the
     /// finest pace the typed one can hold. <c>null</c> when nothing estimated was
     /// finished: that stretch measured no pace, which is not the same as a pace of zero.
+    /// <c>null</c> too when every date in it was blocked: no hours, nothing to divide by.
+    /// <para>
+    /// Each date counts its own hours, its override first (local ADR 0019, §2); the
+    /// hours of a week stay the pattern's, so a blocked week in the stretch raises the
+    /// figure and an unblocked Saturday lowers it.
+    /// </para>
     /// <para>
     /// Multiplied before dividing, and counted in ticks, so a stretch of whole weeks
     /// measures exactly the effort over the weeks.
@@ -141,7 +153,9 @@ internal sealed class PlanningPace(
         if (effort <= 0) return null;
 
         long stretch = 0;
-        for (var day = from; day <= today; day = day.AddDays(1)) stretch += counted.WorkedOn(day.DayOfWeek).Ticks;
+        for (var day = from; day <= today; day = day.AddDays(1)) stretch += counted.WorkedOn(day).Ticks;
+
+        if (stretch <= 0) return null;
 
         return Math.Round(effort * counted.PerWeek.Ticks / stretch, 4, MidpointRounding.AwayFromZero);
     }

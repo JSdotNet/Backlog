@@ -191,5 +191,7 @@ internal static class DashboardTestHost
         public string? SetDay(DayOfWeek day, bool working, TimeOnly start, TimeOnly end) => null;
 
         public string? ResetToDefault() => null;
+
+        public string? ToggleDate(DateOnly date) => null;
     }
 }
