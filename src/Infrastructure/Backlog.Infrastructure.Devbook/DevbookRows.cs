@@ -59,6 +59,17 @@ public sealed record DevbookOutlineRow(
     bool IsRoot);
 
 /// <summary>
+/// A heading of one row of <c>chapter</c>, without its text or file facts — what
+/// <see cref="DevbookDatabase.ChapterHeadings"/> reads for every page at once.
+/// </summary>
+public sealed record DevbookChapterHeadingRow(
+    string Path,
+    string Slug,
+    int Level,
+    string? Title,
+    string? Status);
+
+/// <summary>
 /// One row of <c>chapter</c>: a heading and the text belonging to it, plus the
 /// file-level facts the drift check compares against.
 /// </summary>

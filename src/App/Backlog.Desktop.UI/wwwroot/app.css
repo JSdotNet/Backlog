@@ -1461,6 +1461,18 @@ h1, h2, h3 {
     font-variant-numeric: tabular-nums;
 }
 
+/* The row's mark for the Devbook chapters an entry points at: a book and how
+   many, as quiet as the "+n" beside the work links, because which chapters they
+   are is the open entry's to say. */
+.entry-row__devbook {
+    display: inline-flex;
+    align-items: center;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
 /* --- Scheduling and dependency rows -------------------------------------- */
 
 /* TaskActionPane lays the rows out now — one lead row across the top and the
@@ -1504,6 +1516,30 @@ h1, h2, h3 {
 
 .entry-doc__schedule-depends {
     margin-left: var(--spacing-lg);
+}
+
+/* The entry's Devbook references, indented under the row that adds them the way
+   a picker is, and wrapping: the chips are titles, and a column of one per line
+   would make the panel's height a function of how many chapters were linked. */
+.entry-doc__devbook {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    margin-left: var(--spacing-lg);
+}
+
+.entry-doc__devbook-picker {
+    margin-left: var(--spacing-lg);
+}
+
+/* A reference the module refused, under the chips it would have joined: the
+   error ink the GitHub failure above wears, indented with the group. */
+.entry-doc__devbook-refusal {
+    margin: var(--spacing-xs) 0 0 var(--spacing-lg);
+    font-size: var(--font-size-sm);
+    color: var(--color-error-text);
+    overflow-wrap: anywhere;
 }
 
 /* "Waiting for" and "Create follow-up" on one line: the two ends of one

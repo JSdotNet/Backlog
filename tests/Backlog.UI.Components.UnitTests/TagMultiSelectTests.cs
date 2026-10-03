@@ -283,4 +283,195 @@ public sealed class TagMultiSelectTests
         Assert.Equal("Add \"a\"", create.TextContent);
         Assert.EndsWith("-option-3", create.Id, StringComparison.Ordinal);
     }
+    /// <summary>A host that draws the selection itself — as richer chips than a tag's —
+    /// keeps the picker for adding and nothing else: no second row of chips, and no
+    /// Backspace that drops a value the reader cannot see in the control.</summary>
+    [Fact]
+    public void A_host_that_draws_the_selection_itself_gets_the_picker_without_chips()
+    {
+        using var context = new BunitContext();
+        var changes = 0;
+
+        var select = context.Render<TagMultiSelect>(parameters => parameters
+            .Add(s => s.Options, Options)
+            .Add(s => s.SelectedValues, new[] { "desktop" })
+            .Add(s => s.ShowSelected, false)
+            .Add(s => s.SelectedValuesChanged, (IReadOnlyList<string> _) => changes++));
+
+        Assert.Empty(select.FindAll(".tag-select__chip"));
+
+        var input = select.Find("input");
+        input.KeyDown(new KeyboardEventArgs { Key = "Backspace" });
+        Assert.Equal(0, changes);
+
+        // What is already chosen is still not offered again.
+        input.Focus();
+        Assert.Equal(["spacing", "sync"], select.FindAll("[role='option']").Select(option => option.TextContent));
+    }
+
+    [Fact]
+    public void A_host_that_draws_the_selection_itself_still_hears_every_addition()
+    {
+        using var context = new BunitContext();
+        IReadOnlyList<string>? reported = null;
+
+        var select = context.Render<TagMultiSelect>(parameters => parameters
+            .Add(s => s.Options, Options)
+            .Add(s => s.SelectedValues, new[] { "desktop" })
+            .Add(s => s.ShowSelected, false)
+            .Add(s => s.SelectedValuesChanged, (IReadOnlyList<string> values) => reported = values));
+
+        select.Find("input").Focus();
+        select.FindAll("[role='option']")[0].Click();
+
+        Assert.Equal(["desktop", "spacing"], reported);
+        Assert.Empty(select.FindAll(".tag-select__chip"));
+    }
+
+    /// <summary>Pages and chapters as a Devbook picker offers them: the title is the
+    /// label, the stored reference is the value, and the value is a path.</summary>
+    private static readonly SelectorOption[] Chapters =
+    [
+        new(".devbook/domain/tasks/domain.md", "Tasks"),
+        new(".devbook/domain/tasks/features.md", "Tasks"),
+        new(".devbook/arc42/09-decisions.md", "Decisions")
+    ];
+
+    [Fact]
+    public void By_default_a_query_matches_the_label_and_not_the_value()
+    {
+        using var context = new BunitContext();
+
+        var select = context.Render<TagMultiSelect>(parameters => parameters.Add(s => s.Options, Chapters));
+
+        select.Find("input").Input("features.md");
+
+        Assert.Empty(select.FindAll("[role='option']"));
+    }
+
+    [Fact]
+    public void Match_value_lets_a_query_find_an_option_by_what_it_stores()
+    {
+        using var context = new BunitContext();
+
+        var select = context.Render<TagMultiSelect>(parameters => parameters
+            .Add(s => s.Options, Chapters)
+            .Add(s => s.MatchValue, true));
+
+        select.Find("input").Input("features.md");
+
+        var option = Assert.Single(select.FindAll("[role='option']"));
+        Assert.Equal("Tasks", option.TextContent);
+
+        // The label still matches as it always did.
+        select.Find("input").Input("decis");
+        Assert.Equal(["Decisions"], select.FindAll("[role='option']").Select(found => found.TextContent));
+    }
+
+    private static SelectorOption[] Many(int count) =>
+        [.. Enumerable.Range(1, count).Select(i => new SelectorOption($"v{i}", $"Option {i}"))];
+
+    [Fact]
+    public void Max_options_draws_only_that_many_and_says_how_many_more_match()
+    {
+        using var context = new BunitContext();
+
+        var select = context.Render<TagMultiSelect>(parameters => parameters
+            .Add(s => s.Options, Many(30))
+            .Add(s => s.MaxOptions, 10)
+            .Add(s => s.Id, "many"));
+
+        var input = select.Find("input");
+        input.Focus();
+
+        Assert.Equal(10, select.FindAll("[role='option']").Count);
+
+        var more = select.Find(".tag-select__more");
+        Assert.Contains("20 more", more.TextContent, StringComparison.Ordinal);
+
+        // The note is not an option the keyboard can land on, and the input points
+        // at it so a screen reader hears that the list is cut short.
+        Assert.NotEqual("option", more.GetAttribute("role"));
+        Assert.Equal(more.Id, select.Find("input").GetAttribute("aria-describedby"));
+
+        // The cursor cycles through what is drawn, not through what is hidden.
+        select.Find("input").KeyDown(new KeyboardEventArgs { Key = "ArrowUp" });
+        Assert.Equal("many-option-9", select.Find("input").GetAttribute("aria-activedescendant"));
+    }
+
+    [Fact]
+    public void Max_options_stops_saying_more_once_the_query_narrows_the_list_under_it()
+    {
+        using var context = new BunitContext();
+
+        var select = context.Render<TagMultiSelect>(parameters => parameters
+            .Add(s => s.Options, Many(30))
+            .Add(s => s.MaxOptions, 10));
+
+        select.Find("input").Input("Option 2");
+
+        // "Option 2" and "Option 20" to "Option 29".
+        Assert.Equal(10, select.FindAll("[role='option']").Count);
+        Assert.Contains("1 more", select.Find(".tag-select__more").TextContent, StringComparison.Ordinal);
+
+        select.Find("input").Input("Option 25");
+
+        Assert.Single(select.FindAll("[role='option']"));
+        Assert.Empty(select.FindAll(".tag-select__more"));
+        Assert.Null(select.Find("input").GetAttribute("aria-describedby"));
+    }
+
+    [Fact]
+    public void Without_max_options_every_match_is_drawn()
+    {
+        using var context = new BunitContext();
+
+        var select = context.Render<TagMultiSelect>(parameters => parameters.Add(s => s.Options, Many(30)));
+        select.Find("input").Focus();
+
+        Assert.Equal(30, select.FindAll("[role='option']").Count);
+        Assert.Empty(select.FindAll(".tag-select__more"));
+    }
+
+    [Fact]
+    public void Enter_with_a_capped_list_takes_the_drawn_option_and_the_create_row_follows_it()
+    {
+        using var context = new BunitContext();
+        IReadOnlyList<string>? reported = null;
+
+        var select = context.Render<TagMultiSelect>(parameters => parameters
+            .Add(s => s.Options, Many(30))
+            .Add(s => s.MaxOptions, 5)
+            .Add(s => s.AllowCreate, true)
+            .Add(s => s.Id, "capped")
+            .Add(s => s.SelectedValuesChanged, (IReadOnlyList<string> values) => reported = values));
+
+        select.Find("input").Input("Option");
+
+        var options = select.FindAll("[role='option']");
+        Assert.Equal(6, options.Count);
+        Assert.Equal("Add \"Option\"", options[^1].TextContent);
+        Assert.Equal("capped-option-5", options[^1].Id);
+
+        select.Find("input").KeyDown(new KeyboardEventArgs { Key = "ArrowUp" });
+        select.Find("input").KeyDown(new KeyboardEventArgs { Key = "ArrowUp" });
+        select.Find("input").KeyDown(new KeyboardEventArgs { Key = "Enter" });
+
+        Assert.Equal(["v5"], reported);
+    }
+
+    /// <summary>A host that opens the picker on a press of its own can hand it the
+    /// caret, so the next key is the query.</summary>
+    [Fact]
+    public async Task Focus_puts_the_caret_in_the_input()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var select = context.Render<TagMultiSelect>(parameters => parameters.Add(s => s.Options, Options));
+
+        await select.InvokeAsync(() => select.Instance.FocusAsync());
+
+        Assert.Single(context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]);
+    }
 }

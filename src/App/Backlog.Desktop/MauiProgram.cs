@@ -165,6 +165,11 @@ public static class MauiProgram
             new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
         builder.Services.AddSingleton<IDevbookVectorSearch>(sp =>
             new DevbookSemanticSearch(sp.GetRequiredService<IDevbookFolderSource>(), DevbookEmbeddingModel.Default));
+        // What a task's Devbook references point at, for the Tasks detail panel and
+        // the MCP reference tools: Tasks' port, answered over the same database and
+        // folders, falling back to the Markdown where there is no database.
+        builder.Services.AddSingleton<IDevbookReferenceResolver>(sp =>
+            new DevbookReferenceResolver(sp.GetRequiredService<IDevbookFolderSource>()));
         builder.Services.AddSingleton<InstructionSourceDiscovery>();
         builder.Services.AddSingleton<DevbookMenu>();
         builder.Services.AddSingleton<DevbookCopilotCli>();

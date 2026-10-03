@@ -65,6 +65,11 @@ public sealed class TaskItemStampTests
         // therefore the single edit that never travelled.
         ["SetDependsOn(null)"] = task => task.SetDependsOn(null),
 
+        [nameof(TaskItem.SetDevbookReferences)] = task => task.SetDevbookReferences([".devbook/domain/tasks/domain.md#task"]),
+
+        // Clearing is an edit here for the reason it is on SetDependsOn.
+        ["SetDevbookReferences(null)"] = task => task.SetDevbookReferences(null),
+
         [nameof(TaskItem.SetStatus)] = task => task.SetStatus(EntryStatus.Done, new DateOnly(2026, 1, 1)),
         [nameof(TaskItem.ChangeStatus)] = task => task.ChangeStatus(EntryStatus.Ready, new DateOnly(2026, 1, 1)),
         [nameof(TaskItem.MarkDeleted)] = task => task.MarkDeleted(),

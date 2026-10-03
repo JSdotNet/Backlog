@@ -2450,6 +2450,124 @@ button.md-check {
     color: var(--color-text-secondary);
 }
 
+/*
+  A Devbook page or chapter something else holds — a task's references — as a
+  chip: DevbookReferenceChip.
+
+  Quieter than a badge on purpose. The label keeps the reference's own ink, the
+  link colour .devbook-ref wears, because pressing it goes somewhere; the edge is
+  the plain border token and the surface stays transparent, so the one filled
+  thing on the chip is the status badge, which is the one fact on it that is a
+  state. The construction is .tag-chip--person's — a full-radius outline — with
+  no colour of its own.
+
+  Broken changes the edge from solid to dashed and adds a mark in the error ink,
+  and the label drops to secondary text: three carriers, and the mark's
+  accessible name is the reason in words.
+*/
+.devbook-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+}
+
+.devbook-chip--broken {
+    border-style: dashed;
+}
+
+.devbook-chip__label {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    min-width: 0;
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+button.devbook-chip__label {
+    cursor: pointer;
+}
+
+button.devbook-chip__label:hover:not(:disabled) {
+    color: var(--color-primary-light);
+    text-decoration: underline;
+}
+
+button.devbook-chip__label:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.devbook-chip--broken .devbook-chip__label {
+    color: var(--color-text-secondary);
+}
+
+/* The status inside a chip is as wide as its word and no taller than the chip.
+   `.badge--status` is 7.5rem by 1.5rem because a stack of statuses has to line up
+   as a column; a chip is one line of prose-sized text with nothing to align with,
+   so the column's width left a wide gap after a short word and its height pushed
+   the chip's edge out. The same argument `.file-view__header` makes for its one
+   status, scoped to the chip. Two classes, so it outranks the badge's own rule
+   wherever either is declared. */
+.devbook-chip > .devbook-chip__badge {
+    width: auto;
+    min-width: 0;
+    height: auto;
+    margin-left: 0;
+    padding: 0 var(--spacing-xs);
+    line-height: inherit;
+}
+
+.devbook-chip__broken {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+    cursor: help;
+}
+
+/* Sized to the chip, for the reason .tag-chip__remove gives. */
+.devbook-chip__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+}
+
+.devbook-chip__remove:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+    color: var(--color-text-primary);
+}
+
+.devbook-chip__remove:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.devbook-chip__remove:disabled {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
 /* A plain string field — an alias, a kind, a version, an issue shorthand. It
    names something with no chapter to point at, so it borrows neither the pill
    nor the link: it is simply the value, set in the same mono face as the
@@ -7141,7 +7259,8 @@ select.field__input {
     left: 0;
     right: 0;
     max-height: 14rem;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     margin: var(--spacing-xs) 0 0;
     padding: var(--spacing-xs);
     list-style: none;
@@ -7208,10 +7327,39 @@ select.field__input {
     gap: var(--spacing-sm);
 }
 
+/* One line per option, cut with an ellipsis rather than pushed past the list's
+   edge. A long label beside a long hint — a Devbook chapter beside the page it is
+   a heading of — used to widen the row past the popup and give the list a
+   horizontal scrollbar; the popup scrolls one way only. Both texts are whole in
+   their `title`. The label gives way before the hint does, up to half the row,
+   because the label is the thing being chosen. */
+.tag-select__option-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* An aside on an option — where it comes from — kept quiet enough that it reads
    as a note rather than a second label. */
 .tag-select__hint {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 50%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+}
+
+/* The count of matches a capped list does not draw (TagMultiSelect's MaxOptions).
+   Set like a hint rather than an option, because it is not one: nothing can be
+   picked from it, and the pointer and the active-option fill pass it by. */
+.tag-select__more {
+    padding: var(--spacing-xs) var(--spacing-sm);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     opacity: 0.8;

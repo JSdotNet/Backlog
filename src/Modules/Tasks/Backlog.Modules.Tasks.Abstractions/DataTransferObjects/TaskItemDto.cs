@@ -90,7 +90,17 @@ public sealed record TaskItemDto(
     string? ImportItemId = null,
     DateTimeOffset? CreatedAt = null,
     DateOnly? StartedOn = null,
-    string? SourceInboxId = null);
+    string? SourceInboxId = null,
+    IReadOnlyList<string>? DevbookReferences = null)
+{
+    /// <summary>The Devbook pages and chapters the entry is about, as normalised
+    /// references (<c>path</c> or <c>path#anchor</c>), in order. Published on
+    /// <see cref="SourceInboxId"/>'s terms — the entry's own field, read from its
+    /// own column and never rebuilt from the text, so the round-trip rule does not
+    /// reach it — and empty rather than null, so a reader never has to ask which of
+    /// the two "none" is. Last, for the reason <see cref="StartedOn"/> is.</summary>
+    public IReadOnlyList<string> DevbookReferences { get; init; } = DevbookReferences ?? [];
+}
 
 /// <summary>Where an entry has been projected to outside this system — today a
 /// GitHub issue. Kept as data rather than a typed link so the module does not
