@@ -5985,6 +5985,37 @@ button.task-panel__check:focus-visible {
     box-shadow: var(--shadow-md);
 }
 
+/* A click demo's frame. Unlike an artifact it does not measure itself: a demo is
+   an application with its own scrolling, so it gets a screen's worth of height and
+   keeps it. The background is the demo's own — it is a picture of the product and
+   paints itself — and the frame is bordered because, unlike a drawing, it is a
+   working surface whose edge a reader needs to see. */
+.demo-view__frame {
+    display: block;
+    width: 100%;
+    height: 36rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.diagram-view__stage:fullscreen .demo-view__frame {
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+}
+
+.demo-view__places {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.demo-view__path {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 /* The offers, under the diagram rather than in the header: they are about what
    is missing, which is not something to read before the picture. */
 .diagram-view__footer {

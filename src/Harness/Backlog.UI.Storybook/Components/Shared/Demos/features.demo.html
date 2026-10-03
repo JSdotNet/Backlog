@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ordering — demo</title>
+<script type="application/json" id="demo-meta">{"question": "Does a buyer whose card is declined at checkout keep the basket and know what to do next?"}</script>
+</head>
+<body>
+<!-- template:begin hash=sha256:eccdef86c11bb98823adc9741a3d071fbb9497f2e4fed8c58b8c0f36810b7215 -->
+<!--
+  The managed region of the demo template. A demo copies it byte for byte and never edits it:
+  a change to it is a change to .devbook/design/demo-template.html, and every demo is refreshed
+  from there. Everything else in the file is the demo's own:
+    <script type="application/json" id="demo-meta">   {"question": "…"}, in <head>
+    <main data-demo-app>                              the screens
+    <script type="application/json" id="demo-model">  what the panel reads, after <main>
+
+  Inside <main data-demo-app>:
+    <section id="…" data-screen>  one screen, or one state of a screen; its address is #id
+    data-anchor="…"               an element a note or a walkthrough step points at
+    href="#id", data-goto="#id"   move to a screen; on a <form>, once its native validation passes
+    data-dialog="id", data-close  open a <dialog> modally, close the one around the button
+    data-if-role="a b"            shown only for these roles
+    data-if-flag="key" / "!key"   shown only while the flag is on / off
+    data-if-setting="key=value"   shown only while the setting has that value
+    data-variant="key"            shown only while that variant is chosen
+  <main> carries data-role, data-flags, data-variant, and data-setting-<key> for the demo's own CSS.
+
+  demo-model:
+    app           {"name", "home"}: the product name in the shell, the first screen's id
+    screens       [{"id", "title", "nav"?, "of"?, "anchors": [...]}]; "nav" puts the screen in
+                  the shell's navigation, "of" files it under another screen — a state of that
+                  screen, whose section also carries data-state="…", or a screen reached from it
+    roles         [{"key", "label", "default"?}]
+    flags         [{"key", "label", "default"?}]: "default" true means switched on
+    settings      [{"key", "label", "options": [{"value", "label"}], "default"?}]
+    viewports     [{"key", "label", "width"?, "default"?}]: width in px; none fills the window
+    variants      [{"key", "label"}]: the panel switches them while there are two or more
+    walkthroughs  [{"id", "title", "steps": [{"screen", "anchor"?, "role"?, "flags"?, "text"}]}]
+                  "id" is the scenario's slug when the walkthrough plays one; each step's
+                  "text" is the scenario line it shows
+
+  Addresses and the four messages follow devbook's demo-address contract,
+  devbook.demo.address@1. demo:ready carries the hash above as its template version.
+-->
+<style>
+  :root {
+    /* Design tokens. A repository writes its own design/ tokens here. */
+    --color-bg: #f5f6f8;
+    --color-surface: #ffffff;
+    --color-surface-alt: #eef0f3;
+    --color-text: #1b2330;
+    --color-muted: #5b6575;
+    --color-border: #d5dae1;
+    --color-primary: #1f5fbf;
+    --color-primary-hover: #194f9f;
+    --color-on-primary: #ffffff;
+    --color-success: #1d7a46;
+    --color-success-bg: #e3f4ea;
+    --color-warning: #8a5a00;
+    --color-warning-bg: #fdf1d6;
+    --color-danger: #b42318;
+    --color-danger-bg: #fdecea;
+    --color-info: #1f5fbf;
+    --color-info-bg: #e6eefb;
+    --color-focus: #1f5fbf;
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-size-sm: 0.8125rem;
+    --font-size-md: 0.9375rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.5rem;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --shadow-1: 0 1px 2px rgb(16 24 40 / 8%), 0 1px 3px rgb(16 24 40 / 6%);
+    --shadow-2: 0 12px 32px rgb(16 24 40 / 18%);
+  }
+
+  /* The product: every rule is scoped to the stage, so none of it reaches the panel. */
+  html, body { margin: 0; }
+  body { background: var(--color-bg); }
+  html[data-demo-framed] body { background: #c9c6bf; }
+  .demo-stage {
+    container-type: inline-size;
+    position: relative;
+    min-height: 100vh;
+    margin: 0 auto;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font: var(--font-size-md)/1.5 var(--font-sans);
+  }
+  html[data-demo-framed] .demo-stage { min-height: calc(100vh - 48px); margin: 24px auto; box-shadow: 0 0 0 1px #8c8a84, var(--shadow-2); }
+  .demo-stage *, .demo-stage *::before, .demo-stage *::after { box-sizing: border-box; }
+  .demo-stage [hidden] { display: none !important; }
+  .demo-stage h1, .demo-stage h2, .demo-stage h3 { margin: 0; line-height: 1.25; }
+  .demo-stage h1 { font-size: var(--font-size-xl); }
+  .demo-stage h2 { font-size: var(--font-size-lg); }
+  .demo-stage h3 { font-size: var(--font-size-md); }
+  .demo-stage p { margin: 0; }
+  .demo-stage :where(a) { color: var(--color-primary); }
+  .demo-stage :focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+  .shell { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: var(--space-5); padding: 0 var(--space-5); min-height: 56px; background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+  .shell-brand { font-weight: 700; white-space: nowrap; }
+  .shell-nav { display: flex; gap: var(--space-1); flex: 1; overflow-x: auto; }
+  .shell-link { padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); color: var(--color-muted); text-decoration: none; white-space: nowrap; }
+  .shell-link:hover { background: var(--color-surface-alt); color: var(--color-text); }
+  .shell-link[aria-current="page"] { color: var(--color-text); font-weight: 600; box-shadow: inset 0 -2px 0 var(--color-primary); border-radius: 0; }
+  .shell-user { color: var(--color-muted); font-size: var(--font-size-sm); white-space: nowrap; }
+
+  .page { display: grid; gap: var(--space-5); padding: var(--space-5); max-width: 1280px; margin: 0 auto; }
+  .page-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
+  .stack { display: grid; gap: var(--space-4); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); }
+  .split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: var(--space-5); align-items: start; }
+  .card { display: grid; gap: var(--space-4); padding: var(--space-5); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-1); }
+  .card-flush { padding: 0; gap: 0; overflow: hidden; }
+  .muted { color: var(--color-muted); }
+  .small { font-size: var(--font-size-sm); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
+  .btn:hover { background: var(--color-surface-alt); }
+  .btn-primary { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
+  .btn-primary:hover { background: var(--color-primary-hover); }
+  .btn-danger { color: var(--color-danger); border-color: var(--color-danger); }
+  .btn-ghost { border-color: transparent; background: transparent; color: var(--color-primary); }
+
+  .field { display: grid; gap: var(--space-1); }
+  .field > span, .field > label, .demo-stage legend {font-size: var(--font-size-sm); font-weight: 600; }
+  .demo-stage input:not([type="checkbox"], [type="radio"]), .demo-stage select, .demo-stage textarea { min-height: 36px; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; }
+  .demo-stage input:user-invalid { border-color: var(--color-danger); }
+  .demo-stage fieldset { display: grid; gap: var(--space-2); margin: 0; padding: 0; border: 0; }
+  .choice { display: flex; align-items: center; gap: var(--space-2); }
+  .hint { font-size: var(--font-size-sm); color: var(--color-muted); }
+
+  .table-wrap { overflow-x: auto; }
+  .data { width: 100%; border-collapse: collapse; }
+  .data th, .data td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); text-align: left; vertical-align: top; }
+  .data th { position: sticky; top: 0; background: var(--color-surface-alt); font-size: var(--font-size-sm); color: var(--color-muted); font-weight: 600; white-space: nowrap; }
+  .data tbody tr:hover { background: var(--color-surface-alt); }
+  .data tfoot td { font-weight: 600; border-bottom: 0; }
+
+  .badge { display: inline-block; padding: 2px var(--space-2); border-radius: 999px; font-size: var(--font-size-sm); font-weight: 600; white-space: nowrap; background: var(--color-surface-alt); color: var(--color-muted); }
+  .badge-success { background: var(--color-success-bg); color: var(--color-success); }
+  .badge-warning { background: var(--color-warning-bg); color: var(--color-warning); }
+  .badge-danger { background: var(--color-danger-bg); color: var(--color-danger); }
+  .badge-info { background: var(--color-info-bg); color: var(--color-info); }
+
+  .alert { display: grid; gap: var(--space-1); padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); border-left: 4px solid var(--color-info); background: var(--color-info-bg); }
+  .alert-danger { border-color: var(--color-danger); background: var(--color-danger-bg); }
+  .alert-success { border-color: var(--color-success); background: var(--color-success-bg); }
+  .alert-warning { border-color: var(--color-warning); background: var(--color-warning-bg); }
+
+  .facts { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-4); margin: 0; }
+  .facts dt { color: var(--color-muted); }
+  .facts dd { margin: 0; }
+  .timeline { display: grid; gap: var(--space-3); margin: 0; padding: 0 0 0 var(--space-4); list-style: none; border-left: 2px solid var(--color-border); }
+  .timeline li { display: grid; gap: 2px; }
+  .empty { display: grid; justify-items: center; gap: var(--space-3); padding: var(--space-6); text-align: center; color: var(--color-muted); }
+
+  .demo-stage dialog { max-width: min(480px, calc(100% - 32px)); padding: var(--space-5); border: 0; border-radius: var(--radius-md); box-shadow: var(--shadow-2); color: var(--color-text); }
+  .demo-stage dialog::backdrop { background: rgb(16 24 40 / 45%); }
+
+  @container (max-width: 760px) {
+    .split { grid-template-columns: minmax(0, 1fr); }
+    .page { padding: var(--space-4); }
+    .shell { gap: var(--space-3); padding: 0 var(--space-4); }
+    .shell-user { display: none; }
+  }
+
+  /* What the demo adds on top of the product: the spotlight, note pins, annotate mode. */
+  [data-demo-spot] { outline: 3px solid #f5c400 !important; outline-offset: 3px; border-radius: 2px; }
+  [data-demo-annotate] [data-anchor]:hover { outline: 2px dashed #f5c400; outline-offset: 2px; cursor: crosshair; }
+  [data-demo-annotate] * { cursor: crosshair; }
+  .demo-pins { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
+  .demo-pin { position: absolute; display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border: 2px solid #16181d; border-radius: 11px 11px 11px 0; background: #f5c400; color: #16181d; font: 700 11px/1 ui-monospace, "Cascadia Mono", Consolas, monospace; }
+
+  /* The control panel. Deliberately unlike any product: dark, monospaced, hazard-striped. */
+  .dp { position: fixed; z-index: 2147483000; top: 0; right: 0; bottom: 0; width: 320px; display: flex; flex-direction: column; background: #16181d; color: #e9e6dc; border-left: 1px solid #000; font: 12px/1.45 ui-monospace, "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace; box-shadow: -6px 0 18px rgb(0 0 0 / 25%); }
+  .dp::before { content: ""; height: 8px; flex: none; background: repeating-linear-gradient(-45deg, #f5c400 0 10px, #16181d 10px 20px); }
+  .dp *, .dp *::before, .dp *::after { box-sizing: border-box; }
+  .dp [hidden] { display: none !important; }
+  .dp-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #2c3038; }
+  .dp-badge { padding: 2px 6px; background: #f5c400; color: #16181d; font-weight: 800; letter-spacing: 0.12em; }
+  .dp-title { flex: 1; color: #a8a497; }
+  .dp-body { flex: 1; overflow-y: auto; padding: 4px 12px 16px; }
+  .dp-section { padding: 10px 0; border-bottom: 1px dashed #2c3038; }
+  .dp-section:last-child { border-bottom: 0; }
+  .dp-h { margin: 0 0 6px; color: #f5c400; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+  .dp-list { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
+  .dp-list .dp-list { margin-left: 14px; padding-left: 6px; border-left: 1px solid #2c3038; }
+  .dp button, .dp select, .dp input { font: inherit; color: inherit; }
+  .dp-btn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid #3a3f49; border-radius: 0; background: #20232a; cursor: pointer; }
+  .dp-btn:hover { border-color: #f5c400; }
+  .dp-btn[aria-pressed="true"] { background: #f5c400; border-color: #f5c400; color: #16181d; }
+  .dp-item { display: flex; width: 100%; align-items: center; gap: 6px; padding: 3px 6px; border: 0; background: none; text-align: left; cursor: pointer; }
+  .dp-item:hover { background: #20232a; }
+  .dp-item[aria-current] { background: #2c3038; box-shadow: inset 2px 0 0 #f5c400; }
+  .dp-item-label { flex: 1; }
+  .dp-tag { color: #8b877b; }
+  .dp-count { padding: 0 5px; background: #f5c400; color: #16181d; font-weight: 700; }
+  .dp-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dp-field { display: grid; gap: 3px; margin-bottom: 6px; }
+  .dp-field select { width: 100%; padding: 4px 6px; border: 1px solid #3a3f49; background: #20232a; }
+  .dp-check { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .dp-check input { accent-color: #f5c400; }
+  .dp-question { margin: 0; color: #e9e6dc; }
+  .dp-player { display: grid; gap: 8px; margin-top: 8px; padding: 8px; border: 1px solid #f5c400; }
+  .dp-player-title { margin: 0; font-weight: 700; }
+  .dp-steps { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+  .dp-steps .dp-item::before { counter-increment: step; content: counter(step) "."; color: #8b877b; min-width: 2ch; }
+  .dp-player-nav { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .dp-address { display: block; width: 100%; padding: 4px 6px; border: 1px solid #2c3038; background: #0f1114; color: #c9c5b8; overflow-wrap: anywhere; }
+  .dp-error { color: #ff8a80; }
+  .dp :focus-visible { outline: 2px solid #f5c400; outline-offset: 1px; }
+  .dp-open { position: fixed; z-index: 2147483000; right: 12px; bottom: 12px; padding: 6px 10px; border: 2px solid #16181d; background: #f5c400; color: #16181d; font: 800 12px/1 ui-monospace, Consolas, monospace; letter-spacing: 0.12em; cursor: pointer; }
+  html:not([data-demo-collapsed]) .dp-open, html[data-demo-collapsed] .dp { display: none; }
+  @media (min-width: 900px) { html:not([data-demo-collapsed]) body { padding-right: 320px; } }
+  @media (max-width: 899px) {
+    .dp { top: auto; left: 0; width: auto; max-height: 55vh; border-left: 0; border-top: 1px solid #000; }
+    html:not([data-demo-collapsed]) body { padding-bottom: 55vh; }
+  }
+</style>
+<div class="demo-stage" data-demo-stage>
+  <header class="shell" data-demo-shell></header>
+  <div class="demo-pins" data-demo-pins aria-hidden="true"></div>
+</div>
+<aside class="dp" data-demo-panel aria-label="Demo controls">
+  <div class="dp-head">
+    <span class="dp-badge">DEMO</span>
+    <span class="dp-title">Controls · not part of the product</span>
+    <button type="button" class="dp-btn" data-demo-collapse aria-label="Hide the demo controls">Hide</button>
+  </div>
+  <div class="dp-body" data-demo-panel-body></div>
+</aside>
+<button type="button" class="dp-open" data-demo-expand aria-label="Show the demo controls">DEMO</button>
+<script>
+(() => {
+  "use strict";
+  const V = 1;
+  const hosted = window.parent !== window;
+  const list = (x) => (Array.isArray(x) ? x : []);
+  const words = (s) => String(s || "").split(/[\s,]+/).filter(Boolean);
+  const byKey = (arr, key) => arr.find((x) => x.key === key);
+
+  function readJson(id) {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    try { return JSON.parse(el.textContent); } catch (e) { console.error(`demo: #${id} is not valid JSON`, e); return null; }
+  }
+
+  function templateVersion() {
+    const it = document.createNodeIterator(document.documentElement, NodeFilter.SHOW_COMMENT);
+    for (let n = it.nextNode(); n; n = it.nextNode()) {
+      const m = /template:begin hash=(\S+)/.exec(n.nodeValue);
+      if (m) return m[1];
+    }
+    return null;
+  }
+
+  function h(tag, attrs, ...children) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null || v === false) continue;
+      if (k === "text") el.textContent = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? "" : v);
+    }
+    for (const c of children.flat()) if (c != null && c !== false) el.append(c);
+    return el;
+  }
+
+  function post(type, payload) {
+    if (!hosted) return;
+    try { window.parent.postMessage({ type, v: V, ...payload }, "*"); } catch (e) { /* the host is gone */ }
+  }
+
+  function start() {
+    const stage = document.querySelector("[data-demo-stage]");
+    const shell = stage.querySelector("[data-demo-shell]");
+    const pinLayer = stage.querySelector("[data-demo-pins]");
+    const body = document.querySelector("[data-demo-panel-body]");
+    const app = document.querySelector("main[data-demo-app]");
+    if (!app) { body.append(h("p", { class: "dp-error", text: "This file has no main[data-demo-app]." })); return; }
+    stage.insertBefore(app, pinLayer);
+
+    const model = readJson("demo-model") || {};
+    const meta = readJson("demo-meta") || {};
+    const sectionOf = (id) => {
+      const el = id ? document.getElementById(id) : null;
+      return el && app.contains(el) && el.matches("section[data-screen]") ? el : null;
+    };
+    const screens = list(model.screens).filter((s) => {
+      if (s && typeof s.id === "string" && sectionOf(s.id)) return true;
+      console.warn("demo: demo-model lists a screen with no section[data-screen]", s);
+      return false;
+    });
+    const byId = new Map(screens.map((s) => [s.id, s]));
+    const anchorEl = (screen, anchor) => {
+      const s = byId.get(screen);
+      if (!s || !anchor || !list(s.anchors).includes(anchor)) return null;
+      return sectionOf(screen).querySelector(`[data-anchor="${CSS.escape(anchor)}"]`);
+    };
+    const roles = list(model.roles), flags = list(model.flags), settings = list(model.settings);
+    const viewports = list(model.viewports), variants = list(model.variants);
+    const resolves = (st) => st && byId.has(st.screen) && (!st.anchor || anchorEl(st.screen, st.anchor))
+      && (!st.role || byKey(roles, st.role)) && list(st.flags).every((f) => byKey(flags, f));
+    const walks = list(model.walkthroughs).filter((w) => {
+      if (w && typeof w.id === "string" && list(w.steps).length && w.steps.every(resolves)) return true;
+      console.warn("demo: a walkthrough in demo-model does not resolve", w);
+      return false;
+    });
+    const firstKey = (arr) => ((arr.find((x) => x.default) || arr[0] || {}).key ?? null);
+    const defaults = { role: firstKey(roles), flags: flags.filter((f) => f.default).map((f) => f.key), vp: firstKey(viewports) };
+    const home = model.app && byId.has(model.app.home) ? model.app.home : screens[0] && screens[0].id;
+
+    const state = {
+      screen: home, anchor: null, walk: null, annotate: false, pins: [],
+      role: defaults.role, flags: new Set(defaults.flags), vp: defaults.vp,
+      variant: variants.length ? variants[0].key : null,
+      settings: Object.fromEntries(settings.map((s) => [s.key, s.default ?? (list(s.options)[0] || {}).value])),
+    };
+
+    // ---- Addresses: devbook.demo.address@1 ----
+    function parse(address) {
+      let s = String(address || "");
+      const hash = s.indexOf("#");
+      if (hash < 0) return null;
+      s = s.slice(hash + 1);
+      let query = "";
+      const q = s.indexOf("?");
+      if (q >= 0) { query = s.slice(q + 1); s = s.slice(0, q); }
+      let parts;
+      try { parts = s.split("/").map(decodeURIComponent); } catch (e) { return null; }
+      if (parts[0] === "walkthrough") {
+        const walk = walks.find((w) => w.id === parts[1]);
+        const step = parts.length > 2 ? Number(parts[2]) : 1;
+        if (!walk || parts.length > 3 || !Number.isInteger(step) || step < 1 || step > walk.steps.length) return null;
+        return { walk, step };
+      }
+      if (parts.length > 2 || !byId.has(parts[0])) return null;
+      const out = { screen: parts[0], anchor: parts[1] || null };
+      if (out.anchor && !anchorEl(out.screen, out.anchor)) return null;
+      const params = new URLSearchParams(query);
+      if (params.has("role")) { out.role = params.get("role"); if (!byKey(roles, out.role)) return null; }
+      if (params.has("flags")) { out.flags = words(params.get("flags")); if (!out.flags.every((f) => byKey(flags, f))) return null; }
+      if (params.has("vp")) { out.vp = params.get("vp"); if (!byKey(viewports, out.vp)) return null; }
+      return out;
+    }
+
+    function query() {
+      const q = [];
+      const on = [...state.flags].sort();
+      if (state.role && state.role !== defaults.role) q.push(`role=${encodeURIComponent(state.role)}`);
+      if (on.join() !== [...defaults.flags].sort().join()) q.push(`flags=${on.map(encodeURIComponent).join(",")}`);
+      if (state.vp && state.vp !== defaults.vp) q.push(`vp=${encodeURIComponent(state.vp)}`);
+      return q.length ? `?${q.join("&")}` : "";
+    }
+    const screenAddress = (anchor) => `#${state.screen}${anchor ? `/${anchor}` : ""}${query()}`;
+    const address = () => (state.walk ? `#walkthrough/${state.walk.id}/${state.walk.step}` : screenAddress(state.anchor));
+
+    // Opens a parsed address. A host's address and the URL reset what they omit to the panel's
+    // default; a link inside the demo keeps the panel as it is.
+    function open(p, reset) {
+      if (!p) return false;
+      if (p.walk) {
+        const st = p.walk.steps[p.step - 1];
+        state.walk = { id: p.walk.id, step: p.step };
+        state.screen = st.screen;
+        state.anchor = st.anchor || null;
+        if (st.role) state.role = st.role;
+        if (st.flags) state.flags = new Set(st.flags);
+      } else {
+        state.walk = null;
+        state.screen = p.screen;
+        state.anchor = p.anchor;
+        if (reset || p.role) state.role = p.role ?? defaults.role;
+        if (reset || p.flags) state.flags = new Set(p.flags ?? defaults.flags);
+        if (reset || p.vp) state.vp = p.vp ?? defaults.vp;
+      }
+      render(true);
+      return true;
+    }
+    const navigate = (target) => open(parse(target), false) || console.warn(`demo: ${target} does not resolve`);
+
+    // ---- Rendering ----
+    function visible(el) {
+      const d = el.dataset;
+      if (d.ifRole != null && !words(d.ifRole).includes(state.role)) return false;
+      if (d.ifFlag != null && !words(d.ifFlag).every((f) => (f[0] === "!" ? !state.flags.has(f.slice(1)) : state.flags.has(f)))) return false;
+      if (d.ifSetting != null && !words(d.ifSetting).every((pair) => { const [k, v] = pair.split("="); return String(state.settings[k]) === v; })) return false;
+      if (d.variant != null && state.variant && d.variant !== state.variant) return false;
+      return true;
+    }
+
+    function render(moved) {
+      for (const sec of app.querySelectorAll("section[data-screen]")) sec.hidden = sec.id !== state.screen;
+      for (const el of app.querySelectorAll("[data-if-role], [data-if-flag], [data-if-setting], [data-variant]")) {
+        if (!el.matches("section[data-screen]")) el.hidden = !visible(el);
+      }
+      app.dataset.role = state.role || "";
+      app.dataset.flags = [...state.flags].join(" ");
+      if (state.variant) app.dataset.variant = state.variant;
+      for (const [k, v] of Object.entries(state.settings)) app.setAttribute(`data-setting-${k}`, v);
+
+      const vp = byKey(viewports, state.vp);
+      stage.style.maxWidth = vp && vp.width ? `${vp.width}px` : "";
+      document.documentElement.toggleAttribute("data-demo-framed", !!(vp && vp.width));
+      app.toggleAttribute("data-demo-annotate", state.annotate);
+
+      renderShell();
+      updatePanel();
+      for (const el of document.querySelectorAll("[data-demo-spot]")) el.removeAttribute("data-demo-spot");
+      const spot = anchorEl(state.screen, state.anchor);
+      if (spot) spot.setAttribute("data-demo-spot", "");
+      if (moved) {
+        if (spot) spot.scrollIntoView({ block: "center" });
+        else window.scrollTo(0, 0);
+      }
+      placePins();
+      sync();
+    }
+
+    function renderShell() {
+      const current = byId.get(state.screen) || {};
+      const role = byKey(roles, state.role);
+      shell.replaceChildren(
+        h("span", { class: "shell-brand", text: (model.app && model.app.name) || "Product" }),
+        h("nav", { class: "shell-nav", "aria-label": "Main" }, screens.filter((s) => s.nav).map((s) =>
+          h("a", { class: "shell-link", href: `#${s.id}`, text: s.title || s.id,
+            "aria-current": s.id === state.screen || s.id === current.of ? "page" : null }))),
+        role ? h("span", { class: "shell-user", text: role.label || role.key }) : null,
+      );
+    }
+
+    // ---- Note pins ----
+    const pinCounts = new Map();
+    function placePins() {
+      pinLayer.replaceChildren();
+      pinCounts.clear();
+      const groups = new Map();
+      for (const a of state.pins) {
+        const p = parse(a);
+        if (!p) continue;
+        const st = p.walk ? p.walk.steps[p.step - 1] : p;
+        const key = `${st.screen}/${st.anchor || ""}`;
+        groups.set(key, (groups.get(key) || 0) + 1);
+        pinCounts.set(st.screen, (pinCounts.get(st.screen) || 0) + 1);
+      }
+      const base = stage.getBoundingClientRect();
+      for (const [key, count] of groups) {
+        const [screen, anchor] = key.split("/");
+        if (screen !== state.screen) continue;
+        const el = anchor ? anchorEl(screen, anchor) : sectionOf(screen);
+        const r = el && el.getBoundingClientRect();
+        if (!r || (!r.width && !r.height)) continue;
+        pinLayer.append(h("span", { class: "demo-pin", text: String(count),
+          style: `left:${Math.max(0, r.right - base.left - 12)}px;top:${Math.max(0, r.top - base.top - 12)}px` }));
+      }
+      for (const [id, item] of screenItems) {
+        const n = pinCounts.get(id) || 0;
+        item.count.hidden = !n;
+        item.count.textContent = n;
+        item.count.title = `${n} note${n === 1 ? "" : "s"}`;
+      }
+    }
+
+    // ---- Location ----
+    let last = null;
+    function sync() {
+      const a = address();
+      addressOut.textContent = a;
+      if (a === last) return;
+      const moved = last && a.split("?")[0] !== last.split("?")[0];
+      last = a;
+      if (!hosted) {
+        try { history[moved ? "pushState" : "replaceState"](null, "", a); } catch (e) { /* no history here */ }
+      }
+      post("demo:location", { address: a });
+    }
+    const fromUrl = () => { if (location.hash && decodeURI(location.hash) !== decodeURI(last || "")) open(parse(location.hash), true); };
+    window.addEventListener("hashchange", fromUrl);
+    window.addEventListener("popstate", fromUrl);
+
+    // ---- The panel ----
+    const screenItems = new Map();
+    const walkItems = new Map();
+    let addressOut, player, playerTitle, playerSteps, playerPos, prevBtn, nextBtn, annotateBox;
+    const roleSelect = h("select", { id: "dp-role", onchange: (e) => { state.role = e.target.value; render(false); } },
+      roles.map((r) => h("option", { value: r.key, text: r.label || r.key })));
+    const variantSelect = h("select", { id: "dp-variant", onchange: (e) => { state.variant = e.target.value; render(false); } },
+      variants.map((v) => h("option", { value: v.key, text: v.label || v.key })));
+    const flagBoxes = new Map(flags.map((f) => [f.key, h("input", { type: "checkbox",
+      onchange: (e) => { if (e.target.checked) state.flags.add(f.key); else state.flags.delete(f.key); render(false); } })]));
+    const settingSelects = new Map(settings.map((s) => [s.key, h("select", { id: `dp-setting-${s.key}`,
+      onchange: (e) => { state.settings[s.key] = e.target.value; render(false); } },
+      list(s.options).map((o) => h("option", { value: o.value, text: o.label || o.value })))]));
+    const vpButtons = new Map(viewports.map((v) => [v.key, h("button", { type: "button", class: "dp-btn", text: v.label || v.key,
+      onclick: () => { state.vp = v.key; render(false); } })]));
+
+    function screenTree(parent) {
+      const items = screens.filter((s) => (s.of || null) === parent && (parent || !byId.has(s.of)));
+      if (!items.length) return null;
+      return h("ul", { class: "dp-list" }, items.map((s) => {
+        const count = h("span", { class: "dp-count", hidden: true });
+        const btn = h("button", { type: "button", class: "dp-item", onclick: () => open({ screen: s.id, anchor: null }, false) },
+          h("span", { class: "dp-item-label", text: s.title || s.id }), sectionOf(s.id).hasAttribute("data-state") ? h("span", { class: "dp-tag", text: "state" }) : null, count);
+        screenItems.set(s.id, { btn, count });
+        return h("li", null, btn, screenTree(s.id));
+      }));
+    }
+
+    function buildPanel() {
+      const sections = [];
+      if (meta.question) sections.push(h("div", { class: "dp-section" }, h("p", { class: "dp-h", text: "Question" }), h("p", { class: "dp-question", text: meta.question })));
+      if (walks.length) {
+        playerTitle = h("p", { class: "dp-player-title" });
+        playerSteps = h("ol", { class: "dp-steps" });
+        playerPos = h("span");
+        prevBtn = h("button", { type: "button", class: "dp-btn", text: "← Back", onclick: () => step(-1) });
+        nextBtn = h("button", { type: "button", class: "dp-btn", text: "Next →", onclick: () => step(1) });
+        player = h("div", { class: "dp-player", hidden: true, role: "region", "aria-label": "Walkthrough" },
+          playerTitle, playerSteps, h("div", { class: "dp-player-nav" }, prevBtn, playerPos, nextBtn),
+          h("button", { type: "button", class: "dp-btn", text: "End walkthrough", onclick: () => open({ screen: state.screen, anchor: null }, false) }));
+        sections.push(h("div", { class: "dp-section" }, h("p", { class: "dp-h", text: "Walkthroughs" }),
+          h("ul", { class: "dp-list" }, walks.map((w) => {
+            const btn = h("button", { type: "button", class: "dp-item", onclick: () => open({ walk: w, step: 1 }, false) },
+              h("span", { class: "dp-item-label", text: w.title || w.id }), h("span", { class: "dp-tag", text: `${w.steps.length} steps` }));
+            walkItems.set(w.id, btn);
+            return h("li", null, btn);
+          })), player));
+      }
+      sections.push(h("div", { class: "dp-section" }, h("p", { class: "dp-h", text: "Screens" }), screenTree(null)));
+      if (variants.length > 1) sections.push(h("div", { class: "dp-section" }, h("label", { class: "dp-h", for: "dp-variant", text: "Variant" }), h("div", { class: "dp-field" }, variantSelect)));
+      if (roles.length) sections.push(h("div", { class: "dp-section" }, h("label", { class: "dp-h", for: "dp-role", text: "Role" }), h("div", { class: "dp-field" }, roleSelect)));
+      if (flags.length) sections.push(h("fieldset", { class: "dp-section", style: "border:0;margin:0;padding:10px 0" }, h("legend", { class: "dp-h", text: "Flags" }),
+        flags.map((f) => h("label", { class: "dp-check" }, flagBoxes.get(f.key), f.label || f.key))));
+      if (settings.length) sections.push(h("div", { class: "dp-section" }, h("p", { class: "dp-h", text: "Settings" }),
+        settings.map((s) => h("div", { class: "dp-field" }, h("label", { for: `dp-setting-${s.key}`, text: s.label || s.key }), settingSelects.get(s.key)))));
+      if (viewports.length > 1) sections.push(h("div", { class: "dp-section", role: "group", "aria-label": "Viewport" }, h("p", { class: "dp-h", text: "Viewport" }), h("div", { class: "dp-row" }, [...vpButtons.values()])));
+      if (hosted) {
+        annotateBox = h("input", { type: "checkbox", onchange: (e) => { state.annotate = e.target.checked; render(false); } });
+        sections.push(h("div", { class: "dp-section" }, h("p", { class: "dp-h", text: "Notes" }),
+          h("label", { class: "dp-check" }, annotateBox, "Annotate: click an element to note it")));
+      }
+      addressOut = h("output", { class: "dp-address", "aria-label": "Current address" });
+      sections.push(h("div", { class: "dp-section" }, h("p", { class: "dp-h", text: "Address" }), addressOut));
+      body.replaceChildren(...sections);
+    }
+
+    function step(delta) {
+      const w = state.walk && walks.find((x) => x.id === state.walk.id);
+      if (w) open({ walk: w, step: Math.min(w.steps.length, Math.max(1, state.walk.step + delta)) }, false);
+    }
+
+    function updatePanel() {
+      for (const [id, item] of screenItems) {
+        if (id === state.screen) item.btn.setAttribute("aria-current", "page");
+        else item.btn.removeAttribute("aria-current");
+      }
+      for (const [id, btn] of walkItems) {
+        if (state.walk && state.walk.id === id) btn.setAttribute("aria-current", "true");
+        else btn.removeAttribute("aria-current");
+      }
+      roleSelect.value = state.role ?? "";
+      variantSelect.value = state.variant ?? "";
+      for (const [k, box] of flagBoxes) box.checked = state.flags.has(k);
+      for (const [k, sel] of settingSelects) sel.value = state.settings[k];
+      for (const [k, btn] of vpButtons) btn.setAttribute("aria-pressed", String(k === state.vp));
+      if (annotateBox) annotateBox.checked = state.annotate;
+      if (!player) return;
+      const w = state.walk && walks.find((x) => x.id === state.walk.id);
+      player.hidden = !w;
+      if (!w) return;
+      playerTitle.textContent = w.title || w.id;
+      playerSteps.replaceChildren(...w.steps.map((st, i) => h("li", null, h("button", { type: "button", class: "dp-item",
+        "aria-current": i + 1 === state.walk.step ? "step" : null, onclick: () => open({ walk: w, step: i + 1 }, false) },
+        h("span", { class: "dp-item-label", text: st.text || st.screen })))));
+      playerPos.textContent = `Step ${state.walk.step} of ${w.steps.length}`;
+      prevBtn.disabled = state.walk.step === 1;
+      nextBtn.disabled = state.walk.step === w.steps.length;
+    }
+
+    // ---- Interaction inside the product ----
+    stage.addEventListener("click", (e) => {
+      if (state.annotate && app.contains(e.target)) {
+        e.preventDefault();
+        e.stopPropagation();
+        const el = e.target.closest("[data-anchor]");
+        const anchor = el && anchorEl(state.screen, el.dataset.anchor) === el ? el.dataset.anchor : null;
+        post("demo:location", { address: address(), element: screenAddress(anchor) });
+        return;
+      }
+      const t = e.target;
+      const submit = t.closest("button[type='submit'], button:not([type]), input[type='submit']");
+      if (submit && submit.form && submit.form.hasAttribute("data-goto")) {
+        e.preventDefault();
+        if (submit.form.reportValidity()) navigate(submit.form.getAttribute("data-goto"));
+        return;
+      }
+      const dialogBtn = t.closest("[data-dialog]");
+      if (dialogBtn) { const d = document.getElementById(dialogBtn.dataset.dialog); if (d && d.showModal) { e.preventDefault(); d.showModal(); } return; }
+      const close = t.closest("[data-close]");
+      if (close && close.closest("dialog")) { e.preventDefault(); close.closest("dialog").close(); }
+      const link = t.closest("a[href^='#'], [data-goto]:not(form)");
+      if (link) {
+        e.preventDefault();
+        const d = link.closest("dialog");
+        if (d) d.close();
+        navigate(link.getAttribute("data-goto") || link.getAttribute("href"));
+      }
+    }, true);
+    app.addEventListener("submit", (e) => e.preventDefault());
+
+    // ---- Messages from the host ----
+    window.addEventListener("message", (e) => {
+      if (!hosted || e.source !== window.parent) return;
+      const m = e.data;
+      if (!m || typeof m !== "object" || typeof m.v !== "number" || m.v > V) return;
+      if (m.type === "demo:goto") open(parse(m.address), true);
+      else if (m.type === "demo:pins") { state.pins = list(m.addresses).filter((a) => typeof a === "string"); placePins(); }
+    });
+
+    document.querySelector("[data-demo-collapse]").addEventListener("click", () => {
+      document.documentElement.setAttribute("data-demo-collapsed", "");
+      document.querySelector("[data-demo-expand]").focus();
+    });
+    document.querySelector("[data-demo-expand]").addEventListener("click", () => {
+      document.documentElement.removeAttribute("data-demo-collapsed");
+      document.querySelector("[data-demo-collapse]").focus();
+    });
+    if (typeof ResizeObserver === "function") new ResizeObserver(() => placePins()).observe(stage);
+
+    buildPanel();
+    if (!home) { body.prepend(h("p", { class: "dp-error", text: "demo-model lists no screen this file has." })); return; }
+    post("demo:ready", {
+      template: templateVersion(),
+      screens: screens.map((s) => ({ id: s.id, title: s.title || s.id, ...(s.of ? { of: s.of } : {}) })),
+      anchors: screens.flatMap((s) => list(s.anchors).filter((a) => anchorEl(s.id, a)).map((a) => `${s.id}/${a}`)),
+      walkthroughs: walks.map((w) => ({ id: w.id, title: w.title || w.id, steps: w.steps.map((st) => `${st.screen}${st.anchor ? `/${st.anchor}` : ""}`) })),
+    });
+    if (!open(parse(location.hash), true)) open({ screen: home, anchor: null }, true);
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})();
+</script>
+<!-- template:end -->
+<main data-demo-app>
+  <style>
+    main[data-setting-density="compact"] .data th, main[data-setting-density="compact"] .data td { padding: 4px 12px; }
+    .orders-filters .field { min-width: 180px; }
+    .line-name { display: grid; gap: 2px; }
+    .totals { display: grid; grid-template-columns: 1fr auto; gap: var(--space-2) var(--space-4); margin: 0; }
+    .totals dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+    .totals .grand { font-weight: 700; font-size: var(--font-size-lg); }
+    .pager { display: flex; justify-content: space-between; align-items: center; padding: var(--space-3) var(--space-4); }
+  </style>
+
+  <section id="orders" data-screen>
+    <div class="page">
+      <div class="page-head">
+        <h1>Orders</h1>
+        <div class="row">
+          <a class="btn" href="#orders" data-if-role="account-admin" data-anchor="orders-export">Export CSV</a>
+          <a class="btn btn-primary" href="#checkout">Go to basket (6)</a>
+        </div>
+      </div>
+      <div class="toolbar orders-filters" data-anchor="orders-filter">
+        <label class="field"><span>Search</span><input type="search" placeholder="Order number, product or person"></label>
+        <label class="field"><span>Cost centre</span>
+          <select>
+            <option data-if-role="account-admin">All cost centres</option>
+            <option selected>4100 Facilities Utrecht</option>
+            <option>4210 Kitchen &amp; Catering</option>
+            <option>5300 Workshop Eindhoven</option>
+            <option>6020 Reception &amp; Mailroom</option>
+            <option data-if-role="account-admin">1000 Head office</option>
+          </select>
+        </label>
+        <label class="field"><span>Status</span>
+          <select><option>Any status</option><option>Awaiting approval</option><option>Approved</option><option>Picking</option><option>Dispatched</option><option>Part-delivered</option><option>Delivered</option><option>Payment failed</option><option>Cancelled</option></select>
+        </label>
+        <label class="field"><span>Placed</span><select><option>Last 30 days</option><option>Last 90 days</option><option>This year</option></select></label>
+        <a class="btn btn-ghost" href="#orders-empty">Payment failed in 5300</a>
+      </div>
+      <div class="card card-flush" data-anchor="orders-table">
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th scope="col">Order</th><th scope="col">Placed</th><th scope="col">Ordered by</th><th scope="col">Cost centre</th><th scope="col" class="num">Lines</th><th scope="col" class="num">Total excl. VAT</th><th scope="col">Status</th></tr></thead>
+            <tbody>
+              <tr><td><a href="#order-detail">10506</a></td><td>1 Oct 2026</td><td>Tom Verhoeven</td><td>4100 Facilities Utrecht</td><td class="num">12</td><td class="num">€ 3,184.60</td><td><span class="badge badge-warning">Awaiting approval</span></td></tr>
+              <tr><td><a href="#order-detail">10504</a></td><td>1 Oct 2026</td><td>Lotte Brinkman</td><td>4210 Kitchen &amp; Catering</td><td class="num">7</td><td class="num">€ 642.15</td><td><span class="badge badge-info">Approved</span></td></tr>
+              <tr><td><a href="#order-detail">10501</a></td><td>30 Sep 2026</td><td>Tom Verhoeven</td><td>4100 Facilities Utrecht</td><td class="num">3</td><td class="num">€ 118.47</td><td><span class="badge badge-info">Picking</span></td></tr>
+              <tr><td><a href="#order-detail">10498</a></td><td>30 Sep 2026</td><td>Mehmet Yıldız</td><td>5300 Workshop Eindhoven</td><td class="num">22</td><td class="num">€ 4,912.08</td><td><span class="badge badge-warning">Part-delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10495</a></td><td>29 Sep 2026</td><td>Anouk van der Heijden-Smit</td><td>4210 Kitchen &amp; Catering</td><td class="num">5</td><td class="num">€ 287.50</td><td><span class="badge badge-info">Dispatched</span></td></tr>
+              <tr><td><a href="#order-detail">10493</a></td><td>29 Sep 2026</td><td>Tom Verhoeven</td><td>4100 Facilities Utrecht</td><td class="num">9</td><td class="num">€ 1,046.32</td><td><span class="badge badge-info">Dispatched</span></td></tr>
+              <tr><td><a href="#order-detail">10489</a></td><td>26 Sep 2026</td><td>Lotte Brinkman</td><td>4100 Facilities Utrecht</td><td class="num">1</td><td class="num">€ 34.95</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10487</a></td><td>26 Sep 2026</td><td>Pieter-Jan Claes</td><td>6020 Reception &amp; Mailroom</td><td class="num">14</td><td class="num">€ 1,512.40</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10485</a></td><td>25 Sep 2026</td><td>Tom Verhoeven</td><td>4100 Facilities Utrecht</td><td class="num">6</td><td class="num">€ 76.80</td><td><span class="badge badge-danger">Payment failed</span></td></tr>
+              <tr data-anchor="order-10482"><td><a href="#order-detail">10482</a></td><td>24 Sep 2026</td><td>Tom Verhoeven</td><td>4100 Facilities Utrecht</td><td class="num">8</td><td class="num">€ 1,467.75</td><td><span class="badge badge-warning">Part-delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10479</a></td><td>24 Sep 2026</td><td>Mehmet Yıldız</td><td>5300 Workshop Eindhoven</td><td class="num">31</td><td class="num">€ 6,204.77</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10476</a></td><td>23 Sep 2026</td><td>Sanne de Wit</td><td>1000 Head office</td><td class="num">2</td><td class="num">€ 489.00</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10471</a></td><td>22 Sep 2026</td><td>Anouk van der Heijden-Smit</td><td>4210 Kitchen &amp; Catering</td><td class="num">11</td><td class="num">€ 932.64</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10468</a></td><td>19 Sep 2026</td><td>Pieter-Jan Claes</td><td>6020 Reception &amp; Mailroom</td><td class="num">4</td><td class="num">€ 58.20</td><td><span class="badge">Cancelled</span></td></tr>
+              <tr><td><a href="#order-detail">10466</a></td><td>19 Sep 2026</td><td>Tom Verhoeven</td><td>4100 Facilities Utrecht</td><td class="num">17</td><td class="num">€ 2,148.90</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10461</a></td><td>18 Sep 2026</td><td>Lotte Brinkman</td><td>4210 Kitchen &amp; Catering</td><td class="num">8</td><td class="num">€ 401.36</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10458</a></td><td>17 Sep 2026</td><td>Mehmet Yıldız</td><td>5300 Workshop Eindhoven</td><td class="num">6</td><td class="num">€ 1,875.00</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10455</a></td><td>16 Sep 2026</td><td>Tom Verhoeven</td><td>4100 Facilities Utrecht</td><td class="num">2</td><td class="num">€ 23.98</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10452</a></td><td>15 Sep 2026</td><td>Sanne de Wit</td><td>1000 Head office</td><td class="num">9</td><td class="num">€ 744.10</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10449</a></td><td>12 Sep 2026</td><td>Anouk van der Heijden-Smit</td><td>4210 Kitchen &amp; Catering</td><td class="num">19</td><td class="num">€ 1,203.55</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10447</a></td><td>12 Sep 2026</td><td>Pieter-Jan Claes</td><td>6020 Reception &amp; Mailroom</td><td class="num">3</td><td class="num">€ 96.45</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10443</a></td><td>11 Sep 2026</td><td>Tom Verhoeven</td><td>4100 Facilities Utrecht</td><td class="num">13</td><td class="num">€ 1,689.20</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10440</a></td><td>10 Sep 2026</td><td>Mehmet Yıldız</td><td>5300 Workshop Eindhoven</td><td class="num">1</td><td class="num">€ 3,420.00</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              <tr><td><a href="#order-detail">10436</a></td><td>9 Sep 2026</td><td>Lotte Brinkman</td><td>4210 Kitchen &amp; Catering</td><td class="num">24</td><td class="num">€ 2,017.88</td><td><span class="badge badge-success">Delivered</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pager"><span class="muted small">Showing 1–24 of 312 orders</span><div class="row"><a class="btn" href="#orders" aria-disabled="true">Previous</a><a class="btn" href="#orders">Next</a></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="orders-empty" data-screen data-state="empty">
+    <div class="page">
+      <div class="page-head"><h1>Orders</h1></div>
+      <div class="toolbar orders-filters" data-anchor="orders-filter">
+        <label class="field"><span>Search</span><input type="search" placeholder="Order number, product or person"></label>
+        <label class="field"><span>Cost centre</span><select><option>5300 Workshop Eindhoven</option></select></label>
+        <label class="field"><span>Status</span><select><option>Payment failed</option></select></label>
+        <label class="field"><span>Placed</span><select><option>Last 30 days</option></select></label>
+      </div>
+      <div class="card">
+        <div class="empty" data-anchor="empty-message">
+          <h2>No orders match these filters</h2>
+          <p>No order from 5300 Workshop Eindhoven failed payment in the last 30 days.</p>
+          <a class="btn" href="#orders">Clear filters</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="order-detail" data-screen>
+    <div class="page">
+      <div class="page-head">
+        <div class="stack" style="gap:4px">
+          <a href="#orders" class="small">← Orders</a>
+          <h1>Order 10482</h1>
+          <div class="row" data-anchor="order-status"><span class="badge badge-warning">Part-delivered</span><span class="muted small">7 of 8 lines delivered · 2 monitor arms expected Thu 8 Oct</span></div>
+        </div>
+        <div class="row">
+          <button type="button" class="btn">Download invoice</button>
+          <button type="button" class="btn btn-danger" data-if-role="account-admin" data-dialog="cancel-lines-dialog" data-anchor="cancel-lines">Cancel backordered lines</button>
+          <a class="btn btn-primary" href="#checkout" data-anchor="reorder">Reorder</a>
+        </div>
+      </div>
+      <div class="split">
+        <div class="card card-flush" data-anchor="order-lines">
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th scope="col">Product</th><th scope="col" class="num">Qty</th><th scope="col" class="num">Unit price</th><th scope="col" class="num">Total</th><th scope="col">Status</th></tr></thead>
+              <tbody>
+                <tr><td><div class="line-name"><span>HP 305A toner cartridge, cyan</span><span class="muted small">CF531A</span></div></td><td class="num">4</td><td class="num">€ 89.95</td><td class="num">€ 359.80</td><td><span class="badge badge-success">Delivered</span></td></tr>
+                <tr><td><div class="line-name"><span>Fellowes Powershred 79Ci shredder bags, 100 pack</span><span class="muted small">FEL-36052</span></div></td><td class="num">2</td><td class="num">€ 42.50</td><td class="num">€ 85.00</td><td><span class="badge badge-success">Delivered</span></td></tr>
+                <tr><td><div class="line-name"><span>Leitz 180° lever arch file A4, 80 mm, black</span><span class="muted small">LTZ-10101095</span></div></td><td class="num">40</td><td class="num">€ 3.79</td><td class="num">€ 151.60</td><td><span class="badge badge-success">Delivered</span></td></tr>
+                <tr><td><div class="line-name"><span>Douwe Egberts Aroma Rood filter coffee, 3 kg</span><span class="muted small">DE-4028622</span></div></td><td class="num">6</td><td class="num">€ 38.40</td><td class="num">€ 230.40</td><td><span class="badge badge-success">Delivered</span></td></tr>
+                <tr data-anchor="line-monitor-arm"><td><div class="line-name"><span>Ergotron LX desk-mount monitor arm, matte black</span><span class="muted small">ERG-45-241-224</span></div></td><td class="num">2</td><td class="num">€ 179.00</td><td class="num">€ 358.00</td><td><span class="badge badge-warning">Backordered · 8 Oct</span></td></tr>
+                <tr><td><div class="line-name"><span>Post-it Super Sticky notes 76 × 76 mm, 12 pads, assorted colours</span><span class="muted small">3M-654-12SSCY</span></div></td><td class="num">10</td><td class="num">€ 11.25</td><td class="num">€ 112.50</td><td><span class="badge badge-success">Delivered</span></td></tr>
+                <tr><td><div class="line-name"><span>Brother TZe-231 labelling tape, 12 mm, black on white</span><span class="muted small">BRO-TZE231</span></div></td><td class="num">5</td><td class="num">€ 14.95</td><td class="num">€ 74.75</td><td><span class="badge badge-success">Delivered</span></td></tr>
+                <tr><td><div class="line-name"><span>Satino Black interfold hand towels, 2-ply, 3,000 sheets</span><span class="muted small">WEP-277150</span></div></td><td class="num">3</td><td class="num">€ 31.90</td><td class="num">€ 95.70</td><td><span class="badge badge-success">Delivered</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="padding:var(--space-4) var(--space-5)">
+            <dl class="totals"><dt>Subtotal excl. VAT</dt><dd>€ 1,467.75</dd><dt>Delivery</dt><dd>Free</dd><dt>VAT 21%</dt><dd>€ 308.23</dd><dt class="grand">Total</dt><dd class="grand">€ 1,775.98</dd></dl>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <h2>Details</h2>
+            <dl class="facts">
+              <dt>Placed</dt><dd>Thu 24 Sep 2026, 09:12</dd>
+              <dt>Ordered by</dt><dd>Tom Verhoeven</dd>
+              <dt>Cost centre</dt><dd>4100 Facilities Utrecht</dd>
+              <dt>PO number</dt><dd>PO-2026-0917</dd>
+              <dt>Deliver to</dt><dd>Facilities Utrecht, Croeselaan 18, 3521 CB Utrecht — floor 4, goods entrance on Jaarbeursplein</dd>
+              <dt>Payment</dt><dd>Visa •••• 4417</dd>
+            </dl>
+          </div>
+          <div class="card" data-anchor="order-timeline">
+            <h2>History</h2>
+            <ol class="timeline">
+              <li><strong>Placed</strong><span class="muted small">24 Sep, 09:12 · Tom Verhoeven</span></li>
+              <li><strong>Approved automatically</strong><span class="muted small">24 Sep, 09:12 · within Tom's € 2,500 order limit</span></li>
+              <li><strong>Payment authorised</strong><span class="muted small">24 Sep, 09:13 · Visa •••• 4417</span></li>
+              <li><strong>Picking started</strong><span class="muted small">24 Sep, 14:40 · Tilburg warehouse</span></li>
+              <li><strong>2 monitor arms backordered</strong><span class="muted small">25 Sep, 07:05 · supplier expects stock on 6 Oct</span></li>
+              <li><strong>Shipment 1 of 2 dispatched</strong><span class="muted small">25 Sep, 11:30 · PostNL 3SKAAB1234567 · 7 lines</span></li>
+              <li><strong>Shipment 1 delivered</strong><span class="muted small">26 Sep, 10:47 · signed by R. Jansen, reception</span></li>
+              <li><strong>Shipment 2 planned</strong><span class="muted small">Thu 8 Oct · 1 line</span></li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+    <dialog id="cancel-lines-dialog" aria-labelledby="cancel-lines-title">
+      <div class="stack">
+        <h2 id="cancel-lines-title">Cancel the backordered lines?</h2>
+        <p>2 × Ergotron LX desk-mount monitor arm will not be shipped. € 433.18 incl. VAT goes back to Visa •••• 4417 within 3 working days.</p>
+        <div class="row" style="justify-content:flex-end">
+          <button type="button" class="btn" data-close>Keep the lines</button>
+          <button type="button" class="btn btn-danger" data-goto="#order-detail">Cancel 1 line</button>
+        </div>
+      </div>
+    </dialog>
+  </section>
+
+  <section id="checkout" data-screen>
+    <form class="page" data-goto="#order-placed">
+      <div class="page-head"><h1>Checkout</h1><span class="muted">Cost centre 4100 Facilities Utrecht</span></div>
+      <div class="split">
+        <div class="card card-flush" data-anchor="basket-lines">
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th scope="col">Product</th><th scope="col" class="num">Qty</th><th scope="col" class="num">Unit price</th><th scope="col" class="num"><span data-if-setting="prices=excl">Total excl. VAT</span><span data-if-setting="prices=incl">Total incl. VAT</span></th></tr></thead>
+              <tbody>
+                <tr><td><div class="line-name"><span>Leitz 180° lever arch file A4, 80 mm, black</span><span class="muted small">LTZ-10101095</span></div></td><td class="num">40</td><td class="num">€ 3.79</td><td class="num"><span data-if-setting="prices=excl">€ 151.60</span><span data-if-setting="prices=incl">€ 183.44</span></td></tr>
+                <tr><td><div class="line-name"><span>HP 305A toner cartridge, black</span><span class="muted small">CE410A · 1 in stock, 2 more on 9 Oct</span></div></td><td class="num">3</td><td class="num">€ 74.95</td><td class="num"><span data-if-setting="prices=excl">€ 224.85</span><span data-if-setting="prices=incl">€ 272.07</span></td></tr>
+                <tr><td><div class="line-name"><span>Douwe Egberts Aroma Rood filter coffee, 3 kg</span><span class="muted small">DE-4028622</span></div></td><td class="num">6</td><td class="num">€ 38.40</td><td class="num"><span data-if-setting="prices=excl">€ 230.40</span><span data-if-setting="prices=incl">€ 278.78</span></td></tr>
+                <tr><td><div class="line-name"><span>Lavazza Espresso Point Crema e Aroma capsules, 100</span><span class="muted small">LAV-8411</span></div></td><td class="num">4</td><td class="num">€ 41.90</td><td class="num"><span data-if-setting="prices=excl">€ 167.60</span><span data-if-setting="prices=incl">€ 202.80</span></td></tr>
+                <tr><td><div class="line-name"><span>Tork Xpress multifold hand towels H2, 21 × 190 sheets</span><span class="muted small">TRK-100288</span></div></td><td class="num">2</td><td class="num">€ 54.20</td><td class="num"><span data-if-setting="prices=excl">€ 108.40</span><span data-if-setting="prices=incl">€ 131.16</span></td></tr>
+                <tr><td><div class="line-name"><span>Durable Duraframe A4 info frame, self-adhesive, black, 10 pack</span><span class="muted small">DUR-4882-01</span></div></td><td class="num">1</td><td class="num">€ 47.80</td><td class="num"><span data-if-setting="prices=excl">€ 47.80</span><span data-if-setting="prices=incl">€ 57.84</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="padding:var(--space-4) var(--space-5)">
+            <dl class="totals"><dt>Subtotal excl. VAT</dt><dd>€ 930.65</dd><dt>Delivery</dt><dd>Free</dd><dt>VAT 21%</dt><dd>€ 195.44</dd><dt class="grand">Total</dt><dd class="grand">€ 1,126.09</dd></dl>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card" data-anchor="delivery">
+            <h2>Delivery</h2>
+            <label class="field"><span>Deliver to</span>
+              <select><option>Facilities Utrecht — Croeselaan 18, 3521 CB Utrecht</option><option>Kitchen &amp; Catering — Croeselaan 18, 3521 CB Utrecht</option><option>Workshop Eindhoven — De Run 5410, 5504 DE Veldhoven</option></select>
+            </label>
+            <label class="field"><span>Delivery date</span><select><option>Tue 6 Oct</option><option>Wed 7 Oct</option><option>Thu 8 Oct</option></select></label>
+            <label class="choice" data-if-flag="split-delivery"><input type="checkbox" checked> Ship what is in stock now, the rest when it arrives</label>
+            <label class="field"><span>PO number</span><input required pattern="PO-\d{4}-\d{4}" value="PO-2026-1002" aria-describedby="po-hint"><span class="hint" id="po-hint">PO-year-number, as on the purchase order</span></label>
+          </div>
+          <div class="card" data-anchor="payment">
+            <h2>Payment</h2>
+            <fieldset>
+              <legend>Pay with</legend>
+              <label class="choice" data-if-flag="saved-cards"><input type="radio" name="pay" checked> Visa •••• 4417 · expires 03/28</label>
+              <label class="choice"><input type="radio" name="pay"> Another card</label>
+              <label class="choice" data-if-role="account-admin"><input type="radio" name="pay"> Invoice on account, 30 days</label>
+            </fieldset>
+            <button class="btn btn-primary" data-anchor="place-order">Place order · € 1,126.09</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <section id="checkout-declined" data-screen data-state="declined">
+    <form class="page" data-goto="#order-placed">
+      <div class="page-head"><h1>Checkout</h1><span class="muted">Cost centre 4100 Facilities Utrecht</span></div>
+      <div class="split">
+        <div class="card card-flush" data-anchor="basket-lines">
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th scope="col">Product</th><th scope="col" class="num">Qty</th><th scope="col" class="num">Unit price</th><th scope="col" class="num"><span data-if-setting="prices=excl">Total excl. VAT</span><span data-if-setting="prices=incl">Total incl. VAT</span></th></tr></thead>
+              <tbody>
+                <tr><td><div class="line-name"><span>Leitz 180° lever arch file A4, 80 mm, black</span><span class="muted small">LTZ-10101095</span></div></td><td class="num">40</td><td class="num">€ 3.79</td><td class="num"><span data-if-setting="prices=excl">€ 151.60</span><span data-if-setting="prices=incl">€ 183.44</span></td></tr>
+                <tr><td><div class="line-name"><span>HP 305A toner cartridge, black</span><span class="muted small">CE410A · 1 in stock, 2 more on 9 Oct</span></div></td><td class="num">3</td><td class="num">€ 74.95</td><td class="num"><span data-if-setting="prices=excl">€ 224.85</span><span data-if-setting="prices=incl">€ 272.07</span></td></tr>
+                <tr><td><div class="line-name"><span>Douwe Egberts Aroma Rood filter coffee, 3 kg</span><span class="muted small">DE-4028622</span></div></td><td class="num">6</td><td class="num">€ 38.40</td><td class="num"><span data-if-setting="prices=excl">€ 230.40</span><span data-if-setting="prices=incl">€ 278.78</span></td></tr>
+                <tr><td><div class="line-name"><span>Lavazza Espresso Point Crema e Aroma capsules, 100</span><span class="muted small">LAV-8411</span></div></td><td class="num">4</td><td class="num">€ 41.90</td><td class="num"><span data-if-setting="prices=excl">€ 167.60</span><span data-if-setting="prices=incl">€ 202.80</span></td></tr>
+                <tr><td><div class="line-name"><span>Tork Xpress multifold hand towels H2, 21 × 190 sheets</span><span class="muted small">TRK-100288</span></div></td><td class="num">2</td><td class="num">€ 54.20</td><td class="num"><span data-if-setting="prices=excl">€ 108.40</span><span data-if-setting="prices=incl">€ 131.16</span></td></tr>
+                <tr><td><div class="line-name"><span>Durable Duraframe A4 info frame, self-adhesive, black, 10 pack</span><span class="muted small">DUR-4882-01</span></div></td><td class="num">1</td><td class="num">€ 47.80</td><td class="num"><span data-if-setting="prices=excl">€ 47.80</span><span data-if-setting="prices=incl">€ 57.84</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="padding:var(--space-4) var(--space-5)">
+            <dl class="totals"><dt>Subtotal excl. VAT</dt><dd>€ 930.65</dd><dt>Delivery</dt><dd>Free</dd><dt>VAT 21%</dt><dd>€ 195.44</dd><dt class="grand">Total</dt><dd class="grand">€ 1,126.09</dd></dl>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <h2>Delivery</h2>
+            <dl class="facts"><dt>Deliver to</dt><dd>Facilities Utrecht — Croeselaan 18, 3521 CB Utrecht</dd><dt>Date</dt><dd>Tue 6 Oct</dd><dt>PO number</dt><dd>PO-2026-1002</dd></dl>
+          </div>
+          <div class="card">
+            <h2>Payment</h2>
+            <div class="alert alert-danger" role="alert" data-anchor="payment-error">
+              <strong>Your bank declined Visa •••• 4417</strong>
+              <span>Nothing was charged and your basket is unchanged. Pay with another card, or ask Sanne de Wit to place the order on account.</span>
+            </div>
+            <fieldset>
+              <legend>Pay with</legend>
+              <label class="choice" data-if-flag="saved-cards"><input type="radio" name="pay-retry"> Visa •••• 4417 · declined just now</label>
+              <label class="choice"><input type="radio" name="pay-retry" checked> Another card</label>
+              <label class="choice" data-if-role="account-admin"><input type="radio" name="pay-retry"> Invoice on account, 30 days</label>
+            </fieldset>
+            <button class="btn btn-primary" data-anchor="place-order">Try again · € 1,126.09</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <section id="order-placed" data-screen data-state="placed">
+    <div class="page">
+      <div class="card" data-anchor="confirmation">
+        <div class="alert alert-success"><strong>Order 10507 is placed</strong><span>Approved automatically, within your € 2,500 order limit.</span></div>
+        <dl class="facts">
+          <dt>Delivery</dt><dd>Tue 6 Oct to Facilities Utrecht, Croeselaan 18</dd>
+          <dt>Total</dt><dd>€ 1,126.09 incl. VAT, Visa •••• 4417</dd>
+          <dt>Confirmation</dt><dd>Sent to tom.verhoeven@facilities-utrecht.example</dd>
+        </dl>
+        <div class="row"><a class="btn btn-primary" href="#orders">View orders</a></div>
+      </div>
+    </div>
+  </section>
+</main>
+<script type="application/json" id="demo-model">
+{
+  "app": { "name": "Stockroom", "home": "orders" },
+  "screens": [
+    { "id": "orders", "title": "Orders", "nav": true, "anchors": ["orders-export", "orders-filter", "orders-table", "order-10482"] },
+    { "id": "orders-empty", "title": "No matching orders", "of": "orders", "anchors": ["orders-filter", "empty-message"] },
+    { "id": "order-detail", "title": "Order 10482", "of": "orders", "anchors": ["order-status", "cancel-lines", "reorder", "order-lines", "line-monitor-arm", "order-timeline"] },
+    { "id": "checkout", "title": "Checkout", "nav": true, "anchors": ["basket-lines", "delivery", "payment", "place-order"] },
+    { "id": "checkout-declined", "title": "Card declined", "of": "checkout", "anchors": ["basket-lines", "payment-error", "place-order"] },
+    { "id": "order-placed", "title": "Order placed", "of": "checkout", "anchors": ["confirmation"] }
+  ],
+  "roles": [
+    { "key": "buyer", "label": "Buyer · Tom Verhoeven", "default": true },
+    { "key": "account-admin", "label": "Account admin · Sanne de Wit" }
+  ],
+  "flags": [
+    { "key": "saved-cards", "label": "Saved cards", "default": true },
+    { "key": "split-delivery", "label": "Split delivery" }
+  ],
+  "settings": [
+    { "key": "prices", "label": "Basket prices", "options": [{ "value": "excl", "label": "Excl. VAT" }, { "value": "incl", "label": "Incl. VAT" }], "default": "excl" },
+    { "key": "density", "label": "Table density", "options": [{ "value": "comfortable", "label": "Comfortable" }, { "value": "compact", "label": "Compact" }], "default": "comfortable" }
+  ],
+  "viewports": [
+    { "key": "desktop", "label": "Desktop", "default": true },
+    { "key": "tablet", "label": "Tablet", "width": 834 },
+    { "key": "phone", "label": "Phone", "width": 390 }
+  ],
+  "variants": [],
+  "walkthroughs": [
+    {
+      "id": "a-declined-card-keeps-the-basket",
+      "title": "A declined card keeps the basket",
+      "steps": [
+        { "screen": "checkout", "anchor": "basket-lines", "role": "buyer", "text": "Given a buyer with 6 lines in the basket" },
+        { "screen": "checkout", "anchor": "place-order", "text": "When they place the order and the bank declines the card" },
+        { "screen": "checkout-declined", "anchor": "payment-error", "text": "Then the checkout says the card was declined and nothing was charged" },
+        { "screen": "checkout-declined", "anchor": "basket-lines", "text": "And the basket still holds all 6 lines" }
+      ]
+    }
+  ]
+}
+</script>
+</body>
+</html>

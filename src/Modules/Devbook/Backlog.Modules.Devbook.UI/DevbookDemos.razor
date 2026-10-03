@@ -1,0 +1,117 @@
+@inject IServiceProvider Services
+
+@*
+    A domain page's click demos, each in a DemoView.
+
+    Which demos a page has is devbook's two pairings: the *.demo.html beside it by
+    name (demo.html for context.md, <page>.demo.html for <page>.md), and any demo
+    its own or its chapters' `demo` field names — with the places those fields
+    point at, which the frame opens. Read from disk here, per page on screen, for
+    the reason DevbookChapterContent gives for chapters: the store keeps a parse,
+    not files, and a demo is up to 500 KB.
+
+    Notes on a demo belong to spec-manager, so nothing here sends pins or listens
+    for a location.
+*@
+@if (_demos.Count > 0)
+{
+    <div class="domain-demos" data-testid="domain-demos">
+        @foreach (var demo in _demos)
+        {
+            <DemoView @key="demo.FullPath" Html="@demo.Html" Path="@demo.Path" Addresses="@demo.Addresses" />
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<LoadedDemo> _demos = [];
+    private DomainDevbookDocument? _document;
+    private string? _root;
+    private int _read;
+
+    [Parameter, EditorRequired]
+    public DomainDevbookDocument Document { get; set; } = DomainDevbookDocument.Empty;
+
+    /// <summary>The <c>.domain</c> folder the view resolved —
+    /// <see cref="DomainDevbookView.RootPath"/>.</summary>
+    [Parameter, EditorRequired]
+    public string? RootPath { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ReferenceEquals(_document, Document) && string.Equals(_root, RootPath, StringComparison.OrdinalIgnoreCase)) return;
+
+        _document = Document;
+        _root = RootPath;
+
+        // Only the latest read lands, as with the chapter read beside it: a page
+        // changed while a demo was still coming off disk must not show the page it
+        // left.
+        var read = ++_read;
+        var demos = await LoadAsync(Gather(Document, RootPath), Services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk);
+        if (read != _read) return;
+
+        _demos = demos;
+    }
+
+    /// <summary>
+    /// The page's demos in the order a reader meets them — by name first, then
+    /// as the page's field and its chapters' fields name them — each once, with
+    /// every place named in it in that same order. A demo is known by the file it
+    /// resolves to, because the pane spells a page's neighbour
+    /// <c>.domain/&lt;context&gt;/…</c> and a field spells the same file
+    /// <c>.devbook/domain/&lt;context&gt;/…</c>. A field naming a file that is not
+    /// there names nothing to show.
+    /// </summary>
+    internal static IReadOnlyList<GatheredDemo> Gather(DomainDevbookDocument document, string? rootPath)
+    {
+        var demos = new List<GatheredDemo>();
+
+        void Add(string path, string? address)
+        {
+            if (DevbookChapterResolver.TryResolve("domain", rootPath, path, canEdit: false) is not { } file) return;
+
+            var demo = demos.Find(candidate => string.Equals(candidate.FullPath, file.FullPath, StringComparison.OrdinalIgnoreCase));
+            if (demo is null)
+            {
+                demo = new GatheredDemo(path, file.FullPath, []);
+                demos.Add(demo);
+            }
+
+            if (address is not null && !demo.Addresses.Contains(address, StringComparer.Ordinal)) demo.Addresses.Add(address);
+        }
+
+        foreach (var path in document.Demos) Add(path, null);
+        foreach (var reference in document.DemoReferences) Add(reference.Path, reference.Address);
+        foreach (var section in document.Sections)
+        {
+            foreach (var reference in section.DemoReferences) Add(reference.Path, reference.Address);
+        }
+
+        return demos;
+    }
+
+    private static async Task<IReadOnlyList<LoadedDemo>> LoadAsync(IReadOnlyList<GatheredDemo> demos, DevbookChapterFileReader reader)
+    {
+        var loaded = new List<LoadedDemo>(demos.Count);
+        foreach (var demo in demos)
+        {
+            try
+            {
+                var html = await reader.ReadAllTextAsync(demo.FullPath, CancellationToken.None);
+                loaded.Add(new LoadedDemo(demo.Path, demo.FullPath, html, demo.Addresses));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A demo the pane can list and cannot read is left out; the page
+                // still reads.
+            }
+        }
+
+        return loaded;
+    }
+
+    internal sealed record GatheredDemo(string Path, string FullPath, List<string> Addresses);
+
+    private sealed record LoadedDemo(string Path, string FullPath, string Html, IReadOnlyList<string> Addresses);
+}

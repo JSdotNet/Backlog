@@ -1263,6 +1263,10 @@
                     }
                 </nav>
             }
+
+            @* The page's click demo, after the file: the file is what the page
+               says, and the demo is the picture of it a reader tries out next. *@
+            <DevbookDemos Document="@document" RootPath="@_view?.RootPath" />
         }
         else
         {
@@ -1293,6 +1297,10 @@
             {
                 <DiagramView Source="@diagram.Source" Language="@diagram.Language" />
             }
+
+            @* Here too, so a context's own demo.html is on the context view, on
+               context.md's card. *@
+            <DevbookDemos Document="@document" RootPath="@_view?.RootPath" />
 
             <div class="domain-sections">
                 @foreach (var section in document.Sections.Take(Compact ? 4 : 12))

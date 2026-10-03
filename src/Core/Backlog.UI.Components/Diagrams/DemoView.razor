@@ -1,0 +1,203 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    A click demo — a devbook's self-contained HTML picture of what a person sees —
+    in a frame built the way DiagramView frames an Archify artifact: the document
+    as srcdoc, a stage around the frame that goes full screen, and the way back out
+    inside it. Two things differ, both from devbook's demo address contract
+    (devbook.demo.address@1). The sandbox is allow-scripts and nothing else, and
+    the document goes in as it is: no theme pin, no stylesheet laid over it,
+    because a demo shows the product the way the product looks, not the way this
+    pane happens to be themed.
+*@
+<figure class="@FigureClass" data-testid="demo-view" aria-label="@Label">
+    <figcaption class="diagram-view__header">
+        <span class="diagram-view__title">@Label</span>
+        <span class="diagram-view__badges">
+            <span class="language-badge">demo</span>
+            <AppButton Size="ButtonSize.Small" Variant="ButtonVariant.Ghost" TestId="demo-view-fullscreen"
+                       title="Show this demo full screen" OnClick="ToggleFullscreenAsync">Full screen</AppButton>
+        </span>
+    </figcaption>
+
+    @* The places the chapter names in this demo, each one a demo:goto. Only
+       where the chapter names any: a demo shown for its page alone opens where
+       it opens, and a row of one control saying so would be noise. *@
+    @if (Addresses.Count > 0)
+    {
+        <nav class="demo-view__places" aria-label="Places in this demo" data-testid="demo-view-places">
+            @foreach (var address in Addresses)
+            {
+                <ToggleButton Pressed="@string.Equals(address, _wanted, StringComparison.Ordinal)"
+                              BaseClass="language-badge diagram-view__renderer"
+                              PressedCssClass="diagram-view__renderer--active"
+                              TestId="demo-view-place"
+                              Title="@($"Open {address} in the demo")"
+                              OnClick="() => OpenAsync(address)">@address</ToggleButton>
+            }
+        </nav>
+    }
+
+    <div class="diagram-view__canvas">
+        <div @ref="_stage" class="diagram-view__stage" data-testid="demo-view-stage">
+            <iframe @ref="_frame" class="demo-view__frame" data-testid="demo-view-frame"
+                    sandbox="allow-scripts" title="@Label"></iframe>
+            <AppButton Size="ButtonSize.Small" CssClass="diagram-view__exit" TestId="demo-view-exit-fullscreen"
+                       title="Leave full screen (Esc)" OnClick="ToggleFullscreenAsync">Exit full screen</AppButton>
+        </div>
+    </div>
+
+    @if (Path is not null)
+    {
+        <p class="demo-view__path"><code>@Path</code></p>
+    }
+</figure>
+
+@code {
+    private readonly string _id = $"demo-{Guid.NewGuid():N}";
+    private ElementReference _frame;
+    private ElementReference _stage;
+    private DotNetObjectReference<DemoView>? _self;
+
+    /// <summary>The document the frame holds now, compared by value. The pane
+    /// re-reads a demo whenever its folder changes — every save of the chapter
+    /// beside it — and each read is a new string; reloading the frame for the same
+    /// text would throw away wherever the reader had clicked to. An ordinal compare
+    /// of even 500 KB costs less than that.</summary>
+    private string? _loaded;
+    private bool _ready;
+
+    /// <summary>The place the reader wants open: the first address until they
+    /// pick another.</summary>
+    private string? _wanted;
+    private string? _sent;
+    private IReadOnlyList<string>? _addresses;
+
+    /// <summary>The demo's whole document.</summary>
+    [Parameter, EditorRequired]
+    public string Html { get; set; } = string.Empty;
+
+    /// <summary>The demo's repository path, shown under the frame. A message to the
+    /// demo never names it: the frame already is the file.</summary>
+    [Parameter]
+    public string? Path { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// The places a chapter names in this demo, each what follows the <c>#</c> of
+    /// a demo address — a screen, a screen's anchor and panel state, or
+    /// <c>walkthrough/&lt;id&gt;[/&lt;step&gt;]</c>. The first is opened once the
+    /// demo reports ready; each is offered as a control that opens it.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<string> Addresses { get; set; } = [];
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    private string Label => !string.IsNullOrWhiteSpace(Title)
+        ? Title
+        : Path is null ? "Click demo" : System.IO.Path.GetFileName(Path);
+
+    private string FigureClass => string.IsNullOrWhiteSpace(CssClass)
+        ? "diagram-view demo-view"
+        : $"diagram-view demo-view {CssClass}";
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_addresses, Addresses)) return;
+
+        _addresses = Addresses;
+        if (_wanted is null || !Addresses.Contains(_wanted, StringComparer.Ordinal))
+        {
+            _wanted = Addresses.Count > 0 ? Addresses[0] : null;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (string.Equals(_loaded, Html, StringComparison.Ordinal)) return;
+
+        _loaded = Html;
+        _ready = false;
+        _sent = null;
+        _self ??= DotNetObjectReference.Create(this);
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogDemos.load", _frame, _id, Html, _self);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // No browser half, or no circuit to reach it. The frame stays empty and
+            // the chapter around it still reads.
+        }
+    }
+
+    /// <summary>
+    /// The demo built its panel and said <c>demo:ready</c>. The browser half calls
+    /// this only for a message from this component's own frame, at a version it
+    /// reads; everything sent to the demo waits for it, because a <c>demo:goto</c>
+    /// posted before the demo listens is lost.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnDemoReady()
+    {
+        _ready = true;
+        if (_wanted is not null && !string.Equals(_wanted, _sent, StringComparison.Ordinal))
+        {
+            await SendAsync(_wanted);
+        }
+    }
+
+    /// <summary>Opens a place the reader picked. Sent every time, the place already
+    /// open included: the reader may have clicked away from it inside the demo,
+    /// and asking for it again is how they get back.</summary>
+    private async Task OpenAsync(string address)
+    {
+        _wanted = address;
+        if (_ready) await SendAsync(address);
+    }
+
+    private async Task SendAsync(string address)
+    {
+        _sent = address;
+        try
+        {
+            await Js.InvokeVoidAsync("backlogDemos.goto", _id, "#" + address);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+    }
+
+    /// <summary>The Archify frame's full screen, on this frame's stage. A refusal
+    /// is swallowed for the reason DiagramView gives: the demo is still usable in
+    /// the chapter.</summary>
+    private async Task ToggleFullscreenAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogDiagrams.toggleArtifactFullscreen", _stage);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogDemos.dispose", _id);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+
+        _self?.Dispose();
+    }
+}
