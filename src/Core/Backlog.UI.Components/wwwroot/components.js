@@ -3538,6 +3538,57 @@
         }
     });
     /*
+        Click demos, the host half of devbook's demo address contract
+        (devbook.demo.address@1).
+
+        The document goes into the frame as it is. The Archify loader above pins
+        its artifact to the dark theme and lays a stylesheet over it; a demo is a
+        picture of the product, so it keeps its own look. The frame is sandboxed
+        into an opaque origin, which makes messages the only channel and means a
+        message is trusted by where it came from, not by what it says: only one
+        whose source is this frame's window counts. A version newer than this
+        reader's is ignored, as the contract asks.
+
+        .NET decides what to send and when; this only carries demo:ready up and
+        demo:goto down. The demo posts to "*" because it cannot name an opaque
+        parent, and this posts to "*" for the same reason in the other direction.
+    */
+    const backlogDemoFrames = new Map();
+
+    window.backlogDemos = {
+        load(frame, id, html, reference) {
+            this.dispose(id);
+            if (!frame) return;
+
+            const listener = (event) => {
+                if (event.source !== frame.contentWindow) return;
+                const message = event.data;
+                if (!message || typeof message !== 'object' || typeof message.type !== 'string') return;
+                if (typeof message.v === 'number' && message.v > 1) return;
+
+                if (message.type === 'demo:ready') {
+                    reference.invokeMethodAsync('OnDemoReady').catch(() => { });
+                }
+            };
+
+            window.addEventListener('message', listener);
+            backlogDemoFrames.set(id, { frame, listener });
+            frame.srcdoc = html;
+        },
+
+        goto(id, address) {
+            const target = backlogDemoFrames.get(id)?.frame.contentWindow;
+            target?.postMessage({ type: 'demo:goto', v: 1, address }, '*');
+        },
+
+        dispose(id) {
+            const entry = backlogDemoFrames.get(id);
+            if (!entry) return;
+            window.removeEventListener('message', entry.listener);
+            backlogDemoFrames.delete(id);
+        }
+    };
+    /*
         Roadmap timeline drag.
 
         The bars are Blazor's; only the pointer is JS's. This listens on the

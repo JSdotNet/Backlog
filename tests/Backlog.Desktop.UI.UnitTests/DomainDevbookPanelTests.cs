@@ -1086,6 +1086,77 @@ public sealed class DomainDevbookPanelTests : IDisposable
     /// the test and a flake.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// A page's click demo, after the file. Paired by name and named again by a
+    /// chapter's <c>demo</c> field under the other spelling of the same folder, it
+    /// is still one demo — and the place the field names is what the frame offers
+    /// and opens. The document reaches the frame exactly as it is on disk.
+    /// </summary>
+    [Fact]
+    public async Task A_page_shows_its_demo_with_the_places_its_chapters_name()
+    {
+        await using var harness = CreateHarness();
+        var html = WriteOrdersContext(harness.Root);
+
+        var component = harness.Render(".domain/orders/features.md");
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='demo-view']")));
+        Assert.Equal(".domain/orders/features.demo.html", component.Find(".demo-view__path").TextContent.Trim());
+        Assert.Equal(["walkthrough/checkout"], component.FindAll("[data-testid='demo-view-place']").Select(place => place.TextContent.Trim()));
+        Assert.Equal("allow-scripts", component.Find("[data-testid='demo-view-frame']").GetAttribute("sandbox"));
+
+        var load = Assert.Single(harness.Context.JSInterop.Invocations["backlogDemos.load"]);
+        Assert.Equal(html.Features, load.Arguments[2]);
+    }
+
+    /// <summary>The context's own <c>demo.html</c> counts with <c>context.md</c>,
+    /// so the context view shows it on that card.</summary>
+    [Fact]
+    public async Task The_context_view_shows_the_context_s_own_demo()
+    {
+        await using var harness = CreateHarness();
+        var html = WriteOrdersContext(harness.Root);
+
+        var component = harness.Render("orders");
+
+        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("[data-testid='domain-context'] [data-testid='demo-view']").Count));
+        Assert.Contains(
+            html.Context,
+            harness.Context.JSInterop.Invocations["backlogDemos.load"].Select(load => load.Arguments[2] as string));
+        Assert.Contains(
+            ".domain/orders/demo.html",
+            component.FindAll(".demo-view__path").Select(path => path.TextContent.Trim()));
+    }
+
+    [Fact]
+    public async Task A_page_with_no_demo_shows_no_demo_frame()
+    {
+        await using var harness = CreateHarness();
+        WriteOrdersContext(harness.Root);
+
+        var component = harness.Render(ContextMapPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']")));
+
+        Assert.Empty(component.FindAll("[data-testid='demo-view']"));
+    }
+
+    /// <summary>An <c>orders</c> context with a demo of its own and one for its
+    /// features page, whose checkout chapter names a walkthrough in it.</summary>
+    private static (string Context, string Features) WriteOrdersContext(string root)
+    {
+        var folder = Path.Combine(root, ".domain", "orders");
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "context.md"), "# Orders\n\n```meta\nstatus: draft\nindex: root\ntype: context\n```\n\nOrders prose.\n");
+        File.WriteAllText(Path.Combine(folder, "features.md"),
+            "# Features\n\n```meta\nstatus: draft\ntype: features\n```\n\nWhat ordering offers.\n\n## Checkout\n\n```meta\nstatus: draft\ntype: feature\ndemo: [.devbook/domain/orders/features.demo.html#walkthrough/checkout]\n```\n\nPaying for a cart.\n");
+
+        const string context = "<!doctype html><html><body>orders context demo</body></html>";
+        const string features = "<!doctype html><html><body>orders features demo</body></html>";
+        File.WriteAllText(Path.Combine(folder, "demo.html"), context);
+        File.WriteAllText(Path.Combine(folder, "features.demo.html"), features);
+        return (context, features);
+    }
+
     private static Task OpenRemarkOnBlockTwoAsync(IRenderedComponent<DomainDevbookPanel> component) =>
         component.InvokeAsync(() => component.Find("[data-testid='markdown-comment-2']").ClickAsync(new()));
 

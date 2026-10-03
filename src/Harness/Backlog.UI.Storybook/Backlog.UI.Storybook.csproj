@@ -47,6 +47,8 @@
   -->
   <ItemGroup>
     <EmbeddedResource Include="Components\Shared\Archify\slice-flow.architecture.html" LogicalName="archify/slice-flow.architecture.html" />
+    <!-- devbook's sample click demo, for DemoView's story; see the README beside it. -->
+    <EmbeddedResource Include="Components\Shared\Demos\features.demo.html" LogicalName="demos/features.demo.html" />
   </ItemGroup>
 
 </Project>
