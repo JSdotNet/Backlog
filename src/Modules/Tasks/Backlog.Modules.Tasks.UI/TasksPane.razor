@@ -297,167 +297,176 @@
                     </div>
                 </div>
 
-                @* Between the filters and the list, and only while the reader is
-                   picking. Above the rows rather than floating over them: the bar is
-                   about a set the reader assembled out of that column, and a
-                   docked bar keeps the column's own scroll intact.
+                @* Everything below the filter bar scrolls, and the bar does not. The
+                   list half used to be the scroll container, so the bar went up with
+                   the rows and the scrollbar ran beside it — the filters were gone
+                   the moment the reader scrolled to what they had filtered. This is
+                   the scroller now, so the bar stays at the top of the column and
+                   the scrollbar starts under it; the bulk bar and the add-entry row
+                   stick to this rather than to the half. *@
+                <div class="backlog-list__scroll" data-testid="backlog-list-scroll">
+                    @* Between the filters and the list, and only while the reader is
+                       picking. Above the rows rather than floating over them: the bar is
+                       about a set the reader assembled out of that column, and a
+                       docked bar keeps the column's own scroll intact.
 
-                   Up as soon as Select is pressed rather than after the first
-                   tick, because select-all lives on it: a bar that waited for a
-                   picked row left "everything the filters show" one row away from
-                   being reachable. The acts wait for a selection instead — with
-                   nothing picked they would be controls that apply to nothing.
+                       Up as soon as Select is pressed rather than after the first
+                       tick, because select-all lives on it: a bar that waited for a
+                       picked row left "everything the filters show" one row away from
+                       being reachable. The acts wait for a selection instead — with
+                       nothing picked they would be controls that apply to nothing.
 
-                   SelectionBar and not a bar of this pane's own. The count, the
-                   live region, the way out and the indeterminate select-all are
-                   the four things `.devbook/design/interaction-guidelines.md#focus-and-selection`
-                   asks for by name, and they are the same four for every list in
-                   the product. *@
-                @if (State.SelectionMode || State.SelectionCount > 0)
-                {
-                    <SelectionBar Count="@State.SelectionCount"
-                                  Total="@State.FilteredRows.Count"
-                                  ItemNoun="task"
-                                  AriaLabel="Selected tasks"
-                                  ActionsLabel="Apply to the selected tasks"
-                                  SelectAllText="@($"Select all {State.FilteredRows.Count}")"
-                                  SelectAllLabel="@($"Select all {State.FilteredRows.Count} {TaskWord(State.FilteredRows.Count)} the filters show")"
-                                  SelectAllChanged="OnSelectAllChanged"
-                                  OnClear="OnClearSelection"
-                                  Actions="@(State.SelectionCount > 0 ? RenderBulkActions() : null)"
-                                  CssClass="backlog-bulk-bar"
-                                  TestId="bulk-bar"
-                                  @onkeydown="OnSelectionBarKeyDown" />
-                }
-
-                @if (State.IsLoading)
-                {
-                    @* The backlog is still being read. Placeholder rows in the
-                       list's shape rather than "Nothing here yet.", which is an
-                       answer the pane does not have yet
-                       (.devbook/design/interaction-guidelines.md, Loading States).
-                       Hidden in one piece, like every skeleton; aria-busy on the
-                       list half says it is on its way. *@
-                    <div class="backlog-list__loading" data-testid="backlog-loading" aria-hidden="true">
-                        @foreach (var width in SkeletonWidths)
-                        {
-                            <Skeleton Shape="SkeletonShape.Block" Width="@width" />
-                        }
-                    </div>
-                }
-                else if (State.FilteredRows.Count == 0)
-                {
-                    @* "You have written nothing" and "your filters match nothing" are
-                       different facts, and the second one became common the moment My
-                       Day arrived: most entries are not in today's My Day, so the
-                       first-use copy would tell somebody with a full backlog to write
-                       their first entry. No CTA on the filtered one — the chips that
-                       caused it are the line above, and a button here would duplicate
-                       a control already on screen. *@
-                    @if (State.ScopedRows.Count == 0)
+                       SelectionBar and not a bar of this pane's own. The count, the
+                       live region, the way out and the indeterminate select-all are
+                       the four things `.devbook/design/interaction-guidelines.md#focus-and-selection`
+                       asks for by name, and they are the same four for every list in
+                       the product. *@
+                    @if (State.SelectionMode || State.SelectionCount > 0)
                     {
-                        <EmptyState Title="Nothing here yet"
-                                    Description="Write your first task to start triaging your work."
-                                    data-testid="empty-state" />
+                        <SelectionBar Count="@State.SelectionCount"
+                                      Total="@State.FilteredRows.Count"
+                                      ItemNoun="task"
+                                      AriaLabel="Selected tasks"
+                                      ActionsLabel="Apply to the selected tasks"
+                                      SelectAllText="@($"Select all {State.FilteredRows.Count}")"
+                                      SelectAllLabel="@($"Select all {State.FilteredRows.Count} {TaskWord(State.FilteredRows.Count)} the filters show")"
+                                      SelectAllChanged="OnSelectAllChanged"
+                                      OnClear="OnClearSelection"
+                                      Actions="@(State.SelectionCount > 0 ? RenderBulkActions() : null)"
+                                      CssClass="backlog-bulk-bar"
+                                      TestId="bulk-bar"
+                                      @onkeydown="OnSelectionBarKeyDown" />
+                    }
+
+                    @if (State.IsLoading)
+                    {
+                        @* The backlog is still being read. Placeholder rows in the
+                           list's shape rather than "Nothing here yet.", which is an
+                           answer the pane does not have yet
+                           (.devbook/design/interaction-guidelines.md, Loading States).
+                           Hidden in one piece, like every skeleton; aria-busy on the
+                           list half says it is on its way. *@
+                        <div class="backlog-list__loading" data-testid="backlog-loading" aria-hidden="true">
+                            @foreach (var width in SkeletonWidths)
+                            {
+                                <Skeleton Shape="SkeletonShape.Block" Width="@width" />
+                            }
+                        </div>
+                    }
+                    else if (State.FilteredRows.Count == 0)
+                    {
+                        @* "You have written nothing" and "your filters match nothing" are
+                           different facts, and the second one became common the moment My
+                           Day arrived: most entries are not in today's My Day, so the
+                           first-use copy would tell somebody with a full backlog to write
+                           their first entry. No CTA on the filtered one — the chips that
+                           caused it are the line above, and a button here would duplicate
+                           a control already on screen. *@
+                        @if (State.ScopedRows.Count == 0)
+                        {
+                            <EmptyState Title="Nothing here yet"
+                                        Description="Write your first task to start triaging your work."
+                                        data-testid="empty-state" />
+                        }
+                        else
+                        {
+                            <EmptyState Title="Nothing matches these filters"
+                                        Description="There are entries here — none of them are in what the bar above is asking for."
+                                        data-testid="empty-state" />
+                        }
+
+                        @* With no rows there is no list for the slot below to be a slot
+                           in, and the control that writes the first entry is the one
+                           thing on this half that still has to be reachable. *@
+                        @RenderAddEntry()
                     }
                     else
                     {
-                        <EmptyState Title="Nothing matches these filters"
-                                    Description="There are entries here — none of them are in what the bar above is asking for."
-                                    data-testid="empty-state" />
+                        @* Copying is on, and what it hands over is this pane's answer
+                           rather than the row's. An entry row carries no Body on purpose —
+                           see EntryTasks — so a copy left to the shared row's default would
+                           be a bare title, which is not a brief anyone can paste.
+
+                           The taste argument this used to refuse on — a clipboard button on
+                           every row being the loudest thing in a column whose job is
+                           scanning — is answered where it belongs, in the row's own CSS: the
+                           button sits in the disabled-text colour and only reaches full
+                           contrast once the row is hovered or the button focused. Quiet, but
+                           present, because an affordance that appears on hover cannot be
+                           found by touch or by keyboard. *@
+                        @* SelectionEnabled is the mode below and not a standing yes.
+                           TaskListView's own parameter is off by default for exactly
+                           this reason — a gutter on every list in the product would
+                           spend a tab stop and a column of chrome per row — and this
+                           pane used to hand it a literal `true`, which put a checkbox
+                           within reach of every row a reader hovered while scanning. *@
+                        <TaskListView @ref="_list"
+                                      Tasks="@EntryTasks()"
+                                      Universe="@DependencyUniverse()"
+                                      SelectedId="@SelectedTaskId"
+                                      SelectionEnabled="@State.SelectionMode"
+                                      SelectedIds="@State.SelectedIds"
+                                      SelectedIdsChanged="OnSelectionChanged"
+                                      OnDismiss="OnRowDismiss"
+                                      OnSelectedTabForward="MoveFocusToDetailAsync"
+                                      OnSelected="OnEntrySelectedAsync"
+                                      OnToggle="OnEntryToggledAsync"
+                                      OnRename="OnEntryRenamedAsync"
+                                      Reorderable="true"
+                                      OnReorder="OnEntryReorderedAsync"
+                                      OnLink="OnEntryLinkedAsync"
+                                      OnTagSelected="OnRowTagSelected"
+                                      OnContextMenu="OnEntryContextMenu"
+                                      GroupCompleted="true"
+                                      RowCopyValue="@EntryCopyText"
+                                      RowCssClass="@RepositoryMark"
+                                      AriaLabel="Tasks"
+                                      TestId="entry-list">
+                            <RowActions Context="task">
+                                @* The two edits a reader makes while scanning rather than
+                                   while reading one entry: what this is filed against, and
+                                   how far it has got. Both were on the row already — the
+                                   repository as the stripe down its edge, the status as a
+                                   badge beside the title — and neither could be changed
+                                   without opening the entry first.
+
+                                   A row the list is drawing is always a row the pane has,
+                                   so the resolve back to the entry is total in practice;
+                                   the branch is here because RowActions is handed a
+                                   TaskRow and a TaskRow is a task, with no area, no
+                                   repository and no status vocabulary on it. *@
+                                @if (EntryFor(task.Id) is { } entry)
+                                {
+                                    @RenderRowPickers(entry, task.Title)
+                                }
+                            </RowActions>
+                            <RowBadges Context="task">
+                                @* What work on the entry produced — its latest pull
+                                   request and session. A fact to follow rather than a
+                                   field to set, so it reads ahead of the link handle
+                                   while the pickers stay among the controls after it. *@
+                                @if (EntryFor(task.Id) is { } entry)
+                                {
+                                    @if (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any())
+                                    {
+                                        @RenderRowWork(entry)
+                                    }
+
+                                    @* What the entry is about in the Devbook, as a count:
+                                       a row is scanned, and which chapters they are is
+                                       the open entry's to say. *@
+                                    @if (entry.DevbookReferences.Count > 0)
+                                    {
+                                        @RenderRowDevbook(entry)
+                                    }
+                                }
+                            </RowBadges>
+                            <AfterOpenRows>
+                                @RenderAddEntry()
+                            </AfterOpenRows>
+                        </TaskListView>
                     }
-
-                    @* With no rows there is no list for the slot below to be a slot
-                       in, and the control that writes the first entry is the one
-                       thing on this half that still has to be reachable. *@
-                    @RenderAddEntry()
-                }
-                else
-                {
-                    @* Copying is on, and what it hands over is this pane's answer
-                       rather than the row's. An entry row carries no Body on purpose —
-                       see EntryTasks — so a copy left to the shared row's default would
-                       be a bare title, which is not a brief anyone can paste.
-
-                       The taste argument this used to refuse on — a clipboard button on
-                       every row being the loudest thing in a column whose job is
-                       scanning — is answered where it belongs, in the row's own CSS: the
-                       button sits in the disabled-text colour and only reaches full
-                       contrast once the row is hovered or the button focused. Quiet, but
-                       present, because an affordance that appears on hover cannot be
-                       found by touch or by keyboard. *@
-                    @* SelectionEnabled is the mode below and not a standing yes.
-                       TaskListView's own parameter is off by default for exactly
-                       this reason — a gutter on every list in the product would
-                       spend a tab stop and a column of chrome per row — and this
-                       pane used to hand it a literal `true`, which put a checkbox
-                       within reach of every row a reader hovered while scanning. *@
-                    <TaskListView @ref="_list"
-                                  Tasks="@EntryTasks()"
-                                  Universe="@DependencyUniverse()"
-                                  SelectedId="@SelectedTaskId"
-                                  SelectionEnabled="@State.SelectionMode"
-                                  SelectedIds="@State.SelectedIds"
-                                  SelectedIdsChanged="OnSelectionChanged"
-                                  OnDismiss="OnRowDismiss"
-                                  OnSelectedTabForward="MoveFocusToDetailAsync"
-                                  OnSelected="OnEntrySelectedAsync"
-                                  OnToggle="OnEntryToggledAsync"
-                                  OnRename="OnEntryRenamedAsync"
-                                  Reorderable="true"
-                                  OnReorder="OnEntryReorderedAsync"
-                                  OnLink="OnEntryLinkedAsync"
-                                  OnTagSelected="OnRowTagSelected"
-                                  OnContextMenu="OnEntryContextMenu"
-                                  GroupCompleted="true"
-                                  RowCopyValue="@EntryCopyText"
-                                  RowCssClass="@RepositoryMark"
-                                  AriaLabel="Tasks"
-                                  TestId="entry-list">
-                        <RowActions Context="task">
-                            @* The two edits a reader makes while scanning rather than
-                               while reading one entry: what this is filed against, and
-                               how far it has got. Both were on the row already — the
-                               repository as the stripe down its edge, the status as a
-                               badge beside the title — and neither could be changed
-                               without opening the entry first.
-
-                               A row the list is drawing is always a row the pane has,
-                               so the resolve back to the entry is total in practice;
-                               the branch is here because RowActions is handed a
-                               TaskRow and a TaskRow is a task, with no area, no
-                               repository and no status vocabulary on it. *@
-                            @if (EntryFor(task.Id) is { } entry)
-                            {
-                                @RenderRowPickers(entry, task.Title)
-                            }
-                        </RowActions>
-                        <RowBadges Context="task">
-                            @* What work on the entry produced — its latest pull
-                               request and session. A fact to follow rather than a
-                               field to set, so it reads ahead of the link handle
-                               while the pickers stay among the controls after it. *@
-                            @if (EntryFor(task.Id) is { } entry)
-                            {
-                                @if (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any())
-                                {
-                                    @RenderRowWork(entry)
-                                }
-
-                                @* What the entry is about in the Devbook, as a count:
-                                   a row is scanned, and which chapters they are is
-                                   the open entry's to say. *@
-                                @if (entry.DevbookReferences.Count > 0)
-                                {
-                                    @RenderRowDevbook(entry)
-                                }
-                            }
-                        </RowBadges>
-                        <AfterOpenRows>
-                            @RenderAddEntry()
-                        </AfterOpenRows>
-                    </TaskListView>
-                }
+                </div>
             </div>
         </Start>
 

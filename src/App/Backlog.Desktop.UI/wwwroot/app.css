@@ -110,17 +110,24 @@ h1, h2, h3 {
   `flex: 1 1 auto` beside `min-height: 0` says. The `min-height: 0` is the older and
   more important half: without it a flex item refuses to shrink below its content and
   every scrolling region inside would push the footer off the bottom instead.
+
+  The top padding and the gap are a step smaller than the sides, and the bottom is
+  the smallest step: the header nav sits close to the window's top edge, the
+  content close under the header, and a pane's scroll area runs down to just above
+  the footer, because the height they used to spend is content room the panes can
+  use. The bottom keeps `--spacing-xs` rather than zero so a focus ring on the last
+  visible control is not cut by `overflow: hidden` below.
 */
 .shell {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
     width: 100%;
     flex: 1 1 auto;
     min-height: 0;
     max-width: none;
     margin: 0 auto;
-    padding: var(--spacing-lg);
+    padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-xs);
     overflow: hidden;
 }
 
@@ -136,16 +143,20 @@ h1, h2, h3 {
 
   It does not step down to `--font-size-xs` the way the harness build footers do,
   and the difference is what is in the band. Those carry fine print; this carries
-  two things a reader clicks. `.devbook/design/accessibility.md` puts the floor for readable
-  text at `--font-size-sm`, and it applies to a control wherever on the page that
-  control happens to sit — so the two keep `.header-util`'s own type and its
-  `min-height: 2.25rem` rather than shrinking to match a footer they only resemble.
-  (2.25rem is short of that document's 44px target rule, which is the gap it already
-  records for every utility button in this app. Being in a footer neither creates
-  that gap nor excuses widening it.)
+  things a reader clicks. `.devbook/design/accessibility.md` puts the floor for
+  readable text at `--font-size-sm`, and it applies to a control wherever on the page
+  that control happens to sit — so the controls keep `.header-util`'s own type.
 
-  Which leaves the block padding as the only thing on this band that was not already
-  standing on a floor, and it is where the height came out of. `--spacing-xs` rather
+  They do not keep its `min-height: 2.25rem`, which made this band about 45px tall
+  for one line of small text. The user traded that height for content room: inside
+  this band `.header-util` is 1.5rem tall (see the rule below), which brings the band
+  to about 32px. That is further short of the accessibility document's 44px target
+  rule — but 2.25rem was short of it too, and the document already records that gap
+  for every utility button in this app; the footer is where it was chosen to spend
+  it, not a place that pretends the gap is closed.
+
+  The block padding is the one thing on this band that is still standing on a floor.
+  `--spacing-xs` rather
   than zero, and that is a floor too: `.devbook/design/accessibility.md#focus-visibility`
   draws focus as an outline at `--border-width-2` offset 2px, so a focused control
   puts 4px of ink outside its border box. With no block padding the bottom of that
@@ -166,6 +177,14 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
     padding: var(--spacing-xs) var(--spacing-lg);
     border-top: var(--border-width) solid var(--color-border);
+}
+
+/* The utilities in the band, shorter than the shape gives them anywhere else — the
+   height trade the comment above describes. No block padding of their own: the
+   band's `--spacing-xs` is what keeps their focus ring inside it. */
+.app-footer .header-util {
+    min-height: 1.5rem;
+    padding-block: 0;
 }
 
 /* The auto margin that pushes everything after it to the right — the same idiom
@@ -487,7 +506,13 @@ h1, h2, h3 {
     row-gap: var(--spacing-xs);
     min-width: 0;
     overflow: hidden;
-    margin-bottom: var(--spacing-md);
+    /* A step down from the header rather than tucked under it, and nothing below:
+       the list's own gap is all that separates the bar from the rows it filters,
+       so the first row reads as the bar's result rather than the next section. */
+    margin-top: var(--spacing-sm);
+    /* Its own height and never less: the column's slack goes to the scroller under
+       it, which is the part that has rows to show. */
+    flex: none;
 }
 
 .filter-group {
@@ -829,24 +854,19 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* And the list half scrolls down and never sideways.
+/* The list half, the same shape as the entry's half above it: a column that hands
+   its height down and scrolls nothing itself.
 
-   The shared split gives both halves `overflow: auto`, which is two axes. Down is
-   the list working as intended — there are more entries than fit. Sideways is
-   never that: the column is as wide as the layout can make it, so a horizontal
-   bar only ever appears because something in a row refused to shrink, and the
-   reader pays for it by dragging the whole list — rows, filter bar and add row
-   together — to read the end of one line. Nothing in this half is worth that
-   gesture, so the axis is not offered.
-
-   `hidden` rather than `clip`, because the vertical axis is still `auto`: a box
-   with one axis clipped and the other scrollable computes the clip back to hidden
-   anyway, and naming it hidden says what the box actually does. It is the last
-   line of defence and not the fix — a row that overflows is clipped here and the
-   clamps in the library keep it from overflowing in the first place, so what the
-   reader sees is a shortened line rather than a line cut off at the pane's edge. */
+   The shared split gives both halves `overflow: auto`, and this half used to be
+   the list's scroll container — which put the filter bar inside what scrolled, so
+   the bar went up with the rows and the scrollbar ran beside it. The scroller is
+   now `.backlog-list__scroll`, the part of the list under the bar, and this half
+   only has to give `.backlog-list` a definite height to divide between the two. */
 .backlog-split > .split-pane__start {
-    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
 }
 
 /* Nothing open, so there is nothing to divide: the list takes the whole width and
@@ -880,18 +900,22 @@ h1, h2, h3 {
 
   Sticky, because the selection it reports on is spread down a column the reader
   scrolls: a bar that left the top of the screen would take the count and the
-  only way out of the selection with it. The split's own half is the scroll
-  container — see `.backlog-list` for why the list must not be one — so top: 0
-  is the top of the rows rather than the top of the window.
+  only way out of the selection with it. `.backlog-list__scroll` is the scroll
+  container, so top: 0 is the top of the rows, just under the filter bar, rather
+  than the top of the window.
 
   flex: none, so a bar whose acts have wrapped onto three lines grows downwards
   instead of stealing height from the list.
+
+  z-index 2, one above the row's edit pencil, which the library lifts to 1 for its
+  own hover layering: at a tie the later element wins, and the rows come after the
+  bar, so the pencils drew across it as they scrolled under.
 */
 .backlog-bulk-bar {
     flex: none;
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 2;
 }
 
 /* A control and the button that undoes or commits it, kept together: "a date and
@@ -935,22 +959,70 @@ h1, h2, h3 {
     max-width: 22rem;
 }
 
-/* Not a scroll container, and deliberately so. The split's own half already
-   scrolls (`.split-pane__start` in the library is `overflow: auto`), and that half
-   is a block that hands this column its content height rather than its own — so
-   an `overflow-y: auto` here never produced a scrollbar. What it did produce was
-   a scroll container that never scrolled, and a sticky child measures against
-   its nearest one: the bulk bar above and the add-entry row below both claimed
-   to stick to this column and both scrolled straight out of view, because the
-   box they were stuck to was as tall as the rows. */
+/* The list column: the filter bar, then the part that scrolls. Not a scroll
+   container itself — the bar is the one thing in it that must not scroll — and it
+   stays the container-query host, because the bar and the rows both size by the
+   column they are in rather than by the window.
+
+   It takes the split half's height (`flex: 1 1 auto` with `min-height: 0`) instead
+   of its content's, which is what leaves `.backlog-list__scroll` a bounded box to
+   scroll in. An earlier version put `overflow-y: auto` here while the half was a
+   block handing it its content height; it produced a scroll container that never
+   scrolled, and the sticky bulk bar and add-entry row stuck to it and scrolled
+   straight out of view with the rows. */
 .backlog-list {
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
+    /* Only two children now — the filter bar and the scroller — so this is the
+       bar-to-rows distance alone: the scroller's own gap, so the first row sits as
+       far under the bar as "New entry" sits under the last row. */
     gap: var(--spacing-md);
     min-height: 0;
     min-width: 0;
     container-type: inline-size;
     container-name: backlog-list;
+}
+
+/* Everything under the filter bar, and the list's scroll container: the bulk bar
+   (sticky top) and the add-entry row (sticky bottom) stick to this box, so they
+   pin just under the bar and at the bottom of the column. The list's own gap
+   again, so the rows sit exactly as they did when they were the list's children.
+
+   Down and never sideways. Down is the list working as intended — there are more
+   entries than fit. Sideways is never that: the column is as wide as the layout
+   can make it, so a horizontal bar only ever appears because something in a row
+   refused to shrink, and the reader would pay for it by dragging every row to read
+   the end of one line. `hidden` rather than `clip`, because the vertical axis is
+   `auto`: a box with one axis clipped and the other scrollable computes the clip
+   back to hidden anyway. It is the last line of defence and not the fix — the
+   clamps in the library keep a row from overflowing in the first place.
+
+   Positioned, so it is the containing block of the rows' absolutely positioned
+   pieces — the `.sr-only` spans and icons. Overflow clips those only when the
+   clipping box is, or contains, their containing block; with this box static they
+   resolved against the window, measured ~7800px of document under a 900px one,
+   and a `scrollTo` or a `scrollIntoView` could slide the whole shell up. */
+.backlog-list__scroll {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    gap: var(--spacing-md);
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+/* The completed group, pulled up under the add-entry row. The library spaces it
+   from the open rows with a `--spacing-md` margin, which is right where the list
+   stands alone; here the scroller's gap already separates them, and the two
+   together left 32px of nothing between "New entry" and "Completed". Without the
+   margin the gap alone remains — the same `--spacing-md` that stands between the
+   last open row and "New entry", and between the filter bar and the first row, so
+   the column has one rhythm from top to bottom. */
+.backlog-list__scroll > .task-list__completed {
+    margin-top: 0;
 }
 
 /* The first load's placeholder rows, spaced like the entry rows they stand in for. */
@@ -1894,8 +1966,9 @@ h1, h2, h3 {
 }
 
 @media (max-width: 960px) {
+    /* The sides step down; the top and bottom were already the smaller steps. */
     .shell {
-        padding: var(--spacing-md);
+        padding: var(--spacing-sm) var(--spacing-md) var(--spacing-xs);
     }
 
     .app-header {
@@ -1974,10 +2047,9 @@ h1, h2, h3 {
        top: the row keeps its slot under the open rows — above Completed, where
        the next entry will appear — but a column longer than the window no longer
        hides the one control that adds to it until the reader has scrolled past
-       everything already there. The split's half is the scroll container — see
-       `.backlog-list` — so bottom: 0 is the bottom of the rows rather than of
-       the window, and once the reader reaches the row's own place it scrolls
-       with the rest.
+       everything already there. `.backlog-list__scroll` is the scroll container,
+       so bottom: 0 is the bottom of the rows rather than of the window, and once
+       the reader reaches the row's own place it scrolls with the rest.
 
        The ground colour, because the buttons inside are transparent by design
        — dashed outlines on whatever they sit on — and rows sliding under a
@@ -2878,8 +2950,8 @@ h1, h2, h3 {
   around the group, members flush inside it, hairlines between them — and it
   says "any of these, together": the panes strip, where several panes share the
   width, and the repository scope, where Ctrl takes a second repository. The
-  `--loose` modifiers below say "one of these": the surface switcher, where
-  exactly one surface owns the screen. The surface switcher used to share the
+  `--loose` modifiers below say "one of these": the takeover group, where at
+  most one takeover owns the screen. The takeover group used to share the
   fused shape on the argument that every group here answers "what am I looking
   at" and only the pressed state needs to carry the count — but the pressed
   state is what a reader sees after pressing, and the shape is what they see

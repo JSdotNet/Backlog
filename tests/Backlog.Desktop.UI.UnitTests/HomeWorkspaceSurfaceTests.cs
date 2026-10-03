@@ -232,13 +232,14 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The header configures what is on screen, so during a takeover the strip
-    /// that configures the workspace has nothing to act on and is not offered.
-    /// The pane selection underneath is untouched: the strip comes back with the
-    /// same pane pressed that it left with.
+    /// During a takeover the pane strip stays in the header, because it is the way
+    /// back: no option reads pressed, since no pane is on screen, and none is
+    /// disabled — the lone open Tasks pane, which refuses to close in the
+    /// workspace, is exactly the one pressed to return to it. The pane selection
+    /// underneath is untouched: the strip comes back with the same pane pressed.
     /// </summary>
     [Fact]
-    public void A_takeover_takes_the_sections_strip_out_of_the_header_and_the_way_back_restores_it()
+    public void A_takeover_keeps_the_pane_strip_unpressed_and_a_pane_option_returns_to_the_workspace()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
@@ -252,22 +253,137 @@ public sealed class HomeWorkspaceSurfaceTests
             component.WaitForAssertion(() =>
             {
                 Assert.NotEmpty(component.FindAll($"[data-testid='{surface}-surface']"));
-                Assert.Empty(component.FindAll("[data-testid='global-pane-multiselect']"));
-                Assert.Empty(component.FindAll("[data-testid='backlog-pane-option']"));
-                Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='global-pane-multiselect']"));
 
-                // The switcher is what brings the reader back, so it stays.
+                var tasks = component.Find("[data-testid='backlog-pane-option']");
+                Assert.Equal("false", tasks.GetAttribute("aria-pressed"));
+                Assert.False(tasks.HasAttribute("disabled"));
+                Assert.Equal("Back to Tasks", tasks.GetAttribute("title"));
+                Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+
                 Assert.NotEmpty(component.FindAll("[data-testid='workspace-surface-switcher']"));
             });
 
-            component.Find("[data-testid='workspace-surface-option']").Click();
+            component.Find("[data-testid='backlog-pane-option']").Click();
 
             component.WaitForAssertion(() =>
             {
-                Assert.NotEmpty(component.FindAll("[data-testid='global-pane-multiselect']"));
+                Assert.Empty(component.FindAll($"[data-testid='{surface}-surface']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
                 Assert.Equal("true", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
             });
         }
+    }
+
+    /// <summary>
+    /// The way back keeps the selection as it was: pressing an option whose pane is
+    /// already open closes the takeover and shows the workspace with every open
+    /// pane still open — it does not toggle that pane off.
+    /// </summary>
+    [Fact]
+    public void Pressing_an_open_pane_during_a_takeover_returns_with_the_selection_unchanged()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
+        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+        });
+
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']")));
+
+        component.Find("[data-testid='devbook-pane-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+            Assert.Equal("true", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='dashboard-toggle-button']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>
+    /// A pane that was not open opens as it would in the workspace: a plain press
+    /// switches to it, closing the takeover on the way.
+    /// </summary>
+    [Fact]
+    public void Pressing_a_closed_pane_during_a_takeover_switches_to_it()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']")));
+        component.Find("[data-testid='tools-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='tools-surface']")));
+
+        component.Find("[data-testid='devbook-pane-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='tools-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+            Assert.Equal("false", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>And Ctrl adds it beside the open ones, the same as in the workspace.</summary>
+    [Fact]
+    public void A_modifier_press_on_a_closed_pane_during_a_takeover_opens_it_beside()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']")));
+        component.Find("[data-testid='sessions-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface']")));
+
+        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+            Assert.Equal("true", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>
+    /// The header's nav leads with the pane strip, then the takeovers with Roadmap
+    /// first — it is the Tasks pane's plan — and no "Workspace" option anywhere.
+    /// </summary>
+    [Fact]
+    public void The_nav_reads_panes_then_roadmap_first_among_the_takeovers()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            var nav = component.Find(".app-header__nav");
+            var groups = nav.Children.ToList();
+            Assert.Equal("global-pane-multiselect", groups[0].GetAttribute("data-testid"));
+            Assert.Equal("workspace-surface-switcher", groups[1].GetAttribute("data-testid"));
+
+            var takeovers = groups[1].Children.Select(option => option.GetAttribute("data-testid")).ToList();
+            Assert.Equal(
+                ["roadmap-toggle-button", "dashboard-toggle-button", "sessions-toggle-button", "pull-requests-toggle-button", "tools-toggle-button"],
+                takeovers);
+
+            Assert.Empty(component.FindAll("[data-testid='workspace-surface-option']"));
+        });
     }
 
     /// <summary>
@@ -305,10 +421,8 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
             Assert.Equal("Answers from the Sessions content.", component.Find(".ai-panel__body").TextContent.Trim()));
 
-        component.Find("[data-testid='workspace-surface-option']").Click();
-
-        // Devbook alone on screen: the list is closed, and the devbook answers.
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
+        // Devbook alone on screen: pressing its option leaves the takeover and
+        // switches to it, so the list is closed and the devbook answers.
         component.Find("[data-testid='devbook-pane-option']").Click();
 
         component.WaitForAssertion(() =>
@@ -887,10 +1001,12 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='workspace']"));
             Assert.Empty(component.FindAll("[data-testid='devbook-layout']"));
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Empty(component.FindAll("[data-testid='global-pane-multiselect']"));
+
+            // The strip stays as the way back, with no pane reading as on screen.
+            Assert.NotEmpty(component.FindAll("[data-testid='global-pane-multiselect']"));
+            Assert.Equal("false", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
 
             Assert.Equal("true", component.Find("[data-testid='roadmap-toggle-button']").GetAttribute("aria-pressed"));
-            Assert.Equal("false", component.Find("[data-testid='workspace-surface-option']").GetAttribute("aria-pressed"));
         });
     }
 
@@ -1006,8 +1122,8 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Closing is the ✕ inside the pane as well as the header switcher, which is
-    /// what keeps the header on screen while a takeover is open.
+    /// Closing is the ✕ inside the pane as well as the header's takeover group and
+    /// pane strip, which is what keeps the header on screen while a takeover is open.
     /// </summary>
     [Fact]
     public void The_sessions_pane_closes_back_to_the_workspace()
@@ -1027,8 +1143,8 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The roadmap is offered as one more surface: its option sits in the surface
-    /// switcher, loose like its neighbours, unpressed until the reader chooses it, and
+    /// The roadmap is offered as one more surface: its option sits in the takeover
+    /// group, loose like its neighbours, unpressed until the reader chooses it, and
     /// never blocked — it has no capacity rule, because it competes with nothing for
     /// width. The shell opens on the workspace, so the roadmap is off screen until
     /// asked for.
@@ -1069,12 +1185,13 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// Both ways back land on the workspace with the panes the reader left: a second
-    /// press on the roadmap's own option, and the Workspace option. The pane selection
-    /// was never touched to open the roadmap, so there is nothing to restore.
+    /// press on the roadmap's own option, and the open pane's option. The pane
+    /// selection was never touched to open the roadmap, so there is nothing to
+    /// restore — and pressing the open Tasks option does not close Tasks.
     /// </summary>
     [Theory]
     [InlineData("roadmap-toggle-button")]
-    [InlineData("workspace-surface-option")]
+    [InlineData("backlog-pane-option")]
     public void Leaving_the_roadmap_returns_to_the_workspace_as_it_was(string wayBack)
     {
         using var harness = CreateHarness();
@@ -1371,7 +1488,7 @@ public sealed class HomeWorkspaceSurfaceTests
     /// <summary>
     /// The strip holds bare pane options only: no rail, no cell, nothing beside or
     /// above an option but the option, and no roadmap option — that is a surface,
-    /// not a pane, and sits in the surface switcher. Every one of the three is a direct child of the
+    /// not a pane, and sits in the takeover group. Every one of the three is a direct child of the
     /// group, which is what the fused hairlines key on.
     /// </summary>
     [Fact]
@@ -1509,7 +1626,7 @@ public sealed class HomeWorkspaceSurfaceTests
     /// <summary>
     /// The pull requests list is a takeover of its own, with its own segment right
     /// after Sessions, and the way back is the pane's ✕ as much as the header's
-    /// Workspace option.
+    /// pane options.
     /// </summary>
     [Fact]
     public void Opening_pull_requests_replaces_every_pane_and_its_close_returns_to_them()
@@ -1593,7 +1710,8 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.Empty(component.FindAll("[data-testid='workspace']"));
             });
 
-            component.Find("[data-testid='workspace-surface-option']").Click();
+            component.Find("[data-testid='backlog-pane-option']").Click();
+            component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
             component.Find("[data-testid='pull-requests-toggle-button']").Click();
 
             component.WaitForAssertion(() => Assert.Equal("PullRequests", shellNavigation.LastSurface));

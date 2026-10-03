@@ -43,11 +43,12 @@
     renders owns the page's single <main> landmark.
 
     The header follows the surface. Every control in it acts on something, and a
-    control whose something is off screen is a dead button: the panes strip
-    configures the workspace, the GitHub check refreshes the
-    task list, and Ask AI answers from the content of an open area — so each of
-    them renders only while what it acts on does. The surface switcher and the identity region stay, because they
-    are true of the screen whatever is on it.
+    control whose something is off screen is a dead button: the GitHub check
+    refreshes the task list, and Ask AI answers from the content of an open area —
+    so each of them renders only while what it acts on does. The pane strip, the
+    takeover group and the identity region stay, because they are true of the
+    screen whatever is on it; during a takeover the pane strip is the way back,
+    since pressing a pane closes the takeover and shows that pane.
 
     What is inside a surface is not the shell's business: Inbox, Backlog
     Management, Devbook, Roadmap, Dev PC Management, Sessions and the
@@ -135,8 +136,8 @@
                    It renders with the chips or not at all. With nothing configured there
                    is no repository to be an identity for, and a control governing the
                    look of an empty set is a control with nothing to do — the same reason
-                   the surface switcher below hides itself when there is only one
-                   surface. *@
+                   the takeover group below hides itself when no takeover is
+                   offered. *@
                 <Toggle CssClass="header-switch"
                         LabelCssClass="header-switch__label"
                         ControlCssClass="toggle__track header-switch__track"
@@ -149,32 +150,119 @@
         </div>
 
         @* Region B — navigation, and nothing else. Two groups, because there are
-           two different questions: which surface owns the screen (exactly one), and
-           which panes are on it (any number). Two shared ButtonGroups make that
-           difference visible; one undifferentiated row of pills could not. The
-           roadmap was a third question — a band above the panes, on or off — until
-           it became a surface of its own.
+           two different questions: which panes are on screen (any number), and
+           which takeover, if any, has the screen instead (at most one). Two shared
+           ButtonGroups make that difference visible; one undifferentiated row of
+           pills could not. The roadmap was a third question — a band above the
+           panes, on or off — until it became a surface of its own.
 
            And they are drawn differently, because the count is the difference.
            Members fused inside one border say "any of these, together": that is the
            panes strip, and the repository scope in Region A. Standalone controls
-           with a gap between them say "one of these": that is the surface
-           switcher. The surface switcher used to wear the fused shape on the argument
-           that everything here answers "what am I looking at" — but a reader
-           cannot see how many answers a control takes until they press it, and the
-           shape is the one thing they can see first. *@
-        <nav class="app-header__nav" aria-label="Workspace views">
-            @* One field, in markup that finally says so.
-               WorkspaceSurface has always been a single enum precisely because a
-               takeover cannot coexist with the workspace or with another
-               takeover — but the header rendered independent buttons carrying
-               aria-expanded, which described neither the exclusivity nor the fact
-               that a takeover replaces the workspace instead of expanding beside
-               it. A group of pressed states describes both, and it gives the way
-               back a control of its own rather than leaving it to a second press or
-               the in-surface close button.
+           with a gap between them say "one of these": that is the takeover group.
+           It used to wear the fused shape on the argument that everything here
+           answers "what am I looking at" — but a reader cannot see how many answers
+           a control takes until they press it, and the shape is the one thing they
+           can see first.
 
-               Loose rather than fused: exactly one surface is on at a time, and a
+           The panes come first and are always there. The way back from a takeover
+           used to be a "Workspace" option at the head of the takeover group, which
+           was a control naming a thing nobody reads as a destination — the reader
+           wants the Tasks pane back, not "the workspace". So the pane options are
+           the way back: pressing one closes the takeover and shows that pane. *@
+        <nav class="app-header__nav" aria-label="Workspace views">
+            @* Which panes are on screen below, in one strip. The shared ButtonGroup
+               rather than a hand-rolled div, so its role and label come from the
+               component and its test id reaches the DOM through TestId. Its options
+               are aria-pressed toggles, not tabs: several panes are on screen at once,
+               so this is a multi-select, and the fused shape says so.
+
+               Always rendered, takeover or not. It was hidden during a takeover for
+               a while, because a press on it then changed nothing the reader could
+               see — but a press on it now closes the takeover, so it is the way back
+               and has to stay. While a takeover is up no option reads pressed, since
+               no pane is on screen, and none is disabled: the lone open pane that
+               refuses to close in the workspace is exactly the one a reader presses
+               to return to it. The pane selection lives outside WorkspaceSurface and
+               survives the round trip untouched. *@
+            <ButtonGroup CssClass="header-group header-group--panes"
+                         AriaLabel="Visible panes"
+                         TestId="global-pane-multiselect">
+                @* One pane on a plain press, one more with Ctrl held — the same
+                   convention as the repository scope in Region A, and for the same
+                   reason: several can be on screen at once, and the option is the
+                   one control the reader is already pressing. Each pane used to carry
+                   a pin, railed along its option's top edge, that held it through a
+                   switch; that was a second control on every option for what one
+                   modifier on the option itself now says. The tooltip names the
+                   modifier, because nothing else on screen does — and names it only
+                   while the window fits a second pane, since a Ctrl-press in a window
+                   that fits one is a switch whatever the reader held.
+
+                   OnClick rather than PressedChanged, because the press has to reach
+                   the handler with its modifiers on; the pressed state the button
+                   reports is the selection's answer and not something the handler
+                   needs told. The takeover group after it keeps PressedChanged: it
+                   takes no modifier, because at most one takeover is on at a time. *@
+                @if (InboxPaneOptionVisible)
+                {
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="PaneOptionPressed(GlobalPane.Inbox)"
+                                  id="inbox-pane-option"
+                                  TestId="inbox-pane-option"
+                                  aria-controls="inbox-pane"
+                                  Disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
+                                  Title="@PaneOptionTitle(GlobalPane.Inbox, "Inbox")"
+                                  OnClick="args => PressPane(GlobalPane.Inbox, args)">
+                        Inbox
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
+                                            Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
+                                            TestId="inbox-feature-status" />
+                    </ToggleButton>
+                }
+
+                <ToggleButton BaseClass="header-group__option"
+                              PressedCssClass="header-group__option--selected"
+                              Pressed="PaneOptionPressed(GlobalPane.Tasks)"
+                              id="backlog-pane-option"
+                              TestId="backlog-pane-option"
+                              aria-controls="backlog-pane"
+                              Disabled="@PaneToggleDisabled(GlobalPane.Tasks)"
+                              Title="@PaneOptionTitle(GlobalPane.Tasks, "Tasks")"
+                              OnClick="args => PressPane(GlobalPane.Tasks, args)">
+                    Tasks
+                </ToggleButton>
+
+                @if (DevbookPaneOptionVisible)
+                {
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="PaneOptionPressed(GlobalPane.Devbook)"
+                                  id="devbook-pane-option"
+                                  TestId="devbook-pane-option"
+                                  aria-controls="repository-devbook-pane"
+                                  Disabled="@PaneToggleDisabled(GlobalPane.Devbook)"
+                                  Title="@PaneOptionTitle(GlobalPane.Devbook, "Devbook")"
+                                  OnClick="args => PressPane(GlobalPane.Devbook, args)">
+                        Devbook
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.RepositoryDevbook)"
+                                            Title="@FeatureStatusTitle(DevbookFeatures.RepositoryDevbook)"
+                                            TestId="devbook-feature-status" />
+                    </ToggleButton>
+                }
+            </ButtonGroup>
+
+            @* The takeovers, in one group. WorkspaceSurface has always been a single
+               enum precisely because a takeover cannot coexist with the workspace or
+               with another takeover — but the header once rendered independent
+               buttons carrying aria-expanded, which described neither the
+               exclusivity nor the fact that a takeover replaces the workspace
+               instead of expanding beside it. A group of pressed states describes
+               both. Pressing the pressed one again, Escape, a takeover's own close
+               button, or any pane option before this group returns to the panes.
+
+               Loose rather than fused: at most one takeover is on at a time, and a
                fused strip is the shape this header reserves for "several at once".
                The group is still one group — one role, one label, the options in
                one tab sequence — it only stops drawing its members as one control.
@@ -182,37 +270,35 @@
                Ask AI keeps aria-expanded further down, because that one really is
                a disclosure: its panel opens beside the content it belongs to.
 
-               The group renders only when there is a takeover to switch to. With
-               every takeover feature off, a lone "Workspace" option would be a
-               control with nothing to choose between. *@
+               The group renders only when some takeover is offered; with every
+               takeover feature off there is nothing in it. *@
             @if (SurfaceSwitcherVisible)
             {
                 <ButtonGroup CssClass="header-group header-group--loose header-group--surface"
                              AriaLabel="Surface"
                              TestId="workspace-surface-switcher">
-                    <ToggleButton BaseClass="header-group__option header-group__option--loose"
-                                  PressedCssClass="header-group__option--selected"
-                                  Pressed="WorkspaceVisible"
-                                  id="workspace-surface-option"
-                                  TestId="workspace-surface-option"
-                                  aria-controls="workspace"
-                                  PressedChanged="CloseSurface">
-                        Workspace
-                    </ToggleButton>
-
-                    @if (IsFeatureEnabled(DevPcFeatures.SystemTools))
+                    @* The roadmap, as a takeover, and first among them: it sits right
+                       after the pane strip because it is the Tasks pane's plan read on
+                       a timeline, the takeover closest to the panes. It was a band
+                       above the panes with a toggle of its own, and a plan read in
+                       three tenths of the screen was a plan paged through; the panes
+                       under it were never what the reader was planning with. So it
+                       takes the screen the way Tools and the Dashboard do, and choosing
+                       it is choosing what owns the screen — which is this group's
+                       question. *@
+                    @if (RoadmapPaneOptionVisible)
                     {
                         <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
-                                      Pressed="ToolsVisible"
-                                      id="tools-toggle-button"
-                                      TestId="tools-toggle-button"
-                                      aria-controls="tools-pane"
-                                      PressedChanged="ToggleTools">
-                            Tools
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(DevPcFeatures.SystemTools)"
-                                                Title="@FeatureStatusTitle(DevPcFeatures.SystemTools)"
-                                                TestId="tools-feature-status" />
+                                      Pressed="RoadmapVisible"
+                                      id="roadmap-toggle-button"
+                                      TestId="roadmap-toggle-button"
+                                      aria-controls="roadmap-surface"
+                                      PressedChanged="ToggleRoadmap">
+                            Roadmap
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
+                                                Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
+                                                TestId="roadmap-feature-status" />
                         </ToggleButton>
                     }
 
@@ -273,109 +359,19 @@
                         </ToggleButton>
                     }
 
-                    @* The roadmap, as a takeover. It was a band above the panes with
-                       a toggle of its own, and a plan read in three tenths of the
-                       screen was a plan paged through; the panes under it were never
-                       what the reader was planning with. So it takes the screen the
-                       way Tools and the Dashboard do, and choosing it is choosing
-                       what owns the screen — which is this group's question. *@
-                    @if (RoadmapPaneOptionVisible)
+                    @if (IsFeatureEnabled(DevPcFeatures.SystemTools))
                     {
                         <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
-                                      Pressed="RoadmapVisible"
-                                      id="roadmap-toggle-button"
-                                      TestId="roadmap-toggle-button"
-                                      aria-controls="roadmap-surface"
-                                      PressedChanged="ToggleRoadmap">
-                            Roadmap
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
-                                                Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
-                                                TestId="roadmap-feature-status" />
-                        </ToggleButton>
-                    }
-                </ButtonGroup>
-            }
-
-            @* Which panes are on screen below, in one strip. The shared ButtonGroup
-               rather than a hand-rolled div, so its role and label come from the
-               component and its test id reaches the DOM through TestId. Its options
-               are aria-pressed toggles, not tabs: several panes are on screen at once,
-               so this is a multi-select, and the fused shape says so.
-
-               Only while the workspace is on screen. It used to stay up during a
-               takeover, on the argument that it configured the workspace the reader
-               was about to come back to — but a press on it changed nothing the
-               reader could see, and a row of buttons that do nothing reads as broken
-               rather than as forward planning. The pane selection still lives
-               outside WorkspaceSurface and still survives the round trip; only the
-               strip that shows it goes, and it comes back exactly as it was. *@
-            @if (WorkspaceVisible)
-            {
-                <ButtonGroup CssClass="header-group header-group--panes"
-                             AriaLabel="Visible panes"
-                             TestId="global-pane-multiselect">
-                    @* One pane on a plain press, one more with Ctrl held — the same
-                       convention as the repository scope in Region A, and for the same
-                       reason: several can be on screen at once, and the option is the
-                       one control the reader is already pressing. Each pane used to carry
-                       a pin, railed along its option's top edge, that held it through a
-                       switch; that was a second control on every option for what one
-                       modifier on the option itself now says. The tooltip names the
-                       modifier, because nothing else on screen does — and names it only
-                       while the window fits a second pane, since a Ctrl-press in a window
-                       that fits one is a switch whatever the reader held.
-
-                       OnClick rather than PressedChanged, because the press has to reach
-                       the handler with its modifiers on; the pressed state the button
-                       reports is the selection's answer and not something the handler
-                       needs told. The surface switcher above keeps PressedChanged: it
-                       takes no modifier, because exactly one surface is on at a time. *@
-                    @if (InboxPaneOptionVisible)
-                    {
-                        <ToggleButton BaseClass="header-group__option"
-                                      PressedCssClass="header-group__option--selected"
-                                      Pressed="InboxPaneVisible"
-                                      id="inbox-pane-option"
-                                      TestId="inbox-pane-option"
-                                      aria-controls="inbox-pane"
-                                      Disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
-                                      Title="@PaneOptionTitle(GlobalPane.Inbox, "Inbox")"
-                                      OnClick="args => PressPane(GlobalPane.Inbox, args)">
-                            Inbox
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
-                                                Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
-                                                TestId="inbox-feature-status" />
-                        </ToggleButton>
-                    }
-
-                    <ToggleButton BaseClass="header-group__option"
-                                  PressedCssClass="header-group__option--selected"
-                                  Pressed="TasksPaneVisible"
-                                  id="backlog-pane-option"
-                                  TestId="backlog-pane-option"
-                                  aria-controls="backlog-pane"
-                                  Disabled="@PaneToggleDisabled(GlobalPane.Tasks)"
-                                  Title="@PaneOptionTitle(GlobalPane.Tasks, "Tasks")"
-                                  OnClick="args => PressPane(GlobalPane.Tasks, args)">
-                        Tasks
-                    </ToggleButton>
-
-                    @if (DevbookPaneOptionVisible)
-                    {
-                        <ToggleButton BaseClass="header-group__option"
-                                      PressedCssClass="header-group__option--selected"
-                                      Pressed="DevbookPaneVisible"
-                                      id="devbook-pane-option"
-                                      TestId="devbook-pane-option"
-                                      aria-controls="repository-devbook-pane"
-                                      Disabled="@PaneToggleDisabled(GlobalPane.Devbook)"
-                                      Title="@PaneOptionTitle(GlobalPane.Devbook, "Devbook")"
-                                      OnClick="args => PressPane(GlobalPane.Devbook, args)">
-                            Devbook
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.RepositoryDevbook)"
-                                                Title="@FeatureStatusTitle(DevbookFeatures.RepositoryDevbook)"
-                                                TestId="devbook-feature-status" />
+                                      Pressed="ToolsVisible"
+                                      id="tools-toggle-button"
+                                      TestId="tools-toggle-button"
+                                      aria-controls="tools-pane"
+                                      PressedChanged="ToggleTools">
+                            Tools
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(DevPcFeatures.SystemTools)"
+                                                Title="@FeatureStatusTitle(DevPcFeatures.SystemTools)"
+                                                TestId="tools-feature-status" />
                         </ToggleButton>
                     }
                 </ButtonGroup>
@@ -433,7 +429,7 @@
             {
                 @* A disclosure, not a pressed state: this opens a panel beside the
                    content, so it carries aria-expanded and stays AppButton rather
-                   than ToggleButton. The surface switcher above is the other case —
+                   than ToggleButton. The takeover group above is the other case —
                    a selection, not an expansion.
 
                    The state is written out rather than bound to the bool: Blazor
@@ -1028,11 +1024,12 @@
         _ => throw new ArgumentOutOfRangeException(nameof(pane), pane, "No Ask AI area is defined for this pane.")
     };
 
-    /// <summary>Whether the surface switcher is offered at all. It needs something
-    /// to switch to: with every takeover feature off its only member would be the
-    /// workspace the reader is already looking at, which is a control with no choice
-    /// in it. Each takeover keeps its own segment gated on its own feature, so this
-    /// is the "is there a segment beyond Workspace" question and nothing more.</summary>
+    /// <summary>Whether the takeover group is offered at all: whether any takeover
+    /// is. The group has no member of its own any more — the way back to the
+    /// workspace is the pane strip — so with every takeover feature off it would be
+    /// an empty group. Each takeover keeps its own segment gated on its own feature,
+    /// so this is the "is there any segment" question and nothing more. The name is
+    /// older than that and is kept; nothing persists it.</summary>
     private bool SurfaceSwitcherVisible =>
         IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered || SessionsOffered || PullRequestsOffered
         || RoadmapPaneOptionVisible;
@@ -1064,7 +1061,7 @@
     /// It answers and never navigates. Every agent run calls <c>open_dashboard</c> when
     /// it starts, so a window that moved to the Sessions pane here would move whenever
     /// an agent did something, pulling the reader off whatever they were in the middle
-    /// of. Navigating is the reader's act alone: the surface switcher and the tab strip.
+    /// of. Navigating is the reader's act alone: the takeover group and the tab strip.
     /// </para>
     /// <para>
     /// Inside <c>InvokeAsync</c> because the request arrives on a request thread with no
@@ -1883,11 +1880,19 @@
         if (!RepositoryScopeTakesSeveral) State.NarrowRepositoryScopeToAnchor();
     }
 
+    /// <summary>Whether a pane's option reads pressed: its pane is open and on
+    /// screen. During a takeover no pane is on screen, so none reads pressed —
+    /// the selection is kept underneath, and shows again on the way back.</summary>
+    private bool PaneOptionPressed(GlobalPane pane) => WorkspaceVisible && _globalPanes.IsEnabled(pane);
+
+    /// <summary>Whether a pane's option refuses a press. In the workspace, the last
+    /// open pane refuses to close; during a takeover a press closes nothing — it is
+    /// the way back — so an open pane's option never refuses there.</summary>
     private bool PaneToggleDisabled(GlobalPane pane)
     {
         if (_globalPanes.IsEnabled(pane))
         {
-            return !_globalPanes.CanDisable(pane);
+            return WorkspaceVisible && !_globalPanes.CanDisable(pane);
         }
 
         return !_globalPanes.CanEnable(pane);
@@ -1898,15 +1903,27 @@
     /// macOS) held; an open pane closes either way, because "this one too" has no
     /// meaning for a pane already on screen. Same shape as
     /// <see cref="ScopeRepository"/>, which is the convention the reader learns from
-    /// the chips beside this strip.</summary>
+    /// the chips beside this strip.
+    /// <para>
+    /// During a takeover the press is first the way back: it closes the takeover,
+    /// as <see cref="CloseSurface"/> does for Escape. A pane already open is then
+    /// simply shown again with the selection as it was — closing it would answer
+    /// "show me Tasks" by hiding Tasks. A pane not open opens as it would in the
+    /// workspace: a switch on a plain press, beside the others with Ctrl.
+    /// </para></summary>
     private void PressPane(GlobalPane pane, MouseEventArgs args)
     {
+        var returning = !WorkspaceVisible;
+        if (returning) CloseSurface();
+
         if (!_globalPanes.IsEnabled(pane) && (args.CtrlKey || args.MetaKey) && _globalPanes.TakesSeveral)
         {
             _globalPanes.TryOpenBeside(pane);
         }
-        else
+        else if (!returning || !_globalPanes.IsEnabled(pane))
         {
+            // Returning to an open pane falls through both branches: the
+            // workspace comes back exactly as it was left.
             _globalPanes.Toggle(pane);
         }
 
@@ -1925,6 +1942,8 @@
     {
         if (_globalPanes.IsEnabled(pane))
         {
+            if (!WorkspaceVisible) return $"Back to {name}";
+
             return _globalPanes.CanDisable(pane) ? $"Close {name}" : $"{name} is the only pane open";
         }
 
