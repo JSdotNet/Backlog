@@ -241,7 +241,7 @@ public sealed class FileReplicatedSessionStoreTests
             var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
             store.Save(
             [
-                SessionRecords.Entry(Laptop, sessionId: "measured", runs: [new(Noon.AddMinutes(-10), Noon)], waits: []),
+                SessionRecords.Entry(Laptop, sessionId: "measured", runs: [new(Noon.AddMinutes(-10), Noon)], waits: [], humanTurns: [Noon.AddMinutes(-10)]),
                 SessionRecords.Entry(Laptop, sessionId: "unmeasured")
             ]);
 
@@ -251,10 +251,12 @@ public sealed class FileReplicatedSessionStoreTests
             Assert.Equal([new ActivityInterval(Noon.AddMinutes(-10), Noon)], measured.Runs);
             Assert.NotNull(measured.Waits);
             Assert.Empty(measured.Waits);
+            Assert.Equal([Noon.AddMinutes(-10)], measured.HumanTurns);
 
             var unmeasured = reopened.Current.Entries.Single(entry => entry.Record.SessionId == "unmeasured").Record;
             Assert.Null(unmeasured.Runs);
             Assert.Null(unmeasured.Waits);
+            Assert.Null(unmeasured.HumanTurns);
         }
         finally
         {

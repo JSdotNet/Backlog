@@ -172,6 +172,28 @@ public sealed record AgentSessionActivity(
     /// </para>
     /// </summary>
     public IReadOnlyList<AgentLimitHit> LimitHits { get; init; } = [];
+
+    /// <summary>
+    /// The instant of every <c>Human Turn</c> the transcript records inside the
+    /// horizon: the person starting the session, giving a follow-up prompt, or
+    /// answering a question the agent asked (ADR 0019 §6). Ordered, ascending, each
+    /// instant once.
+    /// <para>
+    /// Instants and never the turn: what the person typed stays in the transcript.
+    /// Roadmap Planning draws the person's working stretches from these and the
+    /// <see cref="Runs"/>, which is why they travel on the replicated record too.
+    /// </para>
+    /// <para>
+    /// Empty for every Copilot session, whose stream does not record who made a turn,
+    /// and empty on a record from a device that predates the field. Neither is a claim
+    /// that nobody worked: a session that cannot say who made a turn has none to give.
+    /// </para>
+    /// <para>
+    /// An init property rather than a parameter, on <see cref="LimitHits"/>'s
+    /// precedent.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<DateTimeOffset> HumanTurns { get; init; } = [];
 }
 
 /// <summary>

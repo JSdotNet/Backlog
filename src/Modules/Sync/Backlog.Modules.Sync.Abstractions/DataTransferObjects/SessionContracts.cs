@@ -49,6 +49,12 @@ public static class SessionRecordLimits
     /// been refused far more often than any week allows; the newest are kept.</summary>
     public const int LimitHitsPerList = 100;
 
+    /// <summary>The most human turns one record may carry, on
+    /// <see cref="IntervalsPerList"/>'s terms. Every turn the person makes is followed
+    /// by a run, so a session with five hundred of them has five hundred runs too; the
+    /// newest are kept.</summary>
+    public const int HumanTurnsPerList = 500;
+
     /// <summary>The longest title a record may carry. The pusher cuts to this and
     /// the service refuses above it, on the terms <see cref="IntervalsPerList"/> gives.</summary>
     public const int TitleLength = 500;
@@ -134,7 +140,7 @@ public sealed record LimitHitRecord(
 /// <strong>This is a whitelist, not a filter, and the record type is where that
 /// distinction becomes structural.</strong> The two fail in opposite directions:
 /// a filter that misses a field leaks it, a whitelist that misses one merely
-/// omits it. There are nineteen permitted fields in that record's table — eighteen
+/// omits it. There are twenty permitted fields in that record's table — nineteen
 /// here and the machine id the service stamps — and a field that is not in the
 /// table does not exist on this type. Never a working folder, never a transcript
 /// path, and never a prompt, a tool result or a line of a file the session read.
@@ -287,6 +293,22 @@ public sealed record LimitHitRecord(
 /// where the pusher could not say. Added on 2026-09-23.</param>
 /// <param name="ModelUsage">What the session spent per model, or null on the same terms.
 /// Added on 2026-09-23.</param>
+/// <param name="HumanTurns">
+/// The instants at which the person made a turn — started the session, gave a
+/// follow-up prompt, or answered the agent's question — ascending, or null on the
+/// terms <paramref name="Runs"/> is null. The twentieth whitelisted field, added to
+/// .devbook/arc42/adr/0005 §Session records on 2026-10-03 by local ADR 0019, so a
+/// reading machine can count the hours the person worked in a session it never held
+/// the transcript for.
+/// <para>
+/// <strong>Instants, never the turn.</strong> Not a word of what the person typed
+/// travels here; the title remains the one exception to the prompt rule. Empty for a
+/// Copilot session, whose stream does not record who made a turn. At most
+/// <see cref="SessionRecordLimits.HumanTurnsPerList"/>, the newest kept. Defaulted, so
+/// a record from a device that predates the field reads as one with no human
+/// turns.
+/// </para>
+/// </param>
 public sealed record SessionRecord(
     string SessionId,
     string AgentKind,
@@ -305,7 +327,8 @@ public sealed record SessionRecord(
     IReadOnlyList<LimitHitRecord>? LimitHits = null,
     string? Entrypoint = null,
     IReadOnlyList<PullRequestRecord>? PullRequests = null,
-    IReadOnlyList<ModelUsageRecord>? ModelUsage = null);
+    IReadOnlyList<ModelUsageRecord>? ModelUsage = null,
+    IReadOnlyList<DateTimeOffset>? HumanTurns = null);
 
 /// <summary>
 /// A session record as it comes back out of the replica: the record itself, the

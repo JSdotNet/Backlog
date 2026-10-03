@@ -162,6 +162,11 @@ public sealed class AgentSessionRecordStore(Func<string> root) : IAgentSessionRe
 
         public StoredLimitHit[] LimitHits { get; init; } = [];
 
+        /// <summary>The instants of the person's turns. Absent from a file written
+        /// before the field existed, which reads as none: the record was folded by a
+        /// build that did not look for them, and the next reading amends them in.</summary>
+        public DateTimeOffset[]? HumanTurns { get; init; }
+
         public static StoredRecord Of(AgentSessionRecord record)
         {
             var session = record.Session;
@@ -208,7 +213,8 @@ public sealed class AgentSessionRecordStore(Func<string> root) : IAgentSessionRe
                     OverageResetsAt = hit.OverageResetsAt,
                     OverageDisabledReason = hit.OverageDisabledReason,
                     IsUsingOverage = hit.IsUsingOverage
-                })]
+                })],
+                HumanTurns = [.. activity?.HumanTurns ?? []]
             };
         }
 
@@ -260,7 +266,8 @@ public sealed class AgentSessionRecordStore(Func<string> root) : IAgentSessionRe
                         OverageResetsAt = hit.OverageResetsAt,
                         OverageDisabledReason = hit.OverageDisabledReason,
                         IsUsingOverage = hit.IsUsingOverage
-                    })]
+                    })],
+                    HumanTurns = HumanTurns ?? []
                 }
                 : null;
 

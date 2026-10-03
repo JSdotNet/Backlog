@@ -246,6 +246,43 @@ public class SessionSyncEndpointTests : IDisposable
         Assert.Equal(expected, response.StatusCode);
     }
 
+    /// <summary>Human turns are capped like the interval lists, inclusively at the
+    /// shared cap and refused one past it (ADR 0019 §6). Instants alone, so the cap
+    /// is the one bound they need.</summary>
+    [Theory]
+    [InlineData(0, HttpStatusCode.OK)]
+    [InlineData(1, HttpStatusCode.BadRequest)]
+    public async Task Human_turns_are_capped_at_the_shared_limit(int past, HttpStatusCode expected)
+    {
+        var device = await _service.CreateClient().RegisteredDevice("Study desktop");
+
+        var turns = Enumerable.Range(0, SyncRequestLimits.MaximumSessionHumanTurns + past)
+            .Select(index => LastActivity.AddMinutes(-index))
+            .ToList();
+
+        var response = await device.PushSession(Session("s-1") with { HumanTurns = turns });
+
+        Assert.Equal(expected, response.StatusCode);
+    }
+
+    /// <summary>A record's human turns come back from the feed as they were pushed,
+    /// and a record pushed without them comes back without them.</summary>
+    [Fact]
+    public async Task Human_turns_round_trip_through_the_feed()
+    {
+        var device = await _service.CreateClient().RegisteredDevice("Study desktop");
+
+        await device.PushSession(Session("with") with { HumanTurns = [LastActivity.AddMinutes(-30), LastActivity] });
+        await device.PushSession(Session("without"));
+
+        var pulled = await device.PullSessions();
+
+        Assert.Equal(
+            [LastActivity.AddMinutes(-30), LastActivity],
+            pulled.Sessions.Single(entry => entry.Record.SessionId == "with").Record.HumanTurns);
+        Assert.Null(pulled.Sessions.Single(entry => entry.Record.SessionId == "without").Record.HumanTurns);
+    }
+
     /// <summary>A title past the shared cap, a hit with no kind, and a hit token that
     /// is a paragraph rather than a token are each refused as an invalid record.</summary>
     [Fact]

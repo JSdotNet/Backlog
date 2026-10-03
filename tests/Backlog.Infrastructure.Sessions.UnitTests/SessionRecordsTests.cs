@@ -52,6 +52,23 @@ public sealed class SessionRecordsTests
         Assert.Equal([Noon.AddHours(-5), Noon.AddMinutes(-1)], activity.LimitHits.Select(hit => hit.At));
     }
 
+    /// <summary>Human turns are instants, like the hits, so they are a union too: a turn
+    /// a shortened transcript no longer holds is kept, and a turn both hold is one.</summary>
+    [Fact]
+    public void Human_turns_are_a_union()
+    {
+        var stored = Record(Session("s-1"), Activity("s-1",
+            runs: [(Noon.AddHours(-6), Noon.AddHours(-5))],
+            turns: [Noon.AddHours(-6), Noon.AddHours(-2)]));
+        var reading = Record(Session("s-1"), Activity("s-1",
+            runs: [(Noon.AddHours(-2), Noon)],
+            turns: [Noon.AddHours(-2), Noon.AddMinutes(-30)]));
+
+        var activity = AgentSessionRecords.Amend(stored, reading).Activity!;
+
+        Assert.Equal([Noon.AddHours(-6), Noon.AddHours(-2), Noon.AddMinutes(-30)], activity.HumanTurns);
+    }
+
     /// <summary>A reading with no fold keeps the record's.</summary>
     [Fact]
     public void A_reading_without_activity_keeps_the_records()
@@ -91,7 +108,7 @@ public sealed class SessionRecordsTests
     public async Task A_record_answers_as_a_finished_session_and_clipped_activity()
     {
         var store = new MemoryStore();
-        store.Save([Record(Session("gone"), Activity("gone", runs: [(Noon.AddHours(-3), Noon.AddHours(-1))], hits: [Noon.AddHours(-2), Noon.AddHours(-4)]))]);
+        store.Save([Record(Session("gone"), Activity("gone", runs: [(Noon.AddHours(-3), Noon.AddHours(-1))], hits: [Noon.AddHours(-2), Noon.AddHours(-4)], turns: [Noon.AddHours(-3), Noon.AddHours(-2)]))]);
 
         var session = Assert.Single((await new RecordedAgentSessionSource(store).GetSessionsAsync(TestContext.Current.CancellationToken)).Sessions);
         Assert.Equal(AgentSessionOrigin.Recorded, session.Origin);
@@ -100,6 +117,7 @@ public sealed class SessionRecordsTests
         var activity = Assert.Single((await new RecordedAgentActivitySource(store).GetActivityAsync(Noon.AddHours(-2), TestContext.Current.CancellationToken)).Sessions);
         Assert.Equal([new AgentActivityRun(Noon.AddHours(-2), Noon.AddHours(-1))], activity.Runs);
         Assert.Equal([Noon.AddHours(-2)], activity.LimitHits.Select(hit => hit.At));
+        Assert.Equal([Noon.AddHours(-2)], activity.HumanTurns);
     }
 
     // --- The keeper ---------------------------------------------------------------
@@ -161,11 +179,13 @@ public sealed class SessionRecordsTests
     private static AgentSessionActivity Activity(
         string id,
         (DateTimeOffset From, DateTimeOffset To)[]? runs = null,
-        DateTimeOffset[]? hits = null) =>
+        DateTimeOffset[]? hits = null,
+        DateTimeOffset[]? turns = null) =>
         new(id, AgentSessionKind.Claude, "11111111-1111-1111-1111-111111111111", "Workshop PC",
             [.. (runs ?? []).Select(run => new AgentActivityRun(run.From, run.To))], [])
         {
-            LimitHits = [.. (hits ?? []).Select(at => new AgentLimitHit(at, AgentLimitKind.FiveHour, "five_hour"))]
+            LimitHits = [.. (hits ?? []).Select(at => new AgentLimitHit(at, AgentLimitKind.FiveHour, "five_hour"))],
+            HumanTurns = turns ?? []
         };
 
     private static AgentSessionRecord Record(AgentSession session, AgentSessionActivity? activity = null) =>

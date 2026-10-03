@@ -230,7 +230,8 @@ internal static class SessionRecords
         IReadOnlyList<ActivityInterval>? waits = null,
         string? title = null,
         string? worktreeKey = null,
-        IReadOnlyList<LimitHitRecord>? limitHits = null) =>
+        IReadOnlyList<LimitHitRecord>? limitHits = null,
+        IReadOnlyList<DateTimeOffset>? humanTurns = null) =>
         new(
             new SessionRecord(
                 sessionId,
@@ -247,7 +248,8 @@ internal static class SessionRecords
                 waits,
                 title,
                 worktreeKey,
-                limitHits),
+                limitHits,
+                HumanTurns: humanTurns),
             machineId,
             serverTimestamp);
 }

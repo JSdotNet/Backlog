@@ -66,9 +66,10 @@ public sealed class SessionSyncSession
     /// thousand intervals is about 450 KB on the wire — under half the limit, so
     /// the base records beside them and the JSON around them have room — and a
     /// batch is flushed <em>before</em> the record that would take it over. A
-    /// single record always fits alone: the mapping caps each list at
-    /// <see cref="SessionRecordLimits.IntervalsPerList"/>, so no record weighs more
-    /// than a thousand.
+    /// single record always fits alone: the mapping caps each list —
+    /// <see cref="SessionRecordLimits.IntervalsPerList"/> for each interval list and the
+    /// human turns, <see cref="SessionRecordLimits.LimitHitsPerList"/> for the hits —
+    /// so no record weighs more than sixteen hundred.
     /// </para>
     /// <para>
     /// Most batches never come near it. A session weighs a handful of intervals on
@@ -347,13 +348,14 @@ public sealed class SessionSyncSession
         if (batch.Count > 0) yield return batch;
     }
 
-    /// <summary>How many list items a record carries — both interval lists and its
-    /// limit hits together. A hit is a few more fields than an interval and there
-    /// are at most a fifth as many, so counting it as one keeps the estimate inside
-    /// the margin the batch cap already leaves. The scalars beside them are bounded
+    /// <summary>How many list items a record carries — both interval lists, its
+    /// limit hits and its human turns together. A hit is a few more fields than an
+    /// interval and there are at most a fifth as many, so counting it as one keeps the
+    /// estimate inside the margin the batch cap already leaves; a turn is one instant,
+    /// half an interval, and counts as one too. The scalars beside them are bounded
     /// by the count cap.</summary>
     private static int WeightOf(SessionRecord record) =>
-        (record.Runs?.Count ?? 0) + (record.Waits?.Count ?? 0) + (record.LimitHits?.Count ?? 0);
+        (record.Runs?.Count ?? 0) + (record.Waits?.Count ?? 0) + (record.LimitHits?.Count ?? 0) + (record.HumanTurns?.Count ?? 0);
 
     /// <summary>
     /// Reads the owner's session feed to its end, keeping each page as it arrives.

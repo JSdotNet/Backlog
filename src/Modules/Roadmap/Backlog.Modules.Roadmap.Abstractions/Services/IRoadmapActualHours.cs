@@ -1,8 +1,8 @@
 namespace Backlog.Modules.Roadmap.Abstractions.Services;
 
 /// <summary>
-/// How long agents were active on each local date — the actual hours a day or week
-/// head shows beside its planned hours (ADR 0019).
+/// How long the person worked on each local date — the actual hours a begun day or
+/// week head shows (ADR 0019 §6).
 /// <para>
 /// A port on Roadmap Planning's own surface, answered by an infrastructure adapter
 /// over the Sessions context's agent activity — the join a screen may not make for
@@ -10,10 +10,12 @@ namespace Backlog.Modules.Roadmap.Abstractions.Services;
 /// The axis renders one context and asks this; the adapter reads the sessions.
 /// </para>
 /// <para>
-/// The figure is the union of every agent session's active stretches, so two
-/// sessions running at once count that time once. A stretch that crosses local
-/// midnight counts toward each date for its own part. A wait, in which the agent had
-/// stopped, is not active time.
+/// The figure is the union of the person's working stretches over every session on
+/// every paired machine, so two sessions' stretches over the same hour count that
+/// hour once. A stretch starts at a human turn, joins turns less than 30 minutes
+/// apart, and ends when the reply to its last turn ends. A stretch that crosses local
+/// midnight counts toward each date for its own part. Agent time with no human turn
+/// behind it, subagents included, counts nothing.
 /// </para>
 /// <para>
 /// Presentation only. The actual hours move no bar and change no pace; a pace is
@@ -23,12 +25,12 @@ namespace Backlog.Modules.Roadmap.Abstractions.Services;
 public interface IRoadmapActualHours
 {
     /// <summary>
-    /// The agent-active time on each local date from <paramref name="from"/> through
-    /// <paramref name="through"/>, both included.
+    /// The time the person's working stretches cover on each local date from
+    /// <paramref name="from"/> through <paramref name="through"/>, both included.
     /// <para>
-    /// Only a date with some active time is present, so a date missing from the map
-    /// is a date nobody worked. A date after today is never answered, and today counts
-    /// up to now.
+    /// Only a date with some worked time is present, so a date missing from the map
+    /// is a date nobody worked. A date after today is never answered, and today, like
+    /// a stretch still open, counts up to now.
     /// </para>
     /// <para>
     /// <see langword="null"/> when this host cannot state the actual hours at all: it

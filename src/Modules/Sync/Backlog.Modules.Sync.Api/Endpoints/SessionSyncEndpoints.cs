@@ -165,6 +165,7 @@ internal static class SessionSyncEndpoints
                 ?? TooLong("worktree key", record.WorktreeKey, SyncRequestLimits.MaximumWorktreeKey)
                 ?? TooManyHits(record.LimitHits)
                 ?? HitOutOfBounds(record.LimitHits)
+                ?? TooManyTurns(record.HumanTurns)
                 ?? TooLong("entrypoint", record.Entrypoint, SyncRequestLimits.MaximumLimitToken)
                 ?? WorkOutOfBounds(record.PullRequests, record.ModelUsage)
                 ?? TooMany("runs", record.Runs)
@@ -205,6 +206,14 @@ internal static class SessionSyncEndpoints
     private static Error? TooManyHits(IReadOnlyList<LimitHitRecord>? hits) =>
         hits is not null && hits.Count > SyncRequestLimits.MaximumSessionLimitHits
             ? Invalid($"A session record's limit hits may hold at most {SyncRequestLimits.MaximumSessionLimitHits}; this one held {hits.Count}.")
+            : null;
+
+    /// <summary>A null list of human turns is a session the machine had no activity
+    /// record for, or a device that predates the field. Each turn is an instant and
+    /// carries nothing else to bound, so only a list past the cap is refused.</summary>
+    private static Error? TooManyTurns(IReadOnlyList<DateTimeOffset>? turns) =>
+        turns is not null && turns.Count > SyncRequestLimits.MaximumSessionHumanTurns
+            ? Invalid($"A session record's human turns may hold at most {SyncRequestLimits.MaximumSessionHumanTurns}; this one held {turns.Count}.")
             : null;
 
     /// <summary>Every hit names its kind, and every token on it is a token rather

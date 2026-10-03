@@ -20,6 +20,11 @@ internal static class ClaudeTranscriptEvents
     {
         var events = new List<ActivityEvent>();
 
+        // The ids of the agent's AskUserQuestion calls so far, so the result that answers
+        // one can be told from every other tool result. A result always follows its call
+        // in the file, so one pass is enough.
+        var questions = new HashSet<string>(StringComparer.Ordinal);
+
         using var reader = new StreamReader(path);
 
         while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
@@ -71,6 +76,19 @@ internal static class ClaudeTranscriptEvents
             //    `quotaLimits.rateLimitType`, kept raw beside the kind it maps to.
             //    The line is still a turn and still an event — rule 1 admitted it
             //    before it had a name, and giving it one must not move a figure.
+            //
+            // 6. A HUMAN TURN IS `origin.kind` BEING "human", OR THE ANSWER TO AN
+            //    `AskUserQuestion` CALL (ADR 0019 §6). Not promptSource: the desktop app
+            //    writes `sdk` on the person's own prompts. Every build on this machine
+            //    since 2.1.229 writes `origin` — `human`, `task-notification`, `peer` —
+            //    and the 466 prompts that carry promptSource and no origin at all were
+            //    every one automation: headless probes and CI-monitor events. An answer
+            //    carries no origin; it is the tool result whose `tool_use_id` names an
+            //    earlier AskUserQuestion call, at the result's own timestamp. A result
+            //    the tool refused before it reached the person — `<tool_use_error>`,
+            //    written in the same millisecond as the call — is not an answer. Nor is
+            //    a scheduled task's opening prompt, which the app also marks `human`.
+            //    Like rule 5 this names an event and never adds or removes one.
             if (line.Length == 0 || line[0] is not '{') continue;
 
             try
@@ -95,7 +113,15 @@ internal static class ClaudeTranscriptEvents
                     continue;
                 }
 
-                events.Add(new ActivityEvent(at, root.TryGetProperty("promptSource", out _), LimitOf(root, at)));
+                var type = kind.GetString();
+
+                if (type is "assistant") Remember(root, questions);
+
+                events.Add(new ActivityEvent(
+                    at,
+                    root.TryGetProperty("promptSource", out _),
+                    LimitOf(root, at),
+                    type is "user" && (IsByThePerson(root) || Answers(root, questions))));
             }
             catch (JsonException)
             {
@@ -122,6 +148,116 @@ internal static class ClaudeTranscriptEvents
     /// </summary>
     private static bool IsTurn(string? type) =>
         type is "user" or "assistant" or "attachment";
+
+    /// <summary>
+    /// Whether a user turn says the person made it. See rule 6 above.
+    /// <para>
+    /// One exception, because the field is wrong about it: the desktop app writes
+    /// <c>human</c> on the prompt a scheduled task starts its session with — 103 of
+    /// them on this machine, every one opening with a <c>&lt;scheduled-task</c> tag.
+    /// A schedule is automation (ADR 0019 §6), so that prompt is not a human turn. The
+    /// tag is read to decide and never kept.
+    /// </para>
+    /// </summary>
+    private static bool IsByThePerson(JsonElement root) =>
+        root.TryGetProperty("origin", out var origin)
+        && origin.ValueKind is JsonValueKind.Object
+        && origin.TryGetProperty("kind", out var kind)
+        && kind.ValueKind is JsonValueKind.String
+        && kind.GetString() is "human"
+        && !IsScheduled(root);
+
+    /// <summary>Whether a prompt is a scheduled task's: its text opens with the tag the
+    /// scheduler wraps it in.</summary>
+    private static bool IsScheduled(JsonElement root)
+    {
+        if (!root.TryGetProperty("message", out var message)
+            || message.ValueKind is not JsonValueKind.Object
+            || !message.TryGetProperty("content", out var content))
+        {
+            return false;
+        }
+
+        var text = content.ValueKind is JsonValueKind.String
+            ? content.GetString()
+            : ContentOf(root)
+                .Where(block => block.TryGetProperty("text", out var value) && value.ValueKind is JsonValueKind.String)
+                .Select(block => block.GetProperty("text").GetString())
+                .FirstOrDefault();
+
+        return text is not null && text.AsSpan().TrimStart().StartsWith("<scheduled-task", StringComparison.Ordinal);
+    }
+
+    /// <summary>Keeps the id of every AskUserQuestion call an assistant turn makes.</summary>
+    private static void Remember(JsonElement root, HashSet<string> questions)
+    {
+        foreach (var block in ContentOf(root))
+        {
+            if (block.TryGetProperty("type", out var type)
+                && type.ValueKind is JsonValueKind.String
+                && type.GetString() is "tool_use"
+                && block.TryGetProperty("name", out var name)
+                && name.ValueKind is JsonValueKind.String
+                && name.GetString() is "AskUserQuestion"
+                && block.TryGetProperty("id", out var id)
+                && id.ValueKind is JsonValueKind.String
+                && id.GetString() is { Length: > 0 } call)
+            {
+                questions.Add(call);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether a user turn is the person's answer to one of those calls. See rule 6
+    /// above for why a refused call's result is not.
+    /// </summary>
+    private static bool Answers(JsonElement root, HashSet<string> questions)
+    {
+        if (questions.Count == 0) return false;
+
+        foreach (var block in ContentOf(root))
+        {
+            if (block.TryGetProperty("type", out var type)
+                && type.ValueKind is JsonValueKind.String
+                && type.GetString() is "tool_result"
+                && block.TryGetProperty("tool_use_id", out var id)
+                && id.ValueKind is JsonValueKind.String
+                && id.GetString() is { } call
+                && questions.Contains(call)
+                && !RefusedByTheTool(block))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>A result the tool wrote itself, before the question reached anybody.</summary>
+    private static bool RefusedByTheTool(JsonElement result) =>
+        result.TryGetProperty("content", out var content)
+        && content.ValueKind is JsonValueKind.String
+        && content.GetString() is { } text
+        && text.StartsWith("<tool_use_error>", StringComparison.Ordinal);
+
+    /// <summary>The object blocks of a turn's message content, or none where the content
+    /// is a plain string.</summary>
+    private static IEnumerable<JsonElement> ContentOf(JsonElement root)
+    {
+        if (!root.TryGetProperty("message", out var message)
+            || message.ValueKind is not JsonValueKind.Object
+            || !message.TryGetProperty("content", out var content)
+            || content.ValueKind is not JsonValueKind.Array)
+        {
+            yield break;
+        }
+
+        foreach (var block in content.EnumerateArray())
+        {
+            if (block.ValueKind is JsonValueKind.Object) yield return block;
+        }
+    }
 
     /// <summary>
     /// The refusal a line records, or null for the overwhelming majority that record

@@ -56,8 +56,13 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
     /// Version 4 added the overage half of each hit. A version-3 entry would read as
     /// "the refusal said nothing about overage", which the transcript may well have.
     /// </para>
+    /// <para>
+    /// Version 5 added the human turns (ADR 0019 §6). A version-4 entry would read as a
+    /// session the person never prompted, and its working stretches would vanish from
+    /// the roadmap's actual hours.
+    /// </para>
     /// </summary>
-    private const int Version = 4;
+    private const int Version = 5;
 
     private readonly Func<string> _cacheRoot = cacheRoot ?? throw new ArgumentNullException(nameof(cacheRoot));
 
@@ -95,7 +100,8 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
                     OverageResetsAt = hit.OverageResetsAt,
                     OverageDisabledReason = hit.OverageDisabledReason,
                     IsUsingOverage = hit.IsUsingOverage
-                })]
+                })],
+                HumanTurns = stored.HumanTurns
             };
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
@@ -136,7 +142,8 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
                         OverageResetsAt = hit.OverageResetsAt,
                         OverageDisabledReason = hit.OverageDisabledReason,
                         IsUsingOverage = hit.IsUsingOverage
-                    })]
+                    })],
+                    HumanTurns = [.. entry.HumanTurns]
                 },
                 JsonOptions));
         }
@@ -206,6 +213,10 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
         /// rather than its number, so the file says "FiveHour" and a reordered enum
         /// cannot silently relabel every stored hit.</summary>
         public StoredLimitHit[] LimitHits { get; init; } = [];
+
+        /// <summary>The instants of the person's turns, spelled as instants for the
+        /// reason <see cref="Runs"/> gives.</summary>
+        public DateTimeOffset[] HumanTurns { get; init; } = [];
     }
 
     private sealed record StoredInterval

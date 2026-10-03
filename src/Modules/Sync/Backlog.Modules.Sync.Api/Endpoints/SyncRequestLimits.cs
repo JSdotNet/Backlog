@@ -190,6 +190,10 @@ internal static class SyncRequestLimits
     /// Refused rather than trimmed, like the interval lists.</summary>
     internal const int MaximumSessionLimitHits = SessionRecordLimits.LimitHitsPerList;
 
+    /// <summary>The most human turns one record may carry, on the same shared terms.
+    /// Refused rather than trimmed, like the interval lists.</summary>
+    internal const int MaximumSessionHumanTurns = SessionRecordLimits.HumanTurnsPerList;
+
     /// <summary>How long each token on a limit hit may be — its kind, raw bucket,
     /// overage status and reason — on the same shared terms.</summary>
     internal const int MaximumLimitToken = SessionRecordLimits.LimitTokenLength;

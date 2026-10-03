@@ -1285,6 +1285,181 @@ public sealed class AgentActivitySourceTests : IDisposable
         Assert.Empty(log.Subagents);
     }
 
+    /// <summary>
+    /// A human turn is a user turn whose <c>origin.kind</c> is <c>human</c> (ADR 0019 §6).
+    /// <c>promptSource</c> is not what says so: the desktop app writes <c>sdk</c> on the
+    /// person's own prompts, and a headless run's prompt carries the field with no origin
+    /// at all — every one of the 466 such lines on the machine this was built against was
+    /// automation.
+    /// </summary>
+    [Fact]
+    public async Task A_prompt_the_person_made_is_a_human_turn_and_its_prompt_source_is_not_what_says_so()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "person",
+            [
+                HumanPrompt("person", Yesterday),
+                Assistant("person", Yesterday.AddMinutes(1), "on it"),
+                Prompt("person", Yesterday.AddMinutes(40), "sdk"),
+                Assistant("person", Yesterday.AddMinutes(41), "again"),
+                HumanPrompt("person", Yesterday.AddMinutes(80)),
+                Assistant("person", Yesterday.AddMinutes(81), "done")
+            ],
+            lastWrite: Noon);
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Equal([Yesterday, Yesterday.AddMinutes(80)], session.HumanTurns);
+    }
+
+    /// <summary>
+    /// A task notification and a subagent's hand-back both arrive as user turns with a
+    /// prompt source, and both make the agent answer again. Neither is the person:
+    /// their origins say <c>task-notification</c> and <c>peer</c>. They stay activity —
+    /// the runs do not move — and add no human turn (ADR 0019 verification 24).
+    /// </summary>
+    [Fact]
+    public async Task A_task_notification_or_a_hand_back_is_not_a_human_turn()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "notified",
+            [
+                HumanPrompt("notified", Yesterday),
+                Assistant("notified", Yesterday.AddMinutes(5), "spawned"),
+                TaskNotification("notified", Yesterday.AddMinutes(20)),
+                HandBack("notified", Yesterday.AddMinutes(21)),
+                Assistant("notified", Yesterday.AddMinutes(40), "merged")
+            ],
+            lastWrite: Noon);
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Equal([Yesterday], session.HumanTurns);
+        Assert.Equal(2, session.Runs.Count);
+    }
+
+    /// <summary>
+    /// A scheduled task opens its session with a prompt the desktop app marks
+    /// <c>origin.kind</c> <c>human</c>, wrapped in a <c>&lt;scheduled-task&gt;</c> tag. A
+    /// schedule is automation, not the person (ADR 0019 §6), so that prompt is no
+    /// human turn; the person's own follow-up in the same session is one.
+    /// </summary>
+    [Fact]
+    public async Task A_scheduled_tasks_opening_prompt_is_not_a_human_turn()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "scheduled",
+            [
+                HumanPrompt("scheduled", Yesterday, "<scheduled-task name=\\\"backlog-morning-brief\\\">Run the brief.</scheduled-task>"),
+                Assistant("scheduled", Yesterday.AddMinutes(20), "brief written"),
+                HumanPrompt("scheduled", Yesterday.AddHours(3), "thanks, open the first PR")
+            ],
+            lastWrite: Noon);
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Equal([Yesterday.AddHours(3)], session.HumanTurns);
+    }
+
+    /// <summary>
+    /// The person's answer to the agent's question is a human turn, at the time the
+    /// tool result was written (ADR 0019 verification 25). It carries no origin: it is
+    /// found by its <c>tool_use_id</c> matching an earlier <c>AskUserQuestion</c> call.
+    /// Any other tool result is not one, and neither is a result the tool rejected
+    /// before it reached the person — a <c>&lt;tool_use_error&gt;</c> written in the
+    /// same millisecond as the call.
+    /// </summary>
+    [Fact]
+    public async Task An_answer_to_the_agents_question_is_a_human_turn_and_no_other_tool_result_is()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "asked",
+            [
+                HumanPrompt("asked", Yesterday),
+                ToolCall("asked", Yesterday.AddMinutes(9), "toolu_ask_bad", "AskUserQuestion"),
+                ToolAnswer("asked", Yesterday.AddMinutes(9), "toolu_ask_bad", "<tool_use_error>InputValidationError: fewer than 2 options</tool_use_error>"),
+                ToolCall("asked", Yesterday.AddMinutes(10), "toolu_ask", "AskUserQuestion"),
+                ToolCall("asked", Yesterday.AddMinutes(10), "toolu_bash", "Bash"),
+                ToolAnswer("asked", Yesterday.AddMinutes(11), "toolu_bash", "Build succeeded."),
+                ToolAnswer("asked", Yesterday.AddMinutes(25), "toolu_ask", "User has answered your questions: \"Which?\"=\"The first\"."),
+                Assistant("asked", Yesterday.AddMinutes(35), "done")
+            ],
+            lastWrite: Noon);
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Equal([Yesterday, Yesterday.AddMinutes(25)], session.HumanTurns);
+    }
+
+    /// <summary>A human turn is an instant: inside the horizon or not. One before it is
+    /// dropped, the way a limit hit before it is.</summary>
+    [Fact]
+    public async Task A_human_turn_before_the_horizon_is_dropped()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "straddling",
+            [
+                HumanPrompt("straddling", Horizon.AddMinutes(-2)),
+                Assistant("straddling", Horizon.AddMinutes(2), "carrying on"),
+                HumanPrompt("straddling", Horizon.AddMinutes(4)),
+                Assistant("straddling", Horizon.AddMinutes(6), "done")
+            ],
+            lastWrite: Noon);
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Equal([Horizon.AddMinutes(4)], session.HumanTurns);
+    }
+
+    /// <summary>The human turns ride in the same cache entry as the runs, so a finished
+    /// transcript's turns are never parsed twice. Proved the way the hits are: the file
+    /// is locked for the second read.</summary>
+    [Fact]
+    public async Task Human_turns_are_read_from_the_cache_on_the_second_read()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "remembered-turn",
+            [
+                HumanPrompt("remembered-turn", Yesterday),
+                Assistant("remembered-turn", Yesterday.AddMinutes(2), "done")
+            ],
+            lastWrite: Noon);
+
+        var cache = new RecordingCache();
+
+        Assert.Single(Assert.Single((await ReadAsync(cache)).Sessions).HumanTurns);
+
+        await using var _ = new FileStream(
+            TranscriptPath("D--Repos-Backlog", "remembered-turn"),
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.None);
+
+        Assert.Equal([Yesterday], Assert.Single((await ReadAsync(cache)).Sessions).HumanTurns);
+        Assert.Equal(1, cache.Writes);
+    }
+
+    /// <summary>Copilot's stream does not record who made a turn, so a Copilot session
+    /// has no human turns until it can say so (ADR 0019 §6).</summary>
+    [Fact]
+    public async Task A_copilot_session_has_no_human_turns()
+    {
+        GivenCopilotEvents(
+            "chatting",
+            [(Yesterday, "user.message"), (Yesterday.AddMinutes(1), "assistant.turn_start"), (Yesterday.AddMinutes(3), "assistant.turn_end")],
+            lastWrite: Noon);
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Empty(session.HumanTurns);
+    }
+
     private Task<AgentActivityLog> ReadAsync(IAgentActivityCache? cache = null) =>
         new LocalAgentActivitySource(ClaudeHome, CopilotHome, MachineId, Machine, cache)
             .GetActivityAsync(Horizon);
@@ -1376,6 +1551,43 @@ public sealed class AgentActivitySourceTests : IDisposable
     private static string Prompt(string id, DateTimeOffset at, string source) =>
         $$"""
         {"parentUuid":null,"isSidechain":false,"userType":"external","cwd":"D:\\Repos\\Backlog","sessionId":"{{id}}","version":"2.1.229","gitBranch":"main","type":"user","message":{"role":"user","content":"go on"},"promptSource":"{{source}}","promptId":"c1f0d1a4-6d1f-4c65-9f36-9a5b0a2d9f11","uuid":"7c1b0f2a-4d2e-4a91-9f2c-1d8a0b3e6c22","timestamp":"{{Stamp(at)}}"}
+        """;
+
+    /// <summary>
+    /// A prompt the person made, in the shape Claude Code 2.1.286 writes one from the
+    /// desktop app: <c>origin.kind</c> <c>human</c>, and <c>promptSource</c> <c>sdk</c>
+    /// beside it — which is why the source is not what marks a person.
+    /// </summary>
+    private static string HumanPrompt(string id, DateTimeOffset at, string text = "look at the roadmap") =>
+        $$"""
+        {"parentUuid":null,"isSidechain":false,"promptId":"c1f0d1a4-6d1f-4c65-9f36-9a5b0a2d9f12","type":"user","message":{"role":"user","content":"{{text}}"},"uuid":"7c1b0f2a-4d2e-4a91-9f2c-1d8a0b3e6c23","timestamp":"{{Stamp(at)}}","promptSource":"sdk","origin":{"kind":"human"},"userType":"external","entrypoint":"claude-desktop","cwd":"D:\\Repos\\Backlog","sessionId":"{{id}}","version":"2.1.286","gitBranch":"main"}
+        """;
+
+    /// <summary>A background task's notification: a prompt by its source, and
+    /// <c>origin.kind</c> <c>task-notification</c>.</summary>
+    private static string TaskNotification(string id, DateTimeOffset at) =>
+        $$"""
+        {"parentUuid":"1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","isSidechain":false,"promptId":"c1f0d1a4-6d1f-4c65-9f36-9a5b0a2d9f13","type":"user","message":{"role":"user","content":"<task-notification><status>completed</status></task-notification>"},"uuid":"7c1b0f2a-4d2e-4a91-9f2c-1d8a0b3e6c24","timestamp":"{{Stamp(at)}}","promptSource":"system","origin":{"kind":"task-notification"},"userType":"external","entrypoint":"claude-desktop","cwd":"D:\\Repos\\Backlog","sessionId":"{{id}}","version":"2.1.286","gitBranch":"main"}
+        """;
+
+    /// <summary>A subagent's hand-back: a meta prompt with <c>origin.kind</c>
+    /// <c>peer</c>.</summary>
+    private static string HandBack(string id, DateTimeOffset at) =>
+        $$"""
+        {"parentUuid":"1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","isSidechain":false,"promptId":"c1f0d1a4-6d1f-4c65-9f36-9a5b0a2d9f14","type":"user","message":{"role":"user","content":"<peer-message>Report: done.</peer-message>"},"isMeta":true,"uuid":"7c1b0f2a-4d2e-4a91-9f2c-1d8a0b3e6c25","timestamp":"{{Stamp(at)}}","promptSource":"system","origin":{"kind":"peer"},"userType":"external","entrypoint":"claude-desktop","cwd":"D:\\Repos\\Backlog","sessionId":"{{id}}","version":"2.1.286","gitBranch":"main"}
+        """;
+
+    /// <summary>An assistant turn that calls one tool, by name.</summary>
+    private static string ToolCall(string id, DateTimeOffset at, string toolUseId, string name) =>
+        $$$"""
+        {"parentUuid":"7c1b0f2a-4d2e-4a91-9f2c-1d8a0b3e6c23","isSidechain":false,"type":"assistant","message":{"id":"msg_01Hs","type":"message","role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"{{{toolUseId}}}","name":"{{{name}}}","input":{}}],"usage":{"input_tokens":4,"output_tokens":9}},"requestId":"req_011CT","uuid":"1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5e","timestamp":"{{{Stamp(at)}}}","userType":"external","entrypoint":"claude-desktop","cwd":"D:\\Repos\\Backlog","sessionId":"{{{id}}}","version":"2.1.286","gitBranch":"main"}
+        """;
+
+    /// <summary>The result of one tool call: a user turn with no origin and no prompt
+    /// source, whose content names the call it answers.</summary>
+    private static string ToolAnswer(string id, DateTimeOffset at, string toolUseId, string content) =>
+        $$$"""
+        {"parentUuid":"1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5e","isSidechain":false,"promptId":"c1f0d1a4-6d1f-4c65-9f36-9a5b0a2d9f12","type":"user","message":{"role":"user","content":[{"tool_use_id":"{{{toolUseId}}}","type":"tool_result","content":{{{System.Text.Json.JsonSerializer.Serialize(content)}}}}]},"uuid":"2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6f","timestamp":"{{{Stamp(at)}}}","sourceToolAssistantUUID":"1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5e","userType":"external","entrypoint":"claude-desktop","cwd":"D:\\Repos\\Backlog","sessionId":"{{{id}}}","version":"2.1.286","gitBranch":"main"}
         """;
 
     private static string Assistant(string id, DateTimeOffset at, string text) =>

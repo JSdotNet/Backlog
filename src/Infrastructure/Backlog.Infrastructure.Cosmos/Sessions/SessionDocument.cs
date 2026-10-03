@@ -4,7 +4,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 namespace Backlog.Infrastructure.Cosmos.Sessions;
 
 /// <summary>
-/// One session record as it sits in the <c>sessions</c> container: the nineteen
+/// One session record as it sits in the <c>sessions</c> container: the twenty
 /// whitelisted fields, the owner, and the two Cosmos maintains.
 /// <para>
 /// <strong>The whitelist is flat, and it is flat because the index is.</strong>
@@ -31,7 +31,7 @@ namespace Backlog.Infrastructure.Cosmos.Sessions;
 /// <para>
 /// Flat is also honest here in a way it would not be for a task. A task payload
 /// is an open shape the service stores whole and never reads; a session record
-/// is a closed list of nineteen fields that .devbook/arc42/adr/0005 §Session records
+/// is a closed list of twenty fields that .devbook/arc42/adr/0005 §Session records
 /// enumerates, so writing them out is writing down the whitelist rather than
 /// duplicating a contract that will grow behind this file's back. A field
 /// appearing here that is not in that table is a defect, not a feature.
@@ -172,6 +172,12 @@ internal sealed class SessionDocument
 
     /// <summary>What the session spent per model (2026-09-23), the wire's own type.</summary>
     public IReadOnlyList<ModelUsageRecord>? ModelUsage { get; set; }
+
+    /// <summary>The instants of the person's human turns (2026-10-03, local ADR 0019),
+    /// on the terms <see cref="Runs"/> is stored: absent where the machine had no
+    /// activity record or predates the field, <c>[]</c> where it had one and the person
+    /// made no turn in it. Instants only, never the turn.</summary>
+    public IReadOnlyList<DateTimeOffset>? HumanTurns { get; set; }
 
     /// <summary>Cosmos's own write stamp, in unix seconds. Read-only and set by
     /// the store, which is what makes it usable as an ordering two machines with
