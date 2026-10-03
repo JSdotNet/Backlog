@@ -532,17 +532,60 @@ that hides in the sum.
 type: term
 status: draft
 aliases: [working week, working hours, workingWeek, WorkingHours]
-related: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+related: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/roadmap/context.md#story-points-a-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
-The hours the person means to work, as seven days that are each worked or not,
-each with its own start and end. The person sets it once, in
-[Productivity's setting](../productivity/context.md#working-week), and it travels
-with their pace. Roadmap Planning reads it for two things. A **week** of the pace
-is the week's total hours, and an effort-sized Planned Window counts these hours
-forward from its start. A day not worked, or one whose end is not after its
-start, adds no hours. Only the weekly pattern exists; a holiday is not a term
-here (ADR 0019).
+The hours the person means to work. It has two parts. The **weekly pattern** is
+seven days that are each worked or not, each with its own start and end. The
+person sets it in [Productivity's setting](../productivity/context.md#working-week).
+The [day overrides](#day-override) change single dates on top of it, and the
+person sets those on the roadmap's axis. Both travel with their pace.
+
+Roadmap Planning reads the working week for two things. An effort-sized Planned
+Window counts its hours forward from its start, dates and overrides included. A
+**week** of the pace is the weekly pattern's total hours, and an override never
+changes that figure. A day not worked, or one whose end is not after its start,
+adds no hours (ADR 0019).
+
+### Day Override
+
+```meta
+type: term
+status: draft
+aliases: [day override, overrides, blocked day, blocked date, unblocked day, vacation day, holiday]
+related: [.devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/requirements.md#blocking-and-unblocking-a-day, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+```
+
+One calendar date that the person works differently from their weekly pattern. A
+**blocked** date is one the pattern works and the person does not: a holiday, a
+vacation day. An **unblocked** date is one the pattern does not work and the
+person does, such as a Saturday. An override says only whether the date is
+worked. An unblocked date takes the start and end the pattern stores for its
+weekday.
+
+An override exists only while it differs from the pattern. A date that matches
+its weekday again has no override. A weekend in the pattern is a day off, not an
+override; the word is kept for the dates that break the pattern (ADR 0019).
+
+### Actual Hours
+
+```meta
+type: term
+status: draft
+aliases: [actual hours, actual, agent-active hours]
+related: [.devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/domain/roadmap/dependencies.md, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+```
+
+How long agents were active on one local date. Each agent session reports the
+stretches in which it was producing. Actual hours are the union of those
+stretches over every session, so two sessions running at once count that time
+once. A stretch that crosses midnight counts toward each date for its own part.
+
+The axis shows actual hours beside the planned hours of the
+[working week](#working-week), so the person can compare the two. They are
+presentation only: they move no bar and change no pace. They come from
+[Sessions](dependencies.md), never from tasks, because a task records only the
+dates it started and finished.
 
 ### Contradiction
 

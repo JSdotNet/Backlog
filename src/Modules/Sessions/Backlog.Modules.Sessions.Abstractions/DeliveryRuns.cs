@@ -96,6 +96,36 @@ public sealed record DeliveryRun(
     public IReadOnlyList<string> SessionIds { get; init; } = [];
 
     /// <summary>
+    /// What started the run — <see cref="DeliveryRunTriggers.Attended"/> or
+    /// <see cref="DeliveryRunTriggers.Scheduled"/> — verbatim, or null where the writer
+    /// did not say: every run before the surface took a trigger. Null reads as attended,
+    /// which is the contract's own default.
+    /// </summary>
+    public string? Trigger { get; init; }
+
+    /// <summary>The catalog name of the schedule that fired the run, such as
+    /// <c>devbook-pull-sweep</c>, or null for a run no schedule fired.</summary>
+    public string? Schedule { get; init; }
+
+    /// <summary>
+    /// The repository the run worked in, as <c>owner/name</c>, where the caller said —
+    /// a scheduled run always does. Stated rather than inferred, which is what lets a
+    /// scheduled run be placed: every scheduled run cuts a worktree of its own, so its
+    /// worktree key names a folder nobody will open twice.
+    /// </summary>
+    public string? Repository { get; init; }
+
+    /// <summary>
+    /// The sync verdicts a devbook sweep closed the run with — the <c>units</c> rows of
+    /// its <c>devbook-sync-report</c> block, as it sent them — or empty for every run
+    /// that verified nothing.
+    /// </summary>
+    public IReadOnlyList<DeliverySyncUnitVerdict> Verdicts { get; init; } = [];
+
+    /// <summary>Whether a schedule fired the run rather than a person.</summary>
+    public bool Scheduled => string.Equals(Trigger, DeliveryRunTriggers.Scheduled, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Every dashboard that reported this run, the one whose file is the record
     /// first. One entry for a run one surface recorded; two or more once
     /// <see cref="DeliveryRunMerging"/> has folded a flow's reports to every surface
@@ -370,7 +400,8 @@ public static partial class DeliveryRunWorktrees
 /// </summary>
 /// <param name="Session">The session, or null for a row the runs alone account for.</param>
 /// <param name="Runs">The runs, most recently updated first. Exactly one on a row with
-/// no session; any number on a session's row.</param>
+/// no session, unless a schedule fired them — then every session-less run of that
+/// schedule in that repository; any number on a session's row.</param>
 public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun> Runs)
 {
     /// <summary>A row for a session with no runs on it.</summary>
@@ -378,11 +409,24 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
 
     private DeliveryRun First => Runs[0];
 
-    /// <summary>The identifier a surface keys the row on: the session's, or the run's
-    /// under a prefix that keeps a run id and a session id from ever colliding.</summary>
+    /// <summary>
+    /// The schedule this row stands for, where it is a row of scheduled runs rather
+    /// than of a session or a single run — see <see cref="SessionRows"/>. Null
+    /// otherwise.
+    /// </summary>
+    public string? Schedule => Session is null && First.Scheduled && !string.IsNullOrWhiteSpace(First.Schedule)
+        ? First.Schedule
+        : null;
+
+    /// <summary>The identifier a surface keys the row on: the session's, the schedule's
+    /// and repository's for a row of scheduled runs — which keeps its key while new runs
+    /// arrive on it — or the run's, each under a prefix that keeps them from ever
+    /// colliding.</summary>
     public string Key => Session is { } session
         ? $"{session.Kind}/{session.Id}"
-        : $"run/{First.Dashboard}/{First.Worktree}/{First.Id}";
+        : Schedule is { } schedule
+            ? $"schedule/{schedule}/{First.Repository}"
+            : $"run/{First.Dashboard}/{First.Worktree}/{First.Id}";
 
     /// <summary>The session's id, or the run's. What tests and groupings read.</summary>
     public string Id => Session?.Id ?? First.Id;
@@ -395,7 +439,10 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
 
     public string Environment => Session?.Environment ?? First.Environment;
 
-    public string Title => Session?.Title ?? First.WorktreeName;
+    /// <summary>The session's title; for a row of scheduled runs the schedule's name,
+    /// since each run cut a worktree of its own and none of those names is the row's;
+    /// otherwise the run's worktree.</summary>
+    public string Title => Session?.Title ?? Schedule ?? First.WorktreeName;
 
     /// <summary>The session's folder, where there is a session. A run knows only its
     /// worktree key, which is not a path anyone can open.</summary>
@@ -416,6 +463,11 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
             {
                 yield return session.Repository;
                 yield return session.ResolvedRepository;
+            }
+
+            foreach (var run in Runs)
+            {
+                yield return run.Repository;
             }
 
             foreach (var reference in Runs.SelectMany(run => run.References))
@@ -577,6 +629,7 @@ public static class SessionRows
 
         var attached = new Dictionary<AgentSession, List<DeliveryRun>>(ReferenceEqualityComparer.Instance);
         var alone = new List<SessionRow>();
+        var scheduled = new List<DeliveryRun>();
 
         foreach (var run in runs.OrderByDescending(run => run.UpdatedAt))
         {
@@ -587,7 +640,14 @@ public static class SessionRows
 
             if (owner is null)
             {
-                alone.Add(new SessionRow(null, [run]));
+                if (run.Scheduled && !string.IsNullOrWhiteSpace(run.Schedule))
+                {
+                    scheduled.Add(run);
+                }
+                else
+                {
+                    alone.Add(new SessionRow(null, [run]));
+                }
 
                 continue;
             }
@@ -600,11 +660,37 @@ public static class SessionRows
             list.Add(run);
         }
 
+        // A schedule's runs are one row per schedule and repository. Every scheduled run
+        // cuts a worktree of its own, so filed by worktree each would be a row of its
+        // own — a weekly sweep a new line every week, each titled by a folder nobody
+        // will open again. The runs keep their order, newest first, so the row reads
+        // as the schedule's history.
+        var schedules = scheduled
+            .GroupBy(run => (Schedule: run.Schedule!.Trim(), Repository: run.Repository?.Trim() ?? string.Empty), ScheduleComparer.Instance)
+            .Select(group => new SessionRow(null, [.. group]));
+
         return
         [
             .. sessions.Select(session => new SessionRow(session, attached.TryGetValue(session, out var list) ? list : [])),
+            .. schedules,
             .. alone
         ];
+    }
+
+    /// <summary>A schedule and a repository, compared without regard to case — the
+    /// catalog name and <c>owner/name</c> are both case-blind where they come from.</summary>
+    private sealed class ScheduleComparer : IEqualityComparer<(string Schedule, string Repository)>
+    {
+        public static readonly ScheduleComparer Instance = new();
+
+        public bool Equals((string Schedule, string Repository) x, (string Schedule, string Repository) y) =>
+            string.Equals(x.Schedule, y.Schedule, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(x.Repository, y.Repository, StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode((string Schedule, string Repository) key) =>
+            HashCode.Combine(
+                StringComparer.OrdinalIgnoreCase.GetHashCode(key.Schedule),
+                StringComparer.OrdinalIgnoreCase.GetHashCode(key.Repository));
     }
 
     /// <summary>The keys a session can be matched on: every folder up from its own

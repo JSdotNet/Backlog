@@ -42,7 +42,10 @@ const SCHEMA_TEXT = readFileSync(new URL('./devbook-schema.sql', import.meta.url
  *  from `_reading-order.json`, so its `status` is the resolved status and a
  *  file's `kind` is its resolved `type`.
  *
- *  4 — `demo` and `demo_link` were added: the `*.demo.html` files beside the
+ *  4 — `node.sync` and `chapter.sync` were added: the `sync` direction a block
+ *  states, as written (devbook contract 25).
+ *
+ *  5 — `demo` and `demo_link` were added: the `*.demo.html` files beside the
  *  pages and what pairs each one with a chapter. */
 export const SCHEMA_VERSION = (() => {
     const match = /^-- schema-version: (\d+)\s*$/m.exec(SCHEMA_TEXT);
@@ -60,6 +63,13 @@ export const SCHEMA_VERSION = (() => {
  * therefore does not mean what `projectScope` means by it (a boundary node of
  * one particular projection); it marks a node that lies outside the knowledge
  * folders altogether — an `external` reference target, whose `folder` is null.
+ *
+ * `node.sync` and `chapter.sync` — the `sync` direction the block states, as
+ * written and never resolved: `node.sync` is the generator's node field and
+ * `chapter.sync` the block's own meta value. A unit's effective direction is
+ * nearest-wins over its unit, page, context and folder blocks (the devbook
+ * rule's "Sync direction"), which a reader resolves; storing it resolved would
+ * make one edit to a folder overview rewrite every row under it.
  *
  * `chapter.source_hash`, `chapter.size`, `chapter.mtime` — file-level facts,
  * repeated on every chapter of that file on purpose. The reader's drift check is

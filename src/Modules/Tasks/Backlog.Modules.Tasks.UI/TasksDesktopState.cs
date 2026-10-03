@@ -90,12 +90,21 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private const string CopilotFailureTestId = "copilot-cli-error";
 
+    /// <summary>The toast a refused Devbook reference raises. See
+    /// <see cref="SetDevbookReferencesAsync"/>.</summary>
+    private const string DevbookRefusedTestId = "entry-devbook-refused";
+
     private readonly ITaskStore _store;
     private readonly ITaskItems _entryUseCases;
     private readonly GitHubIntegration _gitHub;
     private readonly TasksIssues _issues;
     private readonly TasksCopilotCli _copilot;
     private readonly IRoadmapTagSource _roadmapTags;
+
+    /// <summary>What an entry's Devbook references point at, and what a picker may
+    /// offer. <see cref="UnavailableDevbookReferenceResolver"/> in a host that
+    /// composes no Devbook.</summary>
+    private readonly IDevbookReferenceResolver _devbookReferences;
 
     /// <summary>Where every task write on this machine is announced, or null in a
     /// host that composes none. See <see cref="OnTaskWritten"/>.</summary>
@@ -198,7 +207,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         IRoadmapTagSource? roadmapTags = null,
         IToastChannel? toasts = null,
         ITaskChangeSignal? taskWrites = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IDevbookReferenceResolver? devbookReferences = null)
     {
         _store = store;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -207,6 +217,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _issues = new TasksIssues(gitHub);
         _copilot = copilot ?? TasksCopilotCli.Unavailable;
         _roadmapTags = roadmapTags ?? EmptyRoadmapTagSource.Instance;
+        _devbookReferences = devbookReferences ?? UnavailableDevbookReferenceResolver.Instance;
         _untilDisposed = _lifetime.Token;
         _toasts = toasts;
         _store.RootChanged += OnRootChanged;
@@ -2795,6 +2806,445 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             .FirstOrDefault(repository => repository is not null);
     }
 
+    // --- Devbook references ------------------------------------------------
+    //
+    // An entry's references are its own field, written as a whole list through the
+    // module's use case and never through the text. What each one points at is
+    // asked of the Devbook port, and only for the entry that is open: the list row
+    // needs a count, which is the stored list's length and costs no read.
+
+    /// <summary>The one answer held for the open entry, keyed by what it was
+    /// asked about, so a render that asks again is a lookup.</summary>
+    private DevbookResolution? _devbookResolution;
+
+    /// <summary>The question in flight, so the renders while it is answered do not
+    /// ask it again.</summary>
+    private string? _devbookResolving;
+
+    /// <summary>What each repository's devbook offers a picker, by alias; the empty
+    /// string for no repository. Guarded by itself: an empty answer's retry is
+    /// armed from a timer, off the render thread that reads it.</summary>
+    private readonly Dictionary<string, DevbookTargetList> _devbookTargets = new(StringComparer.Ordinal);
+
+    private readonly HashSet<string> _devbookTargetsLoading = new(StringComparer.Ordinal);
+
+    /// <summary>Moved on by <see cref="ForgetDevbookTargets"/>, so an answer or a
+    /// retry that set out before the picker was reopened lands nowhere.</summary>
+    private int _devbookTargetsGeneration;
+
+    /// <summary>How long an empty answer stands before it is asked again, and how
+    /// many times. A devbook whose database is still being built answers empty and
+    /// then, a few seconds later, in full; one with no devbook at all answers empty
+    /// every time, and stops being asked after this many.</summary>
+    private static readonly TimeSpan DevbookTargetsRetryDelay = TimeSpan.FromSeconds(2);
+
+    private const int DevbookTargetsMaxRetries = 15;
+
+    private sealed record DevbookResolution(string Key, IReadOnlyList<ResolvedDevbookReference> References);
+
+    /// <summary>One repository's answer, how many empty answers in a row it is, and
+    /// whether the wait before asking again is over.</summary>
+    private sealed record DevbookTargetList(IReadOnlyList<DevbookReferenceTarget> Targets, int EmptyAnswers, bool RetryDue);
+
+    /// <summary>
+    /// The repository whose devbook an entry's references are read against: the
+    /// first <c>repo:</c> it names that resolves, else the repository the list is
+    /// anchored to, else none. The entry's own repository first, because a
+    /// reference is a path inside one repository and the entry says which; the
+    /// anchor only stands in for an entry filed nowhere, where it is the devbook
+    /// the reader is working beside.
+    /// </summary>
+    public string? DevbookRepositoryAliasFor(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (RepositoryFor(row) is { } repository) return repository.Alias;
+
+        return AnchorRepositoryAlias.Length > 0 ? AnchorRepositoryAlias : null;
+    }
+
+    /// <summary>
+    /// What each of the entry's references points at now, in the stored order.
+    /// <para>
+    /// Asked of the Devbook the first time a render wants it for this entry's
+    /// repository and list, and held until either moves — which is how a new
+    /// selection, a reference added or removed, a reload that brought a write from
+    /// elsewhere, and a <c>repo:</c> change all re-read without each of them having
+    /// to remember to. Until the answer lands the references are drawn as
+    /// unverified, under their own text, so the chips appear at once and fill in.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<ResolvedDevbookReference> DevbookReferencesFor(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        var references = row.DevbookReferences;
+        if (references.Count == 0) return [];
+
+        var alias = DevbookRepositoryAliasFor(row);
+        var key = $"{alias}\n{string.Join('\n', references)}";
+
+        if (_devbookResolution is { } held && string.Equals(held.Key, key, StringComparison.Ordinal)) return held.References;
+
+        if (!string.Equals(_devbookResolving, key, StringComparison.Ordinal))
+        {
+            _devbookResolving = key;
+            _ = ResolveDevbookReferencesAsync(key, alias, references);
+        }
+
+        return [.. references.Select(UnavailableDevbookReferenceResolver.Unverified)];
+    }
+
+    private async Task ResolveDevbookReferencesAsync(string key, string? alias, IReadOnlyList<string> references)
+    {
+        IReadOnlyList<ResolvedDevbookReference> resolved;
+        try
+        {
+            resolved = await _devbookReferences.ResolveAsync(alias, references, _untilDisposed);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception)
+        {
+            // The port promises an answer per reference rather than an exception,
+            // so this is a devbook that could not be read at all. The chips still
+            // draw — as unverified, which is the truth: nobody could look.
+            resolved = [.. references.Select(UnavailableDevbookReferenceResolver.Unverified)];
+        }
+
+        if (_disposed || !string.Equals(_devbookResolving, key, StringComparison.Ordinal)) return;
+
+        _devbookResolution = new DevbookResolution(key, resolved);
+        _devbookResolving = null;
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Every page and chapter the entry's repository offers a picker, in reading
+    /// order. Read once per repository and held, because a devbook changes far less
+    /// often than a picker redraws; <see cref="ForgetDevbookTargets"/> is how the
+    /// picker asks again each time it is opened. Empty while the read is in flight
+    /// and for a repository with no devbook to list — a typed reference is still
+    /// accepted.
+    /// <para>
+    /// An empty answer is not held as the last word. A new task's picker used to
+    /// offer nothing but <c>Add "…"</c>: the repository's devbook database was still
+    /// being built when the picker first asked, the empty answer was kept for the
+    /// repository, and nothing asked again while the picker stayed open. So an
+    /// empty answer for a repository arms a retry, and when its wait is over
+    /// <see cref="Changed"/> is raised so the open picker asks again — up to
+    /// <see cref="DevbookTargetsMaxRetries"/> times, which bounds what a repository
+    /// with no devbook costs. A closed picker does not ask, so it stops the retries
+    /// by itself. The answer lands through <see cref="Changed"/> too, which is what
+    /// redraws an open picker with what arrived.
+    /// </para>
+    /// <para>
+    /// The alias is read on every call rather than once per picker, so a
+    /// repository set on the entry while the picker is open is the one asked next.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<DevbookReferenceTarget> DevbookTargetsFor(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        var alias = DevbookRepositoryAliasFor(row) ?? string.Empty;
+        int generation;
+
+        lock (_devbookTargets)
+        {
+            if (_devbookTargets.TryGetValue(alias, out var held) && !held.RetryDue) return held.Targets;
+            if (!_devbookTargetsLoading.Add(alias)) return held?.Targets ?? [];
+            generation = _devbookTargetsGeneration;
+        }
+
+        _ = LoadDevbookTargetsAsync(alias, generation);
+
+        // A port that answers without waiting has answered by now, and this render
+        // can draw it rather than leave it to the next one.
+        lock (_devbookTargets)
+        {
+            return _devbookTargets.TryGetValue(alias, out var answered) ? answered.Targets : [];
+        }
+    }
+
+    /// <summary>Drops what the pickers were offered, so the next one opened reads
+    /// the devbook as it is now.</summary>
+    public void ForgetDevbookTargets()
+    {
+        lock (_devbookTargets)
+        {
+            _devbookTargetsGeneration++;
+            _devbookTargets.Clear();
+            _devbookTargetsLoading.Clear();
+        }
+    }
+
+    private async Task LoadDevbookTargetsAsync(string alias, int generation)
+    {
+        IReadOnlyList<DevbookReferenceTarget> targets;
+        try
+        {
+            targets = await _devbookReferences.ListTargetsAsync(alias.Length == 0 ? null : alias, _untilDisposed);
+        }
+        catch (OperationCanceledException)
+        {
+            lock (_devbookTargets)
+            {
+                if (generation == _devbookTargetsGeneration) _devbookTargetsLoading.Remove(alias);
+            }
+
+            return;
+        }
+        catch (Exception)
+        {
+            // Nothing to offer is still a working picker: a path typed into it is
+            // accepted, and the write is where a bad one is refused. Held as empty,
+            // so it is asked again like any other empty answer.
+            targets = [];
+        }
+
+        bool changed;
+        bool retry;
+
+        lock (_devbookTargets)
+        {
+            if (_disposed || generation != _devbookTargetsGeneration) return;
+
+            _devbookTargetsLoading.Remove(alias);
+
+            _devbookTargets.TryGetValue(alias, out var previous);
+            var emptyAnswers = targets.Count == 0 ? (previous?.EmptyAnswers ?? 0) + 1 : 0;
+            _devbookTargets[alias] = new DevbookTargetList(targets, emptyAnswers, RetryDue: false);
+
+            changed = previous is null || !previous.Targets.SequenceEqual(targets);
+
+            // No repository has no devbook to wait for: the port answers empty for
+            // one by definition, and asking again would only ever hear that.
+            retry = targets.Count == 0 && alias.Length > 0 && emptyAnswers <= DevbookTargetsMaxRetries;
+        }
+
+        if (changed) Changed?.Invoke();
+        if (retry) _ = RetryDevbookTargetsAsync(alias, generation);
+    }
+
+    /// <summary>Waits out <see cref="DevbookTargetsRetryDelay"/>, then marks the
+    /// repository's empty answer as due and says so. The read itself is left to the
+    /// next render that wants the list, so a picker closed in the meantime asks
+    /// nothing.</summary>
+    private async Task RetryDevbookTargetsAsync(string alias, int generation)
+    {
+        try
+        {
+            await Task.Delay(DevbookTargetsRetryDelay, _timeProvider, _untilDisposed);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        lock (_devbookTargets)
+        {
+            if (_disposed || generation != _devbookTargetsGeneration) return;
+            if (!_devbookTargets.TryGetValue(alias, out var held) || held.Targets.Count > 0) return;
+
+            _devbookTargets[alias] = held with { RetryDue = true };
+        }
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>Points the entry at one more page or chapter, after the ones it
+    /// already names. A reference it already holds changes nothing.</summary>
+    public Task AddDevbookReferenceAsync(EntryRow row, string reference)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentNullException.ThrowIfNull(reference);
+
+        var normalized = NormalizeDevbookReference(row, reference);
+
+        return WriteDevbookReferencesAsync(
+            row,
+            current => current.Contains(normalized, StringComparer.Ordinal) ? null : [.. current, normalized]);
+    }
+
+    /// <summary>Drops one reference and keeps the rest in their order.</summary>
+    public Task RemoveDevbookReferenceAsync(EntryRow row, string reference)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return WriteDevbookReferencesAsync(
+            row,
+            current => current.Contains(reference, StringComparer.Ordinal)
+                ? [.. current.Where(existing => !string.Equals(existing, reference, StringComparison.Ordinal))]
+                : null);
+    }
+
+    /// <summary>
+    /// Replaces the entry's references with <paramref name="references"/>, through
+    /// the module, and shows what it kept.
+    /// <para>
+    /// Saved at once rather than debounced: picking a chapter or dropping one is a
+    /// decision, not typing. A refusal — a value that names no page — is said twice,
+    /// the way a GitHub failure is: on the entry, where it stays until the next write
+    /// lands, and on a toast for a reader who has looked away. The band reads Error
+    /// rather than Saved, because nothing was written and the chips still show the
+    /// list as it was. A refused write behind a band still saying Saved is the gap
+    /// this list has had before, and this field does not reopen it.
+    /// </para>
+    /// <para>
+    /// A row the store has not seen yet has nowhere to keep them, so this does
+    /// nothing for one; the pane does not offer the field until the entry has been
+    /// saved once.
+    /// </para>
+    /// </summary>
+    public Task SetDevbookReferencesAsync(EntryRow row, IEnumerable<string> references)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentNullException.ThrowIfNull(references);
+
+        IReadOnlyList<string> whole = [.. references.Select(reference => NormalizeDevbookReference(row, reference))];
+        return WriteDevbookReferencesAsync(row, _ => whole);
+    }
+
+    /// <summary>One reference write at a time. See
+    /// <see cref="WriteDevbookReferencesAsync"/>.</summary>
+    private readonly SemaphoreSlim _devbookWrites = new(1, 1);
+
+    /// <summary>
+    /// Writes the list <paramref name="change"/> makes of the entry's references as
+    /// they stand once every earlier write has landed, or nothing when it answers
+    /// null.
+    /// <para>
+    /// One at a time, and each computed from the list the last one stored. A write
+    /// used to be the row's list plus the pick, and the row learned of a write only
+    /// once it had landed — so a second pick made while the first was saving, or a
+    /// chip removed meanwhile, was computed from the list without the first, and its
+    /// save put that list back. The list is read from the entry the state last
+    /// heard from the store, not from <paramref name="row"/>, because a reload
+    /// between the two builds a new row for the same entry.
+    /// </para>
+    /// </summary>
+    private async Task WriteDevbookReferencesAsync(EntryRow row, Func<IReadOnlyList<string>, IReadOnlyList<string>?> change)
+    {
+        if (row.IsReadOnly || row.Id is not { } id) return;
+
+        try
+        {
+            await _devbookWrites.WaitAsync(_untilDisposed);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        try
+        {
+            var current = _entries.TryGetValue(id, out var known) ? known.DevbookReferences : row.DevbookReferences;
+            if (change(current) is not { } next) return;
+
+            await SaveDevbookReferencesAsync(row, id, next);
+        }
+        finally
+        {
+            _devbookWrites.Release();
+        }
+    }
+
+    private async Task SaveDevbookReferencesAsync(EntryRow row, Guid id, IReadOnlyList<string> references)
+    {
+        SetSaveState(AppSaveState.Saving);
+
+        Result<TaskItemDto> saved;
+        try
+        {
+            saved = await _entryUseCases.SetDevbookReferencesAsync(id, references, _untilDisposed);
+        }
+        catch (OperationCanceledException) when (_untilDisposed.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception)
+        {
+            RefuseDevbookReferences(row, "Couldn't save the Devbook references.");
+            return;
+        }
+
+        if (saved.IsFailure)
+        {
+            RefuseDevbookReferences(row, saved.Error.Message);
+            return;
+        }
+
+        var entry = saved.Value;
+        _entries[entry.Id] = entry;
+
+        // The row the write was made on, and the one a reload since may have put
+        // in its place.
+        foreach (var shown in Rows.Where(candidate => candidate.Id == id).Append(row).Distinct())
+        {
+            shown.DevbookReferences = entry.DevbookReferences;
+            shown.DevbookReferenceError = null;
+        }
+
+        SetSaveState(AppSaveState.Saved);
+        FlashSaved(row);
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// A reference typed without its devbook root, in the form this repository's
+    /// own pages are listed in; anything else exactly as typed.
+    /// <para>
+    /// The module stores a path whose first folder is a devbook area under
+    /// <c>.devbook/</c> for every writer (see <c>TaskDevbookReference</c>), which is
+    /// the current layout. It cannot see which layout a repository is on; this can,
+    /// through the pages the picker was offered, so a repository still on the
+    /// legacy layout — <c>.domain/</c> at its root — gets its own form instead.
+    /// With nothing listed the value is handed on as typed, and the module's rule
+    /// decides.
+    /// </para>
+    /// </summary>
+    public string NormalizeDevbookReference(EntryRow row, string reference)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentNullException.ThrowIfNull(reference);
+
+        if (reference.Length == 0 || reference[0] is '.' or '/') return reference;
+
+        var hash = reference.IndexOf('#');
+        var path = hash < 0 ? reference : reference[..hash];
+        var anchor = hash < 0 ? string.Empty : reference[hash..];
+
+        var page = CachedDevbookTargets(DevbookRepositoryAliasFor(row) ?? string.Empty)
+            .FirstOrDefault(target => target.Level == 0
+                && (string.Equals(target.Reference, DevbookRoot + path, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(target.Reference, "." + path, StringComparison.OrdinalIgnoreCase)));
+
+        return page is null ? reference : page.Reference + anchor;
+    }
+
+    private const string DevbookRoot = ".devbook/";
+
+    /// <summary>What the picker was last offered for a repository, without asking
+    /// the devbook again.</summary>
+    private IReadOnlyList<DevbookReferenceTarget> CachedDevbookTargets(string alias)
+    {
+        lock (_devbookTargets)
+        {
+            return _devbookTargets.TryGetValue(alias, out var held) ? held.Targets : [];
+        }
+    }
+
+    private void RefuseDevbookReferences(EntryRow row, string message)
+    {
+        row.DevbookReferenceError = message;
+        SetSaveState(AppSaveState.Error);
+        AnnounceRowFailure(row, message, DevbookRefusedTestId);
+        Changed?.Invoke();
+    }
+
     /// <summary>True when the rows currently on screen include anything linked
     /// to GitHub — an issue, or a pull request its work recorded — which is what
     /// makes a whole-list sync worth offering.</summary>
@@ -3900,6 +4350,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         row.IssueLink = TasksIssues.FindLink(entry);
         row.PullRequestLinks = EntryLinks.PullRequests(entry);
         row.SessionLinks = EntryLinks.Sessions(entry);
+        row.DevbookReferences = entry.DevbookReferences;
         row.CreatedAt = entry.CreatedAt;
         row.ImportPlanId = entry.ImportPlanId;
 
@@ -4424,6 +4875,16 @@ public sealed class EntryRow
     /// <summary>The AI sessions that worked on this entry. Persisted as
     /// projections, like <see cref="IssueLink"/>.</summary>
     public IReadOnlyList<EntrySessionLink> SessionLinks { get; set; } = [];
+
+    /// <summary>The Devbook pages and chapters the entry points at, as stored —
+    /// <c>path</c> or <c>path#anchor</c>, in order. The entry's own field and never
+    /// a token in its text, so it is read off the entry like <see cref="CreatedAt"/>
+    /// and written only through <see cref="TasksDesktopState.SetDevbookReferencesAsync"/>.</summary>
+    public IReadOnlyList<string> DevbookReferences { get; set; } = [];
+
+    /// <summary>Why the last change to <see cref="DevbookReferences"/> was refused,
+    /// in words fit to read, or null. Cleared by the next one that lands.</summary>
+    public string? DevbookReferenceError { get; set; }
 
     /// <summary>Last known issue and pull-request state. Deliberately not
     /// persisted: it is a view of something GitHub owns, and a stale copy in the

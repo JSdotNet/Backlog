@@ -37,5 +37,6 @@ internal static class TaskItemMapper
         entry.ImportItemId,
         entry.CreatedAt,
         entry.StartedOn,
-        entry.SourceInboxId);
+        entry.SourceInboxId,
+        [.. entry.DevbookReferences]);
 }

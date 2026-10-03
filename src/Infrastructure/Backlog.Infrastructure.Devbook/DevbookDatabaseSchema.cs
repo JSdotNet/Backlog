@@ -27,9 +27,11 @@ public static class DevbookDatabaseSchema
     /// <para>3 added <c>chapter.open_annotations</c>, each chapter's count of open
     /// review notes, and derives <c>outline_entry</c> from the folder convention
     /// rather than from <c>_reading-order.json</c> (local ADR 0016).</para>
-    /// <para>4 added <c>demo</c> and <c>demo_link</c>: the <c>*.demo.html</c>
+    /// <para>4 added <c>node.sync</c> and <c>chapter.sync</c>, the <c>sync</c>
+    /// direction a block states, as written (devbook contract 25).</para>
+    /// <para>5 added <c>demo</c> and <c>demo_link</c>: the <c>*.demo.html</c>
     /// files beside the pages, and what pairs each one with a chapter.</para></summary>
-    public const int Version = 4;
+    public const int Version = 5;
 
     /// <summary>The embedded resource holding <c>devbook-schema.sql</c>.</summary>
     internal const string DdlResourceName = "Backlog.Infrastructure.Devbook.devbook-schema.sql";

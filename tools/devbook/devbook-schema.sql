@@ -1,6 +1,6 @@
 -- devbook-schema.sql - the DDL of the generated devbook database, as one text.
 --
--- schema-version: 4
+-- schema-version: 5
 --
 -- One file read by both writers: tools/devbook/devbook-schema.mjs loads it for
 -- the Node writer, and Backlog.Infrastructure.Devbook embeds it for the app's own
@@ -27,7 +27,8 @@ CREATE TABLE node (
     effort       INTEGER,
     kind         TEXT,
     version      TEXT,
-    issue        TEXT
+    issue        TEXT,
+    sync         TEXT
 );
 
 CREATE TABLE node_attribute (
@@ -65,6 +66,7 @@ CREATE TABLE chapter (
     level        INTEGER NOT NULL,
     title        TEXT,
     status       TEXT,
+    sync         TEXT,
     line         INTEGER NOT NULL,
     text         TEXT NOT NULL,
     search_text  TEXT NOT NULL,

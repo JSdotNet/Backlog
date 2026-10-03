@@ -276,7 +276,8 @@ public sealed class TaskReplicaMerge(
             [.. task.UsageEvents.Select(u => new UsageEventPayload(u.Timestamp, u.Action))],
             [.. task.ProjectionRefs.Select(p => new ProjectionPayload(p.RepoId, p.ExternalId, p.TargetType))],
             task.CompletedOn,
-            StartedOn: task.StartedOn);
+            StartedOn: task.StartedOn,
+            DevbookReferences: task.DevbookReferences.Count == 0 ? null : [.. task.DevbookReferences]);
     }
 
     /// <summary>
@@ -321,6 +322,10 @@ public sealed class TaskReplicaMerge(
         task.SetStartedOn(payload.StartedOn);
         task.SetView(EntryTextParser.ParseView(payload.View));
         task.SetDependsOn(payload.DependsOn);
+        // Filtered for the reason the local store filters them: one value the
+        // aggregate would refuse costs that reference, not the whole document.
+        task.SetDevbookReferences((payload.DevbookReferences ?? [])
+            .Where(reference => TaskDevbookReference.TryParse(reference, out _)));
         task.SetEffort(payload.Effort);
         task.SetImportPlanId(payload.ImportPlanId);
         task.SetImportItemId(payload.ImportItemId);

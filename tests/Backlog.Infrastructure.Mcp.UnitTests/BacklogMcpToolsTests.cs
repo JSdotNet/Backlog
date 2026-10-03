@@ -35,6 +35,8 @@ public class BacklogMcpToolsTests
                 "link_change",
                 "link_session",
                 "create_item",
+                "set_devbook_references",
+                "list_devbook_references",
                 "get_roadmap",
                 "list_knowledge_contexts",
                 "read_knowledge_chapter",
@@ -197,6 +199,7 @@ public class BacklogMcpToolsTests
             TrackerTools.LinkChange,
             TrackerTools.LinkSession,
             TrackerTools.CreateItem,
+            TrackerTools.SetDevbookReferences,
             SurfaceTools.OpenDashboard,
             SurfaceTools.StartRun,
             SurfaceTools.RecordPrompt,
@@ -218,6 +221,7 @@ public class BacklogMcpToolsTests
             DevbookTools.ResolveAnnotation,
             TrackerTools.Transition,
             TrackerTools.LinkSession,
+            TrackerTools.SetDevbookReferences,
             SurfaceTools.OpenDashboard,
             SurfaceTools.StartRun,
             SurfaceTools.SetRunContext,
@@ -271,7 +275,10 @@ public class BacklogMcpToolsTests
     /// a repository whose devbook is read from a branch snapshot (local ADR
     /// 0008): <c>read_knowledge_chapter</c> fetches the named file through
     /// <c>PrepareContentAsync</c> and <c>list_knowledge_contexts</c> asks the
-    /// auto-fetch to make sure the branch has been indexed. Every other tool here
+    /// auto-fetch to make sure the branch has been indexed. The two Devbook
+    /// reference tools resolve what an entry points at the same way — a page the
+    /// database does not hold is read through <c>PrepareContentAsync</c>, which
+    /// fetches it for a branch snapshot. Every other tool here
     /// reads this machine and nothing else — the SQLite backlog, the roadmap
     /// store, the annotation store, the session files — and the replicated
     /// session source "reads a store and never the network".
@@ -284,7 +291,13 @@ public class BacklogMcpToolsTests
     [Fact]
     public void Only_the_tools_that_can_reach_github_are_declared_open_world()
     {
-        string[] openWorld = [DevbookTools.ListKnowledgeContexts, DevbookTools.ReadKnowledgeChapter];
+        string[] openWorld =
+        [
+            DevbookTools.ListKnowledgeContexts,
+            DevbookTools.ReadKnowledgeChapter,
+            TrackerTools.SetDevbookReferences,
+            TrackerTools.ListDevbookReferences
+        ];
 
         foreach (var group in BacklogMcpTools.Groups)
         {

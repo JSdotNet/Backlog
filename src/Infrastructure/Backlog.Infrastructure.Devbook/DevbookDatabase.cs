@@ -209,6 +209,33 @@ public sealed partial class DevbookDatabase : IDisposable
         return states;
     }
 
+    /// <summary>
+    /// Every file's headings in one query, keyed by path, each file's in the order
+    /// they appear in it — <see cref="Chapters"/> for the whole repository at once,
+    /// without the chapters' text.
+    /// <para>
+    /// For a reader that walks every page, as the task picker's list of pages and
+    /// chapters does: asking <see cref="Chapters"/> once per file was one query per
+    /// page of the outline, and each one carried the chapter text nobody was going
+    /// to read.
+    /// </para>
+    /// </summary>
+    public ILookup<string, DevbookChapterHeadingRow> ChapterHeadings() =>
+        Query(
+            """
+            SELECT path, slug, level, title, status
+            FROM chapter
+            ORDER BY path, line
+            """,
+            static _ => { },
+            reader => new DevbookChapterHeadingRow(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetInt32(2),
+                Text(reader, 3),
+                Text(reader, 4)))
+        .ToLookup(row => row.Path, StringComparer.Ordinal);
+
     /// <summary>Every chapter of one file, in the order they appear in it.</summary>
     public IReadOnlyList<DevbookChapterRow> Chapters(string path)
     {

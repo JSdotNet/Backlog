@@ -137,6 +137,64 @@ public static class DeliveryStageStatuses
     public static readonly IReadOnlyList<string> Requestable = [InProgress, Done, Blocked, Skipped];
 }
 
+/// <summary>
+/// What started a run, in the words <c>start_run</c>'s <c>trigger</c> takes.
+/// <para>
+/// A run that sends neither reads as <see cref="Attended"/>, which is the contract's
+/// default rather than a guess: before the argument existed every run was one a person
+/// started.
+/// </para>
+/// </summary>
+public static class DeliveryRunTriggers
+{
+    /// <summary>A person started the run.</summary>
+    public const string Attended = "attended";
+
+    /// <summary>A schedule fired the run, unattended.</summary>
+    public const string Scheduled = "scheduled";
+
+    /// <summary>Every trigger the contract names.</summary>
+    public static readonly IReadOnlyList<string> All = [Attended, Scheduled];
+}
+
+/// <summary>
+/// One chapter's verdict inside a <see cref="DeliverySyncUnitVerdict"/>, as a devbook
+/// sweep's <c>devbook-sync-report</c> block states it.
+/// </summary>
+/// <param name="Chapter">The chapter's id — its file path from the repository root and,
+/// for a heading, <c>#anchor</c>.</param>
+/// <param name="Verdict">The drift verdict, verbatim: <c>aligned</c>,
+/// <c>code-ahead</c>, <c>spec-ahead</c>, <c>conflict</c> or <c>unresolved</c>.</param>
+/// <param name="Evidence">The one line the sweep gave for it.</param>
+public sealed record DeliverySyncChapterVerdict(string Chapter, string? Verdict, string? Evidence);
+
+/// <summary>
+/// One sync unit's row of a devbook sweep's report, passed to <c>finish_run</c> as one of
+/// its <c>verdicts</c> and kept verbatim — the sweep that writes the block owns its shape,
+/// so every value is carried as a string rather than mapped onto members this product
+/// would be deciding the meaning of.
+/// </summary>
+/// <param name="Unit">The unit's root chapter id.</param>
+/// <param name="Kind">The unit's kind: <c>aggregate</c>, <c>feature</c>, ….</param>
+/// <param name="Sync">Its effective sync direction.</param>
+/// <param name="SyncFrom">The block that direction came from, or null for the
+/// default.</param>
+/// <param name="Verdict">The unit's rolled-up verdict.</param>
+/// <param name="Action">What the sweep did about it: <c>pr</c>, <c>issue</c>,
+/// <c>skipped</c>, ….</param>
+/// <param name="Link">The pull request or drift issue the action produced, or
+/// null.</param>
+/// <param name="Chapters">Every chapter of the unit with its own verdict.</param>
+public sealed record DeliverySyncUnitVerdict(
+    string Unit,
+    string? Kind,
+    string? Sync,
+    string? SyncFrom,
+    string? Verdict,
+    string? Action,
+    string? Link,
+    IReadOnlyList<DeliverySyncChapterVerdict> Chapters);
+
 /// <summary>One link a stage recorded — a started application, a review target, a pull
 /// request. The shape both dashboard generations wrote, which is what makes a link
 /// written here render beside one that was imported.</summary>
@@ -279,6 +337,13 @@ public interface IDeliverySurfaceLifecycle
     /// into the run's <c>sessionIds</c>, which a resumed run appends to, so the Sessions
     /// pane attaches the run to the sessions that drove it by identity rather than by
     /// worktree and overlapping time.</param>
+    /// <param name="trigger">What started the run — see <see cref="DeliveryRunTriggers"/>
+    /// — or null, which reads as attended. Written when the run begins and never by a
+    /// reattach: a session picking a scheduled run back up does not make it
+    /// attended.</param>
+    /// <param name="schedule">The catalog name of the schedule that fired the run.</param>
+    /// <param name="repository">The repository the run works in, as
+    /// <c>owner/name</c>.</param>
     Task<DeliveryRunStarted> StartRunAsync(
         string worktree,
         string skillId,
@@ -286,6 +351,9 @@ public interface IDeliverySurfaceLifecycle
         IReadOnlyList<string> stages,
         string? changeKind = null,
         string? sessionId = null,
+        string? trigger = null,
+        string? schedule = null,
+        string? repository = null,
         CancellationToken cancellationToken = default);
 
     /// <summary><c>record_prompt</c>. The first prompt recorded also becomes the run's
@@ -324,11 +392,15 @@ public interface IDeliverySurfaceLifecycle
         CancellationToken cancellationToken = default);
 
     /// <summary><c>finish_run</c>.</summary>
+    /// <param name="verdicts">A devbook sweep's verdict rows, kept on the run verbatim
+    /// and, where the host keeps chapter verdicts, recorded as the latest verdict of
+    /// every chapter they name. Null or empty for a run that verified nothing.</param>
     Task FinishRunAsync(
         string worktree,
         string runId,
         string status,
         string? summary = null,
+        IReadOnlyList<DeliverySyncUnitVerdict>? verdicts = null,
         CancellationToken cancellationToken = default);
 
     /// <summary><c>list_runs</c> — the runs filed under one worktree, most recently

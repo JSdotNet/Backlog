@@ -294,8 +294,8 @@ function chapterSlices(markdown, chapters) {
 
 function insertGraph(db, graph) {
     const node = db.prepare(`
-        INSERT INTO node (id, type, label, folder, path, slug, level, line, status, out_of_scope, effort, kind, version, issue)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO node (id, type, label, folder, path, slug, level, line, status, out_of_scope, effort, kind, version, issue, sync)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const attribute = db.prepare('INSERT INTO node_attribute (node_id, name, value) VALUES (?, ?, ?)');
     const edge = db.prepare('INSERT INTO edge (id, type, source, target) VALUES (?, ?, ?, ?)');
@@ -318,7 +318,8 @@ function insertGraph(db, graph) {
             typeof data.effort === 'number' ? data.effort : null,
             data.kind ?? null,
             data.version ?? null,
-            data.issue ?? null
+            data.issue ?? null,
+            data.sync == null ? null : String(data.sync)
         );
 
         for (const name of LIST_ATTRIBUTES) {
@@ -410,8 +411,8 @@ function openCountsForFile(relPath, chapters, openCounts) {
 
 async function insertChapters(db, repoRoot, folders, { parseDocument, folderKindForPath }, openCounts) {
     const insert = db.prepare(`
-        INSERT INTO chapter (path, folder, slug, level, title, status, line, text, search_text, content_hash, source_hash, size, mtime, open_annotations)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO chapter (path, folder, slug, level, title, status, sync, line, text, search_text, content_hash, source_hash, size, mtime, open_annotations)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const link = db.prepare(`
         INSERT INTO demo_link (chapter_path, slug, line, ordinal, demo_path, address)
@@ -440,6 +441,9 @@ async function insertChapters(db, repoRoot, folders, { parseDocument, folderKind
                     chapter.level,
                     chapter.text,
                     chapter.meta?.status ?? null,
+                    // As written; a list is no direction, so it is left out as
+                    // the C# builder's `as string` leaves it.
+                    typeof chapter.meta?.sync === 'string' ? chapter.meta.sync : null,
                     chapter.line,
                     slices[index].text,
                     slices[index].searchText,

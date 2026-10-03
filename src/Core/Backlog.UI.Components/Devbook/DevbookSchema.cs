@@ -59,6 +59,10 @@ public static class DevbookSchema
     /// <summary>The two ways a bounded context ships.</summary>
     public static IReadOnlyList<string> DeploymentValues { get; } = ["service", "module"];
 
+    /// <summary>The values <c>sync</c> may take — contract 25, ahead of the rest
+    /// of this class; <see cref="DevbookSync"/> holds the field's levels.</summary>
+    public static IReadOnlyList<string> SyncValues => DevbookSync.Directions;
+
     /// <summary>The values <c>index</c> may take on a file-level block.</summary>
     public static IReadOnlyList<string> IndexValues { get; } = ["root", "exclude"];
 

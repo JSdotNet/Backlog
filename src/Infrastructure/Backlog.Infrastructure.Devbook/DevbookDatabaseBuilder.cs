@@ -164,8 +164,8 @@ public static class DevbookDatabaseBuilder
     private static void InsertGraph(SqliteConnection connection, SqliteTransaction transaction, DevbookGraph graph)
     {
         using var node = Command(connection, transaction, """
-            INSERT INTO node (id, type, label, folder, path, slug, level, line, status, out_of_scope, effort, kind, version, issue)
-            VALUES ($id, $type, $label, $folder, $path, $slug, $level, $line, $status, $outOfScope, $effort, $kind, $version, $issue)
+            INSERT INTO node (id, type, label, folder, path, slug, level, line, status, out_of_scope, effort, kind, version, issue, sync)
+            VALUES ($id, $type, $label, $folder, $path, $slug, $level, $line, $status, $outOfScope, $effort, $kind, $version, $issue, $sync)
             """);
         using var attribute = Command(connection, transaction, "INSERT INTO node_attribute (node_id, name, value) VALUES ($node, $name, $value)");
         using var edge = Command(connection, transaction, "INSERT INTO edge (id, type, source, target) VALUES ($id, $type, $source, $target)");
@@ -176,7 +176,7 @@ public static class DevbookDatabaseBuilder
                 ("$id", data.Id), ("$type", data.Type), ("$label", data.Label), ("$folder", data.Folder),
                 ("$path", data.Path), ("$slug", data.Slug), ("$level", data.Level), ("$line", data.Line),
                 ("$status", data.Status), ("$outOfScope", data.Folder is null ? 1 : 0), ("$effort", data.Effort),
-                ("$kind", data.Kind), ("$version", data.Version), ("$issue", data.Issue));
+                ("$kind", data.Kind), ("$version", data.Version), ("$issue", data.Issue), ("$sync", data.Sync));
             node.ExecuteNonQuery();
 
             foreach (var (name, values) in data.Attributes)
@@ -231,8 +231,8 @@ public static class DevbookDatabaseBuilder
     private static HashSet<string> InsertChapters(SqliteConnection connection, SqliteTransaction transaction, string root, DevbookBuildLayout layout, CancellationToken cancellationToken)
     {
         using var insert = Command(connection, transaction, """
-            INSERT INTO chapter (path, folder, slug, level, title, status, line, text, search_text, content_hash, source_hash, size, mtime, open_annotations)
-            VALUES ($path, $folder, $slug, $level, $title, $status, $line, $text, $searchText, $contentHash, $sourceHash, $size, $mtime, $openAnnotations)
+            INSERT INTO chapter (path, folder, slug, level, title, status, sync, line, text, search_text, content_hash, source_hash, size, mtime, open_annotations)
+            VALUES ($path, $folder, $slug, $level, $title, $status, $sync, $line, $text, $searchText, $contentHash, $sourceHash, $size, $mtime, $openAnnotations)
             """);
         using var link = Command(connection, transaction, """
             INSERT INTO demo_link (chapter_path, slug, line, ordinal, demo_path, address)
@@ -260,7 +260,8 @@ public static class DevbookDatabaseBuilder
                     var chapter = chapters[index];
                     Bind(insert,
                         ("$path", relativePath), ("$folder", folderKind), ("$slug", chapter.Slug), ("$level", chapter.Level),
-                        ("$title", chapter.Text), ("$status", chapter.Meta?.GetValueOrDefault("status") as string), ("$line", chapter.Line),
+                        ("$title", chapter.Text), ("$status", chapter.Meta?.GetValueOrDefault("status") as string),
+                        ("$sync", chapter.Meta?.GetValueOrDefault("sync") as string), ("$line", chapter.Line),
                         ("$text", slices[index].Text), ("$searchText", slices[index].SearchText),
                         ("$contentHash", DevbookMarkdown.Sha256(slices[index].Text)), ("$sourceHash", sourceHash),
                         ("$size", file.Length), ("$mtime", DevbookFileState.UnixMilliseconds(file.LastWriteTimeUtc)),

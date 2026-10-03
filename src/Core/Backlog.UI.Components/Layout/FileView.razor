@@ -154,6 +154,7 @@
                                                 OnDevbookStatusChanged="@OnDevbookStatusChanged"
                                                 OnDevbookNavigate="@OnDevbookNavigate"
                                                 DevbookHrefFor="@DevbookHrefFor"
+                                                ChapterAdornment="@ChapterAdornment"
                                                 Comments="@Comments"
                                                 CommentLayout="@CommentLayout"
                                                 OnAddComment="@OnAddComment"
@@ -415,6 +416,11 @@
     /// <summary>Resolves a metadata reference to a link target.</summary>
     [Parameter]
     public Func<DevbookReference, string?>? DevbookHrefFor { get; set; }
+
+    /// <summary>What to draw beside each chapter heading — see
+    /// <c>MarkdownView.ChapterAdornment</c>.</summary>
+    [Parameter]
+    public Func<string, int, RenderFragment?>? ChapterAdornment { get; set; }
 
     /// <summary>Remarks against the file's blocks. Empty — the default — renders
     /// the file exactly as it did before comments existed.</summary>

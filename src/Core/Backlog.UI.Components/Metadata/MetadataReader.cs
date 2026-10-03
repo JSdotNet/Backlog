@@ -46,7 +46,7 @@ public static class MetadataReader
             "status", "related", "depends-on", "implements", "issue",
             "order", "aliases", "alternatives", "type", "kind", "version",
             "effort", "roadmap", "feature-flag", "tests", "number", "index",
-            "date", "deployment",
+            "date", "deployment", "sync",
             .. DevbookSchema.StateFields
         ],
         StringComparer.Ordinal);
@@ -135,6 +135,7 @@ public static class MetadataReader
             Index = Scalar(fields, "index"),
             Date = Scalar(fields, "date"),
             Deployment = Scalar(fields, "deployment"),
+            Sync = Scalar(fields, "sync"),
             Ext = ext,
             State = new MetadataState
             {

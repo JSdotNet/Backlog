@@ -60,6 +60,14 @@ internal sealed class FakeDeliverySurfaceLifecycle(
 
     public string? SessionId { get; private set; }
 
+    public string? Trigger { get; private set; }
+
+    public string? Schedule { get; private set; }
+
+    public string? Repository { get; private set; }
+
+    public IReadOnlyList<DeliverySyncUnitVerdict>? Verdicts { get; private set; }
+
     public int? StageIndex { get; private set; }
 
     public string? Status { get; private set; }
@@ -84,6 +92,9 @@ internal sealed class FakeDeliverySurfaceLifecycle(
         IReadOnlyList<string> stages,
         string? changeKind = null,
         string? sessionId = null,
+        string? trigger = null,
+        string? schedule = null,
+        string? repository = null,
         CancellationToken cancellationToken = default)
     {
         Calls.Add(DeliverySurfaceOperations.StartRun);
@@ -91,6 +102,9 @@ internal sealed class FakeDeliverySurfaceLifecycle(
         Stages = stages;
         ChangeKind = changeKind;
         SessionId = sessionId;
+        Trigger = trigger;
+        Schedule = schedule;
+        Repository = repository;
 
         return Task.FromResult(new DeliveryRunStarted("run-1", Resumed: true, SessionTitle: title));
     }
@@ -155,12 +169,14 @@ internal sealed class FakeDeliverySurfaceLifecycle(
         string runId,
         string status,
         string? summary = null,
+        IReadOnlyList<DeliverySyncUnitVerdict>? verdicts = null,
         CancellationToken cancellationToken = default)
     {
         Calls.Add(DeliverySurfaceOperations.FinishRun);
         Worktree = worktree;
         RunId = runId;
         Status = status;
+        Verdicts = verdicts;
 
         return Task.CompletedTask;
     }

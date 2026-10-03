@@ -88,6 +88,8 @@ public class DevbookBuilderParityTests : IDisposable
         using var app = Open(fromApp);
         Assert.Contains(Rows(app, "chapter", "id"), row => row.Contains("open_annotations=INTEGER:2", StringComparison.Ordinal));
         Assert.Contains(Rows(app, "outline_entry", "id"), row => row.Contains("name=TEXT:domain.invariants.md", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "chapter", "id"), row => row.Contains("sync=TEXT:push", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node", "id"), row => row.Contains("sync=TEXT:pull", StringComparison.Ordinal));
 
         var demos = Rows(app, "demo", "path");
         Assert.Equal(4, demos.Count);
@@ -131,8 +133,8 @@ public class DevbookBuilderParityTests : IDisposable
         (".devbook/arc42/tdr/README.md", "# Technical Debt Records\n\n```meta\nindex: root\n```\n"),
         (".devbook/arc42/tdr/0001-debt.md", "# TDR 0001: Debt\n"),
         (".devbook/arc42/tdr/0002-hidden.md", "# TDR 0002: Hidden\n\n```meta\nindex: exclude\n```\n"),
-        (".devbook/domain/context-map.md", "# Context Map\n"),
-        (".devbook/domain/zeta/context.md", "# Zeta\n"),
+        (".devbook/domain/context-map.md", "# Context Map\n\n```meta\nsync: pull\n```\n"),
+        (".devbook/domain/zeta/context.md", "# Zeta\n\n```meta\nsync: push\n```\n"),
         (".devbook/domain/zeta/model.md", "# Zeta\n\n```meta\ntype: aggregate\nstatus: draft\n```\n"),
         (".devbook/domain/zeta/domain.md", """
             Above the first heading.

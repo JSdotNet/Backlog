@@ -153,6 +153,12 @@ public sealed record MetadataRecord
     /// chapter and on that context's <c>context.md</c> file block.</summary>
     public string? Deployment { get; init; }
 
+    /// <summary>Which way changes flow between this block's unit and its code —
+    /// <c>push</c>, <c>pull</c>, <c>sync</c>, <c>report</c> or <c>off</c> — as
+    /// authored. Only a folder overview, a <c>context.md</c>, a context page or a
+    /// unit's root chapter may state it; see <see cref="Devbook.DevbookSync"/>.</summary>
+    public string? Sync { get; init; }
+
     /// <summary>
     /// The extension namespace: every <c>ext.&lt;plugin&gt;.&lt;key&gt;</c> the
     /// block carries, keyed by what follows <c>ext.</c> with the author's own
@@ -260,6 +266,7 @@ public sealed record MetadataRecord
         && string.IsNullOrWhiteSpace(Index)
         && string.IsNullOrWhiteSpace(Date)
         && string.IsNullOrWhiteSpace(Deployment)
+        && string.IsNullOrWhiteSpace(Sync)
         && Ext.Count == 0
         && State.IsEmpty
         && Extra.Count == 0;
