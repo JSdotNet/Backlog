@@ -3,6 +3,7 @@ using Backlog.Modules.Tasks;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
@@ -14,8 +15,10 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// out on the plan (<see cref="IRoadmapPlanIntake"/>), a roadmap item rolls up the backlog entries
 /// and knowledge chapters it gathers (<see cref="IRoadmapItemRollup"/>), the
 /// reader's typed pace is read from the settings file
-/// (<see cref="IPlanningVelocitySettings"/>), and the finished work a measured pace
-/// counts comes from the backlog (<see cref="IRoadmapCompletedWork"/>).
+/// (<see cref="IPlanningVelocitySettings"/>), the finished work a measured pace
+/// counts comes from the backlog (<see cref="IRoadmapCompletedWork"/>), and the
+/// actual hours a day head shows come from the agents' activity
+/// (<see cref="IRoadmapActualHours"/>).
 /// <para>
 /// Registered here — in one place both hosts and the scope-validation guard call —
 /// so the lifetimes cannot drift between the desktop app and the web harness. The
@@ -89,6 +92,18 @@ public static class RoadmapCrossContextAdapterRegistration
         // Singleton for the same reason: it holds only the task signal, itself a
         // singleton, and a write in one window has to reach a band open in another.
         services.AddSingleton<IRoadmapWorkChanges>(sp => new RoadmapWorkChanges(sp.GetService<ITaskChangeSignal>()));
+
+        // The actual hours a begun day head shows, read from the merged agent activity
+        // the dashboard reads (ADR 0019). A singleton over singletons: the activity
+        // source, the clock and the feature switches. Each is optional, so a host that
+        // composed no Sessions activity still resolves the port and it answers that it
+        // cannot state the hours. Resolved in the factory rather than at this call, so
+        // AddAgentActivitySource may come after it.
+        services.AddSingleton<IRoadmapActualHours>(sp =>
+            new RoadmapActualHours(
+                sp.GetService<IAgentActivitySource>(),
+                sp.GetService<TimeProvider>(),
+                sp.GetService<IAppFeatureSettings>()));
 
         return services;
     }

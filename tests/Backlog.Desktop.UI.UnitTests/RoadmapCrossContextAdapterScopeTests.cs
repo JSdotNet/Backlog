@@ -120,6 +120,24 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
     }
 
     [Fact]
+    public async Task A_host_without_agent_activity_still_resolves_the_actual_hours_and_states_none()
+    {
+        // This graph composes no Sessions activity, as a host without Sessions would
+        // not; the axis still resolves the port, and it answers that the hours cannot
+        // be stated rather than that nobody worked.
+        using var provider = BuildHostLikeProvider();
+        using var scope = provider.CreateScope();
+
+        var hours = scope.ServiceProvider.GetRequiredService<IRoadmapActualHours>();
+
+        Assert.IsType<RoadmapActualHours>(hours);
+        Assert.Null(await hours.ReadAsync(
+            new DateOnly(2026, 9, 28),
+            new DateOnly(2026, 10, 4),
+            TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public void Roadmaps_own_import_command_resolves_in_the_host_graph()
     {
         // It asks for the reader's pace, which the module works out from what only
