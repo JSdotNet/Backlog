@@ -77,7 +77,7 @@ public sealed class MyDayScopeTests
     /// what went is the chip group, on the grounds that the repository scope in the
     /// header was already answering the question people were asking it. "No repo" is
     /// the one part of that question the header could not answer, so it arrived here
-    /// as the areas left. "Not waiting" is the third: readiness, asked as a scope.
+    /// as the areas left. "Ready in a plan" is the third: the work a plan has lined up.
     /// </para>
     /// </summary>
     [Fact]
@@ -93,7 +93,7 @@ public sealed class MyDayScopeTests
         Assert.Equal(3, scopes.Count);
         Assert.Contains("My Day", scopes[0].TextContent, StringComparison.Ordinal);
         Assert.Contains("No repo", scopes[1].TextContent, StringComparison.Ordinal);
-        Assert.Contains("Not waiting", scopes[2].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Ready in a plan", scopes[2].TextContent, StringComparison.Ordinal);
 
         // Same shape as My Day, for the same reason: a state of its own rather than
         // one of a set.
@@ -123,7 +123,7 @@ public sealed class MyDayScopeTests
 
         var scopes = pane.FindAll(".filter-group--scope .chip");
         string[] glyphs = ["sun-icon", "folder-off-icon", "play-icon"];
-        string[] names = ["My Day", "No repo", "Not waiting"];
+        string[] names = ["My Day", "No repo", "Ready in a plan"];
 
         Assert.Equal(3, scopes.Count);
 

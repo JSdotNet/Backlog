@@ -134,7 +134,8 @@ public class RoadmapBandTests : RoadmapBandHarness
     [Fact]
     public async Task RescheduleFromTheTimeline_IsStored()
     {
-        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
+        Configure("JSdotNet/Backlog");
+        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
         var itemId = added.Value.Id;
 
         using var context = Context();
@@ -244,7 +245,8 @@ public class RoadmapBandTests : RoadmapBandHarness
     [Fact]
     public async Task ARefusedRescheduleIsExplained_AndTheChartGoesBackToWhatWasStored()
     {
-        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
+        Configure("JSdotNet/Backlog");
+        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -265,26 +267,34 @@ public class RoadmapBandTests : RoadmapBandHarness
     }
 
     [Fact]
-    public async Task WorkNamingARepositoryNobodyConfigured_StillShows()
+    public async Task WorkNamingARepositoryNobodyConfigured_IsNotDrawn()
     {
+        Configure("JSdotNet/Backlog");
         await Planning.AddItemAsync(
             "Old work",
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
             repositoryAliases: ["retired"], cancellationToken: TestContext.Current.CancellationToken);
+        await Planning.AddItemAsync(
+            "Current work",
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 9),
+            repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
 
-        Assert.Contains("Old work", band.Markup);
-        Assert.Contains(RoadmapPlanView.UnfiledGroupTitle, band.Markup);
+        Assert.Contains("Current work", band.Markup);
+        Assert.DoesNotContain("Old work", band.Markup);
+        Assert.DoesNotContain("Unfiled", band.Markup);
     }
 
     [Fact]
     public async Task ADependencyIsDrawnAsAnArrow()
     {
-        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
-        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), cancellationToken: TestContext.Current.CancellationToken);
+        Configure("JSdotNet/Backlog");
+        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
         Assert.True((await Planning.AddDependencyAsync(build.Value.Id, design.Value.Id, TestContext.Current.CancellationToken)).IsSuccess);
 
         using var context = Context();

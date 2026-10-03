@@ -59,12 +59,17 @@ public sealed record RoadmapChange(
     /// <param name="rowId">The row it would land on. Only consulted for a
     /// <see cref="RoadmapDrag.Move"/>; an edge cannot change rows.</param>
     /// <param name="weekStart">Which day a week begins on here.</param>
+    /// <param name="boundaries">The column boundaries an edge snaps to instead of
+    /// the week — <see cref="RoadmapWindow.ColumnBoundaries"/> on a graduated axis —
+    /// in which case <paramref name="weekSteps"/> counts boundaries crossed rather
+    /// than weeks. Null keeps the week. A move always counts weeks.</param>
     public static RoadmapChange? For(
         RoadmapBar bar,
         RoadmapDrag kind,
         int weekSteps,
         string? rowId,
-        DayOfWeek weekStart)
+        DayOfWeek weekStart,
+        IReadOnlyList<DateOnly>? boundaries = null)
     {
         // A locked bar refuses everything, except the end of one that offers it: started
         // work has a start that is a fact and an end the reader may overrule.
@@ -73,9 +78,62 @@ public sealed record RoadmapChange(
         return kind switch
         {
             RoadmapDrag.Move => Moved(bar, weekSteps, rowId ?? bar.RowId, weekStart),
+            RoadmapDrag.ResizeStart when boundaries is { Count: > 0 } => StartStepped(bar, weekSteps, boundaries),
             RoadmapDrag.ResizeStart => StartMoved(bar, weekSteps, weekStart),
+            _ when boundaries is { Count: > 0 } => EndStepped(bar, weekSteps, boundaries),
             _ => EndMoved(bar, weekSteps, weekStart)
         };
+    }
+
+    private static RoadmapChange? StartStepped(RoadmapBar bar, int steps, IReadOnlyList<DateOnly> boundaries)
+    {
+        if (steps == 0) return null;
+
+        var start = Step(bar.Start, steps, boundaries);
+
+        // Past its own end: the last line still inside the bar, as the week grid
+        // clamps to the week the end is in — or its last day, when no line is.
+        if (start > bar.End) start = boundaries.LastOrDefault(boundary => boundary > bar.Start && boundary <= bar.End, bar.End);
+
+        return start == bar.Start ? null : new RoadmapChange(bar.Id, bar.RowId, start, bar.End, RoadmapDrag.ResizeStart);
+    }
+
+    private static RoadmapChange? EndStepped(RoadmapBar bar, int steps, IReadOnlyList<DateOnly> boundaries)
+    {
+        if (steps == 0) return null;
+
+        // An end is the last day inclusive, so its edge is the day after it, and the
+        // boundary it lands on is the day after its new end.
+        var end = Step(bar.End.AddDays(1), steps, boundaries).AddDays(-1);
+
+        if (end < bar.Start) end = boundaries.FirstOrDefault(boundary => boundary > bar.Start && boundary <= bar.End, bar.Start.AddDays(1)).AddDays(-1);
+
+        return end == bar.End ? null : new RoadmapChange(bar.Id, bar.RowId, bar.Start, end, RoadmapDrag.ResizeEnd);
+    }
+
+    /// <summary>
+    /// The boundary <paramref name="steps"/> lines away from an edge, counting only
+    /// the lines strictly past it in that direction — so an edge sitting between two
+    /// lines reaches the nearer one first, either way. Running off the axis stops at
+    /// its last line rather than leaving the grid.
+    /// </summary>
+    public static DateOnly Step(DateOnly edge, int steps, IReadOnlyList<DateOnly> boundaries)
+    {
+        if (steps > 0)
+        {
+            var ahead = boundaries.Where(boundary => boundary > edge).ToList();
+
+            return ahead.Count == 0 ? edge : ahead[Math.Min(steps, ahead.Count) - 1];
+        }
+
+        if (steps < 0)
+        {
+            var behind = boundaries.Where(boundary => boundary < edge).ToList();
+
+            return behind.Count == 0 ? edge : behind[Math.Max(0, behind.Count + steps)];
+        }
+
+        return edge;
     }
 
     private static RoadmapChange? Moved(RoadmapBar bar, int weekSteps, string rowId, DayOfWeek weekStart)

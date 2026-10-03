@@ -130,9 +130,13 @@ public abstract class RoadmapBandHarness : IDisposable
     }
 
     /// <summary>Renders a band with one item filed under <c>backlog</c>, which is the
-    /// smallest plan that actually draws a repository band.</summary>
+    /// smallest plan that actually draws a repository band. Configures that repository
+    /// when the test has configured none, since work under no configured repository is
+    /// not drawn.</summary>
     protected async Task<IRenderedComponent<RoadmapBand>> PlannedAsync(BunitContext context)
     {
+        if (RepositorySettings.Current.Repositories.Count == 0) Configure("JSdotNet/Backlog");
+
         await Planning.AddItemAsync(
             "Work",
             new DateOnly(2026, 1, 5),

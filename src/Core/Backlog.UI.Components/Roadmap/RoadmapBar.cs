@@ -158,8 +158,8 @@ public sealed record RoadmapLink(string FromId, string ToId);
 /// double-clicked it — how far they dragged.
 /// <para>
 /// Proposed, not created — like <see cref="RoadmapChange"/>, what goes there and
-/// whether it may is the host's. Both ends snap to whole weeks, because every
-/// gesture on a timeline snaps to the week.
+/// whether it may is the host's. Both ends snap to whole weeks, as a move does;
+/// only a resized edge on a graduated axis snaps finer, to the columns.
 /// </para>
 /// </summary>
 /// <param name="RowId">The row it is on. A band's padding reports the lane drawn

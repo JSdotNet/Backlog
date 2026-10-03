@@ -66,13 +66,17 @@ public sealed class DesktopCompositionOptions
     /// <summary>The feature switches, over <c>AppFeatures.All</c>.</summary>
     public required Func<IServiceProvider, IAppFeatureSettings> FeatureSettings { get; init; }
 
-    /// <summary>Which hours the reader means to be working.</summary>
-    public required Func<IServiceProvider, IWorkingHoursSettings> WorkingHoursSettings { get; init; }
+    /// <summary>Which hours the reader means to be working. The store rather than
+    /// the port: the pace store carries the same week (local ADR 0019) and is built
+    /// over it.</summary>
+    public required Func<IServiceProvider, WorkingHoursSettingsStore> WorkingHoursSettings { get; init; }
 
     /// <summary>When the assistant's weekly allowance resets.</summary>
     public required Func<IServiceProvider, IUsageResetSettings> UsageResetSettings { get; init; }
 
-    /// <summary>The reader's pace, which the roadmap places by.</summary>
+    /// <summary>The reader's pace, which the roadmap places by. It carries the
+    /// working week too, so build it over the registered
+    /// <see cref="WorkingHoursSettingsStore"/>.</summary>
     public required Func<IServiceProvider, PlanningVelocitySettingsStore> PlanningVelocitySettings { get; init; }
 
     /// <summary>Which surface the shell was last showing.</summary>

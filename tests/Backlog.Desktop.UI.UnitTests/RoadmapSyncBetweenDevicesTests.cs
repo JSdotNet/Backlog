@@ -18,6 +18,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
+using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Roadmap;
 
@@ -181,7 +182,7 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         // One plan sized by its effort: 14 points gathered by its tag, nobody started.
         await a.EntryAsync("# Ship the sync\n`task` `!ready` `+ship` `effort:14`\n");
         var imported = await a.Planning(planning => planning.ImportPlanItemsAsync(
-            [new PlanImportEntryDto("Ship", "ship", RepositoryAliases: [])],
+            [new PlanImportEntryDto("Ship", "ship", RepositoryAliases: ["backlog"])],
             cancellationToken: Cancellation));
         Assert.True(imported.IsSuccess);
         Assert.True((await a.SyncAsync()).IsSuccess);
@@ -189,14 +190,14 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
 
         var ship = Assert.Single((await b.Planning(planning => planning.GetPlanAsync())).Items);
         var onB = b.Roadmap();
-        // 14 points at the untouched 7 a week: two weeks.
-        onB.WaitForAssertion(() => Assert.Equal((ship.Start, 14), DrawnWindow(onB, ship.Id)));
+        // 14 points at the untouched 7 a week: two working weeks.
+        onB.WaitForAssertion(() => Assert.Equal(Window(ship.Start, 14, 7m), DrawnWindow(onB, ship.Id)));
 
         await b.AddItemAsync("Edited on B meanwhile");
 
         var onA = a.Roadmap();
         onA.WaitForElement("[data-testid='roadmap-pace-manual'] input").Change("14");
-        onA.WaitForAssertion(() => Assert.Equal((ship.Start, 7), DrawnWindow(onA, ship.Id)));
+        onA.WaitForAssertion(() => Assert.Equal(Window(ship.Start, 14, 14m), DrawnWindow(onA, ship.Id)));
 
         Assert.True((await a.SyncAsync()).IsSuccess);
         Assert.True((await b.SyncAsync()).IsSuccess);
@@ -210,10 +211,81 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
 
         // And B draws what A draws, from the pace alone.
         Assert.Equal(14m, b.Pace.StoryPointsPerWeek);
-        onB.WaitForAssertion(() => Assert.Equal((ship.Start, 7), DrawnWindow(onB, ship.Id)));
+        onB.WaitForAssertion(() => Assert.Equal(Window(ship.Start, 14, 14m), DrawnWindow(onB, ship.Id)));
         Assert.Equal(ship.End, Assert.Single(
             (await b.Planning(planning => planning.GetPlanAsync())).Items,
             item => item.Id == ship.Id).End);
+    }
+
+    /// <summary>
+    /// ADR 0019 Verification 7: A edits the working week and syncs; B pulls, its
+    /// <c>working-hours.json</c> holds A's week, it draws the same bars as A, and the
+    /// working week its dashboard reads outlines the new hours.
+    /// </summary>
+    [Fact]
+    public async Task The_working_week_follows_and_both_devices_draw_the_same_bars()
+    {
+        using var a = Device("a");
+        using var b = Device("b");
+
+        await a.EntryAsync("# Ship the sync\n`task` `!ready` `+ship` `effort:14`\n");
+        var imported = await a.Planning(planning => planning.ImportPlanItemsAsync(
+            [new PlanImportEntryDto("Ship", "ship", RepositoryAliases: ["backlog"])],
+            cancellationToken: Cancellation));
+        Assert.True(imported.IsSuccess);
+        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.True((await b.SyncAsync()).IsSuccess);
+
+        var ship = Assert.Single((await b.Planning(planning => planning.GetPlanAsync())).Items);
+        var onA = a.Roadmap();
+        var onB = b.Roadmap();
+
+        // A keeps a pace of its own, so it has a pace document to carry the week: a
+        // device that never set one sends nothing (ADR 0018 §3, ADR 0019 §3).
+        Assert.Null(a.Pace.Set(14m));
+
+        // A works Monday mornings only, 08:00 to 12:00.
+        var morning = (Start: new TimeOnly(8, 0), End: new TimeOnly(12, 0));
+        Assert.Null(a.Week.SetDay(DayOfWeek.Monday, true, morning.Start, morning.End));
+        foreach (var day in new[] { DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday })
+        {
+            Assert.Null(a.Week.SetDay(day, false, morning.Start, morning.End));
+        }
+
+        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.True((await b.SyncAsync()).IsSuccess);
+
+        Assert.True(WorkingHoursSettingsStore.SameWeek(a.Week.Current, b.Week.Current));
+        Assert.True(WorkingHoursSettingsStore.SameWeek(
+            a.Week.Current, new WorkingHoursSettingsStore(b.WeekPath).Current));
+
+        // The week the dashboard's grid outlines on B is the new one.
+        var dashboardWeek = b.Service<IWorkingHoursSettings>().Current;
+        Assert.True(dashboardWeek.Covers(DayOfWeek.Monday, 8));
+        Assert.False(dashboardWeek.Covers(DayOfWeek.Monday, 14));
+        Assert.False(dashboardWeek.Covers(DayOfWeek.Wednesday, 10));
+
+        // The bar is counted in A's week and at A's pace on both: 14 points at 14 a week
+        // is one of A's weeks — a single Monday — which the default week would not draw.
+        Assert.Equal(14m, b.Pace.StoryPointsPerWeek);
+        var expected = Window(ship.Start, 14, 14m, a.Week.Current);
+        Assert.NotEqual(Window(ship.Start, 14, 14m), expected);
+        onA.WaitForAssertion(() => Assert.Equal(expected, DrawnWindow(onA, ship.Id)));
+        onB.WaitForAssertion(() => Assert.Equal(expected, DrawnWindow(onB, ship.Id)));
+
+        // And A, having pulled nothing newer, still holds its own week at its own stamp.
+        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.True(WorkingHoursSettingsStore.SameWeek(a.Week.Current, b.Week.Current));
+    }
+
+    /// <summary>The window an item sized by its effort draws: its first worked day and
+    /// how many calendar days the hours it needs run to, in the default week unless
+    /// another is given.</summary>
+    private static (DateOnly Start, int Days) Window(DateOnly start, int effort, decimal pace, WorkingHours? week = null)
+    {
+        var counted = week ?? WorkingHours.Default;
+        var from = EffortWindow.FirstWorkedDay(start, counted);
+        return (from, EffortWindow.EndFrom(from, effort, pace, counted).DayNumber - from.DayNumber + 1);
     }
 
     /// <summary>Where a device's chart draws an item: its first day and how many days
@@ -274,7 +346,9 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
             DeviceId = deviceId;
 
             var workspace = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
-            Pace = new PlanningVelocitySettingsStore(Path.Combine(root, "velocity", "planning-velocity.json"));
+            WeekPath = Path.Combine(root, "velocity", "working-hours.json");
+            Week = new WorkingHoursSettingsStore(WeekPath);
+            Pace = new PlanningVelocitySettingsStore(Path.Combine(root, "velocity", "planning-velocity.json"), time: null, Week);
 
             var services = new ServiceCollection();
             services.AddSingleton(workspace);
@@ -282,8 +356,16 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
             services.AddSingleton(_ => new RootedSqliteRoadmapPlanRepository(() => workspace.RootDirectory));
             services.AddSingleton<IRoadmapPlanRepository>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
             services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
-            services.AddSingleton(new GitHubSettingsStore(Path.Combine(root, "github", "github.json")));
+            // Both devices configure the one repository the shared plan is filed under:
+            // the roadmap draws only work filed under a configured repository.
+            var repositories = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
+            var (configured, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+            Assert.Empty(errors);
+            Assert.Null(repositories.SetRepositories(configured));
+            services.AddSingleton(repositories);
             services.AddSingleton(Pace);
+            services.AddSingleton(Week);
+            services.AddSingleton<IWorkingHoursSettings>(Week);
             services.AddTasksAdapters();
             services.AddTasksModule();
             services.AddRoadmapModule();
@@ -312,6 +394,13 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         public Guid DeviceId { get; }
 
         public PlanningVelocitySettingsStore Pace { get; }
+
+        /// <summary>The device's working week, carried with the pace.</summary>
+        public WorkingHoursSettingsStore Week { get; }
+
+        public string WeekPath { get; }
+
+        public T Service<T>() where T : notnull => _provider.GetRequiredService<T>();
 
         public async Task<T> Planning<T>(Func<IRoadmapPlanning, Task<T>> use)
         {

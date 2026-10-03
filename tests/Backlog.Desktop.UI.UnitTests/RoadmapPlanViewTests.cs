@@ -103,27 +103,60 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
-    public void WorkWithNoRepositoryLandsInTheUnfiledBand_Last()
+    public void WorkWithNoRepositoryIsNotDrawn()
     {
         var view = RoadmapPlanView.From(
             Plan([Item("Filed", repositories: ["backlog"]), Item("Not filed")]),
             Configured);
 
-        Assert.Equal(["backlog", RoadmapPlanView.UnfiledGroupId], view.Groups.Select(group => group.Id));
+        Assert.Equal(["backlog"], view.Groups.Select(group => group.Id));
+        Assert.Equal(["Filed"], view.Bars.Select(bar => bar.Title));
     }
 
     [Fact]
-    public void AnAliasThatIsNoLongerConfigured_ReadsAsUnfiledRatherThanMakingItsOwnBand()
+    public void AnAliasThatIsNoLongerConfigured_IsNotDrawnRatherThanMakingABandOfItsOwn()
     {
         var view = RoadmapPlanView.From(Plan([Item("Old work", repositories: ["retired"])]), Configured);
 
-        var band = Assert.Single(view.Groups);
-        Assert.Equal(RoadmapPlanView.UnfiledGroupId, band.Id);
+        Assert.False(view.HasAnythingToDraw);
+        Assert.Empty(view.Bars);
+    }
 
-        // The alias itself is not lost: it is still offered as a filter, so
-        // configuring that repository again puts the work back where it was.
-        var bar = Assert.Single(view.Bars);
-        Assert.Contains(new RoadmapFacet("Repository", "retired"), bar.FacetList);
+    [Fact]
+    public void AnAliasThatIsNoLongerConfigured_ComesBackWhenItsRepositoryIsConfiguredAgain()
+    {
+        var plan = Plan([Item("Old work", repositories: ["retired"])]);
+
+        var view = RoadmapPlanView.From(plan, [.. Configured, new("retired", "JSdotNet/Retired", 3)]);
+
+        Assert.Equal("retired", Assert.Single(view.Groups).Id);
+        Assert.Single(view.Bars);
+    }
+
+    [Fact]
+    public void WorkFiledByARepositorysFullName_LandsInThatRepositorysBand_WhateverItsCase()
+    {
+        // An imported plan may name its repositories in owner/name form rather than by
+        // alias, and in its own casing.
+        var item = Item("Imported", repositories: ["jsdotnet/backlog", "JSDOTNET/FINCENT"]);
+
+        var view = RoadmapPlanView.From(Plan([item]), Configured);
+
+        Assert.Equal(["backlog", "fincent"], view.Groups.Select(group => group.Id));
+        Assert.Equal(2, view.Bars.Count);
+        Assert.All(view.Bars, bar => Assert.Contains(bar.FacetList, facet => facet.Name == "Repository"
+            && (facet.Value == "JSdotNet/Backlog" || facet.Value == "JSdotNet/Fincent")));
+    }
+
+    [Fact]
+    public void WorkNamingOneConfiguredAndOneUnknownRepository_IsDrawnInTheConfiguredBandAlone()
+    {
+        var view = RoadmapPlanView.From(
+            Plan([Item("Half known", repositories: ["backlog", "retired"])]),
+            Configured);
+
+        Assert.Equal("backlog", Assert.Single(view.Groups).Id);
+        Assert.Single(view.Bars);
     }
 
     [Fact]
@@ -435,20 +468,6 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
-    public void TheUnfiledBandTakesNoColour_BecauseItIsNotAProject()
-    {
-        var view = RoadmapPlanView.From(
-            Plan([Item("Filed", repositories: ["backlog"]), Item("Not filed")]),
-            Configured);
-
-        var unfiled = view.Groups.Single(band => band.Id == RoadmapPlanView.UnfiledGroupId);
-
-        // A neutral band reads as "nobody said" rather than as one more project.
-        Assert.Null(unfiled.Color);
-        Assert.Equal("var(--color-band-1)", view.Groups[0].Color);
-    }
-
-    [Fact]
     public void ARepositoryKeepsItsHueWhetherOrNotItsNeighboursHaveWork()
     {
         // Only the second repository has work in it, and it still draws in its own hue
@@ -602,13 +621,12 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
-    public void WithNoRepositoriesConfiguredAtAll_TheWholePlanReadsAsUnfiled()
+    public void WithNoRepositoriesConfiguredAtAll_NoWorkIsDrawn()
     {
         var view = RoadmapPlanView.From(Plan([Item("Work", repositories: ["backlog"])]), []);
 
-        var band = Assert.Single(view.Groups);
-        Assert.Equal(RoadmapPlanView.UnfiledGroupId, band.Id);
-        Assert.Single(view.Bars);
+        Assert.False(view.HasAnythingToDraw);
+        Assert.Empty(view.Bars);
     }
 
     [Fact]
@@ -649,7 +667,7 @@ public class RoadmapPlanViewTests
     public void AFinishedItem_IsDrawnFromItsFirstStartToItsLastCompletion_AndLocked()
     {
         // Planned 5–9 January; the work actually ran 12 December to 20 January.
-        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto(
+        var bar = Drawn(Item("Plan", repositories: ["backlog"]), new RoadmapItemRollupDto(
         [
             Worked("a", RoadmapProgress.Done, started: new DateOnly(2025, 12, 12), completed: new DateOnly(2026, 1, 2)),
             Worked("b", RoadmapProgress.Done, started: new DateOnly(2026, 1, 3), completed: new DateOnly(2026, 1, 20))
@@ -663,7 +681,7 @@ public class RoadmapPlanViewTests
     [Fact]
     public void AFinishedItem_WhoseTasksPredateTheStartedStamp_StartsWhenTheFirstWasCreated()
     {
-        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto(
+        var bar = Drawn(Item("Plan", repositories: ["backlog"]), new RoadmapItemRollupDto(
         [
             Worked("a", RoadmapProgress.Done, completed: new DateOnly(2026, 1, 7), created: new DateOnly(2026, 1, 1)),
             Worked("b", RoadmapProgress.Done, started: new DateOnly(2026, 1, 3), completed: new DateOnly(2026, 1, 8))
@@ -676,7 +694,7 @@ public class RoadmapPlanViewTests
     [Fact]
     public void AFinishedItem_NobodyTicked_KeepsThePlannedEnd()
     {
-        var bar = Drawn(Item("Plan", startDay: 5, endDay: 9), new RoadmapItemRollupDto(
+        var bar = Drawn(Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"]), new RoadmapItemRollupDto(
             [Worked("a", RoadmapProgress.Done, started: new DateOnly(2026, 1, 2))], []));
 
         Assert.Equal(new DateOnly(2026, 1, 2), bar.Start);
@@ -686,7 +704,7 @@ public class RoadmapPlanViewTests
     [Fact]
     public void AnItemWithWorkStillOpen_IsDrawnWhereItWasPlanned_AndCanBeMoved()
     {
-        var bar = Drawn(Item("Plan", startDay: 5, endDay: 9), new RoadmapItemRollupDto(
+        var bar = Drawn(Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"]), new RoadmapItemRollupDto(
         [
             Worked("a", RoadmapProgress.Done, started: new DateOnly(2025, 12, 1), completed: new DateOnly(2025, 12, 20)),
             Worked("b", RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 2))
@@ -699,17 +717,68 @@ public class RoadmapPlanViewTests
 
     // --- Drawn from the work, forecast at the pace in use ------------------------
 
-    // Saturday 10 January 2026, and a backlog pace of 7 points a week: a point a day.
+    // Saturday 10 January 2026, and a backlog pace of 7 points a week counted in a week
+    // that works every day alike: a point a day, so the forecast's own rules read in
+    // whole days. The working week's own rules are pinned below with the default week.
+    private static readonly SharedKernel.WorkingHours EveryDayAlike = new()
+    {
+        Days = [.. SharedKernel.WorkingHours.Week.Select(day => new SharedKernel.WorkingDay(day, true, new TimeOnly(9, 0), new TimeOnly(17, 0)))]
+    };
+
     private static readonly RoadmapForecast Forecast = new(
         new DateOnly(2026, 1, 10),
-        new PacesInUseDto(14m, new Dictionary<string, decimal> { ["backlog"] = 7m }));
+        new PacesInUseDto(14m, new Dictionary<string, decimal> { ["backlog"] = 7m }) { Week = EveryDayAlike });
 
     private static RoadmapBar Forecasted(RoadmapItemDto item, params RoadmapGatheredLink[] links) =>
+        Forecasted(Forecast, item, links);
+
+    private static RoadmapBar Forecasted(RoadmapForecast forecast, RoadmapItemDto item, params RoadmapGatheredLink[] links) =>
         Assert.Single(RoadmapPlanView.From(
             Plan([item]),
             Configured,
             new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = new(links, []) },
-            forecast: Forecast).Bars);
+            forecast: forecast).Bars);
+
+    /// <summary>The same Saturday, counted in the default week.</summary>
+    private static readonly RoadmapForecast OnTheDefaultWeek = Forecast with
+    {
+        Paces = Forecast.Paces with { Week = SharedKernel.WorkingHours.Default }
+    };
+
+    /// <summary>Local ADR 0019: work in flight on a Saturday is forecast from the
+    /// Monday, counting the working hours — 3 points at 7 a week need 18.2 hours, so the
+    /// Monday, the Tuesday and into the Wednesday.</summary>
+    [Fact]
+    public void AnItemInFlight_IsForecastThroughTheWorkingWeek()
+    {
+        var bar = Forecasted(
+            OnTheDefaultWeek,
+            Item("Plan", startDay: 5, endDay: 31, repositories: ["backlog"]),
+            Sized("a", 3, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 6)));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 14), bar.End);
+    }
+
+    /// <summary>Local ADR 0019 Verification 1, as drawn: an item nobody started, sized
+    /// by its effort, 10 points at 5 a week from a Monday, ends on the next week's
+    /// Friday.</summary>
+    [Fact]
+    public void AnEffortPlacedItemNobodyStarted_IsDrawnThroughTheWorkingWeek()
+    {
+        var forecast = OnTheDefaultWeek with
+        {
+            Paces = OnTheDefaultWeek.Paces with { ByRepository = new Dictionary<string, decimal> { ["backlog"] = 5m } }
+        };
+
+        var bar = Forecasted(
+            forecast,
+            Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort),
+            Sized("a", 10, RoadmapProgress.Planned));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 16), bar.End);
+    }
 
     private static RoadmapGatheredLink Sized(
         string key,
@@ -892,11 +961,12 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
-    public void AnEffortPlacedItemNobodyStarted_WithNoRepository_IsDrawnAtTheGlobalPace()
+    public void AnEffortPlacedItemNobodyStarted_InARepositoryWithNoPaceOfItsOwn_IsDrawnAtTheGlobalPace()
     {
-        // 14 points at the global 14 a week: a week, the 5th to the 11th.
+        // Fincent has no pace in the forecast, so 14 points go at the global 14 a week:
+        // a week, the 5th to the 11th.
         var bar = Forecasted(
-            Item("Plan", startDay: 5, endDay: 31, placedBy: ImportPlacement.Effort),
+            Item("Plan", startDay: 5, endDay: 31, repositories: ["fincent"], placedBy: ImportPlacement.Effort),
             Sized("a", 14, RoadmapProgress.Planned));
 
         Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
@@ -909,7 +979,7 @@ public class RoadmapPlanViewTests
         var item = Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort);
         var bar = Forecasted(item, Sized("a", 3, RoadmapProgress.Ready), Sized("b", null, RoadmapProgress.Ready));
 
-        Assert.Equal(item.Start.AddDays(EffortWindow.Days(3, 7m) - 1), bar.End);
+        Assert.Equal(EffortWindow.EndFrom(item.Start, 3, 7m, Forecast.Paces.Week), bar.End);
     }
 
     [Fact]
@@ -969,11 +1039,12 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
-    public void AnItemInFlight_WithNoRepository_IsForecastAtTheGlobalPace()
+    public void AnItemInFlight_InARepositoryWithNoPaceOfItsOwn_IsForecastAtTheGlobalPace()
     {
-        // Two points a day globally: 4 points left is 2 days, the 10th and 11th.
+        // Fincent has no pace in the forecast. Two points a day globally: 4 points left
+        // is 2 days, the 10th and 11th.
         var bar = Forecasted(
-            Item("Plan", startDay: 5, endDay: 31),
+            Item("Plan", startDay: 5, endDay: 31, repositories: ["fincent"]),
             Sized("a", 1, RoadmapProgress.Done, started: new DateOnly(2026, 1, 6), completed: new DateOnly(2026, 1, 7)),
             Sized("b", 4, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 8)));
 
@@ -981,12 +1052,26 @@ public class RoadmapPlanViewTests
         Assert.Equal(new DateOnly(2026, 1, 11), bar.End);
     }
 
+    [Theory]
+    [InlineData("JSdotNet/Backlog")]
+    [InlineData("jsdotnet/backlog")]
+    public void AnItemInFlight_FiledByItsRepositorysFullName_IsForecastAtThatRepositorysPace(string filedAs)
+    {
+        // A point a day in Backlog, against two globally: 4 points left is the 10th to
+        // the 13th. Filed by full name it is still Backlog's work, at Backlog's pace.
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 31, repositories: [filedAs]),
+            Sized("b", 4, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 8)));
+
+        Assert.Equal(new DateOnly(2026, 1, 13), bar.End);
+    }
+
     [Fact]
     public void AnItemsStepsAreItsGatheredTasksInDependencyOrder()
     {
         // Handed in backwards: c waits on b, b waits on a. Drawn a, b, c, with the
         // free-standing d keeping its place among the ties.
-        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto(
+        var bar = Drawn(Item("Plan", repositories: ["backlog"]), new RoadmapItemRollupDto(
             [Task("c", after: "b"), Task("d"), Task("b", after: "a"), Task("a")],
             []));
 
@@ -996,7 +1081,7 @@ public class RoadmapPlanViewTests
     [Fact]
     public void AStepSaysWhatItWaitsForByTitle()
     {
-        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto([Task("a"), Task("b", after: "a")], []));
+        var bar = Drawn(Item("Plan", repositories: ["backlog"]), new RoadmapItemRollupDto([Task("a"), Task("b", after: "a")], []));
 
         Assert.Equal("After A", bar.StepList[1].Detail);
         Assert.Null(bar.StepList[0].Detail);
@@ -1005,7 +1090,7 @@ public class RoadmapPlanViewTests
     [Fact]
     public void KnowledgeChaptersAreNotStepsAndDoNotMoveTheFill()
     {
-        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto(
+        var bar = Drawn(Item("Plan", repositories: ["backlog"]), new RoadmapItemRollupDto(
             [Task("a", effort: 2, progress: RoadmapProgress.Done), Task("b", effort: 2)],
             [new RoadmapGatheredLink("chapter.md#x", "Chapter", null, RollupOrigin.Tag)]));
 
@@ -1026,7 +1111,7 @@ public class RoadmapPlanViewTests
     [Fact]
     public void AnItemWithNoRollupDrawsWithNoSteps()
     {
-        var view = RoadmapPlanView.From(Plan([Item("Plan")]), Configured);
+        var view = RoadmapPlanView.From(Plan([Item("Plan", repositories: ["backlog"])]), Configured);
 
         Assert.False(Assert.Single(view.Bars).HasSteps);
     }
@@ -1036,7 +1121,7 @@ public class RoadmapPlanViewTests
     [Fact]
     public void AnItemNoTaskCarriesOutIsDrawnAsIntentAndSaysSo()
     {
-        var bar = Drawn(Item("Plan"), RoadmapItemRollupDto.Empty);
+        var bar = Drawn(Item("Plan", repositories: ["backlog"]), RoadmapItemRollupDto.Empty);
 
         Assert.True(bar.Tentative);
         Assert.Contains("no task yet", bar.Detail);
@@ -1045,7 +1130,7 @@ public class RoadmapPlanViewTests
     [Fact]
     public void AnItemWithATaskIsDrawnAsWork()
     {
-        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto([Task("a")], []));
+        var bar = Drawn(Item("Plan", repositories: ["backlog"]), new RoadmapItemRollupDto([Task("a")], []));
 
         Assert.False(bar.Tentative);
         Assert.DoesNotContain("no task yet", bar.Detail);
@@ -1054,7 +1139,7 @@ public class RoadmapPlanViewTests
     [Fact]
     public void AnItemThatGatheredOnlyKnowledgeStillHasNoTask()
     {
-        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto(
+        var bar = Drawn(Item("Plan", repositories: ["backlog"]), new RoadmapItemRollupDto(
             [], [new RoadmapGatheredLink("chapter.md#x", "Chapter", null, RollupOrigin.Tag)]));
 
         Assert.True(bar.Tentative);
@@ -1063,7 +1148,7 @@ public class RoadmapPlanViewTests
     [Fact]
     public void WithoutTheGatheredWorkNothingIsClaimedAboutTasks()
     {
-        var view = RoadmapPlanView.From(Plan([Item("Plan")]), Configured);
+        var view = RoadmapPlanView.From(Plan([Item("Plan", repositories: ["backlog"])]), Configured);
 
         Assert.False(Assert.Single(view.Bars).Tentative);
     }

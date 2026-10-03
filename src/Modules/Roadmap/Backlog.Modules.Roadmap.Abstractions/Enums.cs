@@ -75,13 +75,13 @@ public enum PaceSource
     /// <summary>The figure the reader typed.</summary>
     Manual,
 
-    /// <summary>Effort finished over the last two weeks, per day.</summary>
+    /// <summary>Effort finished over the last two weeks, per working week.</summary>
     LastTwoWeeks,
 
-    /// <summary>Effort finished over the last four weeks, per day.</summary>
+    /// <summary>Effort finished over the last four weeks, per working week.</summary>
     LastFourWeeks,
 
-    /// <summary>Effort finished over the last eight weeks, per day.</summary>
+    /// <summary>Effort finished over the last eight weeks, per working week.</summary>
     LastEightWeeks,
 
     /// <summary>The scope's own pace, set by hand on its slider. Appended after the

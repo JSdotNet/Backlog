@@ -292,29 +292,36 @@ public sealed class DevbookStackLayoutTests
 
         var frame = RuleBody(css, ".roadmap-band__timeline .roadmap-timeline__frame {");
         Assert.Contains("min-height: 0;", frame, StringComparison.Ordinal);
+        // The frame scrolls nothing itself; the track does, in both directions.
+        Assert.DoesNotContain("overflow-y", frame, StringComparison.Ordinal);
+
         // `auto`, not `scroll`: a plan that fits shows no scrollbar at all.
-        Assert.Contains("overflow-y: auto;", frame, StringComparison.Ordinal);
+        var track = RuleBody(css, ".roadmap-band__timeline .roadmap-timeline__scroll {");
+        Assert.Contains("overflow-y: auto;", track, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// The chart's two columns are each as tall as the frame or their own rows, whichever
-    /// is taller. Stretched, both were clamped to the frame's visible height: the track
-    /// clipped its last lanes, and scrolled down the horizontal scrollbar sat mid-chart
-    /// over blank lanes. With the frame's height as a minimum, a short plan still puts the
-    /// scrollbar on the frame's bottom edge.
+    /// A plan taller than the band keeps its horizontal scrollbar and its week ruler in
+    /// view. When the frame scrolled the rows, the scrollbar sat under the last lane and
+    /// the ruler above the first. The track scrolls both ways instead, the ruler sticks to
+    /// its top, and the names column scrolls with it — hiding its own scrollbar, and padded
+    /// by the track's scrollbar height so both end on the same lane.
     /// </summary>
     [Fact]
-    public void The_roadmap_columns_grow_with_their_rows_and_keep_the_scrollbar_at_the_bottom()
+    public void The_roadmap_keeps_its_horizontal_scrollbar_and_week_ruler_in_view()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        var frame = RuleBody(css, ".roadmap-band__timeline .roadmap-timeline__frame {");
-        Assert.Contains("align-items: flex-start;", frame, StringComparison.Ordinal);
+        var sidebar = RuleBody(css, ".roadmap-band__timeline .roadmap-timeline__sidebar {");
+        Assert.Contains("overflow-y: auto;", sidebar, StringComparison.Ordinal);
+        Assert.Contains("scrollbar-width: none;", sidebar, StringComparison.Ordinal);
+        Assert.Contains("padding-bottom: var(--roadmap-scrollbar-height, 0px);", sidebar, StringComparison.Ordinal);
 
-        var columns = RuleBody(
+        var ruler = RuleBody(
             css,
-            ".roadmap-band__timeline .roadmap-timeline__sidebar,\n.roadmap-band__timeline .roadmap-timeline__scroll {");
-        Assert.Contains("min-height: 100%;", columns, StringComparison.Ordinal);
+            ".roadmap-band__timeline .roadmap-timeline__axis,\n.roadmap-band__timeline .roadmap-timeline__sidebar-axis {");
+        Assert.Contains("position: sticky;", ruler, StringComparison.Ordinal);
+        Assert.Contains("top: 0;", ruler, StringComparison.Ordinal);
     }
 
     /// <summary>

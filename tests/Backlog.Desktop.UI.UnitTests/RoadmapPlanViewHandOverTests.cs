@@ -50,7 +50,8 @@ public class RoadmapPlanViewHandOverTests
     public void AnItemInFlight_DrawsItsDoneSegmentsWhereTheyRan_AndOnlyTheOpenOnesForward()
     {
         // Planned across all of January; backlog and fincent finished their parts in
-        // the first week, and one point is left in backlog. Today is the 10th.
+        // the first week, and one point is left in backlog. Today is Saturday the 10th,
+        // so the point left is forecast for Monday the 12th, the first worked day.
         var item = Item();
         var rollups = new Dictionary<Guid, RoadmapItemRollupDto>
         {
@@ -70,7 +71,7 @@ public class RoadmapPlanViewHandOverTests
 
         var bars = view.Bars.OrderBy(bar => bar.Start).ToList();
         Assert.Equal(
-            [(1, 2), (3, 4), (10, 10)],
+            [(1, 2), (3, 4), (12, 12)],
             bars.Select(bar => (bar.Start.Day, bar.End.Day)));
         Assert.All(bars, bar => Assert.True(bar.Locked));
     }

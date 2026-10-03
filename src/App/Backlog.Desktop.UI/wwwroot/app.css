@@ -5169,23 +5169,44 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
-/* The scrollbar goes where the rows are. A plan that fits shows none — `auto`, not
-   `scroll`. */
+/* The frame is the band's height and scrolls nothing itself. When it scrolled the
+   rows, the track's horizontal scrollbar sat under the last lane and the week ruler
+   above the first, so a tall plan put both out of view.
+
+   The track scrolls both ways instead, which keeps its horizontal scrollbar on the
+   frame's bottom edge and lets the ruler stick to its top. The names column scrolls
+   with it — the timeline script mirrors the track's scrollTop onto it — and hides a
+   scrollbar of its own, so there is one vertical scrollbar, at the right. A plan
+   that fits shows none — `auto`, not `scroll`. */
 .roadmap-band__timeline .roadmap-timeline__frame {
-    align-items: flex-start;
     min-height: 0;
-    overflow-y: auto;
-    scrollbar-width: thin;
 }
 
-/* The two columns are each the frame's height or their rows', whichever is taller.
-   Stretched, a flex line in a frame of fixed height is that height: the track clipped
-   its last lanes, and scrolled down its horizontal scrollbar sat mid-chart over them.
-   The frame's height as a floor keeps that scrollbar on the frame's bottom edge when
-   the plan is short. */
-.roadmap-band__timeline .roadmap-timeline__sidebar,
 .roadmap-band__timeline .roadmap-timeline__scroll {
-    min-height: 100%;
+    overflow-y: auto;
+}
+
+/* The track's horizontal scrollbar is height the names column does not have, so its
+   rows could never scroll as far as the track's. The script publishes that height
+   and the column takes it as padding, so the two end on the same lane. */
+.roadmap-band__timeline .roadmap-timeline__sidebar {
+    overflow-y: auto;
+    scrollbar-width: none;
+    padding-bottom: var(--roadmap-scrollbar-height, 0px);
+}
+
+.roadmap-band__timeline .roadmap-timeline__sidebar::-webkit-scrollbar {
+    display: none;
+}
+
+/* The week ruler and the blank cell beside it, held at the top while the rows
+   scroll under them. Above the bars, which lift themselves while dragged. */
+.roadmap-band__timeline .roadmap-timeline__axis,
+.roadmap-band__timeline .roadmap-timeline__sidebar-axis {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: var(--color-background);
 }
 
 /* The chart's heading row, once it is carrying the view's own heading: the heading
@@ -6088,6 +6109,26 @@ h1, h2, h3 {
 
 .pull-requests-table__branch {
     max-width: 18rem;
+}
+
+/* The link is the clamp: its title span already ellipsizes, but an inline-flex
+   link grows to whatever its content asks, so one long title set the whole
+   table's width and pushed Task and Session off the right edge. The full title
+   stays in the link's own tooltip. */
+.pull-requests-table__link {
+    max-width: 26rem;
+}
+
+/* A task title or a worktree-named session runs as long as a pull request title
+   and is worth less of the row, so it is cut sooner. */
+.pull-requests-table__reference .integration-link {
+    max-width: 16rem;
+}
+
+.pull-requests-table__reference .integration-link__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 /* The state chip and the badges after it wrap as a group, never one word per line.

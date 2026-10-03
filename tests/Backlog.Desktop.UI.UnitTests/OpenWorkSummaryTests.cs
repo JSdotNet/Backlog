@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// The open-work summary at the end of the filter bar, and the report it opens.
 /// <para>
 /// The numbers are taken over the rows the repository scope leaves in view —
-/// the pool the chips count — so a status, tag, My Day or Not waiting filter
+/// the pool the chips count — so a status, tag, My Day or Ready-in-a-plan filter
 /// changes the list and never the total. <c>OpenWorkReportTests</c> covers the
 /// arithmetic; this covers what the pane feeds it and what pressing it does.
 /// </para>
@@ -85,7 +85,7 @@ public sealed class OpenWorkSummaryTests
         Assert.Equal(expected, pane.Find(Summary).TextContent.Trim());
 
         host.State.ToggleTagFilter("infra");
-        host.State.SetNotWaitingFilter(true);
+        host.State.SetReadyInPlanFilter(true);
         host.State.SetMyDayFilter(new DateOnly(2026, 9, 24));
         pane.Render();
         Assert.Equal(expected, pane.Find(Summary).TextContent.Trim());

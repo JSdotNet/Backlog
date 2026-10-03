@@ -257,6 +257,31 @@ public sealed class RoadmapGraduatedAxisTests
     }
 
     [Fact]
+    public void AGraduatedTimeline_ShadesItsWeekendDays_AndNoCoarserColumn()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = RenderPlan(context);
+
+        // Given no working week, the days off are the weekend (local ADR 0019 shades the
+        // week's own days off when one is given). The days run 14 September to 4 October:
+        // three weekends, six days.
+        var heads = view.FindAll(".roadmap-timeline__quarter--weekend");
+        Assert.Equal(6, heads.Count);
+        Assert.All(heads, head => Assert.Contains("roadmap-timeline__quarter--day", head.ClassList));
+        Assert.Equal(["19", "20", "26", "27", "3", "4"], heads.Select(head => head.QuerySelector(".roadmap-timeline__quarter-label")!.TextContent.Trim()));
+
+        // Shaded down the chart too, each a day wide where its head is.
+        var bands = view.FindAll(".roadmap-timeline__weekend");
+        Assert.Equal(6, bands.Count);
+        Assert.Equal(
+            heads.Select(head => LeftOf(head.GetAttribute("style")!)),
+            bands.Select(band => LeftOf(band.GetAttribute("style")!)));
+        Assert.All(bands, band => Assert.Contains("width: 2rem", band.GetAttribute("style")));
+    }
+
+    [Fact]
     public void AMeasuredScroller_StretchesTheChart_SoFromLastWeekOnItFillsTheWidth()
     {
         using var context = new BunitContext();
@@ -294,6 +319,103 @@ public sealed class RoadmapGraduatedAxisTests
 
         var scroll = context.JSInterop.Invocations.Last(invocation => invocation.Identifier == "backlogRoadmapTimeline.scrollTo");
         Assert.True((double)scroll.Arguments[1]! > 0, "History before this week sits to the left of where the chart opens.");
+    }
+
+    // --- Resizing snaps to the columns ----------------------------------------
+
+    [Fact]
+    public void TheColumnBoundaries_AreEveryColumnStart_AndTheDayAfterTheLast()
+    {
+        var window = Window(new DateOnly(2026, 10, 1), new DateOnly(2026, 12, 15));
+        var lines = window.ColumnBoundaries;
+
+        Assert.Equal(window.Start, lines[0]);
+        Assert.Equal(window.End.AddDays(1), lines[^1]);
+        Assert.Equal(window.Columns.Count + 1, lines.Count);
+
+        // A line every day around today, every week beyond, then a month.
+        Assert.Contains(new DateOnly(2026, 9, 24), lines);
+        Assert.Contains(new DateOnly(2026, 9, 25), lines);
+        Assert.DoesNotContain(new DateOnly(2026, 10, 6), lines);
+        Assert.Contains(new DateOnly(2026, 10, 12), lines);
+        Assert.Contains(new DateOnly(2026, 11, 1), lines);
+        Assert.DoesNotContain(new DateOnly(2026, 11, 2), lines);
+    }
+
+    [Fact]
+    public void AnEdgeAmongTheDays_MovesADayAStep()
+    {
+        var lines = Window(new DateOnly(2026, 12, 15)).ColumnBoundaries;
+        var bar = new RoadmapBar("d", "row", "D", new DateOnly(2026, 9, 21), new DateOnly(2026, 9, 25));
+
+        var later = RoadmapChange.For(bar, RoadmapDrag.ResizeEnd, 1, null, DayOfWeek.Monday, lines);
+        var sooner = RoadmapChange.For(bar, RoadmapDrag.ResizeEnd, -2, null, DayOfWeek.Monday, lines);
+        var earlier = RoadmapChange.For(bar, RoadmapDrag.ResizeStart, -1, null, DayOfWeek.Monday, lines);
+
+        Assert.Equal(new DateOnly(2026, 9, 26), later!.End);
+        Assert.Equal(new DateOnly(2026, 9, 23), sooner!.End);
+        Assert.Equal(new DateOnly(2026, 9, 20), earlier!.Start);
+        Assert.Equal(bar.End, earlier.End);
+    }
+
+    [Fact]
+    public void AnEdgeAmongTheMonths_MovesToTheNextMonth_AndAnEdgeBetweenLinesReachesTheNearerOneFirst()
+    {
+        var lines = Window(new DateOnly(2027, 2, 15)).ColumnBoundaries;
+
+        // Ends on Friday 20 November, mid-month: one step out is the end of
+        // November, two the end of December.
+        var bar = new RoadmapBar("c", "row", "C", new DateOnly(2026, 11, 2), new DateOnly(2026, 11, 20));
+
+        Assert.Equal(new DateOnly(2026, 11, 30), RoadmapChange.For(bar, RoadmapDrag.ResizeEnd, 1, null, DayOfWeek.Monday, lines)!.End);
+        Assert.Equal(new DateOnly(2026, 12, 31), RoadmapChange.For(bar, RoadmapDrag.ResizeEnd, 2, null, DayOfWeek.Monday, lines)!.End);
+
+        // A start on the 2nd steps back to the 1st, not a whole month further.
+        Assert.Equal(new DateOnly(2026, 11, 1), RoadmapChange.For(bar, RoadmapDrag.ResizeStart, -1, null, DayOfWeek.Monday, lines)!.Start);
+    }
+
+    [Fact]
+    public void AnEdgePulledPastTheOppositeEdge_ClampsToTheShortestBarTheColumnsAllow()
+    {
+        var lines = Window(new DateOnly(2027, 2, 15)).ColumnBoundaries;
+        var bar = new RoadmapBar("c", "row", "C", new DateOnly(2026, 11, 2), new DateOnly(2026, 11, 20));
+
+        var end = RoadmapChange.For(bar, RoadmapDrag.ResizeEnd, -3, null, DayOfWeek.Monday, lines);
+        var start = RoadmapChange.For(bar, RoadmapDrag.ResizeStart, 3, null, DayOfWeek.Monday, lines);
+
+        Assert.Equal(bar.Start, end!.End);
+        Assert.Equal(bar.End, start!.Start);
+    }
+
+    [Fact]
+    public void ShiftAndAnArrow_OnAGraduatedAxis_MovesTheEndByAColumn()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        RoadmapChange? reported = null;
+
+        var view = context.Render<RoadmapTimeline>(parameters => parameters
+            .Add(timeline => timeline.Groups, [new RoadmapGroup("g", "g", [new RoadmapRow("row", "Row")])])
+            .Add(timeline => timeline.Bars, [new RoadmapBar("d", "row", "D", new DateOnly(2026, 9, 21), new DateOnly(2026, 9, 25))])
+            .Add(timeline => timeline.Today, Today)
+            .Add(timeline => timeline.Graduated, true)
+            .Add(timeline => timeline.TestId, "rm")
+            .Add(timeline => timeline.OnBarChanged, (RoadmapChange change) => reported = change));
+
+        // The script reads where the lines are from the track, and where the edge is
+        // from its grip.
+        Assert.False(string.IsNullOrEmpty(view.Find(".roadmap-timeline__track").GetAttribute("data-roadmap-snaps")));
+        Assert.False(string.IsNullOrEmpty(view.Find("[data-roadmap-grip='end']").GetAttribute("data-roadmap-edge-rem")));
+
+        var bar = view.Find("[data-testid='rm-bar-d'] .roadmap-bar__body");
+
+        bar.KeyDown(new KeyboardEventArgs { Key = " " });
+        bar.KeyDown(new KeyboardEventArgs { Key = "ArrowRight", ShiftKey = true });
+        bar.KeyDown(new KeyboardEventArgs { Key = " " });
+
+        Assert.NotNull(reported);
+        Assert.Equal(RoadmapDrag.ResizeEnd, reported.Kind);
+        Assert.Equal(new DateOnly(2026, 9, 26), reported.End);
     }
 
     private static IRenderedComponent<RoadmapTimeline> RenderPlan(BunitContext context, params RoadmapBar[] extra) =>

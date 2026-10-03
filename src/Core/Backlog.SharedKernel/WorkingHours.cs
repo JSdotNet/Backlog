@@ -13,15 +13,16 @@ namespace Backlog.SharedKernel;
 public sealed record WorkingDay(DayOfWeek Day, bool Working, TimeOnly Start, TimeOnly End);
 
 /// <summary>
-/// The reader's own working week, as a personal preference rather than anything the data
+/// The person's own working week, as a personal preference rather than anything the data
 /// knows.
 /// <para>
-/// Presentation only, and that is a deliberate limit. Nothing here changes a figure:
-/// agent-active time is agent-active time whether it happened at eleven in the morning or
-/// eleven at night, and a surface that quietly excluded out-of-hours work would be
-/// answering a different question from the one its tile is named for. What this does is
-/// let a grid say which hours were meant to be worked, so the reader can see the
-/// difference themselves.
+/// Two readers, two uses. The dashboard reads it for presentation only: agent-active time
+/// is agent-active time whether it happened at eleven in the morning or eleven at night,
+/// so its grids outline the hours meant to be worked and change no figure. The roadmap
+/// reads it as a count of hours (local ADR 0019): an effort window counts the working
+/// hours forward from its start, skipping the days not worked, and a measured pace is
+/// counted over the same hours. One week per person, which the roadmap's pace document
+/// carries between devices.
 /// </para>
 /// <para>
 /// Seven independent days rather than one range and a set of working days, because the
@@ -106,6 +107,112 @@ public sealed record WorkingHours
         return beganByTheEndOfTheHour && ranPastTheStartOfIt;
     }
 
+    /// <summary>
+    /// Whether <paramref name="day"/> is worked: the week marks it worked and its end is
+    /// after its start. A day ending at or before it starts is not worked, as
+    /// <see cref="Covers"/> already reads it.
+    /// </summary>
+    public bool IsWorked(DayOfWeek day)
+    {
+        var working = On(day);
+        return working.Working && working.End > working.Start;
+    }
+
+    /// <summary>How long <paramref name="day"/> is worked; zero for a day not worked.
+    /// A span rather than a number of hours, so a sum of days stays exact: a day of
+    /// 8h20m is no finite decimal of hours.</summary>
+    public TimeSpan WorkedOn(DayOfWeek day) =>
+        IsWorked(day) ? On(day).End - On(day).Start : TimeSpan.Zero;
+
+    /// <summary>How long the whole week is worked — 42.5 hours on
+    /// <see cref="Default"/>.</summary>
+    public TimeSpan PerWeek => TimeSpan.FromTicks(Week.Sum(day => WorkedOn(day).Ticks));
+
+    /// <summary>
+    /// This week, or <see cref="Default"/> when it holds no working hours at all
+    /// (local ADR 0019, §2). A week that works nothing cannot size a window or divide a
+    /// pace; the settings screen refuses to make one a day at a time, so it takes a
+    /// hand-edited file or every day switched off.
+    /// </summary>
+    public WorkingHours Effective => PerWeek > TimeSpan.Zero ? this : Default;
+
+    /// <summary>The first worked day on or after <paramref name="day"/>, in the
+    /// <see cref="Effective"/> week — where work counted from <paramref name="day"/>
+    /// starts.</summary>
+    public DateOnly FirstWorkedDay(DateOnly day)
+    {
+        var effective = Effective;
+
+        // The effective week works at least one day, so seven steps always find it.
+        for (var offset = 0; offset < 7 && day.DayNumber + offset <= DateOnly.MaxValue.DayNumber; offset++)
+        {
+            var candidate = day.AddDays(offset);
+            if (effective.IsWorked(candidate.DayOfWeek)) return candidate;
+        }
+
+        return day;
+    }
+
+    /// <summary>
+    /// The day <paramref name="amount"/> at <paramref name="perWeek"/> a working week
+    /// runs out, counted from <paramref name="start"/> (local ADR 0019): the
+    /// <see cref="Effective"/> week's hours × the amount ÷ the rate, multiplied before
+    /// dividing so an amount equal to the rate is exactly one week. See
+    /// <see cref="LastDayOf(DateOnly, TimeSpan)"/> for how the hours are counted.
+    /// </summary>
+    /// <param name="perWeek">How much a working week gets through; always positive.</param>
+    public DateOnly LastDayOf(DateOnly start, decimal amount, decimal perWeek)
+    {
+        if (perWeek <= 0) throw new ArgumentOutOfRangeException(nameof(perWeek), perWeek, "A rate is always positive.");
+
+        return LastDayOf(start, amount * Effective.PerWeek.Ticks / perWeek);
+    }
+
+    /// <summary>
+    /// The day <paramref name="needed"/> working time runs out, counted from
+    /// <paramref name="start"/> through the <see cref="Effective"/> week: from the first
+    /// worked day on or after the start, each worked day takes its whole hours, and the
+    /// last is the day nothing is left. A day counts whole, so the start day is never
+    /// skipped, and days not worked add nothing.
+    /// </summary>
+    public DateOnly LastDayOf(DateOnly start, TimeSpan needed) => LastDayOf(start, (decimal)needed.Ticks);
+
+    /// <summary>
+    /// The walk itself, in ticks so a sum of days stays exact. Whole weeks are skipped
+    /// first — any seven days in a row hold the whole week's hours — so an absurd amount
+    /// costs no more than a small one, and is clamped to the calendar's last day.
+    /// </summary>
+    private DateOnly LastDayOf(DateOnly start, decimal neededTicks)
+    {
+        var effective = Effective;
+        var perWeek = (decimal)effective.PerWeek.Ticks;
+
+        long day = FirstWorkedDay(start).DayNumber;
+        var left = neededTicks;
+
+        if (left > perWeek)
+        {
+            // Leave at most one week to walk, and never nothing: the walk ends on a
+            // worked day.
+            var weeks = Math.Ceiling(left / perWeek) - 1;
+            if (day + weeks * 7 > DateOnly.MaxValue.DayNumber) return DateOnly.MaxValue;
+
+            day += (long)(weeks * 7);
+            left -= weeks * perWeek;
+        }
+
+        while (day <= DateOnly.MaxValue.DayNumber)
+        {
+            var date = DateOnly.FromDayNumber((int)day);
+            left -= effective.WorkedOn(date.DayOfWeek).Ticks;
+            if (left <= 0) return date;
+
+            day++;
+        }
+
+        return DateOnly.MaxValue;
+    }
+
     private static WorkingDay DefaultFor(DayOfWeek day) =>
         new(day, day is not (DayOfWeek.Saturday or DayOfWeek.Sunday), DefaultStart, DefaultEnd);
 }
@@ -115,9 +222,14 @@ public sealed record WorkingHours
 /// <para>
 /// In the kernel for the reason <see cref="IAppFeatureSettings"/> is: more than one
 /// context asks the question and none of them owns the answer. The dashboard reads it to
-/// shade a grid, the settings screen writes it, and neither may reach through the other.
-/// What a working day <em>means</em> is the reader's business; this is only the question
-/// and the answer.
+/// shade a grid, the roadmap counts its hours, the settings screen writes it, and none may
+/// reach through the other. What a working day <em>means</em> is the reader's business;
+/// this is only the question and the answer.
+/// </para>
+/// <para>
+/// This is the device's copy. A host that carries the roadmap's pace between devices
+/// writes the week into the pace document beside it and replaces this copy when a pace
+/// document arrives carrying one (local ADR 0019, §3).
 /// </para>
 /// </summary>
 public interface IWorkingHoursSettings

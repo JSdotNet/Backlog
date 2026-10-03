@@ -95,13 +95,13 @@
        hundred of them between a reader and the row below. *@
     @if (Resizable)
     {
-        <span class="roadmap-bar__grip roadmap-bar__grip--start" data-roadmap-grip="start" data-roadmap-week-rem="@RoadmapGeometry.N(Geometry.WeekWidthAt(Bar.Start))" aria-hidden="true"></span>
+        <span class="roadmap-bar__grip roadmap-bar__grip--start" data-roadmap-grip="start" data-roadmap-week-rem="@RoadmapGeometry.N(Geometry.WeekWidthAt(Bar.Start))" data-roadmap-edge-rem="@RoadmapGeometry.N(Geometry.XFor(Bar.Start))" aria-hidden="true"></span>
     }
 
     @* A locked bar whose end is still the reader's to overrule draws that one edge. *@
     @if (Resizable || EndOnlyResizable)
     {
-        <span class="roadmap-bar__grip roadmap-bar__grip--end" data-roadmap-grip="end" data-roadmap-week-rem="@RoadmapGeometry.N(Geometry.WeekWidthAt(Bar.End.AddDays(-6)))" aria-hidden="true"></span>
+        <span class="roadmap-bar__grip roadmap-bar__grip--end" data-roadmap-grip="end" data-roadmap-week-rem="@RoadmapGeometry.N(Geometry.WeekWidthAt(Bar.End.AddDays(-6)))" data-roadmap-edge-rem="@RoadmapGeometry.N(Geometry.XFor(Bar.End.AddDays(1)))" aria-hidden="true"></span>
     }
 
     @* A pointer affordance like the edges, and for the same reason no tab stop: the

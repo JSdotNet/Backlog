@@ -23,7 +23,7 @@
     save, and what else has to move with them.
 *@
 
-<section class="roadmap-timeline @(OnSlotActivated.HasDelegate ? "roadmap-timeline--insertable" : null) @CssClass"
+<section class="roadmap-timeline @(OnSlotActivated.HasDelegate ? "roadmap-timeline--insertable" : null) @(WorkingHoursByDay is null ? null : "roadmap-timeline--hours") @CssClass"
          style="@Metrics"
          aria-labelledby="@(string.IsNullOrWhiteSpace(LabelledBy) ? _headingId : LabelledBy)"
          data-testid="@TestId">
@@ -126,9 +126,10 @@
                     @foreach (var group in PopulatedGroups)
                     {
                         var content = HasContent(group);
-                        <div class="@(content ? "roadmap-timeline__group roadmap-timeline__group--slotted" : "roadmap-timeline__group")"
+                        <div class="@GroupClass(group, content)"
                              style="@GroupStyle(group)"
                              data-testid="@Suffix($"group-{Slug(group.Id)}")">
+                            @CollapseToggle(group)
                             @NamesColumn(group, hidden: true)
 
                             @if (content)
@@ -147,15 +148,18 @@
             }
             else
             {
-            <div class="roadmap-timeline__sidebar" aria-hidden="true">
-                <div class="roadmap-timeline__sidebar-axis"></div>
+            @* Hidden as a whole, unless bands can be collapsed: then each band's toggle is
+               a control a screen reader has to reach, and only the names are hidden. *@
+            <div class="roadmap-timeline__sidebar" aria-hidden="@(Collapsible ? null : "true")">
+                <div class="roadmap-timeline__sidebar-axis" aria-hidden="true"></div>
 
                 @foreach (var group in PopulatedGroups)
                 {
-                    <div class="roadmap-timeline__group"
+                    <div class="@GroupClass(group, content: false)"
                          style="@GroupStyle(group)"
                          data-testid="@Suffix($"group-{Slug(group.Id)}")">
-                        @NamesColumn(group, hidden: false)
+                        @CollapseToggle(group)
+                        @NamesColumn(group, hidden: Collapsible)
                     </div>
                 }
             </div>
@@ -166,21 +170,28 @@
                  role="region"
                  tabindex="0"
                  aria-label="@ScrollLabel">
-                <div @ref="_track" class="roadmap-timeline__track" style="width: @Rem(Geometry.TrackWidthRem)">
+                <div @ref="_track" class="roadmap-timeline__track" style="width: @Rem(Geometry.TrackWidthRem)" data-roadmap-snaps="@ResizeSnaps">
 
                     <div class="roadmap-timeline__axis" data-testid="@Suffix("axis")">
                         @foreach (var column in Span.Columns)
                         {
                             <div class="@ColumnClass(column)"
                                  style="left: @Rem(Geometry.XFor(column.Start)); width: @Rem(Geometry.WidthFor(column.Start, column.End))"
-                                 title="@(IsCurrentWeek(column) ? column.LongLabel + " (this week)" : IsCurrent(column) ? column.LongLabel + " (today)" : column.LongLabel)"
+                                 title="@ColumnTitle(column)"
                                  aria-current="@(IsCurrent(column) ? "date" : null)">
                                 @* A week clipped to a few days at a month start has no
                                    room for its number; the tooltip still names it. *@
                                 @if (Geometry.WidthFor(column.Start, column.End) >= MinLabelled(column))
                                 {
                                     <span class="roadmap-timeline__quarter-label">@HeadLabel(column)</span>
-                                    <span class="roadmap-timeline__quarter-year">@column.Caption</span>
+                                    <span class="roadmap-timeline__quarter-year">@HeadCaption(column)</span>
+                                    @* Given a working week, every head keeps a third line for
+                                       the hours, empty where there are none, so all heads read
+                                       along one baseline as the caption line does. *@
+                                    @if (WorkingHoursByDay is not null)
+                                    {
+                                        <span class="roadmap-timeline__quarter-hours">@HoursCaption(column)</span>
+                                    }
                                 }
                             </div>
                         }
@@ -195,6 +206,16 @@
                             {
                                 <span class="roadmap-timeline__current-week"
                                       style="left: @Rem(Geometry.XFor(thisWeek.Start)); width: @Rem(Geometry.WidthFor(thisWeek.Start, thisWeek.End))"></span>
+                            }
+
+                            @* The days off, where the axis is ruled in days, shaded down
+                               the chart at their own width: the axis stays time, so a bar
+                               still spans the days off inside it (local ADR 0019). A
+                               coarser column has no room to show two days of seven. *@
+                            @foreach (var day in Span.Columns.Where(IsDayOff))
+                            {
+                                <span class="roadmap-timeline__weekend"
+                                      style="left: @Rem(Geometry.XFor(day.Start)); width: @Rem(Geometry.WidthFor(day.Start, day.End))"></span>
                             }
 
                             @for (var index = 1; index < Span.Columns.Count; index++)
@@ -447,6 +468,9 @@
     // rebuilding every bar after a save — the same work is still the same work.
     private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
 
+    // Which bands are folded to one lane. By group id, for the same reason.
+    private readonly HashSet<string> _collapsed = new(StringComparer.Ordinal);
+
     // Whether the row offset in flight was counted by a pointer, over every drawn
     // row, or by the keyboard, over the rows a bar can land on. See Landing.
     private bool _pointerRows;
@@ -458,6 +482,7 @@
     private IReadOnlyList<PlacedRow>? _rows;
     private IReadOnlyList<RoadmapBar>? _visible;
     private IReadOnlyList<RoadmapArrow>? _arrows;
+    private Dictionary<string, string>? _foldedRows;
     private RoadmapWindow? _span;
     private double? _stretch;
 
@@ -492,6 +517,15 @@
     /// because a component that read the clock could not be tested twice.</summary>
     [Parameter]
     public DateOnly? Today { get; set; }
+
+    /// <summary>
+    /// The hours worked on each day of the week, for the heads to show and the days
+    /// off to be shaded (local ADR 0019). A day missing or at zero is not worked. Left
+    /// unset, the axis says nothing about a working week. The caller's, as a plain map,
+    /// because this library knows no working week of its own.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyDictionary<DayOfWeek, double>? WorkingHoursByDay { get; set; }
 
     /// <summary>Which day a week starts on here, and so where a drag lands.</summary>
     [Parameter]
@@ -560,6 +594,17 @@
     /// host that reads the plan at its own level and leaves the work to the list.</summary>
     [Parameter]
     public bool ShowSteps { get; set; } = true;
+
+    /// <summary>
+    /// Whether a band with bars offers to fold into one lane: a toggle beside its name
+    /// that draws every bar of the band's rows on a single row, overlapping where their
+    /// dates do, and opens it again. A way of looking, like a bar's steps — the rows the
+    /// caller handed over are unchanged, a bar keeps the row it reports, and one dropped
+    /// on a folded band lands on the band's first lane. Folded, a band has no room for
+    /// its <see cref="GroupContent"/>, so the content is not drawn.
+    /// </summary>
+    [Parameter]
+    public bool Collapsible { get; set; }
 
     /// <summary>
     /// Something of the host's under a band's name in the sidebar — a control that
@@ -717,6 +762,12 @@
 
         foreach (var group in PopulatedGroups)
         {
+            if (IsCollapsed(group))
+            {
+                placed.Add(new PlacedRow(group, new RoadmapRow(FoldedRowId(group), string.Empty), placed.Count, Folded: true));
+                continue;
+            }
+
             var rows = new List<PlacedRow>();
             PlaceGroup(group, rows);
 
@@ -795,7 +846,99 @@
     private IReadOnlyList<PlacedRow> LandingRows => [.. Rows.Where(row => row.Step is null && !row.Padding)];
 
     /// <summary>Whether <paramref name="group"/> has sidebar content drawn for it.</summary>
-    private bool HasContent(RoadmapGroup group) => GroupContent is not null && group.ContentRows > 0;
+    private bool HasContent(RoadmapGroup group) => GroupContent is not null && group.ContentRows > 0 && !IsCollapsed(group);
+
+    // --- Folding a band ----------------------------------------------------
+
+    /// <summary>Whether <paramref name="group"/> offers to fold: only on a chart that
+    /// opts in, and only for a band with bars — a row of milestones is already one.</summary>
+    private bool CanCollapse(RoadmapGroup group) =>
+        Collapsible && group.RowList.Any(row => row.Kind == RoadmapRowKind.Bars);
+
+    private bool IsCollapsed(RoadmapGroup group) => CanCollapse(group) && _collapsed.Contains(group.Id);
+
+    /// <summary>The one row a folded band is drawn as. Bracketed so it cannot be a
+    /// caller's lane: a host never hears it, because <see cref="FoldedLane"/> answers
+    /// for it wherever a row is reported.</summary>
+    private static string FoldedRowId(RoadmapGroup group) => $"{group.Id}::(collapsed)";
+
+    /// <summary>The lane a folded band stands for when something is put on it: its
+    /// first row that takes bars.</summary>
+    private static RoadmapRow? FoldedLane(RoadmapGroup group) =>
+        group.RowList.FirstOrDefault(row => row.Kind == RoadmapRowKind.Bars);
+
+    /// <summary>The row <paramref name="rowId"/> is drawn on: its band's one row when
+    /// the band is folded, and itself otherwise.</summary>
+    private string DrawnRow(string rowId) =>
+        (_foldedRows ??= FoldedRows()).GetValueOrDefault(rowId, rowId);
+
+    private Dictionary<string, string> FoldedRows()
+    {
+        var folded = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var group in PopulatedGroups.Where(IsCollapsed))
+        {
+            foreach (var row in group.RowList) folded.TryAdd(row.Id, FoldedRowId(group));
+        }
+
+        return folded;
+    }
+
+    private string GroupClass(RoadmapGroup group, bool content) => string.Join(' ', new[]
+    {
+        "roadmap-timeline__group",
+        content ? "roadmap-timeline__group--slotted" : null,
+        CanCollapse(group) ? "roadmap-timeline__group--collapsible" : null
+    }.Where(part => part is not null));
+
+    private RenderFragment CollapseToggle(RoadmapGroup group) => __builder =>
+    {
+        if (!CanCollapse(group)) return;
+
+        var folded = IsCollapsed(group);
+        var label = folded ? $"Expand {group.Title} into its lanes" : $"Collapse {group.Title} to one lane";
+
+        <button type="button"
+                id="@CollapseButtonId(group.Id)"
+                class="roadmap-timeline__group-toggle"
+                aria-expanded="@(folded ? "false" : "true")"
+                aria-label="@label"
+                title="@label"
+                data-testid="@Suffix($"group-{Slug(group.Id)}-collapse")"
+                @onclick="() => Fold(group)">
+            <span aria-hidden="true">@(folded ? "▸" : "▾")</span>
+        </button>
+    };
+
+    /// <summary>A band folded or opened, said aloud, and the focus put back on its
+    /// toggle — the sidebar around it has just been rebuilt.</summary>
+    private async Task Fold(RoadmapGroup group)
+    {
+        if (!CanCollapse(group)) return;
+
+        if (_collapsed.Remove(group.Id))
+        {
+            Announce($"{group.Title} expanded into its lanes.");
+        }
+        else
+        {
+            _collapsed.Add(group.Id);
+            Announce($"{group.Title} collapsed to one lane.");
+        }
+
+        Invalidate();
+        StateHasChanged();
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", CollapseButtonId(group.Id));
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private string CollapseButtonId(string groupId) => $"roadmap-group-toggle-{_instance}-{Slug(groupId)}";
 
     /// <summary>The two-column sidebar, drawn only when some band has content — so a
     /// chart with none renders exactly as it did before the slot existed.</summary>
@@ -980,6 +1123,7 @@
         _rows = null;
         _visible = null;
         _arrows = null;
+        _foldedRows = null;
         _span = null;
         _stretch = null;
     }
@@ -1074,7 +1218,8 @@
         StateHasChanged();
     }
 
-    /// <summary>How far the drag has got, in whole weeks and whole rows. Called
+    /// <summary>How far the drag has got, in whole weeks and whole rows — or, for an
+    /// edge on a graduated axis, in column lines crossed. Called
     /// only when that answer changes, which is why it is cheap enough to redraw
     /// the whole chart — arrows included — on every one.</summary>
     [JSInvokable]
@@ -1188,7 +1333,8 @@
     /// chart draws it as a row of its own.</summary>
     private RoadmapRow? SlotRow(string rowId) =>
         OnSlotActivated.HasDelegate
-            ? Rows.FirstOrDefault(placed => placed.Step is null && !placed.Padding && placed.Row.Id == rowId)?.Row
+        && Rows.FirstOrDefault(placed => placed.Step is null && !placed.Padding && placed.Row.Id == rowId) is { } placed
+            ? placed.Folded ? FoldedLane(placed.Group) : placed.Row
             : null;
 
     /// <summary>Two points along a row widened to the whole weeks they fall in: the
@@ -1392,8 +1538,19 @@
     {
         if (!Is(ActiveId, barId) || Bar(barId) is not { } bar) return null;
 
-        return RoadmapChange.For(bar, _kind, _steps, Landing(bar) ?? bar.RowId, WeekStart);
+        return RoadmapChange.For(bar, _kind, _steps, Landing(bar) ?? bar.RowId, WeekStart, ResizeBoundaries);
     }
+
+    /// <summary>The lines a resized edge snaps to when the axis is graduated — its own
+    /// columns, so an edge near today moves by the day — or null on a plain window,
+    /// whose quarter columns are too coarse and whose edges snap to the week.</summary>
+    private IReadOnlyList<DateOnly>? ResizeBoundaries => Span.IsGraduated ? Span.ColumnBoundaries : null;
+
+    /// <summary>Where each of <see cref="ResizeBoundaries"/> is drawn, for the script
+    /// to count the lines a dragged edge has crossed; null leaves it counting weeks.</summary>
+    private string? ResizeSnaps => ResizeBoundaries is { } boundaries
+        ? string.Join(' ', boundaries.Select(boundary => RoadmapGeometry.N(Geometry.XFor(boundary))))
+        : null;
 
     /// <summary>
     /// Which row a move would land on, or null when it would land somewhere it
@@ -1419,7 +1576,8 @@
         if (_rowOffset == 0 || !AllowRowChange || _kind != RoadmapDrag.Move) return bar.RowId;
 
         var rows = _pointerRows ? Rows : LandingRows;
-        var from = rows.Select((row, position) => (row, position)).FirstOrDefault(entry => Is(entry.row.Row.Id, bar.RowId));
+        var drawn = DrawnRow(bar.RowId);
+        var from = rows.Select((row, position) => (row, position)).FirstOrDefault(entry => Is(entry.row.Row.Id, drawn));
 
         if (from.row is null) return bar.RowId;
 
@@ -1431,6 +1589,10 @@
         // alone — and a drop there means the band, so it lands on the band's nearest
         // lane.
         if (landing.Padding) return PaddingLane(landing)?.Id ?? bar.RowId;
+
+        // A folded band is one lane to look at and several underneath: a bar staying in
+        // it keeps its own, and one arriving from elsewhere takes the band's first.
+        if (landing.Folded) return ReferenceEquals(landing, from.row) ? bar.RowId : FoldedLane(landing.Group)?.Id ?? bar.RowId;
 
         return landing.Row.Kind == RoadmapRowKind.Bars ? landing.Row.Id : null;
     }
@@ -1544,7 +1706,7 @@
         }
 
         var placed = PreviewFor(bar.Id)?.ApplyTo(bar) ?? bar;
-        var row = Rows.FirstOrDefault(candidate => Is(candidate.Row.Id, placed.RowId));
+        var row = Rows.FirstOrDefault(candidate => Is(candidate.Row.Id, DrawnRow(placed.RowId)));
 
         Announce($"{DateLabel(placed.Start)} to {DateLabel(placed.End)}{(row is null ? null : ", " + Context(row))}.");
     }
@@ -1605,14 +1767,14 @@
                 && filter.Value.Contains(facet.Value, StringComparer.Ordinal))))];
 
     private IEnumerable<RoadmapBar> BarsOn(string rowId) =>
-        VisibleBars.Where(bar => Is(EffectiveRow(bar), rowId));
+        VisibleBars.Where(bar => Is(DrawnRow(EffectiveRow(bar)), rowId));
 
     /// <summary>Which row a bar is drawn on right now — including part-way
     /// through being dragged onto another one.</summary>
     private string EffectiveRow(RoadmapBar bar) => PreviewFor(bar.Id)?.RowId ?? bar.RowId;
 
     private IEnumerable<RoadmapMilestone> MilestonesOn(string rowId) =>
-        MilestoneList.Where(milestone => Is(milestone.RowId, rowId));
+        MilestoneList.Where(milestone => Is(DrawnRow(milestone.RowId), rowId));
 
     /// <summary>
     /// The milestones that asked for a rule down the whole chart, and whose date is
@@ -1729,7 +1891,7 @@
     }
 
     private int? RowIndex(string rowId) =>
-        Rows.FirstOrDefault(candidate => Is(candidate.Row.Id, rowId))?.Index;
+        Rows.FirstOrDefault(candidate => Is(candidate.Row.Id, DrawnRow(rowId)))?.Index;
 
     private string Name(string id) =>
         Bar(id)?.Title
@@ -1787,12 +1949,199 @@
         }
     }
 
-    /// <summary>What a column head reads. A day column too narrow for its weekday
-    /// gives up the name and keeps the number.</summary>
-    private string HeadLabel(RoadmapColumn column) =>
-        column.Scale == RoadmapColumnScale.Day && Geometry.WidthFor(column.Start, column.End) < MinNamedDayRem
-            ? column.Start.Day.ToString(CultureInfo.CurrentCulture)
-            : column.Label;
+    /// <summary>How wide a day column has to be to carry its working hours as well —
+    /// "Wed 23 · 8.5h".</summary>
+    private const double MinHoursDayRem = 5.5;
+
+    /// <summary>How wide a week column has to be to carry its working hours —
+    /// "W41 · 42.5h".</summary>
+    private const double MinHoursWeekRem = 5;
+
+    /// <summary>
+    /// What a column head reads. A day column too narrow for its weekday keeps the
+    /// number here and names the day on the caption line (<see cref="HeadCaption"/>). Where a working week is given, a worked day's head and
+    /// a week's head carry their working hours when there is room for them; the tooltip
+    /// always says them.
+    /// </summary>
+    private string HeadLabel(RoadmapColumn column)
+    {
+        if (column.Scale == RoadmapColumnScale.Day && Geometry.WidthFor(column.Start, column.End) < MinNamedDayRem)
+        {
+            return column.Start.Day.ToString(CultureInfo.CurrentCulture);
+        }
+
+        return HoursInline(column) && HoursIn(column) is { } hours ? $"{column.Label} · {Hours(hours)}" : column.Label;
+    }
+
+    /// <summary>Whether a column is wide enough to say its hours on the head's own line,
+    /// "Wed 23 · 8.5h".</summary>
+    private bool HoursInline(RoadmapColumn column)
+    {
+        var room = column.Scale == RoadmapColumnScale.Day ? MinHoursDayRem : MinHoursWeekRem;
+        return Geometry.WidthFor(column.Start, column.End) >= room;
+    }
+
+    /// <summary>The caption font's size and a character's rough width in it, in rem —
+    /// what decides whether "8.5h" fits under a day or gives up its unit, and whether
+    /// "Mo W41" fits under a week's first day.</summary>
+    private const double CaptionFontRem = 0.75;
+
+    /// <summary>A letter, digit or space in Inter at the caption size, rounded up from
+    /// the browser's own measure: "Mo W39" lays out 45.25px at 12px, about 0.63em a
+    /// character.</summary>
+    private const double CaptionCharEm = 0.65;
+
+    /// <summary>A decimal point or comma, which Inter draws at about half a digit, so
+    /// "8.5h" still fits under a 2rem day.</summary>
+    private const double CaptionPunctuationEm = 0.3;
+
+    /// <summary>A full-width East Asian character — "月", "周" — which takes the whole
+    /// em a Latin letter takes two thirds of.</summary>
+    private const double CaptionFullWidthEm = 1;
+
+    /// <summary>What a head loses to its left border (1px); it has no padding.</summary>
+    private const double HeadBorderRem = 0.0625;
+
+    /// <summary>
+    /// The hours on the head's third line, for a column too narrow to say them inline:
+    /// "8.5h" under a day and "42.5h" under a week — and "8.5" where the unit would not
+    /// fit, since the week's head beside it says what the figure counts. Nothing for a
+    /// month, a quarter, a day off, or a column that says its hours inline.
+    /// </summary>
+    private string? HoursCaption(RoadmapColumn column)
+    {
+        if (HoursIn(column) is not { } hours || HoursInline(column)) return null;
+
+        var withUnit = Hours(hours);
+
+        return FitsCaption(column, withUnit) ? withUnit : withUnit[..^1];
+    }
+
+    /// <summary>
+    /// The head's caption line. A day too narrow to name its weekday beside its number
+    /// names it here instead, in two letters of the culture's own — "Mo", "ma" — so every
+    /// day column with room for its name says which day it is; one without keeps just its
+    /// number, and the tooltip names the day. On the week's first day the week's number rides
+    /// here too: "Mo W41" where both fit, else "W41" alone, because the number is the
+    /// one thing no other head says and the tooltip still names the day. Every other
+    /// column keeps the caption the window gave it.
+    /// </summary>
+    private string? HeadCaption(RoadmapColumn column)
+    {
+        if (column.Scale != RoadmapColumnScale.Day || Geometry.WidthFor(column.Start, column.End) >= MinNamedDayRem)
+        {
+            return column.Caption;
+        }
+
+        var weekday = ShortWeekday(column.Start.DayOfWeek);
+        if (column.Caption is not { } week) return FitsCaption(column, weekday) ? weekday : null;
+
+        var both = $"{weekday} {week}";
+        return FitsCaption(column, both) ? both : week;
+    }
+
+    /// <summary>
+    /// A weekday in two letters of the culture's own abbreviation — "Mo", "Tu"; "ma",
+    /// "di". Not <see cref="DateTimeFormatInfo.ShortestDayNames"/>: under ICU, which .NET
+    /// uses on every head, that is a single letter, and "T" and "S" each name two days.
+    /// Counted in text elements so a combined character is never split.
+    /// <para>
+    /// Where two letters do not tell the seven days apart — Vietnamese "Th 2" … "Th 7",
+    /// Hebrew and Arabic, whose abbreviations share a prefix — the whole abbreviation is
+    /// used, and <see cref="FitsCaption"/> decides whether a day has room for it.
+    /// </para>
+    /// </summary>
+    private static string ShortWeekday(DayOfWeek day)
+    {
+        var format = CultureInfo.CurrentCulture.DateTimeFormat;
+        var twoLetters = AllWeekdays.Select(other => TwoLetters(format.GetAbbreviatedDayName(other).TrimEnd('.')));
+
+        return twoLetters.Distinct(StringComparer.Ordinal).Count() == AllWeekdays.Length
+            ? TwoLetters(format.GetAbbreviatedDayName(day).TrimEnd('.'))
+            : format.GetAbbreviatedDayName(day).TrimEnd('.');
+    }
+
+    /// <summary>Every day of the week, in the order <see cref="DayOfWeek"/> numbers them.</summary>
+    private static readonly DayOfWeek[] AllWeekdays = Enum.GetValues<DayOfWeek>();
+
+    private static string TwoLetters(string abbreviated)
+    {
+        var letters = new StringInfo(abbreviated);
+        return letters.LengthInTextElements <= 2 ? abbreviated : letters.SubstringByTextElements(0, 2);
+    }
+
+    /// <summary>Whether <paramref name="text"/> fits on a head's caption line inside
+    /// the column's border, at the caption font's character widths: an East Asian
+    /// full-width character about a whole em, a decimal point or comma about half a
+    /// digit, anything else a Latin letter's.</summary>
+    private bool FitsCaption(RoadmapColumn column, string text) =>
+        text.EnumerateRunes().Sum(CaptionEm) * CaptionFontRem
+            <= Geometry.WidthFor(column.Start, column.End) - HeadBorderRem;
+
+    private static double CaptionEm(System.Text.Rune character) =>
+        character.Value is '.' or ',' ? CaptionPunctuationEm
+        : IsFullWidth(character.Value) ? CaptionFullWidthEm
+        : CaptionCharEm;
+
+    /// <summary>A full-width East Asian character: Hangul jamo and syllables, the CJK
+    /// blocks from radicals to Yi, compatibility ideographs, the full-width forms and
+    /// the ideographic planes.</summary>
+    private static bool IsFullWidth(int codePoint) =>
+        codePoint is (>= 0x1100 and <= 0x115F)
+            or (>= 0x2E80 and <= 0xA4CF)
+            or (>= 0xAC00 and <= 0xD7A3)
+            or (>= 0xF900 and <= 0xFAFF)
+            or (>= 0xFE30 and <= 0xFE4F)
+            or (>= 0xFF00 and <= 0xFF60)
+            or (>= 0xFFE0 and <= 0xFFE6)
+            or (>= 0x20000 and <= 0x3FFFD);
+
+    /// <summary>The column's tooltip: its long label, whether it is now, and its working
+    /// hours — or that it is not worked.</summary>
+    private string ColumnTitle(RoadmapColumn column)
+    {
+        var title = IsCurrentWeek(column) ? column.LongLabel + " (this week)"
+            : IsCurrent(column) ? column.LongLabel + " (today)"
+            : column.LongLabel;
+
+        if (WorkingHoursByDay is not null && IsDayOff(column)) return title + " · not worked";
+
+        return HoursIn(column) is { } hours ? $"{title} · {Hours(hours)}" : title;
+    }
+
+    /// <summary>
+    /// The working hours in a day or week column, or null where the axis says none: no
+    /// working week given, a month or quarter, or a day not worked.
+    /// </summary>
+    private double? HoursIn(RoadmapColumn column)
+    {
+        if (WorkingHoursByDay is null) return null;
+        if (column.Scale is not (RoadmapColumnScale.Day or RoadmapColumnScale.Week)) return null;
+
+        var hours = 0d;
+        for (var day = column.Start; day <= column.End; day = day.AddDays(1)) hours += WorkedOn(day.DayOfWeek);
+
+        return column.Scale == RoadmapColumnScale.Day && hours <= 0 ? null : hours;
+    }
+
+    private double WorkedOn(DayOfWeek day) =>
+        WorkingHoursByDay is { } week && week.TryGetValue(day, out var hours) && hours > 0 ? hours : 0;
+
+    /// <summary>
+    /// Whether a column is a day ruled on its own that is not worked: one the working
+    /// week does not work, or — given no week — a Saturday or a Sunday, so a caller
+    /// without one still sees the weekend.
+    /// </summary>
+    private bool IsDayOff(RoadmapColumn column) =>
+        column.Scale == RoadmapColumnScale.Day
+        && (WorkingHoursByDay is null
+            ? column.Start.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday
+            : WorkedOn(column.Start.DayOfWeek) <= 0);
+
+    /// <summary>Hours as a head says them: invariant, at most two decimals, and none
+    /// for a whole hour — "8h", "8.5h", "42.5h".</summary>
+    private static string Hours(double hours) =>
+        Math.Round(hours, 2).ToString("0.##", CultureInfo.InvariantCulture) + "h";
 
     private double MinLabelled(RoadmapColumn column) =>
         column.Scale == RoadmapColumnScale.Day ? MinLabelledDayRem : MinLabelledColumnRem;
@@ -1802,6 +2151,7 @@
 
     private string ColumnClass(RoadmapColumn column) =>
         $"roadmap-timeline__quarter roadmap-timeline__quarter--{column.Scale.ToString().ToLowerInvariant()}"
+        + (IsDayOff(column) ? " roadmap-timeline__quarter--weekend" : null)
         + (IsCurrent(column) ? " roadmap-timeline__quarter--current" : null);
 
     private static string MilestoneClass(RoadmapMilestone milestone) =>
@@ -1845,7 +2195,8 @@
     /// flattened into the single list the chart actually draws.</summary>
     /// <remarks>A step row also carries the bar it opened from, the step, where
     /// that step sits in the bar's order, and where it is drawn. A padding row is
-    /// room a band's sidebar content asked for, and holds nothing.</remarks>
+    /// room a band's sidebar content asked for, and holds nothing. A folded row is a
+    /// whole band drawn as one.</remarks>
     private sealed record PlacedRow(
         RoadmapGroup Group,
         RoadmapRow Row,
@@ -1854,7 +2205,8 @@
         RoadmapStep? Step = null,
         int StepIndex = 0,
         RoadmapStepSpan? Span = null,
-        bool Padding = false);
+        bool Padding = false,
+        bool Folded = false);
 
     public async ValueTask DisposeAsync()
     {

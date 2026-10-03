@@ -342,6 +342,66 @@
         return !elements.some((element) => element.contains(focused));
     };
 
+    /*
+        Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z and Ctrl+Y for a surface that keeps its own
+        undo history (`.devbook/design/interaction-guidelines.md#undo-and-history`).
+
+        On the document rather than on the surface, because the key most often
+        arrives with focus on <body>: a row just deleted, a picker just closed, a
+        drop just made all leave the focus nowhere. So an owner hears the key when
+        the focus is inside its element or on nothing at all.
+
+        Never from a text field: there the browser's own undo already takes back
+        the keystrokes, and stealing the key would leave typing with no undo.
+        Never past a dialog, which owns the keyboard first, and never a key some
+        other handler already took.
+
+        Keyed by the owner's element id, so a surface's registration is its own
+        and a second surface cannot take it out.
+    */
+    window.backlogUndoKeys = (() => {
+        const owners = new Map();
+
+        const nonText = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file', 'image']);
+        const isTextField = (element) => {
+            if (!(element instanceof HTMLElement)) return false;
+            if (element.isContentEditable) return true;
+            if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) return true;
+            return element instanceof HTMLInputElement && !nonText.has(element.type);
+        };
+
+        const actionFor = (event) => {
+            if (!(event.ctrlKey || event.metaKey) || event.altKey) return null;
+            const key = event.key.toLowerCase();
+            if (key === 'z') return event.shiftKey ? 'RedoFromKeyboardAsync' : 'UndoFromKeyboardAsync';
+            if (key === 'y' && event.ctrlKey && !event.shiftKey) return 'RedoFromKeyboardAsync';
+            return null;
+        };
+
+        document.addEventListener('keydown', (event) => {
+            if (event.defaultPrevented || owners.size === 0) return;
+
+            const action = actionFor(event);
+            if (!action || isTextField(event.target)) return;
+            if (document.querySelector('[aria-modal="true"], dialog[open]')) return;
+
+            const nowhere = event.target === document.body || event.target === document.documentElement;
+            for (const [id, owner] of owners) {
+                const element = document.getElementById(id);
+                if (!element || !(nowhere || element.contains(event.target))) continue;
+
+                event.preventDefault();
+                owner.invokeMethodAsync(action);
+                return;
+            }
+        });
+
+        return {
+            register: (id, dotnet) => { owners.set(id, dotnet); },
+            unregister: (id) => { owners.delete(id); }
+        };
+    })();
+
     // Copying is the browser's job, and the browser is allowed to refuse: the
     // async clipboard needs a secure context and a permission the host WebView
     // may not have granted. The execCommand path is the fallback for exactly
@@ -3497,6 +3557,26 @@
         is converted here at the moment of the drag so a reader who has zoomed
         their text still moves a bar one week per week's width on their screen.
     */
+    /*
+        How many column lines an edge dragged from edgeRem to pointerRem has
+        crossed, signed: the line nearest the pointer, counted from the edge
+        the way RoadmapChange.Step counts back — only lines strictly past the
+        edge, so an edge between two lines reaches the nearer one first.
+    */
+    const backlogRoadmapLinesCrossed = (lines, edgeRem, pointerRem) => {
+        const near = 0.01;
+        let nearest = lines[0];
+        for (const line of lines) {
+            if (Math.abs(line - pointerRem) < Math.abs(nearest - pointerRem)) nearest = line;
+        }
+
+        if (Math.abs(nearest - edgeRem) < near) return 0;
+
+        return nearest > edgeRem
+            ? lines.filter((line) => line > edgeRem + near && line <= nearest + near).length
+            : -lines.filter((line) => line < edgeRem - near && line >= nearest - near).length;
+    };
+
     const backlogRoadmapTimelines = new Map();
     const backlogRoadmapScrollers = new Map();
 
@@ -3728,6 +3808,13 @@
                 // Read per grip: on a graduated axis a week is wider near today
                 // than a year out, so the grip says what a week is where it sits.
                 drag.weekRem = Number(grip.dataset.roadmapWeekRem) || weekRem;
+                // An edge on a graduated axis snaps to the columns it is ruled
+                // with — a day near today, a month a quarter out — so it counts
+                // the lines it crosses instead of weeks. The track lists where
+                // they are drawn; a plain axis lists none and keeps the week.
+                const snaps = grip.dataset.roadmapGrip !== 'move' ? element.dataset.roadmapSnaps : null;
+                drag.snaps = snaps ? snaps.split(' ').map(Number) : null;
+                drag.edgeRem = Number(grip.dataset.roadmapEdgeRem) || 0;
                 drag.steps = 0;
                 drag.rows = 0;
 
@@ -3763,7 +3850,9 @@
                 if (!drag.active || event.pointerId !== drag.pointerId) return;
 
                 const rem = backlogRootFontSize();
-                const steps = Math.round((event.clientX - drag.startX) / rem / drag.weekRem);
+                const steps = drag.snaps
+                    ? backlogRoadmapLinesCrossed(drag.snaps, drag.edgeRem, drag.edgeRem + (event.clientX - drag.startX) / rem)
+                    : Math.round((event.clientX - drag.startX) / rem / drag.weekRem);
 
                 // An edge has no row to land on, so vertical travel while
                 // resizing is a wobble in the reader's hand, not an instruction.
@@ -3900,17 +3989,51 @@
                 measured = width;
                 reference.invokeMethodAsync('Measured', width / backlogRootFontSize());
             };
+
+            /*
+                The names column, kept level with the track. Where a host lets the
+                track scroll down as well as across, the column beside it is a second
+                scroller of the same rows; each one's scrollTop is copied to the other,
+                so the wheel works over either. Copying an equal value fires nothing,
+                so the two cannot chase each other. The track's horizontal scrollbar
+                takes height the column does not have; it is published on the frame
+                as --roadmap-scrollbar-height for the column to pad its end with.
+            */
+            const frame = scroller?.parentElement ?? null;
+            const sidebar = frame?.querySelector(':scope > .roadmap-timeline__sidebar') ?? null;
+            const follow = (from, to) => () => {
+                if (to.scrollTop !== from.scrollTop) to.scrollTop = from.scrollTop;
+            };
+            const fromTrack = sidebar ? follow(scroller, sidebar) : null;
+            const fromSidebar = sidebar ? follow(sidebar, scroller) : null;
+            const gutter = () => {
+                if (!frame) return;
+                frame.style.setProperty('--roadmap-scrollbar-height', `${Math.max(0, scroller.offsetHeight - scroller.clientHeight)}px`);
+            };
+            if (sidebar) {
+                scroller.addEventListener('scroll', fromTrack, { passive: true });
+                sidebar.addEventListener('scroll', fromSidebar, { passive: true });
+            }
+
             // The window's resize as well as the observer: an observer only reports
-            // on a rendered frame, and a page that is not painting still resizes.
-            const resizes = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+            // on a rendered frame, and a page that is not painting still resizes. The
+            // track is observed too, because its width is what decides whether the
+            // horizontal scrollbar is there at all.
+            const resized = () => { measure(); gutter(); };
+            const resizes = typeof ResizeObserver === 'function' ? new ResizeObserver(resized) : null;
             if (scroller) resizes?.observe(scroller);
-            window.addEventListener('resize', measure);
-            measure();
+            resizes?.observe(element);
+            window.addEventListener('resize', resized);
+            resized();
             backlogRoadmapScrollers.set(id, scroller);
 
             backlogRoadmapTimelines.set(id, () => {
                 resizes?.disconnect();
-                window.removeEventListener('resize', measure);
+                if (sidebar) {
+                    scroller.removeEventListener('scroll', fromTrack);
+                    sidebar.removeEventListener('scroll', fromSidebar);
+                }
+                window.removeEventListener('resize', resized);
                 backlogRoadmapScrollers.delete(id);
                 reset();
                 endLink();

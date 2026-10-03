@@ -4771,6 +4771,14 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-primary);
 }
 
+/* A reader copying several rows in turn tracks which are done by the check, so
+   it stands for a minute (TaskItem sets the duration) and wears the accent
+   rather than the text colour: a row already copied has to read as different
+   from the rest at a glance, hovered or not. */
+.task-item__copy .copy-button__glyphs[data-copied="true"] {
+    color: var(--color-primary);
+}
+
 /* The confirmation would push the row's width around if it took part in the
    layout, so it is announced and not drawn. Every reader who needs it hears it;
    nobody's list reflows because someone copied a line. */
@@ -12174,7 +12182,7 @@ select.field__input {
   a few letters of it — and read left to right it is the first thing a reader
   looks for.
 
-  The whole sidebar is aria-hidden, so nothing here is read out: every row in
+  The names are aria-hidden, so none of them is read out: every row in
   the track carries "group, row" as its accessible name, and every bar repeats
   it. This column is the sighted reader's copy of that.
 */
@@ -12234,6 +12242,49 @@ select.field__input {
 */
 .roadmap-timeline__group--slotted {
     position: relative;
+}
+
+/*
+  A band that folds to one lane (RoadmapTimeline.Collapsible): its toggle sits
+  before the name on the band's first row, outside the hidden names column so it
+  is a control a screen reader reaches, and the name moves over to make room.
+*/
+.roadmap-timeline__group--collapsible {
+    position: relative;
+}
+
+.roadmap-timeline__group--collapsible .roadmap-timeline__group-name {
+    padding-left: 1.125rem;
+}
+
+.roadmap-timeline__group-toggle {
+    position: absolute;
+    top: calc(var(--roadmap-row-height, 2.75rem) / 2);
+    left: var(--spacing-xs);
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    padding: 0;
+    translate: 0 -50%;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.roadmap-timeline__group-toggle:hover {
+    background: var(--color-background-alt);
+}
+
+.roadmap-timeline__group-toggle:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
 }
 
 .roadmap-timeline__group-content {
@@ -12312,6 +12363,12 @@ select.field__input {
     line-height: 1.1;
 }
 
+/* A narrow day names its weekday on the caption line — "Mo", or "Mo W41" on the
+   week's first day — and that line never wraps, so every head keeps one baseline. */
+.roadmap-timeline__quarter--day .roadmap-timeline__quarter-year {
+    white-space: nowrap;
+}
+
 /* A week's head is its number, quieter than a month's or a quarter's; the month
    it enters rides underneath only where the month changes. */
 .roadmap-timeline__quarter--week .roadmap-timeline__quarter-label,
@@ -12324,6 +12381,25 @@ select.field__input {
    are divided more quietly than the weeks either side of them. */
 .roadmap-timeline__quarter--day + .roadmap-timeline__quarter--day {
     border-left-color: color-mix(in srgb, var(--color-border) 50%, transparent);
+}
+
+/* The days off, where the axis is ruled in days — the working week's when one is
+   given (local ADR 0019), else Saturday and Sunday: a neutral tint in the head that
+   carries on down the chart and fades out, so it marks the days off without
+   competing with the bars or with this week's primary shade. */
+.roadmap-timeline__quarter--weekend {
+    background: color-mix(in srgb, var(--color-text-primary) 14%, var(--color-background));
+}
+
+.roadmap-timeline__weekend {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--color-text-primary) 12%, transparent) 0,
+        color-mix(in srgb, var(--color-text-primary) 3%, transparent) 100%
+    );
 }
 
 /* This week: its head in the primary hue, its column shaded down the chart. The
@@ -12344,6 +12420,27 @@ select.field__input {
     top: 0;
     bottom: 0;
     background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+}
+
+/* Given a working week, every head carries a third line for its hours — "8.5h"
+   under a day, "42.5h" under a week — where the column is too narrow to say them
+   beside its name. The line is kept even when empty, as the caption's is, so every
+   head reads along one baseline; the axis grows by that line and no more. */
+.roadmap-timeline--hours {
+    --roadmap-axis-height: 3.5rem;
+}
+
+.roadmap-timeline--hours .roadmap-timeline__quarter {
+    grid-template-rows: auto auto auto;
+}
+
+.roadmap-timeline__quarter-hours {
+    min-height: calc(var(--font-size-xs) * 1.1);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
 }
 
 .roadmap-timeline__body {

@@ -83,9 +83,11 @@
                                  Links="@_view.Links"
                                  Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
                                  Graduated="true"
+                                 WorkingHoursByDay="@WorkingHoursByDay"
                                  TitleContent="@BandHeading"
                                  LabelledBy="roadmap-band-title"
                                  ShowSteps="false"
+                                 Collapsible="true"
                                  SelectedId="@_selectedId"
                                  OnBarSelected="Select"
                                  OnBarChanged="Apply"
@@ -169,6 +171,15 @@
     // change rather than patched in place: the plan decides what a reschedule did,
     // and a locally applied guess is one more thing that can disagree with it.
     private RoadmapTimelineModel _view = RoadmapTimelineModel.Empty;
+
+    /// <summary>The working week the paces were last read in — what the axis heads show
+    /// and shade (local ADR 0019).</summary>
+    private Backlog.SharedKernel.WorkingHours _week = Backlog.SharedKernel.WorkingHours.Default;
+
+    /// <summary>The week as the timeline takes it: hours per weekday, a day not worked
+    /// at zero.</summary>
+    private IReadOnlyDictionary<DayOfWeek, double> WorkingHoursByDay =>
+        Backlog.SharedKernel.WorkingHours.Week.ToDictionary(day => day, day => _week.WorkedOn(day).TotalHours);
 
     /// <summary>Whether the first read has come back. Only the first: every later
     /// load redraws over a chart that is already on screen.</summary>
@@ -257,17 +268,15 @@
     /// sidebar and above its named lanes — where the reader is looking at them.
     /// <para>
     /// Drawn only for a band that asked for room (<see cref="RoadmapPlanView"/> gives
-    /// every configured repository's band and the unfiled band
-    /// <see cref="RoadmapPlanView.PaceRows"/>). A repository's band carries that repository's pace. The
-    /// unfiled band carries the default pace — the one its plans are placed at —
-    /// measured over all finished work. A band with nothing measured places by the
-    /// reader's own pace in the heading. The milestones band places nothing and has
-    /// none. A change redraws every plan still sized by its effort, each at its own
-    /// pace, and writes nothing to the plan.
+    /// every configured repository's band <see cref="RoadmapPlanView.PaceRows"/>). A
+    /// repository's band carries that repository's pace. A band with nothing measured
+    /// places by the reader's own pace in the heading. The milestones band places
+    /// nothing and has none. A change redraws every plan still sized by its effort,
+    /// each at its own pace, and writes nothing to the plan.
     /// </para>
     /// </summary>
     private RenderFragment<RoadmapGroup> BandPace => group =>
-        @<RoadmapPaceControl Repository="@(group.Id == RoadmapPlanView.UnfiledGroupId ? null : group.Id)" />;
+        @<RoadmapPaceControl Repository="@group.Id" />;
 
     /// <summary>Where the "now" line is drawn. A parameter so a test can put
     /// today somewhere it chooses rather than wherever the clock happens to
@@ -310,9 +319,15 @@
         // that is sized by its effort, to where that effort reaches at the same pace
         // (RoadmapPlanView.AsDrawn).
         // Every band's pace from one read of the finished work, not one read per band.
+        var paces = await Paces.ReadPacesInUseAsync();
+
+        // The week the paces are counted in, which every window is counted through and
+        // the axis heads show (local ADR 0019).
+        _week = paces.Week;
+
         var forecast = new RoadmapForecast(
             Today ?? DateOnly.FromDateTime(DateTime.Today),
-            await Paces.ReadPacesInUseAsync());
+            paces);
 
         _view = RoadmapPlanView.From(_plan, configured, rollups, forecast);
 
@@ -547,8 +562,8 @@
         _placement = new RoadmapItemPlacement(slot.On, RepositoryOf(slot.RowId), RoadmapPlanView.LaneOf(slot.RowId), slot.Until);
     }
 
-    /// <summary>The configured repository a row's band stands for, or null for the
-    /// unfiled band — which is where work filed against nothing is drawn.</summary>
+    /// <summary>The configured repository a row's band stands for, or null for a row
+    /// no repository's band holds.</summary>
     private string? RepositoryOf(string rowId)
     {
         var separator = rowId.IndexOf("::", StringComparison.Ordinal);

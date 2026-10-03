@@ -176,6 +176,54 @@ public sealed record GitHubPullRequestListing(
     public static GitHubPullRequestListing Empty { get; } = new([], []);
 }
 
+/// <summary>
+/// One merged pull request as the pull requests list's "Recently merged" view shows
+/// it: where it lives, whose it is, which branch went where, and when and by whom it
+/// was merged.
+/// <para>
+/// Its own record rather than a <see cref="GitHubOpenPullRequest"/> with a merge time,
+/// because nearly everything that one carries — the checks, the merge state, the node
+/// id and the head commit — is what an act on an open pull request needs, and a merged
+/// one has no act left.
+/// </para>
+/// </summary>
+/// <param name="ViewerDidAuthor">As <see cref="GitHubOpenPullRequest.ViewerDidAuthor"/>.</param>
+/// <param name="MergedByLogin">Who merged it; null where GitHub no longer knows the
+/// account.</param>
+public sealed record GitHubMergedPullRequest(
+    int Number,
+    string Url,
+    string Title,
+    string RepositoryFullName,
+    string HeadRefName,
+    string BaseRefName,
+    string? AuthorLogin,
+    bool ViewerDidAuthor,
+    DateTimeOffset MergedAt,
+    string? MergedByLogin);
+
+/// <summary>One repository's pull requests merged since a moment, as
+/// <see cref="IGitHubClient.ListMergedPullRequestsAsync"/> read them.</summary>
+/// <param name="Truncated">The read stopped at the client's page cap while still inside
+/// the window, so older merges inside it were not read. Said rather than hidden, so a
+/// busy repository's list is not passed off as complete.</param>
+public sealed record GitHubMergedPullRequestRead(
+    IReadOnlyList<GitHubMergedPullRequest> PullRequests,
+    bool Truncated);
+
+/// <summary>The recently merged pull requests of several repositories, read together,
+/// and the ones that could not be read — for the reason
+/// <see cref="GitHubPullRequestListing"/> keeps its failures beside its rows.</summary>
+/// <param name="Truncated">The repositories, by <c>owner/name</c>, whose read the page
+/// cap stopped inside the window. See <see cref="GitHubMergedPullRequestRead.Truncated"/>.</param>
+public sealed record GitHubMergedPullRequestListing(
+    IReadOnlyList<GitHubMergedPullRequest> PullRequests,
+    IReadOnlyList<GitHubRepositoryFailure> Failures,
+    IReadOnlyList<string> Truncated)
+{
+    public static GitHubMergedPullRequestListing Empty { get; } = new([], [], []);
+}
+
 /// <summary>Everything one refresh learned about a pushed entry: the issue and
 /// the pull requests that mention it.</summary>
 public sealed record GitHubIssueSnapshot(

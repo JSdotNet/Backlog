@@ -11,12 +11,13 @@
 // Checking is this tool's own job and the default. Writing is opt-in, because
 // the committed artifacts are a layered plugin's product: its refresh script and
 // nightly workflow pass --write, and nothing in devbook ever does (the checks-and-indexes decision in the repository's devbook).
-// With --write it writes three artifacts per scope, per the derived-artifacts
+// With --write it writes four artifacts per scope, per the derived-artifacts
 // convention:
 //
 //   .devbook/_meta/graph.json          the reference graph (repository-wide rollup)
 //   .devbook/_meta/index.json          the ordered reading outline
 //   .devbook/_meta/annotations.json    the open-note index, from the annotation fences
+//   .devbook/_meta/naming.json         the term register, from domain/'s terms and aliases
 //   .devbook/tech/_meta/graph.json     the same set, scoped to .tech
 //   ...one set per devbook folder the repository actually has
 //
@@ -28,7 +29,7 @@
 // imports, so the written indexes and the live view are always the same graph.
 // `--print` is for a viewer that can spawn Node but not import these modules:
 // it writes nothing and emits `{ folders, scopes: { "<scope>": { graph, outline,
-// annotations } } }` on stdout, with the usual diagnostics on stderr.
+// annotations, naming } } }` on stdout, with the usual diagnostics on stderr.
 
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -47,6 +48,7 @@ import {
     annotationsPathFor,
     collectAnnotations,
 } from "./annotations-index.mjs";
+import { buildNamingDocument, namingPathFor } from "./naming.mjs";
 
 const args = process.argv.slice(2);
 const printMode = args.includes("--print");
@@ -153,7 +155,20 @@ for (const scope of scopes) {
             `${String(annotationsDocument.stats.open).padStart(4)} open`
     );
 
-    printed.scopes[scope] = { graph: graphDocument, outline: outlineDocument, annotations: annotationsDocument };
+    const namingDocument = buildNamingDocument(REPO_ROOT, scope, graph, folders);
+    await emit(
+        namingPathFor(scope),
+        namingDocument,
+        `${String(namingDocument.stats.terms).padStart(4)} terms, ` +
+            `${String(namingDocument.stats.aliases).padStart(4)} aliases`
+    );
+
+    printed.scopes[scope] = {
+        graph: graphDocument,
+        outline: outlineDocument,
+        annotations: annotationsDocument,
+        naming: namingDocument,
+    };
 }
 
 if (printMode) process.stdout.write(`${JSON.stringify(printed, null, 2)}\n`);

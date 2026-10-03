@@ -1,4 +1,4 @@
-﻿@implements IDisposable
+﻿@implements IAsyncDisposable
 @inject TasksDesktopState State
 @inject IToastChannel Toasts
 @inject GitHubIntegration GitHub
@@ -163,20 +163,16 @@
                             <FolderOffIcon CssClass="chip__icon" /><span class="sr-only">No repo</span><span class="chip__count">@NoRepositoryCount</span>
                         </ToggleButton>
 
-                        @* The domain's readiness as a scope: what is open and
-                           waiting on nothing, which is what a reader scanning for
-                           something to pick up is asking. Worded off the row's own
-                           "Waiting for" line rather than as "Ready", because the
-                           status group already means something else by that word
-                           and a row can be `!ready` and still waiting — see
-                           TasksDesktopState.NotWaitingOnly. *@
+                        @* What a plan has lined up to pick up: entries marked
+                           `!ready` and filed under a `+plan` — see
+                           TasksDesktopState.ReadyInPlanOnly. *@
                         <ToggleButton BaseClass="chip chip--filter chip--scope"
                                       PressedCssClass="chip--active"
-                                      Pressed="@State.NotWaitingOnly"
-                                      TestId="notwaiting-filter-option"
-                                      Title="@(State.NotWaitingOnly ? "Show everything again" : "Show only what is open and waiting on nothing")"
-                                      PressedChanged="State.SetNotWaitingFilter">
-                            <PlayIcon CssClass="chip__icon" /><span class="sr-only">Not waiting</span><span class="chip__count">@NotWaitingCount</span>
+                                      Pressed="@State.ReadyInPlanOnly"
+                                      TestId="readyinplan-filter-option"
+                                      Title="@(State.ReadyInPlanOnly ? "Show everything again" : "Show only what is ready in a plan")"
+                                      PressedChanged="State.SetReadyInPlanFilter">
+                            <PlayIcon CssClass="chip__icon" /><span class="sr-only">Ready in a plan</span><span class="chip__count">@ReadyInPlanCount</span>
                         </ToggleButton>
                     </div>
 
@@ -690,6 +686,8 @@
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender) await RegisterUndoKeysAsync();
+
         if (_focusDevbookPicker && _devbookPicker is not null)
         {
             _focusDevbookPicker = false;
@@ -2330,10 +2328,10 @@
     /// working the answer out a second way here.</summary>
     private int NoRepositoryCount => State.ScopedRows.Count(row => State.RepositoryFor(row) is null);
 
-    /// <summary>How many of those same rows are open and waiting on nothing. The
-    /// same arrangement as No repo: the state derives readiness, and the count asks
-    /// it — see <c>TasksDesktopState.IsNotWaiting</c>.</summary>
-    private int NotWaitingCount => State.ScopedRows.Count(State.IsNotWaiting);
+    /// <summary>How many of those same rows are ready in a plan. The same
+    /// arrangement as No repo: the state decides, and the count asks it — see
+    /// <c>TasksDesktopState.IsReadyInPlan</c>.</summary>
+    private int ReadyInPlanCount => State.ScopedRows.Count(State.IsReadyInPlan);
 
     // --- The open-work summary and its report --------------------------------
 
@@ -4183,9 +4181,54 @@
     private static string GitHubStateClass(GitHubItemState? state) =>
         state?.ToString().ToLowerInvariant() ?? "unknown";
 
-    public void Dispose()
+    // --- Undo -------------------------------------------------------------
+    //
+    // Ctrl+Z from anywhere on the pane that is not a text field, and from
+    // nowhere at all — the focus a delete or a drop leaves behind. The keys are
+    // heard on the document (`backlogUndoKeys`), because a press with the focus
+    // on <body> never reaches an @onkeydown here; what they do is the state's.
+
+    private DotNetObjectReference<TasksPane>? _undoKeysReference;
+
+    private async Task RegisterUndoKeysAsync()
+    {
+        _undoKeysReference = DotNetObjectReference.Create(this);
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogUndoKeys.register", "backlog-pane", _undoKeysReference);
+        }
+        catch (JSException)
+        {
+            // Without the script the history is still there; only the shortcut
+            // goes unheard.
+        }
+    }
+
+    [JSInvokable]
+    public Task UndoFromKeyboardAsync() => State.UndoAsync();
+
+    [JSInvokable]
+    public Task RedoFromKeyboardAsync() => State.RedoAsync();
+
+    public async ValueTask DisposeAsync()
     {
         State.Changed -= HandleStateChanged;
         Features.Changed -= HandleFeaturesChanged;
+
+        if (_undoKeysReference is null) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogUndoKeys.unregister", "backlog-pane");
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _undoKeysReference.Dispose();
     }
 }

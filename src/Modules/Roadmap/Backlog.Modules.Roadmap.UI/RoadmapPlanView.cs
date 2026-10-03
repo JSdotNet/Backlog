@@ -58,13 +58,6 @@ public sealed record RoadmapTimelineModel(
 /// </summary>
 public static class RoadmapPlanView
 {
-    /// <summary>The band for work that names no repository, or names one that is no
-    /// longer configured. Not an error state: a plan is allowed to contain work
-    /// nobody has filed yet.</summary>
-    public const string UnfiledGroupId = "unfiled";
-
-    public const string UnfiledGroupTitle = "Unfiled";
-
     /// <summary>
     /// The band every milestone sits on, at the top of the chart.
     /// <para>
@@ -75,8 +68,8 @@ public static class RoadmapPlanView
     /// beside the quarters, reading as part of the header rather than as one more lane.
     /// </para>
     /// <para>
-    /// It takes no colour, for the same reason the unfiled band does not: a hue here
-    /// means "which repository", and this band is not one.
+    /// It takes no colour: a hue here means "which repository", and this band is not
+    /// one.
     /// </para>
     /// </summary>
     public const string MilestoneGroupId = "milestones";
@@ -109,7 +102,13 @@ public static class RoadmapPlanView
         // Ordered before anything is grouped, so lanes appear in the order the work
         // actually starts rather than in whatever order the file happened to list
         // it. Two runs over the same plan must draw the same picture.
+        //
+        // Each item is read under the configured aliases its repositories resolve to
+        // first, so the band it is drawn in and the pace it is forecast at are asked of
+        // the same repositories — a full name finds its repository's pace, and a name
+        // matching none neither draws a bar nor slows the others down.
         var items = plan.Items
+            .Select(item => item with { RepositoryAliases = FiledUnder(item.RepositoryAliases, configured) })
             .Select(item => AsDrawn(item, rollups, forecast, drawnFromWork))
             .OrderBy(item => item.Start)
             .ThenBy(item => item.Title, StringComparer.CurrentCulture)
@@ -185,7 +184,16 @@ public static class RoadmapPlanView
     }
 
     /// <summary>
-    /// One item, as the bars it is drawn as: one per band its repositories land in.
+    /// One item, as the bars it is drawn as: one per band its repositories land in, and
+    /// none when they land in no band at all.
+    /// <para>
+    /// A repository lands in a band when it names a configured repository, by alias or
+    /// by full name — an imported plan may carry either. Work naming no configured
+    /// repository is not drawn: the roadmap shows the repositories somebody chose to
+    /// plan, not a bin for what matches none of them. Nothing is discarded — the stored
+    /// item keeps every name it carries, so configuring that repository again puts the
+    /// work back where it was.
+    /// </para>
     /// <para>
     /// A plan filed in two repositories is two pieces of work to the people doing it —
     /// each repository holds its own share of the tasks — so each band shows its
@@ -205,21 +213,24 @@ public static class RoadmapPlanView
         DrawnFrom? drawnFrom)
     {
         var bands = item.RepositoryAliases
-            .Select(alias => (Alias: alias, GroupId: GroupIdFor([alias], configured)))
-            .GroupBy(entry => entry.GroupId, StringComparer.OrdinalIgnoreCase)
+            .Select(alias => (Alias: alias, GroupId: BandOfRepository(alias, configured)))
+            .Where(entry => entry.GroupId is not null)
+            .GroupBy(entry => entry.GroupId!, StringComparer.OrdinalIgnoreCase)
             .Select(group => (GroupId: group.Key, Aliases: group.Select(entry => entry.Alias).ToList()))
             .ToList();
+
+        if (bands.Count == 0) yield break;
 
         var links = rollups is not null && rollups.TryGetValue(item.Id, out var rollup)
             ? RoadmapRollup.InDependencyOrder(rollup.BacklogEntries)
             : [];
 
-        if (bands.Count <= 1)
+        if (bands.Count == 1)
         {
             yield return new ItemPart(
                 item,
                 item.Id.ToString(),
-                GroupIdFor(item.RepositoryAliases, configured),
+                bands[0].GroupId,
                 item.RepositoryAliases,
                 Steps(links),
                 PartCount: 1);
@@ -237,6 +248,7 @@ public static class RoadmapPlanView
         {
             var filed = link.Repositories
                 .Select(id => BandOfRepository(id, configured))
+                .OfType<string>()
                 .Where(shares.ContainsKey)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -479,13 +491,23 @@ public static class RoadmapPlanView
     /// <c>&lt;item id&gt;@&lt;band&gt;#&lt;phase&gt;</c>.</summary>
     public const char SegmentSeparator = '#';
 
-    /// <summary>The band a task's stored repository lands in: the configured
-    /// repository it names by alias or by full name, else the unfiled band.</summary>
-    private static string BandOfRepository(string repositoryId, List<PlannedRepository> configured) =>
+    /// <summary>The band a stored repository name lands in — an item's or a task's: the
+    /// configured repository it names by alias or by full name, else none.</summary>
+    private static string? BandOfRepository(string repositoryId, List<PlannedRepository> configured) =>
+        Matching(repositoryId, configured)?.Alias;
+
+    /// <summary>The configured aliases a node's stored repository names resolve to, in
+    /// order and once each; a name matching no configured repository is left out.</summary>
+    private static List<string> FiledUnder(IReadOnlyList<string> repositoryIds, List<PlannedRepository> configured) =>
+        [.. repositoryIds
+            .Select(id => BandOfRepository(id, configured))
+            .OfType<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+    private static PlannedRepository? Matching(string repositoryId, List<PlannedRepository> configured) =>
         configured.FirstOrDefault(repository =>
-                string.Equals(repository.Alias, repositoryId, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(repository.Title, repositoryId, StringComparison.OrdinalIgnoreCase))?.Alias
-            ?? UnfiledGroupId;
+            string.Equals(repository.Alias, repositoryId, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(repository.Title, repositoryId, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>One bar's worth of an item: the whole of it, one repository's part, or
     /// one segment of the sequence its tasks hand over in — which alone has dates of
@@ -514,30 +536,6 @@ public static class RoadmapPlanView
             .Where(repository => !string.IsNullOrWhiteSpace(repository.Alias))
             .GroupBy(repository => repository.Alias, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())];
-
-    /// <summary>
-    /// Which band a node belongs in: the first of its aliases that is actually
-    /// configured, or the unfiled band.
-    /// <para>
-    /// Asked once per alias by <see cref="PartsOf"/>, which draws an item in every
-    /// band its aliases reach — each band showing that repository's part. The parts
-    /// share the item's window, so moving one moves all of them and the plan never
-    /// appears to disagree with itself.
-    /// </para>
-    /// <para>
-    /// An alias that no longer matches a configured repository falls to the unfiled
-    /// band rather than making a band of its own. The alias itself is never
-    /// discarded — it stays in the stored plan and on the bar's facets, so
-    /// configuring that repository again puts the work back where it was.
-    /// </para>
-    /// </summary>
-    private static string GroupIdFor(IReadOnlyList<string> aliases, List<PlannedRepository> configured)
-    {
-        var match = aliases.FirstOrDefault(alias =>
-            configured.Any(repository => string.Equals(repository.Alias, alias, StringComparison.OrdinalIgnoreCase)));
-
-        return match is null ? UnfiledGroupId : match;
-    }
 
     /// <summary>
     /// The lane a row belongs to, read back out of its id — for a drop onto a row, which
@@ -634,9 +632,7 @@ public static class RoadmapPlanView
         bool hasMilestones,
         List<PlannedRepository> configured)
     {
-        // Configured order first, so the bands read the way Settings lists them, then
-        // the unfiled band last — it is where things end up rather than somewhere
-        // they were put.
+        // Configured order, so the bands read the way Settings lists them.
         //
         // The band is labelled with the repository's alias rather than its full name,
         // and that is a layout decision as much as a naming one. The label is written
@@ -647,8 +643,7 @@ public static class RoadmapPlanView
         // chose and the one the plan stores; the full name is still what the
         // Repository filter offers, where there is room for it.
         var order = configured
-            .Select(repository => (Id: repository.Alias, Title: repository.Alias, repository.Colour))
-            .Append((Id: UnfiledGroupId, Title: UnfiledGroupTitle, Colour: (int?)null));
+            .Select(repository => (Id: repository.Alias, Title: repository.Alias, repository.Colour));
 
         var bands = new List<RoadmapGroup>();
 
@@ -682,11 +677,8 @@ public static class RoadmapPlanView
                     .Select(stack => new RoadmapRow(LaneRowId(id, lane, stack), lane == DefaultLane ? string.Empty : lane)))
             ];
 
-            // The hue the repository wears, as Settings resolved it. The unfiled band
-            // arrives with none and stays neutral, which reads as "nobody said" rather
-            // than as one more project. Every band here makes room under its name for the
-            // pace its plans are placed at — a repository's own, or, for the unfiled
-            // band, the default pace.
+            // The hue the repository wears, as Settings resolved it. Every band here
+            // makes room under its name for the pace its repository's plans are placed at.
             bands.Add(new RoadmapGroup(id, title, rows, BandColour(hue), PaceRows));
         }
 
@@ -706,8 +698,8 @@ public static class RoadmapPlanView
     /// It says which repository and nothing else — no status, no severity, no priority
     /// — and it is never the only thing saying it: the band is labelled with its alias
     /// down its own side and every bar names its band in its accessible name. Null is
-    /// a neutral band, which is what the unfiled and milestone bands get: a hue here
-    /// means "which repository", and neither of those is one.
+    /// a neutral band, which is what the milestone band gets: a hue here means "which
+    /// repository", and that band is not one.
     /// </para>
     /// </summary>
     private static string? BandColour(int? hue) =>
@@ -840,12 +832,13 @@ public static class RoadmapPlanView
 
         var began = begun.Select(link => link.StartedOn ?? link.CreatedOn).Where(day => day is not null).Min();
         var from = began is { } day ? Min(day, item.Start) : item.Start;
-        var openFrom = Max(forecast.Today, from);
+        // Open work is drawn from the first worked day it can be done on (local ADR 0019).
+        var openFrom = EffortWindow.FirstWorkedDay(Max(forecast.Today, from), forecast.Paces.Week);
 
         var left = rollup.BacklogEntries.Where(link => !link.IsDone).Sum(link => Math.Max(0, link.Effort ?? 1));
-        var days = (int)Math.Clamp(Math.Ceiling(left * 7m / pace), 1, 3650);
 
-        var forecastEnd = openFrom.AddDays(days - 1);
+        // The same hours through the same working week every other window is counted in.
+        var forecastEnd = EffortWindow.ForecastEnd(openFrom, left, pace, forecast.Paces.Week);
 
         // A pinned end is a person's date and outranks the forecast — but never ends
         // before the first day open work can be drawn on. The forecast is kept and said
@@ -1128,8 +1121,7 @@ public static class RoadmapPlanView
     }
 
     private static string TitleFor(string alias, List<PlannedRepository> configured) =>
-        configured.FirstOrDefault(repository =>
-            string.Equals(repository.Alias, alias, StringComparison.OrdinalIgnoreCase))?.Title ?? alias;
+        Matching(alias, configured)?.Title ?? alias;
 
     private static string Word(PlanningPriority priority) => priority switch
     {

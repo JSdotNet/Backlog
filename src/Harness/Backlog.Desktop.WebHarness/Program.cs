@@ -90,7 +90,11 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     FeatureSettings = _ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath),
     WorkingHoursSettings = _ => CreateLocalDevelopmentWorkingHoursSettingsStore(builder.Environment.ContentRootPath),
     UsageResetSettings = _ => new UsageResetSettingsStore(Path.Combine(localDevelopment, "usage-reset.settings.json")),
-    PlanningVelocitySettings = _ => new PlanningVelocitySettingsStore(Path.Combine(localDevelopment, "planning-velocity.settings.json")),
+    // It carries the working week too, kept equal to the store above.
+    PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(
+        Path.Combine(localDevelopment, "planning-velocity.settings.json"),
+        time: null,
+        sp.GetRequiredService<WorkingHoursSettingsStore>()),
     ShellNavigation = _ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath),
     CaptureSourceSettings = _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath),
     CaptureRunLog = _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath),
