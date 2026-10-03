@@ -24,8 +24,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <!-- CI publishes a Cobertura coverage report. Like the TRX reporter below,
+         coverage is an opt-in extension under Microsoft.Testing.Platform, so the
+         coverage options only exist if this is referenced; coverlet's collector
+         is a VSTest data collector the platform never loads. -->
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
     <!-- CI publishes a TRX artifact. Under Microsoft.Testing.Platform the
          reporter is an opt-in extension rather than a logger built into the
          runner, so the report-trx option only exists if this is referenced. -->

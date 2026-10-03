@@ -72,7 +72,6 @@
     -->
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.29.2" />
     <PackageVersion Include="bunit" Version="2.11.3" />
-    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.11" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
@@ -134,6 +133,7 @@
     <!-- Browser end-to-end tests only (tests/Backlog.EndToEndTests). Its browsers
          are installed separately, by the playwright.ps1 the build writes to bin. -->
     <PackageVersion Include="Microsoft.Playwright" Version="1.63.0" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
     <!--
       The MCP server ADR 0012 decided. .Core is the transport-neutral half the tool

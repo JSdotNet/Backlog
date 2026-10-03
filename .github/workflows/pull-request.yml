@@ -109,7 +109,13 @@ jobs:
       #                                   extension under MTP, which is why every
       #                                   test project references TrxReport)
       #   --results-directory          -> unchanged, and it is what the upload
-      #                                   step below collects.
+      #                                   steps below collect.
+      #
+      # --coverage and --coverage-output-format cobertura are new rather than
+      # mapped: coverlet's collector was a VSTest data collector MTP never loaded.
+      # They come from Microsoft.Testing.Extensions.CodeCoverage, an opt-in
+      # extension every test project references for the same reason as TrxReport.
+      # Each module writes its own <guid>.cobertura.xml at the top of TestResults.
       #
       # MTP swallows an option it does not recognise and then runs nothing, exiting
       # 5 with "Zero tests ran" rather than rejecting the argument -- so a stale
@@ -125,14 +131,84 @@ jobs:
           --results-directory TestResults
           --report-trx
           --parallel none
+          --coverage
+          --coverage-output-format cobertura
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dotnet-test-results
-          path: TestResults
+          # The coverage reports go in their own artifact below; MTP also copies
+          # each one beside its TRX under In/, which would upload them twice.
+          path: |
+            TestResults
+            !TestResults/**/*.cobertura.xml
           if-no-files-found: ignore
+
+      # One report per test module, at the top of TestResults only: the copies
+      # under In/ are the TRX attachments of the same files.
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dotnet-coverage
+          path: TestResults/*.cobertura.xml
+          if-no-files-found: ignore
+
+      # Each module reports every product assembly it loaded, so one assembly
+      # appears in several reports. A line counts once, covered when any module
+      # hit it; summing the reports' own line-rate figures would count it again
+      # per module. The figure lands on the run's summary page.
+      - name: Summarise coverage
+        if: always()
+        shell: pwsh
+        run: |
+          $reports = @(Get-ChildItem TestResults -Filter *.cobertura.xml -File -ErrorAction SilentlyContinue)
+          if ($reports.Count -eq 0) {
+            "## Coverage`n`nNo coverage report was written." >> $env:GITHUB_STEP_SUMMARY
+            return
+          }
+
+          $valid = @{}
+          $covered = @{}
+          foreach ($report in $reports) {
+            $xml = [xml](Get-Content $report.FullName -Raw)
+            foreach ($package in $xml.SelectNodes('/coverage/packages/package')) {
+              $name = $package.GetAttribute('name')
+              if (-not $valid.ContainsKey($name)) {
+                $valid[$name] = [System.Collections.Generic.HashSet[string]]::new()
+                $covered[$name] = [System.Collections.Generic.HashSet[string]]::new()
+              }
+              foreach ($class in $package.SelectNodes('classes/class')) {
+                $file = $class.GetAttribute('filename')
+                foreach ($line in $class.SelectNodes('lines/line')) {
+                  $key = "$file|$($line.GetAttribute('number'))"
+                  [void]$valid[$name].Add($key)
+                  if ([long]$line.GetAttribute('hits') -gt 0) { [void]$covered[$name].Add($key) }
+                }
+              }
+            }
+          }
+
+          $invariant = [System.Globalization.CultureInfo]::InvariantCulture
+          $percent = { param($c, $v) if ($v -eq 0) { 'n/a' } else { [string]::Format($invariant, '{0:N1}%', 100.0 * $c / $v) } }
+          $rows = foreach ($name in $valid.Keys | Sort-Object) {
+            [pscustomobject]@{ Name = $name; Covered = $covered[$name].Count; Valid = $valid[$name].Count }
+          }
+          $totalCovered = [long]($rows | Measure-Object Covered -Sum).Sum
+          $totalValid = [long]($rows | Measure-Object Valid -Sum).Sum
+
+          $summary = @(
+            '## Coverage'
+            ''
+            "**Line coverage: $(& $percent $totalCovered $totalValid)** ($totalCovered of $totalValid lines, merged across $($reports.Count) test modules)"
+            ''
+            '| Assembly | Line coverage | Lines |'
+            '| --- | ---: | ---: |'
+          )
+          $summary += $rows | ForEach-Object { "| $($_.Name) | $(& $percent $_.Covered $_.Valid) | $($_.Covered) / $($_.Valid) |" }
+          $summary -join "`n" >> $env:GITHUB_STEP_SUMMARY
 
   app-heads:
     name: Build the app heads

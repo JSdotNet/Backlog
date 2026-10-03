@@ -99,6 +99,26 @@ The TRX report writer.
   rather than a logger built into the runner, so the `--report-trx` option only
   exists because this package is referenced.
 
+## Microsoft.Testing.Extensions.CodeCoverage
+
+```meta
+status: adopted
+type: package
+version: "18.11.2"
+depends-on: [".devbook/tech/testing.md#microsofttestingplatform"]
+related: [".devbook/tech/tooling.md#github-actions"]
+```
+
+The code-coverage collector, referenced from `tests/Directory.Build.props`.
+
+- **Used for** — the Cobertura report each test module writes in the
+  pull-request run, uploaded as an artifact and merged into the line-coverage
+  figure on the run summary.
+- **Why** — like the TRX reporter, coverage is an opt-in extension under
+  Microsoft.Testing.Platform, and the `--coverage` options only exist because
+  this package is referenced. It replaced coverlet's collector, a VSTest data
+  collector the platform never loads.
+
 ## bUnit
 
 ```meta
@@ -150,22 +170,6 @@ depends-on: [".devbook/tech/shared.md#net-runtime"]
   token lifetimes, sync cycles, deferral and resurfacing, roadmap dates.
 - **Why** — time-dependent behaviour is asserted without sleeping and without
   flaking on a slow machine.
-
-## coverlet
-
-```meta
-status: adopted
-type: tool
-version: "10.1.0"
-depends-on: [".devbook/tech/testing.md#microsoftnettestsdk"]
-```
-
-The code-coverage collector.
-
-- **Used for** — coverage collection during `dotnet test`, referenced from
-  `tests/Directory.Build.props`.
-- **Why** — the standard cross-platform collector for .NET; no separate
-  instrumentation step.
 
 ## Playwright
 

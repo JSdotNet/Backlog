@@ -5,8 +5,8 @@ namespace Backlog.ArchitectureTests;
 /// <summary>
 /// What the workflows under <c>.github/workflows/</c> promise about themselves
 /// (issue #748): no job holds a runner for GitHub's six-hour default, a nightly
-/// run exercises the suite at the parallelism developer machines use, and every
-/// Node step runs one version.
+/// run exercises the suite at the parallelism developer machines use, every
+/// Node step runs one version, and the pull request run reports its coverage.
 ///
 /// <para>Nothing else can prove these. A workflow runs only on GitHub, and each of
 /// them fails quietly: a missing timeout is noticed when a hung workload install has
@@ -22,6 +22,9 @@ public class ContinuousIntegrationWorkflowTests
 
     /// <summary>The nightly run at default parallelism.</summary>
     private const string NightlyWorkflow = "nightly-tests.yml";
+
+    /// <summary>The pull request run, the one that reports coverage.</summary>
+    private const string PullRequestWorkflow = "pull-request.yml";
 
     /// <summary>
     /// The timeout each workflow's jobs carry: 60 for release and deploy jobs,
@@ -136,6 +139,66 @@ public class ContinuousIntegrationWorkflowTests
 
         Assert.Contains("if: always()", Step(workflow, "Upload test results"), StringComparison.Ordinal);
         Assert.Contains("actions/setup-node@", Step(workflow, "Setup Node.js"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The pull request run collects Cobertura coverage, keeps the report as an
+    /// artifact and puts the line figure on the run summary. The serial flags stay:
+    /// coverage is added to the run, not traded for its parallelism decision.
+    /// </summary>
+    [Fact]
+    public void The_pull_request_run_collects_and_summarises_coverage()
+    {
+        var workflow = Workflow(PullRequestWorkflow);
+
+        var run = Step(workflow, "Run tests");
+        Assert.Contains("--coverage-output-format cobertura", run, StringComparison.Ordinal);
+        Assert.Matches(new Regex(@"^\s+--coverage\s*$", RegexOptions.Multiline), run);
+        Assert.Contains("--max-parallel-test-modules 1", run, StringComparison.Ordinal);
+        Assert.Contains("--parallel none", run, StringComparison.Ordinal);
+        Assert.Contains("--report-trx", run, StringComparison.Ordinal);
+        Assert.Contains("--results-directory TestResults", run, StringComparison.Ordinal);
+
+        var upload = Step(workflow, "Upload coverage report");
+        Assert.Contains("if: always()", upload, StringComparison.Ordinal);
+        Assert.Matches(new Regex(@"uses: actions/upload-artifact@[0-9a-f]{40}\b"), upload);
+        Assert.Contains("*.cobertura.xml", upload, StringComparison.Ordinal);
+
+        var summary = Step(workflow, "Summarise coverage");
+        Assert.Contains("GITHUB_STEP_SUMMARY", summary, StringComparison.Ordinal);
+        Assert.Contains("if: always()", summary, StringComparison.Ordinal);
+        Assert.Contains("Line coverage", summary, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// <c>--coverage</c> exists only in a test module that references the
+    /// Microsoft.Testing.Platform coverage extension, and a module without it runs
+    /// nothing. coverlet's collector is a VSTest data collector the platform never
+    /// loads, so it is not referenced, and Dependabot's test group keeps no pattern
+    /// for it.
+    /// </summary>
+    [Fact]
+    public void Every_test_project_references_the_platform_coverage_extension()
+    {
+        var testProps = File.ReadAllText(RepositoryRoot.File(["tests", "Directory.Build.props"]));
+        var packages = File.ReadAllText(RepositoryRoot.File("Directory.Packages.props"));
+        var dependabot = File.ReadAllText(RepositoryRoot.File([".github", "dependabot.yml"]));
+
+        Assert.Contains(
+            "<PackageReference Include=\"Microsoft.Testing.Extensions.CodeCoverage\" />",
+            testProps,
+            StringComparison.Ordinal);
+        Assert.Single(Regex.Matches(packages, "<PackageVersion Include=\"Microsoft\\.Testing\\.Extensions\\.CodeCoverage\""));
+
+        Assert.DoesNotContain("Include=\"coverlet", testProps, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Include=\"coverlet", packages, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotMatch(new Regex(@"^\s+- coverlet", RegexOptions.Multiline | RegexOptions.IgnoreCase), dependabot);
+
+        var projects = new[] { "src", "tests" }
+            .SelectMany(folder => Directory.GetFiles(RepositoryRoot.Directory([folder]), "*.csproj", SearchOption.AllDirectories))
+            .Where(project => File.ReadAllText(project).Contains("Include=\"coverlet", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        Assert.True(projects.Length == 0, $"Still referencing coverlet: {string.Join(", ", projects)}");
     }
 
     [Fact]

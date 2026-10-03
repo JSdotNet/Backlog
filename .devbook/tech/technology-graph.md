@@ -152,10 +152,10 @@ flowchart LR
         TestSdk["Microsoft.NET.Test.Sdk"]:::adopted
         VsRunner["xunit.runner.visualstudio"]:::adopted
         TrxReport["Microsoft.Testing.Extensions.TrxReport"]:::adopted
+        CodeCoverage["Microsoft.Testing.Extensions.CodeCoverage"]:::adopted
         MvcTesting["Microsoft.AspNetCore.Mvc.Testing"]:::adopted
         FakeTime["Microsoft.Extensions.TimeProvider.Testing"]:::adopted
         BUnit["bUnit"]:::adopted
-        Coverlet["coverlet"]:::adopted
         Playwright["Playwright"]:::adopted
     end
 
@@ -272,12 +272,12 @@ flowchart LR
     TestSdk --> MTP
     VsRunner --> XUnit
     TrxReport --> MTP
+    CodeCoverage --> MTP
     MvcTesting --> AspNetCore
     MvcTesting --> XUnit
     FakeTime --> DotNet
     BUnit --> RazorComponents
     BUnit --> XUnit
-    Coverlet --> TestSdk
     Playwright --> BlazorServer
     Playwright --> WebView2
 
