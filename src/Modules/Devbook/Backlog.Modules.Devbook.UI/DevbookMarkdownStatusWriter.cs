@@ -31,7 +31,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// </summary>
 internal static class DevbookMarkdownStatusWriter
 {
-    private static readonly Regex Heading = new("^(#{1,6})[ \\t]+(.+?)\\s*$", RegexOptions.Compiled);
+    internal static readonly Regex Heading = new("^(#{1,6})[ \\t]+(.+?)\\s*$", RegexOptions.Compiled);
 
     /// <summary>Set the heading's status, inserting the field — or the whole
     /// fence — when it is not there yet. The resting value in a folder that rests
@@ -178,8 +178,10 @@ internal static class DevbookMarkdownStatusWriter
     }
 
     /// <summary>Resolve the item path to a file inside the folder, read it, and
-    /// find the addressed heading. The half both verbs share.</summary>
-    private static HeadingDocument Open(string folderRoot, string itemPath, string folderPrefix)
+    /// find the addressed heading. The half both verbs share — and
+    /// <see cref="DevbookMarkdownSyncWriter"/>'s, which addresses a heading the
+    /// same way.</summary>
+    internal static HeadingDocument Open(string folderRoot, string itemPath, string folderPrefix)
     {
         var (relativePath, anchor) = SplitItemPath(itemPath);
 
@@ -220,7 +222,7 @@ internal static class DevbookMarkdownStatusWriter
 
     /// <summary>One knowledge file, opened at the heading a write is addressed
     /// to.</summary>
-    private sealed record HeadingDocument(string FilePath, string Newline, List<string> Lines, int HeadingIndex)
+    internal sealed record HeadingDocument(string FilePath, string Newline, List<string> Lines, int HeadingIndex)
     {
         public void Save() => File.WriteAllText(FilePath, string.Join(Newline, Lines));
     }
@@ -247,7 +249,7 @@ internal static class DevbookMarkdownStatusWriter
     /// <summary>The index of the heading's <c>meta</c> fence opener, or -1 when the
     /// heading carries no fence. Blank lines between the heading and the fence are
     /// skipped, because that is how the convention writes them.</summary>
-    private static int FindFence(IReadOnlyList<string> lines, int headingIndex)
+    internal static int FindFence(IReadOnlyList<string> lines, int headingIndex)
     {
         var index = headingIndex + 1;
         while (index < lines.Count && string.IsNullOrWhiteSpace(lines[index])) index++;
@@ -307,7 +309,7 @@ internal static class DevbookMarkdownStatusWriter
         return true;
     }
 
-    private static string Slug(string heading)
+    internal static string Slug(string heading)
     {
         var chars = heading
             .ToLowerInvariant()

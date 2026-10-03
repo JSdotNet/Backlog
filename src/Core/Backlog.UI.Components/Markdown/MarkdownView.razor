@@ -149,6 +149,7 @@
                                      Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
                                      Folder="@DevbookFolder"
                                      FileName="@DevbookDocumentPath"
+                                     HeadingText="@(_chapters.TryGetValue(index, out var titled) ? titled.Title : null)"
                                      ShowFields="@RenderDevbookMetadataFields"
                                      CanEditStatus="@CanEditDevbookStatus"
                                      OnStatusChanged="status => ReportStatusAsync(index, status)"

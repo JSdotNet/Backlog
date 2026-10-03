@@ -40,12 +40,17 @@
     record gets that answer, rather than each of them remembering to check.
 *@
 
-@if (Metadata is { IsEmpty: false } record)
+@if (Metadata is { IsEmpty: false } || TakesDirection)
 {
-    <MetadataView Metadata="@record"
+    @* A file whose block is a sync level gets its headline even when the block
+       states nothing — the folder overview, a context, a page, a building block —
+       because the direction it hands down is drawn there and nowhere else. Its
+       status stays the badge in that case: with no record there is no title for
+       the host to address a status write to. *@
+    <MetadataView Metadata="@(Metadata ?? MetadataRecord.Empty)"
                   Vocabulary="@Vocabulary"
                   ShowFields="@ShowFields"
-                  CanEditStatus="@CanEditStatus"
+                  CanEditStatus="@(CanEditStatus && Metadata is { IsEmpty: false })"
                   OnStatusChanged="@OnStatusChanged"
                   OnNavigate="@OnNavigate"
                   HrefFor="@HrefFor"
@@ -64,9 +69,18 @@ else
 
 @code {
     /// <summary>The file's own record, or nothing. Null and a block that states
-    /// nothing are the same answer, and both draw <see cref="HeadingAlone"/>.</summary>
+    /// nothing are the same answer, and both draw <see cref="HeadingAlone"/> —
+    /// unless the file's block may state a <c>sync</c> direction.</summary>
     [Parameter]
     public MetadataRecord? Metadata { get; set; }
+
+    /// <summary>The devbook pane's <c>sync</c> scope, when the file is drawn
+    /// inside one.</summary>
+    [CascadingParameter]
+    public DevbookSyncScope? SyncScope { get; set; }
+
+    private bool TakesDirection =>
+        Folder != DevbookFolder.Unknown && SyncScope?.Describe(DevbookMetadataLevel.File, null) is not null;
 
     /// <summary>The file's name, as one item of the record's headline. Wrapped by
     /// the host: the headline is a row, and what shares that row with the status is

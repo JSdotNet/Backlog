@@ -64,12 +64,17 @@ public static class DevbookMetadataFindings
     /// <param name="fileName">The file it came from, by name or repository path.
     /// Needed for two answers only: a <c>domain/</c> additional page's own
     /// <c>type</c>, and whether a file-level <c>deployment</c> sits on a
-    /// <c>context.md</c>. Null leaves both unjudged rather than guessed.</param>
+    /// <c>context.md</c>. Null leaves both unjudged rather than guessed. A path
+    /// below the folder settles a third: whether the block may state <c>sync</c>.</param>
+    /// <param name="headingLevel">The chapter's heading depth, when the caller
+    /// knows it. Only <c>design/</c>'s <c>sync</c> needs it — a component is a
+    /// <c>##</c> chapter — and null leaves that one unjudged.</param>
     public static IReadOnlyList<DevbookMetadataFinding> For(
         DevbookFolder folder,
         DevbookMetadataLevel level,
         MetadataRecord record,
-        string? fileName = null)
+        string? fileName = null,
+        int? headingLevel = null)
     {
         ArgumentNullException.ThrowIfNull(record);
 
@@ -88,6 +93,7 @@ public static class DevbookMetadataFindings
         Review(findings, record.State);
         Type(findings, folder, level, record, fileName);
         Deployment(findings, level, record, fileName);
+        Sync(findings, folder, level, record, fileName, headingLevel);
         FileLevelOnly(findings, level, record);
 
         return findings;
@@ -240,6 +246,60 @@ public static class DevbookMetadataFindings
         {
             findings.Add(Warn("deployment", "Only a context's context.md carries it at file level."));
         }
+    }
+
+    /// <summary>
+    /// <c>sync</c>: one of <see cref="DevbookSync.Directions"/>, on a block that is
+    /// a level. The checker's <c>syncIssues</c>, one block at a time — whether any
+    /// unit inherits a value is the graph's to say. Where the block sits is judged
+    /// only from a path below the folder: a bare file name cannot tell a building
+    /// block from any other <c>arc42/</c> file.
+    /// </summary>
+    private static void Sync(
+        List<DevbookMetadataFinding> findings,
+        DevbookFolder folder,
+        DevbookMetadataLevel level,
+        MetadataRecord record,
+        string? fileName,
+        int? headingLevel)
+    {
+        if (string.IsNullOrWhiteSpace(record.Sync)) return;
+
+        var value = record.Sync.Trim();
+        if (!DevbookSync.IsDirection(value))
+        {
+            findings.Add(Error("sync", $"“{value}” is not a direction: {string.Join(", ", DevbookSync.Directions)}."));
+        }
+
+        if (DevbookSync.FolderOverview(folder) is null)
+        {
+            findings.Add(Error("sync", "This folder takes no sync direction: only domain/, arc42/ and design/ do."));
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(fileName) || !fileName.Replace('\\', '/').Contains('/', StringComparison.Ordinal)) return;
+        if (folder == DevbookFolder.Design && level == DevbookMetadataLevel.Chapter && headingLevel is null) return;
+
+        var place = DevbookSync.Place(
+            folder,
+            fileName,
+            level,
+            record.Type,
+            headingLevel ?? (level == DevbookMetadataLevel.File ? 1 : 2),
+            string.Equals(record.Index?.Trim(), "root", StringComparison.OrdinalIgnoreCase));
+
+        var message = place.Refusal switch
+        {
+            DevbookSyncRefusal.Owned =>
+                $"A {record.Type?.Trim()} chapter belongs to its unit and follows its direction: set it on the unit's root chapter or above.",
+            DevbookSyncRefusal.OwnedPage =>
+                "This page holds only chapters a unit on another page owns; each follows its unit's direction.",
+            DevbookSyncRefusal.NoLevel =>
+                "Not a sync level: set it on a folder overview, a context.md, a context page, or a unit's root chapter.",
+            _ => null
+        };
+
+        if (message is not null) findings.Add(Error("sync", message));
     }
 
     private static void FileLevelOnly(List<DevbookMetadataFinding> findings, DevbookMetadataLevel level, MetadataRecord record)

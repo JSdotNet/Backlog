@@ -106,6 +106,19 @@
             {
                 <MetadataStateLine State="@Metadata.State" />
             }
+            @* The sync direction goes beside the status too: it is how the sweeps
+               treat the unit, read at a glance with its state. Drawn from the pane's
+               scope where there is one — the direction in force, and a picker where
+               the block may state one — and otherwise from what the block itself
+               states, so the word is never lost on a surface that cannot place it. *@
+            @if (_sync is not null || !string.IsNullOrWhiteSpace(Metadata.Sync))
+            {
+                <DevbookSyncSelector State="@_sync"
+                                     Fallback="@Metadata.Sync"
+                                     Editable="@(SyncScope?.CanChange == true)"
+                                     Label="@SyncLabel"
+                                     OnChanged="SelectSync" />
+            }
         </div>
 
         @if (_findings.Count > 0)
@@ -209,6 +222,21 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
+    /// <summary>The heading's own text, for a chapter's record: the address a
+    /// <see cref="DevbookSyncScope"/> is asked by, the same one a status change
+    /// reports. Ignored on a file's block, which its level already names.</summary>
+    [Parameter]
+    public string? HeadingText { get; set; }
+
+    /// <summary>The devbook pane's <c>sync</c> scope, when the record is drawn
+    /// inside one.</summary>
+    [CascadingParameter]
+    public DevbookSyncScope? SyncScope { get; set; }
+
+    /// <summary>The block's sync state, from the scope; null outside a devbook
+    /// folder, without a scope, or for a block that is no sync level.</summary>
+    private DevbookSyncState? _sync;
+
     /// <summary>
     /// The status on screen, which is the authored one until a reader picks
     /// another.
@@ -249,6 +277,7 @@
     protected override void OnParametersSet()
     {
         _findings = DevbookMetadataFindings.For(Folder, Level, Metadata, FileName);
+        _sync = Folder != DevbookFolder.Unknown ? SyncScope?.Describe(Level, HeadingText) : null;
 
         if (Equals(_seeded, Metadata)) return;
 
@@ -311,6 +340,14 @@
         }
     }
 
+    private string SyncLabel => string.IsNullOrWhiteSpace(HeadingText) ? "Sync direction" : $"Sync direction for {HeadingText}";
+
+    /// <summary>A reader picked a direction, or the inherit entry (null). The
+    /// scope writes it; the pane re-reads the file, which redraws this record
+    /// with the new state.</summary>
+    private Task SelectSync(string? direction) =>
+        SyncScope?.ChangeAsync(Level, HeadingText, direction) ?? Task.CompletedTask;
+
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "devbook-record" : $"devbook-record {CssClass}";
 
     /// <summary>
@@ -332,6 +369,7 @@
     /// no way to set one again after the file was re-read.</para>
     private bool RendersAnything =>
         StatusIsSelectable
+        || _sync is not null
         || _findings.Count > 0
         || (!Metadata.IsEmpty
             && (Heading is not null
