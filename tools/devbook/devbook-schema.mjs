@@ -43,7 +43,10 @@ const SCHEMA_TEXT = readFileSync(new URL('./devbook-schema.sql', import.meta.url
  *  file's `kind` is its resolved `type`.
  *
  *  4 — `node.sync` and `chapter.sync` were added: the `sync` direction a block
- *  states, as written (devbook contract 25). */
+ *  states, as written (devbook contract 25).
+ *
+ *  5 — `demo` and `demo_link` were added: the `*.demo.html` files beside the
+ *  pages and what pairs each one with a chapter. */
 export const SCHEMA_VERSION = (() => {
     const match = /^-- schema-version: (\d+)\s*$/m.exec(SCHEMA_TEXT);
     if (!match) throw new Error('devbook-schema.sql carries no `-- schema-version: N` line.');
@@ -156,6 +159,25 @@ export const SCHEMA_VERSION = (() => {
  * `_archify/index.json` files today and read by no C# DTO. ADR 0004 lists them,
  * so they are carried rather than dropped: a column nobody reads is cheaper to
  * keep than a regeneration to add.
+ *
+ * `demo` — one row per `*.demo.html` in an adopted folder: the agreed,
+ * clickable picture of what a person sees, which devbook's `devbook-domain.md`
+ * places beside the pages of a bounded context. Only its path and file facts
+ * are stored — never its HTML, which is read on demand like an Archify artifact.
+ * `page_path` is the page the demo pairs with by its name — `demo.html` with the
+ * `context.md` beside it, `<page>.demo.html` with the `<page>.md` beside it —
+ * and null when that page is not there. A demo has no reading position, so it
+ * is in no `outline_entry`.
+ *
+ * `demo_link` — one row per place a chapter's `demo` field names, in field
+ * order (`ordinal`, from 0). The chapter is the `chapter` row's `path`, `slug`
+ * and `line`; `demo_path` is the address's path with any leading `./` dropped,
+ * and `address` what follows its `#` — a screen, an anchor with panel state, or
+ * `walkthrough/<id>` — or null for the demo as a whole. A row is written whether
+ * or not the demo exists; joining `demo` says which do. The metadata parse
+ * splits a list on every comma, so an entry whose path is not a demo's is
+ * joined back onto the one before it with the comma it lost — that is how an
+ * address whose `flags` names two keys survives.
  *
  * `edge.id` carries no primary key. `graph.mjs` composes an edge id from its two
  * endpoints and its type and does not itself enforce uniqueness, so a document

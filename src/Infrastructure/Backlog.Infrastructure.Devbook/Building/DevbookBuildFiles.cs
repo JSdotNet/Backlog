@@ -1,5 +1,7 @@
 using System.Text;
 
+using Backlog.Modules.Devbook.Abstractions;
+
 namespace Backlog.Infrastructure.Devbook.Building;
 
 /// <summary>
@@ -39,6 +41,33 @@ internal static class DevbookBuildFiles
                     Walk(child);
                 }
                 else if (name.EndsWith(".md", StringComparison.Ordinal))
+                {
+                    found.Add(child);
+                }
+            }
+        }
+    }
+
+    /// <summary>Every demo — <c>demo.html</c>, <c>&lt;page&gt;.demo.html</c> — under
+    /// <paramref name="folder"/>, outside the generated directories, as the Node
+    /// writer's <c>collectDemos</c> finds them.</summary>
+    public static IReadOnlyList<string> Demos(string repositoryRoot, string folder)
+    {
+        var found = new List<string>();
+        Walk(folder);
+        found.Sort(StringComparer.Ordinal);
+        return found;
+
+        void Walk(string relative)
+        {
+            foreach (var (name, isDirectory) in Entries(repositoryRoot, relative))
+            {
+                var child = $"{relative}/{name}";
+                if (isDirectory)
+                {
+                    if (!SkippedDirectories.Contains(name)) Walk(child);
+                }
+                else if (DevbookReadingConvention.IsDemo(name))
                 {
                     found.Add(child);
                 }

@@ -290,6 +290,7 @@ public sealed record ChapterBlockPayload(
 /// <param name="OrphanedNotes">Notes whose block index has gone out of range,
 /// mirroring what the read view does with them: shown at the end rather than
 /// dropped, because a lost note is worse than a stray one.</param>
+/// <param name="Demos">The click demos the page has, by path — never their HTML.</param>
 public sealed record ChapterPayload(
     string Repository,
     string RepositoryAlias,
@@ -299,7 +300,30 @@ public sealed record ChapterPayload(
     string Markdown,
     int BlockCount,
     IReadOnlyList<ChapterBlockPayload> Blocks,
-    IReadOnlyList<ChapterNotePayload> OrphanedNotes);
+    IReadOnlyList<ChapterNotePayload> OrphanedNotes,
+    IReadOnlyList<ChapterDemoPayload> Demos);
+
+/// <summary>
+/// One click demo a chapter's page has.
+/// </summary>
+/// <param name="Path">The <c>*.demo.html</c>, repository-relative.</param>
+/// <param name="Address">What follows the <c>#</c> of the address a <c>demo</c>
+/// field wrote — a screen, <c>screen/anchor?role=…</c>, or
+/// <c>walkthrough/&lt;id&gt;</c> — and null for the demo as a whole.</param>
+/// <param name="PairedBy"><c>name</c> for a demo beside the page whose name pairs
+/// it with the page (<c>features.demo.html</c> with <c>features.md</c>,
+/// <c>demo.html</c> with <c>context.md</c>); <c>field</c> for a place a
+/// <c>demo</c> field names.</param>
+/// <param name="Block">The <c>meta</c> block whose field names it, by the index the
+/// blocks run over; null for a pairing by name.</param>
+/// <param name="Exists">Whether the demo file is there; null when that cannot be
+/// told from here.</param>
+public sealed record ChapterDemoPayload(
+    string Path,
+    string? Address,
+    string PairedBy,
+    int? Block,
+    bool? Exists);
 
 /// <summary>The live, typed-into notes on one chapter.</summary>
 public sealed record AnnotationsPayload(
