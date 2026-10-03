@@ -15,7 +15,7 @@
 *@
 @foreach (var verdict in Verdicts.Where(verdict => verdict.IsUnitRoot).Take(1))
 {
-    <Badge Kind="sync"
+    <Badge Kind="sync-verdict"
            Slug="@Slug(verdict.UnitVerdict)"
            Href="@verdict.Link"
            Title="@UnitTitle(verdict)"
@@ -24,7 +24,7 @@
 }
 @foreach (var verdict in Verdicts.Where(verdict => !verdict.IsUnitRoot || !string.IsNullOrWhiteSpace(verdict.Evidence)).Take(1))
 {
-    <Badge Kind="sync"
+    <Badge Kind="sync-verdict"
            Slug="@Slug(verdict.Verdict)"
            Href="@verdict.Link"
            Title="@ChapterTitle(verdict)"

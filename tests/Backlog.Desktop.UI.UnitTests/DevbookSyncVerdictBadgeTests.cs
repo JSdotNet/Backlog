@@ -53,7 +53,7 @@ public sealed class DevbookSyncVerdictBadgeTests
         Assert.Equal("a", unit.TagName.ToLowerInvariant());
         Assert.Equal("unit code-ahead · pr", unit.TextContent.Trim());
         Assert.Equal("https://github.com/JSdotNet/Backlog/pull/950", unit.GetAttribute("href"));
-        Assert.Contains("badge--sync-code-ahead", unit.ClassName);
+        Assert.Contains("badge--sync-verdict-code-ahead", unit.ClassName);
 
         var own = run.QuerySelector("[data-testid='devbook-sync-chapter-verdict']")!;
         Assert.Equal("code-ahead", own.TextContent.Trim());
@@ -63,7 +63,7 @@ public sealed class DevbookSyncVerdictBadgeTests
         Assert.Null(recording.QuerySelector("[data-testid='devbook-sync-unit-verdict']"));
         var member = recording.QuerySelector("[data-testid='devbook-sync-chapter-verdict']")!;
         Assert.Equal("aligned", member.TextContent.Trim());
-        Assert.Contains("badge--sync-aligned", member.ClassName);
+        Assert.Contains("badge--sync-verdict-aligned", member.ClassName);
 
         // A chapter no sweep spoke about carries nothing.
         Assert.Null(row.QuerySelector(".md-chapter-head__adornment"));
@@ -79,7 +79,7 @@ public sealed class DevbookSyncVerdictBadgeTests
         var badge = Render(context, store).Find("[data-testid='devbook-sync-chapter-verdict']");
 
         Assert.Equal("drifting", badge.TextContent.Trim());
-        Assert.Contains("badge--sync-unknown", badge.ClassName);
+        Assert.Contains("badge--sync-verdict-unknown", badge.ClassName);
         Assert.Contains("expected one of aligned, code-ahead, spec-ahead, conflict, unresolved", badge.GetAttribute("title"));
     }
 
