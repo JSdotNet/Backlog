@@ -10,13 +10,11 @@
     of state" is enforced rather than remembered: there is no parameter that
     renders a colour without its icon and its word.
 
-    Outlined, not filled — except the two states the product actually acts on. A
-    reference row routinely carries three or four of these and four filled pills
-    is a row of shouting; the existing `.badge--gh` is already outlined, so this
-    continues that rather than introducing a look. The exceptions are Stalled and
-    Failed, which are what the monitoring rules raise a signal on, and drift,
-    which is a mismatch someone has to go and resolve. That is the whole fill
-    rule: filled means there is something to do.
+    Each state takes its tone from `.devbook/design/color-scheme.md#badge-and-chip-tones`:
+    Open and Running live, Merged and Finished settled, Draft and Waiting quiet,
+    Closed and Unknown archived, Stalled and drift alert, Failed fault. Only the
+    settled, alert and fault tones are filled, so a row of quiet references stays
+    outlined and a filled chip is always the one to look at.
 
     One chip renders one state. Drift is a second chip beside the artifact's own
     rather than a mode of this one, because on screen that is exactly what "a
