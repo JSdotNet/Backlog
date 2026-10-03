@@ -1035,12 +1035,12 @@ public sealed class SessionsPaneTests
     }
 
     /// <summary>
-    /// On a row with a run, every pull request is on the run's line at the right, under
-    /// State — the run's own and the ones only the session linked — each drawn once,
-    /// and the name cell carries none.
+    /// On a row with a run, the Pull request column carries every pull request — the
+    /// run's own and the ones only the session linked — each drawn once, and the run's
+    /// folded line carries the same ones.
     /// </summary>
     [Fact]
-    public void On_a_row_with_a_run_the_sessions_pull_requests_are_on_the_runs_line_once_each()
+    public void On_a_row_with_a_run_the_pull_request_column_has_each_one_once()
     {
         var session = Sample[0] with
         {
@@ -1063,23 +1063,23 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Empty(pane.FindAll("[data-testid='sessions-pull-requests']"));
+            string[] expected = ["https://github.com/JSdotNet/Backlog/pull/587", "https://github.com/JSdotNet/Backlog/pull/590"];
 
-            var links = pane.FindAll("[data-testid='sessions-run-pull-request']");
+            var column = pane.FindAll(".data-table__row [data-testid='sessions-pull-request']");
 
-            Assert.Equal(
-                ["https://github.com/JSdotNet/Backlog/pull/587", "https://github.com/JSdotNet/Backlog/pull/590"],
-                links.Select(link => link.GetAttribute("href")));
-            Assert.Contains("PR #590", links[1].TextContent);
+            Assert.Equal(expected, column.Select(link => link.GetAttribute("href")));
+            Assert.Contains("PR #590", column[1].TextContent);
+
+            Assert.Equal(expected, pane.FindAll("[data-testid='sessions-run-pull-request']").Select(link => link.GetAttribute("href")));
         });
     }
 
     /// <summary>
-    /// A row with no run has no run line to carry them, so the session's pull requests
-    /// stay under its name, drawn as the Integrations reference.
+    /// A row with no run has its session's pull requests in the same column, drawn as
+    /// the Integrations reference.
     /// </summary>
     [Fact]
-    public void On_a_row_with_no_run_the_sessions_pull_requests_are_under_its_name()
+    public void On_a_row_with_no_run_the_sessions_pull_requests_are_in_the_column()
     {
         var session = Sample[0] with
         {
@@ -1111,6 +1111,7 @@ public sealed class SessionsPaneTests
         {
             Assert.Equal(2, pane.FindAll(".data-table__row").Count);
             Assert.Empty(pane.FindAll("[data-testid='sessions-pull-requests']"));
+            Assert.Empty(pane.FindAll("[data-testid='sessions-task']"));
         });
     }
 

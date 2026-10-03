@@ -384,22 +384,20 @@
                             </span>
                         }
 
-                        @* The pull requests the session linked itself to, drawn the way
-                           a run draws its own: the Integrations reference, "PR #n", an
-                           anchor to GitHub. Only on a row with no run: where there is
-                           one, they go to its line at the right, under State, with the
-                           run's own (SessionRow.ReferencesFor), so a pull request is one
-                           reference on screen and always in the same place. *@
-                        @if (row.Runs.Count == 0 && row.PullRequests.Count > 0)
+                        @* The row's runs are folded by default, so the list reads as
+                           sessions — one line each — and a run's line opens on demand.
+                           The trigger is the row's own and names how many runs it
+                           holds; the region is the detail row under it. *@
+                        @if (row.Runs.Count > 0)
                         {
-                            <span class="data-table__detail sessions-table__pull-requests" data-testid="sessions-pull-requests">
-                                @foreach (var pr in row.PullRequests)
-                                {
-                                    <IntegrationLink Link="@Link(pr)"
-                                                     ShowTitle="false"
-                                                     CssClass="sessions-table__pull-request"
-                                                     TestId="sessions-pull-request" />
-                                }
+                            <span class="data-table__detail">
+                                <FoldControl Label="@RunCount(row)"
+                                             CssClass="sessions-table__runs-fold"
+                                             AriaLabel="@($"Delivery runs of {row.Title}")"
+                                             Controls="@RunsId(row)"
+                                             Expanded="@IsExpanded(row)"
+                                             ExpandedChanged="expanded => SetExpanded(row, expanded)"
+                                             TestId="sessions-runs-toggle" />
                             </span>
                         }
                     </td>
@@ -440,6 +438,49 @@
                     <td class="data-table__mono">
                         <span class="data-table__clamp sessions-table__branch" title="@row.Branch">@Or(row.Branch)</span>
                     </td>
+
+                    @* The work the row leads to, a column each, as the Pull requests
+                       pane draws them: the pull requests the session linked and its
+                       runs recorded, and the Backlog entry it was worked for. On the
+                       row rather than on the run lines alone, because those are folded
+                       and this is what a reader scans the list for. *@
+                    <td class="sessions-table__reference">
+                        @if (PullRequestsOf(row) is { Count: > 0 } pulls)
+                        {
+                            <span class="sessions-table__pull-requests" data-testid="sessions-pull-requests">
+                                @foreach (var pull in pulls.Take(MaxPullRequests))
+                                {
+                                    <IntegrationLink Link="@DeliveryRunLine.Link(pull)"
+                                                     ShowTitle="false"
+                                                     CssClass="sessions-table__pull-request"
+                                                     TestId="sessions-pull-request" />
+                                }
+                                @if (pulls.Count > MaxPullRequests)
+                                {
+                                    <span class="sessions-table__more"
+                                          title="@string.Join(", ", pulls.Skip(MaxPullRequests).Select(pull => pull.Label))"
+                                          data-testid="sessions-pull-requests-more">+@(pulls.Count - MaxPullRequests)</span>
+                                }
+                            </span>
+                        }
+                        else
+                        {
+                            @Missing
+                        }
+                    </td>
+                    <td class="sessions-table__reference">
+                        @if (TaskOf(row) is { } task)
+                        {
+                            <IntegrationLink Link="@TaskLink(task)"
+                                             ShowTitle="false"
+                                             OnOpen="@TaskOpener(task)"
+                                             TestId="sessions-task" />
+                        }
+                        else
+                        {
+                            @Missing
+                        }
+                    </td>
                     <td>@Moment(row.StartedAt)</td>
                     <td title="@Moment(row.LastActivityAt)">@Ago(row.LastActivityAt)</td>
 
@@ -471,7 +512,7 @@
                        so an empty detail row is exactly nothing high. *@
                     @if (row.Runs.Count > 0)
                     {
-                        <div class="sessions-runs">
+                        <div class="sessions-runs" id="@RunsId(row)" hidden="@(!IsExpanded(row))" data-testid="sessions-runs">
                             @foreach (var run in row.Runs)
                             {
                                 <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" OnOpenTask="OnOpenTask" />
@@ -510,6 +551,8 @@
         new("Environment"),
         new("Repository"),
         new("Branch"),
+        new("Pull request"),
+        new("Task"),
         new("Started"),
         new("Last activity"),
         new("Tokens"),
@@ -534,6 +577,27 @@
     /// every open, like the view: a filter that remembered itself would open the
     /// pane on a subset the reader did not ask for.</summary>
     private bool _withRuns;
+
+    /// <summary>The rows whose runs are unfolded, by row key. Empty on every open, so
+    /// the pane opens on one line per session; a re-read keeps what a reader opened.</summary>
+    private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
+
+    private bool IsExpanded(SessionRow row) => _expanded.Contains(row.Key);
+
+    private void SetExpanded(SessionRow row, bool expanded)
+    {
+        if (expanded) _expanded.Add(row.Key);
+        else _expanded.Remove(row.Key);
+    }
+
+    /// <summary>The region's id: the row key with anything an id may not hold — a
+    /// worktree path's spaces among them — made a hyphen.</summary>
+    private static string RunsId(SessionRow row) =>
+        "sessions-runs-" + string.Concat(row.Key.Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '-'));
+
+    internal static string RunCount(SessionRow row) =>
+        row.Runs.Count == 1 ? "1 run" : $"{row.Runs.Count} runs";
+
     private AgentSessionGrouping _grouping = AgentSessionGrouping.None;
 
     /// <summary>The environment the list is narrowed to, by id, or null for all of
@@ -636,6 +700,48 @@
         return SessionTask(session.Id) is { } task ? [.. references, task] : references;
     }
 
+    /// <summary>How many pull requests the column draws before it counts the rest: a
+    /// schedule's row gathers every run's, and a cell is not a list.</summary>
+    private const int MaxPullRequests = 2;
+
+    /// <summary>Every reference the row leads to: each run's, as its line draws them,
+    /// or — on a row with no run — the session's own pull requests and entry. One per
+    /// address, so a pull request two runs recorded is drawn once.</summary>
+    private IReadOnlyList<DeliveryRunReference> ReferencesOf(SessionRow row)
+    {
+        IEnumerable<DeliveryRunReference> references = row.Runs.Count > 0
+            ? row.Runs.SelectMany(run => ReferencesOf(row, run))
+            : row.PullRequests
+                .Select(pr => new DeliveryRunReference(
+                    DeliveryRunReferenceKind.PullRequest,
+                    $"PR #{pr.Number}",
+                    Title: null,
+                    pr.Url,
+                    string.IsNullOrWhiteSpace(pr.Repository) ? null : pr.Repository))
+                .Concat(SessionTask is not null && row.Session is { } session && SessionTask(session.Id) is { } task ? [task] : []);
+
+        return [.. references.DistinctBy(reference => (reference.Kind, reference.EntryId, reference.Url ?? reference.Label))];
+    }
+
+    private IReadOnlyList<DeliveryRunReference> PullRequestsOf(SessionRow row) =>
+        [.. ReferencesOf(row).Where(reference => reference.Kind is DeliveryRunReferenceKind.PullRequest)];
+
+    /// <summary>The Backlog entry the row was worked for: the first run that names one, else
+    /// the one its session was linked to.</summary>
+    private DeliveryRunReference? TaskOf(SessionRow row) =>
+        ReferencesOf(row).FirstOrDefault(reference => reference.Kind is DeliveryRunReferenceKind.Task);
+
+    /// <summary>An entry as the Pull requests pane draws one: its label, leading into
+    /// the task list.</summary>
+    private static IntegrationLinkRef TaskLink(DeliveryRunReference task) =>
+        new(task.EntryId?.ToString() ?? task.Label, IntegrationProvider.None, IntegrationLinkKind.Other, task.Label, Title: $"Open {task.Label} in the task list");
+
+    /// <summary>Inert where the shell wired no way to open an entry.</summary>
+    private EventCallback<IntegrationLinkRef> TaskOpener(DeliveryRunReference task) =>
+        OnOpenTask.HasDelegate
+            ? EventCallback.Factory.Create<IntegrationLinkRef>(this, () => OnOpenTask.InvokeAsync(task))
+            : default;
+
     /// <summary>
     /// The repository cell, plus its identity mark when the host placed it.
     /// <para>
@@ -707,19 +813,6 @@
     /// where it came from, and why the agent's files are not behind it.</summary>
     private const string RecordedLine =
         "From this PC's session record — the transcript is gone, so this is what the last reading kept.";
-
-    /// <summary>A linked pull request as the Integrations family draws one — the same
-    /// shape a run's pull request takes on the run's own line. No state chip, because
-    /// nothing asked GitHub how it is doing.</summary>
-    private static IntegrationLinkRef Link(AgentPullRequest pr) =>
-        new(
-            pr.Url,
-            IntegrationProvider.GitHub,
-            IntegrationLinkKind.PullRequest,
-            $"PR #{pr.Number}",
-            $"{pr.Repository}#{pr.Number}",
-            pr.Url,
-            Repository: string.IsNullOrWhiteSpace(pr.Repository) ? null : new IntegrationRepositoryRef(pr.Repository, pr.Repository));
 
     /// <summary>
     /// Where the agent was run from, shortened for a badge: Claude's own prefix is
@@ -922,6 +1015,10 @@
 
             return;
         }
+
+        // The session asked for opens with its runs showing: a task that names a
+        // session is usually asking about the run it drove.
+        foreach (var row in ScopedSessions.Where(IsFocused)) _expanded.Add(row.Key);
 
         if (!Visible.Any(IsFocused))
         {
