@@ -1,4 +1,4 @@
-﻿@implements IDisposable
+﻿@implements IAsyncDisposable
 @inject TasksDesktopState State
 @inject IToastChannel Toasts
 @inject GitHubIntegration GitHub
@@ -674,6 +674,8 @@
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender) await RegisterUndoKeysAsync();
+
         if (_focusRevealedRow)
         {
             _focusRevealedRow = false;
@@ -3836,9 +3838,54 @@
     private static string GitHubStateClass(GitHubItemState? state) =>
         state?.ToString().ToLowerInvariant() ?? "unknown";
 
-    public void Dispose()
+    // --- Undo -------------------------------------------------------------
+    //
+    // Ctrl+Z from anywhere on the pane that is not a text field, and from
+    // nowhere at all — the focus a delete or a drop leaves behind. The keys are
+    // heard on the document (`backlogUndoKeys`), because a press with the focus
+    // on <body> never reaches an @onkeydown here; what they do is the state's.
+
+    private DotNetObjectReference<TasksPane>? _undoKeysReference;
+
+    private async Task RegisterUndoKeysAsync()
+    {
+        _undoKeysReference = DotNetObjectReference.Create(this);
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogUndoKeys.register", "backlog-pane", _undoKeysReference);
+        }
+        catch (JSException)
+        {
+            // Without the script the history is still there; only the shortcut
+            // goes unheard.
+        }
+    }
+
+    [JSInvokable]
+    public Task UndoFromKeyboardAsync() => State.UndoAsync();
+
+    [JSInvokable]
+    public Task RedoFromKeyboardAsync() => State.RedoAsync();
+
+    public async ValueTask DisposeAsync()
     {
         State.Changed -= HandleStateChanged;
         Features.Changed -= HandleFeaturesChanged;
+
+        if (_undoKeysReference is null) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogUndoKeys.unregister", "backlog-pane");
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _undoKeysReference.Dispose();
     }
 }
