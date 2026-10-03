@@ -553,7 +553,7 @@
     /// state on it, because none was read: a chip would say this product had asked
     /// GitHub how the item is doing.
     /// </summary>
-    private static IntegrationLinkRef Link(DeliveryRunReference reference) =>
+    internal static IntegrationLinkRef Link(DeliveryRunReference reference) =>
         new(
             reference.Url ?? reference.Label,
             reference.Kind is DeliveryRunReferenceKind.Task ? IntegrationProvider.None : IntegrationProvider.GitHub,

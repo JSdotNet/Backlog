@@ -5979,11 +5979,19 @@ h1, h2, h3 {
     max-width: 26rem;
 }
 
-/* The mark and the word read as one thing, so they sit on one baseline rather
-   than the mark floating at the top of the cell. */
+/* The mark and its badge read as one thing, on one line. Positioned because the
+   cell holds the agent's word for a screen reader, and the absolute sr-only span
+   needs a positioned cell to stay inside the table. */
 .sessions-table__kind {
     display: table-cell;
+    position: relative;
     white-space: nowrap;
+}
+
+/* Inline, against the library's block mark: as a block it took a line of its own
+   and stacked the cell into two, mark above "Claude desktop". */
+.sessions-table__kind .sessions-table__mark {
+    display: inline-block;
 }
 
 .sessions-table__mark {
@@ -6309,6 +6317,40 @@ h1, h2, h3 {
     display: grid;
     gap: var(--spacing-2xs);
     min-width: 0;
+}
+
+/* Folded by default; the grid above would otherwise outrank the hidden attribute. */
+.sessions-runs[hidden] {
+    display: none;
+}
+
+/* The Pull request and Task columns, sized as the Pull requests pane sizes its own. */
+.sessions-table__reference .integration-link {
+    max-width: 12rem;
+}
+
+.sessions-table__reference .integration-link__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+/* On one line, so two pull requests do not make the row twice as tall. */
+.sessions-table__reference .sessions-table__pull-requests {
+    flex-wrap: nowrap;
+    align-items: baseline;
+}
+
+/* The pull requests past the column's cap, counted; the title names them. */
+.sessions-table__more {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* The row's run count, as a quiet second line under the session's name. */
+.sessions-table__runs-fold .fold__trigger {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
 .sessions-run__reference {
