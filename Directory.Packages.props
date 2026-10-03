@@ -87,7 +87,7 @@
       configures its client on two builds of one assembly. Bump the two together
       or not at all.
     -->
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.63.0" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.63.2" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
