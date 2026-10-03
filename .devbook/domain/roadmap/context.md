@@ -17,8 +17,9 @@ length is drawn from when the plan states no due date. Both follow their owner
 across the devices they have paired
 ([ADR 0018](../../arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md)).
 The pace is counted over the owner's working week, which travels with it
-([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). The
-working week itself is set in [Productivity](../productivity/context.md#working-week).
+([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). Its
+weekly pattern is set in [Productivity](../productivity/context.md#working-week);
+its [day overrides](domain.md#day-override) are set on the roadmap's axis.
 
 Outside it: execution and task status, which [Tasks](../tasks/domain.md#task)
 answers, and the registered effort a plan totals but never owns, which lives on
@@ -58,9 +59,12 @@ There are four paces and the reader picks one: the pace they **type**, and three
 **measured** from the estimated work they finished over the last two, four and
 eight weeks — the effort of every backlog entry completed in that stretch, today
 included, divided by the working hours in that stretch and expressed per working
-week. Each stretch is whole calendar weeks, and any seven days in a row hold each
-weekday once. So the figure equals the points divided by the weeks (2, 4 or 8),
-whatever the working week is. A stretch that finished nothing estimated measured no pace and cannot be
+week. Each stretch is whole calendar weeks. The hours include the
+[day overrides](domain.md#day-override) in it, while a working week stays the
+weekly pattern's total
+([requirement](requirements.md#requirement-a-measured-pace-counts-the-hours-in-its-stretch)).
+So a stretch with no overrides measures the points divided by its weeks (2, 4 or
+8), and a blocked day raises the figure. A stretch that finished nothing estimated measured no pace and cannot be
 picked; if the one picked has since gone empty, the typed pace places the plan
 and the roadmap says so. Only the typed pace and the choice are stored — the
 measured ones are counted afresh on every read. A repository's measured paces
@@ -126,7 +130,9 @@ see [Syncing the plan between devices](features.md#syncing-the-plan-between-devi
 
 The working week travels with the pace, as a `workingWeek` key in the same file
 and the same synced document
-([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). A file
-without the key reads the device's own
-[working week](../productivity/context.md#working-week), or the default week, and
-writes the key on its next change.
+([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). The key
+holds the weekly pattern and an `overrides` list of `{date, worked}` pairs, one
+per [day override](domain.md#day-override). A file without the key reads the
+device's own [working week](../productivity/context.md#working-week), or the
+default week, and writes the key on its next change. How the overrides travel is
+in [the requirements](requirements.md#carrying-the-pace-with-the-person).
