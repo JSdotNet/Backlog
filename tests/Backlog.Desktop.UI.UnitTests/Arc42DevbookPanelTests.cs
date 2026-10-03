@@ -319,6 +319,33 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         Assert.DoesNotContain("Goals.", component.Markup, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The building block view sets the folder's sync direction on its own block,
+    /// which states nothing until then — so its header draws the headline anyway,
+    /// and a pick writes the field. Any other arc42 chapter takes no direction and
+    /// draws no control.
+    /// </summary>
+    [Fact]
+    public async Task The_building_block_view_offers_the_folders_sync_direction_even_with_an_empty_block()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true, withIndex: false);
+        var viewPath = Path.Combine(harness.Root, ".arc42", "05-building-block-view.md");
+        File.WriteAllText(viewPath, "# Building Block View\n\n```meta\n```\n\nThe blocks.\n");
+
+        var component = harness.Render(".arc42/05-building-block-view.md");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header select[aria-label='Sync direction']")));
+
+        component.Find(".file-view__header select[aria-label='Sync direction']").Change("pull");
+
+        component.WaitForAssertion(
+            () => Assert.Contains("```meta\nsync: pull\n```", File.ReadAllText(viewPath), StringComparison.Ordinal),
+            TimeSpan.FromSeconds(5));
+
+        var introduction = harness.Render(".arc42/01-introduction.md");
+        introduction.WaitForAssertion(() => Assert.Contains("Goals.", introduction.Markup, StringComparison.Ordinal));
+        Assert.Empty(introduction.FindAll("[data-testid='devbook-sync']"));
+    }
+
     [Fact]
     public async Task Changing_the_state_beside_the_heading_writes_it_to_the_file()
     {
@@ -330,10 +357,10 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         // to — the panel no longer draws one of its own. What it reports is the
         // file's top heading, so the write addresses the file itself and lands on
         // its own status fence.
-        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header .devbook-record__headline select")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header .devbook-record__headline .status-editor__select")));
         // `proposed`: under contract 16 `accepted` is a decision rung, domain/'s
         // alone — the select does not offer it and the writer refuses it here.
-        component.Find(".file-view__header .devbook-record__headline select").Change("proposed");
+        component.Find(".file-view__header .devbook-record__headline .status-editor__select").Change("proposed");
 
         component.WaitForAssertion(
             () => Assert.Contains("status: proposed", File.ReadAllText(chapterPath), StringComparison.Ordinal),

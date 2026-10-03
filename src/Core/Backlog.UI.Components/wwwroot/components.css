@@ -861,6 +861,54 @@ button.badge:hover {
 .badge--priority-critical { background: var(--color-error); border-color: var(--color-error); color: var(--color-text-primary); }
 .badge--priority-low { color: var(--color-text-disabled); }
 
+/* A devbook block's `sync` direction — which way changes flow between a chapter
+   and its code. Outlined like priority, so it reads as how the sweeps treat the
+   unit and never as a second status. The three directions that write are told
+   apart: push (the chapter drives the code) in the brand colour, pull (the code
+   drives the chapter) on the info surface, and `sync`, which lets either verdict
+   write, in the success ink. `report` is the default and stays quiet; `off`
+   recedes. */
+.badge--sync {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    justify-content: center;
+    margin-left: var(--spacing-xs);
+    padding-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+}
+
+.badge--sync-push { border-color: var(--color-primary); color: var(--color-primary-light); }
+.badge--sync-pull { background: var(--color-info); border-color: var(--color-border-strong); color: var(--color-text-primary); }
+.badge--sync-sync { border-color: var(--color-success-text); color: var(--color-success-text); }
+.badge--sync-off { color: var(--color-text-disabled); border-style: dashed; }
+
+/* The editable form, shaped like .status-editor and positioned for the same
+   reason: it carries the sr-only label naming the control. */
+.sync-editor {
+    position: relative;
+    padding: 0;
+}
+
+.sync-editor__select {
+    min-width: 0;
+    min-height: 1.5rem;
+    padding: 1px var(--spacing-xs);
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.sync-editor__select:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
+}
+
 .badge--progress {
     justify-content: center;
     font-variant-numeric: tabular-nums;

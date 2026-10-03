@@ -22,10 +22,14 @@ import {
     documentNumber,
     isExtensionField,
     parseAnnotations,
+    proseLinks,
     resolveAnnotation,
     parseDeltaHeader,
     changePathParts,
     changeHash,
+    syncLevel,
+    syncSources,
+    SYNC_DIRECTIONS,
     DEVBOOK_FOLDER_NAMES,
     DEVBOOK_ROOT,
     CHANGES_ROOT,
@@ -169,7 +173,17 @@ export { DEVBOOK_FOLDER_NAMES, DEVBOOK_ROOT, CHANGES_ROOT };
 // the chapters it lands in and lifts one it makes stale. `domain/`'s own rungs
 // are unchanged, so nothing written under 23 stops validating, and no
 // migration is owed.
-export const CONTRACT_VERSION = 24;
+//
+// Version 25 gives `.domain`, `.arc42`, and `.design` an optional `sync` —
+// `push`, `pull`, `sync`, `report`, or `off` — for which way a chapter and its
+// code sync, set on a folder overview, a `context.md`, a context page, or a
+// unit's root chapter, nearest wins, `report` when none does. It is refused on
+// a chapter a unit owns and on `requirements*.md` and `*.invariants.md`, and a
+// value no unit inherits is warned. A `domain-event` is warned when its
+// `related` names no aggregate or domain service raising it. Absent means
+// `report`, today's behaviour, so nothing written under 24 stops validating
+// and no migration is owed.
+export const CONTRACT_VERSION = 25;
 
 // The oldest contract a reconcile still carries forward. A migration lives
 // for the major version it ships in: a major release raises this to the
@@ -255,6 +269,9 @@ const RELATED_TARGET_KINDS = {
     invariants: ["aggregate", "domain-service", "shared-value-objects", "shared-enums"],
 };
 
+// The chapter kinds a `domain-event`'s `related` names as the one that raises it.
+const RAISER_KINDS = ["aggregate", "domain-service"];
+
 // The authored `type` field is emitted under the node key `kind`, because
 // `type` on a node is already the structural discriminator
 // (`file`/`chapter`/`heading`/`external`). `.tech` nodes have always carried
@@ -268,6 +285,9 @@ const ATTRIBUTE_FIELDS = [
     "default",
     "scope",
     "deployment",
+    // Which way the chapter and its code sync. Carried as written; the
+    // effective direction of a unit is resolved from `syncSources`.
+    "sync",
     "date",
     "approved-by",
     "approved-at",
@@ -367,6 +387,41 @@ function applyMeta(node, meta, folder) {
 }
 
 /**
+ * A chapter's lede: its first paragraph or blockquote, joined to one line with
+ * its inline Markdown kept as written. Fences — the `meta` block, an
+ * `annotation`, a diagram — are stepped over, and the next heading ends the
+ * search, so a chapter that opens straight into a sub-chapter has none.
+ *
+ * Read from the lines `buildGraph` already holds, so the term register gets
+ * its descriptions without a second pass over the corpus.
+ */
+function chapterLede(lines, headingLine) {
+    let fence = null;
+    const paragraph = [];
+    for (let i = headingLine; i < lines.length; i++) {
+        const line = lines[i];
+        const marker = /^\s*(`{3,}|~{3,})/.exec(line);
+        if (fence) {
+            if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+            continue;
+        }
+        if (marker) {
+            if (paragraph.length) break;
+            fence = marker[1];
+            continue;
+        }
+        if (/^#{1,6}\s/.test(line)) break;
+        if (line.trim() === "") {
+            if (paragraph.length) break;
+            continue;
+        }
+        paragraph.push(line.replace(/^\s*>\s?/, "").trim());
+    }
+    const lede = paragraph.join(" ").replace(/\s+/g, " ").trim();
+    return lede || null;
+}
+
+/**
  * Compose a file node's display label.
  *
  * A `domain/` file is titled by what it holds, so a split file's title is its
@@ -395,6 +450,17 @@ export async function buildGraph(repoRoot, folders = null) {
     // term pointing at a Value Object sub-chapter covered by its parent
     // aggregate's block — so they are materialized on demand.
     const headingIndex = new Map();
+    // The sync level of every block that may state `sync` — every unit root
+    // among them — keyed by node id. Kept off the nodes: the level follows
+    // from the path and the type. `units.mjs` reads it to find the roots.
+    const syncLevels = new Map();
+    // Each chapter's lede, by node id. Kept off the nodes so graph.json does
+    // not change shape; the term register is its one reader.
+    const ledes = new Map();
+    // Every anchor each indexed file renders, and every link its prose
+    // carries — resolved once the whole corpus is read.
+    const anchors = new Map();
+    const links = [];
 
     const layout = folders ? null : await discoverLayout(repoRoot);
     const scanned = folders ?? layout.folders;
@@ -425,6 +491,9 @@ export async function buildGraph(repoRoot, folders = null) {
         const folder = folderKindForPath(relPath);
         const raw = await readFile(path.join(repoRoot, relPath), "utf8");
         const { fileTitle, chapters } = parseDocument(raw);
+        const lines = raw.split(/\r?\n/);
+        anchors.set(relPath, fileAnchors(chapters));
+        links.push(...proseLinks(raw).map((link) => ({ ...link, from: relPath })));
 
         // Open notes per chapter, counted from the same read. Carrying the
         // count on the node is what lets the canvas badge the chapters nobody
@@ -453,6 +522,8 @@ export async function buildGraph(repoRoot, folders = null) {
         // An .arc42 file is exactly one top-level chapter, so its level-1 block
         // serves as the file-level block; other folders follow the same shape.
         applyMeta(fileNode, fileMeta, folder);
+        const fileSync = syncLevel(relPath, "file", fileMeta, 1);
+        if (fileSync.level) syncLevels.set(fileNode.id, fileSync.level);
         // Set outside applyMeta because it also comes from the filename, which
         // no metadata field can supply.
         const number = documentNumber(relPath, fileMeta);
@@ -560,8 +631,12 @@ export async function buildGraph(repoRoot, folders = null) {
                 line: chapter.line,
             };
             applyMeta(node, chapter.meta, folder);
+            const chapterSync = syncLevel(relPath, "chapter", chapter.meta, chapter.level);
+            if (chapterSync.level) syncLevels.set(id, chapterSync.level);
             if (openNotes.get(chapter.slug)) node.openNotes = openNotes.get(chapter.slug);
             nodes.set(id, node);
+            const lede = chapterLede(lines, chapter.line);
+            if (lede) ledes.set(id, lede);
             ancestors.push({ level: chapter.level, id });
 
             edges.push({
@@ -697,7 +772,122 @@ export async function buildGraph(repoRoot, folders = null) {
         }
     }
 
-    return { nodes: [...nodes.values()], edges, problems };
+    // A domain event belongs to the aggregate root or domain service that
+    // raises it, and `related` is the only place that says which: the Trigger
+    // names the raiser in prose, which no tool groups by. Without it the event
+    // is in no sync unit. A warning, so a corpus written before the field was
+    // asked for keeps passing the check.
+    for (const node of nodes.values()) {
+        if (node.type !== "chapter" || node.folder !== "domain" || node.kind !== "domain-event") continue;
+        const raised = asList(node.related).some((ref) => RAISER_KINDS.includes(nodes.get(ref)?.kind));
+        if (raised) continue;
+        problems.push({
+            severity: "warning",
+            path: node.path,
+            message: `${node.id} is a \`domain-event\` chapter whose \`related\` names no ${RAISER_KINDS.map((kind) => `\`${kind}\``).join(" or ")} chapter — name the one that raises it, which is what places the event in that unit.`,
+        });
+    }
+
+    // A stated direction no unit inherits does nothing: every unit below it
+    // states its own, or the level holds no unit at all (`actors.md`, until an
+    // actor kind exists). Each unit resolves nearest-wins through
+    // `syncSources`; whatever no unit resolved to is reported.
+    const inherited = new Set();
+    for (const [id, level] of syncLevels) {
+        if (level !== "unit") continue;
+        const source = syncSources(id).find((ref) => syncLevels.has(ref) && nodes.get(ref)?.sync != null);
+        if (source) inherited.add(source);
+    }
+    for (const [id, level] of syncLevels) {
+        const node = nodes.get(id);
+        if (level === "unit" || inherited.has(id) || !SYNC_DIRECTIONS.includes(node?.sync)) continue;
+        problems.push({
+            severity: "warning",
+            path: node.path,
+            message: `${id} has \`sync: ${node.sync}\`, which no unit inherits — every unit under it states its own direction, or none sits under it. Remove it, or set it where a unit reads it.`,
+        });
+    }
+
+    problems.push(...(await brokenLinkIssues(repoRoot, links, anchors)));
+
+    return { nodes: [...nodes.values()], edges, problems, ledes, syncLevels };
+}
+
+/**
+ * The anchors GitHub renders for a file's headings: the first heading with a
+ * slug keeps it bare, and each later one gets `-1`, `-2`, … in order. The
+ * graph keeps only the first, since a reference has to be unambiguous; a
+ * link written against GitHub's page may name either.
+ */
+function fileAnchors(chapters) {
+    const seen = new Map();
+    const result = new Set();
+    for (const { slug } of chapters) {
+        const count = seen.get(slug) ?? 0;
+        seen.set(slug, count + 1);
+        result.add(count ? `${slug}-${count}` : slug);
+    }
+    return result;
+}
+
+/**
+ * A prose link that does not resolve: a relative target with no file behind
+ * it, or an anchor no heading in an indexed file renders. `related` and
+ * `depends-on` are checked above; nothing else reads prose, which is how a
+ * link to a deleted chapter outlives it.
+ *
+ * Warnings only — a chapter may link ahead to one not written yet. An absolute
+ * URL is never fetched, and a file outside the indexed corpus is checked for
+ * existence alone: its anchors are not this tool's to know.
+ */
+async function brokenLinkIssues(repoRoot, links, anchors) {
+    const issues = [];
+    for (const { from, line, target } of links) {
+        if (/^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith("//")) continue;
+        const hash = target.indexOf("#");
+        const rawPath = hash === -1 ? target : target.slice(0, hash);
+        const anchor = hash === -1 ? null : safeDecode(target.slice(hash + 1));
+        const decoded = safeDecode(rawPath);
+        const resolved = !decoded
+            ? from
+            : decoded.startsWith("/")
+              ? path.posix.normalize(decoded.slice(1))
+              : path.posix.join(path.posix.dirname(from), decoded);
+        const at = `${from}:${line}`;
+        if (decoded && !(await exists(path.join(repoRoot, resolved)))) {
+            issues.push({
+                severity: "warning",
+                path: from,
+                message: `${at} links to "${target}", but ${resolved} does not exist.`,
+            });
+            continue;
+        }
+        const rendered = anchors.get(resolved);
+        if (!anchor || !rendered || rendered.has(anchor) || rendered.has(anchor.toLowerCase())) continue;
+        issues.push({
+            severity: "warning",
+            path: from,
+            message: `${at} links to "${target}", but no heading in ${resolved} renders the anchor "#${anchor}".`,
+        });
+    }
+    return issues;
+}
+
+function safeDecode(text) {
+    try {
+        return decodeURIComponent(text);
+    } catch {
+        return text;
+    }
+}
+
+async function exists(absolutePath) {
+    try {
+        await stat(absolutePath);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 function summarize(nodes, edges) {

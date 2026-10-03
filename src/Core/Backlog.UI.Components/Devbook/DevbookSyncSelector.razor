@@ -1,0 +1,116 @@
+@*
+    A block's `sync` direction, beside its status: which way changes flow between
+    the chapter and its code. Given a state, it shows the direction in force there —
+    the block's own, or the one it inherits and from which level — and, editable, a
+    select over the five directions plus an entry that states none and inherits.
+    Given no state, it shows what the block states, if anything, as a plain badge:
+    a surface that cannot place the block should neither offer a picker nor hide
+    the word the author wrote.
+
+    Outlined rather than filled, like priority: a direction is how the sweeps treat
+    the unit, not how far along it is, and it must not read as a second status.
+*@
+
+@if (State is { } state)
+{
+    if (Editable)
+    {
+        <BadgeSelect CurrentValue="@(Stated(state) ?? string.Empty)"
+                     Options="@DirectionOptions"
+                     Label="@Label"
+                     TestId="@TestId"
+                     Id="@Id"
+                     BadgeKind="sync"
+                     Slug="@state.Effective.Direction"
+                     IncludeEmptyOption="true"
+                     EmptyLabel="@InheritLabel(state)"
+                     OnChanged="Change" />
+    }
+    else
+    {
+        <Badge Kind="sync" Slug="@state.Effective.Direction" Title="@Describe(state)" TestId="@TestId">@Text(state)</Badge>
+    }
+}
+else if (!string.IsNullOrWhiteSpace(Fallback))
+{
+    <Badge Kind="sync" Slug="@Fallback.Trim().ToLowerInvariant()" Title="@($"Sync direction: {Fallback.Trim()}")" TestId="@TestId">@($"sync {Fallback.Trim()}")</Badge>
+}
+
+@code {
+    /// <summary>Where the block sits and what is in force there. Null for a block
+    /// the host cannot place, which draws <see cref="Fallback"/> instead.</summary>
+    [Parameter]
+    public DevbookSyncState? State { get; set; }
+
+    /// <summary>The value the block states, drawn read-only when there is no
+    /// <see cref="State"/>.</summary>
+    [Parameter]
+    public string? Fallback { get; set; }
+
+    /// <summary>Whether the host can write the field. A read-only branch, or a
+    /// host that wires no writer, gets the badge.</summary>
+    [Parameter]
+    public bool Editable { get; set; }
+
+    [Parameter]
+    public string Label { get; set; } = "Sync direction";
+
+    [Parameter]
+    public string? TestId { get; set; } = "devbook-sync";
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    /// <summary>Raised with the direction the reader picked, or null for the
+    /// empty entry: state none, and inherit.</summary>
+    [Parameter]
+    public EventCallback<string?> OnChanged { get; set; }
+
+    private static readonly IReadOnlyList<SelectorOption> DirectionOptions =
+        [.. DevbookSync.Directions.Select(direction => new SelectorOption(direction, $"sync {direction}"))];
+
+    /// <summary>The block's own value, when it is one the select can show; a value
+    /// outside the five reads as the empty entry, the way the sweeps skip it.</summary>
+    private static string? Stated(DevbookSyncState state) =>
+        DevbookSync.IsDirection(state.Stated) ? state.Stated!.Trim().ToLowerInvariant() : null;
+
+    /// <summary>What the inherit entry reads as: what the block would be left with.
+    /// A unit inherits from the levels above it; a page, a context or a folder
+    /// overview hands its value down and inherits from above it in turn.</summary>
+    private static string InheritLabel(DevbookSyncState state)
+    {
+        var inherited = state.Effective;
+        if (Stated(state) is not null) return "sync · inherit";
+
+        return inherited.IsDefault
+            ? $"sync {inherited.Direction} · default"
+            : $"sync {inherited.Direction} · from {LevelName(inherited.From!.Value)}";
+    }
+
+    private static string Text(DevbookSyncState state) =>
+        Stated(state) is not null || state.Effective.IsDefault
+            ? $"sync {state.Effective.Direction}"
+            : $"sync {state.Effective.Direction} · {LevelName(state.Effective.From!.Value)}";
+
+    private static string Describe(DevbookSyncState state)
+    {
+        var effective = state.Effective;
+        if (effective.IsDefault) return $"Sync direction: {effective.Direction}, the default — no level states one.";
+
+        return effective.From == state.Level
+            ? $"Sync direction: {effective.Direction}, stated here."
+            : $"Sync direction: {effective.Direction}, inherited from the {LevelName(effective.From!.Value)}.";
+    }
+
+    /// <summary>A level as a reader names it.</summary>
+    public static string LevelName(DevbookSyncLevel level) => level switch
+    {
+        DevbookSyncLevel.Unit => "unit",
+        DevbookSyncLevel.Page => "page",
+        DevbookSyncLevel.Context => "context",
+        _ => "folder"
+    };
+
+    private Task Change(string value) =>
+        OnChanged.InvokeAsync(string.IsNullOrWhiteSpace(value) ? null : value);
+}
