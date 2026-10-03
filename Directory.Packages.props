@@ -70,7 +70,7 @@
       different version would put the adapter and the Aspire wiring on two builds
       of one assembly. Bump the two together or not at all.
     -->
-    <PackageVersion Include="Azure.Storage.Blobs" Version="12.29.2" />
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.0" />
     <PackageVersion Include="bunit" Version="2.11.3" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.12" />
