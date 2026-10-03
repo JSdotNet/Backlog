@@ -105,6 +105,20 @@ public sealed record DevbookArchifyArtifactRow(
     int? ChecksPassed,
     int? CheckCount);
 
+/// <summary>
+/// One demo a page has: paired with it by name (<see cref="Address"/> null,
+/// <see cref="Slug"/> null), or named by one of its chapters' <c>demo</c> fields.
+/// </summary>
+/// <param name="DemoPath">The <c>*.demo.html</c>, repository-relative.</param>
+/// <param name="Slug">The chapter whose field names it, or null for a pairing by name.</param>
+/// <param name="Address">What follows the address's <c>#</c>, or null for the demo whole.</param>
+/// <param name="Exists">Whether the file is there: a field may name a demo that is not.</param>
+public sealed record DevbookPageDemoRow(string DemoPath, string? Slug, string? Address, bool Exists)
+{
+    /// <summary>Whether the pairing is by name rather than by a field.</summary>
+    public bool ByName => Slug is null;
+}
+
 /// <summary>One row of <c>problem</c> — something the generator could not
 /// resolve, recorded rather than thrown.</summary>
 public sealed record DevbookProblemRow(string Scope, string Severity, string? Path, string Message);

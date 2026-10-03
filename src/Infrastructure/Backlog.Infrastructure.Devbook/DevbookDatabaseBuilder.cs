@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 
 using Backlog.Infrastructure.Devbook.Building;
+using Backlog.Modules.Devbook.Abstractions;
 
 using Microsoft.Data.Sqlite;
 
@@ -16,8 +17,9 @@ namespace Backlog.Infrastructure.Devbook;
 /// <para>It fills every table the schema in <c>tools/devbook/devbook-schema.sql</c>
 /// defines, with the rows <c>tools/devbook/build-database.mjs</c> writes for the
 /// same corpus: the reference graph, the resolved reading outline for every scope,
-/// each chapter's verbatim text, prose and hashes, the full-text index, and the
-/// Archify artifact index. The embedding table is created and left empty, as it is
+/// each chapter's verbatim text, prose and hashes, the full-text index, the
+/// Archify artifact index, and the click demos with what pairs each one with a
+/// page. The embedding table is created and left empty, as it is
 /// there. The two writers are held to each other, table by table, by
 /// <c>DevbookBuilderParityTests</c> on this repository's own corpus.</para>
 ///
@@ -40,7 +42,7 @@ public static class DevbookDatabaseBuilder
 
     /// <summary>
     /// The <c>meta</c> key holding a fingerprint of every input the build read —
-    /// each Markdown file and Archify index, by path, size and
+    /// each Markdown file, Archify index and demo, by path, size and
     /// modification time. <see cref="IsCurrent"/> recomputes it from a directory
     /// walk and a <c>stat</c> per file, without opening one.
     /// </summary>
@@ -127,8 +129,9 @@ public static class DevbookDatabaseBuilder
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        InsertChapters(connection, transaction, root, layout, cancellationToken);
+        var linkedDemos = InsertChapters(connection, transaction, root, layout, cancellationToken);
         InsertArchify(connection, transaction, root, layout, problems);
+        InsertDemos(connection, transaction, root, layout, linkedDemos, problems);
 
         using (var insert = Command(connection, transaction, "INSERT INTO problem (scope, severity, path, message) VALUES ($scope, $severity, $path, $message)"))
         {
@@ -221,12 +224,21 @@ public static class DevbookDatabaseBuilder
         Walk(entries, null);
     }
 
-    private static void InsertChapters(SqliteConnection connection, SqliteTransaction transaction, string root, DevbookBuildLayout layout, CancellationToken cancellationToken)
+    /// <summary>The chapter rows, and a <c>demo_link</c> row for every place a
+    /// chapter's <c>demo</c> field names. Returns the demo paths some field
+    /// names, which <see cref="InsertDemos"/> needs to tell a demo nothing pairs
+    /// with from one only a field does.</summary>
+    private static HashSet<string> InsertChapters(SqliteConnection connection, SqliteTransaction transaction, string root, DevbookBuildLayout layout, CancellationToken cancellationToken)
     {
         using var insert = Command(connection, transaction, """
             INSERT INTO chapter (path, folder, slug, level, title, status, line, text, search_text, content_hash, source_hash, size, mtime, open_annotations)
             VALUES ($path, $folder, $slug, $level, $title, $status, $line, $text, $searchText, $contentHash, $sourceHash, $size, $mtime, $openAnnotations)
             """);
+        using var link = Command(connection, transaction, """
+            INSERT INTO demo_link (chapter_path, slug, line, ordinal, demo_path, address)
+            VALUES ($chapter, $slug, $line, $ordinal, $demo, $address)
+            """);
+        var linked = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var folder in layout.Folders)
         {
@@ -254,6 +266,18 @@ public static class DevbookDatabaseBuilder
                         ("$size", file.Length), ("$mtime", DevbookFileState.UnixMilliseconds(file.LastWriteTimeUtc)),
                         ("$openAnnotations", openAnnotations[index]));
                     insert.ExecuteNonQuery();
+
+                    // Every place the field names, whether or not the demo is
+                    // there: joining `demo` says which are.
+                    var references = DevbookReadingConvention.DemoReferences(DemoFieldEntries(chapter.Meta?.GetValueOrDefault("demo")));
+                    for (var ordinal = 0; ordinal < references.Count; ordinal++)
+                    {
+                        Bind(link,
+                            ("$chapter", relativePath), ("$slug", chapter.Slug), ("$line", chapter.Line), ("$ordinal", ordinal),
+                            ("$demo", references[ordinal].Path), ("$address", references[ordinal].Address));
+                        link.ExecuteNonQuery();
+                        linked.Add(references[ordinal].Path);
+                    }
                 }
             }
         }
@@ -261,6 +285,48 @@ public static class DevbookDatabaseBuilder
         // External-content FTS5, filled once after the table it mirrors: nothing
         // ever updates a row here.
         Execute(connection, "INSERT INTO chapter_fts (rowid, title, search_text) SELECT id, title, search_text FROM chapter", transaction);
+        return linked;
+
+        // The parse leaves a field a string, or — written `[a, b]` — a list.
+        static IEnumerable<string> DemoFieldEntries(object? value) => value switch
+        {
+            string single => [single],
+            IEnumerable<string> list => list,
+            _ => []
+        };
+    }
+
+    /// <summary>
+    /// One <c>demo</c> row per <c>*.demo.html</c>, paired with the page its name
+    /// says when that page is there (<see cref="DevbookReadingConvention.DemoPage"/>).
+    /// A demo that pairs with no page and that no field names belongs to nothing,
+    /// which the rule does not allow — a page-named demo exists only beside its
+    /// page — so it is recorded as a problem.
+    /// </summary>
+    private static void InsertDemos(SqliteConnection connection, SqliteTransaction transaction, string root, DevbookBuildLayout layout, HashSet<string> linked, List<DevbookBuildProblem> problems)
+    {
+        using var insert = Command(connection, transaction, "INSERT INTO demo (path, folder, page_path, size, mtime) VALUES ($path, $folder, $page, $size, $mtime)");
+
+        foreach (var folder in layout.Folders)
+        {
+            foreach (var relativePath in DevbookBuildFiles.Demos(root, folder))
+            {
+                var file = new FileInfo(DevbookBuildFiles.Absolute(root, relativePath));
+                var candidate = $"{relativePath[..relativePath.LastIndexOf('/')]}/{DevbookReadingConvention.DemoPage(relativePath)}";
+                var page = File.Exists(DevbookBuildFiles.Absolute(root, candidate)) ? candidate : null;
+
+                Bind(insert,
+                    ("$path", relativePath), ("$folder", layout.FolderKindForPath(candidate)), ("$page", page),
+                    ("$size", file.Length), ("$mtime", DevbookFileState.UnixMilliseconds(file.LastWriteTimeUtc)));
+                insert.ExecuteNonQuery();
+
+                if (page is null && !linked.Contains(relativePath))
+                {
+                    problems.Add(new DevbookBuildProblem(folder, "warning", relativePath,
+                        $"{relativePath} pairs with no page: {candidate} is not there and no chapter's demo field names it."));
+                }
+            }
+        }
     }
 
     private static void InsertArchify(SqliteConnection connection, SqliteTransaction transaction, string root, DevbookBuildLayout layout, List<DevbookBuildProblem> problems)
@@ -335,7 +401,7 @@ public static class DevbookDatabaseBuilder
 
     /// <summary>
     /// A fingerprint of every input a build reads: each Markdown file and each
-    /// Archify index, by path, size and modification time — one directory walk
+    /// Archify index and each demo, by path, size and modification time — one directory walk
     /// and a <c>stat</c> per file. The reading order is derived from those names
     /// and files (local ADR 0016), so a rename or an added file is already here;
     /// a stray <c>_reading-order.json</c> is not an input and touching one
@@ -348,6 +414,7 @@ public static class DevbookDatabaseBuilder
         {
             inputs.AddRange(DevbookBuildFiles.Markdown(root, folder, skipGenerated: false));
             inputs.AddRange(DevbookBuildFiles.ArchifyIndexes(root, folder));
+            inputs.AddRange(DevbookBuildFiles.Demos(root, folder));
         }
 
         inputs.Sort(StringComparer.Ordinal);

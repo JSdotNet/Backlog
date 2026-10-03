@@ -291,6 +291,37 @@ public sealed partial class DevbookDatabase : IDisposable
     }
 
     /// <summary>
+    /// The demos one page has: those paired with it by name first, then every
+    /// place its chapters' <c>demo</c> fields name, in document and field order.
+    /// Paths only — a demo's HTML is never in the database.
+    /// </summary>
+    /// <param name="pagePath">Repository-relative, <c>/</c>-separated.</param>
+    public IReadOnlyList<DevbookPageDemoRow> Demos(string pagePath)
+    {
+        if (string.IsNullOrWhiteSpace(pagePath)) return [];
+
+        var page = pagePath.Replace('\\', '/');
+
+        var byName = Query(
+            "SELECT path FROM demo WHERE page_path = $page ORDER BY path",
+            command => command.Parameters.AddWithValue("$page", page),
+            reader => new DevbookPageDemoRow(reader.GetString(0), null, null, Exists: true));
+
+        var byField = Query(
+            """
+            SELECT link.demo_path, link.slug, link.address, demo.path IS NOT NULL
+            FROM demo_link AS link
+            LEFT JOIN demo ON demo.path = link.demo_path
+            WHERE link.chapter_path = $page
+            ORDER BY link.line, link.ordinal
+            """,
+            command => command.Parameters.AddWithValue("$page", page),
+            reader => new DevbookPageDemoRow(reader.GetString(0), reader.GetString(1), Text(reader, 2), reader.GetInt64(3) != 0));
+
+        return [.. byName, .. byField];
+    }
+
+    /// <summary>
     /// The diagram artifacts filed against the chapters in one directory — the
     /// rows that used to be that directory's <c>_archify/index.json</c>.
     /// <para>

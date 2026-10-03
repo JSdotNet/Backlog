@@ -116,6 +116,87 @@ async function collectArchifyIndexes(repoRoot, relFolder, found = []) {
     return found.sort();
 }
 
+/** Every `*.demo.html` under `relFolder`, as repo-relative posix paths, sorted. */
+async function collectDemos(repoRoot, relFolder, found = []) {
+    let entries;
+    try {
+        entries = await readdir(path.join(repoRoot, relFolder), { withFileTypes: true });
+    } catch {
+        return found;
+    }
+
+    for (const entry of entries) {
+        const child = `${relFolder}/${entry.name}`;
+        if (entry.isDirectory()) {
+            if (SKIPPED_DIRECTORIES.has(entry.name)) continue;
+            await collectDemos(repoRoot, child, found);
+        } else if (entry.isFile() && demoPage(entry.name) !== null) {
+            found.push(child);
+        }
+    }
+
+    return found.sort();
+}
+
+/** The suffix every demo carries. */
+const DEMO_SUFFIX = '.demo.html';
+
+/**
+ * The page a demo pairs with by its name, or null when the name is not a
+ * demo's: `demo.html` is the context's own and counts with `context.md`, and
+ * `<page>.demo.html` is `<page>.md`'s (devbook's `devbook-domain.md`). The
+ * installed generator knows nothing of demos, so the rule is stated here and in
+ * `DevbookReadingConvention.Demos.cs`, and the parity test holds the two together.
+ */
+function demoPage(name) {
+    const segment = name.slice(name.replace(/\\/g, '/').lastIndexOf('/') + 1);
+    if (segment === 'demo.html') return 'context.md';
+    if (!segment.endsWith(DEMO_SUFFIX)) return null;
+    const stem = segment.slice(0, -DEMO_SUFFIX.length);
+    return stem.length === 0 ? null : `${stem}.md`;
+}
+
+const stripQuotes = (value) =>
+    value.length >= 2 && ((value[0] === '"' && value.at(-1) === '"') || (value[0] === "'" && value.at(-1) === "'"))
+        ? value.slice(1, -1)
+        : value;
+
+/** Whether an entry starts a demo address: its path, before any `#`, is a demo's. */
+function startsDemoAddress(entry) {
+    const text = entry.replace(/^["']+/, '');
+    const hash = text.indexOf('#');
+    return demoPage((hash < 0 ? text : text.slice(0, hash)).trim()) !== null;
+}
+
+/**
+ * A chapter's `demo` field, as the generator's metadata parse leaves it — a
+ * string or a list — as `{ path, address }` places. The parse splits a list on
+ * every comma, including the one inside an address whose `flags` names two keys,
+ * so an entry that starts no demo address is joined back onto the one before it.
+ */
+function demoReferences(value) {
+    if (value === null || value === undefined) return [];
+    const joined = [];
+    for (const raw of Array.isArray(value) ? value : [value]) {
+        const entry = String(raw).trim();
+        if (!entry) continue;
+        if (startsDemoAddress(entry) || joined.length === 0) joined.push(entry);
+        else joined[joined.length - 1] += `,${entry}`;
+    }
+
+    const references = [];
+    for (const entry of joined) {
+        const address = stripQuotes(entry);
+        const hash = address.indexOf('#');
+        let demoPath = (hash < 0 ? address : address.slice(0, hash)).trim().replace(/\\/g, '/');
+        while (demoPath.startsWith('./')) demoPath = demoPath.slice(2);
+        if (demoPage(demoPath) === null) continue;
+        const fragment = hash < 0 ? null : address.slice(hash + 1).trim();
+        references.push({ path: demoPath, address: fragment ? fragment : null });
+    }
+    return references;
+}
+
 /** A fenced block opens or closes here: three or more backticks or tildes, at
  *  most three columns in from the margin. */
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
@@ -332,8 +413,13 @@ async function insertChapters(db, repoRoot, folders, { parseDocument, folderKind
         INSERT INTO chapter (path, folder, slug, level, title, status, line, text, search_text, content_hash, source_hash, size, mtime, open_annotations)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
+    const link = db.prepare(`
+        INSERT INTO demo_link (chapter_path, slug, line, ordinal, demo_path, address)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `);
 
     let count = 0;
+    let links = 0;
     let files = 0;
     for (const folder of folders) {
         for (const relPath of await collectMarkdown(repoRoot, folder)) {
@@ -367,6 +453,13 @@ async function insertChapters(db, repoRoot, folders, { parseDocument, folderKind
                     open.get(index) ?? 0
                 );
                 count++;
+
+                // Every place the chapter's `demo` field names, whether or not
+                // the demo is there: joining `demo` says which are.
+                demoReferences(chapter.meta?.demo).forEach((reference, ordinal) => {
+                    link.run(relPath, chapter.slug, chapter.line, ordinal, reference.path, reference.address);
+                    links++;
+                });
             });
         }
     }
@@ -378,7 +471,7 @@ async function insertChapters(db, repoRoot, folders, { parseDocument, folderKind
     // is what matches and what `snippet()` shows.
     db.exec('INSERT INTO chapter_fts (rowid, title, search_text) SELECT id, title, search_text FROM chapter');
 
-    return { chapter: count, files };
+    return { chapter: count, files, demo_link: links };
 }
 
 async function insertArchify(db, repoRoot, folders, problems) {
@@ -435,6 +528,47 @@ async function insertArchify(db, repoRoot, folders, problems) {
                     typeof entry.checkCount === 'number' ? entry.checkCount : null
                 );
                 count++;
+            }
+        }
+    }
+
+    return count;
+}
+
+/**
+ * One `demo` row per `*.demo.html` in the adopted folders, paired with the page
+ * its name says when that page is there. A demo that pairs with no page and that
+ * no chapter's `demo` field names belongs to nothing, which is worth a warning:
+ * the rule says a page-named demo exists only beside its page.
+ */
+async function insertDemos(db, repoRoot, folders, { folderKindForPath }, problems) {
+    const insert = db.prepare('INSERT INTO demo (path, folder, page_path, size, mtime) VALUES (?, ?, ?, ?, ?)');
+    const linked = new Set(db.prepare('SELECT DISTINCT demo_path FROM demo_link').all().map((row) => row.demo_path));
+
+    let count = 0;
+    for (const folder of folders) {
+        for (const relPath of await collectDemos(repoRoot, folder)) {
+            const stats = await stat(path.join(repoRoot, relPath));
+            const candidate = `${path.posix.dirname(relPath)}/${demoPage(relPath)}`;
+            let page = null;
+            try {
+                if ((await stat(path.join(repoRoot, candidate))).isFile()) page = candidate;
+            } catch {
+                // No page of that name beside it.
+            }
+
+            // The folder a path belongs to is the generator's question, and it
+            // answers it for Markdown paths; the page's spelling is one.
+            insert.run(relPath, folderKindForPath(candidate), page, stats.size, Math.round(stats.mtimeMs));
+            count++;
+
+            if (page === null && !linked.has(relPath)) {
+                problems.push({
+                    scope: folder,
+                    severity: 'warning',
+                    path: relPath,
+                    message: `${relPath} pairs with no page: ${candidate} is not there and no chapter's demo field names it.`,
+                });
             }
         }
     }
@@ -516,8 +650,10 @@ export async function buildDatabase(repoRoot, target, generator = null) {
         // address names no chapter row is counted nowhere.
         counts.open_annotations = Number(db.prepare('SELECT coalesce(sum(open_annotations), 0) AS total FROM chapter').get().total);
         counts.files = chapters.files;
+        counts.demo_link = chapters.demo_link;
         counts.chapter_embedding = 0; // the semantic tier is wired and makes no live call yet.
         counts.archify_artifact = await insertArchify(db, repoRoot, folders, problems);
+        counts.demo = await insertDemos(db, repoRoot, folders, generator, problems);
 
         const problem = db.prepare('INSERT INTO problem (scope, severity, path, message) VALUES (?, ?, ?, ?)');
         for (const entry of problems) {
@@ -554,7 +690,7 @@ export async function buildDatabase(repoRoot, target, generator = null) {
 export function formatCounts(counts) {
     const order = [
         'files', 'chapter', 'open_annotations', 'node', 'node_attribute', 'edge',
-        'outline_entry', 'archify_artifact', 'chapter_embedding', 'problem', 'meta',
+        'outline_entry', 'archify_artifact', 'demo', 'demo_link', 'chapter_embedding', 'problem', 'meta',
     ];
     return order
         .filter((table) => counts[table] !== undefined)

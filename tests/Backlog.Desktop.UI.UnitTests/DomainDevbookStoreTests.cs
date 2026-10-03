@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Devbook.Abstractions;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -54,6 +55,41 @@ public sealed class DomainDevbookStoreTests : IDisposable
         Assert.NotNull(issue);
         Assert.Equal("#77", issue.Label);
         Assert.Equal("https://github.com/JSdotNet/Backlog/issues/77", issue.Url);
+    }
+
+    /// <summary>A demo rides on the page its name pairs it with rather than
+    /// taking a place in the context's documents; a field's places read off the
+    /// chapter that names them.</summary>
+    [Fact]
+    public async Task Pages_carry_the_demos_beside_them_and_chapters_the_places_their_field_names()
+    {
+        var repo = TempDir();
+        WriteDomain(repo);
+        var inbox = Path.Combine(repo, ".domain", "inbox");
+        File.WriteAllText(Path.Combine(inbox, "demo.html"), "<!doctype html>");
+        File.WriteAllText(Path.Combine(inbox, "features.demo.html"), "<!doctype html>");
+        File.WriteAllText(Path.Combine(inbox, "triage.demo.html"), "<!doctype html>");
+        File.AppendAllText(Path.Combine(inbox, "features.md"), "\n\n## Triage\n\n```meta\ndemo: [.domain/inbox/triage.demo.html#queue, .domain/inbox/features.demo.html]\n```\n");
+        var settings = ConfiguredSettings(repo);
+
+        var view = await new DomainDevbookStore(new DevbookFolderSource(settings)).LoadAsync("backlog", TestContext.Current.CancellationToken);
+
+        var context = Assert.Single(view.Contexts);
+        Assert.DoesNotContain(context.Documents, document => document.Path.EndsWith(".html", StringComparison.Ordinal));
+
+        var features = context.Documents.Single(d => d.Kind == DomainDevbookDocumentKind.Features);
+        Assert.Equal([".domain/inbox/features.demo.html"], features.Demos);
+
+        var triage = Assert.Single(features.Sections, section => section.Title == "Triage");
+        Assert.Equal(
+            [
+                new DevbookDemoReference(".domain/inbox/triage.demo.html", "queue"),
+                new DevbookDemoReference(".domain/inbox/features.demo.html", null)
+            ],
+            triage.DemoReferences);
+
+        var domain = context.Documents.Single(d => d.Kind == DomainDevbookDocumentKind.Domain);
+        Assert.Empty(domain.Demos);
     }
 
     [Fact]

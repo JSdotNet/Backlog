@@ -110,7 +110,13 @@ const FIXTURE = {
     '.devbook/domain/inbox/features.md': [
         '# Inbox Features',
         '',
-        meta({ status: 'draft' }),
+        // Three places in demos: a screen, an anchor whose `flags` names two
+        // keys — split by the metadata parse on its comma and joined back — and
+        // a demo that is not there. Named by field, not by name.
+        meta({
+            status: 'draft',
+            demo: '[.devbook/domain/inbox/features.demo.html#capture, "./.devbook/domain/inbox/triage.demo.html#queue/row?role=owner&flags=bulk,undo", .devbook/domain/inbox/missing.demo.html]',
+        }),
         '',
         'Routing moves a triaged item onward.',
         '',
@@ -163,6 +169,14 @@ const FIXTURE = {
     '.devbook/tech/tooling.md': page('Tooling', { status: 'adopted' }),
     '.devbook/tech/shared.md': page('Shared Technologies', { status: 'adopted' }),
     '.devbook/tech/desktop.md': page('Desktop Stack', { status: 'adopted' }),
+
+    // Demos: one the context owns by name, one a page owns by name, one only a
+    // field names, and one nothing pairs with — a problem. Not chapters: none of
+    // them reaches the outline or the chapter rows.
+    '.devbook/domain/inbox/demo.html': '<!doctype html><title>Inbox</title>',
+    '.devbook/domain/inbox/features.demo.html': '<!doctype html><title>Inbox features</title>',
+    '.devbook/domain/inbox/triage.demo.html': '<!doctype html><title>Triage</title>',
+    '.devbook/domain/billing/refunds.demo.html': '<!doctype html><title>Refunds</title>',
 
     '.devbook/domain/inbox/_archify/index.json': JSON.stringify({
         schemaVersion: 1,
@@ -568,6 +582,45 @@ test('the archify rows load, addressed repo-relatively', async () => {
         // Carried although no C# DTO reads them today; ADR 0004 lists them.
         assert.equal(row.checks_passed, 8);
         assert.equal(row.check_count, 9);
+    });
+});
+
+test('every demo is a row, paired with the page its name says when that page is there', async () => {
+    await withFixture(({ all, counts }) => {
+        const rows = all('SELECT path, folder, page_path, size FROM demo ORDER BY path');
+        assert.deepEqual(rows.map((row) => [row.path, row.page_path]), [
+            ['.devbook/domain/billing/refunds.demo.html', null],
+            ['.devbook/domain/inbox/demo.html', '.devbook/domain/inbox/context.md'],
+            ['.devbook/domain/inbox/features.demo.html', '.devbook/domain/inbox/features.md'],
+            ['.devbook/domain/inbox/triage.demo.html', null],
+        ]);
+        assert.ok(rows.every((row) => row.folder === 'domain' && row.size > 0), JSON.stringify(rows));
+        assert.equal(counts.demo, 4);
+
+        // A demo has no reading position.
+        assert.equal(all("SELECT 1 FROM outline_entry WHERE name LIKE '%.html'").length, 0);
+        assert.equal(all("SELECT 1 FROM chapter WHERE path LIKE '%.html'").length, 0);
+    });
+});
+
+test("a chapter's demo field is one link per place, a split address joined back", async () => {
+    await withFixture(({ all, counts }) => {
+        const rows = all('SELECT chapter_path, slug, line, ordinal, demo_path, address FROM demo_link ORDER BY ordinal');
+        assert.deepEqual(rows.map((row) => [row.ordinal, row.demo_path, row.address]), [
+            [0, '.devbook/domain/inbox/features.demo.html', 'capture'],
+            [1, '.devbook/domain/inbox/triage.demo.html', 'queue/row?role=owner&flags=bulk,undo'],
+            [2, '.devbook/domain/inbox/missing.demo.html', null],
+        ]);
+        assert.ok(rows.every((row) => row.chapter_path === '.devbook/domain/inbox/features.md' && row.slug === 'inbox-features' && row.line === 1));
+        assert.equal(counts.demo_link, 3);
+    });
+});
+
+test('a demo nothing pairs with is a problem; one only a field names is not', async () => {
+    await withFixture(({ all }) => {
+        const problems = all("SELECT path, message FROM problem WHERE path LIKE '%.demo.html'");
+        assert.deepEqual(problems.map((row) => row.path), ['.devbook/domain/billing/refunds.demo.html']);
+        assert.match(problems[0].message, /refunds\.md/);
     });
 });
 
