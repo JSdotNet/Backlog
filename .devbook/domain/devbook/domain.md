@@ -306,3 +306,23 @@ How a claimed reduction was obtained: read from local agent activity, or measure
 in a controlled before-and-after. It travels with the number so a reader knows what
 the number is worth. It is stated in what agents load rather than in money — no
 billed amount is claimed, and a figure with no basis is not shown.
+
+### Sync Verdict
+
+```meta
+type: term
+status: draft
+aliases: [DevbookSyncVerdict, sweep verdict, drift verdict]
+related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter, .devbook/domain/sessions/domain.md#delivery-run-recording]
+```
+
+The last thing a devbook sync sweep said about one chapter: its own drift verdict
+— `aligned`, `code-ahead`, `spec-ahead`, `conflict` or `unresolved` — with the
+sweep's line of evidence, the sync unit the chapter belongs to with that unit's
+verdict and what the sweep did about it, and the pull request or drift issue that
+produced. Filed by repository, the chapter's file as `DevbookChapterKey` spells it,
+and the heading's anchor; the latest replaces the one before it for that chapter
+alone. The words are the sweep's, carried verbatim — the sweep owns the report's
+shape. It arrives on the sweep's `Delivery Run` in the Sessions context, which keeps
+the run's verdicts as sent; this context keeps them per chapter, because what a
+reader of a chapter asks is whether the code still agrees with it.

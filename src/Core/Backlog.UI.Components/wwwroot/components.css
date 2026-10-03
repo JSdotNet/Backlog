@@ -522,8 +522,10 @@ button.badge {
    Which is also why `a.badge:hover`'s `border-color` was doing nothing on a
    borderless badge before: the hover state has always been written this way.
 
-   Three families are held out, and one rule covers all three: a kind that already
-   paints per value keeps its own scale. These selectors out-rank a single class,
+   Four families are held out, and one rule covers them all: a kind that already
+   paints per value keeps its own scale. `.badge--sync` is the fourth, for the
+   reason `.badge--status` is below: its verdicts are filled, and amber ink on the
+   aligned green would say two things at once. These selectors out-rank a single class,
    so without the exclusion they would flatten one.
 
    `.badge--status` and `.badge--feature` are the filled pair. Both set
@@ -539,8 +541,8 @@ button.badge {
    draft the disabled ink. Repainting them all amber would say "followable" about a
    row where every badge is, and lose the only thing the row was distinguishing.
 */
-a.badge:not(.badge--status, .badge--feature, .badge--gh),
-button.badge:not(.badge--status, .badge--feature, .badge--gh) {
+a.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync),
+button.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync) {
     border-color: var(--color-primary-dark);
     color: var(--color-primary-light);
 }
@@ -2807,6 +2809,51 @@ button.md-check {
     border: var(--border-width) solid var(--color-border);
 }
 
+/* --- Devbook sync verdicts ----------------------------------------------
+   The last thing a sync sweep said about a chapter, on the scale
+   color-scheme.md#badge-and-chip-tones sets. aligned is settled; code-ahead and
+   spec-ahead are alert — a sweep acts on them; conflict is fault; unresolved is
+   quiet, since nothing could be said; a word outside the vocabulary is archived. */
+.badge--sync {
+    gap: var(--spacing-xs);
+    border: var(--border-width) solid transparent;
+}
+
+.badge--sync-aligned {
+    background: var(--color-success);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--sync-code-ahead,
+.badge--sync-spec-ahead {
+    background: var(--color-warning);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--sync-conflict {
+    background: var(--color-error);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--sync-unresolved { background: var(--color-background-raised); color: var(--color-text-secondary); }
+
+.badge--sync-unknown {
+    background: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+/* What started a run, where it was not a person: quiet and outlined, because
+   it is information about the run rather than something to act on. */
+.badge--trigger {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+}
+
 /* --- Capture kind marker ------------------------------------------------ */
 /*
    The ten content-kind glyphs an inbox row leads with. Sized in px by the
@@ -2952,6 +2999,16 @@ button.md-check {
     align-items: baseline;
     gap: var(--spacing-xs);
     min-width: 0;
+}
+
+/* The host's decoration of a chapter, kept at rest — unlike the copy button it is
+   information, and information a reader has to hunt for is not shown. */
+.md-chapter-head__adornment {
+    display: inline-flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
 }
 
 /* Quiet until it is wanted, the same bargain the per-block comment affordance

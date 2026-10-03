@@ -1,0 +1,70 @@
+@using Backlog.Modules.Devbook.Abstractions
+
+@*
+    What the last devbook sync sweep said about one chapter: its own verdict, and on a
+    unit's root chapter the unit's verdict and what the sweep did about it.
+
+    Each badge leads to the unit's pull request or drift issue where the sweep opened
+    one — that is where the verdict is argued, and a reader who sees "code-ahead"
+    beside a chapter wants to see what the code did. A verdict with nowhere to go is
+    the span every badge is.
+
+    The words are the sweep's, verbatim. The tone is the scale's: a word the
+    vocabulary does not have keeps its own spelling and wears the unknown tone,
+    rather than being painted like a word it is not.
+*@
+@foreach (var verdict in Verdicts.Where(verdict => verdict.IsUnitRoot).Take(1))
+{
+    <Badge Kind="sync"
+           Slug="@Slug(verdict.UnitVerdict)"
+           Href="@verdict.Link"
+           Title="@UnitTitle(verdict)"
+           CssClass="devbook-sync-verdict devbook-sync-verdict--unit"
+           TestId="devbook-sync-unit-verdict">unit @(Word(verdict.UnitVerdict))@(string.IsNullOrWhiteSpace(verdict.Action) || verdict.Action is "none" ? "" : $" · {verdict.Action}")</Badge>
+}
+@foreach (var verdict in Verdicts.Where(verdict => !verdict.IsUnitRoot || !string.IsNullOrWhiteSpace(verdict.Evidence)).Take(1))
+{
+    <Badge Kind="sync"
+           Slug="@Slug(verdict.Verdict)"
+           Href="@verdict.Link"
+           Title="@ChapterTitle(verdict)"
+           CssClass="devbook-sync-verdict"
+           TestId="devbook-sync-chapter-verdict">@Word(verdict.Verdict)</Badge>
+}
+
+@code {
+    private static readonly string[] Vocabulary = ["aligned", "code-ahead", "spec-ahead", "conflict", "unresolved"];
+
+    /// <summary>The verdicts recorded for one heading — normally one; the latest
+    /// first where a chapter belongs to more than one unit.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<DevbookSyncVerdict> Verdicts { get; set; } = [];
+
+    private static string Word(string? verdict) =>
+        string.IsNullOrWhiteSpace(verdict) ? "no verdict" : verdict;
+
+    private static string Slug(string? verdict) =>
+        verdict is not null && Vocabulary.Contains(verdict, StringComparer.OrdinalIgnoreCase)
+            ? verdict.ToLowerInvariant()
+            : "unknown";
+
+    private static string Recorded(DevbookSyncVerdict verdict) =>
+        $"checked {verdict.RecordedAt.ToLocalTime():yyyy-MM-dd}";
+
+    private static string Destination(DevbookSyncVerdict verdict) =>
+        string.IsNullOrWhiteSpace(verdict.Link) ? "" : $" Opens {verdict.Link}.";
+
+    private static string Unknown(string? verdict) =>
+        Slug(verdict) == "unknown" ? $" Not a verdict the sweep defines; expected one of {string.Join(", ", Vocabulary)}." : "";
+
+    private static string UnitTitle(DevbookSyncVerdict verdict) =>
+        $"Sync unit {verdict.Unit}{(string.IsNullOrWhiteSpace(verdict.UnitKind) ? "" : $" ({verdict.UnitKind})")}: {Word(verdict.UnitVerdict)}, {Recorded(verdict)}."
+        + Unknown(verdict.UnitVerdict)
+        + Destination(verdict);
+
+    private static string ChapterTitle(DevbookSyncVerdict verdict) =>
+        $"Last sync verdict: {Word(verdict.Verdict)}, {Recorded(verdict)}."
+        + (string.IsNullOrWhiteSpace(verdict.Evidence) ? "" : $" {verdict.Evidence}")
+        + Unknown(verdict.Verdict)
+        + Destination(verdict);
+}

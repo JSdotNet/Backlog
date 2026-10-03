@@ -153,6 +153,7 @@
                           RenderDevbookMetadataFields="false"
                           DevbookFolder="DevbookFolder.Arc42"
                           DevbookDocumentPath="@DocumentPath(_selected)"
+                          ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, Folders, RepositoryAlias, DocumentPath(_selected))"
                           CanEditDevbookStatus="@CanEdit"
                           OnDevbookStatusChanged="ChangeChapterStatusAsync"
                           OnDevbookNavigate="NavigateDevbookReferenceAsync"
@@ -371,6 +372,25 @@
 
         _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
         _annotations.Changed += OnAnnotationsChanged;
+
+        // Optional, like the annotation store: a host that keeps no sync verdicts
+        // draws the chapters without them.
+        _syncVerdicts = Services.GetService<IDevbookSyncVerdicts>();
+        if (_syncVerdicts is not null) _syncVerdicts.Changed += OnSyncVerdictsChanged;
+    }
+
+    private IDevbookSyncVerdicts? _syncVerdicts;
+
+    /// <summary>A sweep recorded verdicts while the pane was open: redraw, so the
+    /// badges beside the headings are the latest.</summary>
+    private void OnSyncVerdictsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (!_disposed) StateHasChanged();
+        });
     }
 
     protected override async Task OnParametersSetAsync()
@@ -966,5 +986,6 @@
         Devbook.Changed -= OnDevbookChanged;
         if (_c4Store is not null) _c4Store.Changed -= OnDevbookChanged;
         _annotations.Changed -= OnAnnotationsChanged;
+        if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
     }
 }

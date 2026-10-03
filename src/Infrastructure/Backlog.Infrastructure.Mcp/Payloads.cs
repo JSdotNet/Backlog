@@ -389,6 +389,9 @@ public sealed record RunStagePayload(string Name, string Status, long? DurationM
 /// know which spelling of it counts.</param>
 /// <param name="SessionIds">The sessions that drove the run, where the writer
 /// recorded any.</param>
+/// <param name="Trigger">What started the run, where the caller said.</param>
+/// <param name="Schedule">The schedule that fired it, for a scheduled run.</param>
+/// <param name="Repo">The repository it worked in, where the caller said.</param>
 public sealed record RunPayload(
     string Id,
     string Worktree,
@@ -400,7 +403,10 @@ public sealed record RunPayload(
     DateTimeOffset? StartedAt,
     DateTimeOffset UpdatedAt,
     IReadOnlyList<RunStagePayload> Stages,
-    IReadOnlyList<string> SessionIds);
+    IReadOnlyList<string> SessionIds,
+    string? Trigger = null,
+    string? Schedule = null,
+    string? Repo = null);
 
 /// <summary>The runs of one worktree.</summary>
 public sealed record RunsPayload(string Worktree, int Count, IReadOnlyList<RunPayload> Runs);
@@ -417,3 +423,30 @@ public sealed record ScenarioInput(string Name, string Status, string? Notes, IR
 
 /// <summary>What a runtime monitor observed while a stage ran.</summary>
 public sealed record MonitoringInput(string? Summary, IReadOnlyList<string>? Findings);
+
+/// <summary>One chapter of a sync unit's verdict row.</summary>
+/// <param name="Chapter">The chapter id, <c>path#anchor</c>.</param>
+/// <param name="Verdict">aligned, code-ahead, spec-ahead, conflict or unresolved.</param>
+/// <param name="Evidence">One line of evidence.</param>
+public sealed record SyncChapterVerdictInput(string Chapter, string? Verdict, string? Evidence);
+
+/// <summary>One unit row of a devbook sweep's <c>devbook-sync-report</c> block, as
+/// <c>finish_run</c> takes it — the block's own keys.</summary>
+/// <param name="Unit">The unit's root chapter id.</param>
+/// <param name="Kind">The unit kind.</param>
+/// <param name="Sync">The effective sync direction.</param>
+/// <param name="SyncFrom">The block the direction came from, or null.</param>
+/// <param name="Verdict">The rolled-up verdict.</param>
+/// <param name="Action">pr, issue, flagged, waiting, deferred, skipped, failed,
+/// not-assessed or none.</param>
+/// <param name="Link">The pull request or drift issue URL, or null.</param>
+/// <param name="Chapters">Each chapter's own verdict.</param>
+public sealed record SyncUnitVerdictInput(
+    string Unit,
+    string? Kind,
+    string? Sync,
+    string? SyncFrom,
+    string? Verdict,
+    string? Action,
+    string? Link,
+    IReadOnlyList<SyncChapterVerdictInput>? Chapters);

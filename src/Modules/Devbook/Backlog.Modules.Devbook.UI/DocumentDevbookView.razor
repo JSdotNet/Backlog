@@ -251,6 +251,7 @@
                                   RenderDevbookMetadataFields="false"
                                   DevbookFolder="@Folder.Folder"
                                   DevbookDocumentPath="@DocumentPath(file)"
+                                  ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, _folders, RepositoryAlias, DocumentPath(file))"
                                   CanEditDevbookStatus="@CanEdit"
                                   OnDevbookStatusChanged="change => ChangeChapterStatusAsync(file, change)"
                                   OnDevbookNavigate="NavigateDevbookReferenceAsync"
@@ -397,11 +398,27 @@
             ? [.. section.Blocks.Where(block => block is not DocumentDevbookDiagram)]
             : section.Blocks;
 
+    [Inject]
+    private IServiceProvider Services { get; set; } = default!;
+
+    private IDevbookSyncVerdicts? _syncVerdicts;
+    private IDevbookFolderSource? _folders;
+
     protected override void OnInitialized()
     {
         ArgumentNullException.ThrowIfNull(Provider);
         Provider.Changed += OnDevbookChanged;
+
+        // Optional both: a host that keeps no sync verdicts, or has no folder source
+        // to say which repository the alias is, draws the chapters without badges.
+        _folders = Services.GetService<IDevbookFolderSource>();
+        _syncVerdicts = Services.GetService<IDevbookSyncVerdicts>();
+        if (_syncVerdicts is not null) _syncVerdicts.Changed += OnSyncVerdictsChanged;
     }
+
+    /// <summary>A sweep recorded verdicts while the view was open: redraw, so the
+    /// badges beside the headings are the latest.</summary>
+    private void OnSyncVerdictsChanged() => _ = InvokeAsync(StateHasChanged);
 
     protected override async Task OnParametersSetAsync()
     {
@@ -794,5 +811,6 @@
     public void Dispose()
     {
         Provider.Changed -= OnDevbookChanged;
+        if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
     }
 }

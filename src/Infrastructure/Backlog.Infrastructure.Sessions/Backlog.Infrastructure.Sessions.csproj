@@ -38,6 +38,10 @@
          stamp what they find with it rather than with a hostname, because a name is
          not an identity. -->
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- IDevbookSyncVerdicts: finish_run carries a devbook sweep's verdicts, and the
+         latest per chapter is the Devbook context's port, kept in a file beside the
+         run files this project already writes. -->
+    <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
     <!-- The module's published surface: the ports these answer and the DTOs they
          answer with. -->
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />

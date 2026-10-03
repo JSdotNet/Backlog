@@ -217,6 +217,23 @@ is the person's own and stays in the app, a review note is the repository's and
 stays in the chapter, and the two are shown apart and never merged — the
 decision local ADR 0011 records.
 
+### Sync verdicts beside a chapter
+
+```meta
+type: sub-feature
+related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/domain/sessions/features.md#what-started-a-run-and-what-it-found]
+```
+
+Show beside each chapter heading the last verdict a devbook sync sweep reached on it —
+aligned, code ahead, spec ahead, in conflict, or unresolved — and on the root chapter
+of a sync unit the unit's own verdict and what the sweep did about it. Each badge
+leads to the pull request or drift issue the sweep opened, where the verdict is
+argued. Only the latest verdict per chapter is shown, and a sweep replaces only the
+chapters it checked, so a chapter last checked a month ago keeps that month-old word
+until a sweep checks it again. The words are the sweep's, verbatim; a word outside
+its vocabulary is shown as written and flagged rather than coloured like one it is
+not. A chapter no sweep has checked carries nothing.
+
 ### A devbook that stays current
 
 ```meta

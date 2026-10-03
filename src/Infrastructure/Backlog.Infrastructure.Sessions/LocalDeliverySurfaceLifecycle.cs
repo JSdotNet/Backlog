@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 
@@ -25,16 +26,23 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     private readonly DeliveryRunStore _store;
     private readonly DeliveryRunReader _reader;
     private readonly ISessionsSurfaceActivator? _shell;
+    private readonly IDevbookSyncVerdicts? _verdicts;
 
     /// <summary>What a host composes: the dashboards' folders under the signed-in
-    /// profile, this device's identity, and whatever is showing the application —
-    /// which may be nothing, on a host that composed the port without a window.</summary>
-    internal LocalDeliverySurfaceLifecycle(IDeviceIdentitySource identity, ISessionsSurfaceActivator? shell = null)
+    /// profile, this device's identity, whatever is showing the application — which
+    /// may be nothing, on a host that composed the port without a window — and where
+    /// chapter verdicts are kept, which may also be nothing: the run keeps its own
+    /// verdicts either way.</summary>
+    internal LocalDeliverySurfaceLifecycle(
+        IDeviceIdentitySource identity,
+        ISessionsSurfaceActivator? shell = null,
+        IDevbookSyncVerdicts? verdicts = null)
         : this(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"),
             IdOf(identity),
             identity.Current.Name,
-            shell)
+            shell,
+            verdicts)
     {
     }
 
@@ -44,11 +52,13 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         string home,
         string environmentId,
         string environment,
-        ISessionsSurfaceActivator? shell = null)
+        ISessionsSurfaceActivator? shell = null,
+        IDevbookSyncVerdicts? verdicts = null)
     {
         _store = new DeliveryRunStore(home);
         _reader = new DeliveryRunReader(home, environmentId, environment);
         _shell = shell;
+        _verdicts = verdicts;
     }
 
     private static string IdOf(IDeviceIdentitySource identity)
@@ -87,10 +97,20 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         IReadOnlyList<string> stages,
         string? changeKind = null,
         string? sessionId = null,
+        string? trigger = null,
+        string? schedule = null,
+        string? repository = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(skillId);
         ArgumentNullException.ThrowIfNull(stages);
+
+        if (trigger is not null && !DeliveryRunTriggers.All.Contains(trigger, StringComparer.Ordinal))
+        {
+            throw new ArgumentException(
+                $"'{trigger}' is not a trigger. Use one of: {string.Join(", ", DeliveryRunTriggers.All)}.",
+                nameof(trigger));
+        }
 
         // Reattach before starting. The engine calls start_run on every session that
         // picks the work back up, and a second file for the same skill in the same
@@ -107,7 +127,11 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
             {
                 resumed = await _store.ReadAsync(worktree, id, cancellationToken).ConfigureAwait(false) ?? resumed;
 
-                if (WithSession(resumed, sessionId))
+                var changed = WithSession(resumed, sessionId);
+
+                changed |= WithOrigin(resumed, trigger, schedule, repository);
+
+                if (changed)
                 {
                     resumed["updatedAt"] = Now();
                     await _store.WriteAsync(worktree, id, resumed, cancellationToken).ConfigureAwait(false);
@@ -151,6 +175,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         WritePhaseDoneCounts(run);
 
         WithSession(run, sessionId);
+        WithOrigin(run, trigger, schedule, repository);
 
         await _store.WriteAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
 
@@ -173,6 +198,31 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         ids.Add(sessionId);
 
         return true;
+    }
+
+    /// <summary>
+    /// Writes what started the run — the trigger, the schedule, the repository — where
+    /// the run does not say yet, and says whether anything changed.
+    /// <para>
+    /// Only where absent, so a reattach fills in what an earlier start left out and never
+    /// rewrites what it said: a scheduled run a person picks back up was still fired by
+    /// its schedule. A field stays out of the file while unknown, as it is on every run
+    /// from before the argument existed, so the reader treats both alike.
+    /// </para>
+    /// </summary>
+    private static bool WithOrigin(JsonObject run, string? trigger, string? schedule, string? repository)
+    {
+        var changed = false;
+
+        foreach (var (name, value) in new[] { ("trigger", trigger), ("schedule", schedule), ("repo", repository) })
+        {
+            if (string.IsNullOrWhiteSpace(value) || Text(run, name) is { Length: > 0 }) continue;
+
+            run[name] = value.Trim();
+            changed = true;
+        }
+
+        return changed;
     }
 
     public async Task RecordPromptAsync(
@@ -383,6 +433,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         string runId,
         string status,
         string? summary = null,
+        IReadOnlyList<DeliverySyncUnitVerdict>? verdicts = null,
         CancellationToken cancellationToken = default)
     {
         if (!DeliveryRunStatuses.IsFinal(status))
@@ -392,14 +443,107 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
                 nameof(status));
         }
 
-        using var held = await HoldAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
-        var run = await RequiredAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
+        string? repository;
 
-        run["status"] = status;
+        using (await HoldAsync(worktree, runId, cancellationToken).ConfigureAwait(false))
+        {
+            var run = await RequiredAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
 
-        if (summary is not null) run["summary"] = summary;
+            run["status"] = status;
 
-        await SaveAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
+            if (summary is not null) run["summary"] = summary;
+
+            // Kept on the run verbatim, in the keys the sweep's report block uses, so
+            // the run file says what the run found whether or not anything else keeps
+            // chapter verdicts.
+            if (verdicts is { Count: > 0 }) run["verdicts"] = VerdictNodes(verdicts);
+
+            await SaveAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
+
+            repository = Text(run, "repo");
+        }
+
+        // Outside the run's gate: the chapter store has a gate of its own, and holding
+        // one while waiting on the other is how two writers come to wait on each other.
+        if (verdicts is { Count: > 0 } && _verdicts is not null && !string.IsNullOrWhiteSpace(repository))
+        {
+            await _verdicts
+                .RecordAsync(ChapterVerdicts(repository, runId, verdicts), cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>The verdict rows as the run file keeps them: the report block's own
+    /// keys, so a run file reads like the brief that closed it.</summary>
+    private static JsonArray VerdictNodes(IReadOnlyList<DeliverySyncUnitVerdict> verdicts) =>
+        new([.. verdicts.Select(unit => (JsonNode)new JsonObject
+        {
+            ["unit"] = unit.Unit,
+            ["kind"] = unit.Kind,
+            ["sync"] = unit.Sync,
+            ["syncFrom"] = unit.SyncFrom,
+            ["verdict"] = unit.Verdict,
+            ["action"] = unit.Action,
+            ["link"] = unit.Link,
+            ["chapters"] = new JsonArray([.. (unit.Chapters ?? []).Select(chapter => (JsonNode)new JsonObject
+            {
+                ["chapter"] = chapter.Chapter,
+                ["verdict"] = chapter.Verdict,
+                ["evidence"] = chapter.Evidence
+            })])
+        })]);
+
+    /// <summary>
+    /// One verdict per chapter a unit row names, for the chapter store.
+    /// <para>
+    /// The unit's root chapter is filed too where the row's chapters leave it out, with
+    /// the unit's verdict standing in for its own: the root is where a reader looks for
+    /// the unit, and a unit whose root the sweep did not list would otherwise have
+    /// nowhere to show. A run that named no repository files nothing — a verdict that
+    /// cannot say which repository it is about matches no chapter.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<DevbookSyncVerdict> ChapterVerdicts(
+        string repository,
+        string runId,
+        IReadOnlyList<DeliverySyncUnitVerdict> verdicts)
+    {
+        var recordedAt = DateTimeOffset.UtcNow;
+        var filed = new List<DevbookSyncVerdict>();
+
+        foreach (var unit in verdicts.Where(unit => !string.IsNullOrWhiteSpace(unit.Unit)))
+        {
+            var (rootPath, rootAnchor) = DevbookSyncChapters.Split(unit.Unit);
+            var chapters = (unit.Chapters ?? []).Where(chapter => !string.IsNullOrWhiteSpace(chapter.Chapter)).ToList();
+
+            if (!chapters.Any(chapter => DevbookSyncChapters.Same(chapter.Chapter, rootPath, rootAnchor)))
+            {
+                chapters.Insert(0, new DeliverySyncChapterVerdict(unit.Unit, unit.Verdict, Evidence: null));
+            }
+
+            foreach (var chapter in chapters)
+            {
+                var (path, anchor) = DevbookSyncChapters.Split(chapter.Chapter);
+
+                if (path.Length == 0) continue;
+
+                filed.Add(new DevbookSyncVerdict(
+                    repository,
+                    path,
+                    anchor,
+                    chapter.Verdict,
+                    chapter.Evidence,
+                    unit.Unit,
+                    unit.Kind,
+                    unit.Verdict,
+                    unit.Action,
+                    unit.Link,
+                    recordedAt,
+                    runId));
+            }
+        }
+
+        return filed;
     }
 
     public async Task<IReadOnlyList<DeliveryRun>> ListRunsAsync(string worktree, CancellationToken cancellationToken = default)
