@@ -99,6 +99,16 @@ internal sealed class PlanningPace(
     /// listening re-places its bars at once.</summary>
     public string? ToggleWorkedDay(DateOnly date) => settings.ToggleWorkedDay(date);
 
+    /// <summary>A range of days off in the week kept with the pace, as one change: the
+    /// settings raise <see cref="Changed"/> once.</summary>
+    public string? BlockDays(DateOnly from, DateOnly through) => settings.BlockDays(from, through);
+
+    /// <summary>A worked day in the week kept with the pace.</summary>
+    public string? AddWorkedDay(DateOnly date) => settings.AddWorkedDay(date);
+
+    /// <summary>A date back on its pattern in the week kept with the pace.</summary>
+    public string? RemoveDayOverride(DateOnly date) => settings.RemoveDayOverride(date);
+
     internal static PlanningPacesDto Paces(
         decimal manual,
         PaceSource source,

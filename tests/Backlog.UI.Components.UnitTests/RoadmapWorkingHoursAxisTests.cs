@@ -11,9 +11,10 @@ namespace Backlog.UI.Components.UnitTests;
 /// </summary>
 public sealed class RoadmapWorkingHoursAxisTests
 {
-    // Friday 25 September 2026: this week, Monday the 21st to Sunday the 27th, is ruled a
-    // day a column; week 41 starts on Monday 5 October.
-    private static readonly DateOnly Today = new(2026, 9, 25);
+    // Sunday 20 September 2026: the week after it, Monday the 21st to Sunday the 27th, is
+    // ruled a day a column and still to come, so its heads say their planned hours (local
+    // ADR 0019, §4); week 41 starts on Monday 5 October.
+    private static readonly DateOnly Today = new(2026, 9, 20);
 
     /// <summary>The default week: Monday to Friday, nine to half five.</summary>
     private static readonly IReadOnlyDictionary<DayOfWeek, double> DefaultWeek = new Dictionary<DayOfWeek, double>
@@ -97,9 +98,6 @@ public sealed class RoadmapWorkingHoursAxisTests
             Assert.EndsWith(" · 8.5h", ColumnOf(view, "Wednesday 23").GetAttribute("title"));
             Assert.Contains("roadmap-timeline--hours", view.Find("section.roadmap-timeline").ClassName);
 
-            // With no actual hours given, the heads keep three lines: nothing stacks.
-            Assert.DoesNotContain("roadmap-timeline--actual", view.Find("section.roadmap-timeline").ClassName);
-            Assert.Empty(view.FindAll(".roadmap-timeline__quarter-actual"));
         });
     }
 

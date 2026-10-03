@@ -2026,6 +2026,7 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddSingleton<IRoadmapWorkChanges>(TasksTestHost.WorkChanges());
         context.Services.AddSingleton(TasksTestHost.UntouchedPace());
         context.Services.AddSingleton<IRoadmapActualHours>(new ScriptedActualHours());
+        context.Services.AddSingleton<IRoadmapViewPreferences>(new Backlog.Infrastructure.FileSystem.Roadmap.RoadmapViewPreferences(null));
         context.Services.AddSingleton<DesignDevbookProvider>();
         context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton<TechnologyDevbookService>();

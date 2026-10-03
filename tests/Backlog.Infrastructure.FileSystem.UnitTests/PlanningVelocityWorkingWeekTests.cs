@@ -373,6 +373,47 @@ public sealed class PlanningVelocityWorkingWeekTests : IDisposable
         Assert.False(a.Week.Current.IsWorked(Friday9Oct));
     }
 
+    /// <summary>The Days off dialog's range goes through the same chain as a head press:
+    /// one write of the device's week, one stamp of the pace document, and the roadmap
+    /// hears it once — not once per date.</summary>
+    [Fact]
+    public void The_roadmap_port_blocks_a_range_with_one_announcement()
+    {
+        var a = Device("a");
+        Assert.Null(a.Pace.Set(9m));
+        IPlanningVelocitySettings port = new PlanningVelocitySource(a.Pace);
+        var heard = 0;
+        port.Changed += () => heard++;
+
+        Assert.Null(port.BlockDays(new DateOnly(2026, 10, 12), new DateOnly(2026, 10, 18)));
+
+        Assert.Equal(1, heard);
+        Assert.Equal(5, port.WorkingWeek.Overrides.Count);
+        Assert.Equal(5, JsonNode.Parse(File.ReadAllText(PaceFileOf("a")))!["workingWeek"]!["overrides"]!.AsArray().Count);
+
+        Assert.Null(port.AddWorkedDay(new DateOnly(2026, 10, 17)));
+        Assert.Null(port.RemoveDayOverride(new DateOnly(2026, 10, 12)));
+
+        Assert.Equal(3, heard);
+        Assert.True(a.Week.Current.IsWorked(new DateOnly(2026, 10, 17)));
+        Assert.True(a.Week.Current.IsWorked(new DateOnly(2026, 10, 12)));
+    }
+
+    /// <summary>A store that keeps no device week has none to set days off in either.</summary>
+    [Fact]
+    public void Without_a_device_week_the_days_off_are_refused()
+    {
+        IPlanningVelocitySettings port = new PlanningVelocitySource(new PlanningVelocitySettingsStore(PaceFileOf("c")));
+        var heard = 0;
+        port.Changed += () => heard++;
+
+        Assert.NotNull(port.BlockDays(new DateOnly(2026, 10, 12), new DateOnly(2026, 10, 18)));
+        Assert.NotNull(port.AddWorkedDay(new DateOnly(2026, 10, 17)));
+        Assert.NotNull(port.RemoveDayOverride(new DateOnly(2026, 10, 12)));
+
+        Assert.Equal(0, heard);
+    }
+
     /// <summary>A store that keeps no device week has none to toggle, and says so.</summary>
     [Fact]
     public void Without_a_device_week_a_toggle_is_refused()

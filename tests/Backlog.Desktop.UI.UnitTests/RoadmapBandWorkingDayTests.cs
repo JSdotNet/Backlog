@@ -10,8 +10,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The roadmap's day heads through the band (local ADR 0019, §§4 to 6): pressing one
 /// blocks or unblocks its date in the working week the pace carries, which re-places
-/// every bar sized by its effort at once; and a head that has begun shows the hours
-/// agents were actually active, or its planned hours alone when those cannot be read.
+/// every bar sized by its effort at once; a head that has begun shows the hours the
+/// person actually worked alone, or no figure when those cannot be read; and the Hours
+/// switch on the toolbar hides every head's hours line, remembered on this device.
 /// </summary>
 public sealed class RoadmapBandWorkingDayTests : RoadmapBandHarness
 {
@@ -101,11 +102,12 @@ public sealed class RoadmapBandWorkingDayTests : RoadmapBandHarness
 
     /// <summary>
     /// ADR 0019 Verification 18, through the band: once the plan is drawn, the band asks
-    /// for the hours agents were active from the first date the axis rules in weeks to
-    /// today, and a past worked day reads them over its planned hours.
+    /// for the hours the person worked from the first date the axis rules in weeks to
+    /// today, and a past worked day reads them alone — "6.2h", never beside "8.5h" — with
+    /// both figures in its tooltip.
     /// </summary>
     [Fact]
-    public async Task A_past_day_head_reads_the_actual_hours_over_the_planned()
+    public async Task A_past_day_head_reads_the_actual_hours_alone()
     {
         Configure("JSdotNet/Backlog");
         await ImportedAsync("plan-a");
@@ -114,15 +116,16 @@ public sealed class RoadmapBandWorkingDayTests : RoadmapBandHarness
         using var context = GatheringContext(14);
         var band = Drawn(context, PaceToday);
 
-        band.WaitForAssertion(() =>
-            Assert.EndsWith(" · 6.2 / 8.5h", DayHead(band, Thursday24September).GetAttribute("title"), StringComparison.Ordinal));
+        band.WaitForAssertion(() => Assert.Equal("6.2h", HoursLine(band, Thursday24September)));
+        Assert.EndsWith(" · 6.2h worked of 8.5h planned", DayHead(band, Thursday24September).GetAttribute("title"), StringComparison.Ordinal);
 
         Assert.Equal((RoadmapWindow.GraduatedWeeksFrom(PaceToday, DayOfWeek.Monday), PaceToday), ActualHours.LastRange);
 
-        // Today has begun too, and nobody worked it yet; tomorrow has not.
-        Assert.EndsWith(" · 0.0 / 8.5h", DayHead(band, PaceToday).GetAttribute("title"), StringComparison.Ordinal);
+        // Today has begun too, and nobody worked it yet; Monday has not begun, and reads
+        // its planned hours alone.
+        Assert.Equal("0h", HoursLine(band, PaceToday));
+        Assert.Equal("8.5h", HoursLine(band, Monday28September));
         Assert.EndsWith(" · 8.5h", DayHead(band, Monday28September).GetAttribute("title"), StringComparison.Ordinal);
-        Assert.DoesNotContain("/", DayHead(band, Monday28September).GetAttribute("title"), StringComparison.Ordinal);
     }
 
     /// <summary>The actual hours are read once the plan is drawn and again when the pace
@@ -148,12 +151,13 @@ public sealed class RoadmapBandWorkingDayTests : RoadmapBandHarness
     }
 
     /// <summary>
-    /// Requirement "Heads fall back to planned hours", scenario "Session activity is
-    /// unreadable": a read that fails leaves every head on its planned hours, and the
-    /// roadmap still opens and still toggles.
+    /// ADR 0019 Verification 33, requirement "A begun head shows no hours when actual
+    /// hours cannot be read": a read that fails leaves today and every earlier head with
+    /// no figure — never their planned hours — while heads still to come keep theirs, and
+    /// the roadmap still opens and still toggles.
     /// </summary>
     [Fact]
-    public async Task A_failed_read_of_the_actual_hours_falls_back_to_the_planned_hours()
+    public async Task A_failed_read_of_the_actual_hours_leaves_begun_heads_empty()
     {
         Configure("JSdotNet/Backlog");
         var plan = await ImportedAsync("plan-a");
@@ -163,9 +167,10 @@ public sealed class RoadmapBandWorkingDayTests : RoadmapBandHarness
         var band = Drawn(context, PaceToday);
 
         band.WaitForAssertion(() => Assert.True(ActualHours.Reads >= 1));
-        band.WaitForAssertion(() =>
-            Assert.EndsWith(" · 8.5h", DayHead(band, Thursday24September).GetAttribute("title"), StringComparison.Ordinal));
-        Assert.DoesNotContain("/", DayHead(band, PaceToday).GetAttribute("title"), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, HoursLine(band, Thursday24September));
+        Assert.Equal(string.Empty, HoursLine(band, PaceToday));
+        Assert.Equal("8.5h", HoursLine(band, Monday28September));
+        Assert.EndsWith(" · 8.5h planned", DayHead(band, Thursday24September).GetAttribute("title"), StringComparison.Ordinal);
         Assert.Empty(band.FindAll("[data-testid='roadmap-band-error']"));
 
         DayHead(band, Monday28September).Click();
@@ -173,9 +178,9 @@ public sealed class RoadmapBandWorkingDayTests : RoadmapBandHarness
     }
 
     /// <summary>A host that cannot state the actual hours at all — no Sessions activity
-    /// composed — answers null, and the heads read their planned hours alone.</summary>
+    /// composed — answers null, and a begun head shows no figure, as for a failed read.</summary>
     [Fact]
-    public async Task No_actual_hours_to_state_leaves_the_planned_hours()
+    public async Task No_actual_hours_to_state_leaves_begun_heads_empty()
     {
         Configure("JSdotNet/Backlog");
         await ImportedAsync("plan-a");
@@ -184,7 +189,56 @@ public sealed class RoadmapBandWorkingDayTests : RoadmapBandHarness
         var band = Drawn(context, PaceToday);
 
         band.WaitForAssertion(() => Assert.Equal(1, ActualHours.Reads));
-        Assert.EndsWith(" · 8.5h", DayHead(band, Thursday24September).GetAttribute("title"), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, HoursLine(band, Thursday24September));
+        Assert.Equal("8.5h", HoursLine(band, Monday28September));
+    }
+
+    /// <summary>
+    /// ADR 0019 Verification 32, requirement "The Hours switch shows or hides the hours
+    /// line": on a fresh device the switch is on; turned off, no head shows an hours line
+    /// and the actual hours are no longer read; and the choice survives a restart on this
+    /// device — a new band over the same device file opens with it off, reads nothing, and
+    /// its days off are still shaded.
+    /// </summary>
+    [Fact]
+    public async Task The_hours_switch_hides_the_hours_line_and_is_remembered_on_the_device()
+    {
+        Configure("JSdotNet/Backlog");
+        await ImportedAsync("plan-a");
+        ActualHours.Answer = new Dictionary<DateOnly, TimeSpan> { [Thursday24September] = TimeSpan.FromHours(6.2) };
+
+        using (var context = GatheringContext(14))
+        {
+            var band = Drawn(context, PaceToday);
+            band.WaitForAssertion(() => Assert.Equal("6.2h", HoursLine(band, Thursday24September)));
+            Assert.Equal("true", HoursSwitch(band).GetAttribute("aria-checked"));
+
+            HoursSwitch(band).Click();
+
+            band.WaitForAssertion(() => Assert.Empty(band.FindAll(".roadmap-timeline__quarter-hours")));
+            Assert.Equal("false", HoursSwitch(band).GetAttribute("aria-checked"));
+            Assert.Contains("roadmap-timeline__quarter--weekend", DayHead(band, new DateOnly(2026, 9, 26)).ClassName);
+        }
+
+        Assert.False(new ShellNavigationStore(ShellNavigationFile).RoadmapHoursShown);
+        var readsBefore = ActualHours.Reads;
+
+        using (var restarted = GatheringContext(14))
+        {
+            var band = Drawn(restarted, PaceToday);
+
+            Assert.Equal("false", HoursSwitch(band).GetAttribute("aria-checked"));
+            Assert.Empty(band.FindAll(".roadmap-timeline__quarter-hours"));
+            Assert.Equal(readsBefore, ActualHours.Reads);
+
+            // Turned back on, the line returns and the actual hours are read for it.
+            HoursSwitch(band).Click();
+
+            band.WaitForAssertion(() => Assert.Equal("6.2h", HoursLine(band, Thursday24September)));
+            Assert.Equal(readsBefore + 1, ActualHours.Reads);
+        }
+
+        Assert.True(new ShellNavigationStore(ShellNavigationFile).RoadmapHoursShown);
     }
 
     private static IRenderedComponent<RoadmapBand> Drawn(BunitContext context, DateOnly today)
@@ -201,6 +255,14 @@ public sealed class RoadmapBandWorkingDayTests : RoadmapBandHarness
 
     private static AngleSharp.Dom.IElement DayHead(IRenderedComponent<RoadmapBand> band, DateOnly date) =>
         band.Find($"[data-testid='roadmap-timeline-day-{date:yyyy-MM-dd}']");
+
+    /// <summary>The one hours figure a day head shows on its own line, or empty.</summary>
+    private static string HoursLine(IRenderedComponent<RoadmapBand> band, DateOnly date) =>
+        DayHead(band, date).QuerySelector(".roadmap-timeline__quarter-hours")?.TextContent.Trim() ?? string.Empty;
+
+    /// <summary>The Hours switch on the toolbar.</summary>
+    private static AngleSharp.Dom.IElement HoursSwitch(IRenderedComponent<RoadmapBand> band) =>
+        band.Find("[data-testid='roadmap-band-hours'] button[role='switch']");
 
     /// <summary>Where the chart draws an item: the first day of its first bar and how
     /// many days its bars cover.</summary>

@@ -1,0 +1,236 @@
+@*
+    The Days off dialog (local ADR 0019, §4): every date that differs from the weekly
+    pattern, in one list, and the two ways to add one that a day head cannot — a whole
+    range of days off, which reaches the dates inside week columns that have no toggle
+    of their own, and a single worked date.
+
+    Every action applies at once. There is no Save: the dialog writes the same day
+    overrides a head press writes, through the same port, and the band lays its bars out
+    again on the pace's change while the dialog stays open over them. So the list is
+    the band's week, handed back in after each change, never a copy kept here.
+
+    The weekly pattern itself is not edited here. It stays in Settings.
+*@
+@using global::Backlog.SharedKernel
+@inject IPlanningPace Paces
+
+<Modal Open="@Open"
+       OpenChanged="OpenChanged"
+       Title="Days off"
+       CssClass="roadmap-editor roadmap-days-off"
+       RestoreFocusToId="@RestoreFocusToId"
+       TestId="roadmap-days-off">
+    <ChildContent>
+        <div class="roadmap-editor__fields">
+            <p class="roadmap-days-off__intro">
+                A day off counts no hours, and a worked day counts its weekday's hours. Each change moves the bars at once.
+            </p>
+
+            <section class="roadmap-days-off__part" aria-labelledby="roadmap-days-off-range-title">
+                <h3 id="roadmap-days-off-range-title" class="roadmap-days-off__heading">Add days off</h3>
+                <div class="roadmap-editor__row">
+                    <TextField Label="From"
+                               Type="date"
+                               Value="@_from"
+                               ValueChanged="value => _from = value"
+                               ErrorMessage="@_rangeError"
+                               TestId="roadmap-days-off-from" />
+                    <TextField Label="To"
+                               Type="date"
+                               Value="@_through"
+                               ValueChanged="value => _through = value"
+                               TestId="roadmap-days-off-to" />
+                </div>
+                <div class="roadmap-days-off__actions">
+                    <AppButton Variant="ButtonVariant.Secondary"
+                               Size="ButtonSize.Small"
+                               OnClick="AddDaysOff"
+                               TestId="roadmap-days-off-add">
+                        Add days off
+                    </AppButton>
+                </div>
+            </section>
+
+            <section class="roadmap-days-off__part" aria-labelledby="roadmap-days-off-worked-title">
+                <h3 id="roadmap-days-off-worked-title" class="roadmap-days-off__heading">Add a worked day</h3>
+                <div class="roadmap-editor__row">
+                    <TextField Label="Date"
+                               Type="date"
+                               Value="@_worked"
+                               ValueChanged="value => _worked = value"
+                               ErrorMessage="@_workedError"
+                               TestId="roadmap-days-off-worked-date" />
+                </div>
+                <div class="roadmap-days-off__actions">
+                    <AppButton Variant="ButtonVariant.Secondary"
+                               Size="ButtonSize.Small"
+                               OnClick="AddWorkedDay"
+                               TestId="roadmap-days-off-add-worked">
+                        Add worked day
+                    </AppButton>
+                </div>
+                <Alert Message="@_workedNote" Role="status" Inline="true" TestId="roadmap-days-off-note" />
+            </section>
+
+            <section class="roadmap-days-off__part" aria-labelledby="roadmap-days-off-list-title">
+                <h3 id="roadmap-days-off-list-title" class="roadmap-days-off__heading">Dates set</h3>
+
+                @if (Listed.Count == 0)
+                {
+                    <EmptyState Title="@(Past.Count == 0 ? "No dates set" : "Nothing coming up")"
+                                Description="@(Past.Count == 0 ? "Every date follows your weekly pattern." : "Every date from today follows your weekly pattern.")"
+                                TestId="roadmap-days-off-none" />
+                }
+                else
+                {
+                    <ul class="roadmap-days-off__list" data-testid="roadmap-days-off-list">
+                        @foreach (var entry in Listed)
+                        {
+                            <li @key="entry.Date"
+                                class="roadmap-days-off__entry"
+                                data-testid="@($"roadmap-days-off-entry-{Iso(entry.Date)}")">
+                                <time class="roadmap-days-off__date" datetime="@Iso(entry.Date)">@Spoken(entry.Date)</time>
+                                <span class="roadmap-days-off__kind">@(entry.Worked ? "Unblocked" : "Blocked")</span>
+                                <AppButton Variant="ButtonVariant.Ghost"
+                                           Size="ButtonSize.Small"
+                                           aria-label="@($"Remove {Spoken(entry.Date)}")"
+                                           OnClick="() => Remove(entry.Date)"
+                                           TestId="@($"roadmap-days-off-remove-{Iso(entry.Date)}")">
+                                    Remove
+                                </AppButton>
+                            </li>
+                        }
+                    </ul>
+                }
+
+                @if (Past.Count > 0)
+                {
+                    <div class="roadmap-days-off__actions">
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   Size="ButtonSize.Small"
+                                   aria-expanded="@(_showPast ? "true" : "false")"
+                                   OnClick="() => _showPast = !_showPast"
+                                   TestId="roadmap-days-off-show-past">
+                            @(_showPast ? "Hide past" : $"Show past ({Past.Count})")
+                        </AppButton>
+                    </div>
+                }
+
+                <Alert Message="@_listError" Role="status" TestId="roadmap-days-off-error" />
+            </section>
+        </div>
+    </ChildContent>
+</Modal>
+
+@code {
+    private string _from = string.Empty;
+    private string _through = string.Empty;
+    private string _worked = string.Empty;
+
+    private string? _rangeError;
+    private string? _workedError;
+    private string? _workedNote;
+    private string? _listError;
+    private bool _showPast;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The working week the band last read — its <see cref="WorkingHours.Overrides"/>
+    /// are the list. Handed in again after every change, so the list is always what the
+    /// pace holds.</summary>
+    [Parameter]
+    public WorkingHours Week { get; set; } = WorkingHours.Default;
+
+    /// <summary>The first date still to come in the list: today counts as to come, so a
+    /// day off taken today is listed with the future ones.</summary>
+    [Parameter]
+    public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+
+    /// <summary>The id of the control focus goes back to when the dialog closes.</summary>
+    [Parameter]
+    public string? RestoreFocusToId { get; set; }
+
+    /// <summary>The dates from today on, soonest first.</summary>
+    private IReadOnlyList<DayOverride> Upcoming =>
+        [.. Week.Overrides.Where(entry => entry.Date >= Today).OrderBy(entry => entry.Date)];
+
+    /// <summary>The dates before today, most recent first.</summary>
+    private IReadOnlyList<DayOverride> Past =>
+        [.. Week.Overrides.Where(entry => entry.Date < Today).OrderByDescending(entry => entry.Date)];
+
+    /// <summary>What the list shows: the dates to come, then — once asked for — the past.</summary>
+    private IReadOnlyList<DayOverride> Listed => _showPast ? [.. Upcoming, .. Past] : Upcoming;
+
+    protected override void OnParametersSet()
+    {
+        // A dialog opened afresh starts with nothing typed and nothing said.
+        if (!Open)
+        {
+            _from = _through = _worked = string.Empty;
+            _rangeError = _workedError = _workedNote = _listError = null;
+            _showPast = false;
+        }
+    }
+
+    private void AddDaysOff()
+    {
+        _rangeError = null;
+
+        if (Parse(_from) is not { } from || Parse(_through) is not { } through)
+        {
+            _rangeError = "Pick the first and the last day off.";
+            return;
+        }
+
+        if (through < from)
+        {
+            _rangeError = "End the days off on or after the day they start.";
+            return;
+        }
+
+        if (through.DayNumber - from.DayNumber + 1 > WorkingHours.MaxDaysOffRange)
+        {
+            _rangeError = $"Add at most {WorkingHours.MaxDaysOffRange} days off at a time.";
+            return;
+        }
+
+        _rangeError = Paces.BlockDays(from, through);
+        if (_rangeError is null) _from = _through = string.Empty;
+    }
+
+    private void AddWorkedDay()
+    {
+        _workedError = null;
+        _workedNote = null;
+
+        if (Parse(_worked) is not { } date)
+        {
+            _workedError = "Pick the date you work.";
+            return;
+        }
+
+        // A note, not a refusal: the date the pattern already works needs nothing added.
+        _workedNote = Paces.AddWorkedDay(date);
+        if (_workedNote is null) _worked = string.Empty;
+    }
+
+    private void Remove(DateOnly date) => _listError = Paces.RemoveDayOverride(date);
+
+    /// <summary>A date as the day heads say it, in the reader's culture — "Fri 9 Oct" — and
+    /// with its year when that is not this year's.</summary>
+    private string Spoken(DateOnly date) =>
+        date.ToString(date.Year == Today.Year ? "ddd d MMM" : "ddd d MMM yyyy", CultureInfo.CurrentCulture);
+
+    private static string Iso(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    /// <summary>The date a <c>date</c> input hands back, which is always ISO whatever the
+    /// reader's culture, or null for nothing picked.</summary>
+    private static DateOnly? Parse(string? value) =>
+        DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date
+            : null;
+}

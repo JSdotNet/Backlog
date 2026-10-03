@@ -89,6 +89,32 @@ public interface IPlanningPace
     /// no week, and a warning when it took but could not be written for next time.
     /// </summary>
     string? ToggleWorkedDay(DateOnly date);
+
+    /// <summary>
+    /// Makes every date from <paramref name="from"/> through <paramref name="through"/> a
+    /// day off — what adding a range in the Days off dialog does (local ADR 0019, §4): a
+    /// date the pattern works is blocked, one it leaves off holds no override. One change
+    /// for the whole range, so <see cref="Changed"/> is raised once and the bars are placed
+    /// again once. Returns <c>null</c> when saved or nothing changed, a refusal for a range
+    /// ending before it starts or longer than <see cref="WorkingHours.MaxDaysOffRange"/>
+    /// days, and a warning when it took but could not be written for next time.
+    /// </summary>
+    string? BlockDays(DateOnly from, DateOnly through);
+
+    /// <summary>
+    /// Makes <paramref name="date"/> worked — what adding a worked day in the Days off
+    /// dialog does: a date the pattern leaves off is unblocked. Raises
+    /// <see cref="Changed"/> when it took. Returns <c>null</c> when saved, and a note when
+    /// the pattern already works the date and nothing was added.
+    /// </summary>
+    string? AddWorkedDay(DateOnly date);
+
+    /// <summary>
+    /// Returns <paramref name="date"/> to its weekday's pattern — what removing an entry in
+    /// the Days off dialog does. Raises <see cref="Changed"/> when it had an override.
+    /// Returns <c>null</c> when saved or there was nothing to remove.
+    /// </summary>
+    string? RemoveDayOverride(DateOnly date);
 }
 
 /// <summary>
@@ -137,6 +163,29 @@ public interface IPlanningVelocitySettings
     /// keeps no week has none to change, and says so.
     /// </summary>
     string? ToggleWorkedDay(DateOnly date) => "This device keeps no working week to block or unblock a day in.";
+
+    /// <summary>
+    /// Makes every date from <paramref name="from"/> through <paramref name="through"/> a
+    /// day off (<see cref="WorkingHours.WithDaysOff"/>; local ADR 0019, §4) in the week
+    /// <see cref="WorkingWeek"/> answers, as one change: one write and one
+    /// <see cref="Changed"/>. Returns <c>null</c> when stored or nothing changed, or why
+    /// not. A host that keeps no week has none to change, and says so.
+    /// </summary>
+    string? BlockDays(DateOnly from, DateOnly through) => "This device keeps no working week to block or unblock a day in.";
+
+    /// <summary>
+    /// Makes <paramref name="date"/> worked (<see cref="WorkingHours.WithWorkedDay"/>) and
+    /// raises <see cref="Changed"/>. Returns <c>null</c> when stored, or a note saying why
+    /// nothing was: the pattern already works the date.
+    /// </summary>
+    string? AddWorkedDay(DateOnly date) => "This device keeps no working week to block or unblock a day in.";
+
+    /// <summary>
+    /// Returns <paramref name="date"/> to its pattern (<see cref="WorkingHours.WithoutOverride"/>)
+    /// and raises <see cref="Changed"/> when it had an override. Returns <c>null</c> when
+    /// stored or there was nothing to remove, or why not.
+    /// </summary>
+    string? RemoveDayOverride(DateOnly date) => "This device keeps no working week to block or unblock a day in.";
 }
 
 /// <summary>

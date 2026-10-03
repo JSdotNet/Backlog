@@ -237,6 +237,124 @@ public class WorkingHoursTests
         Assert.Equal(DateOnly.MaxValue, week.LastDayOf(Monday5Oct, int.MaxValue, 0.0001m));
     }
 
+    // --- Days off in a list (local ADR 0019, §4: the Days off dialog) ---------------
+
+    private static readonly DateOnly Sunday18Oct = new(2026, 10, 18);
+    private static readonly DateOnly Saturday17Oct = new(2026, 10, 17);
+    private static readonly DateOnly Thursday8Oct = new(2026, 10, 8);
+
+    /// <summary>ADR 0019 Verification 35: on the default week, Mon 12 to Sun 18 October
+    /// blocks the five weekdays and adds nothing for the weekend.</summary>
+    [Fact]
+    public void ARangeOfDaysOff_BlocksOnlyTheDatesThePatternWorks()
+    {
+        var week = WorkingHours.Default.WithDaysOff(Monday12Oct, Sunday18Oct);
+
+        Assert.Equal(
+            [.. Enumerable.Range(0, 5).Select(offset => new DayOverride(Monday12Oct.AddDays(offset), Worked: false))],
+            week.Overrides);
+        Assert.All(Enumerable.Range(0, 7), offset => Assert.False(week.IsWorked(Monday12Oct.AddDays(offset))));
+    }
+
+    /// <summary>Requirement "A range of days off blocks only the worked dates", scenario
+    /// "A range over an unblocked Saturday": the Saturday's override goes, so it reads
+    /// its pattern — not worked — again.</summary>
+    [Fact]
+    public void ARangeOfDaysOff_RemovesAnUnblockedDateInsideIt()
+    {
+        var week = WorkingHours.Default.Toggled(Saturday17Oct).WithDaysOff(Monday12Oct, Sunday18Oct);
+
+        Assert.Null(week.OverrideOn(Saturday17Oct));
+        Assert.False(week.IsWorked(Saturday17Oct));
+        Assert.Equal(5, week.Overrides.Count);
+    }
+
+    /// <summary>Scenario "A range over a date already blocked": each date is listed once,
+    /// and the overrides outside the range are kept.</summary>
+    [Fact]
+    public void ARangeOfDaysOff_ListsADateAlreadyBlockedOnce_AndKeepsTheRest()
+    {
+        var week = WorkingHours.Default
+            .Toggled(Wednesday7Oct)
+            .Toggled(new DateOnly(2026, 10, 14))
+            .WithDaysOff(Monday12Oct, new DateOnly(2026, 10, 16));
+
+        Assert.Equal(
+            [Wednesday7Oct, .. Enumerable.Range(0, 5).Select(offset => Monday12Oct.AddDays(offset))],
+            week.Overrides.Select(entry => entry.Date));
+        Assert.All(week.Overrides, entry => Assert.False(entry.Worked));
+    }
+
+    /// <summary>A range of one date is that date.</summary>
+    [Fact]
+    public void ARangeOfOneDate_BlocksThatDate()
+    {
+        var week = WorkingHours.Default.WithDaysOff(Friday9Oct, Friday9Oct);
+
+        Assert.Equal([new DayOverride(Friday9Oct, Worked: false)], week.Overrides);
+    }
+
+    /// <summary>A range that ends before it starts is no range.</summary>
+    [Fact]
+    public void ARangeEndingBeforeItStarts_IsRefused()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => WorkingHours.Default.WithDaysOff(Sunday18Oct, Monday12Oct));
+    }
+
+    /// <summary>A range longer than <see cref="WorkingHours.MaxDaysOffRange"/> days is
+    /// refused rather than written as thousands of overrides.</summary>
+    [Fact]
+    public void ARangeLongerThanAYear_IsRefused()
+    {
+        var through = Monday12Oct.AddDays(WorkingHours.MaxDaysOffRange - 1);
+
+        // 366 days from a Monday: 52 whole weeks and a Monday and a Tuesday.
+        Assert.Equal(262, WorkingHours.Default.WithDaysOff(Monday12Oct, through).Overrides.Count);
+        Assert.Throws<ArgumentOutOfRangeException>(() => WorkingHours.Default.WithDaysOff(Monday12Oct, through.AddDays(1)));
+    }
+
+    /// <summary>ADR 0019 Verification 36: a worked Saturday is one unblocked override.</summary>
+    [Fact]
+    public void AWorkedDay_UnblocksADateThePatternLeavesOff()
+    {
+        var week = WorkingHours.Default.WithWorkedDay(Saturday17Oct);
+
+        Assert.Equal([new DayOverride(Saturday17Oct, Worked: true)], week.Overrides);
+        Assert.True(week.IsWorked(Saturday17Oct));
+    }
+
+    /// <summary>Scenario "A date the pattern already works": no override is added.</summary>
+    [Fact]
+    public void AWorkedDay_ThePatternAlreadyWorks_AddsNothing()
+    {
+        var week = WorkingHours.Default.WithWorkedDay(Thursday8Oct);
+
+        Assert.Empty(week.Overrides);
+        Assert.True(week.IsWorked(Thursday8Oct));
+    }
+
+    /// <summary>A worked day on a weekday the person blocked brings it back to its
+    /// pattern: the block goes, and nothing is stored in its place.</summary>
+    [Fact]
+    public void AWorkedDay_OnABlockedWeekday_RemovesTheBlock()
+    {
+        var week = WorkingHours.Default.Toggled(Friday9Oct).WithWorkedDay(Friday9Oct);
+
+        Assert.Empty(week.Overrides);
+        Assert.True(week.IsWorked(Friday9Oct));
+    }
+
+    /// <summary>ADR 0019 Verification 37: removing the blocked Friday empties the set.</summary>
+    [Fact]
+    public void RemovingAnOverride_ReturnsTheDateToItsPattern()
+    {
+        var week = WorkingHours.Default.Toggled(Friday9Oct).Toggled(Saturday17Oct).WithoutOverride(Friday9Oct);
+
+        Assert.Equal([new DayOverride(Saturday17Oct, Worked: true)], week.Overrides);
+        Assert.True(week.IsWorked(Friday9Oct));
+        Assert.Empty(week.WithoutOverride(Saturday17Oct).Overrides);
+    }
+
     private static DateOnly DayByDay(WorkingHours week, DateOnly start, decimal neededTicks)
     {
         var day = week.FirstWorkedDay(start);

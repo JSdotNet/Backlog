@@ -145,6 +145,41 @@ public sealed class WorkingHoursSettingsStore : IWorkingHoursSettings
     /// listener stamps the pace document as it does for a change to a day.</summary>
     public string? ToggleDate(DateOnly date) => Save(Current.Toggled(date));
 
+    /// <summary>Makes a whole range days off (<see cref="WorkingHours.WithDaysOff"/>) in
+    /// one write, so the pace document is stamped once and the roadmap redraws once. A
+    /// range that changes nothing — a weekend on the default week — writes and announces
+    /// nothing, as <see cref="SetDay"/> does for hours a day already has.</summary>
+    public string? BlockDays(DateOnly from, DateOnly through)
+    {
+        if (through < from) return "End the days off on or after the day they start.";
+        if (through.DayNumber - from.DayNumber + 1 > WorkingHours.MaxDaysOffRange)
+        {
+            return $"Add at most {WorkingHours.MaxDaysOffRange} days off at a time.";
+        }
+
+        return SaveIfChanged(Current.WithDaysOff(from, through));
+    }
+
+    /// <summary>Unblocks a date the pattern leaves off (<see cref="WorkingHours.WithWorkedDay"/>).
+    /// A date the pattern already works, and nobody blocked, is left alone with a note
+    /// saying so, in the culture's own short date as the roadmap's heads say it.</summary>
+    public string? AddWorkedDay(DateOnly date)
+    {
+        var worked = Current.WithWorkedDay(date);
+        if (SameWeek(worked, Current))
+        {
+            return $"{date.ToString("ddd d MMM", CultureInfo.CurrentCulture)} is already a working day in your week, so nothing was added.";
+        }
+
+        return Save(worked);
+    }
+
+    /// <summary>Removes a date's override (<see cref="WorkingHours.WithoutOverride"/>). A
+    /// date with none is left alone and nothing is announced.</summary>
+    public string? RemoveDayOverride(DateOnly date) => SaveIfChanged(Current.WithoutOverride(date));
+
+    private string? SaveIfChanged(WorkingHours hours) => SameWeek(hours, Current) ? null : Save(hours);
+
     /// <summary>
     /// Replaces the whole week with one that arrived from another device, inside the
     /// pace document (local ADR 0019, §3). Unlike <see cref="SetDay"/> it refuses no day:

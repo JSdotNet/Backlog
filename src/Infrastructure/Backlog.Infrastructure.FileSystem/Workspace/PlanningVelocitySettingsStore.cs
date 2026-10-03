@@ -224,8 +224,27 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
     /// </summary>
     public string? ToggleWorkedDay(DateOnly date) =>
         _workingHours is null
-            ? "This device keeps no working week to block or unblock a day in."
+            ? NoWeekToChange
             : _workingHours.ToggleDate(date);
+
+    /// <summary>Makes a range of dates days off in the device's week
+    /// (<see cref="IWorkingHoursSettings.BlockDays"/>), which announces it once and is
+    /// stamped once (<see cref="OnWorkingWeekChanged"/>), as a head press is.</summary>
+    public string? BlockDays(DateOnly from, DateOnly through) =>
+        _workingHours is null ? NoWeekToChange : _workingHours.BlockDays(from, through);
+
+    /// <summary>Unblocks a date the pattern leaves off in the device's week
+    /// (<see cref="IWorkingHoursSettings.AddWorkedDay"/>).</summary>
+    public string? AddWorkedDay(DateOnly date) =>
+        _workingHours is null ? NoWeekToChange : _workingHours.AddWorkedDay(date);
+
+    /// <summary>Returns a date to its pattern in the device's week
+    /// (<see cref="IWorkingHoursSettings.RemoveDayOverride"/>).</summary>
+    public string? RemoveDayOverride(DateOnly date) =>
+        _workingHours is null ? NoWeekToChange : _workingHours.RemoveDayOverride(date);
+
+    /// <summary>Why a store that keeps no device week changes no date in it.</summary>
+    private const string NoWeekToChange = "This device keeps no working week to block or unblock a day in.";
 
     /// <summary>
     /// The person changed the device's week: the document carries the new one, stamped,

@@ -12202,19 +12202,28 @@ select.field__input {
 }
 
 /* A day head that blocks or unblocks its date (local ADR 0019, §4) is a real
-   button, drawn exactly as the plain head beside it: the browser's own button
-   face, padding and border go, and the head's left rule stays. Before the day-off
-   and current rules, so their backgrounds still win. */
+   button, drawn exactly as the plain head beside it: nothing of the browser's own
+   button survives. Its face, its native appearance, its padding, its three other
+   borders, its radius and its type all go, and the head's left rule, its text and
+   its size come from the head. The day-off and current rules come after this one at
+   the same weight, so a blocked date wears exactly a weekend head's fill and today
+   its primary shade. Only the focus ring and a hover underline say it can be
+   pressed. */
 .roadmap-timeline__quarter--toggle {
+    appearance: none;
     margin: 0;
     padding: 0;
     border-top: 0;
     border-right: 0;
     border-bottom: 0;
+    border-radius: 0;
     background: transparent;
+    box-shadow: none;
     color: inherit;
     font: inherit;
+    letter-spacing: inherit;
     text-align: center;
+    text-transform: inherit;
     cursor: pointer;
 }
 
@@ -12319,49 +12328,28 @@ select.field__input {
     background: color-mix(in srgb, var(--color-primary) 7%, transparent);
 }
 
-/* Given a working week, every head carries a third line for its hours — "8.5h"
-   under a day, "42.5h" under a week — where the column is too narrow to say them
-   beside its name. The line is kept even when empty, as the caption's is, so every
-   head reads along one baseline; the axis grows by that line and no more. */
+/* Given a working week and the Hours switch on, every head carries a third line for
+   its one hours figure (local ADR 0019, §§4 and 6) — the actual hours on a head that
+   has begun, "6.2h", the planned hours on one still to come, "8.5h" or "42.5h" —
+   where the column is too narrow to say it beside its name. The line is kept even
+   when empty, as the caption's is, so every head reads along one baseline; the axis
+   grows by that line and no more.
+
+   The one column a head lays its lines in is the head's own width, never the width
+   of its widest line: a line too wide for the column is clipped at the head's edges
+   instead of pushing every line of that head off centre. */
 .roadmap-timeline--hours {
     --roadmap-axis-height: 3.5rem;
 }
 
 .roadmap-timeline--hours .roadmap-timeline__quarter {
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto;
 }
 
 .roadmap-timeline__quarter-hours {
     min-height: calc(var(--font-size-xs) * 1.1);
     color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.1;
-    white-space: nowrap;
-}
-
-/* Given actual hours too (local ADR 0019, §6), every head carries a fourth line: the
-   actual figure stacked over the planned one — "6.2" over "8.5h" — because "6.2 / 8.5"
-   is wider than a day column at the band's default width. The actual line is in the
-   head's own text colour and the planned line under it stays secondary, so the pair
-   reads as actual over planned. Kept on every head, empty or not, so the heads still
-   share one baseline and a head still to come shows its planned figure on the same
-   line a begun head does. */
-.roadmap-timeline--actual {
-    --roadmap-axis-height: 4.25rem;
-}
-
-/* The one column a head lays its lines in is the head's own width, never the width
-   of its widest line: a line too wide for the column is clipped at the head's edges
-   instead of pushing every line of that head off centre. */
-.roadmap-timeline--actual .roadmap-timeline__quarter {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto auto;
-}
-
-.roadmap-timeline__quarter-actual {
-    min-height: calc(var(--font-size-xs) * 1.1);
-    color: var(--color-text-primary);
     font-size: var(--font-size-xs);
     font-variant-numeric: tabular-nums;
     line-height: 1.1;

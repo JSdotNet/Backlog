@@ -105,6 +105,12 @@ public static class RoadmapCrossContextAdapterRegistration
                 sp.GetService<TimeProvider>(),
                 sp.GetService<IAppFeatureSettings>()));
 
+        // The roadmap's per-device view choices — the Hours switch (ADR 0019, §4) — kept
+        // in the shell's own per-device file beside the surface it reopens on. A singleton
+        // over a singleton; a host that composed no such file holds the choice in memory.
+        services.AddSingleton<IRoadmapViewPreferences>(sp =>
+            new RoadmapViewPreferences(sp.GetService<ShellNavigationStore>()));
+
         return services;
     }
 }

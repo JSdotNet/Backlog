@@ -241,23 +241,31 @@ With `OnLinkCreated` set, every bar offers a dot past its end. Drag it onto anot
     </Story>
 
     <Story Name="The working week on the axis, date by date"
-           Description="How the app rules the near term: `Graduated` gives this week and the weeks either side a column a day, and `PlannedHoursOn` hands over the hours planned on each date. Each day and week head says its hours — inline where the column is wide enough, on a line of its own where it is not — and a date not worked is hatched down the chart. The week heads sum their dates.
+           Description="How the app rules the near term: `Graduated` gives this week and the weeks either side a column a day, and `PlannedHoursOn` hands over the hours planned on each date. A date not worked is shaded down the chart, head and column, exactly as a weekend is. The week heads sum their dates.
 
-`ActualHoursByDate` adds the hours agents were actually active. A head that has begun reads them over the planned hours, today counting the hours so far — `6.2 / 8.5h` inline where the column is wide enough, and where it is not, stacked on two lines of the head's own, the actual `6.2` over the planned `8.5h` in the quieter colour. Every head keeps both lines so the axis reads along one baseline: a day off somebody worked anyway reads the actual hours alone, `1.5h`, rather than a planned zero, and heads still to come read their planned hours alone, on the planned line. The tooltip always says `6.2 / 8.5h` in full, and with no actual hours given every head reads as before.
+Each day and week head says one hours figure, never two — inline where the column is wide enough, on a line of its own where it is not, without its unit where even that does not fit. A head that has begun, today and this week included, says the hours actually worked from `ActualHoursByDate`: `6.2h`, `0h` for a worked day nobody worked, and `3.0h` on a day off somebody worked anyway. A head still to come says its planned hours, `8.5h` or `42.5h`. The tooltip carries both, `6.2h worked of 8.5h planned`. With the actual hours unreadable — turn them off here — a begun head says nothing at all rather than its planned hours, which would read as hours worked.
 
-With `OnDayToggled` set, every day head is a real button named for what it does — `Block Fri 9 Oct`, `Unblock Sat 10 Oct` — pressed by pointer, Enter or Space. Here Friday 9 October is blocked, and Saturdays 10 and 17 October are unblocked: a date that differs from its weekday's pattern carries a corner tick, and its tooltip says blocked or unblocked. Press any day head to toggle it; week heads are not dates and do not toggle."
+`ShowHours` is the host's Hours switch: off, no head says an hours figure, and every column keeps its width.
+
+With `OnDayToggled` set, every day head is a real button named for what it does — `Block Fri 9 Oct`, `Unblock Sat 10 Oct` — pressed by pointer, Enter or Space, and drawn exactly as the plain head it replaced: only a focus ring and a hover underline say it can be pressed. Here Friday 9 October is blocked, and Saturdays 10 and 17 October are unblocked: a date that differs from its weekday's pattern carries a small corner tick, and its tooltip says blocked or unblocked. Press any day head to toggle it; week heads are not dates and do not toggle."
            Code="@WorkingWeekCode">
+        <div class="sb-row">
+            <Toggle Label="Hours" Checked="@_hoursShown" CheckedChanged="value => _hoursShown = value" TestId="working-week-hours" />
+            <Toggle Label="Actual hours readable" Checked="@_actualReadable" CheckedChanged="value => _actualReadable = value" TestId="working-week-actual" />
+            <Toggle Label="Wide columns" Checked="@_wideColumns" CheckedChanged="value => _wideColumns = value" TestId="working-week-wide" />
+        </div>
         <RoadmapTimeline Groups="@WorkingWeekPlan"
                          Bars="@WorkingWeekBars"
                          Title="The near term, in hours"
                          HeadingLevel="3"
                          Today="@WorkingWeekToday"
                          Graduated="true"
-                         QuarterWidth="48"
+                         QuarterWidth="@(_wideColumns ? 48 : 16)"
                          ShowFilters="false"
                          PlannedHoursOn="@PlannedOn"
                          IsOverridden="@IsOverridden"
-                         ActualHoursByDate="@WorkedHours"
+                         ActualHoursByDate="@(_actualReadable ? WorkedHours : null)"
+                         ShowHours="@_hoursShown"
                          OnDayToggled="ToggleDay"
                          TestId="working-week" />
         <p class="sb-state" data-testid="working-week-last">Last pressed: @(_lastDay?.ToString("ddd d MMM", System.Globalization.CultureInfo.CurrentCulture) ?? "(none)")</p>
@@ -856,6 +864,12 @@ Every action is a real button named for its plan, and the shelf is a region name
 
     private DateOnly? _lastDay;
 
+    // The story's own switches: the host's Hours switch, whether the actual hours could be
+    // read, and the zoom that gives a day head room for its figure inline.
+    private bool _hoursShown = true;
+    private bool _actualReadable = true;
+    private bool _wideColumns;
+
     private double PlannedOn(DateOnly date)
     {
         var patternWorks = date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
@@ -870,8 +884,9 @@ Every action is a real button named for its plan, and the shelf is a region name
         if (!_overrides.Remove(date)) _overrides.Add(date);
     }
 
-    /// <summary>What agents were active on each begun date — nothing after today, and
-    /// a date missing is a date nobody worked.</summary>
+    /// <summary>The hours the person worked on each begun date — nothing after today, and
+    /// a date missing is a date nobody worked: blocked Friday 9 October reads nothing, the
+    /// unblocked Saturday 10 October 3.0h.</summary>
     private static readonly IReadOnlyDictionary<DateOnly, double> WorkedHours = new Dictionary<DateOnly, double>
     {
         [new DateOnly(2026, 9, 21)] = 7.5,
@@ -903,6 +918,7 @@ Every action is a real button named for its plan, and the shelf is a region name
                          PlannedHoursOn="@PlannedOn"
                          IsOverridden="@IsOverridden"
                          ActualHoursByDate="@WorkedHours"
+                         ShowHours="@_hoursShown"
                          OnDayToggled="ToggleDay" />
 
         @code {
@@ -911,8 +927,11 @@ Every action is a real button named for its plan, and the shelf is a region name
 
             private bool IsOverridden(DateOnly date) => _week.OverrideOn(date) is not null;
 
-            // Null when the actual hours cannot be stated: every head reads its planned hours.
+            // Null when the actual hours cannot be read: a begun head then says nothing.
             private IReadOnlyDictionary<DateOnly, double>? WorkedHours;
+
+            // The Hours switch on the toolbar, kept per device.
+            private bool _hoursShown = ViewPreferences.HoursShown;
 
             private void ToggleDay(DateOnly date) => _error = Paces.ToggleWorkedDay(date);
         }

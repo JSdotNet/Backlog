@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -22,6 +23,11 @@ namespace Backlog.Infrastructure.FileSystem;
 /// together: which takeover was open and which panes were showing underneath
 /// it are both "what the reader was looking at", read back in the same
 /// <c>OnInitializedAsync</c>.
+/// </para>
+/// <para>
+/// The roadmap's Hours switch rides here too (local ADR 0019, §4): it is how the
+/// reader last had the roadmap drawn, it belongs to this device, and sync never
+/// carries it. Roadmap reads it through its own port, answered over this store.
 /// </para>
 /// </summary>
 public sealed class ShellNavigationStore
@@ -64,6 +70,7 @@ public sealed class ShellNavigationStore
         var dto = Read();
         LastSurface = dto?.LastSurface;
         LastEnabledPanes = dto?.LastEnabledPanes ?? Empty;
+        RoadmapHoursShown = dto?.RoadmapHoursShown ?? true;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -78,6 +85,10 @@ public sealed class ShellNavigationStore
     /// has been remembered yet, not that every pane was closed — the shell
     /// never allows that state to begin with.</summary>
     public IReadOnlyList<string> LastEnabledPanes { get; private set; }
+
+    /// <summary>Whether the roadmap's day and week heads carry their hours line: on until
+    /// the reader turns the Hours switch off on this device.</summary>
+    public bool RoadmapHoursShown { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
@@ -98,6 +109,14 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetRoadmapHoursShown(bool shown)
+    {
+        if (shown == RoadmapHoursShown) return;
+
+        RoadmapHoursShown = shown;
+        Save();
+    }
+
     private void Save()
     {
         try
@@ -105,7 +124,9 @@ public sealed class ShellNavigationStore
             File.WriteAllText(_path, JsonSerializer.Serialize(new ShellNavigationDto
             {
                 LastSurface = LastSurface,
-                LastEnabledPanes = [.. LastEnabledPanes]
+                LastEnabledPanes = [.. LastEnabledPanes],
+                // Left out while on, so a file from before the switch keeps its shape.
+                RoadmapHoursShown = RoadmapHoursShown ? null : false
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -141,5 +162,8 @@ public sealed class ShellNavigationStore
         public string? LastSurface { get; init; }
 
         public string[]? LastEnabledPanes { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? RoadmapHoursShown { get; init; }
     }
 }

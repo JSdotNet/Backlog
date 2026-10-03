@@ -7,8 +7,9 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// The graduated axis read date by date (local ADR 0019, §§4 to 6): a day head is a
 /// button that blocks or unblocks its date, a date that breaks its weekday's pattern is
-/// marked, a date not worked is hatched, and a head that has begun shows the hours
-/// actually worked over the hours planned.
+/// marked, a date not worked looks exactly like a weekend, and each head shows one hours
+/// figure — the hours actually worked on a head that has begun, the hours planned on one
+/// still to come — behind the host's Hours switch.
 /// </summary>
 public sealed class RoadmapDayToggleAxisTests
 {
@@ -25,8 +26,7 @@ public sealed class RoadmapDayToggleAxisTests
     private static readonly DateOnly Saturday10 = new(2026, 10, 10);
     private static readonly DateOnly Sunday11 = new(2026, 10, 11);
 
-    /// <summary>A day 6rem wide: room to say "Thu 8" on its own line, and the hours
-    /// under it, but not "Thu 8 · 6.2 / 8.5h" on one line.</summary>
+    /// <summary>A day 6rem wide: room to say "Thu 8 · 6.2h" on one line.</summary>
     private const double WideQuarter = 48;
 
     // --- The day head is a toggle ------------------------------------------------
@@ -187,30 +187,100 @@ public sealed class RoadmapDayToggleAxisTests
         });
     }
 
-    // --- Actual over planned ----------------------------------------------------------
+    // --- How a head looks ---------------------------------------------------------------
 
-    /// <summary>ADR 0019 Verification 18 and scenario "A past day": agents active 6.2
-    /// hours on Thursday 8 October read 6.2 over 8.5h, stacked where "Thu 8 · 6.2 / 8.5h"
-    /// does not fit on one line; a worked day nobody worked reads 0.0 over 8.5h; and the
-    /// tooltip says it in full.</summary>
+    /// <summary>
+    /// ADR 0019 Verification 34, requirement "A date that is not worked is hatched": a
+    /// blocked Wednesday's head wears exactly the classes a pattern Saturday's head wears,
+    /// plus the marker, and is still the button that unblocks it. An unblocked Saturday's
+    /// head wears a Friday head's classes, plus the marker.
+    /// </summary>
     [Fact]
-    public void APastWorkedDay_ReadsActualOverPlanned()
+    public void ABlockedHead_WearsAWeekendHeadsClasses_AndAnUnblockedOneAWeekdays()
+    {
+        WithCulture("en-US", () =>
+        {
+            using var context = Loose();
+            var week = new Week();
+            var wednesday7 = new DateOnly(2026, 10, 7);
+            week.Toggle(wednesday7);
+            week.Toggle(Saturday10);
+            var view = Render(context, week, Monday12OctoberMinusAWeek, toggled: _ => { });
+
+            var blocked = ClassesOf(ColumnOf(view, wednesday7));
+            Assert.Equal(ClassesOf(ColumnOf(view, Sunday11)).Append("roadmap-timeline__quarter--override").Order(), blocked.Order());
+            Assert.Equal("Unblock Wed 7 Oct", ColumnOf(view, wednesday7).GetAttribute("aria-label"));
+
+            var unblocked = ClassesOf(ColumnOf(view, Saturday10));
+            Assert.Equal(ClassesOf(ColumnOf(view, Friday9)).Append("roadmap-timeline__quarter--override").Order(), unblocked.Order());
+            Assert.Equal("Block Sat 10 Oct", ColumnOf(view, Saturday10).GetAttribute("aria-label"));
+        });
+    }
+
+    /// <summary>Requirement "A day head does not look like a button": a worked day's head
+    /// wears the head's own classes and the toggle hook, and no class of the library's
+    /// button — no <c>btn</c>, no variant — so nothing but the toggle rule's reset styles
+    /// it as anything other than the plain head beside it.</summary>
+    [Fact]
+    public void AWorkedHead_WearsNoButtonChrome()
+    {
+        WithCulture("en-US", () =>
+        {
+            using var context = Loose();
+            var view = Render(context, new Week(), Monday12OctoberMinusAWeek, toggled: _ => { });
+
+            Assert.Equal(
+                ["roadmap-timeline__quarter", "roadmap-timeline__quarter--day", "roadmap-timeline__quarter--toggle"],
+                ClassesOf(HeadButton(view, Thursday8)));
+            Assert.All(view.FindAll(".roadmap-timeline__axis button"), head =>
+                Assert.DoesNotContain(ClassesOf(head), name => name == "btn" || name.StartsWith("btn--", StringComparison.Ordinal)));
+        });
+    }
+
+    // --- One hours figure per head -------------------------------------------------------
+
+    /// <summary>
+    /// ADR 0019 Verification 18 and scenario "A past day": stretches of 6.2 hours on
+    /// Thursday 8 October read "6.2h", the actual alone — never "6.2 / 8.5h" — inline where
+    /// the column is wide and on the hours line where it is not; and the tooltip carries
+    /// both figures.
+    /// </summary>
+    [Fact]
+    public void APastWorkedDay_ReadsItsActualHoursAlone()
     {
         WithCulture("en-US", () =>
         {
             using var context = Loose();
             var actual = new Dictionary<DateOnly, double> { [Thursday8] = 6.2 };
-            var view = Render(context, new Week(), Monday12October, actual: actual, quarterWidth: WideQuarter);
 
-            Assert.Equal("Thu 8", LabelOf(ColumnOf(view, Thursday8)));
-            Assert.Equal(("6.2", "8.5h"), StackOf(ColumnOf(view, Thursday8)));
-            Assert.Equal(("0.0", "8.5h"), StackOf(ColumnOf(view, Friday9)));
-            Assert.Equal("Thursday 8 October 2026 · 6.2 / 8.5h", ColumnOf(view, Thursday8).GetAttribute("title"));
+            var wide = Render(context, new Week(), Monday12October, actual: actual, quarterWidth: WideQuarter);
+            Assert.Equal("Thu 8 · 6.2h", LabelOf(ColumnOf(wide, Thursday8)));
+            Assert.Equal(string.Empty, HoursLineOf(ColumnOf(wide, Thursday8)));
+            Assert.Equal("Thursday 8 October 2026 · 6.2h worked of 8.5h planned", ColumnOf(wide, Thursday8).GetAttribute("title"));
+
+            var narrow = Render(context, new Week(), Monday12October, actual: actual);
+            Assert.Equal("8", LabelOf(ColumnOf(narrow, Thursday8)));
+            Assert.Equal("6.2h", HoursLineOf(ColumnOf(narrow, Thursday8)));
+            Assert.Equal("Thursday 8 October 2026 · 6.2h worked of 8.5h planned", ColumnOf(narrow, Thursday8).GetAttribute("title"));
         });
     }
 
-    /// <summary>Scenario "Today": today counts the hours so far, over its planned
-    /// hours.</summary>
+    /// <summary>ADR 0019 Verification 28 and scenario "A past worked day with no
+    /// stretches": a begun worked day nobody worked reads "0h".</summary>
+    [Fact]
+    public void APastWorkedDayNobodyWorked_ReadsZero()
+    {
+        WithCulture("en-US", () =>
+        {
+            using var context = Loose();
+            var view = Render(context, new Week(), Monday12October, actual: new Dictionary<DateOnly, double>());
+
+            Assert.Equal("0h", HoursLineOf(ColumnOf(view, Friday9)));
+            Assert.Equal("Friday 9 October 2026 · 0h worked of 8.5h planned", ColumnOf(view, Friday9).GetAttribute("title"));
+        });
+    }
+
+    /// <summary>Scenario "Today": today has begun, and counts the hours so far.</summary>
     [Fact]
     public void Today_ReadsTheHoursSoFar()
     {
@@ -218,119 +288,65 @@ public sealed class RoadmapDayToggleAxisTests
         {
             using var context = Loose();
             var actual = new Dictionary<DateOnly, double> { [Monday12October] = 3 };
-            var view = Render(context, new Week(), Monday12October, actual: actual, quarterWidth: WideQuarter);
+            var view = Render(context, new Week(), Monday12October, actual: actual);
 
-            Assert.Equal(("3.0", "8.5h"), StackOf(ColumnOf(view, Monday12October)));
+            Assert.Equal("3.0h", HoursLineOf(ColumnOf(view, Monday12October)));
+            Assert.Equal("Monday 12 October 2026 (today) · 3.0h worked of 8.5h planned", ColumnOf(view, Monday12October).GetAttribute("title"));
         });
     }
 
-    /// <summary>
-    /// At the band's default width a day column is 2rem, too narrow for "5.1 / 8.5" on
-    /// one line, so the actual figure stacks over the planned one. Every head on the axis
-    /// keeps both lines, empty where it has nothing to say, so the heads share one
-    /// baseline: a day off somebody worked says its actual hours alone on the actual
-    /// line, and a head still to come says its planned hours on the line planned hours
-    /// take on a begun head. Every line fits its column by the head's own measure.
-    /// </summary>
+    /// <summary>ADR 0019 Verification 28, scenario "A past day not worked": two hours on
+    /// Saturday 10 October read "2.0h"; Sunday 11 October, with none, reads nothing, as a
+    /// day off always has.</summary>
     [Fact]
-    public void AtTheDefaultWidth_ActualStacksOverPlanned()
-    {
-        WithCulture("en-US", () =>
-        {
-            using var context = Loose();
-            var actual = new Dictionary<DateOnly, double>
-            {
-                [Thursday8] = 5.1,
-                [Friday9] = 13.1,
-                [Saturday10] = 2,
-                [new DateOnly(2026, 9, 29)] = 8
-            };
-            var view = Render(context, new Week(), Monday12October, actual: actual, toggled: _ => { });
-
-            Assert.Contains("roadmap-timeline--actual", view.Find("section.roadmap-timeline").ClassName);
-
-            Assert.Equal("8", LabelOf(ColumnOf(view, Thursday8)));
-            Assert.Equal(("5.1", "8.5h"), StackOf(ColumnOf(view, Thursday8)));
-            Assert.Equal(("13.1", "8.5h"), StackOf(ColumnOf(view, Friday9)));
-            Assert.Equal(("2.0h", string.Empty), StackOf(ColumnOf(view, Saturday10)));
-            Assert.Equal((string.Empty, string.Empty), StackOf(ColumnOf(view, Sunday11)));
-            Assert.Equal((string.Empty, "8.5h"), StackOf(ColumnOf(view, Monday12October.AddDays(1))));
-
-            Assert.Equal(("8.0", "42.5h"), StackOf(WeekColumn(view, "Week 40")));
-            Assert.Equal((string.Empty, "42.5h"), StackOf(WeekColumn(view, "Week 44")));
-
-            // The tooltip still says the hours in full.
-            Assert.Equal("Thursday 8 October 2026 · 5.1 / 8.5h", ColumnOf(view, Thursday8).GetAttribute("title"));
-
-            // Every labelled head carries the two lines, in that order, so the axis keeps
-            // one baseline; and none says "actual / planned" on a single line.
-            var heads = view.FindAll(".roadmap-timeline__quarter").Where(head => head.QuerySelector(".roadmap-timeline__quarter-label") is not null).ToList();
-            Assert.NotEmpty(heads);
-            Assert.All(heads, head =>
-            {
-                var lines = head.Children.Select(line => line.ClassName).ToList();
-                Assert.Equal(
-                    ["roadmap-timeline__quarter-label", "roadmap-timeline__quarter-year", "roadmap-timeline__quarter-actual", "roadmap-timeline__quarter-hours"],
-                    lines);
-                Assert.DoesNotContain(" / ", head.QuerySelector(".roadmap-timeline__quarter-hours")!.TextContent, StringComparison.Ordinal);
-            });
-
-            // At the caption size a digit is about 0.65em and a point 0.3em: every figure
-            // here fits inside a 2rem day less its border, and a 3rem week.
-            Assert.All(view.FindAll(".roadmap-timeline__quarter--day"), day =>
-            {
-                Assert.True(CaptionRem(StackOf(day).Actual) <= 2 - 0.0625, $"{StackOf(day).Actual} overflows a day");
-                Assert.True(CaptionRem(StackOf(day).Planned) <= 2 - 0.0625, $"{StackOf(day).Planned} overflows a day");
-            });
-        });
-    }
-
-    /// <summary>ADR 0019 Verification 22, scenario "A past day not worked": two hours on
-    /// Saturday 10 October read "2.0h", the actual alone; Sunday 11 October, with no
-    /// activity, reads nothing, as a day off always has.</summary>
-    [Fact]
-    public void APastDayOff_WithActivity_ReadsTheActualAlone()
+    public void APastDayOff_WithActivity_ReadsItsActualHours()
     {
         WithCulture("en-US", () =>
         {
             using var context = Loose();
             var actual = new Dictionary<DateOnly, double> { [Saturday10] = 2 };
-            var view = Render(context, new Week(), Monday12October, actual: actual, quarterWidth: WideQuarter);
 
-            var saturday = ColumnOf(view, Saturday10);
+            var wide = Render(context, new Week(), Monday12October, actual: actual, quarterWidth: WideQuarter);
+            var saturday = ColumnOf(wide, Saturday10);
             Assert.Equal("Sat 10 · 2.0h", LabelOf(saturday));
             Assert.Contains("roadmap-timeline__quarter--weekend", saturday.ClassName);
-            Assert.Equal("Saturday 10 October 2026 · not worked · 2.0h", saturday.GetAttribute("title"));
+            Assert.Equal("Saturday 10 October 2026 · not worked · 2.0h worked", saturday.GetAttribute("title"));
+            Assert.Equal("Sun 11", LabelOf(ColumnOf(wide, Sunday11)));
+            Assert.Equal("Sunday 11 October 2026 · not worked", ColumnOf(wide, Sunday11).GetAttribute("title"));
 
-            Assert.Equal((string.Empty, string.Empty), StackOf(saturday)); // said inline, so not said twice
-
-            Assert.Equal("Sun 11", LabelOf(ColumnOf(view, Sunday11)));
-            Assert.Equal((string.Empty, string.Empty), StackOf(ColumnOf(view, Sunday11)));
+            var narrow = Render(context, new Week(), Monday12October, actual: actual);
+            Assert.Equal("2.0h", HoursLineOf(ColumnOf(narrow, Saturday10)));
+            Assert.Equal(string.Empty, HoursLineOf(ColumnOf(narrow, Sunday11)));
         });
     }
 
-    /// <summary>ADR 0019 Verification 20, scenario "A day still to come": a date after
-    /// today shows its planned hours alone.</summary>
+    /// <summary>ADR 0019 Verification 26, scenario "A day still to come": a worked date
+    /// after today reads its planned hours alone and its tooltip keeps the wording it had;
+    /// so does a week still to come.</summary>
     [Fact]
-    public void AFutureDay_ShowsPlannedHoursOnly()
+    public void AHeadStillToCome_ReadsItsPlannedHoursAlone()
     {
         WithCulture("en-US", () =>
         {
             using var context = Loose();
             var tuesday = Monday12October.AddDays(1);
-            var actual = new Dictionary<DateOnly, double> { [Thursday8] = 6.2 };
-            var view = Render(context, new Week(), Monday12October, actual: actual, quarterWidth: WideQuarter);
+            var actual = new Dictionary<DateOnly, double> { [Thursday8] = 6.2, [tuesday] = 4 };
 
-            Assert.Equal("Tue 13 · 8.5h", LabelOf(ColumnOf(view, tuesday)));
-            Assert.Equal((string.Empty, string.Empty), StackOf(ColumnOf(view, tuesday)));
+            var wide = Render(context, new Week(), Monday12October, actual: actual, quarterWidth: WideQuarter);
+            Assert.Equal("Tue 13 · 8.5h", LabelOf(ColumnOf(wide, tuesday)));
+            Assert.Equal("Tuesday 13 October 2026 · 8.5h", ColumnOf(wide, tuesday).GetAttribute("title"));
+            Assert.Equal("W44 · 42.5h", LabelOf(WeekColumn(wide, "Week 44")));
+
+            var narrow = Render(context, new Week(), Monday12October, actual: actual);
+            Assert.Equal("8.5h", HoursLineOf(ColumnOf(narrow, tuesday)));
+            Assert.Equal("42.5h", HoursLineOf(WeekColumn(narrow, "Week 44")));
         });
     }
 
-    /// <summary>A week behind today reads the actual hours of its dates over its planned
-    /// hours — inline where wide, stacked actual over planned where narrow. A week to
-    /// come reads its planned hours alone, on the planned line.</summary>
+    /// <summary>A week that has begun reads the actual hours of its dates up to today,
+    /// alone — "33.1h" — and its tooltip carries both figures.</summary>
     [Fact]
-    public void APastWeek_SumsActualOverPlanned()
+    public void ABegunWeek_ReadsTheActualHoursOfItsDates()
     {
         WithCulture("en-US", () =>
         {
@@ -345,40 +361,117 @@ public sealed class RoadmapDayToggleAxisTests
 
             using var context = Loose();
             var wide = Render(context, new Week(), Monday12October, actual: actual, quarterWidth: WideQuarter);
-            Assert.Equal("W40 · 33.1 / 42.5h", LabelOf(WeekColumn(wide, "Week 40")));
-            Assert.Equal("W44 · 42.5h", LabelOf(WeekColumn(wide, "Week 44")));
+            Assert.Equal("W40 · 33.1h", LabelOf(WeekColumn(wide, "Week 40")));
 
             var narrow = Render(context, new Week(), Monday12October, actual: actual);
             Assert.Equal("W40", LabelOf(WeekColumn(narrow, "Week 40")));
-            Assert.Equal(("33.1", "42.5h"), StackOf(WeekColumn(narrow, "Week 40")));
-            Assert.Equal((string.Empty, "42.5h"), StackOf(WeekColumn(narrow, "Week 44")));
-            Assert.EndsWith(" · 33.1 / 42.5h", WeekColumn(narrow, "Week 40").GetAttribute("title"), StringComparison.Ordinal);
+            Assert.Equal("33.1h", HoursLineOf(WeekColumn(narrow, "Week 40")));
+            Assert.EndsWith(" · 33.1h worked of 42.5h planned", WeekColumn(narrow, "Week 40").GetAttribute("title"), StringComparison.Ordinal);
         });
     }
 
-    /// <summary>Requirement "Heads fall back to planned hours": with no actual hours to
-    /// show, every head reads as it did before there were any.</summary>
+    /// <summary>
+    /// At the band's default width every head carries exactly three lines — label,
+    /// caption, hours — and no head says two figures, inline or stacked: the fourth line
+    /// the stacked form needed, and the axis height it took, are gone. Every figure fits
+    /// its column by the head's own measure.
+    /// </summary>
     [Fact]
-    public void WithoutActualHours_EveryHeadReadsAsBefore()
+    public void AtTheDefaultWidth_EveryHeadSaysOneFigure()
     {
         WithCulture("en-US", () =>
         {
             using var context = Loose();
-            var view = Render(context, new Week(), Monday12October, actual: null, quarterWidth: WideQuarter);
+            var actual = new Dictionary<DateOnly, double>
+            {
+                [Thursday8] = 5.1,
+                [Friday9] = 13.1,
+                [Saturday10] = 2,
+                [new DateOnly(2026, 9, 29)] = 8
+            };
+            var view = Render(context, new Week(), Monday12October, actual: actual, toggled: _ => { });
 
-            Assert.Equal("Thu 8 · 8.5h", LabelOf(ColumnOf(view, Thursday8)));
-            Assert.Equal(string.Empty, HoursLineOf(ColumnOf(view, Thursday8)));
-            Assert.Equal("Sat 10", LabelOf(ColumnOf(view, Saturday10)));
-            Assert.Equal("W40 · 42.5h", LabelOf(WeekColumn(view, "Week 40")));
-            Assert.Equal("Thursday 8 October 2026 · 8.5h", ColumnOf(view, Thursday8).GetAttribute("title"));
-
-            // No line for actual hours, and the axis keeps the height it had.
+            Assert.Equal("roadmap-timeline roadmap-timeline--hours", Normalised(view.Find("section.roadmap-timeline").ClassName));
             Assert.Empty(view.FindAll(".roadmap-timeline__quarter-actual"));
-            Assert.DoesNotContain("roadmap-timeline--actual", view.Find("section.roadmap-timeline").ClassName);
+
+            var heads = view.FindAll(".roadmap-timeline__quarter").Where(head => head.QuerySelector(".roadmap-timeline__quarter-label") is not null).ToList();
+            Assert.NotEmpty(heads);
+            Assert.All(heads, head =>
+            {
+                Assert.Equal(
+                    ["roadmap-timeline__quarter-label", "roadmap-timeline__quarter-year", "roadmap-timeline__quarter-hours"],
+                    head.Children.Select(line => line.ClassName).ToList());
+                Assert.DoesNotContain("/", head.TextContent, StringComparison.Ordinal);
+            });
+
+            Assert.Equal("5.1h", HoursLineOf(ColumnOf(view, Thursday8)));
+            Assert.Equal("13.1", HoursLineOf(ColumnOf(view, Friday9))); // "13.1h" does not fit a 2rem day: the unit goes
+            Assert.Equal("2.0h", HoursLineOf(ColumnOf(view, Saturday10)));
+
+            Assert.All(view.FindAll(".roadmap-timeline__quarter--day"), day =>
+                Assert.True(CaptionRem(HoursLineOf(day)) <= 2 - 0.0625, $"{HoursLineOf(day)} overflows a day"));
+        });
+    }
+
+    /// <summary>
+    /// ADR 0019 Verification 33, requirement "A begun head shows no hours when actual
+    /// hours cannot be read": with no actual hours, today and every earlier head show no
+    /// figure — never their planned hours — and heads still to come keep theirs. The
+    /// tooltip names the planned hours as planned.
+    /// </summary>
+    [Fact]
+    public void WithoutActualHours_BegunHeadsShowNoFigure()
+    {
+        WithCulture("en-US", () =>
+        {
+            using var context = Loose();
+            var tuesday = Monday12October.AddDays(1);
 
             var narrow = Render(context, new Week(), Monday12October, actual: null);
-            Assert.Equal("8.5h", HoursLineOf(ColumnOf(narrow, Thursday8)));
-            Assert.Empty(narrow.FindAll(".roadmap-timeline__quarter-actual"));
+            Assert.Equal(string.Empty, HoursLineOf(ColumnOf(narrow, Thursday8)));
+            Assert.Equal(string.Empty, HoursLineOf(ColumnOf(narrow, Monday12October)));
+            Assert.Equal(string.Empty, HoursLineOf(WeekColumn(narrow, "Week 40")));
+            Assert.Equal("8.5h", HoursLineOf(ColumnOf(narrow, tuesday)));
+            Assert.Equal("42.5h", HoursLineOf(WeekColumn(narrow, "Week 44")));
+            Assert.Equal("Thursday 8 October 2026 · 8.5h planned", ColumnOf(narrow, Thursday8).GetAttribute("title"));
+
+            var wide = Render(context, new Week(), Monday12October, actual: null, quarterWidth: WideQuarter);
+            Assert.Equal("Thu 8", LabelOf(ColumnOf(wide, Thursday8)));
+            Assert.Equal("W40", LabelOf(WeekColumn(wide, "Week 40")));
+            Assert.Equal("Tue 13 · 8.5h", LabelOf(ColumnOf(wide, tuesday)));
+        });
+    }
+
+    /// <summary>
+    /// ADR 0019 Verification 32, requirement "The Hours switch shows or hides the hours
+    /// line": switched off, no day or week head shows an hours figure, inline or on a line
+    /// of its own, the axis loses the line, and every column keeps its width. The days off
+    /// stay shaded and the tooltips still say the hours.
+    /// </summary>
+    [Fact]
+    public void TheHoursSwitchedOff_NoHeadShowsAFigure()
+    {
+        WithCulture("en-US", () =>
+        {
+            using var context = Loose();
+            var actual = new Dictionary<DateOnly, double> { [Thursday8] = 6.2 };
+
+            var on = Render(context, new Week(), Monday12October, actual: actual, quarterWidth: WideQuarter);
+            var off = Render(context, new Week(), Monday12October, actual: actual, quarterWidth: WideQuarter, showHours: false);
+
+            Assert.Empty(off.FindAll(".roadmap-timeline__quarter-hours"));
+            Assert.DoesNotContain("roadmap-timeline--hours", off.Find("section.roadmap-timeline").ClassName);
+            Assert.Equal("Thu 8", LabelOf(ColumnOf(off, Thursday8)));
+            Assert.Equal("Tue 13", LabelOf(ColumnOf(off, Monday12October.AddDays(1))));
+            Assert.Equal("W44", LabelOf(WeekColumn(off, "Week 44")));
+            Assert.All(off.FindAll(".roadmap-timeline__quarter-label"), label => Assert.DoesNotContain(" · ", label.TextContent, StringComparison.Ordinal));
+
+            Assert.Contains("roadmap-timeline__quarter--weekend", ColumnOf(off, Saturday10).ClassName);
+            Assert.Equal("Thursday 8 October 2026 · 6.2h worked of 8.5h planned", ColumnOf(off, Thursday8).GetAttribute("title"));
+
+            Assert.Equal(
+                on.FindAll(".roadmap-timeline__quarter").Select(column => column.GetAttribute("style")),
+                off.FindAll(".roadmap-timeline__quarter").Select(column => column.GetAttribute("style")));
         });
     }
 
@@ -425,7 +518,8 @@ public sealed class RoadmapDayToggleAxisTests
         DateOnly today,
         IReadOnlyDictionary<DateOnly, double>? actual = null,
         Action<DateOnly>? toggled = null,
-        double quarterWidth = 16) =>
+        double quarterWidth = 16,
+        bool showHours = true) =>
         context.Render<RoadmapTimeline>(parameters =>
         {
             parameters
@@ -436,7 +530,8 @@ public sealed class RoadmapDayToggleAxisTests
                 .Add(timeline => timeline.QuarterWidth, quarterWidth)
                 .Add(timeline => timeline.PlannedHoursOn, week.PlannedOn)
                 .Add(timeline => timeline.IsOverridden, week.IsOverridden)
-                .Add(timeline => timeline.ActualHoursByDate, actual);
+                .Add(timeline => timeline.ActualHoursByDate, actual)
+                .Add(timeline => timeline.ShowHours, showHours);
 
             if (toggled is not null) parameters.Add(timeline => timeline.OnDayToggled, toggled);
         });
@@ -464,9 +559,12 @@ public sealed class RoadmapDayToggleAxisTests
     private static string HoursLineOf(AngleSharp.Dom.IElement column) =>
         column.QuerySelector(".roadmap-timeline__quarter-hours")!.TextContent.Trim();
 
-    /// <summary>A head's two hours lines, the actual over the planned.</summary>
-    private static (string Actual, string Planned) StackOf(AngleSharp.Dom.IElement column) =>
-        (column.QuerySelector(".roadmap-timeline__quarter-actual")!.TextContent.Trim(), HoursLineOf(column));
+    /// <summary>The classes a head wears, in the order it wears them.</summary>
+    private static List<string> ClassesOf(AngleSharp.Dom.IElement head) => [.. head.ClassList];
+
+    /// <summary>A class attribute with its runs of spaces collapsed.</summary>
+    private static string Normalised(string? classes) =>
+        string.Join(' ', (classes ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>A caption's width in rem at the caption size, by the head's own measure:
     /// 0.65em a digit or letter, 0.3em a point, at 0.75rem.</summary>

@@ -36,8 +36,9 @@ public interface IRoadmapActualHours
     /// <see langword="null"/> when this host cannot state the actual hours at all: it
     /// composed no Sessions activity, or the Sessions area is switched off. That is a
     /// different answer from an empty map, which says the hours were read and came to
-    /// nothing. A read that fails throws, and the heads show their planned hours alone
-    /// for a null and a throw alike.
+    /// nothing. A read that fails throws. For a null and a throw alike, a head that has
+    /// begun shows no figure at all — never its planned hours, which a reader would take
+    /// for hours worked — and a head still to come keeps its planned hours (ADR 0019 §6).
     /// </para>
     /// </summary>
     Task<IReadOnlyDictionary<DateOnly, TimeSpan>?> ReadAsync(

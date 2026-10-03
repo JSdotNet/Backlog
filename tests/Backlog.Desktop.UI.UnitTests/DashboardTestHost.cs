@@ -193,5 +193,11 @@ internal static class DashboardTestHost
         public string? ResetToDefault() => null;
 
         public string? ToggleDate(DateOnly date) => null;
+
+        public string? BlockDays(DateOnly from, DateOnly through) => null;
+
+        public string? AddWorkedDay(DateOnly date) => null;
+
+        public string? RemoveDayOverride(DateOnly date) => null;
     }
 }

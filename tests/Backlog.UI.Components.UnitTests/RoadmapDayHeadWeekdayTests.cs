@@ -12,9 +12,10 @@ namespace Backlog.UI.Components.UnitTests;
 /// </summary>
 public sealed class RoadmapDayHeadWeekdayTests
 {
-    // Friday 25 September 2026: this week, Monday the 21st to Sunday the 27th, is ruled a
-    // day a column.
-    private static readonly DateOnly Today = new(2026, 9, 25);
+    // Sunday 20 September 2026: the week after it, Monday the 21st to Sunday the 27th, is
+    // ruled a day a column and still to come, so a worked day there says its planned hours
+    // (local ADR 0019, §4) rather than the actual hours a begun day would.
+    private static readonly DateOnly Today = new(2026, 9, 20);
 
     /// <summary>A day 2.75rem wide, the narrow width the app draws: too narrow for
     /// "Wed 23", wide enough for "Mo" under it.</summary>

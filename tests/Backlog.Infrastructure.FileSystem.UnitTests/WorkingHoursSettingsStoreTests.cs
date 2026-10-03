@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Backlog.Infrastructure.FileSystem;
 using Backlog.SharedKernel;
 
@@ -353,6 +355,130 @@ public class WorkingHoursSettingsStoreTests : IDisposable
         Assert.Empty(store.Current.Overrides);
         Assert.Empty(Store().Current.Overrides);
         Assert.Equal(TimeSpan.FromHours(8.5), Store().Current.WorkedOn(Friday9Oct));
+    }
+
+    // --- The Days off dialog's writes (local ADR 0019, §4) --------------------
+
+    private static readonly DateOnly Monday12Oct = new(2026, 10, 12);
+    private static readonly DateOnly Saturday17Oct = new(2026, 10, 17);
+    private static readonly DateOnly Sunday18Oct = new(2026, 10, 18);
+
+    /// <summary>A range is one write and one announcement, however many dates it blocks,
+    /// and it survives a restart.</summary>
+    [Fact]
+    public void Blocking_a_range_stores_it_once_and_announces_it_once()
+    {
+        var store = Store();
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.BlockDays(Monday12Oct, Sunday18Oct));
+
+        Assert.Equal(1, announced);
+        Assert.Equal(5, store.Current.Overrides.Count);
+        Assert.Equal(
+            [.. Enumerable.Range(0, 5).Select(offset => new DayOverride(Monday12Oct.AddDays(offset), false))],
+            Store().Current.Overrides);
+    }
+
+    [Fact]
+    public void Blocking_a_range_removes_an_unblocked_date_inside_it()
+    {
+        var store = Store();
+        Assert.Null(store.ToggleDate(Saturday17Oct));
+
+        Assert.Null(store.BlockDays(Monday12Oct, Sunday18Oct));
+
+        Assert.Null(store.Current.OverrideOn(Saturday17Oct));
+        Assert.Null(Store().Current.OverrideOn(Saturday17Oct));
+    }
+
+    /// <summary>A range that ends before it starts, or runs past a year, is refused with a
+    /// reason, and nothing is stored or announced.</summary>
+    [Fact]
+    public void A_backwards_or_overlong_range_is_refused_and_nothing_is_stored()
+    {
+        var store = Store();
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Equal("End the days off on or after the day they start.", store.BlockDays(Sunday18Oct, Monday12Oct));
+        Assert.Equal(
+            "Add at most 366 days off at a time.",
+            store.BlockDays(Monday12Oct, Monday12Oct.AddDays(WorkingHours.MaxDaysOffRange)));
+
+        Assert.Equal(0, announced);
+        Assert.Empty(store.Current.Overrides);
+        Assert.False(File.Exists(SettingsFile));
+    }
+
+    /// <summary>A range that changes nothing — a weekend, on the default week — writes and
+    /// announces nothing, so the pace document is not stamped for it.</summary>
+    [Fact]
+    public void A_range_that_changes_nothing_announces_nothing()
+    {
+        var store = Store();
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.BlockDays(Saturday17Oct, Sunday18Oct));
+
+        Assert.Equal(0, announced);
+        Assert.False(File.Exists(SettingsFile));
+    }
+
+    [Fact]
+    public void Adding_a_worked_day_unblocks_a_date_the_pattern_leaves_off()
+    {
+        var store = Store();
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.AddWorkedDay(Saturday17Oct));
+
+        Assert.Equal(1, announced);
+        Assert.Equal(new DayOverride(Saturday17Oct, true), Assert.Single(Store().Current.Overrides));
+    }
+
+    /// <summary>A date the pattern already works adds nothing, and the store says why in
+    /// the culture's own short date.</summary>
+    [Fact]
+    public void Adding_a_worked_day_the_pattern_works_adds_nothing_and_says_so()
+    {
+        var original = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = new CultureInfo("en-US");
+        try
+        {
+            var store = Store();
+            var announced = 0;
+            store.Changed += () => announced++;
+
+            Assert.Equal(
+                "Thu 8 Oct is already a working day in your week, so nothing was added.",
+                store.AddWorkedDay(new DateOnly(2026, 10, 8)));
+
+            Assert.Equal(0, announced);
+            Assert.Empty(store.Current.Overrides);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Fact]
+    public void Removing_an_override_returns_the_date_to_its_pattern()
+    {
+        var store = Store();
+        Assert.Null(store.ToggleDate(Friday9Oct));
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.RemoveDayOverride(Friday9Oct));
+        Assert.Null(store.RemoveDayOverride(Friday9Oct));
+
+        Assert.Equal(1, announced);
+        Assert.Empty(Store().Current.Overrides);
     }
 
     [Fact]

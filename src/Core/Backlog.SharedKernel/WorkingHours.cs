@@ -206,6 +206,62 @@ public sealed record WorkingHours
         return this with { Overrides = [.. kept.OrderBy(entry => entry.Date)] };
     }
 
+    /// <summary>The longest range of days off <see cref="WithDaysOff"/> takes in one go: a
+    /// year, leap day included. A range is a holiday or a leave, and a longer one is a
+    /// slip of the year field that would write hundreds of overrides nobody meant.</summary>
+    public const int MaxDaysOffRange = 366;
+
+    /// <summary>
+    /// This week with every date from <paramref name="from"/> through
+    /// <paramref name="through"/> a day off, as the Days off dialog adds a holiday (local
+    /// ADR 0019, §4): a date the pattern works is blocked, and a date the pattern leaves
+    /// off holds no override — an unblocked one inside the range loses its own — so the
+    /// set still only holds dates that differ from the pattern. One new week for the whole
+    /// range, so a store writes it once and announces it once.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="through"/> is before
+    /// <paramref name="from"/>, or the range is longer than <see cref="MaxDaysOffRange"/>
+    /// days.</exception>
+    public WorkingHours WithDaysOff(DateOnly from, DateOnly through)
+    {
+        if (through < from)
+        {
+            throw new ArgumentOutOfRangeException(nameof(through), through, "A range of days off ends on or after the day it starts.");
+        }
+
+        if (through.DayNumber - from.DayNumber + 1 > MaxDaysOffRange)
+        {
+            throw new ArgumentOutOfRangeException(nameof(through), through, $"A range of days off is at most {MaxDaysOffRange} days.");
+        }
+
+        var outside = Overrides.Where(entry => entry.Date < from || entry.Date > through);
+        var blocked = Enumerable.Range(0, through.DayNumber - from.DayNumber + 1)
+            .Select(from.AddDays)
+            .Where(date => On(date.DayOfWeek).Working)
+            .Select(date => new DayOverride(date, Worked: false));
+
+        return this with { Overrides = [.. outside.Concat(blocked).OrderBy(entry => entry.Date)] };
+    }
+
+    /// <summary>
+    /// This week with <paramref name="date"/> worked, as the Days off dialog adds a worked
+    /// day (local ADR 0019, §4): unblocked when the pattern leaves its weekday off, and
+    /// back to its pattern — no override — when the pattern works it. A date the pattern
+    /// works and nobody blocked is this week unchanged.
+    /// </summary>
+    public WorkingHours WithWorkedDay(DateOnly date)
+    {
+        var others = Overrides.Where(entry => entry.Date != date);
+        var kept = On(date.DayOfWeek).Working ? others : others.Append(new DayOverride(date, Worked: true));
+
+        return this with { Overrides = [.. kept.OrderBy(entry => entry.Date)] };
+    }
+
+    /// <summary>This week with <paramref name="date"/> back on its pattern: its override,
+    /// if it has one, removed — what removing an entry in the Days off dialog does.</summary>
+    public WorkingHours WithoutOverride(DateOnly date) =>
+        this with { Overrides = [.. Overrides.Where(entry => entry.Date != date).OrderBy(entry => entry.Date)] };
+
     /// <summary>
     /// This week, or <see cref="Default"/> when its pattern holds no working hours at all
     /// (local ADR 0019, §2). A week that works nothing cannot size a window or divide a
@@ -368,4 +424,27 @@ public interface IWorkingHoursSettings
     /// why not.
     /// </summary>
     string? ToggleDate(DateOnly date);
+
+    /// <summary>
+    /// Makes every date from <paramref name="from"/> through <paramref name="through"/> a
+    /// day off (<see cref="WorkingHours.WithDaysOff"/>; local ADR 0019, §4) — one store and
+    /// one <see cref="Changed"/> for the whole range. Returns null when it was stored or
+    /// changed nothing, or why it was refused: a range ending before it starts, or one
+    /// longer than <see cref="WorkingHours.MaxDaysOffRange"/> days.
+    /// </summary>
+    string? BlockDays(DateOnly from, DateOnly through);
+
+    /// <summary>
+    /// Makes <paramref name="date"/> worked (<see cref="WorkingHours.WithWorkedDay"/>),
+    /// stores it and raises <see cref="Changed"/>. Returns null when it was stored, or a
+    /// note saying why nothing was: the pattern already works that date.
+    /// </summary>
+    string? AddWorkedDay(DateOnly date);
+
+    /// <summary>
+    /// Returns <paramref name="date"/> to its pattern (<see cref="WorkingHours.WithoutOverride"/>),
+    /// stores it and raises <see cref="Changed"/> when it had an override. Returns null when
+    /// it was stored or there was nothing to remove, or a message saying why not.
+    /// </summary>
+    string? RemoveDayOverride(DateOnly date);
 }

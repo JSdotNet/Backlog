@@ -68,6 +68,10 @@ public abstract class RoadmapBandHarness : IDisposable
     /// <summary>The actual hours the band reads for its begun heads.</summary>
     internal ScriptedActualHours ActualHours { get; } = new();
 
+    /// <summary>Where this device remembers how it had the roadmap drawn — the Hours
+    /// switch — under this test's own root, as the desktop host composes it.</summary>
+    protected string ShellNavigationFile => Path.Combine(_root, "shell", "shell-navigation.json");
+
     protected BunitContext Context()
     {
         var context = new BunitContext();
@@ -99,6 +103,11 @@ public abstract class RoadmapBandHarness : IDisposable
         // planned hours. Unscripted it answers that it cannot say, so a band test that
         // is not about them reads the planned hours alone.
         context.Services.AddSingleton<IRoadmapActualHours>(ActualHours);
+
+        // The Hours switch, kept in this device's shell file as the host keeps it. A fresh
+        // store per context reads the file again, as a restart of the app would.
+        context.Services.AddSingleton<IRoadmapViewPreferences>(
+            new RoadmapViewPreferences(new ShellNavigationStore(ShellNavigationFile)));
 
         // The pace control in the heading: the module's own service over a real pace
         // file, counting whatever the test put in Finished, as of PaceToday.
