@@ -3,6 +3,7 @@ using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.Modules.Tasks.Abstractions.Services;
 
 namespace Backlog.Infrastructure.Mcp;
 
@@ -37,6 +38,15 @@ internal static class Projections
         entry.ImportPlanId,
         entry.ImportItemId,
         entry.CreatedAt);
+
+    internal static DevbookReferencePayload DevbookReference(ResolvedDevbookReference reference) => new(
+        reference.Reference,
+        reference.Path,
+        reference.Anchor,
+        reference.State.ToWire(),
+        reference.Title,
+        reference.Status,
+        reference.Folder);
 
     internal static RoadmapItemPayload RoadmapItem(RoadmapItemDto item) => new(
         item.Id,

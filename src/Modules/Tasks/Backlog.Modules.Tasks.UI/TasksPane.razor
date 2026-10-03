@@ -437,10 +437,20 @@
                                request and session. A fact to follow rather than a
                                field to set, so it reads ahead of the link handle
                                while the pickers stay among the controls after it. *@
-                            @if (EntryFor(task.Id) is { } entry
-                                 && (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any()))
+                            @if (EntryFor(task.Id) is { } entry)
                             {
-                                @RenderRowWork(entry)
+                                @if (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any())
+                                {
+                                    @RenderRowWork(entry)
+                                }
+
+                                @* What the entry is about in the Devbook, as a count:
+                                   a row is scanned, and which chapters they are is
+                                   the open entry's to say. *@
+                                @if (entry.DevbookReferences.Count > 0)
+                                {
+                                    @RenderRowDevbook(entry)
+                                }
                             }
                         </RowBadges>
                         <AfterOpenRows>
@@ -604,7 +614,8 @@
         DependsOn,
         Priority,
         Effort,
-        Attachment
+        Attachment,
+        Devbook
     }
 
     /// <summary>The row a right-click asked for a menu on. Held from the gesture
@@ -637,6 +648,7 @@
 
     protected override void OnInitialized()
     {
+        _pickerEntry = State.SelectedRow;
         State.Changed += HandleStateChanged;
         Features.Changed += HandleFeaturesChanged;
     }
@@ -675,6 +687,18 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender) await RegisterUndoKeysAsync();
+
+        if (_focusDevbookPicker && _devbookPicker is not null)
+        {
+            _focusDevbookPicker = false;
+            await FocusQuietlyAsync(_devbookPicker.FocusAsync);
+        }
+
+        if (_focusDevbookAction && _devbookAction is not null)
+        {
+            _focusDevbookAction = false;
+            await FocusQuietlyAsync(_devbookAction.FocusAsync);
+        }
 
         if (_focusRevealedRow)
         {
@@ -754,8 +778,55 @@
         // clicked away from it.
         if (!ReferenceEquals(_renamePreviewRow, State.SelectedRow)) (_renamePreviewRow, _renamePreviewText) = (null, null);
 
-        _ = InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(() =>
+        {
+            ClosePickerIfTheEntryMoved();
+            StateHasChanged();
+        });
     }
+
+    /// <summary>The entry the open picker was last drawn for. See
+    /// <see cref="ClosePickerIfTheEntryMoved"/>.</summary>
+    private EntryRow? _pickerEntry;
+
+    /// <summary>
+    /// Puts the open picker away when the panel stops being about the entry it was
+    /// opened on — closed, switched, or replaced by a new entry.
+    /// <para>
+    /// The picker is one per pane rather than one per entry, so leaving it open is
+    /// leaving it open on whatever the panel shows next. Switching rows already put
+    /// it away, in <see cref="OnEntrySelectedAsync"/>; closing the panel with ✕ or
+    /// Escape and then starting a new entry did not, and the new entry opened with
+    /// the last one's picker — the press meant to open it closed it instead. So
+    /// this asks on every state change rather than on each gesture that can move
+    /// the selection, which is the list nobody could keep complete.
+    /// </para>
+    /// <para>
+    /// The same entry is not a move. A draft's first save gives it an id, which
+    /// changes its <see cref="EntryRow.TaskId"/> but not the row; a reload builds a
+    /// new row for the same id. Neither is the reader going anywhere.
+    /// </para>
+    /// </summary>
+    private void ClosePickerIfTheEntryMoved()
+    {
+        var now = State.SelectedRow;
+        var before = _pickerEntry;
+        _pickerEntry = now;
+
+        if (SameEntry(before, now)) return;
+
+        ClosePicker();
+    }
+
+    private static bool SameEntry(EntryRow? before, EntryRow? now) =>
+        (before, now) switch
+        {
+            (null, null) => true,
+            ({ } a, { } b) => ReferenceEquals(a, b)
+                              || a.Key == b.Key
+                              || string.Equals(a.TaskId, b.TaskId, StringComparison.Ordinal),
+            _ => false
+        };
 
     private void HandleFeaturesChanged() => _ = InvokeAsync(StateHasChanged);
 
@@ -772,6 +843,16 @@
     public EventCallback<string> OnOpenSession { get; set; }
 
     private Task OpenSessionAsync(IntegrationLinkRef link) => OnOpenSession.InvokeAsync(link.Id);
+
+    /// <summary>
+    /// How the shell opens one of an entry's Devbook references in the Devbook pane,
+    /// handed the repository it lies in and the reference as stored. Wired by the
+    /// host for the reason <see cref="OnOpenSession"/> is: the chapter belongs to
+    /// Devbook, and this pane may not reach it. Without it a reference is a chip
+    /// that reads and can be removed, but not one that pretends to go somewhere.
+    /// </summary>
+    [Parameter]
+    public EventCallback<DevbookReferenceRequest> OnOpenDevbookReference { get; set; }
 
     /// <summary>The session opener handed to the link, or none when the host wired
     /// nothing, so an unopenable session is inert text.</summary>
@@ -2076,7 +2157,7 @@
                 // date field lives in the detail pane, and a second one inside a
                 // menu would be a second implementation of the same control.
                 await State.SelectAsync(row);
-                _openPicker = SchedulePicker.Due;
+                OpenPicker(SchedulePicker.Due);
                 break;
             case RowMenuDueClear:
                 await State.ChangeDueAsync(row, null);
@@ -3202,6 +3283,15 @@
                                         TestId="entry-depends-select" />
                     }
                 </TaskActionGroup>
+
+                @* Under Dependencies and across the full width for the same reason:
+                   its value is a list of names. A row the store has never seen has
+                   nowhere to keep a reference — the field is the entry's own, not a
+                   token in its text — so the group waits for the first save. *@
+                @if (row.IsPersisted)
+                {
+                    @RenderDevbookReferences(row)
+                }
             </Trailing>
         </TaskActionPane>;
     /// <summary>
@@ -3242,6 +3332,236 @@
                          Placeholder="Tags"
                          CssClass="entry-doc__tag-picker"
                          TestId="entry-tags-input" />;
+    // --- Devbook references --------------------------------------------------
+
+    /// <summary>
+    /// The Devbook pages and chapters the entry points at: one chip each, a row that
+    /// opens the picker, and the refusal when the last write was not accepted.
+    /// <para>
+    /// The chips are <c>DevbookReferenceChip</c>s rather than the picker's own tag
+    /// chips. A reference has more to say than a tag — whether the chapter is still
+    /// current, whether it is still there at all — and it has somewhere to go, so
+    /// the picker is told to draw no chips (<c>ShowSelected</c>) and the selection
+    /// is these. One set of chips, not the same list twice in two shapes.
+    /// </para>
+    /// <para>
+    /// No ✕ on the row. "Waiting for" has one because it clears a list of entries
+    /// that are all in view; here it would drop every reference at once from a
+    /// control a reader presses to <em>add</em> one, and each chip already carries
+    /// its own remove.
+    /// </para>
+    /// </summary>
+    private RenderFragment RenderDevbookReferences(EntryRow row) =>
+        __builder =>
+        {
+            var references = State.DevbookReferencesFor(row);
+            var count = row.DevbookReferences.Count;
+
+            <TaskActionGroup Label="Devbook" TestId="entry-schedule-devbook">
+                <TaskAction @ref="_devbookAction"
+                            Icon="📖"
+                            Label="@(count == 0 ? "Link a Devbook chapter" : "Devbook")"
+                            Value="@DevbookCountLabel(count)"
+                            Set="@(count > 0)"
+                            Expanded="@IsPickerOpen(SchedulePicker.Devbook)"
+                            OnSet="ToggleDevbookPicker"
+                            TestId="entry-action-devbook" />
+
+                @if (references.Count > 0)
+                {
+                    <span class="entry-doc__devbook" role="list" aria-label="Devbook references" data-testid="entry-devbook-references">
+                        @foreach (var reference in references)
+                        {
+                            <DevbookReferenceChip role="listitem"
+                                                  @key="reference.Reference"
+                                                  Reference="@reference.Reference"
+                                                  Title="@ChipTitle(reference)"
+                                                  Status="@reference.Status"
+                                                  Broken="@reference.IsBroken"
+                                                  Problem="@DevbookProblem(reference.State)"
+                                                  OnOpen="@DevbookOpener(row, reference)"
+                                                  OnRemove="value => State.RemoveDevbookReferenceAsync(row, value)"
+                                                  TestId="entry-devbook-reference" />
+                        }
+                    </span>
+                }
+
+                <Alert Message="@row.DevbookReferenceError" BaseClass="entry-doc__devbook-refusal" TestId="entry-devbook-error" />
+
+                @if (IsPickerOpen(SchedulePicker.Devbook))
+                {
+                    @* The library's tag picker, offering the repository's own pages
+                       and chapters grouped by folder. AllowCreate, because a target
+                       the list cannot offer — a devbook not indexed yet, a chapter
+                       written a minute ago — is still a reference somebody can
+                       type; the write is where a value that names no page is
+                       refused, and the refusal shows above.
+
+                       MatchValue, because the placeholder invites a path and the
+                       value is that path: "features.md" finds the page whose title
+                       is "Tasks". MaxOptions, because a real devbook offers well
+                       over a thousand pages and chapters, and drawing every one on
+                       every keystroke is a render slow enough to lose keys. *@
+                    <TagMultiSelect @ref="_devbookPicker"
+                                    Options="@DevbookOptions(row)"
+                                    SelectedValues="@row.DevbookReferences"
+                                    SelectedValuesChanged="values => OnDevbookPickedAsync(row, values)"
+                                    ShowSelected="false"
+                                    MatchValue="true"
+                                    MaxOptions="DevbookPickerMaxOptions"
+                                    AllowCreate="true"
+                                    Placeholder="Find a page or chapter, or type path#anchor"
+                                    CssClass="entry-doc__devbook-picker"
+                                    TestId="entry-devbook-select" />
+                }
+            </TaskActionGroup>
+        };
+
+    /// <summary>
+    /// The picker hands back the whole list it holds, and what is written is only
+    /// what changed in it.
+    /// <para>
+    /// The list it holds is the row's from its last render, which while a pick is
+    /// still saving is the list from before that pick. Written whole, a second pick
+    /// made then put the first one's list back. As additions and removals, each is
+    /// applied by the state to the list as the last write left it.
+    /// </para>
+    /// </summary>
+    private async Task OnDevbookPickedAsync(EntryRow row, IReadOnlyList<string> values)
+    {
+        var before = row.DevbookReferences;
+
+        foreach (var added in values.Where(value => !before.Contains(value, StringComparer.Ordinal)).ToList())
+        {
+            await State.AddDevbookReferenceAsync(row, added);
+        }
+
+        foreach (var removed in before.Where(value => !values.Contains(value, StringComparer.Ordinal)).ToList())
+        {
+            await State.RemoveDevbookReferenceAsync(row, removed);
+        }
+    }
+
+    /// <summary>How many pages and chapters the Devbook picker draws before it asks
+    /// for a narrower query: a screenful and then some, far short of a devbook.</summary>
+    private const int DevbookPickerMaxOptions = 50;
+
+    /// <summary>The row's mark: a book and how many, with the words for a reader
+    /// who cannot see the glyph.</summary>
+    private RenderFragment RenderRowDevbook(EntryRow row) =>
+        @<span class="entry-row__devbook"
+               role="img"
+               aria-label="@DevbookCountLabel(row.DevbookReferences.Count)"
+               title="@DevbookCountLabel(row.DevbookReferences.Count)"
+               data-testid="entry-devbook-indicator"><span aria-hidden="true">📖 @row.DevbookReferences.Count</span></span>;
+
+    private static string? DevbookCountLabel(int count) =>
+        count switch
+        {
+            0 => null,
+            1 => "1 Devbook reference",
+            _ => $"{count} Devbook references"
+        };
+
+    /// <summary>Opens the picker, reading the devbook afresh: a chapter written
+    /// since the last time it was opened should be on offer.</summary>
+    private void ToggleDevbookPicker()
+    {
+        var opening = !IsPickerOpen(SchedulePicker.Devbook);
+        if (opening) State.ForgetDevbookTargets();
+        TogglePicker(SchedulePicker.Devbook);
+
+        // The press was for typing a query, so the caret goes where the query is,
+        // the render after the field exists.
+        _focusDevbookPicker = opening;
+    }
+
+    private TaskAction? _devbookAction;
+
+    private TagMultiSelect? _devbookPicker;
+
+    /// <summary>Owed to the picker's input once it is drawn; see
+    /// <see cref="ToggleDevbookPicker"/>.</summary>
+    private bool _focusDevbookPicker;
+
+    /// <summary>Owed to the action once Escape has closed its picker; see
+    /// <see cref="OnDetailKeyDownAsync"/>.</summary>
+    private bool _focusDevbookAction;
+
+    /// <summary>A control that did not take the focus is still on screen and
+    /// usable; losing the caret is not worth tearing down the page.</summary>
+    private static async Task FocusQuietlyAsync(Func<ValueTask> focus)
+    {
+        try
+        {
+            await focus();
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    /// <summary>
+    /// The picker's options: each page under its folder, each chapter after its
+    /// page. The control draws a section per run of one group and never sorts, so
+    /// the reading order the port answers in is the order on screen.
+    /// <para>
+    /// A chapter's hint is the page it is a heading of, which is what tells two
+    /// "Overview"s apart; a page's is its file. That is the indent: the control
+    /// has no levels, and a hint is the one place it draws beside a label.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<SelectorOption> DevbookOptions(EntryRow row)
+    {
+        var options = new List<SelectorOption>();
+        var page = string.Empty;
+
+        foreach (var target in State.DevbookTargetsFor(row))
+        {
+            if (target.Level == 0) page = target.Title;
+
+            var hint = target.Level == 0 ? FileNameOf(target.Reference) : page;
+            options.Add(new SelectorOption(target.Reference, target.Title, hint, target.Folder));
+        }
+
+        return options;
+    }
+
+    private static string FileNameOf(string reference)
+    {
+        var hash = reference.IndexOf('#');
+        var path = hash < 0 ? reference : reference[..hash];
+        var slash = path.LastIndexOf('/');
+        return slash < 0 ? path : path[(slash + 1)..];
+    }
+
+    /// <summary>The heading or page title the devbook gave, or null when it had
+    /// none to give and only echoed the reference back — the chip then reads as the
+    /// reference's own short label, with the whole of it in the tooltip.</summary>
+    private static string? ChipTitle(ResolvedDevbookReference reference) =>
+        string.Equals(reference.Title, reference.Reference, StringComparison.Ordinal) ? null : reference.Title;
+
+    /// <summary>Why a broken reference is broken, in the words the chip's mark is
+    /// named with. Null for the states that are not broken.</summary>
+    private static string? DevbookProblem(DevbookReferenceState state) =>
+        state switch
+        {
+            DevbookReferenceState.UnknownHeading => "No heading with this anchor on the page any more.",
+            DevbookReferenceState.UnknownPage => "No such page in the devbook.",
+            DevbookReferenceState.OutsideDevbook => "Not in a devbook folder of this repository.",
+            _ => null
+        };
+
+    /// <summary>The chip's opener, or none: when the host wired nothing, and for a
+    /// reference to no page, which the Devbook pane could only refuse. A heading
+    /// that has gone still opens — its page is there.</summary>
+    private EventCallback<string> DevbookOpener(EntryRow row, ResolvedDevbookReference reference) =>
+        OnOpenDevbookReference.HasDelegate
+        && reference.State is not (DevbookReferenceState.UnknownPage or DevbookReferenceState.OutsideDevbook)
+            ? EventCallback.Factory.Create<string>(this, value =>
+                OnOpenDevbookReference.InvokeAsync(new DevbookReferenceRequest(State.DevbookRepositoryAliasFor(row), value)))
+            : default;
+
     // --- Keyboard ----------------------------------------------------------
 
     /// <summary>
@@ -3254,6 +3574,18 @@
     {
         if (e.Key is "Escape")
         {
+            // An open picker first: Escape pressed in it is about it, and the
+            // entry stays open around it. The focus goes back to the action that
+            // opened the Devbook picker, which is the one picker that keeps a
+            // handle on its action — the others' fields close and leave the focus
+            // where the browser puts it, which the focus-out guard reads as staying.
+            if (_openPicker is { } open)
+            {
+                ClosePicker();
+                if (open is SchedulePicker.Devbook) _focusDevbookAction = true;
+                return;
+            }
+
             // The source first: with the hatch open, Escape is about the hatch.
             // Closing the whole pane from under a reader who asked to leave one
             // control would take two decisions out of one keystroke.
@@ -3416,8 +3748,19 @@
 
     /// <summary>Opens the picker a TaskAction stands for, or closes it if it was
     /// already the open one — pressing the row twice puts it back.</summary>
-    private void TogglePicker(SchedulePicker kind) =>
-        _openPicker = IsPickerOpen(kind) ? null : kind;
+    private void TogglePicker(SchedulePicker kind)
+    {
+        if (IsPickerOpen(kind)) ClosePicker();
+        else OpenPicker(kind);
+    }
+
+    /// <summary>Opens a picker on the entry the panel shows now, which is the entry
+    /// <see cref="ClosePickerIfTheEntryMoved"/> measures a move from.</summary>
+    private void OpenPicker(SchedulePicker kind)
+    {
+        _openPicker = kind;
+        _pickerEntry = State.SelectedRow;
+    }
 
     private void ClosePicker() => _openPicker = null;
 

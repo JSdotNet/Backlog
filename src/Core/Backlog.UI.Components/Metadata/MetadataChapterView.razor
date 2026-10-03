@@ -49,6 +49,7 @@
               Folder="@Folder"
               Level="DevbookMetadataLevel.Chapter"
               FileName="@FileName"
+              HeadingText="@HeadingText"
               AriaLabel="@AriaLabel"
               CssClass="@CssClass"
               TestId="@TestId"
@@ -109,6 +110,11 @@
     /// <see cref="Folder"/>.</summary>
     [Parameter]
     public string? FileName { get; set; }
+
+    /// <summary>The heading's own text, handed to the record as the address a
+    /// devbook pane's sync scope is asked by.</summary>
+    [Parameter]
+    public string? HeadingText { get; set; }
 
     /// <summary>The group's name for a screen reader. Defaulted to the record's own
     /// default rather than to something this component prefers: a chapter in a

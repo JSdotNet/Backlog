@@ -213,6 +213,48 @@ Which mattered because the field set never was folder-shaped: a field nobody wri
         </dl>
     </Story>
 
+    <Story Name="The sync direction, beside the status"
+           Description="Which way changes flow between a chapter and its code, for the sweeps that keep the two aligned: `push`, `pull`, `sync`, `report` or `off` (devbook contract 25). Stated on a folder overview, a `context.md`, a context page or a unit's root chapter, and resolved nearest wins — the unit, its page, its context, its folder, and `report` when nothing states one.
+
+`DevbookSyncSelector` draws the direction in force and where it came from. Editable, its empty entry is the inherit choice and reads as what the block would be left with; picking it sends null, and the host removes the line. Read-only — a folder read from a branch — it is the badge, with the same words. A block the host cannot place shows only the word it states, as a plain badge.
+
+Outlined, like priority: a direction is how the sweeps treat the unit, never a second status. A devbook pane cascades a `DevbookSyncScope`, and every record in the open file asks it for its own block."
+           Code="@SyncCode">
+        <div class="sb-row" data-testid="devbook-state-sync">
+            <div class="sb-stack">
+                <p class="sb-label">A unit inheriting from its context — pick to state its own</p>
+                <DevbookSyncSelector State="@_inheriting" Editable="true" Label="Sync direction for Order" TestId="devbook-state-sync-inheriting" OnChanged="PickSync" />
+                <p class="sb-state" data-testid="devbook-state-sync-picked">@_syncPicked</p>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">A unit stating its own</p>
+                <DevbookSyncSelector State="@StatedPull" Editable="true" Label="Sync direction for Invoice" TestId="devbook-state-sync-stated" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Nothing states one: the default</p>
+                <DevbookSyncSelector State="@DefaultReport" Editable="true" Label="Sync direction for Billing" TestId="devbook-state-sync-default" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Read from a branch</p>
+                <DevbookSyncSelector State="@InheritedPush" TestId="devbook-state-sync-readonly" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">A block nothing places, stating off</p>
+                <DevbookSyncSelector Fallback="off" TestId="devbook-state-sync-fallback" />
+            </div>
+        </div>
+        <div class="sb-stack" data-testid="devbook-state-sync-record">
+            <p class="sb-label">Inside a record, from a cascaded scope</p>
+            <CascadingValue Value="@SyncScope">
+                <MetadataView Metadata="@SyncRecord"
+                              Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Domain)"
+                              Folder="DevbookFolder.Domain"
+                              HeadingText="Order"
+                              TestId="devbook-state-sync-view" />
+            </CascadingValue>
+        </div>
+    </Story>
+
     <Story Name="Adding state support to a component"
            Description="One parameter. Passing a folder down to the badge or the metadata view buys the vocabulary, the tone, the flag on a value in neither, and the status control — the vocabulary offered rather than only checked. The control keeps the reader's choice by itself; a host that wants the change to outlive the page adds `OnStatusChanged`.
 
@@ -232,6 +274,45 @@ Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers f
 </StoryPage>
 
 @code {
+    private static readonly DevbookSyncState InheritedPush =
+        new(DevbookSyncLevel.Unit, null, new DevbookSyncDirection("push", DevbookSyncLevel.Context));
+
+    private static readonly DevbookSyncState StatedPull =
+        new(DevbookSyncLevel.Unit, "pull", new DevbookSyncDirection("pull", DevbookSyncLevel.Unit));
+
+    private static readonly DevbookSyncState DefaultReport =
+        new(DevbookSyncLevel.Page, null, new DevbookSyncDirection("report", null));
+
+    private static readonly MetadataRecord SyncRecord = MetadataReader.Parse("type: aggregate\nstatus: draft");
+
+    private DevbookSyncState _inheriting = InheritedPush;
+
+    private string _syncPicked = "Nothing picked yet.";
+
+    /// <summary>What a host does with a pick: write it, and read the block back.
+    /// Here the read-back is the state held on the page.</summary>
+    private Task PickSync(string? direction)
+    {
+        _inheriting = direction is null
+            ? InheritedPush
+            : new DevbookSyncState(DevbookSyncLevel.Unit, direction, new DevbookSyncDirection(direction, DevbookSyncLevel.Unit));
+        _syncPicked = direction is null ? "Picked: inherit (the line is removed)." : $"Picked: sync: {direction}";
+        return Task.CompletedTask;
+    }
+
+    private DevbookSyncScope SyncScope => new((_, _) => InheritedPush);
+
+    private const string SyncCode = """
+        @* The direction in force, editable: the empty entry inherits. *@
+        <DevbookSyncSelector State="@state" Editable="true"
+                             OnChanged="@(direction => direction is null ? ClearAsync() : WriteAsync(direction))" />
+
+        @* A pane cascades a scope; each record asks it for its own block. *@
+        <CascadingValue Value="@(new DevbookSyncScope(reading.Describe, canEdit ? WriteAsync : null))">
+            <FileView ... />
+        </CascadingValue>
+        """;
+
     private static readonly DesignGuideline[] Rules =
     [
         new("README.md#status-vocabulary", "The folders' vocabularies, and what each word means."),

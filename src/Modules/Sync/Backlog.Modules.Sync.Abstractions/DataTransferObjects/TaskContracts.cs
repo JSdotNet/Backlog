@@ -64,7 +64,12 @@ public sealed record TaskPayload(
     IReadOnlyList<AttachmentMetadata>? Attachments = null,
     // The day work first moved to in progress. Last and defaulted for the same
     // reason: an older document carries none and reads as never stamped.
-    DateOnly? StartedOn = null)
+    DateOnly? StartedOn = null,
+    // The Devbook pages and chapters the task points at, as normalised
+    // `path` or `path#anchor` strings. Last and defaulted for the same reason,
+    // and null rather than empty on a task that points at none, so its document
+    // serialises exactly as it did before; the service never reads one.
+    IReadOnlyList<string>? DevbookReferences = null)
 {
     /// <summary>
     /// Every property the document carried that this build has no member for,

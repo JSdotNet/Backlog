@@ -71,7 +71,40 @@ public sealed record EntryRefPayload(Guid Id, string Title, string Status);
 /// metadata line and all — byte for byte what the pane would save. A session
 /// reading anything less would be editing against a shape it could not write
 /// back.</param>
-public sealed record EntryTextPayload(Guid Id, string Title, string Status, string Markdown);
+/// <param name="DevbookReferences">The Devbook pages and chapters the entry
+/// points at, as stored (<c>path</c> or <c>path#anchor</c>). Beside the text
+/// rather than in it, because they are never part of it: saving the markdown
+/// leaves them alone, and <c>set_devbook_references</c> is how they change.</param>
+public sealed record EntryTextPayload(Guid Id, string Title, string Status, string Markdown, IReadOnlyList<string> DevbookReferences);
+
+/// <summary>
+/// An entry's Devbook references, each resolved against the repository's
+/// devbook as it stands now.
+/// </summary>
+/// <param name="Repository">The <c>owner/name</c> the references were resolved
+/// in.</param>
+/// <param name="References">In the order the entry keeps them.</param>
+public sealed record DevbookReferencesPayload(Guid Id, string Repository, IReadOnlyList<DevbookReferencePayload> References);
+
+/// <summary>One Devbook reference and what it points at.</summary>
+/// <param name="Reference">As the entry stores it.</param>
+/// <param name="Path">The page, repository-relative.</param>
+/// <param name="Anchor">The heading slug, or null for a whole page.</param>
+/// <param name="State"><c>chapter</c> or <c>page</c> when found;
+/// <c>unknown-heading</c>, <c>unknown-page</c> or <c>outside-devbook</c> when
+/// broken; <c>unverified</c> when the devbook could not be read.</param>
+/// <param name="Title">The heading or page title, else the reference.</param>
+/// <param name="Status">The chapter's <c>meta</c> status, or null.</param>
+/// <param name="Folder">The devbook folder (<c>domain</c>, <c>arc42</c>, …), or
+/// null outside every one.</param>
+public sealed record DevbookReferencePayload(
+    string Reference,
+    string Path,
+    string? Anchor,
+    string State,
+    string Title,
+    string? Status,
+    string? Folder);
 
 /// <summary>
 /// What a requested status change did, or did not do.

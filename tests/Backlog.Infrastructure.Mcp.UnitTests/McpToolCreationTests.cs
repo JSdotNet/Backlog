@@ -42,6 +42,7 @@ public class McpToolCreationTests
         WorkTools.GetPlanItems,
         TrackerTools.FindItem,
         TrackerTools.ReadItem,
+        TrackerTools.ListDevbookReferences,
         RoadmapTools.GetRoadmap,
         DevbookTools.ListKnowledgeContexts,
         DevbookTools.ReadKnowledgeChapter,
@@ -131,6 +132,7 @@ public class McpToolCreationTests
                 SurfaceTools.OpenDashboard,
                 SurfaceTools.RecordPrompt,
                 DevbookTools.ResolveAnnotation,
+                TrackerTools.SetDevbookReferences,
                 SurfaceTools.SetRunContext,
                 SurfaceTools.StartRun,
                 TrackerTools.Transition,
@@ -167,6 +169,8 @@ public class McpToolCreationTests
         Assert.Equal(["id", "repository", "externalId"], schemas["link_change"]);
         Assert.Equal(["id", "repository", "sessionId"], schemas["link_session"]);
         Assert.Equal(["rawText", "repository"], schemas["create_item"]);
+        Assert.Equal(["id", "repository", "references"], schemas["set_devbook_references"]);
+        Assert.Equal(["id", "repository"], schemas["list_devbook_references"]);
 
         // find_item requires none of its arguments at the schema level, on
         // purpose: "exactly one of these three" is not something a JSON schema
@@ -208,7 +212,7 @@ public class McpToolCreationTests
         var targets = new Dictionary<Type, object>
         {
             [typeof(WorkTools)] = new WorkTools(new FakeTaskItems(), new FakeRepositoryDirectory()),
-            [typeof(TrackerTools)] = new TrackerTools(new FakeTaskItems(), new FakeRepositoryDirectory()),
+            [typeof(TrackerTools)] = new TrackerTools(new FakeTaskItems(), new FakeRepositoryDirectory(), new FakeDevbookReferenceResolver()),
             [typeof(RoadmapTools)] = new RoadmapTools(
                 new FakeRoadmapPlanning(RoadmapPlanDto.Empty),
                 new FakeRepositoryDirectory()),

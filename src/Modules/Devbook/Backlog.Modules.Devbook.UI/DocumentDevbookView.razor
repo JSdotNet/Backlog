@@ -240,6 +240,7 @@
                         {
                             @RootPicture(_model.Files)
                         }
+                        <CascadingValue Value="@_syncScope" IsFixed="false">
                         <FileView Name="@file.Title"
                                   Path="@file.FileName"
                                   Body="@_chapter.Text"
@@ -259,6 +260,7 @@
                                   Editing="@(_editing && chapter is { CanEdit: true })"
                                   EditingChanged="OnEditingChangedAsync"
                                   EditBodyContent="@ChapterEditor(chapter, file)" />
+                        </CascadingValue>
                     }
                     else
                     {
@@ -330,6 +332,11 @@
     /// read from a repository branch, which draws every status as a badge and
     /// renders chapters read-only.</summary>
     private bool CanEdit => _model?.CanEdit ?? true;
+
+    /// <summary>The open document's sync scope, cascaded to the records the file
+    /// view draws. Only <c>design/</c>'s component-libraries document places any
+    /// block; every other document here answers nothing and draws no control.</summary>
+    private DevbookSyncScope? _syncScope;
     private string? _loadedRepositoryAlias;
     private DevbookChapterContent _chapter = DevbookChapterContent.None;
     private int _chapterRead;
@@ -531,10 +538,15 @@
     {
         var read = ++_chapterRead;
         var chapter = await LoadChapterAsync();
+        var file = SelectedFile;
+        var sync = file is null
+            ? DevbookSyncReading.None
+            : await Provider.ReadSyncAsync(RepositoryAlias, DocumentPath(file));
         if (read != _chapterRead) return;
 
         var previous = _chapter.Chapter?.RelativePath;
         _chapter = chapter;
+        _syncScope = file is null ? null : sync.Scope(DocumentPath(file), CanEdit ? WriteSyncAsync : null);
 
         if (!string.Equals(previous, _chapter.Chapter?.RelativePath, StringComparison.OrdinalIgnoreCase)) _editing = false;
 
@@ -641,6 +653,37 @@
     /// state none — which removes the field instead of writing one. The two are
     /// different operations all the way down to the file, so they are two calls
     /// here rather than one call with a blank.</param>
+    /// <summary>The one place this pane writes a sync direction, reloaded for the
+    /// reason a status write is.</summary>
+    private async Task WriteSyncAsync(string itemPath, string? direction)
+    {
+        _statusError = null;
+        try
+        {
+            await FlushEditorAsync();
+
+            if (direction is null)
+            {
+                await Provider.ClearSyncAsync(RepositoryAlias, itemPath);
+            }
+            else
+            {
+                await Provider.UpdateSyncAsync(RepositoryAlias, itemPath, direction);
+            }
+
+            await ReloadAsync();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _statusError = ex.Message;
+        }
+
+        // The pick arrives through the record's own callback, which re-renders the
+        // record and not this pane — so the rebuilt scope would never be cascaded,
+        // and every other block on the page would keep the direction it had.
+        StateHasChanged();
+    }
+
     private async Task WriteStatusAsync(string itemPath, string? status)
     {
         _statusError = null;

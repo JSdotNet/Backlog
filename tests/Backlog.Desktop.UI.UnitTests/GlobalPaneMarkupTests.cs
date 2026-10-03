@@ -626,7 +626,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("devbook-layout--inbox-before-backlog", home, StringComparison.Ordinal);
 
         var inboxGuardIndex = home.IndexOf("@if (InboxBeforeTasksVisible)", StringComparison.Ordinal);
-        var backlogPaneIndex = home.IndexOf("<TasksPane OnOpenSession=\"OpenSessionAsync\" />", StringComparison.Ordinal);
+        var backlogPaneIndex = home.IndexOf("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" />", StringComparison.Ordinal);
 
         Assert.True(inboxGuardIndex >= 0);
         Assert.True(backlogPaneIndex > inboxGuardIndex);
@@ -882,7 +882,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("<CaptureSourcesPanel OnImported=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
-        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" />", home, StringComparison.Ordinal);
+        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" />", home, StringComparison.Ordinal);
         Assert.Contains("<DevbookPane RepositoryAlias=", home, StringComparison.Ordinal);
 
         // The roadmap and the dashboard are composed on the same terms. Their content

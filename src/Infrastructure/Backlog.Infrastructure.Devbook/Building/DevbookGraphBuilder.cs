@@ -147,6 +147,7 @@ internal static class DevbookGraphBuilder
         if (DevbookBuildLayout.ResolveType(folder, meta) is { } type) node.Kind = Scalar(type);
         if (meta.GetValueOrDefault("version") is { } version) node.Version = Scalar(version);
         if (meta.GetValueOrDefault("issue") is { } issue) node.Issue = Scalar(issue);
+        if (meta.GetValueOrDefault("sync") is { } sync) node.Sync = Scalar(sync);
 
         if (meta.GetValueOrDefault("effort") is string effort
             && effort.Length > 0
@@ -208,6 +209,9 @@ internal sealed class DevbookGraphNode(string id, string type)
     public string? Kind { get; set; }
     public string? Version { get; set; }
     public string? Issue { get; set; }
+
+    /// <summary>The <c>sync</c> direction the block states, as written.</summary>
+    public string? Sync { get; set; }
 
     /// <summary>Reference fields, by field name, in the order they were written.</summary>
     public Dictionary<string, IReadOnlyList<string>> References { get; } = new(StringComparer.Ordinal);

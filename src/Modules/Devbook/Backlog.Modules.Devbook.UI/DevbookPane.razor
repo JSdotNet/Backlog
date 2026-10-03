@@ -247,6 +247,35 @@
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
+    /// <summary>
+    /// A page or chapter somebody outside the pane asked to read — a task's
+    /// Devbook reference, handed on by the shell. Followed once per
+    /// <see cref="DevbookOpenRequest.Sequence"/>, through the same
+    /// <see cref="SelectChapter"/> a reference in a chapter goes through, so it
+    /// lands the way any other reference does and is refused the way one is when
+    /// the menu has no such chapter.
+    /// </summary>
+    [Parameter]
+    public DevbookOpenRequest? OpenReference { get; set; }
+
+    /// <summary>
+    /// Raised with a request's <see cref="DevbookOpenRequest.Sequence"/> once the
+    /// pane has taken it, so whoever holds the request can drop it.
+    /// <para>
+    /// The pane remembers which request it followed only for as long as it is
+    /// mounted. A holder that kept handing the same request on would have it
+    /// followed again by the next pane it mounts — hiding the Devbook pane and
+    /// showing it again jumped back to the task's chapter. A request is a press,
+    /// and a press is followed once; the holder is told when, and forgets it.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<long> OnOpenReferenceFollowed { get; set; }
+
+    /// <summary>The last request followed, so a re-render carrying the same one
+    /// does not pull the reader back to it.</summary>
+    private long? _openedSequence;
+
     protected override void OnInitialized() => DevbookMenu.Changed += OnDevbookChanged;
 
     /// <summary>
@@ -297,7 +326,47 @@
     {
         _visibleAreas = null;
         ForgetUpdateStateOnScopeChange();
+        TakeOpenRequest();
         await RefreshMenuAsync();
+
+        // A request whose repository is the one already loaded triggers no load,
+        // so nothing above followed it. One that arrived with a new repository was
+        // followed by the load it set off, and one still loading elsewhere will be.
+        if (!_menuLoading && _pendingChapter is { } pending)
+        {
+            _pendingChapter = null;
+            SelectChapter(pending);
+        }
+    }
+
+    /// <summary>
+    /// Takes a new <see cref="OpenReference"/> as the reference the pane follows
+    /// next.
+    /// <para>
+    /// Parked as the pending chapter rather than selected here, because this runs
+    /// before the menu is refreshed for the parameters that came with it: the
+    /// request may name a chapter of a repository the pane is only now switching
+    /// to, and the containment check would ask the previous repository's menu. The
+    /// refresh follows a pending chapter when its load lands; the caller follows it
+    /// when no load was needed. The atlas and the search close, for the reason they
+    /// close when a chapter is followed out of them — the reader asked to read it.
+    /// </para>
+    /// </summary>
+    private void TakeOpenRequest()
+    {
+        if (OpenReference is not { } request || request.Sequence == _openedSequence) return;
+
+        _openedSequence = request.Sequence;
+
+        // Said before the reference is even read: one naming no chapter has been
+        // answered too, and is no more worth following a second time.
+        _ = OnOpenReferenceFollowed.InvokeAsync(request.Sequence);
+
+        if (DevbookChapterLink.From(request.Reference) is not { } target) return;
+
+        _atlasOpen = false;
+        _searchOpen = false;
+        _pendingChapter = target;
     }
 
     /// <summary>The answer is forgotten once the render that used it is on

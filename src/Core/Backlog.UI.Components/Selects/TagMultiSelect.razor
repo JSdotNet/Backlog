@@ -42,6 +42,21 @@
     An option with no group is left where it was, an unwrapped child of the listbox,
     so a list nobody grouped renders exactly the markup it rendered before groups
     existed.
+
+    The query is bound with `@bind:get`/`@bind:set` on `oninput`, not a `value`
+    attribute beside an `@oninput` handler. The difference is what the renderer
+    believes the field holds. With `@bind` it records the text the browser reported
+    before it renders again, so a render that lands after the next key compares
+    against what is really in the field; with a bare `value` it compares against
+    what it last drew, and a render slower than the typing wrote that older text
+    back, so characters typed fast enough vanished. A long option list is what
+    makes a render that slow, which is why `MaxOptions` exists beside it.
+
+    `MaxOptions` draws the first so many matches and a line saying how many more
+    there are. That line is a `role="none"` row the keyboard never lands on, and
+    the input's `aria-describedby` points at it, so a screen reader hears that the
+    list is cut short. The cursor cycles through what is drawn, because an index
+    into rows that are not on screen would resolve to nothing.
 *@
 
 <div class="@ClassValue" data-testid="@TestId">
@@ -51,7 +66,7 @@
     }
 
     <div class="tag-select__control">
-        @foreach (var value in VisibleValues)
+        @foreach (var value in ShowSelected ? VisibleValues : Array.Empty<string>())
         {
             <TagChip Text="@LabelFor(value)"
                      Removable="true"
@@ -59,34 +74,37 @@
                      CssClass="tag-select__chip"
                      OnRemove="() => RemoveAsync(value)" />
         }
-        @if (HiddenCount > 0)
+        @if (ShowSelected && HiddenCount > 0)
         {
             <span class="tag-select__overflow">+@HiddenCount</span>
         }
 
-        <input id="@InputId"
+        <input @ref="_input"
+               id="@InputId"
                class="tag-select__input"
                type="text"
                role="combobox"
                autocomplete="off"
-               value="@_query"
+               @bind:get="_query"
+               @bind:set="SetQuery"
+               @bind:event="oninput"
                placeholder="@Placeholder"
                disabled="@Disabled"
                aria-expanded="@(_open ? "true" : "false")"
                aria-controls="@ListId"
                aria-autocomplete="list"
                aria-activedescendant="@ActiveOptionId"
+               aria-describedby="@(_open && HiddenMatchCount > 0 ? MoreId : null)"
                aria-label="@(string.IsNullOrWhiteSpace(Label) ? Placeholder : null)"
-               @oninput="OnQueryInput"
                @onfocus="() => _open = true"
                @onblur="OnBlur"
                @onkeydown="OnKeyDownAsync"
                @attributes="AdditionalAttributes" />
     </div>
 
-    @if (_open && (Matches.Count > 0 || CanCreate))
+    @if (_open && (Shown.Count > 0 || CanCreate))
     {
-        var matches = Matches;
+        var matches = Shown;
         var runs = SelectorOptionRuns.Of(matches);
 
         @* preventDefault on mousedown keeps the focus in the input, so the
@@ -97,9 +115,9 @@
                  role="option"
                  aria-selected="@(index == _activeIndex ? "true" : "false")"
                  @onmousedown:preventDefault="true"
-                 @onclick="() => AddAsync(matches[index].Value)"><span class="tag-select__option-label">@matches[index].Label</span>@if (!string.IsNullOrWhiteSpace(matches[index].Hint))
+                 @onclick="() => AddAsync(matches[index].Value)"><span class="tag-select__option-label" title="@matches[index].Label">@matches[index].Label</span>@if (!string.IsNullOrWhiteSpace(matches[index].Hint))
                  {
-                     <span class="tag-select__hint">@matches[index].Hint</span>
+                     <span class="tag-select__hint" title="@matches[index].Hint">@matches[index].Hint</span>
                  }</li>;
 
         <ul id="@ListId" class="tag-select__list" role="listbox" aria-label="@(Label ?? "Tags")">
@@ -126,12 +144,16 @@
                     </li>
                 }
             }
+            @if (HiddenMatchCount > 0)
+            {
+                <li id="@MoreId" class="tag-select__more" role="none">@MoreLabel</li>
+            }
             @if (CanCreate)
             {
-                <li id="@OptionId(Matches.Count)"
-                    class="@OptionClass(Matches.Count)"
+                <li id="@OptionId(matches.Count)"
+                    class="@OptionClass(matches.Count)"
                     role="option"
-                    aria-selected="@(_activeIndex == Matches.Count ? "true" : "false")"
+                    aria-selected="@(_activeIndex == matches.Count ? "true" : "false")"
                     @onmousedown:preventDefault="true"
                     @onclick="() => AddAsync(_query.Trim())">@CreateLabel</li>
             }
@@ -144,6 +166,12 @@
     private string _query = string.Empty;
     private bool _open;
     private int _activeIndex = -1;
+    private ElementReference _input;
+
+    /// <summary>Puts the caret in the input. For a host that opens the picker on a
+    /// press of its own: the field taking the focus is what opens the list, so the
+    /// next key the reader types is the query.</summary>
+    public ValueTask FocusAsync() => _input.FocusAsync();
 
     [Parameter]
     public IReadOnlyList<SelectorOption> Options { get; set; } = [];
@@ -167,10 +195,35 @@
     [Parameter]
     public bool Disabled { get; set; }
 
+    /// <summary>Whether the control draws the selected values as its own chips.
+    /// False is for a host that already draws the selection itself, in a richer
+    /// shape than a tag's — a Devbook reference with its title, status and a way to
+    /// open it — so the picker is the adding half and nothing else. The selection
+    /// is still what keeps an option from being offered twice, and Backspace no
+    /// longer drops a value, because the value it would drop is not in the
+    /// control for the reader to see go.</summary>
+    [Parameter]
+    public bool ShowSelected { get; set; } = true;
+
     /// <summary>How many chips fit before the rest collapse into a "+n" count.
     /// Zero or less shows them all.</summary>
     [Parameter]
     public int MaxVisible { get; set; }
+
+    /// <summary>How many matching options the open list draws; the rest are counted
+    /// on a line asking for a narrower query. Zero or less draws every match, which
+    /// is the default and right for the short lists most hosts hand in. For a host
+    /// whose list runs into the hundreds, where drawing every row on every
+    /// keystroke is what makes typing lag.</summary>
+    [Parameter]
+    public int MaxOptions { get; set; }
+
+    /// <summary>Whether the query also matches an option's value, not only its
+    /// label. For a host whose values are something a reader types, such as a
+    /// path, rather than an id nobody sees. Off by default: a value that is an id
+    /// would otherwise match on characters the reader never saw.</summary>
+    [Parameter]
+    public bool MatchValue { get; set; }
 
     [Parameter]
     public string? Id { get; set; }
@@ -190,6 +243,8 @@
 
     private string OptionId(int index) => $"{InputId}-option-{index}";
 
+    private string MoreId => InputId + "-more";
+
     private string ClassValue
     {
         get
@@ -207,11 +262,48 @@
 
     private int HiddenCount => MaxVisible > 0 ? Math.Max(0, SelectedValues.Count - MaxVisible) : 0;
 
-    private List<SelectorOption> Matches => Options
-        .Where(option => !SelectedValues.Contains(option.Value, StringComparer.OrdinalIgnoreCase))
-        .Where(option => string.IsNullOrWhiteSpace(_query)
-            || option.Label.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase))
-        .ToList();
+    /// <summary>What the matches were last worked out from, so a render that reads
+    /// them several times filters the options once. Compared by reference: a host
+    /// that hands in a new list or a new selection is asking a new question.</summary>
+    private (IReadOnlyList<SelectorOption> Options, IReadOnlyList<string> Selected, string Query, bool MatchValue)? _matchedFor;
+
+    private List<SelectorOption> _matches = [];
+
+    private List<SelectorOption> Matches
+    {
+        get
+        {
+            if (_matchedFor is { } asked
+                && ReferenceEquals(asked.Options, Options)
+                && ReferenceEquals(asked.Selected, SelectedValues)
+                && string.Equals(asked.Query, _query, StringComparison.Ordinal)
+                && asked.MatchValue == MatchValue)
+            {
+                return _matches;
+            }
+
+            var query = _query.Trim();
+            var selected = new HashSet<string>(SelectedValues, StringComparer.OrdinalIgnoreCase);
+
+            _matches = Options
+                .Where(option => !selected.Contains(option.Value))
+                .Where(option => query.Length == 0
+                    || option.Label.Contains(query, StringComparison.OrdinalIgnoreCase)
+                    || (MatchValue && option.Value.Contains(query, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            _matchedFor = (Options, SelectedValues, _query, MatchValue);
+            return _matches;
+        }
+    }
+
+    /// <summary>The matches the open list draws: all of them, or the first
+    /// <see cref="MaxOptions"/>. Every index the keyboard walks is into this.</summary>
+    private List<SelectorOption> Shown =>
+        MaxOptions > 0 && Matches.Count > MaxOptions ? Matches.GetRange(0, MaxOptions) : Matches;
+
+    private int HiddenMatchCount => MaxOptions > 0 ? Math.Max(0, Matches.Count - MaxOptions) : 0;
+
+    private string MoreLabel => $"{HiddenMatchCount} more — keep typing to narrow the list";
 
     private bool CanCreate =>
         AllowCreate
@@ -219,7 +311,7 @@
         && !SelectedValues.Contains(_query.Trim(), StringComparer.OrdinalIgnoreCase)
         && !Options.Any(option => string.Equals(option.Value, _query.Trim(), StringComparison.OrdinalIgnoreCase));
 
-    private int OptionCount => Matches.Count + (CanCreate ? 1 : 0);
+    private int OptionCount => Shown.Count + (CanCreate ? 1 : 0);
 
     private string CreateLabel => $"Add \"{_query.Trim()}\"";
 
@@ -235,9 +327,9 @@
         Options.FirstOrDefault(option => string.Equals(option.Value, value, StringComparison.OrdinalIgnoreCase))?.Label
         ?? value;
 
-    private void OnQueryInput(ChangeEventArgs e)
+    private void SetQuery(string? value)
     {
-        _query = e.Value?.ToString() ?? string.Empty;
+        _query = value ?? string.Empty;
         _open = true;
         _activeIndex = OptionCount > 0 ? 0 : -1;
     }
@@ -266,7 +358,8 @@
 
             case "Enter":
                 if (!_open || _activeIndex < 0 || _activeIndex >= OptionCount) break;
-                await AddAsync(_activeIndex < Matches.Count ? Matches[_activeIndex].Value : _query.Trim());
+                var shown = Shown;
+                await AddAsync(_activeIndex < shown.Count ? shown[_activeIndex].Value : _query.Trim());
                 break;
 
             case "Escape":
@@ -275,7 +368,7 @@
                 break;
 
             case "Backspace":
-                if (_query.Length > 0 || SelectedValues.Count == 0) break;
+                if (!ShowSelected || _query.Length > 0 || SelectedValues.Count == 0) break;
                 await RemoveAsync(SelectedValues[^1]);
                 break;
         }

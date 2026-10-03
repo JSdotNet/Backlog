@@ -75,8 +75,9 @@ public static class BacklogMcpTools
         [WorkTools.ListEntries, WorkTools.GetPlanItems]);
 
     /// <summary>
-    /// The tracker operations — find, read, transition, comment, link and create
-    /// — behind <c>backlog</c>, the same key <see cref="Work"/> reads.
+    /// The tracker operations — find, read, transition, comment, link, create,
+    /// and set or list an entry's Devbook references — behind <c>backlog</c>, the
+    /// same key <see cref="Work"/> reads.
     /// <para>
     /// <b>The shared key is the decision, not an oversight.</b> Local ADR 0012 §7
     /// requires one <see cref="IAppFeatureSettings"/> check per group, which this
@@ -90,7 +91,7 @@ public static class BacklogMcpTools
     /// <para>
     /// The split into two classes is about description rather than gating.
     /// <see cref="WorkTools"/> answers one question two ways and says so; these
-    /// six do six different things, four of them writes. Folding them together
+    /// do different things, most of them writes. Folding them together
     /// would leave one class whose doc could not honestly describe it, and a
     /// model reads that doc to decide what it is looking at.
     /// </para>
@@ -105,7 +106,9 @@ public static class BacklogMcpTools
             TrackerTools.Comment,
             TrackerTools.LinkChange,
             TrackerTools.LinkSession,
-            TrackerTools.CreateItem
+            TrackerTools.CreateItem,
+            TrackerTools.SetDevbookReferences,
+            TrackerTools.ListDevbookReferences
         ]);
 
     /// <summary>The roadmap tool, behind <c>roadmap</c>.

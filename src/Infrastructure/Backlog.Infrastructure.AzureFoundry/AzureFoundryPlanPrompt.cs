@@ -60,7 +60,7 @@ public static class AzureFoundryPlanPrompt
         - `after:<id>` — one token for each entry this one waits on, naming that entry's `id:`. Omit it on an entry that waits on nothing.
         - `repo:<owner/name>` — only a value copied verbatim from the list under "Repositories:". Never write a repository that is not on that list, and write no `repo:` token at all when the list is empty.
         - `effort:<points>` — the size in story points, one of 1, 2, 3, 5, 8, 13 or 21, on every entry.
-        Do not write an `@area` token or a `due:` date; the person sets those in Backlog.
+        Do not write an `@area` token, a `due:` date or a `devbook:` reference; the person sets those in Backlog.
 
         When several repositories are given, cover every repository the work touches: one entry per repository per step, each with its own `id:` and its own `repo:`.
 
