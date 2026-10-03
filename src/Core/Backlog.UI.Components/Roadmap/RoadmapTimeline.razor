@@ -23,7 +23,7 @@
     save, and what else has to move with them.
 *@
 
-<section class="roadmap-timeline @(OnSlotActivated.HasDelegate ? "roadmap-timeline--insertable" : null) @(PlannedHoursOn is null ? null : "roadmap-timeline--hours") @CssClass"
+<section class="roadmap-timeline @(OnSlotActivated.HasDelegate ? "roadmap-timeline--insertable" : null) @(PlannedHoursOn is null ? null : "roadmap-timeline--hours") @(ActualShown ? "roadmap-timeline--actual" : null) @CssClass"
          style="@Metrics"
          aria-labelledby="@(string.IsNullOrWhiteSpace(LabelledBy) ? _headingId : LabelledBy)"
          data-testid="@TestId">
@@ -2003,19 +2003,29 @@
     /// week clipped to a few days at a month start has no room for its number; the
     /// tooltip still names it. Given a working week, every head keeps a third line for
     /// the hours, empty where there are none, so all heads read along one baseline as
-    /// the caption line does.
+    /// the caption line does. Given actual hours as well, every head keeps a fourth: the
+    /// actual figure stacks over the planned one, because "6.2 / 8.5" is wider than a
+    /// day column at the band's default width and would spill into the heads beside it.
     /// </summary>
     private RenderFragment HeadContent(RoadmapColumn column) => @<text>
         @if (Geometry.WidthFor(column.Start, column.End) >= MinLabelled(column))
         {
             <span class="roadmap-timeline__quarter-label">@HeadLabel(column)</span>
             <span class="roadmap-timeline__quarter-year">@HeadCaption(column)</span>
+            @if (ActualShown)
+            {
+                <span class="roadmap-timeline__quarter-actual">@ActualCaption(column)</span>
+            }
             @if (PlannedHoursOn is not null)
             {
                 <span class="roadmap-timeline__quarter-hours">@HoursCaption(column)</span>
             }
         }
     </text>;
+
+    /// <summary>Whether the axis says actual hours as well as planned ones, and so
+    /// gives every head the extra line they stack on.</summary>
+    private bool ActualShown => PlannedHoursOn is not null && ActualHoursByDate is not null;
 
     /// <summary>
     /// What a column head reads. A day column too narrow for its weekday keeps the
@@ -2065,18 +2075,42 @@
     private const double HeadBorderRem = 0.0625;
 
     /// <summary>
-    /// The hours on the head's third line, for a column too narrow to say them inline:
-    /// "8.5h" under a day and "42.5h" under a week, "6.2 / 8.5h" under a day that has
-    /// begun — and "8.5" or "6.2 / 8.5" where the unit would not fit, since the week's
-    /// head beside it says what the figure counts. Nothing for a month, a quarter, a
-    /// day off nobody worked, or a column that says its hours inline.
+    /// The planned hours on the head's last line, for a column too narrow to say them
+    /// inline: "8.5h" under a day and "42.5h" under a week, or "8.5" where the unit would
+    /// not fit, since the week's head beside it says what the figure counts. Where actual
+    /// hours are shown they sit on the line above (<see cref="ActualCaption"/>), so this
+    /// line keeps the planned figure alone on every head, begun or still to come.
+    /// Nothing for a month, a quarter, a day off, or a column that says its hours inline.
     /// </summary>
     private string? HoursCaption(RoadmapColumn column)
     {
         if (HoursText(column) is not { } withUnit || HoursInline(column)) return null;
+        if (!ActualShown) return Fitted(column, withUnit);
 
-        return FitsCaption(column, withUnit) ? withUnit : withUnit[..^1];
+        return PlannedIn(column) is { } planned && !(column.Scale == RoadmapColumnScale.Day && planned <= 0)
+            ? Fitted(column, Hours(planned))
+            : null;
     }
+
+    /// <summary>
+    /// The actual hours on the line above the planned ones, for a head that has begun
+    /// and cannot say "6.2 / 8.5h" inline: "6.2" over the planned "8.5h". A day off
+    /// somebody worked says its actual hours alone, "2.0h", as its inline form does.
+    /// Nothing for a head still to come, a day off nobody worked, or a column that says
+    /// its hours inline.
+    /// </summary>
+    private string? ActualCaption(RoadmapColumn column)
+    {
+        if (HoursText(column) is null || HoursInline(column) || ActualIn(column) is not { } actual) return null;
+
+        return column.Scale == RoadmapColumnScale.Day && PlannedIn(column) <= 0
+            ? Fitted(column, ActualFigure(actual) + "h")
+            : ActualFigure(actual);
+    }
+
+    /// <summary>A figure with its unit where that fits the column, else without it.</summary>
+    private string Fitted(RoadmapColumn column, string withUnit) =>
+        FitsCaption(column, withUnit) ? withUnit : withUnit[..^1];
 
     /// <summary>
     /// The head's caption line. A day too narrow to name its weekday beside its number

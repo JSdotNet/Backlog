@@ -12340,6 +12340,34 @@ select.field__input {
     white-space: nowrap;
 }
 
+/* Given actual hours too (local ADR 0019, §6), every head carries a fourth line: the
+   actual figure stacked over the planned one — "6.2" over "8.5h" — because "6.2 / 8.5"
+   is wider than a day column at the band's default width. The actual line is in the
+   head's own text colour and the planned line under it stays secondary, so the pair
+   reads as actual over planned. Kept on every head, empty or not, so the heads still
+   share one baseline and a head still to come shows its planned figure on the same
+   line a begun head does. */
+.roadmap-timeline--actual {
+    --roadmap-axis-height: 4.25rem;
+}
+
+/* The one column a head lays its lines in is the head's own width, never the width
+   of its widest line: a line too wide for the column is clipped at the head's edges
+   instead of pushing every line of that head off centre. */
+.roadmap-timeline--actual .roadmap-timeline__quarter {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+}
+
+.roadmap-timeline__quarter-actual {
+    min-height: calc(var(--font-size-xs) * 1.1);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
 .roadmap-timeline__body {
     position: relative;
     /* Banding drawn rather than applied per row: the rows are absolutely

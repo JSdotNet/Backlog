@@ -96,6 +96,10 @@ public sealed class RoadmapWorkingHoursAxisTests
             // The tooltip still says them.
             Assert.EndsWith(" · 8.5h", ColumnOf(view, "Wednesday 23").GetAttribute("title"));
             Assert.Contains("roadmap-timeline--hours", view.Find("section.roadmap-timeline").ClassName);
+
+            // With no actual hours given, the heads keep three lines: nothing stacks.
+            Assert.DoesNotContain("roadmap-timeline--actual", view.Find("section.roadmap-timeline").ClassName);
+            Assert.Empty(view.FindAll(".roadmap-timeline__quarter-actual"));
         });
     }
 
