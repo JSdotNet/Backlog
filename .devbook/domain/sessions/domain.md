@@ -121,6 +121,10 @@ because the thing that replicates is a record, not an authority:
   transport's sake and read back from nowhere — a reading derives it from the two
   timestamps it already holds, so a third field cannot come to disagree with the
   operands it was computed from.
+- **The instants of the [human turns](#human-turn) are proposed to travel too**,
+  beside the runs and waits, by the owner's decision of 2026-10-03 (ADR 0019).
+  Roadmap Planning counts the person's actual hours from them on every paired
+  machine. They are instants like the runs, never the text of a turn.
 - **The list carries this context's identity in full, and local ADR 0005 settled
   it there rather than in the pushing code.** `Session Identity` is `agent` plus
   `session_id`, never `session_id` alone, because two agents may issue the same
@@ -846,3 +850,29 @@ promise is what a source that keeps another environment's records has to keep th
 for — the newest sessions up to the limit, and everything inside the history whether
 or not it is among them — because a fleet count is only as complete as the least
 complete store behind it.
+
+### Human Turn
+
+```meta
+type: term
+status: draft
+aliases: [human turn, HumanTurn]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+```
+
+A turn the person made in a session: starting the session, or a follow-up prompt.
+The person's answer to a question the agent asked is one too. In a Claude
+transcript a start or a prompt is a user turn whose `origin.kind` is `human`, and
+an answer is the tool result of the agent's `AskUserQuestion` call.
+
+A turn that automation sent is not a human turn. Neither is a task notification,
+a subagent's hand-back, a scheduled run or any other tool result. That is what sets it
+apart from a prompt: a prompt ends a wait whoever sent it, and most prompts are
+sent by an SDK or a skill.
+
+Sessions keeps only the instant of each human turn, never its text. A session
+whose transcript does not record who made a turn has no human turns; a Copilot
+session is one. Roadmap Planning draws the person's
+[working stretches](../roadmap/domain.md#working-stretch) from these instants, and
+Productivity's [Hours worked](../productivity/features.md#hours-worked) part
+counts the same stretches.

@@ -127,3 +127,30 @@ The limit-hits tile says what overage did about each refusal: fell back to overa
 wall for the reason the assistant gave ("org spend cap reached"), or nothing said.
 And a Claude session now sits in the band of the registered clone its folder lies in,
 rather than in "No repository recorded" with every other Claude session.
+
+### Hours worked
+
+```meta
+type: sub-feature
+status: draft
+setting: [.devbook/domain/productivity/context.md#working-week]
+related: [.devbook/domain/productivity/requirements.md#hours-worked, .devbook/domain/productivity/domain.md#office-hours, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/productivity/dependencies.md#outbound-dependencies]
+```
+
+Show how long the person actually worked, and how much of it fell outside the
+hours they meant to work. The Hours worked part of the dashboard shows, per day
+and per week over the period the dashboard's selector picks, the person's
+[actual hours](../roadmap/domain.md#actual-hours). It splits them into the time
+**inside** and **outside** their [office hours](domain.md#office-hours), and sets
+both beside the planned hours of the working week.
+
+Actual hours are the union of the person's
+[working stretches](../roadmap/domain.md#working-stretch), as Roadmap Planning
+defines them, so the axis and this part count the same time. Office hours apply
+the [day overrides](../roadmap/domain.md#day-override) the person set on the
+roadmap. A day off they blocked therefore counts all of its work outside, and a
+Saturday they unblocked has office hours from its stored times.
+
+It is presentation only, like the hour grids. No other dashboard figure changes
+and no work is left out. What it promises is in
+[the requirements](requirements.md#hours-worked).

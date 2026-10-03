@@ -539,7 +539,8 @@ The hours the person means to work. It has two parts. The **weekly pattern** is
 seven days that are each worked or not, each with its own start and end. The
 person sets it in [Productivity's setting](../productivity/context.md#working-week).
 The [day overrides](#day-override) change single dates on top of it, and the
-person sets those on the roadmap's axis. Both travel with their pace.
+person sets those on the roadmap, by pressing a day head or in the Days off
+dialog. Both travel with their pace.
 
 Roadmap Planning reads the working week for two things. An effort-sized Planned
 Window counts its hours forward from its start, dates and overrides included. A
@@ -553,7 +554,7 @@ adds no hours (ADR 0019).
 type: term
 status: draft
 aliases: [day override, overrides, blocked day, blocked date, unblocked day, vacation day, holiday]
-related: [.devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/requirements.md#blocking-and-unblocking-a-day, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+related: [.devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/features.md#setting-days-off-in-a-list, .devbook/domain/roadmap/requirements.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/requirements.md#setting-days-off-in-a-list, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
 One calendar date that the person works differently from their weekly pattern. A
@@ -565,27 +566,66 @@ weekday.
 
 An override exists only while it differs from the pattern. A date that matches
 its weekday again has no override. A weekend in the pattern is a day off, not an
-override; the word is kept for the dates that break the pattern (ADR 0019).
+override; the word is kept for the dates that break the pattern (ADR 0019). So a
+range of days off that spans a weekend blocks only its worked dates.
+
+The person sets an override on the roadmap: by pressing a date's head on the
+axis, or in the Days off dialog, which also lists them all. Both write the same
+override.
 
 ### Actual Hours
 
 ```meta
 type: term
 status: draft
-aliases: [actual hours, actual, agent-active hours]
-related: [.devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/domain/roadmap/dependencies.md, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+aliases: [actual hours, actual]
+related: [.devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/domain/roadmap/dependencies.md, .devbook/domain/productivity/features.md#hours-worked, .devbook/domain/productivity/domain.md#office-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
-How long agents were active on one local date. Each agent session reports the
-stretches in which it was producing. Actual hours are the union of those
-stretches over every session, so two sessions running at once count that time
-once. A stretch that crosses midnight counts toward each date for its own part.
+How long the person worked on one local date. Actual hours are the union of the
+person's [working stretches](#working-stretch) over every session on every paired
+machine, so stretches that overlap count once. A stretch that crosses midnight
+counts toward each date for its own part. Today counts up to now, and so does a
+stretch that is still open.
 
-The axis shows actual hours beside the planned hours of the
-[working week](#working-week), so the person can compare the two. They are
-presentation only: they move no bar and change no pace. They come from
+Only time the person was there counts. Agent and subagent time with no
+[human turn](../sessions/domain.md#human-turn) in it adds nothing, such as
+subagents working overnight, scheduled sweeps and automated sessions. A session
+whose transcript does not record who made a turn adds nothing either; a Copilot
+session is one. The owner decided this on 2026-10-03, after agent-active time had
+counted 13.1 hours on one day, most of them overnight subagents.
+
+A head on the axis that has begun shows its actual hours, and a head still to
+come shows the planned hours of the [working week](#working-week); a head never
+shows both. The dashboard's
+[Hours worked](../productivity/features.md#hours-worked) part splits the same
+actual hours by [office hours](../productivity/domain.md#office-hours). Actual
+hours are presentation only: they move no bar and change no pace. They come from
 [Sessions](dependencies.md), never from tasks, because a task records only the
 dates it started and finished.
+
+### Working Stretch
+
+```meta
+type: term
+status: draft
+aliases: [working stretch, stretch of work]
+related: [.devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/sessions/domain.md#human-turn, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+```
+
+A span of time in one session during which the person was working. Each of its
+[human turns](../sessions/domain.md#human-turn) comes less than 30 minutes after
+the one before. A turn 30 minutes or more after the one before it starts a new
+stretch, and the gap between the two belongs to neither.
+
+The stretch starts at its first turn. It ends when the agent finishes answering
+its last turn, which is the end of the run that turn started. When no run follows
+the turn, or the run ended before it, the stretch ends at the turn itself. A stretch is open while the
+agent is still answering its last turn.
+
+Roadmap Planning draws the stretches from each session's human turns and runs,
+which Sessions reads. It is not the stretch of weeks a measured pace counts over
+([context](context.md)).
 
 ### Contradiction
 

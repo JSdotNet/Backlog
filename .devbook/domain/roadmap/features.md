@@ -130,8 +130,8 @@ same newer-wins rule
 ([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). Its
 [day overrides](domain.md#day-override) travel inside it. Every device then
 counts a bar over the same hours and draws it the same length. The person has one
-working week. The dashboard's hour grids read its weekly pattern and leave the
-overrides to the roadmap
+working week. The dashboard's hour grids read its weekly pattern only, and the
+dashboard's Hours worked part reads the overrides too
 ([Working week](../productivity/context.md#working-week)). A pace saved before
 this change carries no working week. It reads the device's own until the next
 change to the pace or the week writes one. What travels, and how, is in
@@ -339,13 +339,25 @@ short plan never leaves the right of it empty, and the chart opens on last week.
 
 The day and week columns also show the person's
 [working week](domain.md#working-week), with the dates they blocked or unblocked.
-Each day head carries that day's working hours, and each week head the week's. A
-wide column reads them inline, such as "Wed 23 · 8.5h" and "W41 · 42.5h". A
-narrow one shows them on a line under the label. A day that has begun also shows
-the [actual hours](domain.md#actual-hours) agents were active, so the plan can be
-read against what happened. Every column keeps its width, because the axis is
-still time. Narrowing the days off was rejected: a drag of the same distance
-would then move a bar by a different number of days
+The axis keeps the look it had before. A date the person does not work, blocked
+or a weekend in the pattern, wears the weekend's colours and hatching. A date
+they do work looks like any ordinary day. A small marker on the head is the only
+sign that a date differs from its pattern.
+
+Each head carries one hours figure. A head still to come shows its planned
+working hours. A head that has begun, today and the current week included, shows
+the [actual hours](domain.md#actual-hours) the person worked so far instead, such
+as "6.2h", or "0h" for a worked day with no work recorded. A head never shows
+both, because two figures side by side were hard to read. The tooltip can name
+both, such as "6.2h worked of 8.5h planned". A wide column reads the figure
+inline, such as "Wed 23 · 8.5h" and "W41 · 42.5h". A narrow one shows it on a
+line under the label. The Hours switch on the toolbar hides the line. It is on
+by default and stays with the device, because how the axis is read is not part
+of the plan.
+
+Every column keeps its width, because the axis is still time. Narrowing the days
+off was rejected: a drag of the same distance would then move a bar by a
+different number of days
 ([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)). What the
 heads promise is in
 [the requirements](requirements.md#reading-the-near-term-closely).
@@ -364,11 +376,41 @@ a bar counted over that Friday would land a day early.
 
 Each press records a [day override](domain.md#day-override). Pressing the day
 again returns it to the weekly pattern. A date in the past can be changed too,
-because the measured paces count the hours that were actually there. The weekly
+because the measured paces count the hours that were actually there. The head is
+a real button for the pointer, the keyboard and a screen reader, but it does not
+look like one: the axis reads as it did before. The weekly
 pattern itself stays in
 [Productivity's setting](../productivity/context.md#working-week). What a press
 promises is in
 [the requirements](requirements.md#blocking-and-unblocking-a-day).
+
+### Setting days off in a list
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/features.md#blocking-and-unblocking-a-day, .devbook/domain/roadmap/requirements.md#setting-days-off-in-a-list, .devbook/domain/productivity/context.md#working-week, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+```
+
+See every day off and every extra worked day in one list, and set a holiday of
+two weeks in one go. The **Days off** button on the roadmap toolbar opens a
+dialog for it. Only a day column has a head to press, so the dialog is also how
+a person blocks a date that the axis shows inside a week column.
+
+The dialog lists each [day override](domain.md#day-override) with its date, its
+weekday and whether it is blocked or unblocked. It lists the dates still to come
+first, and keeps the past ones behind "Show past". The person can add a range of days
+off from one date to another. The range blocks only the dates the weekly pattern
+works, because a weekend inside a holiday is already a day off and needs no
+override. The person can also add a single worked date, which unblocks a day the
+pattern leaves off, and can remove any entry.
+
+The dialog writes the same overrides a press on a head writes. They travel the
+same way, inside the working week, and every bar is laid out again as soon as a
+change is made. The weekly pattern itself stays in
+[Productivity's setting](../productivity/context.md#working-week). What the
+dialog promises is in
+[the requirements](requirements.md#setting-days-off-in-a-list).
 
 ### Looking back at finished plans
 
