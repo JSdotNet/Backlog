@@ -507,7 +507,7 @@
         if (_selectedWorkspace is not null && !_c4.Workspaces.Contains(_selectedWorkspace)) _selectedWorkspace = null;
         _selected = selectedPath is null
             ? _catalog.Documents.FirstOrDefault(document => document.DiagramCount > 0) ?? _catalog.Documents.FirstOrDefault()
-            : _catalog.Documents.FirstOrDefault(document => PathMatches(document.Path, selectedPath))
+            : _catalog.Documents.FirstOrDefault(document => DevbookPath.Matches(document.Path,selectedPath))
                 ?? _catalog.Documents.FirstOrDefault(document => document.DiagramCount > 0)
                 ?? _catalog.Documents.FirstOrDefault();
         SelectRequestedDocument();
@@ -518,7 +518,7 @@
     {
         if (_catalog is null || string.IsNullOrWhiteSpace(SelectedPath)) return;
 
-        _selected = _catalog.Documents.FirstOrDefault(document => PathMatches(document.Path, SelectedPath)) ?? _selected;
+        _selected = _catalog.Documents.FirstOrDefault(document => DevbookPath.Matches(document.Path,SelectedPath)) ?? _selected;
     }
 
     /// <summary>
@@ -611,16 +611,6 @@
     private Task FlushEditorAsync() =>
         _editor is not null && _chapter.Chapter is not null ? _editor.FlushAsync() : Task.CompletedTask;
 
-    private static bool PathMatches(string candidate, string selectedPath)
-    {
-        var candidatePath = NormalizePath(candidate);
-        var selected = NormalizePath(selectedPath);
-        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
-            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
-
     /// <summary>The chapter as a buffer, and nothing else: no title, because the
     /// file view's header above it names the chapter, and Bare because that header
     /// now carries the way in and out of editing too. Only on screen while the
@@ -663,7 +653,7 @@
     /// catalog spelled its paths folder-relative. It does not, so the base came out
     /// as <c>.arc42/.arc42/adr/0001-….md</c> and a sibling link inside a chapter
     /// resolved a folder deeper than anything on disk. Selection survived it
-    /// because <c>PathMatches</c> matches on a suffix and a doubled prefix still
+    /// because <c>DevbookPath.Matches</c> matches on a suffix and a doubled prefix still
     /// ends the right way; link resolution walks the base segment by segment and
     /// had no such tolerance. Naming the folder here at all was the mistake — it is
     /// also why a folder pointed somewhere other than <c>.arc42</c> got a base

@@ -1,12 +1,10 @@
 using Backlog.Desktop.Composition;
 using Backlog.Desktop.Mcp;
 using Backlog.Desktop.Services;
-using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Aspire.ServiceDefaults;
 using Backlog.SharedKernel;
 using Backlog.Modules.DevPc.Abstractions;
-using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
@@ -19,7 +17,6 @@ using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Sessions;
-using Backlog.UI.Components.Diagrams;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -100,8 +97,7 @@ public static class MauiProgram
             FeatureSettings = _ => new AppFeatureSettingsStore(AppFeatures.All),
             WorkingHoursSettings = _ => new WorkingHoursSettingsStore(),
             UsageResetSettings = _ => new UsageResetSettingsStore(),
-            // It carries the working week too, kept equal to the device's working-hours.json.
-            PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(sp.GetRequiredService<WorkingHoursSettingsStore>()),
+            PlanningVelocitySettings = _ => new PlanningVelocitySettingsStore(),
             ShellNavigation = _ => new ShellNavigationStore(),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(),
             CaptureRunLog = _ => new CaptureRunLogStore(),
@@ -132,79 +128,10 @@ public static class MauiProgram
             WindowStateLifetime = ServiceLifetime.Singleton
         });
 
-        // Devbook read from a repository branch, for a repository nobody has
-        // cloned. The network half — one listing per commit, one blob per file
-        // somebody opens — lives in the GitHub adapter and the disk half here;
-        // the cache root arrives as a delegate rather than as the workspace
-        // store, because the GitHub adapter may not see this one.
-        builder.Services.AddSingleton<IDevbookSnapshotCache>(sp => new DevbookSnapshotCache(
-            () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
-            sp.GetRequiredService<IGitHubTreeClient>(),
-            sp.GetRequiredService<IGitHubBranchCatalog>()));
-
-        // The devbook database: built by the app into the same cache folder as
-        // the snapshots, one per repository path, in the background when a
-        // repository is first read (local ADR 0015). Resolving it is what points
-        // every database reader at that folder - see below.
-        builder.Services.AddSingleton(sp => DevbookDatabaseRefresher.StartForApp(
-            () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
-            sp.GetService<ILogger<DevbookDatabaseRefresher>>()));
-
-        builder.Services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(
-            sp.GetRequiredService<GitHubSettingsStore>(),
-            sp.GetRequiredService<WorkspaceSettingsStore>(),
-            sp.GetRequiredService<IDevbookSnapshotCache>()));
-        builder.Services.AddSingleton<DesignDevbookProvider>();
-        builder.Services.AddSingleton<AiDevbookProvider>();
-        builder.Services.AddSingleton<TechnologyDevbookService>();
-        builder.Services.AddSingleton<DevbookAtlasService>();
-        // Retrieval, both tiers. Adapters over the generated database rather than
-        // over the Markdown: search is the one capability ADR 0004's ladder does
-        // not let degrade to a corpus scan, so where there is no database these
-        // report that in words instead of answering slowly or answering nothing.
-        builder.Services.AddSingleton<IDevbookSearch>(sp =>
-            new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
-        builder.Services.AddSingleton<IDevbookVectorSearch>(sp =>
-            new DevbookSemanticSearch(sp.GetRequiredService<IDevbookFolderSource>(), DevbookEmbeddingModel.Default));
-        // What a task's Devbook references point at, for the Tasks detail panel and
-        // the MCP reference tools: Tasks' port, answered over the same database and
-        // folders, falling back to the Markdown where there is no database.
-        builder.Services.AddSingleton<IDevbookReferenceResolver>(sp =>
-            new DevbookReferenceResolver(sp.GetRequiredService<IDevbookFolderSource>()));
-        builder.Services.AddSingleton<InstructionSourceDiscovery>();
-        builder.Services.AddSingleton<DevbookMenu>();
-        builder.Services.AddSingleton<DevbookCopilotCli>();
-        // The shared diagram component asks for this optionally, so registering it
-        // is what switches Archify artifacts on for the app at all. Everything it
-        // answers — the flag, which clone the chapters came from, whether a CLI is
-        // installed — is the host's to know, which is why the library only asks.
-        builder.Services.AddSingleton<IDiagramArtifactSource, ArchifyDiagramArtifacts>();
-        builder.Services.AddSingleton<DevbookScope>();
-        builder.Services.AddSingleton<DevbookUpdateService>();
-
-        // Shared by the Devbook pane and the settings screen, and a singleton so
-        // the branch list somebody fetched in one is already there in the other.
-        builder.Services.AddSingleton<DevbookSourceSelection>();
-        builder.Services.AddSingleton<DevbookFolderOpenService>();
-        builder.Services.AddSingleton<Arc42DevbookStore>();
-        // The C4 model beside the architecture chapters. Registered next to the
-        // arc42 store because it answers the same scope question against the same
-        // clone; it reads its own feature key and hands back nothing when that key
-        // is off, so registering it does not turn it on.
-        builder.Services.AddSingleton<C4DevbookStore>();
-        builder.Services.AddSingleton<DevbookChapterWriter>();
-        builder.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
-        // A person's remarks on Devbook chapters: one JSON file per repository
-        // under the storage folder, following the root the way the inbox store
-        // does so a moved backlog takes its remarks along. The panels resolve this
-        // by interface and fall back to a session-scoped store when it is absent,
-        // which is why leaving this line out would not fail — it would only forget.
-        // The folder source is what lets it name a chapter the way every other
-        // device names it, whichever folder this machine has an area pointed at.
-        builder.Services.AddSingleton<IDevbookAnnotationStore>(sp =>
-            new DevbookAnnotationStore(
-                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
-                folders: sp.GetRequiredService<IDevbookFolderSource>()));
+        // The Devbook - its adapters and AddDevbookModule - is in the composition
+        // above since issue #738: one window, so its domain store is a singleton
+        // like the rest of the window's state, and its Copilot offers start the CLI
+        // through the launcher handed in there.
 
         // The loopback MCP listener local ADR 0012 decided. TryAdd rather than
         // Add, the way AddTaskSyncClient registers its own worker: this head

@@ -3,7 +3,6 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.Composition;
-using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.AppUpdate;
 using Backlog.Desktop.UI.Shell;
 using Backlog.SharedKernel;
@@ -16,7 +15,6 @@ using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Sessions;
-using Backlog.UI.Components.Diagrams;
 using Backlog.Desktop.UI.Extensions;
 using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.WebHarness;
@@ -90,11 +88,7 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     FeatureSettings = _ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath),
     WorkingHoursSettings = _ => CreateLocalDevelopmentWorkingHoursSettingsStore(builder.Environment.ContentRootPath),
     UsageResetSettings = _ => new UsageResetSettingsStore(Path.Combine(localDevelopment, "usage-reset.settings.json")),
-    // It carries the working week too, kept equal to the store above.
-    PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(
-        Path.Combine(localDevelopment, "planning-velocity.settings.json"),
-        time: null,
-        sp.GetRequiredService<WorkingHoursSettingsStore>()),
+    PlanningVelocitySettings = _ => new PlanningVelocitySettingsStore(Path.Combine(localDevelopment, "planning-velocity.settings.json")),
     ShellNavigation = _ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath),
     CaptureSourceSettings = _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath),
     CaptureRunLog = _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath),
@@ -134,77 +128,11 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     WindowStateLifetime = ServiceLifetime.Scoped
 });
 
-// Devbook read from a repository branch, for a repository nobody has cloned. The
-// network half lives in the GitHub adapter and the disk half in the file system
-// one; the cache root arrives as a delegate rather than as the workspace store,
-// because the GitHub adapter may not see that one.
-builder.Services.AddSingleton<IDevbookSnapshotCache>(sp => new DevbookSnapshotCache(
-    () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
-    sp.GetRequiredService<IGitHubTreeClient>(),
-    sp.GetRequiredService<IGitHubBranchCatalog>()));
-
-// The devbook database: built by the app into the same cache folder as the
-// snapshots, one per repository path, in the background when a repository is
-// first read (local ADR 0015). Registered and resolved as in MauiProgram.
-builder.Services.AddSingleton(sp => DevbookDatabaseRefresher.StartForApp(
-    () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
-    sp.GetService<ILogger<DevbookDatabaseRefresher>>()));
-
-builder.Services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(
-    sp.GetRequiredService<GitHubSettingsStore>(),
-    sp.GetRequiredService<WorkspaceSettingsStore>(),
-    sp.GetRequiredService<IDevbookSnapshotCache>()));
-builder.Services.AddSingleton<DesignDevbookProvider>();
-builder.Services.AddSingleton<AiDevbookProvider>();
-builder.Services.AddSingleton<TechnologyDevbookService>();
-builder.Services.AddSingleton<DevbookAtlasService>();
-// Retrieval, both tiers. Adapters over the generated database rather than over
-// the Markdown: search is the one capability ADR 0004's ladder does not let
-// degrade to a corpus scan, so where there is no database these report that in
-// words instead of answering slowly or answering nothing.
-builder.Services.AddSingleton<IDevbookSearch>(sp =>
-    new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
-builder.Services.AddSingleton<IDevbookVectorSearch>(sp =>
-    new DevbookSemanticSearch(sp.GetRequiredService<IDevbookFolderSource>(), DevbookEmbeddingModel.Default));
-// What a task's Devbook references point at, for the Tasks detail panel and
-// the MCP reference tools: Tasks' port, answered over the same database and
-// folders, falling back to the Markdown where there is no database.
-builder.Services.AddSingleton<IDevbookReferenceResolver>(sp =>
-    new DevbookReferenceResolver(sp.GetRequiredService<IDevbookFolderSource>()));
-builder.Services.AddSingleton<InstructionSourceDiscovery>();
-builder.Services.AddSingleton<DevbookMenu>();
-builder.Services.AddSingleton<Arc42DevbookStore>();
-// The C4 model beside the architecture chapters. Registered next to the
-// arc42 store because it answers the same scope question against the same
-// clone; it reads its own feature key and hands back nothing when that key
-// is off, so registering it does not turn it on.
-builder.Services.AddSingleton<C4DevbookStore>();
-builder.Services.AddSingleton<DevbookChapterWriter>();
-// A person's remarks on Devbook chapters, under the storage folder with the rest
-// of the person's data and following the root the way the inbox store does.
-// Composed the same way in src/App/Backlog.Desktop/MauiProgram.cs.
-builder.Services.AddSingleton<IDevbookAnnotationStore>(sp =>
-    new DevbookAnnotationStore(
-        () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
-        folders: sp.GetRequiredService<IDevbookFolderSource>()));
-builder.Services.AddSingleton<DevbookFolderOpenService>();
-builder.Services.AddSingleton(_ => new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
-// The shared diagram component asks for this optionally, so registering it is
-// what switches Archify artifacts on for the harness at all. It takes the same
-// unavailable launcher as its neighbour: this host cannot start a CLI, and
-// pressing the offer says so rather than doing nothing.
-builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramArtifacts(
-    sp.GetRequiredService<IAppFeatureSettings>(),
-    sp.GetRequiredService<IDevbookFolderSource>(),
-    sp.GetRequiredService<GitHubSettingsStore>(),
-    new UnavailableCopilotCliLauncher()));
-builder.Services.AddSingleton<DevbookScope>();
-builder.Services.AddSingleton<DevbookUpdateService>();
-
-// Shared by the Devbook pane and the settings screen, and a singleton so the
-// branch list somebody fetched in one is already there in the other.
-builder.Services.AddSingleton<DevbookSourceSelection>();
-builder.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
+// The Devbook - its adapters and AddDevbookModule - is in the composition above
+// since issue #738. The two things this harness did differently arrive through
+// its options there: the domain store is scoped with the rest of a circuit's
+// state, and the Copilot offers and Archify artifacts take the unavailable
+// launcher, so pressing one says this host cannot start a CLI.
 
 // The same MCP server the desktop head serves, on the Kestrel pipeline this
 // harness already has rather than a second listener of its own — which is what

@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.Devbook;
+using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.Inbox;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
@@ -6,6 +6,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
+using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Inbox;
@@ -18,6 +19,7 @@ using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
@@ -30,6 +32,7 @@ using Backlog.Modules.Tasks.Extensions;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Desktop.Composition;
 
@@ -46,11 +49,13 @@ namespace Backlog.Desktop.Composition;
 /// head's registrations in front of provider validation at all.
 /// </para>
 /// <para>
-/// The Devbook block — the snapshot cache, the database refresher, the folder
-/// source and the Devbook stores and screens — is not here yet. Issue #738 gives it
-/// an extension of its own; until then each head registers it beside this call. The
-/// Devbook's Ask AI source is here, in its place among the others, because the
-/// order the areas are offered in is the order they are registered.
+/// The Devbook is here too since issue #738: the adapters behind its ports — the
+/// snapshot cache, the database refresher, the folder source, both retrieval tiers
+/// and the annotation store — and then <c>AddDevbookModule</c> for the module's own
+/// stores and screens, with the Copilot launcher and the window's lifetime the heads
+/// already hand in. The Devbook's Ask AI source stays in its place among the
+/// others, because the order the areas are offered in is the order they are
+/// registered.
 /// </para>
 /// <para>
 /// Nothing in here asks which head it is running in. Whatever differs arrives
@@ -212,9 +217,14 @@ public static class DesktopCompositionRegistration
         services.Add(new ServiceDescriptor(typeof(FeedbackReportChannel), typeof(FeedbackReportChannel), options.WindowStateLifetime));
         services.AddCopilot(options.CopilotCliLauncher);
         services.AddSingleton<TasksCopilotCli>();
+        // The Devbook: its adapters, then the module over them. The launcher is the
+        // one AddCopilot registers above, handed in rather than resolved so the
+        // module says which port it starts through; the domain store lives as long
+        // as one window's state does.
+        AddDevbookAdapters(services);
+        services.AddDevbookModule(options.CopilotCliLauncher, options.WindowStateLifetime);
         // The open-chapter mirror the Devbook pane writes and the Ask AI source that
-        // pins from it, over the search and folder ports the head's Devbook block
-        // registers.
+        // pins from it, over the search and folder ports registered just above.
         services.AddDevbookAiContentSource();
 
         // One window's state, and what reads it. The panes' state captures the
@@ -277,4 +287,62 @@ public static class DesktopCompositionRegistration
     /// they cannot disagree about which service a head is talking to.</summary>
     private static Uri SyncServiceAddress(IServiceProvider services) =>
         services.GetRequiredService<SyncServiceEndpoint>().Resolve().Address;
+
+    /// <summary>
+    /// The adapters behind the Devbook module's ports, which both heads composed
+    /// alike when each registered its own Devbook block. The module's own services
+    /// are <c>AddDevbookModule</c>'s; these are the composition's because they are
+    /// file-system, GitHub and database adapters the Devbook UI project cannot see.
+    /// </summary>
+    private static void AddDevbookAdapters(IServiceCollection services)
+    {
+        // Devbook read from a repository branch, for a repository nobody has
+        // cloned. The network half — one listing per commit, one blob per file
+        // somebody opens — lives in the GitHub adapter and the disk half in the
+        // file-system one; the cache root arrives as a delegate rather than as the
+        // workspace store, because the GitHub adapter may not see that one.
+        services.AddSingleton<IDevbookSnapshotCache>(sp => new DevbookSnapshotCache(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
+            sp.GetRequiredService<IGitHubTreeClient>(),
+            sp.GetRequiredService<IGitHubBranchCatalog>()));
+
+        // The devbook database: built by the app into the same cache folder as the
+        // snapshots, one per repository path, in the background when a repository
+        // is first read (local ADR 0015). Each head resolves it after Build(), which
+        // is what points every database reader at that folder.
+        services.AddSingleton(sp => DevbookDatabaseRefresher.StartForApp(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
+            sp.GetService<ILogger<DevbookDatabaseRefresher>>()));
+
+        services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(
+            sp.GetRequiredService<GitHubSettingsStore>(),
+            sp.GetRequiredService<WorkspaceSettingsStore>(),
+            sp.GetRequiredService<IDevbookSnapshotCache>()));
+
+        // Retrieval, both tiers. Adapters over the generated database rather than
+        // over the Markdown: search is the one capability ADR 0004's ladder does
+        // not let degrade to a corpus scan, so where there is no database these
+        // report that in words instead of answering slowly or answering nothing.
+        services.AddSingleton<IDevbookSearch>(sp =>
+            new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
+        services.AddSingleton<IDevbookVectorSearch>(sp =>
+            new DevbookSemanticSearch(sp.GetRequiredService<IDevbookFolderSource>(), DevbookEmbeddingModel.Default));
+        // What a task's Devbook references point at, for the Tasks detail panel and
+        // the MCP reference tools: Tasks' port, answered over the same database and
+        // folders, falling back to the Markdown where there is no database.
+        services.AddSingleton<IDevbookReferenceResolver>(sp =>
+            new DevbookReferenceResolver(sp.GetRequiredService<IDevbookFolderSource>()));
+
+        // A person's remarks on Devbook chapters: one JSON file per repository
+        // under the storage folder, following the root the way the inbox store
+        // does so a moved backlog takes its remarks along. The panels resolve this
+        // by interface and fall back to a session-scoped store when it is absent,
+        // which is why leaving this line out would not fail — it would only forget.
+        // The folder source is what lets it name a chapter the way every other
+        // device names it, whichever folder this machine has an area pointed at.
+        services.AddSingleton<IDevbookAnnotationStore>(sp =>
+            new DevbookAnnotationStore(
+                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+                folders: sp.GetRequiredService<IDevbookFolderSource>()));
+    }
 }

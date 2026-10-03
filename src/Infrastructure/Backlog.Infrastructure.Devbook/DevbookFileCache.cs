@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
 /// A parse remembered for as long as the file it came from stays the same.
@@ -25,8 +25,13 @@ namespace Backlog.Desktop.UI.Devbook;
 /// files under the same names, and a stamp is about a name. Values must be
 /// immutable: the same instance is handed to every caller until the file moves.
 /// </para>
+/// <para>
+/// Public, and here beside <see cref="DevbookIndexDocument"/> rather than in the
+/// Devbook UI project, because both sides use it: the index reader remembers its
+/// outline in one, and the area stores in the UI project their parsed chapters.
+/// </para>
 /// </summary>
-internal sealed class DevbookFileCache<T> where T : class
+public sealed class DevbookFileCache<T> where T : class
 {
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
 

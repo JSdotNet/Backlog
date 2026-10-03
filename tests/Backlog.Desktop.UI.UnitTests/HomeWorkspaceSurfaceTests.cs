@@ -6,6 +6,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
+using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;

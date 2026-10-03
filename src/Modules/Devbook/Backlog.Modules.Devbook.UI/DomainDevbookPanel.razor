@@ -327,7 +327,7 @@
         get
         {
             if (string.IsNullOrWhiteSpace(SelectedPath) || _view is null) return null;
-            if (PathMatches(_view.ContextMap.Path, SelectedPath)) return _view.ContextMap;
+            if (DevbookPath.Matches(_view.ContextMap.Path, SelectedPath)) return _view.ContextMap;
 
             // A folder's path names no document, and saying so here rather than
             // by searching is what keeps a context selection from reading every
@@ -336,7 +336,7 @@
 
             return CandidateContexts(_view, SelectedPath)
                 .SelectMany(context => context.Documents)
-                .FirstOrDefault(document => PathMatches(document.Path, SelectedPath));
+                .FirstOrDefault(document => DevbookPath.Matches(document.Path, SelectedPath));
         }
     }
 
@@ -359,7 +359,7 @@
 
     private static bool OwnsPath(string slug, string selectedPath) =>
         !string.IsNullOrWhiteSpace(slug)
-        && $"/{NormalizePath(selectedPath)}/".Contains($"/{slug}/", StringComparison.OrdinalIgnoreCase);
+        && $"/{DevbookPath.Normalize(selectedPath)}/".Contains($"/{slug}/", StringComparison.OrdinalIgnoreCase);
 
     protected override void OnInitialized()
     {
@@ -1051,7 +1051,7 @@
         // reads none of them — the same order SelectedDocument asks in.
         if (!string.IsNullOrWhiteSpace(SelectedPath)
             && NamesADocument(SelectedPath)
-            && !PathMatches(_view.ContextMap.Path, SelectedPath))
+            && !DevbookPath.Matches(_view.ContextMap.Path, SelectedPath))
         {
             contexts.AddRange(CandidateContexts(_view, SelectedPath));
         }
@@ -1073,7 +1073,7 @@
     /// the folder is a Markdown file, so a path without the extension is a
     /// folder's, and no document has to be read to know it matches none.</summary>
     private static bool NamesADocument(string selectedPath) =>
-        NormalizePath(selectedPath).EndsWith(".md", StringComparison.OrdinalIgnoreCase);
+        DevbookPath.Normalize(selectedPath).EndsWith(".md", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsRead(DomainDevbookContext context) =>
         context.Documents is not LazyDevbookList<DomainDevbookDocument> { IsMaterialized: false };
@@ -1102,15 +1102,6 @@
 
     private bool _reading;
 
-    private static bool PathMatches(string candidate, string selectedPath)
-    {
-        var candidatePath = NormalizePath(candidate);
-        var selected = NormalizePath(selectedPath);
-        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
-            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
     /// <summary>The class and the aria-pressed value used to be derived
     /// separately from this same comparison, which is two chances to disagree.
     /// ToggleButton derives both from the one answer.</summary>
