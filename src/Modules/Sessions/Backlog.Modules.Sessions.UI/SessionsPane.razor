@@ -402,12 +402,14 @@
                         }
                     </td>
 
-                    @* The mark carries no title, because the word is right beside it
-                       and the library's rule is that a labelled mark next to its own
-                       label is announced twice. *@
-                    <td class="sessions-table__kind">
+                    @* The mark alone on screen: the column holds two agents, and the
+                       marks tell them apart at a glance. The word stays for a screen
+                       reader and in the cell's title, so the mark is never the only
+                       carrier — and carries no title of its own, or it would be
+                       announced twice. *@
+                    <td class="sessions-table__kind" title="@AgentSessionGroups.Label(row.Kind)">
                         <ProviderMark Provider="@Provider(row.Kind)" CssClass="sessions-table__mark" />
-                        <span>@AgentSessionGroups.Label(row.Kind)</span>
+                        <span class="sr-only">@AgentSessionGroups.Label(row.Kind)</span>
                         @* Where the agent was run from, as a quiet outlined badge after
                            the word: a detail of the type, not a type of its own. *@
                         @if (EntrypointLabel(row.Session?.Entrypoint) is { } entrypoint)
@@ -432,11 +434,13 @@
                        backlog" from "this folder is under the clone registered as
                        backlog" by the hint, and the title says which in words. The
                        em dash stays for a session with neither. *@
+                    @* The branch under its repository, as the folder sits under the
+                       name: a branch is only ever read as one of that repository's. *@
                     <td class="data-table__mono">
                         <span class="@RepositoryClass(row)" title="@RepositoryTitle(row)">@Or(row.Repository)</span>
-                    </td>
-                    <td class="data-table__mono">
-                        <span class="data-table__clamp sessions-table__branch" title="@row.Branch">@Or(row.Branch)</span>
+                        <span class="data-table__detail">
+                            <span class="data-table__clamp sessions-table__branch" title="@row.Branch">@Or(row.Branch)</span>
+                        </span>
                     </td>
 
                     @* The work the row leads to, a column each, as the Pull requests
@@ -481,8 +485,12 @@
                             @Missing
                         }
                     </td>
-                    <td>@Moment(row.StartedAt)</td>
-                    <td title="@Moment(row.LastActivityAt)">@Ago(row.LastActivityAt)</td>
+                    @* When it was last active, and under it when it started: the first
+                       is what the list is ordered by, the second is the detail. *@
+                    <td class="sessions-table__activity">
+                        <span title="@Moment(row.LastActivityAt)">@Ago(row.LastActivityAt)</span>
+                        <span class="data-table__detail" title="Started" data-testid="sessions-started">@Moment(row.StartedAt)</span>
+                    </td>
 
                     @* Output and input, with every model and the cache figures in the
                        title. An em dash where the session did not record its usage —
@@ -550,10 +558,8 @@
         new("Type"),
         new("Environment"),
         new("Repository"),
-        new("Branch"),
         new("Pull request"),
         new("Task"),
-        new("Started"),
         new("Last activity"),
         new("Tokens"),
         new("State")

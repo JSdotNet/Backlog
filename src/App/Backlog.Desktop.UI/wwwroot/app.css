@@ -5920,6 +5920,12 @@ h1, h2, h3 {
     display: inline-block;
 }
 
+/* Holds the agent's word for a screen reader; the absolute sr-only span needs a
+   positioned cell to stay inside the table. */
+.sessions-table__kind {
+    position: relative;
+}
+
 .sessions-table__mark {
     margin-right: var(--spacing-2xs);
     vertical-align: text-bottom;

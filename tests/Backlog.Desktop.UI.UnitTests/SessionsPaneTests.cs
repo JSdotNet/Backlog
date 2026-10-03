@@ -971,6 +971,41 @@ public sealed class SessionsPaneTests
     }
 
     /// <summary>
+    /// Three pairs share a cell: the branch under its repository, the start under the
+    /// last activity, and the type as its mark with the word kept for a screen reader.
+    /// </summary>
+    [Fact]
+    public void Paired_facts_share_a_cell_with_the_detail_on_the_second_line()
+    {
+        using var context = Context([Sample[0]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                ["Session", "Type", "Environment", "Repository", "Pull request", "Task", "Last activity", "Tokens", "State"],
+                pane.FindAll(".data-table__table thead th").Select(th => th.TextContent.Trim()));
+
+            var row = pane.Find(".data-table__row");
+            var repository = row.QuerySelector(".sessions-table__repository")!.ParentElement!;
+
+            Assert.NotNull(repository.QuerySelector(".data-table__detail .sessions-table__branch"));
+
+            var activity = row.QuerySelector(".sessions-table__activity")!;
+
+            Assert.NotNull(activity.QuerySelector(".data-table__detail[data-testid='sessions-started']"));
+
+            var kind = row.QuerySelector(".sessions-table__kind")!;
+
+            Assert.Equal("sr-only", kind.QuerySelector("span:not(.badge)")!.ClassName);
+            Assert.False(string.IsNullOrWhiteSpace(kind.GetAttribute("title")));
+        });
+    }
+
+    /// <summary>
     /// Local and replicated rows are one list, and grouping by environment carves it
     /// into a section per machine. The grouping keys on the environment's id, and a
     /// replicated record's id is the sync device id of the machine that sent it — a
