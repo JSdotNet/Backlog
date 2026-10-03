@@ -207,6 +207,7 @@
     --integration-live-edge: var(--color-primary-dark);
     --integration-alert-surface: var(--color-warning);
     --integration-fault-surface: var(--color-error);
+    --integration-settled-surface: var(--color-success);
     /* The tint that says a machine wrote this. It is not a new colour and could
        not have been: the palette carries one saturated hue and the colour scheme
        forbids inventing a second semantic set to get another. 55% is calibrated
@@ -1189,11 +1190,13 @@ button.badge:hover {
     text-transform: lowercase;
 }
 
+/* The tone scale in color-scheme.md#badge-and-chip-tones: open is live, merged
+   settled, draft quiet, closed and unknown archived. */
 .badge--gh-open { border-color: var(--color-primary-dark); color: var(--color-primary-light); }
-.badge--gh-draft { color: var(--color-text-disabled); }
-.badge--gh-merged { border-color: var(--color-border-strong); color: var(--color-text-primary); }
-.badge--gh-closed { color: var(--color-text-disabled); text-decoration: line-through; }
-.badge--gh-unknown { color: var(--color-text-disabled); border-style: dashed; }
+.badge--gh-draft { background: var(--color-background-raised); color: var(--color-secondary); }
+.badge--gh-merged { background: var(--color-success); border-color: var(--color-border-strong); color: var(--color-text-primary); }
+.badge--gh-closed { border-color: var(--color-border-strong); color: var(--color-text-secondary); text-decoration: line-through; }
+.badge--gh-unknown { border-color: var(--color-border-strong); color: var(--color-text-secondary); border-style: dashed; }
 
 .tag-chip {
     display: inline-flex;
@@ -13404,32 +13407,43 @@ select.field__input {
     border-color: var(--integration-live-edge);
 }
 
-/* Landed. Full ink and the strong edge: it happened, and it is a fact rather
-   than something in flight. */
+/* Landed: the settled tone, a success surface inside the strong edge. It
+   happened, and it is a fact rather than something in flight. */
 .badge--integration-merged,
 .badge--integration-finished {
-    color: var(--integration-ink);
+    background: var(--integration-settled-surface);
     border-color: var(--integration-edge-strong);
+    color: var(--integration-ink);
 }
 
+/* Not started yet: the quiet tone. The raised surface rather than the chip's
+   own, which is the card it sits on and would not show; .badge--status-draft
+   makes the same choice. */
 .badge--integration-draft,
-.badge--integration-closed,
 .badge--integration-waiting {
+    background: var(--color-background-raised);
     color: var(--integration-ink-quiet);
+}
+
+/* Out of force without landing: the archived tone, no fill inside the strong
+   edge. */
+.badge--integration-closed {
+    border-color: var(--integration-edge-strong);
+    color: var(--integration-ink-muted);
 }
 
 /* Nothing has been read. The dashed edge says so a third time, after the dotted
    glyph and the words "Not checked". */
 .badge--integration-unknown,
 .badge--integration-detached {
-    color: var(--integration-ink-quiet);
+    border-color: var(--integration-edge-strong);
+    color: var(--integration-ink-muted);
     border-style: dashed;
 }
 
-/* The two filled chips, and the whole fill rule with them: filled means the
-   product acts on it. A stalled session raises a monitoring signal and a failed
-   one needs a retry; everything else is information and stays outlined. Drift
-   joins them because a mismatch is something a person has to go and settle.
+/* The alert and fault fills, beside the settled one above. A stalled session
+   raises a monitoring signal and a failed one needs a retry; drift joins them
+   because a mismatch is something a person has to go and settle.
 
    Both take the strong border rather than a mix of their own surface, because
    --color-warning and --color-error measure 1.31:1 and 1.04:1 against the card
