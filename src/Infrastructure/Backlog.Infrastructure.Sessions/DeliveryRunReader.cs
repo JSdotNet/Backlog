@@ -221,9 +221,42 @@ internal sealed partial class DeliveryRunReader
                 InsightsByCategory: Insights(root, ByCategory),
                 InsightsByServer: Insights(root, ByServer))
             {
-                SessionIds = SessionIds(root)
+                SessionIds = SessionIds(root),
+                Trigger = Text(root, "trigger"),
+                Schedule = Text(root, "schedule"),
+                Repository = Text(root, "repo"),
+                Verdicts = Verdicts(root)
             };
         }
+    }
+
+    /// <summary>
+    /// The sync verdicts a sweep closed the run with, or empty where the file has none.
+    /// A row without a unit is not one and is left out; every other value is carried as
+    /// written, a missing one as null.
+    /// </summary>
+    private static IReadOnlyList<DeliverySyncUnitVerdict> Verdicts(JsonElement root)
+    {
+        if (!root.TryGetProperty("verdicts", out var rows) || rows.ValueKind is not JsonValueKind.Array) return [];
+
+        return
+        [
+            .. rows.EnumerateArray()
+                .Where(row => row.ValueKind is JsonValueKind.Object && !string.IsNullOrWhiteSpace(Text(row, "unit")))
+                .Select(row => new DeliverySyncUnitVerdict(
+                    Text(row, "unit")!,
+                    Text(row, "kind"),
+                    Text(row, "sync"),
+                    Text(row, "syncFrom"),
+                    Text(row, "verdict"),
+                    Text(row, "action"),
+                    Text(row, "link"),
+                    row.TryGetProperty("chapters", out var chapters) && chapters.ValueKind is JsonValueKind.Array
+                        ? [.. chapters.EnumerateArray()
+                            .Where(chapter => chapter.ValueKind is JsonValueKind.Object && !string.IsNullOrWhiteSpace(Text(chapter, "chapter")))
+                            .Select(chapter => new DeliverySyncChapterVerdict(Text(chapter, "chapter")!, Text(chapter, "verdict"), Text(chapter, "evidence")))]
+                        : []))
+        ];
     }
 
     /// <summary>The run's <c>sessionIds</c>, distinct and in the order written, or empty

@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Infrastructure.Sessions;
 
@@ -143,7 +144,7 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
         var surface = Surface();
 
         var first = await surface.StartRunAsync(Worktree, "flow-code", "First", Stages, cancellationToken: TestContext.Current.CancellationToken);
-        await surface.FinishRunAsync(Worktree, first.RunId, "done", "Landed.", TestContext.Current.CancellationToken);
+        await surface.FinishRunAsync(Worktree, first.RunId, "done", "Landed.", cancellationToken: TestContext.Current.CancellationToken);
 
         var second = await surface.StartRunAsync(Worktree, "flow-code", "Second", Stages, cancellationToken: TestContext.Current.CancellationToken);
 
@@ -362,7 +363,7 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
         var surface = Surface();
         var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
 
-        await surface.FinishRunAsync(Worktree, started.RunId, "parked", "Parked for Personal Validation; PR https://github.com/JSdotNet/Backlog/pull/572 is open.", TestContext.Current.CancellationToken);
+        await surface.FinishRunAsync(Worktree, started.RunId, "parked", "Parked for Personal Validation; PR https://github.com/JSdotNet/Backlog/pull/572 is open.", cancellationToken: TestContext.Current.CancellationToken);
 
         var run = await surface.GetRunAsync(Worktree, started.RunId, TestContext.Current.CancellationToken);
 
@@ -374,6 +375,162 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
         // opened a pull request often states it there and nowhere else.
         Assert.Contains(run.References, reference => reference.Kind == DeliveryRunReferenceKind.PullRequest);
     }
+
+    [Fact]
+    public async Task A_scheduled_run_records_what_fired_it_and_where()
+    {
+        var surface = Surface();
+
+        var started = await surface.StartRunAsync(
+            Worktree,
+            "schedule-devbook-sweep",
+            "devbook-pull-sweep",
+            Stages,
+            trigger: "scheduled",
+            schedule: "devbook-pull-sweep",
+            repository: "JSdotNet/Backlog",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        var run = await surface.GetRunAsync(Worktree, started.RunId, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(run);
+        Assert.True(run.Scheduled);
+        Assert.Equal("scheduled", run.Trigger);
+        Assert.Equal("devbook-pull-sweep", run.Schedule);
+        Assert.Equal("JSdotNet/Backlog", run.Repository);
+    }
+
+    [Fact]
+    public async Task A_run_that_says_nothing_about_its_start_reads_as_attended_and_writes_no_field()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+
+        var run = await surface.GetRunAsync(Worktree, started.RunId, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(run);
+        Assert.False(run.Scheduled);
+        Assert.Null(run.Trigger);
+
+        // Absent rather than null, as on every run from before the argument existed,
+        // so the reader has one case to handle and not two.
+        var document = Document(started.RunId);
+        Assert.False(document.ContainsKey("trigger"));
+        Assert.False(document.ContainsKey("schedule"));
+        Assert.False(document.ContainsKey("repo"));
+    }
+
+    [Fact]
+    public async Task A_reattach_fills_in_what_started_the_run_and_never_rewrites_it()
+    {
+        var surface = Surface();
+
+        var first = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, trigger: "scheduled", schedule: "devbook-push-sweep", cancellationToken: TestContext.Current.CancellationToken);
+
+        // A person picks the scheduled run back up. It was still fired by its
+        // schedule; the repository it did not name before is filled in.
+        await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, trigger: "attended", repository: "JSdotNet/Backlog", cancellationToken: TestContext.Current.CancellationToken);
+
+        var run = await surface.GetRunAsync(Worktree, first.RunId, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(run);
+        Assert.Equal("scheduled", run.Trigger);
+        Assert.Equal("devbook-push-sweep", run.Schedule);
+        Assert.Equal("JSdotNet/Backlog", run.Repository);
+    }
+
+    [Fact]
+    public async Task A_trigger_the_contract_does_not_name_is_refused()
+    {
+        var surface = Surface();
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, trigger: "cron", cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Empty(await surface.ListRunsAsync(Worktree, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task A_sweep_closes_its_run_with_verdicts_the_run_keeps_and_the_chapters_get()
+    {
+        var verdicts = new DevbookSyncVerdictStore(_home);
+        var surface = Surface(verdicts: verdicts);
+
+        var started = await surface.StartRunAsync(
+            Worktree,
+            "schedule-devbook-sweep",
+            "devbook-pull-sweep",
+            Stages,
+            trigger: "scheduled",
+            schedule: "devbook-pull-sweep",
+            repository: "JSdotNet/Backlog",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        await surface.FinishRunAsync(
+            Worktree,
+            started.RunId,
+            "done",
+            "One group captured.",
+            [SessionsUnit("code-ahead", "https://github.com/JSdotNet/Backlog/pull/950")],
+            TestContext.Current.CancellationToken);
+
+        // On the run, verbatim, as the reader hands it to the pane.
+        var run = await surface.GetRunAsync(Worktree, started.RunId, TestContext.Current.CancellationToken);
+        Assert.NotNull(run);
+        var unit = Assert.Single(run.Verdicts);
+        Assert.Equal(".devbook/domain/sessions/domain.md#delivery-run", unit.Unit);
+        Assert.Equal("aggregate", unit.Kind);
+        Assert.Equal("pull", unit.Sync);
+        Assert.Equal("pr", unit.Action);
+        Assert.Equal(2, unit.Chapters.Count);
+
+        // And on the chapters, keyed by the canonical file and the heading — the
+        // devbook layout's path keys like the conventional folder's.
+        var filed = verdicts.For("jsdotnet/backlog", ".domain/sessions/domain.md");
+
+        Assert.Equal(["delivery-run", "delivery-run-recording"], filed.Select(verdict => verdict.Anchor).Order(StringComparer.Ordinal));
+
+        var root = Assert.Single(filed, verdict => verdict.Anchor == "delivery-run");
+        Assert.True(root.IsUnitRoot);
+        Assert.Equal("code-ahead", root.UnitVerdict);
+        Assert.Equal("https://github.com/JSdotNet/Backlog/pull/950", root.Link);
+        Assert.Equal(started.RunId, root.RunId);
+
+        var member = Assert.Single(filed, verdict => verdict.Anchor == "delivery-run-recording");
+        Assert.False(member.IsUnitRoot);
+        Assert.Equal("aligned", member.Verdict);
+    }
+
+    [Fact]
+    public async Task Verdicts_from_a_run_that_named_no_repository_stay_on_the_run()
+    {
+        var verdicts = new DevbookSyncVerdictStore(_home);
+        var surface = Surface(verdicts: verdicts);
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+
+        await surface.FinishRunAsync(Worktree, started.RunId, "done", verdicts: [SessionsUnit("aligned", null)], cancellationToken: TestContext.Current.CancellationToken);
+
+        var run = await surface.GetRunAsync(Worktree, started.RunId, TestContext.Current.CancellationToken);
+        Assert.NotNull(run);
+        Assert.Single(run.Verdicts);
+
+        // A verdict that cannot say which repository it is about matches no chapter.
+        Assert.False(File.Exists(verdicts.FilePath));
+    }
+
+    private static DeliverySyncUnitVerdict SessionsUnit(string verdict, string? link) =>
+        new(
+            ".devbook/domain/sessions/domain.md#delivery-run",
+            "aggregate",
+            "pull",
+            ".devbook/domain/sessions/context.md",
+            verdict,
+            link is null ? "none" : "pr",
+            link,
+            [
+                new(".devbook/domain/sessions/domain.md#delivery-run", verdict, "The run stores a trigger the chapter does not name."),
+                new(".devbook/domain/sessions/domain.md#delivery-run-recording", "aligned", "start_run's arguments match.")
+            ]);
 
     [Fact]
     public async Task An_unknown_run_is_null_from_get_and_a_refusal_from_everything_that_writes()
@@ -456,8 +613,8 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
         Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp"));
     }
 
-    private LocalDeliverySurfaceLifecycle Surface(ISessionsSurfaceActivator? shell = null) =>
-        new(_home, MachineId, Machine, shell);
+    private LocalDeliverySurfaceLifecycle Surface(ISessionsSurfaceActivator? shell = null, IDevbookSyncVerdicts? verdicts = null) =>
+        new(_home, MachineId, Machine, shell, verdicts);
 
     private JsonObject Document(string runId)
     {

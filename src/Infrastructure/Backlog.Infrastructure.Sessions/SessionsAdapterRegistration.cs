@@ -1,3 +1,4 @@
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
@@ -144,10 +145,17 @@ public static class SessionsAdapterRegistration
         // by a host that has a window, and a headless host recording runs is a host
         // whose open_dashboard honestly answers that there is nothing to bring
         // forward — not a startup failure over a window nobody asked for.
+        // The latest sync verdict per devbook chapter, kept beside the run files the
+        // verdicts arrive on: finish_run files them, the Devbook panes read them.
+        services.AddSingleton<IDevbookSyncVerdicts>(_ =>
+            new DevbookSyncVerdictStore(
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude")));
+
         services.AddSingleton<IDeliverySurfaceLifecycle>(sp =>
             new LocalDeliverySurfaceLifecycle(
                 sp.GetRequiredService<IDeviceIdentitySource>(),
-                sp.GetService<ISessionsSurfaceActivator>()));
+                sp.GetService<ISessionsSurfaceActivator>(),
+                sp.GetService<IDevbookSyncVerdicts>()));
 
         // And the measured half of the same runs: the hook events a session forwards,
         // attributed to the run it is driving. A singleton because it carries each

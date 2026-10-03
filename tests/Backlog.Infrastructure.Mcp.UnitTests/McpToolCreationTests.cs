@@ -194,7 +194,7 @@ public class McpToolCreationTests
         // is a single application and it is either showing the pane or it is not,
         // which is why its schema asks for nothing at all.
         Assert.Empty(schemas["open_dashboard"]);
-        Assert.Equal(["worktree", "skillId", "title", "stages", "changeKind", "sessionId"], schemas["start_run"]);
+        Assert.Equal(["worktree", "skillId", "title", "stages", "changeKind", "sessionId", "trigger", "schedule", "repo"], schemas["start_run"]);
         Assert.Equal(["worktree", "runId", "prompt", "kind", "label"], schemas["record_prompt"]);
         Assert.Equal(
             ["worktree", "runId", "changeKind", "approval", "approvalNote", "model"],
@@ -202,7 +202,7 @@ public class McpToolCreationTests
         Assert.Equal(
             ["worktree", "runId", "stageIndex", "status", "output", "links", "scenarios", "monitoring"],
             schemas["update_stage"]);
-        Assert.Equal(["worktree", "runId", "status", "summary"], schemas["finish_run"]);
+        Assert.Equal(["worktree", "runId", "status", "summary", "verdicts"], schemas["finish_run"]);
         Assert.Equal(["worktree"], schemas["list_runs"]);
         Assert.Equal(["worktree", "runId"], schemas["get_run"]);
     }

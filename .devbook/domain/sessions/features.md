@@ -408,6 +408,22 @@ them, narrowed by the machine filter, and out of the live view — with no liven
 evidence a row is Finished, and a session still running would be in the reading and
 the run would be on its row.
 
+### A schedule's runs as one row
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/features.md#a-row-of-its-own-in-the-same-list]
+```
+
+The runs a schedule fired, with no session in the list behind them, are one row per
+schedule and repository, titled by the schedule, with every run a line under it,
+newest first. Every scheduled run cuts a worktree of its own, so a row per run would
+add a line a week for a weekly sweep, each named after a folder nobody opens again;
+one row reads as the schedule's history instead. Each line carries a *scheduled* chip
+naming the schedule, and its fold names the schedule and repository and, for a devbook
+sync sweep, counts the units it checked by verdict. A scheduled run whose session the
+list does hold sits on that session's row like any other run, still chipped.
+
 ### Only the rows with a run
 
 ```meta
@@ -473,6 +489,21 @@ starting a second one beside it, and is told that is what happened so it can car
 from the first stage that is not done. Two rows for one piece of work would be the
 same work counted twice, with its stages split between them — and a reader has no way
 to tell that from two genuine runs.
+
+### What started a run and what it found
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter]
+```
+
+A run says what started it — a person, or a schedule, named, in a repository it names
+— and a devbook sync sweep closes its run with the verdict it reached on every sync
+unit and chapter it checked. Both are kept on the run as sent. The verdicts are also
+filed against the chapters they are about, the latest per chapter, so a reader opening
+a chapter in the Devbook pane sees what the last sweep said about it without finding
+the run. A run that names no repository keeps its verdicts on itself alone: a verdict
+that cannot say which repository it is about matches no chapter.
 
 ### What a run cost, reported by the session itself
 

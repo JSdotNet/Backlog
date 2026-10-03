@@ -91,6 +91,18 @@
                      OnClick="@(Entry is { } entry && OnOpenTask.HasDelegate ? EventCallback.Factory.Create<MouseEventArgs>(this, () => OnOpenTask.InvokeAsync(entry)) : default)"
                      Title="@(Entry is { } which && OnOpenTask.HasDelegate ? $"Open {which.Label} in the task list" : null)"
                      TestId="sessions-run-status" />
+
+        @* Only where a schedule fired the run. An attended run is the ordinary case
+           and says nothing, so the chip marks the exception rather than labelling
+           every line. The schedule's name rides in the tooltip: on its own row the
+           title already says it. *@
+        @if (Run.Scheduled)
+        {
+            <Badge Kind="trigger"
+                   CssClass="sessions-run__trigger"
+                   Title="@(string.IsNullOrWhiteSpace(Run.Schedule) ? "Fired by a schedule, unattended" : $"Fired by the {Run.Schedule} schedule, unattended")"
+                   TestId="sessions-run-scheduled">scheduled</Badge>
+        }
     </span>
     <span class="sessions-run__facts">
         @* The trigger only. The region it folds is the line's own panel below, which
@@ -185,6 +197,21 @@
                 {
                     <dt>Change</dt>
                     <dd>@Run.ChangeKind</dd>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Run.Schedule))
+                {
+                    <dt>Schedule</dt>
+                    <dd class="data-table__mono" data-testid="sessions-run-schedule">@Run.Schedule@(string.IsNullOrWhiteSpace(Run.Repository) ? "" : $" · {Run.Repository}")</dd>
+                }
+
+                @* What a sync sweep found, counted by verdict. The verdicts themselves
+                   are read beside the chapters they are about, in the Devbook panes;
+                   here they are the run's outcome in a line. *@
+                @if (Run.Verdicts.Count > 0)
+                {
+                    <dt>Sync</dt>
+                    <dd data-testid="sessions-run-verdicts">@VerdictSummary</dd>
                 }
 
                 @* A peak against a limit is a meter. Without a limit there is no track
@@ -375,6 +402,24 @@
             }
 
             return facts.Count == 0 ? "Details" : string.Join(" · ", facts);
+        }
+    }
+
+    /// <summary>The run's units counted by their verdict, largest count first:
+    /// "12 units: 9 aligned · 2 code-ahead · 1 conflict".</summary>
+    private string VerdictSummary
+    {
+        get
+        {
+            var counts = Run.Verdicts
+                .GroupBy(unit => string.IsNullOrWhiteSpace(unit.Verdict) ? "no verdict" : unit.Verdict, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(group => group.Count())
+                .ThenBy(group => group.Key, StringComparer.Ordinal)
+                .Select(group => $"{group.Count()} {group.Key}");
+
+            var units = Run.Verdicts.Count == 1 ? "1 unit" : $"{Run.Verdicts.Count} units";
+
+            return $"{units}: {string.Join(" · ", counts)}";
         }
     }
 

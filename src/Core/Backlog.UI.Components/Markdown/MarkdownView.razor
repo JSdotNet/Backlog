@@ -194,6 +194,14 @@
 
         <div class="md-chapter-head">
             @RenderBlock(heading, ChapterMark(index))
+            @* What the host knows about this chapter that the markdown does not — a
+               sync sweep's verdict — beside the heading and outside its element, for
+               the reason the copy button is: heading navigation matches on the
+               heading's own text. *@
+            @if (ChapterAdornment?.Invoke(chapter.Title, chapter.Level) is { } adornment)
+            {
+                <span class="md-chapter-head__adornment" data-testid="@($"markdown-chapter-adornment-{index}")">@adornment</span>
+            }
             @* The markdown, not the rendering, for the reason the file-level copy
                gives: the source is what round trips. *@
             <CopyButton Text="@chapter.Text"
@@ -849,6 +857,15 @@
     /// </summary>
     [Parameter]
     public string? DevbookDocumentPath { get; set; }
+
+    /// <summary>
+    /// What to draw beside a chapter's heading, asked per heading by its title, or
+    /// null for nothing. The host's knowledge rather than the document's — the
+    /// Devbook panes pass a sync sweep's last verdict on the chapter — so it is a
+    /// callback and this view never learns what it means.
+    /// </summary>
+    [Parameter]
+    public Func<string, int, RenderFragment?>? ChapterAdornment { get; set; }
 
     /// <summary>Resolves a metadata reference to a link target.</summary>
     [Parameter]

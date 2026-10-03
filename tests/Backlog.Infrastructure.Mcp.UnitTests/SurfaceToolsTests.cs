@@ -52,7 +52,7 @@ public class SurfaceToolsTests
             ["Update Base", "Scope Discovery", "Implementation"],
             changeKind: "new-functionality",
             sessionId: "session-1",
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("run-1", started.RunId);
         Assert.True(started.Resumed);
@@ -61,6 +61,75 @@ public class SurfaceToolsTests
         Assert.Equal(["Update Base", "Scope Discovery", "Implementation"], surface.Stages);
         Assert.Equal("new-functionality", surface.ChangeKind);
         Assert.Equal("session-1", surface.SessionId);
+
+        // Nothing said about what started it: the port is told nothing, which it
+        // reads as attended.
+        Assert.Null(surface.Trigger);
+        Assert.Null(surface.Schedule);
+        Assert.Null(surface.Repository);
+    }
+
+    /// <summary>
+    /// The three fields the delivery engine added for a scheduled run reach the port
+    /// under the names the contract spells them — <c>trigger</c>, <c>schedule</c>,
+    /// <c>repo</c> — and a sweep's verdicts reach it on <c>finish_run</c> row for row.
+    /// </summary>
+    [Fact]
+    public async Task A_scheduled_run_says_what_fired_it_and_closes_with_its_verdicts()
+    {
+        var surface = new FakeDeliverySurfaceLifecycle();
+        var tools = new SurfaceTools(surface);
+
+        await tools.StartRunAsync(
+            Worktree,
+            "schedule-devbook-sweep",
+            "devbook-pull-sweep",
+            ["Verify", "Resolve", "Report"],
+            trigger: "scheduled",
+            schedule: "devbook-pull-sweep",
+            repo: "JSdotNet/Backlog",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal("scheduled", surface.Trigger);
+        Assert.Equal("devbook-pull-sweep", surface.Schedule);
+        Assert.Equal("JSdotNet/Backlog", surface.Repository);
+
+        await tools.FinishRunAsync(
+            Worktree,
+            "run-1",
+            "done",
+            "One group captured.",
+            verdicts:
+            [
+                new SyncUnitVerdictInput(
+                    ".devbook/domain/sessions/domain.md#delivery-run",
+                    "aggregate",
+                    "pull",
+                    ".devbook/domain/sessions/context.md",
+                    "code-ahead",
+                    "pr",
+                    "https://github.com/JSdotNet/Backlog/pull/950",
+                    [new SyncChapterVerdictInput(".devbook/domain/sessions/domain.md#delivery-run", "code-ahead", "Trigger is stored; the chapter does not say so.")])
+            ],
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        var unit = Assert.Single(surface.Verdicts!);
+        Assert.Equal(".devbook/domain/sessions/domain.md#delivery-run", unit.Unit);
+        Assert.Equal("code-ahead", unit.Verdict);
+        Assert.Equal("https://github.com/JSdotNet/Backlog/pull/950", unit.Link);
+
+        var chapter = Assert.Single(unit.Chapters);
+        Assert.Equal("Trigger is stored; the chapter does not say so.", chapter.Evidence);
+    }
+
+    [Fact]
+    public async Task A_run_finished_without_verdicts_hands_the_port_none()
+    {
+        var surface = new FakeDeliverySurfaceLifecycle();
+
+        await new SurfaceTools(surface).FinishRunAsync(Worktree, "run-1", "done", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Null(surface.Verdicts);
     }
 
     [Fact]
@@ -130,7 +199,7 @@ public class SurfaceToolsTests
 
         await tools.RecordPromptAsync(Worktree, "run-1", "Expose the surface", cancellationToken: TestContext.Current.CancellationToken);
         await tools.SetRunContextAsync(Worktree, "run-1", approval: "approved", cancellationToken: TestContext.Current.CancellationToken);
-        await tools.FinishRunAsync(Worktree, "run-1", "done", "Eight tools published.", TestContext.Current.CancellationToken);
+        await tools.FinishRunAsync(Worktree, "run-1", "done", "Eight tools published.", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(
             [
