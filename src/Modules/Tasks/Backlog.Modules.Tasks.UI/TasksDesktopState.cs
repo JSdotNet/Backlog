@@ -84,6 +84,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// changed the same lines. See <see cref="RebaseOnStoreAsync"/>.</summary>
     private const string ChangedElsewhereTestId = "entry-changed-elsewhere";
 
+    /// <summary>The toast an undo or a redo raises to say what it took back or
+    /// put back. See <see cref="UndoAsync"/>.</summary>
+    public const string UndoTestId = "tasks-undo";
+
     private const string CopilotFailureTestId = "copilot-cli-error";
 
     private readonly ITaskStore _store;
@@ -113,6 +117,17 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// re-parsing text — never to change an entry, which only ever happens by
     /// saving its text through <see cref="ITaskItems"/>.</summary>
     private readonly Dictionary<Guid, TaskItemDto> _entries = new();
+
+    /// <summary>What Ctrl+Z takes back. See <see cref="UndoAsync"/>.</summary>
+    private readonly TaskUndoHistory _history = new();
+
+    /// <summary>The order this list last read or wrote, so a reorder can be
+    /// recorded as the order it replaced. See <see cref="RecordOrder"/>.</summary>
+    private List<Guid> _persistedOrder = [];
+
+    /// <summary>Whether an undo or redo is writing right now. Its saves are the
+    /// history being walked, not new changes to put on it.</summary>
+    private bool _replaying;
 
     /// <summary>The debounce each row is waiting on, keyed by row. Written by
     /// whoever is typing and read-modified by every callback that fires, which
@@ -1338,6 +1353,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         CancelDebounce(row);
 
+        // Taken before the row leaves, because undoing the delete puts this text
+        // back in this place.
+        var index = Rows.IndexOf(row);
+        var text = row.RawText;
+
         if (ReferenceEquals(EditingRow, row))
         {
             EditingRow = null;
@@ -1356,7 +1376,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             {
                 await _entryUseCases.DeleteAsync(id);
                 _entries.Remove(id);
+                _persistedOrder.Remove(id);
                 SetSaveState(AppSaveState.Saved);
+
+                if (!_replaying)
+                {
+                    _history.Record(new TaskDeletedUndoStep($"deleting “{row.PreviewTitle}”", id, text, index));
+                }
             }
             catch (Exception exception)
             {
@@ -1367,6 +1393,314 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         Rows.Remove(row);
         return Result.Success();
+    }
+
+    // --- Undo and redo ---------------------------------------------------
+    //
+    // `.devbook/design/interaction-guidelines.md#undo-and-history`: there is no
+    // save gate, so every change lands the moment it is made and Ctrl+Z is how a
+    // reader takes one back. The history records what the store saw — the text
+    // before and after a save, an entry made or deleted, an order replaced — at
+    // the three places every write on this pane already passes through:
+    // ApplySegmentAsync, DeleteOneAsync and NormalizeOrderAsync. Inside a text
+    // field the browser's own undo stays in charge of the keystrokes; this is
+    // what the reader reaches from everywhere else.
+
+    /// <summary>Whether Ctrl+Z has anything to take back.</summary>
+    public bool CanUndo => _history.CanUndo;
+
+    /// <summary>Whether Ctrl+Shift+Z has anything to put back.</summary>
+    public bool CanRedo => _history.CanRedo;
+
+    /// <summary>
+    /// Takes back the last change and says so in a toast.
+    /// <para>
+    /// A save still waiting on its debounce is written first, so the typing it
+    /// carries is part of the history rather than landing after the undo and
+    /// putting the text straight back.
+    /// </para>
+    /// <para>
+    /// A text change is undone as a merge rather than a rewrite: the change is
+    /// taken out of what the store holds now, so a write somebody else made since
+    /// stays (<see cref="EntryTextMerge"/>).
+    /// </para>
+    /// </summary>
+    /// <returns>Whether there was something to undo.</returns>
+    public async Task<bool> UndoAsync()
+    {
+        await FlushPendingSavesAsync();
+
+        if (_history.TakeUndo() is not { } step)
+        {
+            _toasts?.Publish(ToastMessage.Info("Nothing to undo", UndoTestId));
+            return false;
+        }
+
+        _replaying = true;
+        try
+        {
+            _history.Undone(await RevertAsync(step));
+        }
+        finally
+        {
+            _replaying = false;
+        }
+
+        _toasts?.Publish(ToastMessage.Info($"Undid {step.Label}", UndoTestId));
+        ApplyFilter();
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>Puts back the last change <see cref="UndoAsync"/> took back. Any
+    /// new change in between empties what there is to redo.</summary>
+    /// <returns>Whether there was something to redo.</returns>
+    public async Task<bool> RedoAsync()
+    {
+        await FlushPendingSavesAsync();
+
+        if (_history.TakeRedo() is not { } step)
+        {
+            _toasts?.Publish(ToastMessage.Info("Nothing to redo", UndoTestId));
+            return false;
+        }
+
+        _replaying = true;
+        try
+        {
+            _history.Redone(await ReapplyAsync(step));
+        }
+        finally
+        {
+            _replaying = false;
+        }
+
+        _toasts?.Publish(ToastMessage.Info($"Redid {step.Label}", UndoTestId));
+        ApplyFilter();
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>
+    /// Puts one successful save on the history.
+    /// <para>
+    /// A debounced save is <paramref name="open"/>: the reader is still typing,
+    /// and the next save of the same entry joins this step. The flush that ends
+    /// the editor closes it, so one typing session is one Ctrl+Z.
+    /// </para>
+    /// </summary>
+    private void RecordSave(TaskItemDto entry, bool created, string? before, bool open)
+    {
+        if (_replaying) return;
+
+        var after = EntryTextParser.ToRawText(entry);
+        var label = $"editing “{entry.Title}”";
+
+        if (created)
+        {
+            _history.Record(new TaskCreatedUndoStep($"adding “{entry.Title}”", entry.Id, after, open));
+            return;
+        }
+
+        if (before is not null) _history.RecordText(label, entry.Id, before, after, open);
+    }
+
+    /// <summary>Where a just-created entry stands among the entries the store
+    /// already ranks: it is saved with its list position as its rank.</summary>
+    private int PersistedRowsBefore(EntryRow row) =>
+        Math.Min(
+            Rows.TakeWhile(other => !ReferenceEquals(other, row)).Count(other => other.Id is not null),
+            _persistedOrder.Count);
+
+    /// <summary>
+    /// Records <paramref name="ids"/> as the order now stored, and the order it
+    /// replaced as an undo step when the same entries simply moved. An order that
+    /// changed because an entry arrived or left is that arrival's or departure's
+    /// own step, not a reorder.
+    /// </summary>
+    private void RecordOrder(List<Guid> ids)
+    {
+        var before = _persistedOrder;
+        _persistedOrder = ids;
+
+        if (_replaying || before.SequenceEqual(ids) || !before.ToHashSet().SetEquals(ids)) return;
+
+        _history.Record(new TaskOrderUndoStep("reordering", before, ids));
+    }
+
+    private async Task FlushPendingSavesAsync()
+    {
+        List<Guid> pending;
+        lock (_debounceTimers)
+        {
+            pending = [.. _debounceTimers.Keys];
+        }
+
+        foreach (var row in Rows.Where(row => pending.Contains(row.Key)).ToList())
+        {
+            CancelDebounce(row);
+            await SaveRowAsync(row, isFlush: false);
+        }
+    }
+
+    /// <summary>Applies the opposite of <paramref name="step"/> and returns the
+    /// step to keep for redo — the same one, or one that knows what the undo
+    /// found (the text an entry had when its creation was taken back).</summary>
+    private async Task<TaskUndoStep> RevertAsync(TaskUndoStep step)
+    {
+        switch (step)
+        {
+            case TaskTextUndoStep text:
+                await RewriteTowardsAsync(text.Id, from: text.After, to: text.Before);
+                return step;
+
+            case TaskCreatedUndoStep created:
+                return await RemoveRecordedAsync(created.Id) is { } gone
+                    ? created with { Text = gone.Text, Index = gone.Index }
+                    : step;
+
+            case TaskDeletedUndoStep deleted:
+                await RecreateAsync(deleted.Id, deleted.Text, deleted.Index);
+                return step;
+
+            case TaskOrderUndoStep order:
+                await PutInOrderAsync(order.Before);
+                return step;
+
+            case TaskGroupUndoStep group:
+                var reverted = new List<TaskUndoStep>(group.Steps.Count);
+                for (var i = group.Steps.Count - 1; i >= 0; i--)
+                {
+                    reverted.Insert(0, await RevertAsync(group.Steps[i]));
+                }
+
+                return group with { Steps = reverted };
+
+            default:
+                return step;
+        }
+    }
+
+    /// <summary>Applies <paramref name="step"/> again and returns the step to
+    /// keep for the next undo.</summary>
+    private async Task<TaskUndoStep> ReapplyAsync(TaskUndoStep step)
+    {
+        switch (step)
+        {
+            case TaskTextUndoStep text:
+                await RewriteTowardsAsync(text.Id, from: text.Before, to: text.After);
+                return step;
+
+            case TaskCreatedUndoStep created:
+                await RecreateAsync(created.Id, created.Text, created.Index);
+                return step;
+
+            case TaskDeletedUndoStep deleted:
+                return await RemoveRecordedAsync(deleted.Id) is { } gone
+                    ? deleted with { Text = gone.Text, Index = gone.Index }
+                    : step;
+
+            case TaskOrderUndoStep order:
+                await PutInOrderAsync(order.After);
+                return step;
+
+            case TaskGroupUndoStep group:
+                var reapplied = new List<TaskUndoStep>(group.Steps.Count);
+                foreach (var inner in group.Steps)
+                {
+                    reapplied.Add(await ReapplyAsync(inner));
+                }
+
+                return group with { Steps = reapplied };
+
+            default:
+                return step;
+        }
+    }
+
+    private EntryRow? RowFor(Guid recordedId)
+    {
+        var id = _history.Resolve(recordedId);
+        return Rows.FirstOrDefault(row => row.Id == id);
+    }
+
+    /// <summary>
+    /// Takes the change from <paramref name="from"/> to <paramref name="to"/>
+    /// out of — or puts it into — the entry as it stands. A three-way merge with
+    /// <paramref name="from"/> as the base, so an outside write since the change
+    /// is kept and only this change moves.
+    /// </summary>
+    private async Task RewriteTowardsAsync(Guid recordedId, string from, string to)
+    {
+        if (RowFor(recordedId) is not { } row || row.Id is not { } id) return;
+
+        var current = _entries.TryGetValue(id, out var stored) ? EntryTextParser.ToRawText(stored) : row.RawText;
+        var target = string.Equals(current, from, StringComparison.Ordinal)
+            ? to
+            : EntryTextMerge.Merge(from, to, current).Text;
+
+        row.RawText = target;
+        await ApplySegmentAsync(row, target, rewriteText: true);
+    }
+
+    /// <summary>Deletes the entry a step recorded and answers with the text and
+    /// place it had, or null when it is no longer in the list.</summary>
+    private async Task<(string Text, int Index)?> RemoveRecordedAsync(Guid recordedId)
+    {
+        if (RowFor(recordedId) is not { } row) return null;
+
+        var text = row.RawText;
+        var index = Rows.IndexOf(row);
+
+        if ((await DeleteOneAsync(row)).IsFailure) return null;
+
+        await NormalizeOrderAsync();
+        return (text, index);
+    }
+
+    /// <summary>Saves <paramref name="text"/> as a new entry at
+    /// <paramref name="index"/>. The store hands out a new id, which the history
+    /// learns as the recorded one's successor.</summary>
+    private async Task RecreateAsync(Guid recordedId, string text, int index)
+    {
+        var row = new EntryRow { RawText = text };
+        Rows.Insert(index < 0 ? Rows.Count : Math.Min(index, Rows.Count), row);
+
+        await ApplySegmentAsync(row, text, rewriteText: true);
+
+        if (row.Id is { } id)
+        {
+            _history.Alias(recordedId, id);
+        }
+        else
+        {
+            Rows.Remove(row);
+        }
+
+        await NormalizeOrderAsync();
+    }
+
+    /// <summary>Puts the recorded entries back in <paramref name="recordedIds"/>'
+    /// order, among the slots they hold now, so an entry added since keeps its
+    /// place.</summary>
+    private async Task PutInOrderAsync(IReadOnlyList<Guid> recordedIds)
+    {
+        var rank = new Dictionary<Guid, int>();
+        foreach (var recorded in recordedIds)
+        {
+            rank.TryAdd(_history.Resolve(recorded), rank.Count);
+        }
+
+        var moving = Rows.Where(row => row.Id is { } id && rank.ContainsKey(id)).ToList();
+        var slots = moving.Select(row => Rows.IndexOf(row)).Order().ToList();
+        var ordered = moving.OrderBy(row => rank[row.Id!.Value]).ToList();
+
+        for (var i = 0; i < slots.Count; i++)
+        {
+            Rows[slots[i]] = ordered[i];
+        }
+
+        await NormalizeOrderAsync();
     }
 
     // --- Reordering ------------------------------------------------------
@@ -2168,6 +2502,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         if (rows.Count == 0) return BulkEditOutcome.Nothing;
 
+        // One gesture, one undo: Ctrl+Z puts every row of the batch back.
+        using var undoStep = _history.Group($"deleting {rows.Count} tasks");
+
         var deleted = 0;
         var skipped = 0;
         var failures = new List<BulkEditFailure>();
@@ -2221,6 +2558,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var rows = SelectedRows;
 
         if (rows.Count == 0) return BulkEditOutcome.Nothing;
+
+        using var undoStep = _history.Group($"editing {rows.Count} tasks");
 
         var updated = 0;
         var unchanged = 0;
@@ -3073,6 +3412,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _editingSubItemCount = -1;
         _entries.Clear();
 
+        // Another folder's entries: nothing on the history is about them.
+        _history.Clear();
+        _persistedOrder = [];
+
         // A reload owed to the old folder is paid by the one below.
         _reloadDeferred = false;
 
@@ -3211,6 +3554,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var segments = EntryTextParser.SplitSegments(row.RawText);
         List<string> overflow = segments.Count > 1 ? [.. segments.Skip(1)] : [];
 
+        // A split is one gesture however many entries it makes, so one Ctrl+Z
+        // takes all of them back.
+        using var undoStep = isFlush && overflow.Count > 0 ? _history.Group($"splitting “{row.PreviewTitle}”") : null;
+
         if (isFlush && overflow.Count > 0)
         {
             row.RawText = segments[0];
@@ -3301,6 +3648,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         SetSaveState(AppSaveState.Saving);
 
+        // What the store held before this save, for the undo history: the entry
+        // as this list last read or wrote it, which a rebase has already moved on
+        // to an outside write when there was one.
+        var before = row.Id is { } knownId && _entries.TryGetValue(knownId, out var known)
+            ? EntryTextParser.ToRawText(known)
+            : null;
+        var created = row.Id is null;
+
         Result<SavedTaskDto> saved;
         try
         {
@@ -3361,6 +3716,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _entries[entry.Id] = entry;
         row.Id = entry.Id;
         RefreshRowFromEntry(row, entry, rewriteText);
+        if (created) _persistedOrder.Insert(PersistedRowsBefore(row), entry.Id);
+        RecordSave(entry, created, before, open: !rewriteText);
         SetSaveState(AppSaveState.Saved);
         FlashSaved(row);
 
@@ -3409,7 +3766,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         catch
         {
             SetSaveState(AppSaveState.Error);
+            return;
         }
+
+        RecordOrder(ids);
     }
 
     /// <summary>
@@ -3581,6 +3941,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         Rows = rows;
+        _persistedOrder = [.. rows.Select(row => row.Id!.Value)];
 
         ApplyFilter();
     }
