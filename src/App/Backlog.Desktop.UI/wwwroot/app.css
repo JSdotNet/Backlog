@@ -5907,10 +5907,12 @@ h1, h2, h3 {
     max-width: 26rem;
 }
 
-/* The mark and the word read as one thing, so they sit on one baseline rather
-   than the mark floating at the top of the cell. */
+/* The mark and its badge read as one thing, on one line. Positioned because the
+   cell holds the agent's word for a screen reader, and the absolute sr-only span
+   needs a positioned cell to stay inside the table. */
 .sessions-table__kind {
     display: table-cell;
+    position: relative;
     white-space: nowrap;
 }
 
@@ -5918,12 +5920,6 @@ h1, h2, h3 {
    and stacked the cell into two, mark above "Claude desktop". */
 .sessions-table__kind .sessions-table__mark {
     display: inline-block;
-}
-
-/* Holds the agent's word for a screen reader; the absolute sr-only span needs a
-   positioned cell to stay inside the table. */
-.sessions-table__kind {
-    position: relative;
 }
 
 .sessions-table__mark {
