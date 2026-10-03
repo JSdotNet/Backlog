@@ -240,6 +240,29 @@ With `OnLinkCreated` set, every bar offers a dot past its end. Drag it onto anot
         <p class="sb-state" data-testid="hand-over-last-link">Last link: @(_lastLink ?? "(none)")</p>
     </Story>
 
+    <Story Name="The working week on the axis, date by date"
+           Description="How the app rules the near term: `Graduated` gives this week and the weeks either side a column a day, and `PlannedHoursOn` hands over the hours planned on each date. Each day and week head says its hours — inline where the column is wide enough, on a line of its own where it is not — and a date not worked is hatched down the chart. The week heads sum their dates.
+
+`ActualHoursByDate` adds the hours agents were actually active. A head that has begun reads them over the planned hours, today counting the hours so far — `6.2 / 8.5h` — and a day off somebody worked anyway reads the actual hours alone, `1.5h`, rather than a planned zero. Heads still to come read their planned hours alone, and with no actual hours given every head reads as before.
+
+With `OnDayToggled` set, every day head is a real button named for what it does — `Block Fri 9 Oct`, `Unblock Sat 10 Oct` — pressed by pointer, Enter or Space. Here Friday 9 October is blocked, and Saturdays 10 and 17 October are unblocked: a date that differs from its weekday's pattern carries a corner tick, and its tooltip says blocked or unblocked. Press any day head to toggle it; week heads are not dates and do not toggle."
+           Code="@WorkingWeekCode">
+        <RoadmapTimeline Groups="@WorkingWeekPlan"
+                         Bars="@WorkingWeekBars"
+                         Title="The near term, in hours"
+                         HeadingLevel="3"
+                         Today="@WorkingWeekToday"
+                         Graduated="true"
+                         QuarterWidth="48"
+                         ShowFilters="false"
+                         PlannedHoursOn="@PlannedOn"
+                         IsOverridden="@IsOverridden"
+                         ActualHoursByDate="@WorkedHours"
+                         OnDayToggled="ToggleDay"
+                         TestId="working-week" />
+        <p class="sb-state" data-testid="working-week-last">Last pressed: @(_lastDay?.ToString("ddd d MMM", System.Globalization.CultureInfo.CurrentCulture) ?? "(none)")</p>
+    </Story>
+
     <Story Name="A plan nobody has written"
            Description="No groups, or groups with no rows, renders the empty state rather than an axis over nothing. The sentence is the caller's, because why the plan is empty is only knowable where the plan came from."
            Code="@EmptyCode">
@@ -804,6 +827,95 @@ Every action is a real button named for its plan, and the shelf is a region name
 
         // Dropping the handle proposes a link; the host decides and hands it back
         void AddLink(RoadmapLink link) => links = [.. links, link];
+        """;
+
+    // --- The working week on the axis -----------------------------------------
+
+    /// <summary>Wednesday 14 October 2026: last week, 5 to 11 October, has passed and
+    /// this week has begun.</summary>
+    private static readonly DateOnly WorkingWeekToday = new(2026, 10, 14);
+
+    private static IReadOnlyList<RoadmapGroup> WorkingWeekPlan =>
+    [
+        new("work", "Work", [new("planned", "Planned")], "#5FA8D3")
+    ];
+
+    private static readonly RoadmapBar[] WorkingWeekBars =
+    [
+        new("release", "planned", "Release work", new DateOnly(2026, 10, 5), new DateOnly(2026, 10, 23))
+    ];
+
+    /// <summary>The dates toggled away from the default pattern, Monday to Friday at
+    /// 8.5 hours: a Friday of leave, and two Saturdays worked.</summary>
+    private readonly HashSet<DateOnly> _overrides =
+    [
+        new DateOnly(2026, 10, 9),
+        new DateOnly(2026, 10, 10),
+        new DateOnly(2026, 10, 17)
+    ];
+
+    private DateOnly? _lastDay;
+
+    private double PlannedOn(DateOnly date)
+    {
+        var patternWorks = date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
+        return patternWorks != _overrides.Contains(date) ? 8.5 : 0;
+    }
+
+    private bool IsOverridden(DateOnly date) => _overrides.Contains(date);
+
+    private void ToggleDay(DateOnly date)
+    {
+        _lastDay = date;
+        if (!_overrides.Remove(date)) _overrides.Add(date);
+    }
+
+    /// <summary>What agents were active on each begun date — nothing after today, and
+    /// a date missing is a date nobody worked.</summary>
+    private static readonly IReadOnlyDictionary<DateOnly, double> WorkedHours = new Dictionary<DateOnly, double>
+    {
+        [new DateOnly(2026, 9, 21)] = 7.5,
+        [new DateOnly(2026, 9, 22)] = 8.25,
+        [new DateOnly(2026, 9, 23)] = 6,
+        [new DateOnly(2026, 9, 24)] = 7.75,
+        [new DateOnly(2026, 9, 25)] = 4.5,
+        [new DateOnly(2026, 9, 28)] = 6.2,
+        [new DateOnly(2026, 9, 29)] = 8,
+        [new DateOnly(2026, 9, 30)] = 7.9,
+        [new DateOnly(2026, 10, 1)] = 6,
+        [new DateOnly(2026, 10, 2)] = 5,
+        [new DateOnly(2026, 10, 5)] = 6.2,
+        [new DateOnly(2026, 10, 6)] = 7.5,
+        [new DateOnly(2026, 10, 7)] = 8.1,
+        [new DateOnly(2026, 10, 8)] = 5.4,
+        [new DateOnly(2026, 10, 10)] = 3,
+        [new DateOnly(2026, 10, 11)] = 1.5,
+        [new DateOnly(2026, 10, 12)] = 6,
+        [new DateOnly(2026, 10, 13)] = 7.25,
+        [new DateOnly(2026, 10, 14)] = 3
+    };
+
+    private const string WorkingWeekCode = """
+        <RoadmapTimeline Groups="@Groups"
+                         Bars="@Bars"
+                         Today="@Today"
+                         Graduated="true"
+                         PlannedHoursOn="@PlannedOn"
+                         IsOverridden="@IsOverridden"
+                         ActualHoursByDate="@WorkedHours"
+                         OnDayToggled="ToggleDay" />
+
+        @code {
+            // The hours planned on a date: its override first, its weekday's pattern after.
+            private double PlannedOn(DateOnly date) => _week.WorkedOn(date).TotalHours;
+
+            private bool IsOverridden(DateOnly date) => _week.OverrideOn(date) is not null;
+
+            // Null when the actual hours cannot be stated: every head reads its planned hours.
+            private IReadOnlyDictionary<DateOnly, double>? WorkedHours;
+
+            private void ToggleDay(DateOnly date) => _error = Paces.ToggleWorkedDay(date);
+        }
         """;
 
     private const string EmptyCode = """

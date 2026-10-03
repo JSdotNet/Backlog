@@ -207,7 +207,12 @@ public sealed class RoadmapWorkingHoursAxisTests
             .Add(timeline => timeline.Graduated, true)
             // 16 is the default; 48 is wide enough for every head to say its hours inline.
             .Add(timeline => timeline.QuarterWidth, quarterWidth)
-            .Add(timeline => timeline.WorkingHoursByDay, week));
+            .Add(timeline => timeline.PlannedHoursOn, ByWeekday(week)));
+
+    /// <summary>A week by weekday as the per-date hours the timeline takes: every date
+    /// reads its weekday's hours, a weekday missing at zero.</summary>
+    internal static Func<DateOnly, double>? ByWeekday(IReadOnlyDictionary<DayOfWeek, double>? week) =>
+        week is null ? null : date => week.TryGetValue(date.DayOfWeek, out var hours) ? hours : 0;
 
     /// <summary>The tooltips of the day heads shaded as days off, left to right.</summary>
     private static List<string> ShadedTitles(IRenderedComponent<RoadmapTimeline> view) =>

@@ -169,7 +169,7 @@ public sealed record RoadmapWindow
         // Backward, the mirror: days from pastDaysFrom, weeks from pastWeeksFrom,
         // months from pastMonthsFrom, quarters before that.
         var pastDaysFrom = thisWeek.AddDays(-7 * GraduatedDayWeeks);
-        var pastWeeksFrom = pastDaysFrom.AddDays(-7 * GraduatedWeeks);
+        var pastWeeksFrom = GraduatedWeeksFrom(today, weekStart);
         var pastMonthsFrom = StartOfQuarter(pastWeeksFrom.AddMonths(-3));
 
         var first = days.Count == 0 ? thisWeek : days.Min();
@@ -283,6 +283,15 @@ public sealed record RoadmapWindow
             ? ISOWeek.GetWeekOfYear(weekStartDay.ToDateTime(TimeOnly.MinValue))
             : CultureInfo.InvariantCulture.Calendar.GetWeekOfYear(
                 weekStartDay.AddDays(3).ToDateTime(TimeOnly.MinValue), CalendarWeekRule.FirstFourDayWeek, weekStart);
+
+    /// <summary>
+    /// The first date a graduated window rules a column a week or a day: before it, the
+    /// columns are months and quarters. A host showing what heads say of a date that has
+    /// begun — the hours actually worked, say — asks for the dates from here to today,
+    /// whatever the plan holds.
+    /// </summary>
+    public static DateOnly GraduatedWeeksFrom(DateOnly today, DayOfWeek weekStart) =>
+        StartOfWeek(today, weekStart).AddDays(-7 * (GraduatedDayWeeks + GraduatedWeeks));
 
     /// <summary>The first day of the week a date falls in.</summary>
     public static DateOnly StartOfWeek(DateOnly date, DayOfWeek weekStart) =>

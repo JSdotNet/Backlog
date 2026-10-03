@@ -277,7 +277,7 @@ public sealed class RoadmapDayHeadWeekdayTests
             .Add(timeline => timeline.Graduated, true)
             .Add(timeline => timeline.WeekStart, weekStart)
             .Add(timeline => timeline.QuarterWidth, quarterWidth)
-            .Add(timeline => timeline.WorkingHoursByDay, workingHours));
+            .Add(timeline => timeline.PlannedHoursOn, RoadmapWorkingHoursAxisTests.ByWeekday(workingHours)));
 
     private static AngleSharp.Dom.IElement ColumnOf(IRenderedComponent<RoadmapTimeline> view, string titleStart) =>
         Assert.Single(view.FindAll(".roadmap-timeline__quarter--day"), column => (column.GetAttribute("title") ?? string.Empty).StartsWith(titleStart, StringComparison.Ordinal));

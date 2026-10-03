@@ -32,7 +32,10 @@ public abstract class RoadmapBandHarness : IDisposable
         _root = Path.Combine(Path.GetTempPath(), "roadmap-band-tests-" + Guid.NewGuid().ToString("N"));
         Settings = new WorkspaceSettingsStore(_root, Path.Combine(_root, "settings.json"));
         RepositorySettings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
-        PaceFile = new PlanningVelocitySettingsStore(Path.Combine(_root, "velocity", "planning-velocity.json"));
+        // Carrying the device's working week, as the desktop host composes it, so a day
+        // head pressed on the band has a week to block the date in (local ADR 0019, §5).
+        WorkingWeek = new WorkingHoursSettingsStore(Path.Combine(_root, "working-hours", "working-hours.json"));
+        PaceFile = new PlanningVelocitySettingsStore(Path.Combine(_root, "velocity", "planning-velocity.json"), workingHours: WorkingWeek);
 
         // Over the same pace file, finished work and clock as the heading's control, so
         // a pace chosen there is the one the plan re-lengthens by.
@@ -44,6 +47,9 @@ public abstract class RoadmapBandHarness : IDisposable
     protected GitHubSettingsStore RepositorySettings { get; }
 
     protected IRoadmapPlanning Planning { get; }
+
+    /// <summary>The device's working week, under this test's own root.</summary>
+    protected WorkingHoursSettingsStore WorkingWeek { get; }
 
     /// <summary>The reader's pace file, under this test's own root.</summary>
     protected PlanningVelocitySettingsStore PaceFile { get; private set; } = null!;
@@ -58,6 +64,9 @@ public abstract class RoadmapBandHarness : IDisposable
         new(new DateTimeOffset(PaceToday.ToDateTime(new TimeOnly(12, 0)), TimeSpan.Zero));
 
     protected RoadmapWorkChanges WorkChanges { get; } = TasksTestHost.WorkChanges();
+
+    /// <summary>The actual hours the band reads for its begun heads.</summary>
+    internal ScriptedActualHours ActualHours { get; } = new();
 
     protected BunitContext Context()
     {
@@ -85,6 +94,11 @@ public abstract class RoadmapBandHarness : IDisposable
         // What tells an open band to read again. Raised by hand here, since the band
         // tests write no backlog for the task signal to hear.
         context.Services.AddSingleton<IRoadmapWorkChanges>(WorkChanges);
+
+        // The hours agents were actually active, which a begun head shows over its
+        // planned hours. Unscripted it answers that it cannot say, so a band test that
+        // is not about them reads the planned hours alone.
+        context.Services.AddSingleton<IRoadmapActualHours>(ActualHours);
 
         // The pace control in the heading: the module's own service over a real pace
         // file, counting whatever the test put in Finished, as of PaceToday.

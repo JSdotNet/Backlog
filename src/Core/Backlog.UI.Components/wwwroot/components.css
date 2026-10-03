@@ -12201,6 +12201,35 @@ select.field__input {
     overflow: hidden;
 }
 
+/* A day head that blocks or unblocks its date (local ADR 0019, §4) is a real
+   button, drawn exactly as the plain head beside it: the browser's own button
+   face, padding and border go, and the head's left rule stays. Before the day-off
+   and current rules, so their backgrounds still win. */
+.roadmap-timeline__quarter--toggle {
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+    border-right: 0;
+    border-bottom: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: center;
+    cursor: pointer;
+}
+
+.roadmap-timeline__quarter--toggle:hover .roadmap-timeline__quarter-label {
+    text-decoration: underline;
+}
+
+/* Inset rather than offset outward: the axis sits inside the scroller, which clips
+   anything drawn past the head's own box, and the heads either side would cover a
+   ring drawn over them. */
+.roadmap-timeline__quarter--toggle:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(var(--border-width-2) * -1);
+}
+
 .roadmap-timeline__quarter-label {
     font-family: var(--font-family-heading);
     font-size: var(--font-size-sm);
@@ -12241,6 +12270,22 @@ select.field__input {
    competing with the bars or with this week's primary shade. */
 .roadmap-timeline__quarter--weekend {
     background: color-mix(in srgb, var(--color-text-primary) 14%, var(--color-background));
+}
+
+/* A date the person blocked or unblocked, which differs from its weekday's pattern:
+   a corner tick in its head, so a day of leave reads differently from an ordinary
+   weekend and a worked Saturday from an ordinary weekday. A shape, not a hue, so it
+   is seen without colour; the tooltip and the head's description say "blocked" or
+   "unblocked" in words. */
+.roadmap-timeline__quarter--override::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    border-style: solid;
+    border-width: 0 0.5rem 0.5rem 0;
+    border-color: transparent var(--color-text-secondary) transparent transparent;
+    pointer-events: none;
 }
 
 .roadmap-timeline__weekend {
