@@ -456,6 +456,7 @@ public sealed class TaskReplicaMergeTests
         original.SetTags(["release"]);
         original.SetRepoIds(["JSdotNet/Backlog"]);
         original.SetDependsOn(["another-task"]);
+        original.SetDevbookReferences([".devbook/domain/tasks/domain.md#task", ".devbook/arc42/adr/0007.md"]);
         original.SetImportPlanId("plan-1");
         original.SetImportItemId("item-1");
         original.SetAttachment(new Attachment(@"C:\notes"));
@@ -484,6 +485,7 @@ public sealed class TaskReplicaMergeTests
         Assert.Equal(original.Tags, restored.Tags);
         Assert.Equal(original.RepoIds, restored.RepoIds);
         Assert.Equal(original.DependsOn, restored.DependsOn);
+        Assert.Equal([".devbook/domain/tasks/domain.md#task", ".devbook/arc42/adr/0007.md"], restored.DevbookReferences);
         Assert.Equal(original.ImportPlanId, restored.ImportPlanId);
         Assert.Equal(original.ImportItemId, restored.ImportItemId);
         Assert.Equal(original.Attachment?.Path, restored.Attachment?.Path);
@@ -496,6 +498,43 @@ public sealed class TaskReplicaMergeTests
 
         var projection = Assert.Single(restored.ProjectionRefs);
         Assert.Equal("42", projection.ExternalId);
+    }
+
+    /// <summary>
+    /// The Devbook references arrived after the contract did, so they ride last and
+    /// defaulted: a task pointing at nothing writes no list at all — its document
+    /// serialises exactly as it did before — and a document from a build that never
+    /// heard of them reads as pointing at nothing, which is what it did.
+    /// </summary>
+    [Fact]
+    public void Devbook_references_are_absent_from_the_wire_until_a_task_has_some()
+    {
+        var task = TaskChanges.Task("No chapters", Noon);
+        task.LoadStamps(Noon, null);
+
+        var payload = TaskReplicaMerge.ToPayload(task);
+        Assert.Null(payload.DevbookReferences);
+
+        var restored = TaskReplicaMerge.ToTaskItem(new TaskChange(task.Id, Noon, null, payload with { DevbookReferences = null }));
+        Assert.Empty(restored.DevbookReferences);
+    }
+
+    /// <summary>A newer document carries them across, and the device that pulls
+    /// it gets the list the other machine set, whole — the merge is whole-document
+    /// last-write-wins, as it is for every other list on the task.</summary>
+    [Fact]
+    public void A_pulled_document_carries_its_devbook_references_whole()
+    {
+        var there = TaskChanges.Task("Linked elsewhere", Noon);
+        there.SetDevbookReferences([".devbook/domain/tasks/domain.md#task"]);
+        there.LoadStamps(Noon, null);
+
+        var change = TaskReplicaMerge.ToChange(there);
+        Assert.Equal([".devbook/domain/tasks/domain.md#task"], change.Task.DevbookReferences);
+
+        var here = TaskReplicaMerge.ToTaskItem(change);
+        Assert.Equal([".devbook/domain/tasks/domain.md#task"], here.DevbookReferences);
+        Assert.Equal(Noon, here.UpdatedAt);
     }
 
     /// <summary>The opaque tokens the payload carries are the ones the local

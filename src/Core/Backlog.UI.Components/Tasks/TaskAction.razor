@@ -10,7 +10,8 @@
 *@
 
 <div class="@ClassValue" data-testid="@TestId" title="@(HasReason ? DisabledReason : null)">
-    <button type="button"
+    <button @ref="_main"
+            type="button"
             class="task-action__main"
             aria-pressed="@(Togglable ? (Set ? "true" : "false") : null)"
             aria-expanded="@(Expanded is { } expanded ? (expanded ? "true" : "false") : null)"
@@ -56,6 +57,13 @@
 </div>
 
 @code {
+    private ElementReference _main;
+
+    /// <summary>Puts the focus on the row's own button. For a host whose picker
+    /// closes from under the focus — Escape in it — so the focus lands back on the
+    /// control that opened it rather than nowhere.</summary>
+    public ValueTask FocusAsync() => _main.FocusAsync();
+
     /// <summary>The glyph. Text rather than an icon set, because this library
     /// ships no icon font and a component that needed one would need it
     /// everywhere.</summary>

@@ -214,7 +214,8 @@ public static class EntryTextParser
         IReadOnlyList<string>? RepoIds = null,
         DateOnly? CompletedOn = null,
         EntryKind Kind = EntryKind.Task,
-        DateOnly? StartedOn = null);
+        DateOnly? StartedOn = null,
+        IReadOnlyList<string>? DevbookReferences = null);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -235,7 +236,8 @@ public static class EntryTextParser
         IReadOnlyList<string>? RepoIds = null,
         DateOnly? CompletedOn = null,
         EntryKind Kind = EntryKind.Task,
-        DateOnly? StartedOn = null)
+        DateOnly? StartedOn = null,
+        IReadOnlyList<string>? DevbookReferences = null)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -390,7 +392,8 @@ public static class EntryTextParser
             metadata.RepoIds ?? [],
             metadata.CompletedOn,
             metadata.Kind,
-            metadata.StartedOn);
+            metadata.StartedOn,
+            metadata.DevbookReferences ?? []);
     }
 
     private static Metadata ParseMetadataLine(string line)
@@ -414,6 +417,7 @@ public static class EntryTextParser
         var unreadable = new List<UnreadableToken>();
         string? importItemId = null;
         var repoIds = new List<string>();
+        var devbookReferences = new List<string>();
 
         foreach (Match match in TokenRegex.Matches(line))
         {
@@ -548,6 +552,21 @@ public static class EntryTextParser
                         }
 
                         break;
+
+                    case "devbook":
+                        // A Devbook page or chapter the entry is about. Collected as
+                        // written and repeatable like `repo`, but read by Import
+                        // alone: the references are the task's own field, not
+                        // text, so the ordinary save ignores this list and the
+                        // canonical line never writes one back. Not checked here
+                        // either — what a reference may look like is the domain's
+                        // rule, and Import asks it. An empty value is nothing.
+                        if (value.Length > 0 && !devbookReferences.Contains(value, StringComparer.Ordinal))
+                        {
+                            devbookReferences.Add(value);
+                        }
+
+                        break;
                 }
 
                 // An unrecognized name, and a recognized name whose value does
@@ -631,7 +650,8 @@ public static class EntryTextParser
             repoIds,
             completedOn,
             kind,
-            startedOn);
+            startedOn,
+            devbookReferences);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure

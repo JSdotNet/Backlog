@@ -26,9 +26,9 @@ internal static class RecurrencePolicy
     /// The successor of a completed occurrence.
     /// <para>
     /// What carries over is what the repeat is <em>of</em>: title, content, type,
-    /// priority, area, tags, repo ids, dependencies and the recurrence itself,
-    /// plus a <see cref="TaskItem.RecurrenceSourceId"/> pointing back at the
-    /// occurrence it followed so a series can be traced. What does not carry over
+    /// priority, area, tags, repo ids, dependencies, Devbook references and the
+    /// recurrence itself, plus a <see cref="TaskItem.RecurrenceSourceId"/> pointing
+    /// back at the occurrence it followed so a series can be traced. What does not carry over
     /// is everything that was about the occurrence rather than the repeat: the new
     /// entry starts at <see cref="EntryStatus.Ready"/> with its sub-items reset to
     /// pending, and with no projections, no usage history, no reminder that has
@@ -57,6 +57,7 @@ internal static class RecurrencePolicy
         successor.SetArea(completed.Area);
         successor.SetRecurrence(completed.Recurrence);
         successor.SetDependsOn(completed.DependsOn);
+        successor.SetDevbookReferences(completed.DevbookReferences);
         successor.SetDueOn(NextDueOn(completed.DueOn, completed.Recurrence));
 
         // The rank comes across so the next occurrence lands where the person put

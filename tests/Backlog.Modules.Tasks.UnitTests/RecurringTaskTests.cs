@@ -173,6 +173,21 @@ public sealed class RecurringTaskTests
         Assert.Empty(successor.UsageEvents);
     }
 
+    /// <summary>The chapters a repeat points at are part of what it is of: next
+    /// week's review reads the same chapter as this week's.</summary>
+    [Fact]
+    public async Task A_successor_points_at_the_same_devbook_chapters()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var id = await Save(store, null, Text(Open));
+        store.Entries[id].SetDevbookReferences([".devbook/domain/tasks/domain.md#task"]);
+
+        await Save(store, id, Text(Ticked));
+
+        Assert.Equal([".devbook/domain/tasks/domain.md#task"], store.Successor(id).DevbookReferences);
+    }
+
     [Fact]
     public async Task A_completed_repeat_with_no_due_date_spawns_an_undated_successor()
     {

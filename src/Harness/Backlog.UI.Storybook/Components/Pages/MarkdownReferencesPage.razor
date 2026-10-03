@@ -96,6 +96,50 @@ One component for both places a reference appears, which is the point of it bein
         </div>
     </Story>
 
+    <Story Name="Held by something else: a chip"
+           Description="A third place a reference turns up, outside the folders altogether: something else holds it — a task pointing at the chapter it is about. `DevbookReferenceChip` draws that, and it is a chip rather than a link because the holder chose the reference and can drop it again, so it carries two acts and two facts a link has no room for.
+
+The label is the heading's words or the page's title, which only a host that read the devbook can supply; with none it falls back to the reference's own short `Label`, and the raw reference is the tooltip either way. The status is `DevbookStatusPill`, judged against the folder the reference itself names. Broken — a heading that is gone, a page that is not there, a path in no devbook folder — is a dashed edge, a mark whose accessible name is the reason, and the reason again in the tooltip: never colour alone.
+
+`OnOpen` makes the label a button and `OnRemove` adds the remove control; without either the chip only reads. A host withholds `OnOpen` from a reference to no page, because there is nowhere for it to go."
+           Code="@ChipCode">
+        <div class="sb-stack" data-testid="devbook-references-chips">
+            <div class="sb-row" role="list" aria-label="Devbook references">
+                <DevbookReferenceChip role="listitem"
+                                      Reference=".devbook/domain/tasks/domain.md#task"
+                                      Title="Task"
+                                      Status="active"
+                                      OnOpen="FollowChip"
+                                      OnRemove="RemoveChip"
+                                      TestId="devbook-references-chip-chapter" />
+                <DevbookReferenceChip role="listitem"
+                                      Reference=".devbook/domain/tasks/domain.md"
+                                      Title="Tasks domain"
+                                      OnOpen="FollowChip"
+                                      OnRemove="RemoveChip"
+                                      TestId="devbook-references-chip-page" />
+                <DevbookReferenceChip role="listitem"
+                                      Reference=".devbook/domain/tasks/domain.md#renamed"
+                                      Broken="true"
+                                      Problem="No heading with this anchor on the page any more."
+                                      OnOpen="FollowChip"
+                                      OnRemove="RemoveChip"
+                                      TestId="devbook-references-chip-broken" />
+                <DevbookReferenceChip role="listitem"
+                                      Reference="docs/handbook.md"
+                                      Broken="true"
+                                      Problem="Not in a devbook folder of this repository."
+                                      OnRemove="RemoveChip"
+                                      TestId="devbook-references-chip-outside" />
+                <DevbookReferenceChip role="listitem"
+                                      Reference=".devbook/arc42/09-decisions.md"
+                                      Title="Architecture decisions"
+                                      TestId="devbook-references-chip-read-only" />
+            </div>
+            <p class="sb-state" data-testid="devbook-references-chip-acted">@ChipSummary</p>
+        </div>
+    </Story>
+
     <Story Name="In prose: a path written in a sentence"
            Description="The first of the two places. An author writing a knowledge chapter mentions another one the way they would anywhere — a code span holding a path, or an ordinary markdown link — and what comes out is the same reference the record fields carry, drawn by the same component.
 
@@ -296,6 +340,35 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
         return $"path {reference.Path} · chapter {reference.Slug ?? "(none)"} · folder {reference.Folder} "
             + $"· file {reference.FileName} · label {reference.Label} · IsChapter {reference.IsChapter}";
     }
+
+    private string? _chipAct;
+
+    private string ChipSummary => _chipAct ?? "Nothing pressed yet. Open or remove a chip above.";
+
+    private void FollowChip(string reference) => _chipAct = $"Open {reference}";
+
+    private void RemoveChip(string reference) => _chipAct = $"Remove {reference}";
+
+    private const string ChipCode = """
+        <DevbookReferenceChip Reference=".devbook/domain/tasks/domain.md#task"
+                              Title="Task"
+                              Status="active"
+                              OnOpen="Open"
+                              OnRemove="Remove" />
+
+        @* Broken: the reason is the mark's name and the tooltip's tail. *@
+        <DevbookReferenceChip Reference=".devbook/domain/tasks/domain.md#renamed"
+                              Broken="true"
+                              Problem="No heading with this anchor on the page any more."
+                              OnOpen="Open"
+                              OnRemove="Remove" />
+
+        @* Nowhere to go: no OnOpen, so the label is text. *@
+        <DevbookReferenceChip Reference="docs/handbook.md"
+                              Broken="true"
+                              Problem="Not in a devbook folder of this repository."
+                              OnRemove="Remove" />
+        """;
 
     private void Follow(DevbookReference reference) => _followed = reference;
 

@@ -646,7 +646,7 @@
 
                 @if (TasksPaneVisible)
                 {
-                    <TasksPane OnOpenSession="OpenSessionAsync" />
+                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" />
                 }
 
                 @if (RightSidePaneVisible)
@@ -682,8 +682,11 @@
                         {
                             @* The anchor and not the whole scope: the pane reads one
                                repository's folders, and the first one taken is the one
-                               the reader was already reading beside. *@
-                            <DevbookPane RepositoryAlias="@State.AnchorRepositoryAlias" />
+                               the reader was already reading beside — unless an entry's
+                               reference asked for another; see DevbookRepositoryAlias. *@
+                            <DevbookPane RepositoryAlias="@DevbookRepositoryAlias"
+                                         OpenReference="@_devbookOpenRequest"
+                                         OnOpenReferenceFollowed="OnDevbookReferenceFollowed" />
                         }
                     </aside>
                 }
@@ -1184,6 +1187,105 @@
     private const string SessionsOffTestId = "tasks-session-sessions-off";
 
     /// <summary>
+    /// The repository an entry's reference asked the Devbook pane to read, and the
+    /// scope anchor it was asked under — or null when nothing has asked, or the
+    /// entry's repository was the anchor anyway.
+    /// <para>
+    /// Held beside the scope rather than written into it, and that is the decision.
+    /// Scoping the list to the entry's repository would also show the pane the right
+    /// devbook, and it would narrow the backlog the reader was working in to answer a
+    /// question about one chapter — and with nothing scoped there is no anchor at
+    /// all, so the pane would have nothing to read. Keyed on the anchor so it lasts
+    /// exactly as long as the scope the reader left alone: choosing a repository in
+    /// the header is choosing what the pane reads, and the request is forgotten.
+    /// </para>
+    /// </summary>
+    private DevbookRepositoryRequest? _devbookRepositoryRequest;
+
+    private sealed record DevbookRepositoryRequest(string Anchor, string RepositoryAlias);
+
+    /// <summary>The reference handed to the Devbook pane and not yet followed,
+    /// numbered so the same one pressed twice is two requests. See
+    /// <see cref="DevbookOpenRequest"/>. Dropped once the pane reports it followed —
+    /// see <see cref="OnDevbookReferenceFollowed"/>.</summary>
+    private DevbookOpenRequest? _devbookOpenRequest;
+
+    /// <summary>
+    /// The pane took the request, so the shell stops handing it on.
+    /// <para>
+    /// The pane remembers what it followed only while it is mounted, and this
+    /// parameter outlives it: hidden and shown again, or remounted for any other
+    /// reason, a fresh pane handed the same request followed it again and pulled
+    /// the reader back to the task's chapter. Only that request is dropped — one
+    /// pressed since carries a newer number and is still owed.
+    /// </para>
+    /// </summary>
+    private void OnDevbookReferenceFollowed(long sequence)
+    {
+        if (_devbookOpenRequest?.Sequence == sequence) _devbookOpenRequest = null;
+    }
+
+    private long _devbookOpenSequence;
+
+    /// <summary>The repository the Devbook pane reads: the one an entry's reference
+    /// asked for while the scope it was asked under still stands, else the scope's
+    /// anchor.</summary>
+    private string DevbookRepositoryAlias =>
+        _devbookRepositoryRequest is { } asked
+        && string.Equals(asked.Anchor, State.AnchorRepositoryAlias, StringComparison.Ordinal)
+            ? asked.RepositoryAlias
+            : State.AnchorRepositoryAlias;
+
+    /// <summary>
+    /// One of an entry's Devbook references, opened from the entry: the Devbook pane
+    /// on screen beside the list, reading the entry's repository, on that chapter.
+    /// <para>
+    /// The mirror of <see cref="OpenSessionAsync"/>: the entry belongs to Tasks and
+    /// the chapter to Devbook, and the shell is the one place holding both. Opened
+    /// alongside the open panes rather than switched to — the reader pressed it from
+    /// the list and is still working in it — which on a window that fits one pane is
+    /// a switch, because a request the shell makes for the reader is never dropped.
+    /// A repository with no devbook to show, or the Devbook switched off, is said out
+    /// loud rather than opening an empty pane.
+    /// </para>
+    /// </summary>
+    private Task OpenDevbookReferenceAsync(DevbookReferenceRequest request)
+    {
+        var alias = string.IsNullOrWhiteSpace(request.RepositoryAlias)
+            ? State.AnchorRepositoryAlias
+            : request.RepositoryAlias;
+
+        if (!IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
+            || alias.Length == 0
+            || Devbook.VisibleAreas(alias).Count == 0)
+        {
+            Toasts.Publish(ToastMessage.Warning(
+                alias.Length == 0
+                    ? "This entry names no repository, so there is no Devbook to open it in."
+                    : $"The Devbook of {alias} is not available here, so this reference cannot be opened.",
+                DevbookUnavailableTestId));
+
+            return Task.CompletedTask;
+        }
+
+        _devbookRepositoryRequest = string.Equals(alias, State.AnchorRepositoryAlias, StringComparison.Ordinal)
+            ? null
+            : new DevbookRepositoryRequest(State.AnchorRepositoryAlias, alias);
+        _devbookOpenRequest = new DevbookOpenRequest(request.Reference, ++_devbookOpenSequence);
+
+        // The pane's option may only now be on offer: with nothing scoped there was
+        // no repository to read until the request named one.
+        SynchronizePaneAvailability();
+        _globalPanes.TryOpenAlongside(GlobalPane.Devbook);
+        RememberAiScope(AiScopeFor(GlobalPane.Devbook));
+        PersistPaneSelection();
+
+        return Task.CompletedTask;
+    }
+
+    private const string DevbookUnavailableTestId = "tasks-devbook-unavailable";
+
+    /// <summary>
     /// The Backlog entry a delivery run was started from, opened from the sessions
     /// list: back to the panes, the task list on screen, that entry selected.
     /// <para>
@@ -1439,7 +1541,7 @@
     /// rather than working it out from folder settings itself.</summary>
     private bool DevbookPaneOptionVisible =>
         IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
-        && Devbook.VisibleAreas(State.AnchorRepositoryAlias).Count > 0;
+        && Devbook.VisibleAreas(DevbookRepositoryAlias).Count > 0;
 
     private bool DevbookPaneVisible => DevbookPaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Devbook);
 

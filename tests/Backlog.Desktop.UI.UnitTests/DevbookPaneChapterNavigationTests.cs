@@ -200,6 +200,151 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         WaitForChapter(component, ".arc42/adr/0005-replica.md", "A replica of the store.");
     }
 
+    // --- Asked to open a reference from outside the pane -------------------
+    //
+    // A task's Devbook reference, pressed in the Tasks pane: the shell hands the pane
+    // the reference and a sequence number, and the pane follows each number once.
+
+    [Fact]
+    public async Task A_request_from_outside_opens_the_chapter_it_names()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", ChapterPath(component)));
+
+        // The devbook layout's spelling, which is how a task stores it, against a
+        // repository whose folders sit at the root: the same chapter either way.
+        component.Render(parameters => parameters
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(".devbook/domain/tasks/domain.md#domain-event-aiworklogged", 1)));
+
+        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(component)));
+        Assert.Equal("Domain", component.Find(".devbook-menu__item--active").TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task A_request_made_while_the_menu_is_loading_is_followed_when_it_lands()
+    {
+        await using var harness = CreateHarness();
+
+        // Handed in on the first render, which is the render that starts the menu
+        // load: the pane opens on the requested chapter rather than its default.
+        var component = harness.Render(new DevbookOpenRequest(".domain/tasks/domain.md", 1));
+
+        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(component)));
+    }
+
+    [Fact]
+    public async Task A_request_into_another_section_switches_to_it()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", ChapterPath(component)));
+
+        component.Render(parameters => parameters
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(".devbook/arc42/03-context-and-scope.md", 1)));
+
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
+        Assert.Contains("Context And Scope", component.Find(".devbook-menu__item--active").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_same_reference_asked_for_again_opens_it_again()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", ChapterPath(component)));
+
+        component.Render(parameters => parameters
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(".domain/tasks/domain.md", 1)));
+        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(component)));
+
+        // The reader moves on, inside the pane.
+        component.Find("#tab-arc42").Click();
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
+
+        // The same chapter pressed again on the task is a new request, and it lands.
+        component.Render(parameters => parameters
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(".domain/tasks/domain.md", 2)));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("#tab-domain").GetAttribute("aria-selected"));
+            Assert.Equal(".domain/tasks/domain.md", ChapterPath(component));
+        });
+    }
+
+    [Fact]
+    public async Task A_request_already_followed_does_not_pull_the_reader_back()
+    {
+        await using var harness = CreateHarness();
+
+        var request = new DevbookOpenRequest(".domain/tasks/domain.md", 7);
+        var component = harness.Render(request);
+        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(component)));
+
+        component.Find("#tab-arc42").Click();
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
+
+        // The shell re-renders for its own reasons and hands the same request back.
+        component.Render(parameters => parameters.Add(pane => pane.OpenReference, request));
+
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
+    }
+
+    /// <summary>
+    /// The pane reports each request it follows, so the shell can drop it. A request
+    /// the shell kept handing on would be followed again by the next pane it mounts
+    /// — hiding and reshowing the Devbook pane jumped back to the task's chapter.
+    /// Here the holder is the test, and the remount is a second pane over the same
+    /// holder.
+    /// </summary>
+    [Fact]
+    public async Task A_followed_request_is_reported_so_a_remounted_pane_does_not_follow_it_again()
+    {
+        await using var harness = CreateHarness();
+
+        DevbookOpenRequest? held = new(".domain/tasks/domain.md", 3);
+        var followed = new List<long>();
+        void OnFollowed(long sequence)
+        {
+            followed.Add(sequence);
+            if (held?.Sequence == sequence) held = null;
+        }
+
+        var first = harness.Render(held, OnFollowed);
+        first.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", ChapterPath(first)));
+
+        Assert.Equal([3L], followed);
+        Assert.Null(held);
+
+        // The pane goes and comes back, handed whatever the holder has now.
+        first.Instance.Dispose();
+        var second = harness.Render(held, OnFollowed);
+
+        second.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", ChapterPath(second)));
+        Assert.Equal([3L], followed);
+    }
+
+    [Fact]
+    public async Task A_request_for_a_chapter_the_menu_does_not_have_changes_nothing()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", ChapterPath(component)));
+
+        component.Render(parameters => parameters
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(".domain/tasks/renamed.md", 1)));
+
+        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", ChapterPath(component)));
+    }
+
+    private static string ChapterPath(IRenderedComponent<DevbookPane> component) =>
+        component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent;
+
     /// <summary>The chapter the arc42 panel is showing, waited for as one thing.
     /// The file view's path is set from the selection and its body is read off disk
     /// after it, so a check on the path alone passes while the prose underneath is
@@ -300,8 +445,14 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
 
     private sealed record Harness(BunitContext Context, string RepositoryAlias) : IAsyncDisposable
     {
-        public IRenderedComponent<DevbookPane> Render() =>
-            Context.Render<DevbookPane>(parameters => parameters.Add(pane => pane.RepositoryAlias, RepositoryAlias));
+        public IRenderedComponent<DevbookPane> Render(DevbookOpenRequest? open = null, Action<long>? followed = null) =>
+            Context.Render<DevbookPane>(parameters =>
+            {
+                parameters
+                    .Add(pane => pane.RepositoryAlias, RepositoryAlias)
+                    .Add(pane => pane.OpenReference, open);
+                if (followed is not null) parameters.Add(pane => pane.OnOpenReferenceFollowed, followed);
+            });
 
         /// <summary>Awaited disposal, because the pane renders the editing surface
         /// and that writes its last pending save on the way out — see the same note

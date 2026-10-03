@@ -34,6 +34,109 @@ public sealed class HomeDevbookPaneTests
         });
     }
 
+    /// <summary>
+    /// A task's Devbook reference pressed in the Tasks pane opens the Devbook pane
+    /// on that chapter — and reads the entry's own repository, even with nothing
+    /// scoped in the header, where the pane would otherwise have no repository to
+    /// read and its option is not even offered.
+    /// </summary>
+    [Fact]
+    public async Task Pressing_an_entry_s_devbook_reference_opens_it_in_the_devbook_pane()
+    {
+        await using var harness = CreateHarness();
+        harness.Context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var component = harness.Context.Render<Home>();
+        component.WaitForElement("[data-testid='repository-filter-option']");
+        Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
+
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        var alias = Assert.Single(state.Repositories).Alias;
+
+        await component.InvokeAsync(async () =>
+        {
+            state.NewRow();
+            var row = state.Rows[^1];
+            state.OnRawTextInput(row, $"# Read the task chapter\n`task` `repo:{alias}`\n\nRead it first.\n");
+            await state.EndEditAsync(row);
+            await state.SetDevbookReferencesAsync(row, [".devbook/domain/tasks/domain.md#task"]);
+            await state.SelectAsync(row);
+        });
+
+        var chip = component.WaitForElement("[data-testid='entry-devbook-reference'] button.devbook-chip__label");
+        await chip.ClickAsync(new());
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+            Assert.EndsWith("tasks/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent, StringComparison.Ordinal);
+        });
+
+        // The scope the reader chose is left alone: the list still shows every
+        // repository, and the pane reads the entry's.
+        Assert.Empty(state.SelectedRepositoryAliases);
+    }
+
+    /// <summary>
+    /// A reference opened once is opened once. The shell used to hand the pane the
+    /// last request for good, and a pane mounted again — the Devbook pane hidden and
+    /// shown — followed it again and jumped back to the task's chapter.
+    /// </summary>
+    [Fact]
+    public async Task Hiding_and_reshowing_the_devbook_pane_does_not_reopen_the_last_reference()
+    {
+        await using var harness = CreateHarness();
+        harness.Context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var component = harness.Context.Render<Home>();
+        component.WaitForElement("[data-testid='repository-filter-option']");
+
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        var alias = Assert.Single(state.Repositories).Alias;
+
+        await component.InvokeAsync(async () =>
+        {
+            state.NewRow();
+            var row = state.Rows[^1];
+            state.OnRawTextInput(row, $"# Read the task chapter\n`task` `repo:{alias}`\n\nRead it first.\n");
+            await state.EndEditAsync(row);
+            await state.SetDevbookReferencesAsync(row, [".devbook/domain/tasks/domain.md#task"]);
+            await state.SelectAsync(row);
+        });
+
+        await component.WaitForElement("[data-testid='entry-devbook-reference'] button.devbook-chip__label").ClickAsync(new());
+        component.WaitForAssertion(() =>
+            Assert.EndsWith("tasks/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent, StringComparison.Ordinal));
+
+        // Hidden: pressing its option closes it where two panes fit, and where only
+        // one does the backlog's option is the way away from it.
+        await component.Find("[data-testid='devbook-pane-option']").ClickAsync(new());
+        if (component.FindAll("[data-testid='devbook-stack']").Count > 0)
+        {
+            await component.Find("[data-testid='backlog-pane-option']").ClickAsync(new());
+        }
+
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='devbook-stack']")));
+
+        await component.Find("[data-testid='devbook-pane-option']").ClickAsync(new());
+
+        // Back, with its menu loaded — the moment a request it was still handed
+        // would be followed — and on whatever it opens on by itself.
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+            Assert.NotEmpty(component.FindAll(".file-view__path"));
+        });
+
+        // The jump, when it happened, landed a moment after the pane's own first
+        // file: so this waits for it, and passes only if it never comes.
+        Assert.Throws<Bunit.Extensions.WaitForHelpers.WaitForFailedException>(() => component.WaitForAssertion(
+            () => Assert.Contains(
+                component.FindAll(".file-view__path").Select(element => element.TextContent),
+                text => text.EndsWith("tasks/domain.md", StringComparison.Ordinal)),
+            TimeSpan.FromSeconds(2)));
+    }
+
     private static Harness CreateHarness()
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-home-tests", Guid.NewGuid().ToString("n"));
@@ -109,6 +212,9 @@ public sealed class HomeDevbookPaneTests
         context.Services.AddSingleton<DevbookSourceSelection>();
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+        // A chapter the pane opens is drawn with its compare control, which asks
+        // the file's history; a stub with none keeps that control out of the way.
+        context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
         context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),

@@ -230,6 +230,55 @@ Press the buttons to do what a list does on Tab and what a host does on a brand-
         <p class="sb-state" data-testid="panel-focus-state">Shift+Tab off the front: @_leftTheFront</p>
     </Story>
 
+    <Story Name="The Devbook chapters a task points at"
+           Description="A task can say which Devbook pages and chapters it is about, and the pane draws them as a group of their own under the facts: a row that opens a picker, and one `DevbookReferenceChip` per reference. Across the full width, for the reason “Waiting for” is: the value is a list of names, and a column would wrap it one per line.
+
+Each chip says three things a stored path cannot. Its title is the heading's words or the page's title, read from the devbook now; the status badge says whether the chapter is still current; and a reference that no longer names anything — the heading was renamed, the page was moved — is drawn broken, with the reason as the mark's accessible name and in the tooltip after the raw reference. The reference is kept rather than dropped when that happens, because only its author knows what it should point at now.
+
+The picker is `TagMultiSelect` with `ShowSelected` off: the chips above are the selection, so it draws none of its own and Backspace in it removes nothing. Its options are the repository's pages, each followed by its chapters, in a section per folder; a chapter's hint is the page it is a heading of. `AllowCreate` takes a typed `path#anchor` the list does not offer, and the write is where a value that names no page is refused.
+
+Pressing a chip's title opens it in the Devbook pane; here the line under the panel says which one was asked for. The fourth chip has no page behind it and so no way to open it — its title is text."
+           Code="@DevbookCode">
+        <div class="sb-side-panel">
+            <TaskActionGroup Label="Devbook" TestId="panel-devbook">
+                <TaskAction Icon="📖"
+                            Label="@(_devbookReferences.Count == 0 ? "Link a Devbook chapter" : "Devbook")"
+                            Value="@(_devbookReferences.Count == 1 ? "1 Devbook reference" : $"{_devbookReferences.Count} Devbook references")"
+                            Set="@(_devbookReferences.Count > 0)"
+                            Expanded="@_devbookPicking"
+                            OnSet="() => _devbookPicking = !_devbookPicking"
+                            TestId="panel-devbook-action" />
+                <div class="sb-row" role="list" aria-label="Devbook references" data-testid="panel-devbook-references">
+                    @foreach (var reference in _devbookReferences)
+                    {
+                        var known = DevbookKnown.GetValueOrDefault(reference);
+                        <DevbookReferenceChip role="listitem"
+                                              @key="reference"
+                                              Reference="@reference"
+                                              Title="@known?.Title"
+                                              Status="@known?.Status"
+                                              Broken="@(known?.Problem is not null)"
+                                              Problem="@known?.Problem"
+                                              OnOpen="@(known?.Openable == false ? default : EventCallback.Factory.Create<string>(this, value => _devbookOpened = value))"
+                                              OnRemove="value => _devbookReferences = [.. _devbookReferences.Where(existing => existing != value)]"
+                                              TestId="panel-devbook-reference" />
+                    }
+                </div>
+                @if (_devbookPicking)
+                {
+                    <TagMultiSelect Options="@DevbookTargets"
+                                    SelectedValues="@_devbookReferences"
+                                    SelectedValuesChanged="values => _devbookReferences = values"
+                                    ShowSelected="false"
+                                    AllowCreate="true"
+                                    Placeholder="Find a page or chapter, or type path#anchor"
+                                    TestId="panel-devbook-picker" />
+                }
+            </TaskActionGroup>
+        </div>
+        <p class="sb-state" data-testid="panel-devbook-state">Open in the Devbook: @(_devbookOpened ?? "(nothing asked yet)")</p>
+    </Story>
+
     <Story Name="A title, and only what there is"
            Description="Every part under the heading is optional, and an absent one is left out rather than drawn empty. A task with no tags gets no tag strip, because a row of blank space is where a reader learns there is nothing to learn; a task nobody has set anything on gets no pane; a title-only task is a heading, and that is all it is.
 
@@ -253,6 +302,65 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
         new("interaction-guidelines.md#auto-save-no-save-buttons", "Why nothing in the pane has a save button."),
         new("content-editing.md#task-structure", "What a step, a tag and a body are in the file behind the pane.")
     ];
+
+    private IReadOnlyList<string> _devbookReferences =
+    [
+        ".devbook/domain/tasks/domain.md#task",
+        ".devbook/domain/tasks/domain.md",
+        ".devbook/domain/tasks/domain.md#renamed",
+        "docs/handbook.md"
+    ];
+
+    private bool _devbookPicking;
+
+    private string? _devbookOpened;
+
+    /// <summary>What the devbook would answer for each sample reference. A real host
+    /// asks its resolver; the panel only draws what it is handed.</summary>
+    private sealed record DevbookAnswer(string? Title, string? Status, string? Problem, bool Openable = true);
+
+    private static readonly Dictionary<string, DevbookAnswer> DevbookKnown = new(StringComparer.Ordinal)
+    {
+        [".devbook/domain/tasks/domain.md#task"] = new("Task", "active", null),
+        [".devbook/domain/tasks/domain.md"] = new("Tasks domain", null, null),
+        [".devbook/domain/tasks/domain.md#renamed"] = new(null, null, "No heading with this anchor on the page any more."),
+        ["docs/handbook.md"] = new(null, null, "Not in a devbook folder of this repository.", Openable: false),
+        [".devbook/domain/tasks/domain.md#readiness"] = new("Readiness", "draft", null),
+        [".devbook/arc42/09-architecture-decisions.md"] = new("Architecture decisions", null, null)
+    };
+
+    private static readonly IReadOnlyList<SelectorOption> DevbookTargets =
+    [
+        new(".devbook/domain/tasks/domain.md", "Tasks domain", "domain.md", "domain"),
+        new(".devbook/domain/tasks/domain.md#task", "Task", "Tasks domain", "domain"),
+        new(".devbook/domain/tasks/domain.md#readiness", "Readiness", "Tasks domain", "domain"),
+        new(".devbook/arc42/09-architecture-decisions.md", "Architecture decisions", "09-architecture-decisions.md", "arc42")
+    ];
+
+    private const string DevbookCode = """
+        <TaskActionGroup Label="Devbook">
+            <TaskAction Icon="📖" Label="Devbook" Value="3 Devbook references" Set="true"
+                        OnSet="TogglePicker" />
+            @foreach (var reference in resolved)
+            {
+                <DevbookReferenceChip Reference="@reference.Reference"
+                                      Title="@reference.Title"
+                                      Status="@reference.Status"
+                                      Broken="@reference.IsBroken"
+                                      Problem="@ProblemFor(reference)"
+                                      OnOpen="OpenInDevbook"
+                                      OnRemove="Remove" />
+            }
+            @if (picking)
+            {
+                <TagMultiSelect Options="@targets"
+                                SelectedValues="@references"
+                                SelectedValuesChanged="Save"
+                                ShowSelected="false"
+                                AllowCreate="true" />
+            }
+        </TaskActionGroup>
+        """;
 
     private bool _inMyDay = true;
     private bool _reminded = true;

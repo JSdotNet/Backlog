@@ -13,7 +13,8 @@ namespace Backlog.Infrastructure.Mcp;
 /// <summary>
 /// The operations a session performs on the tracker: find the entry it is about
 /// to work on, read it, move it along the lifecycle, leave a note on it, record
-/// the pull request its work produced, and file a new one.
+/// the pull request its work produced, file a new one, and say which Devbook
+/// pages and chapters it is about.
 /// <para>
 /// <b>A second class rather than six more methods on <see cref="WorkTools"/>.</b>
 /// That class's own doc says what it is: "one read: the entries, narrowed two
@@ -64,6 +65,9 @@ namespace Backlog.Infrastructure.Mcp;
 /// would be a second place an entry is decided.</param>
 /// <param name="repositories">Where an <c>owner/name</c> becomes a repository
 /// this product knows. Resolved, never registered (ADR 0012 §4).</param>
+/// <param name="devbookReferences">What an entry's Devbook references point at,
+/// resolved in the repository a call names. Tasks' own port, so this class still
+/// sees no Devbook type.</param>
 /// <param name="clock">Where "today" comes from when a comment is dated.
 /// Defaulted rather than required because the solution registers no
 /// <see cref="TimeProvider"/> in the container the tools are built from — the
@@ -74,7 +78,11 @@ namespace Backlog.Infrastructure.Mcp;
 /// <c>GitHubSettingsStore</c>): optional, so a test can pin the date, and
 /// <see cref="TimeProvider.System"/> when nobody does.</param>
 [McpServerToolType]
-public sealed class TrackerTools(ITaskItems entries, IRepositoryDirectory repositories, TimeProvider? clock = null)
+public sealed class TrackerTools(
+    ITaskItems entries,
+    IRepositoryDirectory repositories,
+    IDevbookReferenceResolver devbookReferences,
+    TimeProvider? clock = null)
 {
     internal const string FindItem = "find_item";
     internal const string ReadItem = "read_item";
@@ -83,6 +91,8 @@ public sealed class TrackerTools(ITaskItems entries, IRepositoryDirectory reposi
     internal const string LinkChange = "link_change";
     internal const string LinkSession = "link_session";
     internal const string CreateItem = "create_item";
+    internal const string SetDevbookReferences = "set_devbook_references";
+    internal const string ListDevbookReferences = "list_devbook_references";
 
     /// <summary>
     /// What a comment records in the entry's usage history.
@@ -203,7 +213,8 @@ public sealed class TrackerTools(ITaskItems entries, IRepositoryDirectory reposi
     [McpServerTool(Name = ReadItem, Title = "Read a backlog entry", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
         "One backlog entry as its markdown, metadata line and sub-items included - byte for byte what the app "
-        + "would save. Read-only.")]
+        + "would save - plus the Devbook pages and chapters it points at, which are not part of the markdown. "
+        + "Read-only.")]
     public async Task<EntryTextPayload> ReadItemAsync(
         [Description("The entry's id, as a GUID. find_item is how you get one.")]
         Guid id,
@@ -219,7 +230,8 @@ public sealed class TrackerTools(ITaskItems entries, IRepositoryDirectory reposi
             entry.Id,
             entry.Title,
             EnumMap.ToWire(entry.Status),
-            EntryTextParser.ToRawText(entry));
+            EntryTextParser.ToRawText(entry),
+            entry.DevbookReferences);
     }
 
     /// <summary>
@@ -543,8 +555,93 @@ public sealed class TrackerTools(ITaskItems entries, IRepositoryDirectory reposi
         return Reference(saved.ValueOrThrow().Entry);
     }
 
+    /// <summary>
+    /// Replaces the Devbook pages and chapters an entry points at, and answers
+    /// them resolved.
+    /// <para>
+    /// <b>The whole list, every time.</b> The list sent is the list the entry
+    /// keeps — an empty one clears it — so a session adds a reference by sending
+    /// the ones it read from <see cref="ListDevbookReferencesAsync"/> with the new
+    /// one appended. A tool per reference would make "the entry is about these"
+    /// a sequence of calls that can stop halfway.
+    /// </para>
+    /// <para>
+    /// <b>Existence is not checked on write</b>, by the module rather than by this
+    /// tool: a reference outlives a rename of the chapter it names. So the answer
+    /// is resolved after the write, and a broken reference comes back marked as
+    /// one in the same call rather than being refused or silently kept. A value
+    /// that names no page at all is the module's validation error, unaltered.
+    /// </para>
+    /// <para>
+    /// Idempotent: the same list twice is the same entry. Not destructive in the
+    /// hint's sense — nothing is deleted, and the list it replaced is one
+    /// <see cref="ListDevbookReferencesAsync"/> away before the call.
+    /// </para>
+    /// </summary>
+    [McpServerTool(Name = SetDevbookReferences, Title = "Set the Devbook references of a backlog entry", ReadOnly = false, Idempotent = true, Destructive = false, OpenWorld = true)]
+    [Description(
+        "Replaces the whole list of Devbook pages and chapters one backlog entry points at, and answers the list "
+        + "resolved. Send every reference the entry should keep - an empty list clears them; to add one, send the "
+        + "current list (list_devbook_references) with it appended. Existence is not checked on write: a reference "
+        + "to a page or heading that is not there is kept and comes back with a broken state.")]
+    public async Task<DevbookReferencesPayload> SetDevbookReferencesAsync(
+        [Description("The entry's id, as a GUID.")]
+        Guid id,
+        [Description("The repository in owner/name form whose devbook the references are resolved in, e.g. JSdotNet/Backlog.")]
+        string repository,
+        [Description(
+            "Every reference the entry should keep, in order: a repository-relative page path, optionally followed "
+            + "by #heading-slug for one chapter, e.g. .devbook/domain/tasks/domain.md#task. Repeats are dropped; a "
+            + "value with neither a folder nor a .md ending is refused.")]
+        string[] references,
+        CancellationToken cancellationToken = default)
+    {
+        // Before the write, so an owner/name nobody registered changes nothing.
+        var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
+
+        var saved = await entries
+            .SetDevbookReferencesAsync(id, references ?? [], cancellationToken)
+            .ConfigureAwait(false);
+
+        // What the entry kept, not what was sent: the module drops repeats and
+        // normalises spellings, and the answer has to describe the entry.
+        return await ResolvedAsync(saved.ValueOrThrow(), scope, cancellationToken).ConfigureAwait(false);
+    }
+
+    [McpServerTool(Name = ListDevbookReferences, Title = "List the Devbook references of a backlog entry", ReadOnly = true, Idempotent = true, OpenWorld = true)]
+    [Description(
+        "The Devbook pages and chapters one backlog entry points at, each resolved against the repository's "
+        + "devbook as it stands now: chapter or page when found, with its title and the chapter's status; "
+        + "unknown-heading, unknown-page or outside-devbook when the link is broken - a chapter renamed since, "
+        + "a page that is gone, a path under no devbook folder; unverified when the devbook could not be read. "
+        + "Read-only.")]
+    public async Task<DevbookReferencesPayload> ListDevbookReferencesAsync(
+        [Description("The entry's id, as a GUID.")]
+        Guid id,
+        [Description("The repository in owner/name form whose devbook the references are resolved in, e.g. JSdotNet/Backlog.")]
+        string repository,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
+        var entry = await RequireAsync(id, cancellationToken).ConfigureAwait(false);
+
+        return await ResolvedAsync(entry, scope, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<DevbookReferencesPayload> ResolvedAsync(
+        TaskItemDto entry,
+        TasksRepositoryRef scope,
+        CancellationToken cancellationToken)
+    {
+        var resolved = await devbookReferences
+            .ResolveAsync(scope.Alias, entry.DevbookReferences, cancellationToken)
+            .ConfigureAwait(false);
+
+        return new DevbookReferencesPayload(entry.Id, scope.Id, [.. resolved.Select(Projections.DevbookReference)]);
+    }
+
     /// <summary>The entry, or the refusal that names the id. One read of the port
-    /// for the four tools that start with "the entry you mean is this one".</summary>
+    /// for the tools that start with "the entry you mean is this one".</summary>
     private async Task<TaskItemDto> RequireAsync(Guid id, CancellationToken cancellationToken)
     {
         var all = await entries.ListAsync(cancellationToken).ConfigureAwait(false);

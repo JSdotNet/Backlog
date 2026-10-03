@@ -68,6 +68,12 @@ internal sealed class TasksPaneHost : IDisposable
     public static Task<TasksPaneHost> CreateAsync(params string[] repositories) =>
         CreateAsync(roadmapTags: null, repositories);
 
+    /// <summary>As <see cref="CreateAsync(string[])"/>, with the Devbook a task's
+    /// references are read against — the port the application hosts answer with the
+    /// real devbook adapter.</summary>
+    public static Task<TasksPaneHost> CreateAsync(IDevbookReferenceResolver devbookReferences, string[] repositories) =>
+        CreateAsync(roadmapTags: null, repositories, devbookReferences: devbookReferences);
+
     /// <summary>As <see cref="CreateAsync(string[])"/>, and with the roadmap tag
     /// source the backlog picker offers planned tags from. A host with a roadmap
     /// registers one; a test that cares about planned tags hands one in here.
@@ -78,7 +84,8 @@ internal sealed class TasksPaneHost : IDisposable
         IRoadmapTagSource? roadmapTags,
         string[] repositories,
         TimeProvider? clock = null,
-        TaskStoreCalls? storeCalls = null)
+        TaskStoreCalls? storeCalls = null,
+        IDevbookReferenceResolver? devbookReferences = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-pane-host", Guid.NewGuid().ToString("n"));
 
@@ -97,7 +104,7 @@ internal sealed class TasksPaneHost : IDisposable
         var gitHub = new GitHubIntegration(gitHubSettings, client, new ConnectedProbe());
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
         var toasts = new ToastChannel();
-        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts, clock: clock, storeCalls: storeCalls);
+        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts, clock: clock, storeCalls: storeCalls, devbookReferences: devbookReferences);
 
         await state.InitializeAsync();
 

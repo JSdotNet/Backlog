@@ -16,6 +16,7 @@ public sealed class TaskItem
     private readonly List<string> _repoIds = new();
     private readonly List<string> _tags = new();
     private readonly List<string> _dependsOn = new();
+    private readonly List<string> _devbookReferences = new();
 
     /// <summary>Creates a new, manually authored entry. It starts at
     /// <see cref="EntryStatus.Draft"/> with no source inbox id.</summary>
@@ -229,6 +230,18 @@ public sealed class TaskItem
     /// dropping it would let a chain claim to be ready when the step it waits on
     /// is merely out of view.</summary>
     public IReadOnlyList<string> DependsOn => _dependsOn;
+
+    /// <summary>The Devbook pages and chapters this task is about, as normalised
+    /// <see cref="TaskDevbookReference"/> spellings, in the order they were given.
+    /// <para>
+    /// The task's own field and never text in it: nothing writes these into
+    /// <see cref="ContentMd"/> or the metadata line, so the ordinary text save has
+    /// nothing to read them back from and leaves them as they are. Plain strings
+    /// for the reason <see cref="DependsOn"/> is — a weak reference across a
+    /// boundary, here into the repository's Devbook, kept even when what it names
+    /// has since been renamed.
+    /// </para></summary>
+    public IReadOnlyList<string> DevbookReferences => _devbookReferences;
 
     public IReadOnlyList<SubItem> SubItems => _subItems;
 
@@ -489,6 +502,30 @@ public sealed class TaskItem
                 .Where(id => id.Length > 0)
                 .Distinct(StringComparer.Ordinal));
         }
+
+        Touch();
+    }
+
+    /// <summary>Replaces the whole list of Devbook references. Each is normalised
+    /// through <see cref="TaskDevbookReference"/>, order is kept and a repeat —
+    /// compared ordinally after normalisation — is kept once. Null and empty both
+    /// clear it.
+    /// <para>
+    /// One value that names no page refuses the whole list with an
+    /// <see cref="ArgumentException"/>, and the list the task had stands: unlike
+    /// <see cref="SetDependsOn"/>, where any string is an id, here there is a shape
+    /// to be wrong, and keeping the rest would store a list nobody asked for.
+    /// Every value is read before anything is cleared for that reason.
+    /// </para></summary>
+    public void SetDevbookReferences(IEnumerable<string>? references)
+    {
+        var normalised = (references ?? [])
+            .Select(reference => TaskDevbookReference.Parse(reference).Value)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        _devbookReferences.Clear();
+        _devbookReferences.AddRange(normalised);
 
         Touch();
     }
