@@ -55,6 +55,25 @@ public static class DashboardFormat
     }
 
     /// <summary>
+    /// A number of hours worked or planned, to a tenth, as <c>1.5h</c> — the way a
+    /// roadmap head prints a day's actual hours, so the two surfaces name one figure
+    /// alike. Hours rather than <see cref="Duration"/>'s days, because a week of 42.5
+    /// hours read as "1.8d" is a week nobody recognises. Zero is <c>0h</c>: a day with
+    /// no stretch was read and came to nothing, which is a figure.
+    /// </summary>
+    public static string Hours(TimeSpan span) =>
+        span == TimeSpan.Zero
+            ? "0h"
+            : span.TotalHours.ToString("0.0", CultureInfo.InvariantCulture) + "h";
+
+    /// <summary><see cref="Hours(TimeSpan)"/> for a figure already in hours, as a chart
+    /// scale hands it back.</summary>
+    public static string Hours(decimal hours) =>
+        hours == 0m
+            ? "0h"
+            : hours.ToString("0.0", CultureInfo.InvariantCulture) + "h";
+
+    /// <summary>
     /// An instant a person reads: the day, the month and the time, in UTC.
     /// <para>
     /// Invariant and UTC rather than local and cultured, for the same reason every

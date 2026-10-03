@@ -250,6 +250,32 @@ internal static class ProductivityFixtures
     /// that draws them as columns.</summary>
     public static IReadOnlyList<MetricSeries> PeaksAsLines => PeaksByWeek;
 
+    private static readonly string[] WorkWeeks = ["W34", "W35", "W36", "W37", "W38", "W39", "W40", "W41"];
+
+    // W36 is a week of leave, every weekday blocked: no office hours, so its three hours
+    // count outside against nothing planned. W40 has a blocked Friday, and W41 is this
+    // week, counted through Thursday.
+    private static readonly decimal[] InsideOfficeHours = [38.5m, 41m, 0m, 36m, 40.5m, 42m, 30m, 29.5m];
+
+    private static readonly decimal[] OutsideOfficeHours = [4m, 6.5m, 3m, 2m, 8m, 5.5m, 11m, 1.5m];
+
+    private static readonly decimal[] PlannedHours = [42.5m, 42.5m, 0m, 42.5m, 42.5m, 42.5m, 34m, 34m];
+
+    /// <summary>
+    /// A person's hours worked per calendar week, split by office hours: two kinds of one
+    /// hour that add up to the hours worked, so they stack.
+    /// </summary>
+    public static IReadOnlyList<MetricSeries> HoursWorkedByWeek { get; } =
+    [
+        new("Inside office hours", [.. WorkWeeks.Select((week, index) => new MetricPoint(week, InsideOfficeHours[index]))]),
+        new("Outside office hours", [.. WorkWeeks.Select((week, index) => new MetricPoint(week, OutsideOfficeHours[index]))])
+    ];
+
+    /// <summary>The working hours of the same weeks, overrides applied: what each stack
+    /// is held against, in the stack's own unit.</summary>
+    public static MetricSeries PlannedByWeek { get; } =
+        new("Planned", [.. WorkWeeks.Select((week, index) => new MetricPoint(week, PlannedHours[index]))]);
+
     /// <summary>
     /// The timesheet's repositories as they would look wearing their identity hues —
     /// the band-identity token each is configured with, keyed by name — for the story

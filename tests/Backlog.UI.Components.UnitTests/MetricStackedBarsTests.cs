@@ -457,6 +457,97 @@ public sealed class MetricStackedBarsTests
         Assert.True(legend.CompareDocumentPosition(plot).HasFlag(AngleSharp.Dom.DocumentPositions.Following));
     }
 
+    /// <summary>What the stack is held against, in the stack's own unit: a plan of 20,
+    /// 40 and 10 hours beside hours worked of 26, 30 and 20.</summary>
+    private static MetricSeries Planned =>
+        new("Planned", [new MetricPoint("W1", 20m), new MetricPoint("W2", 40m), new MetricPoint("W3", 10m)]);
+
+    [Fact]
+    public void A_target_is_a_mark_per_column_on_the_columns_own_scale()
+    {
+        using var context = new BunitContext();
+
+        var chart = context.Render<MetricStackedBars>(parameters => parameters
+            .Add(c => c.Series, Hours)
+            .Add(c => c.Target, Planned)
+            .Add(c => c.TestId, "chart"));
+
+        // One scale, and it reaches the tallest target when a target outgrows every
+        // stack — a mark drawn above the plot would be a mark nobody can read.
+        Assert.Equal("40", chart.Find(".metric-stacked-bars__scale-max").TextContent);
+        Assert.Empty(chart.FindAll(".metric-stacked-bars__scale--right"));
+
+        var marks = chart.FindAll(".metric-stacked-bars__target");
+        Assert.Equal(3, marks.Count);
+        Assert.Equal(["bottom: 50%", "bottom: 100%", "bottom: 25%"], [.. marks.Select(mark => mark.GetAttribute("style"))]);
+
+        // Each mark sits in its own column's track, so the stack it is held against is
+        // the one beside it.
+        Assert.All(chart.FindAll(".metric-stacked-bars__column-track"), track =>
+            Assert.Single(track.QuerySelectorAll(".metric-stacked-bars__target")));
+
+        // In the table after the columns, and outside the stack's total: a plan is what
+        // the stack is measured against, not a part of it.
+        var rows = chart.FindAll("tbody tr");
+        Assert.Equal(3, rows.Count);
+        Assert.Equal("Planned", rows[2].QuerySelector("th")!.TextContent);
+        Assert.Equal(["20", "40", "10"], [.. rows[2].QuerySelectorAll("td").Select(cell => cell.TextContent)]);
+        Assert.Equal(["26", "30", "20"], [.. chart.FindAll("tfoot td").Select(cell => cell.TextContent)]);
+    }
+
+    [Fact]
+    public void A_target_is_named_in_the_legend_with_a_mark_of_its_own_and_in_the_tip()
+    {
+        using var context = new BunitContext();
+
+        var chart = context.Render<MetricStackedBars>(parameters => parameters
+            .Add(c => c.Series, Hours)
+            .Add(c => c.Target, Planned)
+            .Add(c => c.TestId, "chart"));
+
+        var entry = chart.Find("[data-testid='chart-toggle-planned']");
+        Assert.Contains("Planned", entry.TextContent, StringComparison.Ordinal);
+        Assert.NotNull(entry.QuerySelector(".metric-stacked-bars__swatch--target"));
+
+        var tip = chart.FindAll(".metric-stacked-bars__tip")[1];
+        var names = tip.QuerySelectorAll(".metric-stacked-bars__tip-name").Select(name => name.TextContent).ToList();
+        Assert.Equal(["Waiting", "Producing", "Planned"], names);
+        Assert.Equal("40", tip.QuerySelectorAll(".metric-stacked-bars__tip-value")[2].TextContent);
+        Assert.Equal("30", tip.QuerySelector(".metric-stacked-bars__tip-total-value")!.TextContent);
+    }
+
+    [Fact]
+    public void A_target_switched_off_leaves_the_plot_the_table_and_the_scale()
+    {
+        using var context = new BunitContext();
+
+        var chart = context.Render<MetricStackedBars>(parameters => parameters
+            .Add(c => c.Series, Hours)
+            .Add(c => c.Target, Planned)
+            .Add(c => c.TestId, "chart"));
+
+        chart.Find("[data-testid='chart-toggle-planned']").Click();
+
+        Assert.Empty(chart.FindAll(".metric-stacked-bars__target"));
+        Assert.Equal(2, chart.FindAll("tbody tr").Count);
+        Assert.Equal("30", chart.Find(".metric-stacked-bars__scale-max").TextContent);
+    }
+
+    [Fact]
+    public void A_bucket_only_the_target_names_is_still_a_column()
+    {
+        using var context = new BunitContext();
+
+        var chart = context.Render<MetricStackedBars>(parameters => parameters
+            .Add(c => c.Series, Hours)
+            .Add(c => c.Target, new MetricSeries("Planned", [new MetricPoint("W4", 8m)])));
+
+        var columns = chart.FindAll(".metric-stacked-bars__column");
+        Assert.Equal(4, columns.Count);
+        Assert.Equal("W4", columns[3].GetAttribute("data-bucket"));
+        Assert.Single(chart.FindAll(".metric-stacked-bars__target"));
+    }
+
     [Fact]
     public void A_column_is_pressable_only_while_someone_listens_and_the_picked_one_says_so()
     {

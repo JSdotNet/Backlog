@@ -21,7 +21,7 @@ namespace Backlog.Modules.Dashboard.Extensions;
 /// module choose its own providers, which is the coupling the ports exist to prevent.
 /// </para>
 /// <para>
-/// All four services are scoped rather than singletons, and that is what makes the
+/// Every service here is scoped rather than singletons, and that is what makes the
 /// session cache a session cache: a scope is one dashboard being open, so closing
 /// it drops what was fetched and opening it again asks afresh. As singletons they
 /// would hold a quarter's figures for the lifetime of the app with no way to get
@@ -42,6 +42,7 @@ public static class DashboardModuleRegistration
         services.AddScoped<ISessionInsights, SessionInsights>();
         services.AddScoped<ICostInsights, CostInsights>();
         services.AddScoped<ITaskInsights, TaskInsights>();
+        services.AddScoped<IHoursWorkedInsights, HoursWorkedInsights>();
 
         services.TryAddTimeProvider();
 

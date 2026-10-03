@@ -10238,8 +10238,28 @@ select.field__input {
 }
 
 .metric-stacked-bars__column-track {
+    position: relative;
     display: flex;
     height: var(--metric-stacked-bars-height, 9rem);
+}
+
+/* The target's mark: a rule across the column's track at the target's height, on the
+   columns' own scale. Ink, not the hue, for the line's reason — it crosses bands drawn
+   in the ramp — and a surface ring above and below so it stays legible where the stack
+   passes it. Out of the flow, so the stack builds as if it were not there, and inside
+   its own column: marks that reached into the gap would join into a line at equal
+   heights, and a line is the other population. */
+.metric-stacked-bars__target {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 1;
+    height: 3px;
+    margin-bottom: -1.5px;
+    border-radius: 1.5px;
+    background: var(--chart-ink);
+    box-shadow: 0 0 0 1px var(--chart-surface);
+    pointer-events: none;
 }
 
 /* A stack builds up from the baseline in the order given: column-reverse puts the
@@ -10522,6 +10542,19 @@ select.field__input {
     border-top: 2px solid var(--chart-ink);
     border-radius: 0;
     background: transparent;
+}
+
+/* The target's swatch is its mark: a short, heavier rule in ink, so the legend tells it
+   apart from a line by weight as well as by name. */
+.metric-stacked-bars__swatch--target {
+    width: 1rem;
+    height: 3px;
+    border-radius: 1.5px;
+    background: var(--chart-ink);
+}
+
+.metric-stacked-bars__legend-item--off .metric-stacked-bars__swatch--target {
+    background: var(--chart-track);
 }
 
 .metric-stacked-bars__swatch--dash-1 {
