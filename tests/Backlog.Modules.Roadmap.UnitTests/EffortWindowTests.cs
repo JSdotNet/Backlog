@@ -284,6 +284,82 @@ public class EffortWindowTests
         Assert.Equal(Start.AddDays(3), EffortWindow.Derive(Item(days: 1), Gathers(34), paces).End);
     }
 
+    // --- Day overrides (local ADR 0019, §§1 and 5) ------------------------------
+
+    private static readonly DateOnly Monday5Oct = new(2026, 10, 5);
+    private static readonly DateOnly Wednesday7Oct = new(2026, 10, 7);
+    private static readonly DateOnly Friday9Oct = new(2026, 10, 9);
+    private static readonly DateOnly Saturday10Oct = new(2026, 10, 10);
+    private static readonly DateOnly Monday12Oct = new(2026, 10, 12);
+
+    /// <summary>Requirement "An effort window counts the overrides", ADR 0019
+    /// Verification 10 and 11: 7 points at 7 a week from Monday 5 October end on Friday
+    /// 9; blocking Wednesday 7 ends them on Monday 12; unblocking Saturday 10 as well
+    /// ends them on Saturday 10.</summary>
+    [Fact]
+    public void ABlockedAndAnUnblockedDate_MoveTheEnd()
+    {
+        var blocked = WorkingHours.Default.Toggled(Wednesday7Oct);
+        var unblocked = blocked.Toggled(Saturday10Oct);
+
+        Assert.Equal(Friday9Oct, EffortWindow.EndFrom(Monday5Oct, 7, 7m, WorkingHours.Default));
+        Assert.Equal(Monday12Oct, EffortWindow.EndFrom(Monday5Oct, 7, 7m, blocked));
+        Assert.Equal(Saturday10Oct, EffortWindow.EndFrom(Monday5Oct, 7, 7m, unblocked));
+    }
+
+    /// <summary>The paces carry the week whole, overrides included, so a derived window
+    /// counts them — the path the band, the dashboard and the tools all read.</summary>
+    [Fact]
+    public void TheDerivedWindow_CountsThePacesOverrides()
+    {
+        var item = Item(days: 5) with { Start = Monday5Oct, End = Friday9Oct };
+        var paces = SevenAWeek with { Week = WorkingHours.Default.Toggled(Wednesday7Oct) };
+
+        Assert.Single(paces.Week.Overrides);
+        Assert.Equal(Monday12Oct, EffortWindow.Derive(item, Gathers(7), paces).End);
+    }
+
+    /// <summary>ADR 0019 Verification 12: a window never starts on a blocked date. One
+    /// whose start would fall on a blocked Monday starts on the Tuesday — for the
+    /// importer's placement and for a derived window alike.</summary>
+    [Fact]
+    public void AWindowNeverStartsOnABlockedDate()
+    {
+        var week = WorkingHours.Default.Toggled(Monday12Oct);
+        var tuesday = Monday12Oct.AddDays(1);
+
+        Assert.Equal(tuesday, EffortWindow.FirstWorkedDay(Monday12Oct, week));
+
+        var (placed, _) = ImportedPlanPlacement.Place(Monday12Oct, due: null, 7, 7m, week);
+        Assert.Equal(tuesday, placed.Start);
+        Assert.Equal(Monday12Oct.AddDays(7), placed.End);
+
+        var item = Item(days: 5) with { Start = Monday12Oct, End = Monday12Oct.AddDays(4) };
+        var derived = EffortWindow.Derive(item, Gathers(7), SevenAWeek with { Week = week });
+        Assert.Equal(tuesday, derived.Start);
+    }
+
+    /// <summary>A window from a blocked weekend's unblocked Saturday starts on it.</summary>
+    [Fact]
+    public void AWindowStartsOnAnUnblockedSaturday()
+    {
+        var week = WorkingHours.Default.Toggled(Saturday10Oct);
+
+        Assert.Equal(Saturday10Oct, EffortWindow.FirstWorkedDay(Saturday10Oct, week));
+        Assert.Equal(new DateOnly(2026, 10, 15), EffortWindow.EndFrom(Saturday10Oct, 7, 7m, week)); // Saturday, then Monday to Thursday
+    }
+
+    /// <summary>ADR 0019 Verification 14: toggling back removes the override, and the
+    /// window reads as the pattern alone again.</summary>
+    [Fact]
+    public void TogglingBack_RemovesTheOverride()
+    {
+        var back = WorkingHours.Default.Toggled(Wednesday7Oct).Toggled(Wednesday7Oct);
+
+        Assert.Empty(back.Overrides);
+        Assert.Equal(Friday9Oct, EffortWindow.EndFrom(Monday5Oct, 7, 7m, back));
+    }
+
     /// <summary>Answers every item with one rollup, and remembers which items it was
     /// asked to gather.</summary>
     private sealed class CountingRollup(RoadmapItemRollupDto rollup) : IRoadmapItemRollup

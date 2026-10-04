@@ -38,6 +38,7 @@ internal static class DashboardTestHost
         services.AddSingleton<ISessionInsights, UnavailableSessionInsights>();
         services.AddSingleton<ICostInsights, UnavailableCostInsights>();
         services.AddSingleton<ITaskInsights, UnavailableTaskInsights>();
+        services.AddSingleton<IHoursWorkedInsights, UnavailableHoursWorkedInsights>();
 
         // The default week, not this machine's. A grid asserted against whatever hours
         // the person running the tests happens to keep is a grid asserted against
@@ -132,6 +133,14 @@ internal static class DashboardTestHost
             Task.FromResult(InsightResult<PlanInsight>.Unavailable(UnavailableReason));
     }
 
+    private sealed class UnavailableHoursWorkedInsights : IHoursWorkedInsights
+    {
+        public Task<InsightResult<HoursWorkedInsight>> GetHoursWorkedAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<HoursWorkedInsight>.Unavailable(UnavailableReason));
+    }
+
     private sealed class UnavailableCostInsights : ICostInsights
     {
         public Task<InsightResult<SpendThisMonthInsight>> GetThisMonthAsync(
@@ -191,5 +200,13 @@ internal static class DashboardTestHost
         public string? SetDay(DayOfWeek day, bool working, TimeOnly start, TimeOnly end) => null;
 
         public string? ResetToDefault() => null;
+
+        public string? ToggleDate(DateOnly date) => null;
+
+        public string? BlockDays(DateOnly from, DateOnly through) => null;
+
+        public string? AddWorkedDay(DateOnly date) => null;
+
+        public string? RemoveDayOverride(DateOnly date) => null;
     }
 }

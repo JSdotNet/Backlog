@@ -77,4 +77,11 @@ public sealed record AgentActivityEntry(
     /// version is what sends those back to the transcript.
     /// </summary>
     public IReadOnlyList<AgentLimitHit> LimitHits { get; init; } = [];
+
+    /// <summary>
+    /// Every human turn in the file, whole-file and ascending, on the terms
+    /// <see cref="LimitHits"/> is kept: read off a line rather than folded, and sent
+    /// back to the transcript by the disk half's version when an entry predates it.
+    /// </summary>
+    public IReadOnlyList<DateTimeOffset> HumanTurns { get; init; } = [];
 }

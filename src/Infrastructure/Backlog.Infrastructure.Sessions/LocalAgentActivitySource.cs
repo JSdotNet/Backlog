@@ -183,6 +183,10 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
     /// may not, because a list of waits on a subagent would be a published claim that one
     /// can wait, and no sidechain on any profile carries the field that would evidence it.
     /// </para>
+    /// <para>
+    /// The human turns are dropped here too. A subagent is the agent's work, never the
+    /// person's turn, so it starts no working stretch (ADR 0019 §6).
+    /// </para>
     /// </remarks>
     private async Task<IReadOnlyList<SubagentActivity>> ReadClaudeSubagentsAsync(
         DateTimeOffset since,
@@ -289,18 +293,20 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
         var runs = Clip(entry.Runs, since);
         var waits = Clip(entry.Waits, since);
         var hits = Clip(entry.LimitHits, since);
+        var turns = Clip(entry.HumanTurns, since);
 
         // Absent rather than present-and-empty. A session whose whole record fell outside
         // the horizon, or that left one lone event, has nothing to contribute to a
         // duration — and the session list is already the place that says it existed.
         // One lone refusal is the exception: it contributes no duration and is still a
         // thing that happened to the session, so a session that was refused and nothing
-        // else is present with that one fact on it.
-        return runs.Count == 0 && waits.Count == 0 && hits.Count == 0
+        // else is present with that one fact on it. A lone human turn is one too.
+        return runs.Count == 0 && waits.Count == 0 && hits.Count == 0 && turns.Count == 0
             ? null
             : new AgentSessionActivity(id, kind, _environmentId, _environment, runs, waits)
             {
-                LimitHits = hits
+                LimitHits = hits,
+                HumanTurns = turns
             };
     }
 
@@ -364,6 +370,15 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
                         .Where(activity => activity.Limit is not null)
                         .Select(activity => activity.Limit!)
                         .OrderBy(hit => hit.At)
+                ],
+                // The person's turns, lifted off the same way and for the same reason.
+                HumanTurns =
+                [
+                    .. events
+                        .Where(activity => activity.IsHumanTurn)
+                        .Select(activity => activity.At)
+                        .Distinct()
+                        .Order()
                 ]
             };
             _cache?.Write(file.FullName, writtenAt, entry);
@@ -403,5 +418,13 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
         DateTimeOffset since) =>
     [
         .. hits.Where(hit => hit.At >= since)
+    ];
+
+    /// <summary>A human turn is an instant too, and is clipped on the hits' terms.</summary>
+    private static IReadOnlyList<DateTimeOffset> Clip(
+        IReadOnlyList<DateTimeOffset> turns,
+        DateTimeOffset since) =>
+    [
+        .. turns.Where(turn => turn >= since)
     ];
 }

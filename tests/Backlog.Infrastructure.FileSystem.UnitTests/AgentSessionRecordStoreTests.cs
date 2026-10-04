@@ -61,6 +61,36 @@ public sealed class AgentSessionRecordStoreTests : IDisposable
         Assert.Equal([Noon.AddHours(-3), Noon.AddMinutes(-1)], read.Activity!.LimitHits.Select(hit => hit.At));
     }
 
+    /// <summary>The person's turns are kept with the record, so a session whose
+    /// transcript is gone still counts its working stretches (ADR 0019 §6).</summary>
+    [Fact]
+    public void Human_turns_are_kept_with_the_record()
+    {
+        var store = Store();
+
+        store.Save([Record("s-1", turns: [Noon.AddHours(-4), Noon.AddHours(-1)])]);
+
+        Assert.Equal([Noon.AddHours(-4), Noon.AddHours(-1)], Assert.Single(store.All()).Activity!.HumanTurns);
+    }
+
+    /// <summary>A record written before the turns were kept has no such field. It reads
+    /// as a record with no human turns, rather than as one this build cannot read.</summary>
+    [Fact]
+    public void A_record_written_before_human_turns_were_kept_reads_none()
+    {
+        var store = Store();
+        store.Save([Record("s-1", turns: [Noon.AddHours(-1)])]);
+
+        var file = Assert.Single(Directory.GetFiles(_root, "*.json"));
+        var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(file))!.AsObject();
+        Assert.True(json.Remove("humanTurns"));
+        File.WriteAllText(file, json.ToJsonString());
+
+        var read = Assert.Single(store.All());
+        Assert.Empty(read.Activity!.HumanTurns);
+        Assert.Single(read.Activity.Runs);
+    }
+
     /// <summary>A file this build cannot read is somebody's only record of a session. It
     /// is left exactly as it is, never overwritten by a reading of the same session.</summary>
     [Fact]
@@ -94,7 +124,8 @@ public sealed class AgentSessionRecordStoreTests : IDisposable
         string id,
         string title = "A session",
         AgentSessionKind kind = AgentSessionKind.Claude,
-        IReadOnlyList<AgentLimitHit>? hits = null) =>
+        IReadOnlyList<AgentLimitHit>? hits = null,
+        IReadOnlyList<DateTimeOffset>? turns = null) =>
         new(
             new AgentSession(
                 id,
@@ -121,7 +152,8 @@ public sealed class AgentSessionRecordStoreTests : IDisposable
                 [new AgentActivityRun(Noon.AddHours(-4), Noon)],
                 [])
             {
-                LimitHits = hits ?? []
+                LimitHits = hits ?? [],
+                HumanTurns = turns ?? []
             },
             Noon);
 

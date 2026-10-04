@@ -75,6 +75,12 @@ namespace Backlog.Infrastructure.FileSystem;
 /// replaces it. A copy without the key leaves the device's week alone, and the
 /// device's next change writes the key back.
 /// </para>
+/// <para>
+/// The blocked and unblocked dates travel inside the week, as its <c>overrides</c>, under
+/// the same stamp: a toggle on the roadmap's axis is a change to the week, stamped like
+/// one, and the newer week wins together with its overrides. A week without the array
+/// has none.
+/// </para>
 /// </summary>
 public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
 {
@@ -206,6 +212,39 @@ public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
     /// working hours is the roadmap's to read as the default.
     /// </summary>
     public WorkingHours WorkingWeek => _workingHours?.Current ?? _pace.WorkingWeek ?? WorkingHours.Default;
+
+    /// <summary>
+    /// Blocks or unblocks <paramref name="date"/> in the device's week
+    /// (<see cref="IWorkingHoursSettings.ToggleDate"/>; local ADR 0019, §5). The week
+    /// announces the change and this store stamps the document from it
+    /// (<see cref="OnWorkingWeekChanged"/>), as it does for a change on the settings
+    /// screen, so the override travels with the week. A store that keeps no device week
+    /// has none to change: the week its file carries is another device's, replaced
+    /// whole on the next pull.
+    /// </summary>
+    public string? ToggleWorkedDay(DateOnly date) =>
+        _workingHours is null
+            ? NoWeekToChange
+            : _workingHours.ToggleDate(date);
+
+    /// <summary>Makes a range of dates days off in the device's week
+    /// (<see cref="IWorkingHoursSettings.BlockDays"/>), which announces it once and is
+    /// stamped once (<see cref="OnWorkingWeekChanged"/>), as a head press is.</summary>
+    public string? BlockDays(DateOnly from, DateOnly through) =>
+        _workingHours is null ? NoWeekToChange : _workingHours.BlockDays(from, through);
+
+    /// <summary>Unblocks a date the pattern leaves off in the device's week
+    /// (<see cref="IWorkingHoursSettings.AddWorkedDay"/>).</summary>
+    public string? AddWorkedDay(DateOnly date) =>
+        _workingHours is null ? NoWeekToChange : _workingHours.AddWorkedDay(date);
+
+    /// <summary>Returns a date to its pattern in the device's week
+    /// (<see cref="IWorkingHoursSettings.RemoveDayOverride"/>).</summary>
+    public string? RemoveDayOverride(DateOnly date) =>
+        _workingHours is null ? NoWeekToChange : _workingHours.RemoveDayOverride(date);
+
+    /// <summary>Why a store that keeps no device week changes no date in it.</summary>
+    private const string NoWeekToChange = "This device keeps no working week to block or unblock a day in.";
 
     /// <summary>
     /// The person changed the device's week: the document carries the new one, stamped,

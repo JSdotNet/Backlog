@@ -88,7 +88,8 @@ public sealed class SessionSyncSessionTests
 
     /// <summary>
     /// The other half of the same rule, said as a whitelist rather than as a list
-    /// of things that must be absent: these eighteen property names and no others.
+    /// of things that must be absent: these nineteen property names and no others —
+    /// the twenty whitelisted fields less the machine id the service stamps.
     /// A field added to the wire fails here even if nobody thought to write a test
     /// naming it, which is the only form of this assertion that keeps working
     /// against a change nobody anticipated.
@@ -111,6 +112,7 @@ public sealed class SessionSyncSessionTests
                 "branch",
                 "durationSeconds",
                 "entrypoint",
+                "humanTurns",
                 "lastActivityAt",
                 "limitHits",
                 "machineName",
@@ -396,6 +398,31 @@ public sealed class SessionSyncSessionTests
     }
 
     /// <summary>
+    /// The person's human turns travel as the twentieth whitelisted field (ADR 0019
+    /// §6): instants and nothing else, so another machine can count the hours worked
+    /// in this session without a word of what was said in it.
+    /// </summary>
+    [Fact]
+    public async Task A_session_with_human_turns_travels_with_their_instants_only()
+    {
+        var activity = AgentActivities.Local(id: "worked", runs: [(Noon.AddMinutes(-30), Noon)]) with
+        {
+            HumanTurns = [Noon.AddMinutes(-30), Noon.AddMinutes(-10)]
+        };
+
+        using var fixture = Fixture.Create(
+            sessions: [AgentSessions.Local(id: "worked")],
+            agentActivity: new StubAgentActivitySource(activity));
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        var turns = fixture.PushedRecord().GetProperty("humanTurns").EnumerateArray().ToList();
+
+        Assert.All(turns, turn => Assert.Equal(JsonValueKind.String, turn.ValueKind));
+        Assert.Equal([Noon.AddMinutes(-30), Noon.AddMinutes(-10)], turns.Select(turn => turn.GetDateTimeOffset()));
+    }
+
+    /// <summary>
     /// A session the activity source had nothing for travels with null in both
     /// lists, and never with an empty one. Null says "no record"; an empty list says
     /// "a record, and this is what it held" — and the reader counts the two
@@ -419,9 +446,11 @@ public sealed class SessionSyncSessionTests
         var quiet = records.Single(record => record.GetProperty("sessionId").GetString() == "quiet");
         Assert.Equal(JsonValueKind.Null, quiet.GetProperty("runs").ValueKind);
         Assert.Equal(JsonValueKind.Null, quiet.GetProperty("waits").ValueKind);
+        Assert.Equal(JsonValueKind.Null, quiet.GetProperty("humanTurns").ValueKind);
 
         var busy = records.Single(record => record.GetProperty("sessionId").GetString() == "busy");
         Assert.Equal(JsonValueKind.Array, busy.GetProperty("runs").ValueKind);
+        Assert.Equal(JsonValueKind.Array, busy.GetProperty("humanTurns").ValueKind);
     }
 
     /// <summary>

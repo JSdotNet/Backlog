@@ -16,8 +16,8 @@ namespace Backlog.Modules.Sessions.Abstractions;
 /// <param name="Session">The session as last read, with its working folder and title —
 /// the record stays on this machine, so nothing here is subject to the sync
 /// whitelist.</param>
-/// <param name="Activity">What the transcript was folded into — runs, waits and limit
-/// hits — or null where no reading ever folded one.</param>
+/// <param name="Activity">What the transcript was folded into — runs, waits, limit
+/// hits and human turns — or null where no reading ever folded one.</param>
 /// <param name="RecordedAt">When a reading last amended the record.</param>
 public sealed record AgentSessionRecord(AgentSession Session, AgentSessionActivity? Activity, DateTimeOffset RecordedAt);
 
@@ -78,7 +78,8 @@ public interface ISessionRecordPublisher
 /// A reading is what the agent's files say now, and they can say less than they once
 /// did — a transcript cut short, a live file gone, a field an older agent did not
 /// write. So a value the reading has wins, a value it lacks keeps what the record
-/// held, and the lists keep what came before the reading's own start. The one thing
+/// held, the lists keep what came before the reading's own start, and the instants —
+/// limit hits and human turns — are a union. The one thing
 /// a reading replaces is the stretch it covers: its runs and waits from its first
 /// instant on are the fold of the same lines the record's were, so keeping both would
 /// count that time twice.
@@ -148,7 +149,9 @@ public static class AgentSessionRecords
                     .Concat(held.LimitHits)
                     .DistinctBy(hit => (hit.At, hit.Kind))
                     .OrderBy(hit => hit.At)
-            ]
+            ],
+            // Instants too, on the hits' terms: every turn either reading held, once.
+            HumanTurns = [.. now.HumanTurns.Concat(held.HumanTurns).Distinct().Order()]
         };
     }
 

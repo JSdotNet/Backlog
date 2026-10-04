@@ -1105,6 +1105,9 @@ public sealed class DomainDevbookPanelTests : IDisposable
         Assert.Equal(["walkthrough/checkout"], component.FindAll("[data-testid='demo-view-place']").Select(place => place.TextContent.Trim()));
         Assert.Equal("allow-scripts", component.Find("[data-testid='demo-view-frame']").GetAttribute("sandbox"));
 
+        // The frame is loaded after the render that drew it, so under load the call can
+        // trail the markup: wait for it rather than read it once.
+        component.WaitForAssertion(() => Assert.Single(harness.Context.JSInterop.Invocations["backlogDemos.load"]));
         var load = Assert.Single(harness.Context.JSInterop.Invocations["backlogDemos.load"]);
         Assert.Equal(html.Features, load.Arguments[2]);
     }
@@ -1120,9 +1123,9 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var component = harness.Render("orders");
 
         component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("[data-testid='domain-context'] [data-testid='demo-view']").Count));
-        Assert.Contains(
+        component.WaitForAssertion(() => Assert.Contains(
             html.Context,
-            harness.Context.JSInterop.Invocations["backlogDemos.load"].Select(load => load.Arguments[2] as string));
+            harness.Context.JSInterop.Invocations["backlogDemos.load"].Select(load => load.Arguments[2] as string)));
         Assert.Contains(
             ".domain/orders/demo.html",
             component.FindAll(".demo-view__path").Select(path => path.TextContent.Trim()));

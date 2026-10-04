@@ -43,6 +43,15 @@
     — and only while no band wears an identity. Columns are CSS boxes rather
     than SVG for MetricBars' reason: the axis labels stay real text.
 
+    A target is the third population, and the one that shares the columns' scale: what
+    each column is held against in the columns' own unit — the hours planned beside the
+    hours worked. Never a line on the right-hand axis, because a plan read against a
+    second scale is a plan that cannot be compared with the bar beside it. It is drawn as
+    a dashed rule in ink across its own column's track, so it reads whether the stack
+    stops short of it or passes it, and the scale reaches it when it outgrows every stack.
+    It is outside the total: a plan is what the stack is measured against, not a part of
+    it.
+
     Every figure is in a visually-hidden table, series by row. The picture is
     aria-hidden; the table is the component's answer to the rule that a number drawn
     only as a height is not readable. Hidden series leave the table too — the table
@@ -69,7 +78,7 @@
         </figcaption>
     }
 
-    @if (Bands.Count == 0 && LineBands.Count == 0)
+    @if (Bands.Count == 0 && LineBands.Count == 0 && TargetBand is null)
     {
         <MetricStatus Kind="MetricStatusKind.Empty" Message="@EmptyMessage" CssClass="@(Part("status"))" />
     }
@@ -103,6 +112,13 @@
                          @onclick="() => Pick(column)"
                          @onkeydown="e => PickOnKey(e, column)">
                         <div class="@TrackClass">
+                            @* First in the track, though drawn over it: the stack's
+                               rounded top is its last box, and a mark after it would
+                               take that place. *@
+                            @if (column.TargetHeight is { } mark)
+                            {
+                                <span class="@(Part("target"))" style="@($"bottom: {Invariant(mark)}%")"></span>
+                            }
                             @foreach (var segment in column.Segments)
                             {
                                 <span class="@SegmentClass(segment)"
@@ -127,6 +143,14 @@
                                         <span class="@SwatchClass(segment.Ramp, segment.Identity, segment.Category)"></span>
                                         <span class="@(Part("tip-name"))">@segment.Name</span>
                                         <span class="@(Part("tip-value"))">@Format(segment.Value)</span>
+                                    </li>
+                                }
+                                @if (TargetBand is { Hidden: false } target && target.Values[column.Index] is { } aim)
+                                {
+                                    <li class="@(Part("tip-row"))">
+                                        <span class="@TargetSwatchClass"></span>
+                                        <span class="@(Part("tip-name"))">@target.Name</span>
+                                        <span class="@(Part("tip-value"))">@Format(aim)</span>
                                     </li>
                                 }
                                 @foreach (var line in LineBands.Where(one => !one.Hidden && one.Values[column.Index] is not null))
@@ -203,6 +227,16 @@
                             }
                         </tr>
                     }
+                    @if (TargetBand is { Hidden: false } targetRow)
+                    {
+                        <tr class="@(Part("target-row"))">
+                            <th scope="row">@targetRow.Name</th>
+                            @foreach (var value in targetRow.Values)
+                            {
+                                <td>@(value is null ? NotReported : Format(value.Value))</td>
+                            }
+                        </tr>
+                    }
                     @foreach (var line in LineBands.Where(one => !one.Hidden))
                     {
                         <tr class="@(Part("line-row"))">
@@ -264,6 +298,21 @@
                     inner.CloseComponent();
                 }
 
+                if (TargetBand is { } target)
+                {
+                    var name = target.Name;
+                    var hidden = target.Hidden;
+
+                    inner.OpenComponent<ToggleButton>(sequence++);
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.Pressed), !hidden);
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.PressedChanged), EventCallback.Factory.Create<bool>(this, on => SetShown(name, on)));
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.CssClass), LegendItemClass(hidden));
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.Title), hidden ? $"Show {name}" : $"Hide {name}");
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.TestId), LegendTestId(name));
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.ChildContent), LegendEntry(TargetSwatchClass, name, target.Detail));
+                    inner.CloseComponent();
+                }
+
                 foreach (var line in LineBands)
                 {
                     var name = line.Name;
@@ -295,6 +344,15 @@
             builder.AddAttribute(index++, "class", $"{Part("legend-item")} {Part("legend-item")}--key");
             builder.AddAttribute(index++, "data-testid", LegendTestId(band.Name));
             builder.AddContent(index++, LegendEntry(SwatchClass(band.Ramp, band.Identity, band.Category), band.Name, band.Detail));
+            builder.CloseElement();
+        }
+
+        if (TargetBand is { } target)
+        {
+            builder.OpenElement(index++, "li");
+            builder.AddAttribute(index++, "class", $"{Part("legend-item")} {Part("legend-item")}--key");
+            builder.AddAttribute(index++, "data-testid", LegendTestId(target.Name));
+            builder.AddContent(index++, LegendEntry(TargetSwatchClass, target.Name, target.Detail));
             builder.CloseElement();
         }
 
@@ -347,6 +405,13 @@
     /// count over hours — knowingly; the two scales are what keep that honest.</summary>
     [Parameter]
     public IReadOnlyList<MetricSeries> Lines { get; set; } = [];
+
+    /// <summary>What each column is held against, in the columns' own unit and on their
+    /// own scale — the hours planned beside the hours worked. Drawn as a mark across each
+    /// column it names, listed in the legend, the tip and the table, and never added to a
+    /// total. Null for none.</summary>
+    [Parameter]
+    public MetricSeries? Target { get; set; }
 
     /// <summary>Whether the column series add up to something. Stacked draws them one
     /// on another and prints the totals; Grouped draws them side by side and does not,
@@ -486,7 +551,15 @@
     /// <summary>One box in one column: which series, how tall, how much.</summary>
     private sealed record Segment(string Name, int Ramp, int? Identity, int? Category, decimal Value, decimal Height);
 
-    private sealed record Column(int Index, string Label, bool ShowLabel, decimal Total, bool Selected, IReadOnlyList<Segment> Segments);
+    /// <summary>The target as drawn: whether the reader switched it off, and its value in
+    /// every bucket — null where it named none.</summary>
+    private sealed record Aim(string Name, string? Detail, bool Hidden, IReadOnlyList<decimal?> Values);
+
+    /// <param name="TargetHeight">Where the target's mark sits, as a share of the track,
+    /// or null where there is none to draw.</param>
+    private sealed record Column(int Index, string Label, bool ShowLabel, decimal Total, bool Selected, IReadOnlyList<Segment> Segments, decimal? TargetHeight);
+
+    private Aim? TargetBand { get; set; }
 
     /// <summary>How many category hues there are before they repeat.</summary>
     private const int CategoryCount = 5;
@@ -550,26 +623,35 @@
     {
         var series = (Series ?? []).Where(one => one.Points.Count > 0).ToList();
         var lines = (Lines ?? []).Where(one => one.Points.Count > 0).ToList();
+        var target = Target is { Points.Count: > 0 } aimed ? aimed : null;
 
-        if (series.Count == 0 && lines.Count == 0)
+        if (series.Count == 0 && lines.Count == 0 && target is null)
         {
             Bands = [];
             LineBands = [];
+            TargetBand = null;
             Columns = [];
             PeakValue = 0m;
             LinePeak = 0m;
             return;
         }
 
-        // Buckets in first-appearance order across every series, columns first, so a
-        // series that starts late does not push the axis around.
+        // Buckets in first-appearance order across every series, columns first, then the
+        // target, then the lines, so a series that starts late does not push the axis
+        // around.
         var labels = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var point in series.Concat(lines).SelectMany(one => one.Points))
+        foreach (var point in series.Concat(target is null ? Array.Empty<MetricSeries>() : [target]).Concat(lines).SelectMany(one => one.Points))
         {
             if (seen.Add(point.Label)) labels.Add(point.Label);
         }
+
+        TargetBand = target is null
+            ? null
+            : new Aim(target.Name, target.Detail, _hidden.Contains(target.Name), ValuesOf(target, labels));
+
+        var shownTarget = TargetBand is { Hidden: false } ? TargetBand.Values : null;
 
         var identities = series.Select(one => IdentityOf?.Invoke(one.Name)).ToList();
         var categorical = Categorical && identities.All(identity => identity is null);
@@ -597,6 +679,13 @@
             ? (totals.Count == 0 ? 0m : totals.Max())
             : shown.SelectMany(band => band.Values).Select(value => value ?? 0m).DefaultIfEmpty(0m).Max();
 
+        // The target shares the columns' scale, so a target taller than every column
+        // raises it: a mark above the top of the plot is a mark nobody can read.
+        if (shownTarget is not null)
+        {
+            PeakValue = Math.Max(PeakValue, shownTarget.Select(value => value ?? 0m).DefaultIfEmpty(0m).Max());
+        }
+
         // A whole period of nothing is legitimate, and every column should be empty
         // rather than every column full.
         var span = PeakValue <= 0m ? 1m : PeakValue;
@@ -620,7 +709,8 @@
                         band.Category,
                         band.Values[bucket] ?? 0m,
                         Math.Max(0m, band.Values[bucket] ?? 0m) / span * 100m))
-                ]))
+                ],
+                shownTarget?[bucket] is { } aim ? Math.Clamp(Math.Max(0m, aim) / span * 100m, 0m, 100m) : null))
         ];
 
         // The lines, on their own scale: the tallest shown line value, never the
@@ -715,6 +805,8 @@
 
     private string LineClass(Line line) =>
         $"{Part("line")} {Part("line")}--dash-{line.Dash}";
+
+    private string TargetSwatchClass => $"{Part("swatch")} {Part("swatch")}--target";
 
     private string LineSwatchClass(Line line) =>
         $"{Part("swatch")} {Part("swatch")}--line {Part("swatch")}--dash-{line.Dash}";

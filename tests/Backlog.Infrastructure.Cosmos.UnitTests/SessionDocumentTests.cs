@@ -57,7 +57,7 @@ public class SessionDocumentTests
             Runs = [new(At(9, 0), At(9, 30)), new(At(10, 0), At(10, 30))],
             Waits = [],
         };
-        var unmeasured = Record() with { SessionId = "unmeasured", Runs = null, Waits = null };
+        var unmeasured = Record() with { SessionId = "unmeasured", Runs = null, Waits = null, HumanTurns = null };
 
         var stored = Reloaded(SessionDocumentFactory.From(Scope, measured));
         var entry = SessionDocumentFactory.ToEntry(stored);
@@ -66,12 +66,14 @@ public class SessionDocumentTests
         Assert.Equal(measured.Runs, entry.Record.Runs);
         Assert.NotNull(entry.Record.Waits);
         Assert.Empty(entry.Record.Waits);
+        Assert.Equal(measured.HumanTurns, entry.Record.HumanTurns);
 
         var sparse = SessionDocumentFactory.ToEntry(Reloaded(SessionDocumentFactory.From(Scope, unmeasured)));
 
         Assert.NotNull(sparse);
         Assert.Null(sparse.Record.Runs);
         Assert.Null(sparse.Record.Waits);
+        Assert.Null(sparse.Record.HumanTurns);
     }
 
     /// <summary>
@@ -162,10 +164,10 @@ public class SessionDocumentTests
 
     /// <summary>
     /// The whole whitelist, and nothing beside it. Written as a set comparison
-    /// rather than as nineteen assertions because the failure worth catching is the
-    /// twentieth property somebody adds — .devbook/arc42/adr/0005 §Session records says a
+    /// rather than as twenty assertions because the failure worth catching is the
+    /// twenty-first property somebody adds — .devbook/arc42/adr/0005 §Session records says a
     /// field not in its table does not sync, and a test that only checked the
-    /// nineteen were present would pass with a transcript path beside them.
+    /// twenty were present would pass with a transcript path beside them.
     /// </summary>
     [Fact]
     public void The_document_carries_the_whitelist_and_nothing_else()
@@ -177,11 +179,11 @@ public class SessionDocumentTests
         Assert.Equal(
             new HashSet<string>(StringComparer.Ordinal)
             {
-                // The nineteen ADR 0005 permits...
+                // The twenty ADR 0005 permits...
                 "sessionId", "agentKind", "machineId", "machineName", "repositoryAlias", "resolvedRepositoryAlias",
                 "branch", "startedAt", "lastActivityAt", "turnCount", "durationSeconds",
                 "runs", "waits", "title", "worktreeKey", "limitHits",
-                "entrypoint", "pullRequests", "modelUsage",
+                "entrypoint", "pullRequests", "modelUsage", "humanTurns",
 
                 // ...plus the owner, which is the partition rather than a fact
                 // about the session, and the document id Cosmos requires.
@@ -314,5 +316,6 @@ public class SessionDocumentTests
         LimitHits: [new(At(10, 29), "FiveHour", "five_hour", At(13, 0), "rejected", At(23, 0), "org_spend_cap_reached", false)],
         Entrypoint: "claude-desktop",
         PullRequests: [new("JSdotNet/Backlog", 571, "https://github.com/JSdotNet/Backlog/pull/571", At(10, 0))],
-        ModelUsage: [new("claude-opus-5-5", 12, 3_400, 900, 120_000)]);
+        ModelUsage: [new("claude-opus-5-5", 12, 3_400, 900, 120_000)],
+        HumanTurns: [At(9, 0), At(10, 0)]);
 }

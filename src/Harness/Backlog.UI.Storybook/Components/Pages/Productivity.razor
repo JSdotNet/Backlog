@@ -312,6 +312,20 @@ Lines tell each other apart by dash pattern, the second channel one hue leaves. 
                            TestId="combo-bars" />
     </Story>
 
+    <Story Name="MetricStackedBars — a stack held against a target on the same scale"
+           Description="Hours worked per week, inside and outside office hours, against the hours planned. The plan is the `Target`: one series in the columns' own unit, drawn as a rule in ink across each column on the columns' own scale — never a line on the right-hand axis, because a plan read against a second scale cannot be compared with the bar beside it. The scale reaches the tallest target when a target outgrows every stack.
+
+A target is not part of the stack, so the total row and the tip's total stay the columns' alone; the target has its own row in the hidden table and its own entry in the legend, a heavier rule than a line's swatch. Here W36 is a week of leave — nothing planned and three hours outside — and W40 has a blocked Friday."
+           Code="@TargetCode">
+        <MetricStackedBars Series="ProductivityFixtures.HoursWorkedByWeek"
+                           Target="ProductivityFixtures.PlannedByWeek"
+                           Label="Hours worked per week, against the hours planned"
+                           NameHeading="Hours"
+                           TotalHeading="Worked"
+                           FormatValue="ProductivityFixtures.Hours"
+                           TestId="target-bars" />
+    </Story>
+
     <Story Name="MetricStackedBars — a legend on top that filters two charts, and a week to pick"
            Description="One legend for two charts: the stack's legend sits above it, its hidden set is bound to the page, and the second chart draws the same measures with a key — the same swatches and names, nothing to press — because its filter is the legend above and a second one would be a second answer.
 
@@ -586,6 +600,16 @@ A column is a week, and with a listener bound it is pressable — a button for a
                            NameHeading="Measure"
                            FormatValue="hours => $"{hours:0.#}h""
                            FormatLine="MetricFormat.Compact" />
+        """;
+
+    private const string TargetCode = """
+        @* The target shares the columns' scale and stays out of their total. *@
+        <MetricStackedBars Series="hoursWorkedByWeek"
+                           Target="plannedByWeek"
+                           Label="Hours worked per week, against the hours planned"
+                           NameHeading="Hours"
+                           TotalHeading="Worked"
+                           FormatValue="hours => $"{hours:0.#}h"" />
         """;
 
     private const string IdentityCode = """

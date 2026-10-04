@@ -640,6 +640,10 @@ once per message and per model, over the session's own transcript and not its sp
 agents'. Each list is capped and refused above its cap on the runs' terms — 100 pull
 requests, 20 models.
 
+*Amended 2026-10-03 by local ADR 0019 (proposed), which adds a twentieth field:
+the instants of the person's human turns on the activity record, timestamps only,
+so the roadmap can count the hours the person worked on every paired machine.*
+
 **Nineteen fields is still a whitelist, on the same terms eight was.** The boundary
 did not move to accommodate a screen: each addition had to be argued past it
 separately, and a field the receiving surface would merely find convenient is still

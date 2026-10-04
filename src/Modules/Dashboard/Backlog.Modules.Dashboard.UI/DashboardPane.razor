@@ -176,6 +176,10 @@
                          BaseClass="dashboard-section__fold"
                          TestId="dashboard-sessions-toggle">
                 <SessionsPart Scope="_scope" RepositoryColour="@RepositoryColour" />
+                @* The person's own hours, read from the same sessions' prompts and split
+                   by office hours (local ADR 0019, §7). Beside the sessions because it is
+                   their record, after them because it answers a second question. *@
+                <HoursWorkedPart Scope="_scope" />
             </FoldControl>
         </div>
 

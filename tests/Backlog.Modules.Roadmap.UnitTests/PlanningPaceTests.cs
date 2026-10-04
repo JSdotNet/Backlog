@@ -201,6 +201,105 @@ public class PlanningPaceTests
         Assert.Equal(PaceSource.LastEightWeeks, settings.Source());
     }
 
+    // --- Day overrides (local ADR 0019, §§2 and 5) -------------------------------
+
+    /// <summary>ADR 0019 Verification 13: over a four-week stretch with one week
+    /// blocked, 15 points finished measure 5 a week, not 3.75 — the stretch holds three
+    /// working weeks of hours.</summary>
+    [Fact]
+    public void ABlockedWeekLowersTheHoursInAStretch()
+    {
+        var week = WorkingHours.Default;
+        for (var day = new DateOnly(2026, 9, 14); day <= new DateOnly(2026, 9, 18); day = day.AddDays(1)) week = week.Toggled(day);
+        CompletedEffortDto[] finished = [new(Today, 15)];
+
+        Assert.Equal(5m, PlanningPace.Measured(finished, Today, 4, week));
+        Assert.Equal(3.75m, PlanningPace.Measured(finished, Today, 4));
+    }
+
+    /// <summary>Requirement "A measured pace counts the hours in its stretch": 17 points
+    /// over two weeks with one Friday blocked measure 17 ÷ 76.5 × 42.5; with no override,
+    /// 8.5.</summary>
+    [Fact]
+    public void ABlockedFridayInATwoWeekStretch_CountsItsHoursOut()
+    {
+        CompletedEffortDto[] finished = [new(Today, 17)];
+
+        Assert.Equal(9.4444m, PlanningPace.Measured(finished, Today, 2, WorkingHours.Default.Toggled(new DateOnly(2026, 9, 18))));
+        Assert.Equal(8.5m, PlanningPace.Measured(finished, Today, 2, WorkingHours.Default));
+    }
+
+    /// <summary>An unblocked Saturday adds its hours to the stretch and lowers the
+    /// figure.</summary>
+    [Fact]
+    public void AnUnblockedSaturdayRaisesTheHoursInAStretch()
+    {
+        CompletedEffortDto[] finished = [new(Today, 17)];
+
+        // 17 ÷ 93.5 × 42.5
+        Assert.Equal(7.7273m, PlanningPace.Measured(finished, Today, 2, WorkingHours.Default.Toggled(new DateOnly(2026, 9, 19))));
+    }
+
+    /// <summary>A stretch with every date blocked holds no hours to divide by, so it
+    /// measured no pace.</summary>
+    [Fact]
+    public void AStretchWithNoWorkingHoursMeasuredNoPace()
+    {
+        var week = WorkingHours.Default;
+        for (var day = Today.AddDays(-13); day <= Today; day = day.AddDays(1))
+        {
+            if (week.IsWorked(day)) week = week.Toggled(day);
+        }
+
+        Assert.Null(PlanningPace.Measured([new(Today, 17)], Today, 2, week));
+    }
+
+    /// <summary>The paces read through the port count the overrides the week carries,
+    /// and hand the week on with them, so placement counts the same dates.</summary>
+    [Fact]
+    public async Task ThePacesCountTheOverridesTheWeekCarries()
+    {
+        var blocked = WorkingHours.Default.Toggled(new DateOnly(2026, 9, 18));
+        var settings = new Settings(5m, PaceSource.LastTwoWeeks) { Week = blocked };
+        var pace = new PlanningPace(settings, new Finished([new(Today, 17)]), new FakeTimeProvider(Noon));
+
+        var paces = await pace.ReadAsync(cancellationToken: TestContext.Current.CancellationToken);
+        var inUse = await pace.ReadPacesInUseAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(9.4444m, paces.LastTwoWeeks);
+        Assert.Same(blocked, paces.Week);
+        Assert.Same(blocked, inUse.Week);
+        Assert.Equal(9.4444m, inUse.Global);
+    }
+
+    /// <summary>A toggle goes to the settings, and the pace announces it, so a band
+    /// listening re-places its bars at once (ADR 0019 Verification 23).</summary>
+    [Fact]
+    public async Task AToggleGoesToTheSettingsAndIsHeard()
+    {
+        var settings = new Settings(7m, PaceSource.Manual);
+        var pace = new PlanningPace(settings, new Finished([]), new FakeTimeProvider(Noon));
+        var heard = 0;
+        pace.Changed += () => heard++;
+
+        Assert.Null(pace.ToggleWorkedDay(new DateOnly(2026, 10, 7)));
+
+        Assert.Equal(1, heard);
+        var inUse = await pace.ReadPacesInUseAsync(TestContext.Current.CancellationToken);
+        Assert.False(inUse.Week.IsWorked(new DateOnly(2026, 10, 7)));
+        Assert.Equal(new DateOnly(2026, 10, 12), EffortWindow.EndFrom(new DateOnly(2026, 10, 5), 7, 7m, inUse.Week));
+    }
+
+    /// <summary>A host that keeps no week refuses a toggle rather than pretending.</summary>
+    [Fact]
+    public void AHostThatKeepsNoWeekRefusesAToggle()
+    {
+        IPlanningVelocitySettings settings = new KeepsNoWeek();
+
+        Assert.NotNull(settings.ToggleWorkedDay(new DateOnly(2026, 10, 7)));
+        Assert.Same(WorkingHours.Default, settings.WorkingWeek);
+    }
+
     // --- Per repository ---------------------------------------------------------
 
     [Fact]
@@ -458,9 +557,16 @@ public class PlanningPaceTests
         private decimal _manual = manual;
         private PaceSource _source = source;
 
-        public WorkingHours Week { get; init; } = WorkingHours.Default;
+        public WorkingHours Week { get; set; } = WorkingHours.Default;
 
         public WorkingHours WorkingWeek => Week;
+
+        public string? ToggleWorkedDay(DateOnly date)
+        {
+            Week = Week.Toggled(date);
+            Changed?.Invoke();
+            return null;
+        }
 
         public decimal Manual(string? repository = null) =>
             repository is not null && Own.TryGetValue(repository, out var own) ? own.Manual : _manual;
@@ -495,6 +601,26 @@ public class PlanningPaceTests
             Changed?.Invoke();
             return null;
         }
+    }
+
+    /// <summary>A host that keeps no working week: every member but the week.</summary>
+    private sealed class KeepsNoWeek : IPlanningVelocitySettings
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public decimal Manual(string? repository = null) => 7m;
+
+        public PaceSource Source(string? repository = null) => PaceSource.Manual;
+
+        public string? SetManual(string? typed, string? repository = null) => null;
+
+        public string? Choose(PaceSource source, string? repository = null) => null;
+
+        public string? SetOwn(string? typed, string? repository = null) => null;
     }
 
     private sealed class Finished(IReadOnlyList<CompletedEffortDto> finished, params string[] repositories)

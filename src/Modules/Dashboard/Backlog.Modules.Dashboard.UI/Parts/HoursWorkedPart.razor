@@ -1,0 +1,140 @@
+@*
+    How long the person worked, and how much of it fell outside the hours they meant to
+    work (local ADR 0019, §7): the hours worked, split into inside and outside office
+    hours, set against the hours planned.
+
+    The hours worked are the person's working stretches — the ones a roadmap head sums
+    — so inside plus outside is always the figure the roadmap shows for the same dates.
+    Office hours are each date's start to end in the working week with the days blocked
+    or unblocked on the roadmap applied, which makes this the one dashboard surface that
+    reads those overrides: the hour grids outline weekdays, not dates. A day off has no
+    office hours, so all of its work is outside, and that is the point of showing it.
+
+    Per day over four weeks and per calendar week over twelve, Monday first: a quarter of
+    days is ninety columns nobody can read, and a month of weeks is five columns that
+    hide the day off this part exists to show. The window starts on the Monday its first
+    week does, as the weekly parts' first bucket does, and ends today.
+
+    The figures are tiles first — each one named, so nothing is carried by a colour —
+    and one chart: the two kinds of hour stacked, because they add up to the hours
+    worked, and the planned hours a mark across each column on the same scale, because
+    a plan read against a second scale cannot be compared with the bar beside it. The
+    chart's hidden table is the reader's copy of every column.
+
+    Neither filter reaches it. A stretch is the person's, merged over every session on
+    every paired machine so time two sessions shared counts once; cut by machine or by
+    repository it would count an hour twice or not at all. The note says so.
+
+    Presentation only: it moves no bar, changes no pace, and recomputes no other figure.
+*@
+@inherits DashboardPartBase<HoursWorkedInsight>
+@inject IHoursWorkedInsights Insights
+
+<PartFrame Title="Hours worked"
+           Note="@Note"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-hours-worked">
+    @if (IsReady)
+    {
+        <MetricGrid Label="Hours worked over the selected window" TestId="dashboard-hours-worked-tiles">
+            <MetricTile Label="Inside office hours"
+                        Value="@DashboardFormat.Hours(Value!.Inside)"
+                        Emphasis="true"
+                        Footnote="@ShareOf(Value!.Inside)"
+                        Status="Status"
+                        TestId="dashboard-hours-worked-inside" />
+            <MetricTile Label="Outside office hours"
+                        Value="@DashboardFormat.Hours(Value!.Outside)"
+                        Footnote="@ShareOf(Value!.Outside)"
+                        Status="Status"
+                        TestId="dashboard-hours-worked-outside" />
+            <MetricTile Label="Worked"
+                        Value="@DashboardFormat.Hours(Value!.Actual)"
+                        Footnote="Inside and outside together"
+                        Status="Status"
+                        TestId="dashboard-hours-worked-actual" />
+            <MetricTile Label="Planned"
+                        Value="@DashboardFormat.Hours(Value!.Planned)"
+                        Footnote="The working hours of these dates"
+                        Status="Status"
+                        TestId="dashboard-hours-worked-planned" />
+        </MetricGrid>
+
+        <MetricStackedBars Series="@Series"
+                           Target="@Planned"
+                           Mode="MetricBarsMode.Stacked"
+                           Label="@(PerDay ? "Hours worked per day" : "Hours worked per week")"
+                           NameHeading="Hours"
+                           TotalHeading="Worked"
+                           LegendLabel="Hours shown"
+                           FormatValue="DashboardFormat.Hours"
+                           TestId="dashboard-hours-worked-bars" />
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-hours-worked-status" />
+    }
+</PartFrame>
+
+@code {
+    private const string Inside = "Inside office hours";
+
+    private const string Outside = "Outside office hours";
+
+    private const string PlannedName = "Planned";
+
+    private string Note =>
+        "Your working stretches, from your own prompts in agent sessions on every paired machine, "
+        + "split at the start and end of each date's office hours: your working week, with the days you blocked "
+        + "or unblocked on the roadmap. A day off has no office hours, so all its work counts outside. "
+        + "Planned is the working hours of the same dates, and this week counts through today. "
+        + (PerDay ? "Per day over four weeks." : "Per calendar week, Monday first, over twelve weeks.")
+        + " The repository chips and the machine filter do not apply.";
+
+    /// <summary>Days over four weeks, calendar weeks over twelve.</summary>
+    private bool PerDay => Scope.Period == DashboardPeriod.FourWeeks;
+
+    private IReadOnlyList<HoursWorkedPeriod> Periods =>
+        IsReady ? (PerDay ? Value!.Days : Value!.Weeks) : [];
+
+    private IReadOnlyList<MetricSeries> Series =>
+    [
+        new(Inside, [.. Periods.Select(period => new MetricPoint(LabelOf(period), HoursOf(period.Inside)))]),
+        new(Outside, [.. Periods.Select(period => new MetricPoint(LabelOf(period), HoursOf(period.Outside)))])
+    ];
+
+    private MetricSeries Planned =>
+        new(PlannedName, [.. Periods.Select(period => new MetricPoint(LabelOf(period), HoursOf(period.Planned)))]);
+
+    /// <summary>A day as <c>08 Oct</c> — the month too, because a four-week window
+    /// crosses one and a weekday-and-day label can repeat inside it — and a week as its
+    /// ISO number, the way the weekly parts beside this one name it.</summary>
+    private string LabelOf(HoursWorkedPeriod period) =>
+        PerDay
+            ? DashboardFormat.Date(period.From)
+            : "W" + System.Globalization.ISOWeek.GetWeekOfYear(period.From.ToDateTime(TimeOnly.MinValue)).ToString("00", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static decimal HoursOf(TimeSpan span) => Math.Round((decimal)span.TotalHours, 2);
+
+    private string? ShareOf(TimeSpan part) =>
+        Value!.Actual > TimeSpan.Zero
+            ? $"{MetricFormat.Percent((decimal)(part.Ticks / (double)Value!.Actual.Ticks))} of the hours worked"
+            : null;
+
+    protected override bool FollowsRepository => false;
+
+    protected override Task<InsightResult<HoursWorkedInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetHoursWorkedAsync(Scope, cancellationToken);
+
+    /// <summary>Empty only when the window holds no date at all. A window nobody worked
+    /// is a reading — its planned hours against none — and is drawn as one.</summary>
+    protected override bool IsEmpty(HoursWorkedInsight value) => value.Days.Count == 0;
+
+    protected override string EmptyMessage => "No date in this window to count.";
+
+    // Nothing to drop: the source reads through the activity cache on every call.
+    protected override void InvalidateSource()
+    {
+    }
+}

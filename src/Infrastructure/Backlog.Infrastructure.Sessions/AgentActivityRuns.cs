@@ -4,8 +4,8 @@ namespace Backlog.Infrastructure.Sessions;
 
 /// <summary>
 /// One thing a transcript recorded happening, reduced to the two facts the fold
-/// needs — when, and whether it was a person arriving — and the one fact it does not:
-/// whether the line was a refusal for a usage limit.
+/// needs — when, and whether it was a prompt arriving — and the two facts it does not:
+/// whether the line was a refusal for a usage limit, and whether the person made it.
 /// <para>
 /// A struct with three fields rather than the line it came from, because the fold is
 /// the same fold for both agents and the two formats have nothing else in common.
@@ -17,8 +17,18 @@ namespace Backlog.Infrastructure.Sessions;
 /// refusal is a turn with a timestamp and counts as activity exactly as it did before
 /// it had a name, and the source lifts the hits off afterwards.
 /// </para>
+/// <para>
+/// <paramref name="IsHumanTurn"/> rides the same way and is not <paramref name="IsPrompt"/>.
+/// A prompt is anything that ended a wait, and most are an SDK, a skill or a task
+/// notification; a human turn is the person, which only Claude's <c>origin</c> field and
+/// an answered question can say (ADR 0019 §6). The fold never looks at it either.
+/// </para>
 /// </summary>
-internal readonly record struct ActivityEvent(DateTimeOffset At, bool IsPrompt, AgentLimitHit? Limit = null);
+internal readonly record struct ActivityEvent(
+    DateTimeOffset At,
+    bool IsPrompt,
+    AgentLimitHit? Limit = null,
+    bool IsHumanTurn = false);
 
 /// <summary>
 /// Turning a stream of recorded instants into the stretches an agent was working and

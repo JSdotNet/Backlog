@@ -35,6 +35,7 @@ public class DashboardPaneTests
                      "dashboard-tasks-effort",
                      "dashboard-roadmap",
                      "dashboard-sessions",
+                     "dashboard-hours-worked",
                      "dashboard-spend-month",
                      "dashboard-spend-trend",
                      "dashboard-spend-model"
@@ -260,6 +261,7 @@ public class DashboardPaneTests
                      "dashboard-trend",
                      "dashboard-roadmap",
                      "dashboard-sessions",
+                     "dashboard-hours-worked",
                      "dashboard-spend-month",
                      "dashboard-spend-trend",
                      "dashboard-spend-model"
@@ -2472,21 +2474,21 @@ public class DashboardPaneTests
         Assert.Empty(pane.FindAll("[data-testid='dashboard-repository-filter']"));
         Assert.Single(pane.FindAll("[data-testid='dashboard-machine-filter'] select"));
         Assert.Equal(2, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
-        Assert.Equal(11, pane.FindAll("[data-testid$='-refresh']").Count);
+        Assert.Equal(12, pane.FindAll("[data-testid$='-refresh']").Count);
         // The folds show and hide what is already there; they arrange nothing.
         Assert.Equal(4, pane.FindAll("[data-testid$='-toggle'].fold__trigger").Count);
         // The More folds too — two here, because the sessions part answers unavailable
         // and its own More is inside the figures it would fold.
         Assert.Equal(2, pane.FindAll("[data-testid$='-more'].fold__trigger").Count);
         // The info marks open a caption; they change nothing.
-        Assert.Equal(11, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
+        Assert.Equal(12, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
         Assert.Single(pane.FindAll("[aria-label='Close dashboard']"));
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, one filter select, two window buttons, eleven refreshes, four
-        // section folds, two More folds, eleven info marks.
-        Assert.Equal(1 + 1 + 2 + 11 + 4 + 2 + 11, controls.Count);
+        // One close, one filter select, two window buttons, twelve refreshes, four
+        // section folds, two More folds, twelve info marks.
+        Assert.Equal(1 + 1 + 2 + 12 + 4 + 2 + 12, controls.Count);
     }
 
     /// <summary>

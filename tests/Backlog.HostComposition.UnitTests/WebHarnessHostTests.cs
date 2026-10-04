@@ -272,6 +272,9 @@ public class WebHarnessHostTests
         AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IClaudeSpendSource>(harness.Services);
         AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.ICopilotSpendSource>(harness.Services);
         AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IAzureFoundrySpendSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IHoursWorkedSource>(harness.Services);
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Dashboard.AgentActivityHoursWorkedSource>(
+            harness.Services.GetRequiredService<Backlog.Modules.Dashboard.Abstractions.Services.IHoursWorkedSource>());
 
         using var first = harness.Services.CreateScope();
         using var second = harness.Services.CreateScope();

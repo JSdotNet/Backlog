@@ -23,7 +23,7 @@
     save, and what else has to move with them.
 *@
 
-<section class="roadmap-timeline @(OnSlotActivated.HasDelegate ? "roadmap-timeline--insertable" : null) @(WorkingHoursByDay is null ? null : "roadmap-timeline--hours") @CssClass"
+<section class="roadmap-timeline @(OnSlotActivated.HasDelegate ? "roadmap-timeline--insertable" : null) @(HoursLineShown ? "roadmap-timeline--hours" : null) @CssClass"
          style="@Metrics"
          aria-labelledby="@(string.IsNullOrWhiteSpace(LabelledBy) ? _headingId : LabelledBy)"
          data-testid="@TestId">
@@ -175,25 +175,35 @@
                     <div class="roadmap-timeline__axis" data-testid="@Suffix("axis")">
                         @foreach (var column in Span.Columns)
                         {
-                            <div class="@ColumnClass(column)"
-                                 style="left: @Rem(Geometry.XFor(column.Start)); width: @Rem(Geometry.WidthFor(column.Start, column.End))"
-                                 title="@ColumnTitle(column)"
-                                 aria-current="@(IsCurrent(column) ? "date" : null)">
-                                @* A week clipped to a few days at a month start has no
-                                   room for its number; the tooltip still names it. *@
-                                @if (Geometry.WidthFor(column.Start, column.End) >= MinLabelled(column))
-                                {
-                                    <span class="roadmap-timeline__quarter-label">@HeadLabel(column)</span>
-                                    <span class="roadmap-timeline__quarter-year">@HeadCaption(column)</span>
-                                    @* Given a working week, every head keeps a third line for
-                                       the hours, empty where there are none, so all heads read
-                                       along one baseline as the caption line does. *@
-                                    @if (WorkingHoursByDay is not null)
-                                    {
-                                        <span class="roadmap-timeline__quarter-hours">@HoursCaption(column)</span>
-                                    }
-                                }
-                            </div>
+                            @* A day's head blocks or unblocks its date where the host listens
+                               (local ADR 0019, §4): a real button, so a click, Enter and Space
+                               all press it, named for what pressing it does. It sits in the
+                               axis, outside every row the script marks as a slot, and the
+                               script ignores a press on any button besides — so pressing a
+                               head never starts a drag or adds something. Weeks, months and
+                               quarters are not dates and stay plain. *@
+                            @if (IsToggle(column))
+                            {
+                                <button type="button"
+                                        class="@ColumnClass(column) roadmap-timeline__quarter--toggle"
+                                        style="left: @Rem(Geometry.XFor(column.Start)); width: @Rem(Geometry.WidthFor(column.Start, column.End))"
+                                        title="@ColumnTitle(column)"
+                                        aria-label="@ToggleName(column)"
+                                        aria-current="@(IsCurrent(column) ? "date" : null)"
+                                        data-testid="@Suffix($"day-{column.Start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}")"
+                                        @onclick="() => ToggleDay(column.Start)">
+                                    @HeadContent(column)
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="@ColumnClass(column)"
+                                     style="left: @Rem(Geometry.XFor(column.Start)); width: @Rem(Geometry.WidthFor(column.Start, column.End))"
+                                     title="@ColumnTitle(column)"
+                                     aria-current="@(IsCurrent(column) ? "date" : null)">
+                                    @HeadContent(column)
+                                </div>
+                            }
                         }
                     </div>
 
@@ -519,13 +529,54 @@
     public DateOnly? Today { get; set; }
 
     /// <summary>
-    /// The hours worked on each day of the week, for the heads to show and the days
-    /// off to be shaded (local ADR 0019). A day missing or at zero is not worked. Left
-    /// unset, the axis says nothing about a working week. The caller's, as a plain map,
-    /// because this library knows no working week of its own.
+    /// The hours planned on each date, for the heads to show and the dates not worked
+    /// to be shaded (local ADR 0019). A date at zero is not worked. Per date rather than
+    /// per weekday, because a person blocks a single Friday or unblocks a single
+    /// Saturday. Left unset, the axis says nothing about a working week. The caller's,
+    /// as a plain function, because this library knows no working week of its own.
     /// </summary>
     [Parameter]
-    public IReadOnlyDictionary<DayOfWeek, double>? WorkingHoursByDay { get; set; }
+    public Func<DateOnly, double>? PlannedHoursOn { get; set; }
+
+    /// <summary>
+    /// Whether a date differs from its weekday's pattern — blocked or unblocked on its
+    /// own — so its head carries a marker and its tooltip says which. Left unset, no
+    /// head is marked.
+    /// </summary>
+    [Parameter]
+    public Func<DateOnly, bool>? IsOverridden { get; set; }
+
+    /// <summary>
+    /// The hours actually worked on each date that has begun (local ADR 0019, §6). A day
+    /// or week head whose column starts on or before <see cref="Today"/> shows these in
+    /// place of its planned hours — "6.2h", today counting the hours so far — and never
+    /// both. A date missing from the map counts none, so a begun worked day nobody worked
+    /// reads "0h".
+    /// <para>
+    /// Null when the host cannot state them, or could not read them: a begun head then
+    /// shows no figure at all, because a planned figure there would be read as hours
+    /// worked. Heads still to come show their planned hours either way.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public IReadOnlyDictionary<DateOnly, double>? ActualHoursByDate { get; set; }
+
+    /// <summary>
+    /// Whether the day and week heads carry their hours line — the host's "Hours" switch
+    /// (local ADR 0019, §4). On by default. Off, no head shows an hours figure and the
+    /// axis loses the line, while the days off stay shaded and every column keeps its
+    /// width. Has no effect without <see cref="PlannedHoursOn"/>.
+    /// </summary>
+    [Parameter]
+    public bool ShowHours { get; set; } = true;
+
+    /// <summary>
+    /// Raised with a date when its day head is pressed. With a listener, every day
+    /// column's head is a button that offers to block a worked date and unblock one not
+    /// worked; whether it does, and what moves, is the host's.
+    /// </summary>
+    [Parameter]
+    public EventCallback<DateOnly> OnDayToggled { get; set; }
 
     /// <summary>Which day a week starts on here, and so where a drag lands.</summary>
     [Parameter]
@@ -1958,6 +2009,29 @@
     private const double MinHoursWeekRem = 5;
 
     /// <summary>
+    /// A head's lines, the same whether the head is a plain column or a day's toggle. A
+    /// week clipped to a few days at a month start has no room for its number; the
+    /// tooltip still names it. Given a working week and the hours switched on, every head
+    /// keeps a third line for its one hours figure, empty where there is none, so all
+    /// heads read along one baseline as the caption line does.
+    /// </summary>
+    private RenderFragment HeadContent(RoadmapColumn column) => @<text>
+        @if (Geometry.WidthFor(column.Start, column.End) >= MinLabelled(column))
+        {
+            <span class="roadmap-timeline__quarter-label">@HeadLabel(column)</span>
+            <span class="roadmap-timeline__quarter-year">@HeadCaption(column)</span>
+            @if (HoursLineShown)
+            {
+                <span class="roadmap-timeline__quarter-hours">@HoursCaption(column)</span>
+            }
+        }
+    </text>;
+
+    /// <summary>Whether the heads carry an hours line at all: a working week is given and
+    /// the host's Hours switch is on.</summary>
+    private bool HoursLineShown => PlannedHoursOn is not null && ShowHours;
+
+    /// <summary>
     /// What a column head reads. A day column too narrow for its weekday keeps the
     /// number here and names the day on the caption line (<see cref="HeadCaption"/>). Where a working week is given, a worked day's head and
     /// a week's head carry their working hours when there is room for them; the tooltip
@@ -1970,16 +2044,14 @@
             return column.Start.Day.ToString(CultureInfo.CurrentCulture);
         }
 
-        return HoursInline(column) && HoursIn(column) is { } hours ? $"{column.Label} · {Hours(hours)}" : column.Label;
+        return HoursInline(column) && HoursText(column) is { } hours ? $"{column.Label} · {hours}" : column.Label;
     }
 
-    /// <summary>Whether a column is wide enough to say its hours on the head's own line,
-    /// "Wed 23 · 8.5h".</summary>
-    private bool HoursInline(RoadmapColumn column)
-    {
-        var room = column.Scale == RoadmapColumnScale.Day ? MinHoursDayRem : MinHoursWeekRem;
-        return Geometry.WidthFor(column.Start, column.End) >= room;
-    }
+    /// <summary>Whether a column is wide enough to say its hours on the head's own line:
+    /// "Wed 23 · 8.5h", "Thu 8 · 6.2h".</summary>
+    private bool HoursInline(RoadmapColumn column) =>
+        Geometry.WidthFor(column.Start, column.End)
+            >= (column.Scale == RoadmapColumnScale.Day ? MinHoursDayRem : MinHoursWeekRem);
 
     /// <summary>The caption font's size and a character's rough width in it, in rem —
     /// what decides whether "8.5h" fits under a day or gives up its unit, and whether
@@ -2003,19 +2075,17 @@
     private const double HeadBorderRem = 0.0625;
 
     /// <summary>
-    /// The hours on the head's third line, for a column too narrow to say them inline:
-    /// "8.5h" under a day and "42.5h" under a week — and "8.5" where the unit would not
-    /// fit, since the week's head beside it says what the figure counts. Nothing for a
-    /// month, a quarter, a day off, or a column that says its hours inline.
+    /// The head's one hours figure on its last line, for a column too narrow to say it
+    /// inline (<see cref="HoursText"/>): "6.2h" or "8.5h" under a day and "42.5h" under a
+    /// week, or "8.5" where the unit would not fit, since the week's head beside it says
+    /// what the figure counts. Nothing where the head says no hours, or says them inline.
     /// </summary>
-    private string? HoursCaption(RoadmapColumn column)
-    {
-        if (HoursIn(column) is not { } hours || HoursInline(column)) return null;
+    private string? HoursCaption(RoadmapColumn column) =>
+        HoursText(column) is { } withUnit && !HoursInline(column) ? Fitted(column, withUnit) : null;
 
-        var withUnit = Hours(hours);
-
-        return FitsCaption(column, withUnit) ? withUnit : withUnit[..^1];
-    }
+    /// <summary>A figure with its unit where that fits the column, else without it.</summary>
+    private string Fitted(RoadmapColumn column, string withUnit) =>
+        FitsCaption(column, withUnit) ? withUnit : withUnit[..^1];
 
     /// <summary>
     /// The head's caption line. A day too narrow to name its weekday beside its number
@@ -2096,52 +2166,160 @@
             or (>= 0xFFE0 and <= 0xFFE6)
             or (>= 0x20000 and <= 0x3FFFD);
 
-    /// <summary>The column's tooltip: its long label, whether it is now, and its working
-    /// hours — or that it is not worked.</summary>
+    /// <summary>
+    /// The column's tooltip: its long label, whether it is now, that it is not worked,
+    /// its hours, and whether the person blocked or unblocked the date — "Friday 9 October
+    /// 2026 · not worked · blocked". A head still to come says its planned hours as its
+    /// head does, "· 8.5h". A head that has begun says both figures the head never shows
+    /// together (local ADR 0019, §4): "Tuesday 29 September 2026 · 6.2h worked of 8.5h
+    /// planned". Said whether or not the Hours switch shows them on the head.
+    /// </summary>
     private string ColumnTitle(RoadmapColumn column)
     {
         var title = IsCurrentWeek(column) ? column.LongLabel + " (this week)"
             : IsCurrent(column) ? column.LongLabel + " (today)"
             : column.LongLabel;
 
-        if (WorkingHoursByDay is not null && IsDayOff(column)) return title + " · not worked";
+        if (PlannedHoursOn is not null && IsDayOff(column)) title += " · not worked";
+        if (TitleHours(column) is { } hours) title += " · " + hours;
+        if (IsMarked(column)) title += IsDayOff(column) ? " · blocked" : " · unblocked";
 
-        return HoursIn(column) is { } hours ? $"{title} · {Hours(hours)}" : title;
+        return title;
     }
 
     /// <summary>
-    /// The working hours in a day or week column, or null where the axis says none: no
-    /// working week given, a month or quarter, or a day not worked.
+    /// What a tooltip says of a column's hours, or null where it says nothing:
+    /// <list type="bullet">
+    /// <item>still to come: its planned hours, "8.5h", or nothing for a day off;</item>
+    /// <item>begun, with the actual hours read: "6.2h worked of 8.5h planned", or on a day
+    /// off somebody worked "2.0h worked";</item>
+    /// <item>begun, with the actual hours unread: "8.5h planned", named so it is never
+    /// taken for hours worked.</item>
+    /// </list>
     /// </summary>
-    private double? HoursIn(RoadmapColumn column)
+    private string? TitleHours(RoadmapColumn column)
     {
-        if (WorkingHoursByDay is null) return null;
+        if (PlannedIn(column) is not { } planned) return null;
+
+        var hasPlan = planned > 0;
+        if (!HasBegun(column)) return hasPlan ? Hours(planned) : null;
+
+        if (ActualIn(column) is not { } actual) return hasPlan ? Hours(planned) + " planned" : null;
+        if (hasPlan) return $"{ActualHours(actual)} worked of {Hours(planned)} planned";
+
+        return HasWorked(actual) ? ActualHours(actual) + " worked" : null;
+    }
+
+    /// <summary>
+    /// The one hours figure a day or week head shows, unit and all, or null where it
+    /// shows none (local ADR 0019, §§4 and 6). A head never shows two.
+    /// <list type="bullet">
+    /// <item>a head still to come: its planned hours, "8.5h" or "42.5h", and nothing for
+    /// a day not worked;</item>
+    /// <item>a head that has begun — today and the current week included: its actual
+    /// hours so far, "6.2h", a worked day nobody worked "0h", and a day not worked only
+    /// when somebody worked it anyway, "2.0h";</item>
+    /// <item>a head that has begun while the actual hours are unread: nothing, never its
+    /// planned hours, which would read as hours worked.</item>
+    /// </list>
+    /// Nothing for a month or a quarter, with no working week given, or with the Hours
+    /// switch off.
+    /// </summary>
+    private string? HoursText(RoadmapColumn column)
+    {
+        if (!ShowHours || PlannedIn(column) is not { } planned) return null;
+
+        var dayOff = column.Scale == RoadmapColumnScale.Day && planned <= 0;
+
+        if (!HasBegun(column)) return dayOff ? null : Hours(planned);
+        if (ActualIn(column) is not { } actual) return null;
+
+        return dayOff && !HasWorked(actual) ? null : ActualHours(actual);
+    }
+
+    /// <summary>Whether a column has begun: it starts on or before today. A column with
+    /// no today given has not.</summary>
+    private bool HasBegun(RoadmapColumn column) => Today is { } today && column.Start <= today;
+
+    /// <summary>
+    /// The planned hours in a day or week column, overrides included, or null where the
+    /// axis says none: no working week given, or a month or a quarter.
+    /// </summary>
+    private double? PlannedIn(RoadmapColumn column)
+    {
+        if (PlannedHoursOn is null) return null;
         if (column.Scale is not (RoadmapColumnScale.Day or RoadmapColumnScale.Week)) return null;
 
         var hours = 0d;
-        for (var day = column.Start; day <= column.End; day = day.AddDays(1)) hours += WorkedOn(day.DayOfWeek);
+        for (var day = column.Start; day <= column.End; day = day.AddDays(1)) hours += PlannedOn(day);
 
-        return column.Scale == RoadmapColumnScale.Day && hours <= 0 ? null : hours;
+        return hours;
     }
 
-    private double WorkedOn(DayOfWeek day) =>
-        WorkingHoursByDay is { } week && week.TryGetValue(day, out var hours) && hours > 0 ? hours : 0;
+    private double PlannedOn(DateOnly date) =>
+        PlannedHoursOn is { } planned && planned(date) is var hours && hours > 0 ? hours : 0;
+
+    /// <summary>
+    /// The hours actually worked in a day or week column that has begun, counting only
+    /// its dates up to today; null where none are given, for a column after today, and
+    /// for a month or a quarter.
+    /// </summary>
+    private double? ActualIn(RoadmapColumn column)
+    {
+        if (ActualHoursByDate is not { } actual || PlannedHoursOn is null || Today is not { } today) return null;
+        if (column.Scale is not (RoadmapColumnScale.Day or RoadmapColumnScale.Week) || column.Start > today) return null;
+
+        var last = column.End < today ? column.End : today;
+        var hours = 0d;
+        for (var day = column.Start; day <= last; day = day.AddDays(1)) hours += actual.GetValueOrDefault(day);
+
+        return hours;
+    }
 
     /// <summary>
     /// Whether a column is a day ruled on its own that is not worked: one the working
-    /// week does not work, or — given no week — a Saturday or a Sunday, so a caller
-    /// without one still sees the weekend.
+    /// week does not work on that date, or — given no week — a Saturday or a Sunday, so
+    /// a caller without one still sees the weekend.
     /// </summary>
     private bool IsDayOff(RoadmapColumn column) =>
         column.Scale == RoadmapColumnScale.Day
-        && (WorkingHoursByDay is null
+        && (PlannedHoursOn is null
             ? column.Start.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday
-            : WorkedOn(column.Start.DayOfWeek) <= 0);
+            : PlannedOn(column.Start) <= 0);
+
+    /// <summary>Whether a day column's date differs from its weekday's pattern.</summary>
+    private bool IsMarked(RoadmapColumn column) =>
+        column.Scale == RoadmapColumnScale.Day && IsOverridden is { } overridden && overridden(column.Start);
+
+    /// <summary>Whether a column's head is a button that blocks or unblocks its date:
+    /// a day's, where the host listens.</summary>
+    private bool IsToggle(RoadmapColumn column) =>
+        column.Scale == RoadmapColumnScale.Day && OnDayToggled.HasDelegate;
+
+    /// <summary>
+    /// A day head's accessible name: what pressing it does, then the date in the
+    /// culture's own short weekday and month — "Block Fri 9 Oct", "Unblock Sat 10 Oct".
+    /// The visible "Fri 9" stays inside it, so a person who says what they see reaches
+    /// the button.
+    /// </summary>
+    private string ToggleName(RoadmapColumn column) =>
+        $"{(IsDayOff(column) ? "Unblock" : "Block")} {column.Start.ToString("ddd d MMM", CultureInfo.CurrentCulture)}";
+
+    private Task ToggleDay(DateOnly date) => OnDayToggled.InvokeAsync(date);
 
     /// <summary>Hours as a head says them: invariant, at most two decimals, and none
     /// for a whole hour — "8h", "8.5h", "42.5h".</summary>
     private static string Hours(double hours) =>
         Math.Round(hours, 2).ToString("0.##", CultureInfo.InvariantCulture) + "h";
+
+    /// <summary>Actual hours as a head says them: invariant and one decimal — "6.2h",
+    /// "2.0h", "33.1h" — the precision a measure of a day's work holds, and "0h" for none,
+    /// so nothing worked does not read as a figure measured to a tenth.</summary>
+    private static string ActualHours(double hours) =>
+        HasWorked(hours) ? hours.ToString("0.0", CultureInfo.InvariantCulture) + "h" : "0h";
+
+    /// <summary>Whether actual hours come to anything at the precision they are shown at.</summary>
+    private static bool HasWorked(double hours) => Math.Round(hours, 1) > 0;
 
     private double MinLabelled(RoadmapColumn column) =>
         column.Scale == RoadmapColumnScale.Day ? MinLabelledDayRem : MinLabelledColumnRem;
@@ -2152,6 +2330,7 @@
     private string ColumnClass(RoadmapColumn column) =>
         $"roadmap-timeline__quarter roadmap-timeline__quarter--{column.Scale.ToString().ToLowerInvariant()}"
         + (IsDayOff(column) ? " roadmap-timeline__quarter--weekend" : null)
+        + (IsMarked(column) ? " roadmap-timeline__quarter--override" : null)
         + (IsCurrent(column) ? " roadmap-timeline__quarter--current" : null);
 
     private static string MilestoneClass(RoadmapMilestone milestone) =>

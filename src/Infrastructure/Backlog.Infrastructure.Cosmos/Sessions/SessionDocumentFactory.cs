@@ -65,6 +65,7 @@ internal static class SessionDocumentFactory
             Entrypoint = record.Entrypoint,
             PullRequests = record.PullRequests,
             ModelUsage = record.ModelUsage,
+            HumanTurns = record.HumanTurns,
         };
 
     /// <summary>
@@ -105,7 +106,8 @@ internal static class SessionDocumentFactory
                 document.LimitHits,
                 document.Entrypoint,
                 document.PullRequests,
-                document.ModelUsage),
+                document.ModelUsage,
+                document.HumanTurns),
             machineId,
             document.Timestamp);
     }

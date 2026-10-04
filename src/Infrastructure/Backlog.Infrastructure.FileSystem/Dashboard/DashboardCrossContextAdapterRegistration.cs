@@ -1,4 +1,6 @@
 using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.FileSystem.Dashboard;
@@ -44,6 +46,18 @@ public static class DashboardCrossContextAdapterRegistration
         // scoped, so this needs AddRoadmapModule() and AddRoadmapCrossContextAdapters()
         // registered first.
         services.AddScoped<IPlanProgressSource, RoadmapPlanProgressSource>();
+
+        // The hours worked, split by office hours (local ADR 0019, §7): a singleton over
+        // singletons — the activity source, the working week, the clock and the feature
+        // switches — as Roadmap's actual hours over the same stretches is. Each is
+        // optional, so a host that composed no Sessions activity still resolves the port
+        // and it answers that it cannot state the hours.
+        services.AddSingleton<IHoursWorkedSource>(sp =>
+            new AgentActivityHoursWorkedSource(
+                sp.GetService<IAgentActivitySource>(),
+                sp.GetService<IWorkingHoursSettings>(),
+                sp.GetService<TimeProvider>(),
+                sp.GetService<IAppFeatureSettings>()));
 
         return services;
     }

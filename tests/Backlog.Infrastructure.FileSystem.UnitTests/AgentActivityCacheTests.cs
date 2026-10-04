@@ -125,6 +125,22 @@ public class AgentActivityCacheTests : IDisposable
             read.LimitHits.Select(hit => (hit.OverageStatus, hit.OverageResetsAt, hit.OverageDisabledReason, hit.IsUsingOverage)));
     }
 
+    /// <summary>The person's turns come back as the instants they were written with,
+    /// so a finished transcript's working stretches are drawn without parsing it
+    /// again (ADR 0019 §6).</summary>
+    [Fact]
+    public void Human_turns_come_back()
+    {
+        var cache = Cache();
+
+        cache.Write(Transcript, Written, Entry(runs: [(9, 10)], waits: []) with { HumanTurns = [At(9), At(10)] });
+
+        var read = cache.TryRead(Transcript, Written, Threshold);
+
+        Assert.NotNull(read);
+        Assert.Equal([At(9), At(10)], read.HumanTurns);
+    }
+
     [Fact]
     public void Nothing_stored_is_a_miss_rather_than_a_throw()
     {

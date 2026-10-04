@@ -10527,8 +10527,28 @@ select.field__input {
 }
 
 .metric-stacked-bars__column-track {
+    position: relative;
     display: flex;
     height: var(--metric-stacked-bars-height, 9rem);
+}
+
+/* The target's mark: a rule across the column's track at the target's height, on the
+   columns' own scale. Ink, not the hue, for the line's reason — it crosses bands drawn
+   in the ramp — and a surface ring above and below so it stays legible where the stack
+   passes it. Out of the flow, so the stack builds as if it were not there, and inside
+   its own column: marks that reached into the gap would join into a line at equal
+   heights, and a line is the other population. */
+.metric-stacked-bars__target {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 1;
+    height: 3px;
+    margin-bottom: -1.5px;
+    border-radius: 1.5px;
+    background: var(--chart-ink);
+    box-shadow: 0 0 0 1px var(--chart-surface);
+    pointer-events: none;
 }
 
 /* A stack builds up from the baseline in the order given: column-reverse puts the
@@ -10811,6 +10831,19 @@ select.field__input {
     border-top: 2px solid var(--chart-ink);
     border-radius: 0;
     background: transparent;
+}
+
+/* The target's swatch is its mark: a short, heavier rule in ink, so the legend tells it
+   apart from a line by weight as well as by name. */
+.metric-stacked-bars__swatch--target {
+    width: 1rem;
+    height: 3px;
+    border-radius: 1.5px;
+    background: var(--chart-ink);
+}
+
+.metric-stacked-bars__legend-item--off .metric-stacked-bars__swatch--target {
+    background: var(--chart-track);
 }
 
 .metric-stacked-bars__swatch--dash-1 {
@@ -12490,6 +12523,44 @@ select.field__input {
     overflow: hidden;
 }
 
+/* A day head that blocks or unblocks its date (local ADR 0019, §4) is a real
+   button, drawn exactly as the plain head beside it: nothing of the browser's own
+   button survives. Its face, its native appearance, its padding, its three other
+   borders, its radius and its type all go, and the head's left rule, its text and
+   its size come from the head. The day-off and current rules come after this one at
+   the same weight, so a blocked date wears exactly a weekend head's fill and today
+   its primary shade. Only the focus ring and a hover underline say it can be
+   pressed. */
+.roadmap-timeline__quarter--toggle {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-align: center;
+    text-transform: inherit;
+    cursor: pointer;
+}
+
+.roadmap-timeline__quarter--toggle:hover .roadmap-timeline__quarter-label {
+    text-decoration: underline;
+}
+
+/* Inset rather than offset outward: the axis sits inside the scroller, which clips
+   anything drawn past the head's own box, and the heads either side would cover a
+   ring drawn over them. */
+.roadmap-timeline__quarter--toggle:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(var(--border-width-2) * -1);
+}
+
 .roadmap-timeline__quarter-label {
     font-family: var(--font-family-heading);
     font-size: var(--font-size-sm);
@@ -12532,6 +12603,22 @@ select.field__input {
     background: color-mix(in srgb, var(--color-text-primary) 14%, var(--color-background));
 }
 
+/* A date the person blocked or unblocked, which differs from its weekday's pattern:
+   a corner tick in its head, so a day of leave reads differently from an ordinary
+   weekend and a worked Saturday from an ordinary weekday. A shape, not a hue, so it
+   is seen without colour; the tooltip and the head's description say "blocked" or
+   "unblocked" in words. */
+.roadmap-timeline__quarter--override::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    border-style: solid;
+    border-width: 0 0.5rem 0.5rem 0;
+    border-color: transparent var(--color-text-secondary) transparent transparent;
+    pointer-events: none;
+}
+
 .roadmap-timeline__weekend {
     position: absolute;
     top: 0;
@@ -12563,15 +12650,22 @@ select.field__input {
     background: color-mix(in srgb, var(--color-primary) 7%, transparent);
 }
 
-/* Given a working week, every head carries a third line for its hours — "8.5h"
-   under a day, "42.5h" under a week — where the column is too narrow to say them
-   beside its name. The line is kept even when empty, as the caption's is, so every
-   head reads along one baseline; the axis grows by that line and no more. */
+/* Given a working week and the Hours switch on, every head carries a third line for
+   its one hours figure (local ADR 0019, §§4 and 6) — the actual hours on a head that
+   has begun, "6.2h", the planned hours on one still to come, "8.5h" or "42.5h" —
+   where the column is too narrow to say it beside its name. The line is kept even
+   when empty, as the caption's is, so every head reads along one baseline; the axis
+   grows by that line and no more.
+
+   The one column a head lays its lines in is the head's own width, never the width
+   of its widest line: a line too wide for the column is clipped at the head's edges
+   instead of pushing every line of that head off centre. */
 .roadmap-timeline--hours {
     --roadmap-axis-height: 3.5rem;
 }
 
 .roadmap-timeline--hours .roadmap-timeline__quarter {
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto;
 }
 

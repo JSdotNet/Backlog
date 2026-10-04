@@ -169,3 +169,27 @@ related: [.devbook/domain/productivity/features.md#ai-productivity-tracking]
 
 The product capability for understanding how AI-assisted work contributes to the
 person's outcomes.
+
+### Office Hours
+
+```meta
+type: term
+status: draft
+aliases: [office hours, inside office hours, outside office hours]
+related: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/domain.md#day-override, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/productivity/features.md#hours-worked, .devbook/domain/productivity/requirements.md#hours-worked]
+```
+
+The span of time on one date that the person meant to work. It is that date's
+start and end in the [working week](context.md#working-week), with the
+[day overrides](../roadmap/domain.md#day-override) applied. A blocked date has
+no office hours. An unblocked date has the start and end its weekday stores. A
+day whose end is not after its start has none either.
+
+The dashboard's [Hours worked](features.md#hours-worked) part splits the
+person's [actual hours](../roadmap/domain.md#actual-hours) by it: the time
+**inside office hours** and the time **outside office hours**. The split is to
+the minute. It does not use the hour grids' rule of outlining a whole hour that
+office hours only touch.
+
+The term exists because "working hours" already names a total, such as 8.5
+hours a day, and this split needs a span with a start and an end.

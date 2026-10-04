@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Backlog.Infrastructure.FileSystem;
 using Backlog.SharedKernel;
 
@@ -303,6 +305,314 @@ public class WorkingHoursSettingsStoreTests : IDisposable
     public void The_store_says_where_the_week_is_kept()
     {
         Assert.Equal(SettingsFile, Store().SettingsPath);
+    }
+
+    // --- Day overrides (local ADR 0019, §§3 and 5) ---------------------------
+
+    private static readonly DateOnly Friday9Oct = new(2026, 10, 9);
+    private static readonly DateOnly Saturday10Oct = new(2026, 10, 10);
+
+    [Fact]
+    public void Toggling_a_date_stores_it_announces_it_and_survives_a_restart()
+    {
+        var store = Store();
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.ToggleDate(Friday9Oct));
+
+        Assert.Equal(1, announced);
+        Assert.False(store.Current.IsWorked(Friday9Oct));
+
+        var reopened = Store().Current;
+        Assert.Equal(new DayOverride(Friday9Oct, false), Assert.Single(reopened.Overrides));
+        Assert.False(reopened.IsWorked(Friday9Oct));
+    }
+
+    [Fact]
+    public void Overrides_are_written_as_dates_and_whether_they_are_worked()
+    {
+        var store = Store();
+        Assert.Null(store.ToggleDate(Saturday10Oct));
+        Assert.Null(store.ToggleDate(Friday9Oct));
+
+        var overrides = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(SettingsFile))!["overrides"]!.AsArray();
+
+        Assert.Equal(2, overrides.Count);
+        Assert.Equal("2026-10-09", (string)overrides[0]!["date"]!);
+        Assert.False((bool)overrides[0]!["worked"]!);
+        Assert.Equal("2026-10-10", (string)overrides[1]!["date"]!);
+        Assert.True((bool)overrides[1]!["worked"]!);
+    }
+
+    [Fact]
+    public void Toggling_a_date_back_removes_its_override()
+    {
+        var store = Store();
+        Assert.Null(store.ToggleDate(Friday9Oct));
+        Assert.Null(store.ToggleDate(Friday9Oct));
+
+        Assert.Empty(store.Current.Overrides);
+        Assert.Empty(Store().Current.Overrides);
+        Assert.Equal(TimeSpan.FromHours(8.5), Store().Current.WorkedOn(Friday9Oct));
+    }
+
+    // --- The Days off dialog's writes (local ADR 0019, §4) --------------------
+
+    private static readonly DateOnly Monday12Oct = new(2026, 10, 12);
+    private static readonly DateOnly Saturday17Oct = new(2026, 10, 17);
+    private static readonly DateOnly Sunday18Oct = new(2026, 10, 18);
+
+    /// <summary>A range is one write and one announcement, however many dates it blocks,
+    /// and it survives a restart.</summary>
+    [Fact]
+    public void Blocking_a_range_stores_it_once_and_announces_it_once()
+    {
+        var store = Store();
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.BlockDays(Monday12Oct, Sunday18Oct));
+
+        Assert.Equal(1, announced);
+        Assert.Equal(5, store.Current.Overrides.Count);
+        Assert.Equal(
+            [.. Enumerable.Range(0, 5).Select(offset => new DayOverride(Monday12Oct.AddDays(offset), false))],
+            Store().Current.Overrides);
+    }
+
+    [Fact]
+    public void Blocking_a_range_removes_an_unblocked_date_inside_it()
+    {
+        var store = Store();
+        Assert.Null(store.ToggleDate(Saturday17Oct));
+
+        Assert.Null(store.BlockDays(Monday12Oct, Sunday18Oct));
+
+        Assert.Null(store.Current.OverrideOn(Saturday17Oct));
+        Assert.Null(Store().Current.OverrideOn(Saturday17Oct));
+    }
+
+    /// <summary>A range that ends before it starts, or runs past a year, is refused with a
+    /// reason, and nothing is stored or announced.</summary>
+    [Fact]
+    public void A_backwards_or_overlong_range_is_refused_and_nothing_is_stored()
+    {
+        var store = Store();
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Equal("End the days off on or after the day they start.", store.BlockDays(Sunday18Oct, Monday12Oct));
+        Assert.Equal(
+            "Add at most 366 days off at a time.",
+            store.BlockDays(Monday12Oct, Monday12Oct.AddDays(WorkingHours.MaxDaysOffRange)));
+
+        Assert.Equal(0, announced);
+        Assert.Empty(store.Current.Overrides);
+        Assert.False(File.Exists(SettingsFile));
+    }
+
+    /// <summary>A range that changes nothing — a weekend, on the default week — writes and
+    /// announces nothing, so the pace document is not stamped for it.</summary>
+    [Fact]
+    public void A_range_that_changes_nothing_announces_nothing()
+    {
+        var store = Store();
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.BlockDays(Saturday17Oct, Sunday18Oct));
+
+        Assert.Equal(0, announced);
+        Assert.False(File.Exists(SettingsFile));
+    }
+
+    [Fact]
+    public void Adding_a_worked_day_unblocks_a_date_the_pattern_leaves_off()
+    {
+        var store = Store();
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.AddWorkedDay(Saturday17Oct));
+
+        Assert.Equal(1, announced);
+        Assert.Equal(new DayOverride(Saturday17Oct, true), Assert.Single(Store().Current.Overrides));
+    }
+
+    /// <summary>A date the pattern already works adds nothing, and the store says why in
+    /// the culture's own short date.</summary>
+    [Fact]
+    public void Adding_a_worked_day_the_pattern_works_adds_nothing_and_says_so()
+    {
+        var original = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = new CultureInfo("en-US");
+        try
+        {
+            var store = Store();
+            var announced = 0;
+            store.Changed += () => announced++;
+
+            Assert.Equal(
+                "Thu 8 Oct is already a working day in your week, so nothing was added.",
+                store.AddWorkedDay(new DateOnly(2026, 10, 8)));
+
+            Assert.Equal(0, announced);
+            Assert.Empty(store.Current.Overrides);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Fact]
+    public void Removing_an_override_returns_the_date_to_its_pattern()
+    {
+        var store = Store();
+        Assert.Null(store.ToggleDate(Friday9Oct));
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.RemoveDayOverride(Friday9Oct));
+        Assert.Null(store.RemoveDayOverride(Friday9Oct));
+
+        Assert.Equal(1, announced);
+        Assert.Empty(Store().Current.Overrides);
+    }
+
+    [Fact]
+    public void A_file_without_overrides_reads_none()
+    {
+        File.WriteAllText(
+            SettingsFile,
+            """{ "days": [ { "day": "Friday", "working": false, "start": "09:00", "end": "17:30" } ] }""");
+
+        var store = Store();
+
+        Assert.Empty(store.Current.Overrides);
+        Assert.False(store.Current.IsWorked(DayOfWeek.Friday));
+    }
+
+    [Theory]
+    [InlineData("\"every other Friday\"")]
+    [InlineData("{ \"date\": \"2026-10-09\" }")]
+    [InlineData("42")]
+    public void An_unreadable_overrides_list_reads_none_and_keeps_the_days(string overrides)
+    {
+        File.WriteAllText(
+            SettingsFile,
+            $$"""{ "days": [ { "day": "Friday", "working": false, "start": "09:00", "end": "17:30" } ], "overrides": {{overrides}} }""");
+
+        var store = Store();
+
+        Assert.Empty(store.Current.Overrides);
+        Assert.False(store.Current.IsWorked(DayOfWeek.Friday));
+    }
+
+    [Fact]
+    public void One_unreadable_override_is_skipped_not_the_rest()
+    {
+        File.WriteAllText(
+            SettingsFile,
+            """
+            { "days": [],
+              "overrides": [
+                { "date": "2026-10-10", "worked": true },
+                { "date": "9 October", "worked": false },
+                { "date": "2026-10-08", "worked": "no" },
+                { "worked": false },
+                "2026-10-07",
+                null,
+                { "date": "2026-10-09", "worked": false },
+                { "date": "2026-10-09", "worked": true }
+              ] }
+            """);
+
+        var overrides = Store().Current.Overrides;
+
+        // Sorted, one per date, the first entry for a date winning.
+        Assert.Equal(new[] { new DayOverride(Friday9Oct, false), new DayOverride(Saturday10Oct, true) }, overrides);
+    }
+
+    [Fact]
+    public void Going_back_to_the_default_week_keeps_the_overrides()
+    {
+        var store = Store();
+        _ = store.SetDay(DayOfWeek.Monday, working: false, new TimeOnly(9, 0), new TimeOnly(17, 30));
+        Assert.Null(store.ToggleDate(Friday9Oct));
+
+        Assert.Null(store.ResetToDefault());
+
+        Assert.True(store.Current.IsWorked(DayOfWeek.Monday));
+        Assert.Equal(new DayOverride(Friday9Oct, false), Assert.Single(Store().Current.Overrides));
+    }
+
+    [Fact]
+    public void Going_back_to_the_default_pattern_with_only_overrides_announces_nothing()
+    {
+        var store = Store();
+        Assert.Null(store.ToggleDate(Friday9Oct));
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.ResetToDefault());
+
+        Assert.Equal(0, announced);
+    }
+
+    [Fact]
+    public void Two_weeks_differing_only_in_their_overrides_are_not_the_same_week()
+    {
+        var blocked = WorkingHours.Default.Toggled(Friday9Oct);
+        var rebuilt = WorkingHours.Default with { Overrides = [new DayOverride(Friday9Oct, false)] };
+
+        Assert.False(WorkingHoursSettingsStore.SameWeek(WorkingHours.Default, blocked));
+        Assert.True(WorkingHoursSettingsStore.SameWeek(blocked, rebuilt));
+    }
+
+    [Fact]
+    public void Replacing_the_week_with_new_overrides_stores_and_announces_them()
+    {
+        var store = Store();
+        var announced = 0;
+        store.Changed += () => announced++;
+
+        Assert.Null(store.Replace(WorkingHours.Default.Toggled(Friday9Oct)));
+        Assert.Null(store.Replace(WorkingHours.Default with { Overrides = [new DayOverride(Friday9Oct, false)] }));
+
+        Assert.Equal(1, announced);
+        Assert.False(Store().Current.IsWorked(Friday9Oct));
+    }
+
+    [Fact]
+    public void The_overrides_travel_through_the_document_shape()
+    {
+        var week = WorkingHours.Default.Toggled(Friday9Oct).Toggled(Saturday10Oct);
+
+        var json = WorkingHoursSettingsStore.ToJson(week);
+        var read = WorkingHoursSettingsStore.FromJson(json);
+
+        Assert.NotNull(read);
+        Assert.True(WorkingHoursSettingsStore.SameWeek(week, read));
+        Assert.Equal("2026-10-09", (string)json["overrides"]![0]!["date"]!);
+    }
+
+    [Fact]
+    public void A_week_without_overrides_writes_no_overrides_key()
+    {
+        var json = WorkingHoursSettingsStore.ToJson(WorkingHours.Default);
+
+        Assert.Null(json["overrides"]);
+    }
+
+    /// <summary>Overrides alone are no week: a document whose days this build cannot
+    /// read still reads as none, so it leaves the device's own week alone.</summary>
+    [Fact]
+    public void Overrides_with_no_readable_day_read_as_no_week()
+    {
+        Assert.Null(WorkingHoursSettingsStore.FromJson(System.Text.Json.Nodes.JsonNode.Parse(
+            """{ "overrides": [ { "date": "2026-10-09", "worked": false } ] }""")));
     }
 
     public void Dispose()

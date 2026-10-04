@@ -11,9 +11,10 @@ namespace Backlog.UI.Components.UnitTests;
 /// </summary>
 public sealed class RoadmapWorkingHoursAxisTests
 {
-    // Friday 25 September 2026: this week, Monday the 21st to Sunday the 27th, is ruled a
-    // day a column; week 41 starts on Monday 5 October.
-    private static readonly DateOnly Today = new(2026, 9, 25);
+    // Sunday 20 September 2026: the week after it, Monday the 21st to Sunday the 27th, is
+    // ruled a day a column and still to come, so its heads say their planned hours (local
+    // ADR 0019, §4); week 41 starts on Monday 5 October.
+    private static readonly DateOnly Today = new(2026, 9, 20);
 
     /// <summary>The default week: Monday to Friday, nine to half five.</summary>
     private static readonly IReadOnlyDictionary<DayOfWeek, double> DefaultWeek = new Dictionary<DayOfWeek, double>
@@ -96,6 +97,7 @@ public sealed class RoadmapWorkingHoursAxisTests
             // The tooltip still says them.
             Assert.EndsWith(" · 8.5h", ColumnOf(view, "Wednesday 23").GetAttribute("title"));
             Assert.Contains("roadmap-timeline--hours", view.Find("section.roadmap-timeline").ClassName);
+
         });
     }
 
@@ -207,7 +209,12 @@ public sealed class RoadmapWorkingHoursAxisTests
             .Add(timeline => timeline.Graduated, true)
             // 16 is the default; 48 is wide enough for every head to say its hours inline.
             .Add(timeline => timeline.QuarterWidth, quarterWidth)
-            .Add(timeline => timeline.WorkingHoursByDay, week));
+            .Add(timeline => timeline.PlannedHoursOn, ByWeekday(week)));
+
+    /// <summary>A week by weekday as the per-date hours the timeline takes: every date
+    /// reads its weekday's hours, a weekday missing at zero.</summary>
+    internal static Func<DateOnly, double>? ByWeekday(IReadOnlyDictionary<DayOfWeek, double>? week) =>
+        week is null ? null : date => week.TryGetValue(date.DayOfWeek, out var hours) ? hours : 0;
 
     /// <summary>The tooltips of the day heads shaded as days off, left to right.</summary>
     private static List<string> ShadedTitles(IRenderedComponent<RoadmapTimeline> view) =>

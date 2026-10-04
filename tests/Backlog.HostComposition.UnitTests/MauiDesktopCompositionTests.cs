@@ -8,9 +8,13 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.FileSystem.Dashboard;
+using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sync;
+using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.DevPc.Abstractions;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Desktop.UI.Inbox;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Desktop.UI.Tasks;
@@ -145,6 +149,52 @@ public sealed class MauiDesktopCompositionTests : IDisposable
 
         Assert.IsType<DpapiDeviceCredentialStore>(provider.GetRequiredService<IDeviceCredentialStore>());
         Assert.IsType<DevToolService>(provider.GetRequiredService<IDevToolService>());
+    }
+
+    /// <summary>
+    /// The roadmap's actual hours are answered by the adapter over the agent activity,
+    /// and one instance serves every window, as the activity source it reads does.
+    /// </summary>
+    [Fact]
+    public void The_maui_head_answers_the_roadmaps_actual_hours_from_agent_activity()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+        using var scope = provider.CreateScope();
+
+        var hours = provider.GetRequiredService<IRoadmapActualHours>();
+
+        Assert.IsType<RoadmapActualHours>(hours);
+        Assert.Same(hours, scope.ServiceProvider.GetRequiredService<IRoadmapActualHours>());
+    }
+
+    /// <summary>
+    /// The Dashboard's hours worked are answered by the adapter over the same agent
+    /// activity (local ADR 0019, §7), one instance for every window, and the module's
+    /// derivation over it resolves in a window's scope.
+    /// </summary>
+    [Fact]
+    public void The_maui_head_answers_the_dashboards_hours_worked_from_agent_activity()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+        using var scope = provider.CreateScope();
+
+        var hours = provider.GetRequiredService<IHoursWorkedSource>();
+
+        Assert.IsType<AgentActivityHoursWorkedSource>(hours);
+        Assert.Same(hours, scope.ServiceProvider.GetRequiredService<IHoursWorkedSource>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IHoursWorkedInsights>());
     }
 
     /// <summary>

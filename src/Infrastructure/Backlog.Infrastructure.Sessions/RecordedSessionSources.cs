@@ -44,9 +44,9 @@ internal sealed class RecordedAgentSessionSource(IAgentSessionRecordStore? store
 }
 
 /// <summary>
-/// This machine's session records, answered as activity: the runs, waits and limit
-/// hits its transcripts were last folded into, clipped to the horizon on the local
-/// source's terms.
+/// This machine's session records, answered as activity: the runs, waits, limit hits
+/// and human turns its transcripts were last folded into, clipped to the horizon on the
+/// local source's terms.
 /// </summary>
 internal sealed class RecordedAgentActivitySource(IAgentSessionRecordStore? store) : IAgentActivitySource
 {
@@ -64,9 +64,10 @@ internal sealed class RecordedAgentActivitySource(IAgentSessionRecordStore? stor
                 Runs = [.. activity.Runs.Where(run => run.EndedAt > since).Select(run => run.StartedAt >= since ? run : new AgentActivityRun(since, run.EndedAt))],
                 Waits = [.. activity.Waits.Where(wait => wait.EndedAt > since).Select(wait => wait.StartedAt >= since ? wait : new AgentActivityWait(since, wait.EndedAt))],
                 LimitHits = [.. activity.LimitHits.Where(hit => hit.At >= since)],
+                HumanTurns = [.. activity.HumanTurns.Where(turn => turn >= since)],
                 Origin = AgentSessionOrigin.Recorded
             })
-            .Where(activity => activity.Runs.Count > 0 || activity.Waits.Count > 0)
+            .Where(activity => activity.Runs.Count > 0 || activity.Waits.Count > 0 || activity.HumanTurns.Count > 0)
             .ToList();
 
         // No opinion on the threshold, like the replicated source: the fold that made

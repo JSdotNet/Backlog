@@ -36,12 +36,16 @@
     and the chart takes the width.
 *@
 @implements IDisposable
+@using Microsoft.Extensions.Logging
 @inject IRoadmapPlanning Planning
 @inject IRoadmapItemRollup Rollups
 @inject IPlanningPace Paces
 @inject IImportedPlanSource ImportedPlans
 @inject GitHubSettingsStore Repositories
 @inject IRoadmapWorkChanges WorkChanges
+@inject IRoadmapActualHours ActualHours
+@inject IRoadmapViewPreferences ViewPreferences
+@inject ILogger<RoadmapBand> Log
 
 <section class="roadmap-band" id="roadmap-band" aria-labelledby="roadmap-band-title" data-testid="roadmap-band">
     @* The heading lives in one of two places, and which one depends on whether
@@ -83,7 +87,11 @@
                                  Links="@_view.Links"
                                  Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
                                  Graduated="true"
-                                 WorkingHoursByDay="@WorkingHoursByDay"
+                                 PlannedHoursOn="@PlannedOn"
+                                 IsOverridden="@IsOverridden"
+                                 ActualHoursByDate="@_actual"
+                                 ShowHours="@_hoursShown"
+                                 OnDayToggled="ToggleDay"
                                  TitleContent="@BandHeading"
                                  LabelledBy="roadmap-band-title"
                                  ShowSteps="false"
@@ -164,6 +172,12 @@
                             OnSave="SaveDateAsync"
                             OnDelete="DeleteDateAsync"
                             OnDependencyChanged="ChangeDependencyAsync" />
+
+    <RoadmapDaysOffDialog Open="@_daysOffOpen"
+                          OpenChanged="open => _daysOffOpen = open"
+                          Week="@_week"
+                          Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                          RestoreFocusToId="roadmap-band-days-off" />
 </section>
 
 @code {
@@ -176,10 +190,32 @@
     /// and shade (local ADR 0019).</summary>
     private Backlog.SharedKernel.WorkingHours _week = Backlog.SharedKernel.WorkingHours.Default;
 
-    /// <summary>The week as the timeline takes it: hours per weekday, a day not worked
-    /// at zero.</summary>
-    private IReadOnlyDictionary<DayOfWeek, double> WorkingHoursByDay =>
-        Backlog.SharedKernel.WorkingHours.Week.ToDictionary(day => day, day => _week.WorkedOn(day).TotalHours);
+    /// <summary>The week as the timeline takes it: the hours worked on a date, its day
+    /// override first and its weekday's pattern after, a date not worked at zero.</summary>
+    private double PlannedOn(DateOnly date) => _week.WorkedOn(date).TotalHours;
+
+    /// <summary>Whether the person blocked or unblocked a date on its own, so its head
+    /// carries the marker.</summary>
+    private bool IsOverridden(DateOnly date) => _week.OverrideOn(date) is not null;
+
+    /// <summary>
+    /// The hours the person actually worked on each begun date the axis rules in days or
+    /// weeks, for those heads to show in place of their planned hours (local ADR 0019,
+    /// §6); null until they are read, for good when they cannot be, and while the Hours
+    /// switch is off — a begun head then shows no figure.
+    /// </summary>
+    private IReadOnlyDictionary<DateOnly, double>? _actual;
+
+    /// <summary>The Hours switch on the toolbar (local ADR 0019, §4): whether the heads
+    /// carry their hours line. Read from this device's preferences when the band opens.</summary>
+    private bool _hoursShown = true;
+
+    /// <summary>Whether the Days off dialog is open.</summary>
+    private bool _daysOffOpen;
+
+    /// <summary>The dates the actual hours were last asked for, so a render asks again
+    /// only when they move: a new day, or a change that asked for a fresh read.</summary>
+    private (DateOnly From, DateOnly Through)? _actualAskedFor;
 
     /// <summary>Whether the first read has come back. Only the first: every later
     /// load redraws over a chart that is already on screen.</summary>
@@ -260,6 +296,22 @@
         @if (_view.HasAnythingToDraw)
         {
             <RoadmapTypedPace Repositories="@([.. Configured().Select(repository => repository.Alias)])" />
+
+            @* The working week as the axis reads it (local ADR 0019, §4): the dates set off
+               the pattern, in a dialog, and whether the heads say their hours at all. *@
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       id="roadmap-band-days-off"
+                       OnClick="() => _daysOffOpen = true"
+                       TestId="roadmap-band-days-off">
+                Days off
+            </AppButton>
+
+            <Toggle Label="Hours"
+                    Checked="@_hoursShown"
+                    CheckedChanged="ShowHours"
+                    CssClass="roadmap-band__hours"
+                    TestId="roadmap-band-hours" />
         }
     </text>;
 
@@ -290,8 +342,79 @@
         Planning.Changed += OnPlanChanged;
         WorkChanges.Changed += OnWorkChanged;
         Paces.Changed += OnPaceSettingsChanged;
+        _hoursShown = ViewPreferences.HoursShown;
         await Load();
         _loaded = true;
+    }
+
+    /// <summary>
+    /// Reads the actual hours once the plan is on screen, never before it: they are a
+    /// second reading on top of the plan, and the plan does not wait for them. Asked
+    /// again only when the dates they cover move — today changed, or a pace change
+    /// cleared what was asked for — and not on every render.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // With the hours switched off nothing shows them, so nothing reads them.
+        if (!_loaded || !_view.HasAnythingToDraw || !_hoursShown) return;
+
+        var today = Today ?? DateOnly.FromDateTime(DateTime.Today);
+        var range = (RoadmapWindow.GraduatedWeeksFrom(today, DayOfWeek.Monday), today);
+        if (_actualAskedFor == range) return;
+
+        _actualAskedFor = range;
+        var actual = await ReadActualHoursAsync(range.Item1, range.Item2);
+
+        // A read overtaken by a newer one leaves the newer one's answer.
+        if (_actualAskedFor != range) return;
+
+        _actual = actual;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// The actual hours over the dates, in hours, or null when the host cannot state
+    /// them or the read failed: the begun heads then show no figure — never their planned
+    /// hours, which would read as hours worked — and the roadmap still opens (local ADR
+    /// 0019, §6). A failure is logged, not shown — the plan on screen is right without
+    /// them.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<DateOnly, double>?> ReadActualHoursAsync(DateOnly from, DateOnly through)
+    {
+        try
+        {
+            var read = await ActualHours.ReadAsync(from, through);
+            return read?.ToDictionary(day => day.Key, day => day.Value.TotalHours);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Log.LogWarning(exception, "The roadmap could not read the actual hours from {From} through {Through}; its begun heads show no hours.", from, through);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// A day head was pressed: block the date when it is worked, unblock it when it is
+    /// not (local ADR 0019, §§4 and 5). The pace raises its change when the toggle took,
+    /// and the band re-reads on that as it does for a typed pace — so every bar sized by
+    /// its effort is placed again at once. What comes back is a refusal, or a warning
+    /// that it took but could not be kept, and is shown where the band's other
+    /// refusals are.
+    /// </summary>
+    private void ToggleDay(DateOnly date) => _error = Paces.ToggleWorkedDay(date);
+
+    /// <summary>
+    /// The Hours switch moved: the heads gain or lose their hours line at once, the choice
+    /// is kept on this device, and the actual hours are read again when it comes on —
+    /// they were not read while it was off.
+    /// </summary>
+    private void ShowHours(bool shown)
+    {
+        _hoursShown = shown;
+        ViewPreferences.SetHoursShown(shown);
+
+        _actualAskedFor = null;
+        if (!shown) _actual = null;
     }
 
     public void Dispose()
@@ -951,7 +1074,14 @@
     /// overwrite an edit made there in the same interval (local ADR 0018).
     /// </para>
     /// </summary>
-    private void OnPaceSettingsChanged() => ReloadForOutsideChange();
+    private void OnPaceSettingsChanged()
+    {
+        // Read the actual hours again after the redraw too. A pace change is most often
+        // the person at the axis — a day blocked or unblocked — so the hours beside it
+        // are read fresh rather than left as they were when the roadmap opened.
+        _ = InvokeAsync(() => _actualAskedFor = null);
+        ReloadForOutsideChange();
+    }
 
     /// <summary>A reload is already under way when the next change lands.</summary>
     private bool _reloading;

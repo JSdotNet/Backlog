@@ -210,7 +210,17 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
 }
 
-app.UseStaticFiles();
+// Revalidated on every request, as the storybook's are, and for its reason: with an
+// ETag and no Cache-Control a browser invents a freshness window and keeps serving the
+// stylesheet it already had. New markup then meets old CSS: the roadmap's day heads,
+// once they became <button>s, drew as the platform's white buttons under a cached
+// components.css from before the rule that takes a button's own face away. A miss
+// costs a 304.
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = context =>
+        context.Context.Response.Headers.CacheControl = "no-cache, must-revalidate"
+});
 app.UseAntiforgery();
 
 // The MCP endpoint is always on, so the only thing in front of it is the

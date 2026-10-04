@@ -240,6 +240,42 @@ public sealed class ReplicatedAgentActivitySourceTests
     }
 
     /// <summary>
+    /// A record's human turns come back as the instants they travelled as, sorted and
+    /// clipped to the horizon on the limit hits' terms: on it is inside. They are what
+    /// lets this device count the hours the person worked on the other one (ADR 0019 §6).
+    /// </summary>
+    [Fact]
+    public async Task Human_turns_come_back_sorted_and_clipped_to_the_horizon()
+    {
+        var since = Noon.AddHours(-1);
+
+        var source = Source(SessionRecords.Entry(
+            Laptop,
+            runs: [new(Noon.AddHours(-2), Noon)],
+            waits: [],
+            humanTurns: [Noon.AddMinutes(-20), since.AddMinutes(-1), since]));
+
+        var activity = Assert.Single((await source.GetActivityAsync(since, TestContext.Current.CancellationToken)).Sessions);
+
+        Assert.Equal([since, Noon.AddMinutes(-20)], activity.HumanTurns);
+    }
+
+    /// <summary>
+    /// A record pushed by a device that predates the field carries none, and reads as
+    /// a session with no human turns rather than as one that cannot be read.
+    /// </summary>
+    [Fact]
+    public async Task A_record_from_a_device_that_predates_human_turns_reads_none()
+    {
+        var source = Source(SessionRecords.Entry(Laptop, runs: [new(Noon.AddHours(-2), Noon)], waits: []));
+
+        var activity = Assert.Single((await source.GetActivityAsync(Noon.AddDays(-1), TestContext.Current.CancellationToken)).Sessions);
+
+        Assert.Empty(activity.HumanTurns);
+        Assert.Single(activity.Runs);
+    }
+
+    /// <summary>
     /// This machine's own records are shown under the identity the local readers
     /// stamp, not the machine id the service issued — one environment, not two with
     /// the same name. Another machine's keep the id they arrived with.

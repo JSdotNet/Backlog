@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// <para>
 /// <strong>This is the whole reason a session record may leave the machine, and
 /// it is deliberately the only place a record is built.</strong>
-/// .devbook/arc42/adr/0005 §Session records states a whitelist of nineteen fields and says in
+/// .devbook/arc42/adr/0005 §Session records states a whitelist of twenty fields and says in
 /// as many words that a whitelist and a filter fail in opposite directions: a
 /// filter that misses a field leaks it, a whitelist that misses one merely omits
 /// it. <see cref="SessionRecord"/> makes that structural — a field not in the
@@ -109,7 +109,10 @@ public static class SessionRecordMapping
                         usage.InputTokens,
                         usage.OutputTokens,
                         usage.CacheCreationInputTokens,
-                        usage.CacheReadInputTokens))]);
+                        usage.CacheReadInputTokens))],
+            // Instants only, never the turn (ADR 0019 §6): null with the other lists
+            // where there is no record, ascending and cut from the front otherwise.
+            activity is null ? null : Newest(activity.HumanTurns.Order(), SessionRecordLimits.HumanTurnsPerList));
     }
 
     /// <summary>One refusal as the wire carries it, every token cut to what the
@@ -198,6 +201,13 @@ public static class SessionRecordMapping
             .Select(HitOf)
             .ToList();
 
+        // Absent on a record from a device that predates the field, and read as none.
+        var turns = (record.HumanTurns ?? [])
+            .Where(turn => turn >= since)
+            .Distinct()
+            .Order()
+            .ToList();
+
         return new AgentSessionActivity(
             record.SessionId,
             KindFor(record.AgentKind),
@@ -211,7 +221,8 @@ public static class SessionRecordMapping
             waits)
         {
             Origin = AgentSessionOrigin.Replicated,
-            LimitHits = hits
+            LimitHits = hits,
+            HumanTurns = turns
         };
     }
 

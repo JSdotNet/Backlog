@@ -87,6 +87,29 @@ public interface ITaskInsights
 }
 
 /// <summary>
+/// What the Hours worked part of the dashboard asks for (local ADR 0019, §7).
+/// <para>
+/// The window narrows the answer; the repository and the machine cannot. A working
+/// stretch is the person's, merged over every session on every paired machine so time
+/// two sessions shared counts once, and cutting it by machine or by repository would
+/// count a person's hour twice or not at all. The part says so.
+/// </para>
+/// <para>
+/// No invalidation: the source reads through the activity cache on every call, so a
+/// refresh is a second call.
+/// </para>
+/// </summary>
+public interface IHoursWorkedInsights
+{
+    /// <summary>The hours worked per day and per calendar week over the scope's window.
+    /// Unavailable, with the reason, when the hours cannot be stated or could not be
+    /// read — never a window of zeros.</summary>
+    Task<InsightResult<HoursWorkedInsight>> GetHoursWorkedAsync(
+        DashboardScope scope,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// What the cost half of the dashboard asks for.
 /// <para>
 /// No <see cref="DashboardScope"/> anywhere, on purpose. Neither provider reports

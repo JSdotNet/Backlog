@@ -281,6 +281,42 @@ public sealed class ShellNavigationStoreTests
         }
     }
 
+    /// <summary>
+    /// The roadmap's Hours switch (local ADR 0019, §4) is on until somebody turns it off,
+    /// and off survives a restart. The key is written only while it is off, so a file
+    /// from before the switch, and one with it on, keep the shape they had.
+    /// </summary>
+    [Fact]
+    public void The_roadmap_hours_switch_is_on_until_turned_off_and_off_survives_a_restart()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.True(store.RoadmapHoursShown);
+
+            store.SetLastSurface("Roadmap");
+            using (var on = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.False(on.RootElement.TryGetProperty("roadmapHoursShown", out _));
+            }
+
+            store.SetRoadmapHoursShown(false);
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.False(restarted.RoadmapHoursShown);
+            Assert.Equal("Roadmap", restarted.LastSurface);
+
+            restarted.SetRoadmapHoursShown(true);
+            Assert.True(new ShellNavigationStore(path).RoadmapHoursShown);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
     private static string NewSettingsPath() =>
         Path.Combine(Path.GetTempPath(), "backlog-shell-navigation-tests", Guid.NewGuid().ToString("n"), "shell-navigation.json");
 
