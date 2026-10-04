@@ -148,9 +148,8 @@ The scripting language for build, release, and hook automation on Windows.
 
 - **Used for** — the scripts under `build/` (packaging, `Deploy-Azure.ps1`,
   `Get-SyncServiceVersion.ps1`, `Initialize-SelfHostedRunner.ps1`,
-  `Install-AndroidApp.ps1`, `stop-aspire-before-pr.ps1`), the
-  `spawn-task-to-issue` hook, and the `run:` steps of both release workflows and
-  the Foundry deployment.
+  `Install-AndroidApp.ps1`, `stop-aspire-before-pr.ps1`), and the `run:` steps of
+  both release workflows and the Foundry deployment.
 - **Why** — the release workflows run on Windows runners, and packaging, signing,
   and certificate handling are all PowerShell-native there.
 

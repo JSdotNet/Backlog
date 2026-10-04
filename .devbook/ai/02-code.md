@@ -190,21 +190,23 @@ row.
 ## Out-of-scope findings become issues
 
 ```meta
-status: adopted
+status: retired
 type: hook
 stage: [code]
 depends-on: [".devbook/tech/ai-development.md#claude-code-hooks"]
-date: 2026-09-26
+date: 2026-10-03
 ```
 
-When a session flags something worth fixing outside its change, `.claude/settings.json`'s
-`PostToolUse` hook runs `.claude/hooks/spawn-task-to-issue.ps1`, which files it as a GitHub
-issue with a starting label, skipping a title already open.
+A `PostToolUse` hook once filed every suggested task a session flagged as a GitHub issue in
+this repository, skipping a title already open.
 
-- **Used for** — dead code, stale docs, and follow-ups noticed mid-change.
-- **Adopted by** — every Claude Code session in this repository.
-- **Evidence** — 95 issues carry the hook's footer, the latest from 2026-09-26.
-- **Limits** — the label is a starting point for triage, not a verdict.
+- **Used for** — nothing since 2026-10-03.
+- **Adopted by** — nobody.
+- **Evidence** — 95 issues carry its footer, "Filed automatically from a Claude Code
+  suggested task".
+- **Limits** — retired because a suggested task is its own handoff and needs no issue, and
+  the hook filed tasks meant for other repositories here as task prompts addressed to an
+  agent, which the issue sweep then had to flag and a person had to close.
 
 ## Guidance from MCP servers
 

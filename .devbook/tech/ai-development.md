@@ -220,8 +220,8 @@ related: [".devbook/tech/tooling.md#powershell", ".devbook/tech/shared.md#nodejs
 
 Deterministic commands the harness runs around a session event or a tool call.
 
-- **Used for** — the hook `.claude/settings.json` registers, and the hooks the
-  enabled plugins ship. What each one does, and at which stage, is recorded as a
+- **Used for** — the hooks the enabled plugins ship; `.claude/settings.json`
+  registers none of its own. What each one does, and at which stage, is recorded as a
   `hook` chapter in the adoption record.
 - **Why** — a hook executes whether or not the model decides to; anything that
   must happen every time belongs here rather than in an instruction file.
