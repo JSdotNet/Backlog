@@ -421,7 +421,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 | Compaction, autocompact, clearing | Harness-level. The repository's contribution is making a fresh session cheap to start: the standing brief plus the knowledge folders. |
 | Primary source | The code, `Directory.Packages.props`, the workflows, `.devbook/arc42` — what a `.devbook/tech` chapter is written *from* |
 | Secondary source | This folder. `.devbook/tech` records outcomes; `.devbook/arc42` keeps the reasoning, and where the two disagree `.devbook/arc42` wins. |
-| Spec, ticket | Backlog entries (local ADR 0007) and the GitHub issues they sync with; `.claude/hooks/spawn-task-to-issue.ps1` turns an out-of-scope finding into one |
+| Spec, ticket | Backlog entries (local ADR 0007) and the GitHub issues they sync with |
 
 ### Memory and steering
 
