@@ -55,6 +55,7 @@ Named tokens (`name:value`):
 | `repo:<name>` | target repository, resolved by name; Import auto-registers an unrecognized name | yes |
 | `due:<YYYY-MM-DD>` | due date | no |
 | `effort:<points>` | size in story points; a non-negative whole number, and the app's picker offers `1`, `2`, `3`, `5`, `8`, `13`, `21` | no |
+| `devbook:<path>[#anchor]` | a Devbook page or chapter the step is about, repository-relative (e.g. `devbook:.devbook/domain/tasks/domain.md#task`); the path needs a folder or a `.md` ending, else Import refuses the plan. Import moves it into the task's Devbook references and it leaves the entry text; a re-import that writes at least one `devbook:` token on the entry replaces the list, and one that writes none keeps the references the task has. Written only when the source names the chapter | yes |
 
 A plan states `!ready` and an `effort:` on every step entry; a `plan` entry states
 neither (see [Two levels](#two-levels)). The order of the work is carried by

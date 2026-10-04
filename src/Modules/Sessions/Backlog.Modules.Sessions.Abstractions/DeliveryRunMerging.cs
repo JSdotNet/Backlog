@@ -140,6 +140,10 @@ public static class DeliveryRunMerging
             InsightsByCategory = primary.InsightsByCategory.Count > 0 ? primary.InsightsByCategory : First(others, other => other.InsightsByCategory),
             InsightsByServer = primary.InsightsByServer.Count > 0 ? primary.InsightsByServer : First(others, other => other.InsightsByServer),
             SessionIds = [.. primary.SessionIds.Concat(others.SelectMany(other => other.SessionIds)).Distinct(StringComparer.Ordinal)],
+            Trigger = primary.Trigger ?? others.Select(other => other.Trigger).FirstOrDefault(trigger => trigger is not null),
+            Schedule = primary.Schedule ?? others.Select(other => other.Schedule).FirstOrDefault(schedule => schedule is not null),
+            Repository = primary.Repository ?? others.Select(other => other.Repository).FirstOrDefault(repository => repository is not null),
+            Verdicts = primary.Verdicts.Count > 0 ? primary.Verdicts : First(others, other => other.Verdicts),
             Surfaces = [primary.Dashboard, .. others.Select(other => other.Dashboard)]
         };
 

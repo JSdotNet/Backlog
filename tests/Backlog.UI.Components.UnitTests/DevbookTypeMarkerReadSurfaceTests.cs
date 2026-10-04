@@ -207,7 +207,7 @@ public sealed class DevbookTypeMarkerReadSurfaceTests
 
         // The status is untouched by the trade. It is the other half of the record
         // and the one a reader asks for first.
-        Assert.Equal("draft", pane.Find(".file-view__header .devbook-record__headline select").GetAttribute("value"));
+        Assert.Equal("draft", pane.Find(".file-view__header .devbook-record__headline .status-editor__select").GetAttribute("value"));
     }
 
     [Fact]

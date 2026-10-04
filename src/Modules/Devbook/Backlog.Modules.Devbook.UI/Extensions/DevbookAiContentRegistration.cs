@@ -1,7 +1,7 @@
 using Backlog.SharedKernel.Ai;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Desktop.UI.Devbook.Extensions;
 
 /// <summary>
 /// Wires Devbook's answer to <see cref="IAiContentSource"/>, and the open-chapter

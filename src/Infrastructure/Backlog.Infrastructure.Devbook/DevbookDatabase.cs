@@ -209,6 +209,33 @@ public sealed partial class DevbookDatabase : IDisposable
         return states;
     }
 
+    /// <summary>
+    /// Every file's headings in one query, keyed by path, each file's in the order
+    /// they appear in it — <see cref="Chapters"/> for the whole repository at once,
+    /// without the chapters' text.
+    /// <para>
+    /// For a reader that walks every page, as the task picker's list of pages and
+    /// chapters does: asking <see cref="Chapters"/> once per file was one query per
+    /// page of the outline, and each one carried the chapter text nobody was going
+    /// to read.
+    /// </para>
+    /// </summary>
+    public ILookup<string, DevbookChapterHeadingRow> ChapterHeadings() =>
+        Query(
+            """
+            SELECT path, slug, level, title, status
+            FROM chapter
+            ORDER BY path, line
+            """,
+            static _ => { },
+            reader => new DevbookChapterHeadingRow(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetInt32(2),
+                Text(reader, 3),
+                Text(reader, 4)))
+        .ToLookup(row => row.Path, StringComparer.Ordinal);
+
     /// <summary>Every chapter of one file, in the order they appear in it.</summary>
     public IReadOnlyList<DevbookChapterRow> Chapters(string path)
     {
@@ -288,6 +315,37 @@ public sealed partial class DevbookDatabase : IDisposable
                 reader => (Node: reader.GetString(0), Value: reader.GetString(1)));
 
         return rows.ToLookup(row => row.Node, row => row.Value, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// The demos one page has: those paired with it by name first, then every
+    /// place its chapters' <c>demo</c> fields name, in document and field order.
+    /// Paths only — a demo's HTML is never in the database.
+    /// </summary>
+    /// <param name="pagePath">Repository-relative, <c>/</c>-separated.</param>
+    public IReadOnlyList<DevbookPageDemoRow> Demos(string pagePath)
+    {
+        if (string.IsNullOrWhiteSpace(pagePath)) return [];
+
+        var page = pagePath.Replace('\\', '/');
+
+        var byName = Query(
+            "SELECT path FROM demo WHERE page_path = $page ORDER BY path",
+            command => command.Parameters.AddWithValue("$page", page),
+            reader => new DevbookPageDemoRow(reader.GetString(0), null, null, Exists: true));
+
+        var byField = Query(
+            """
+            SELECT link.demo_path, link.slug, link.address, demo.path IS NOT NULL
+            FROM demo_link AS link
+            LEFT JOIN demo ON demo.path = link.demo_path
+            WHERE link.chapter_path = $page
+            ORDER BY link.line, link.ordinal
+            """,
+            command => command.Parameters.AddWithValue("$page", page),
+            reader => new DevbookPageDemoRow(reader.GetString(0), reader.GetString(1), Text(reader, 2), reader.GetInt64(3) != 0));
+
+        return [.. byName, .. byField];
     }
 
     /// <summary>

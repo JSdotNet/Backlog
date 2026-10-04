@@ -26,8 +26,8 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("TestId=\"backlog-pane-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"devbook-pane-option\"", home, StringComparison.Ordinal);
 
-        // The roadmap is a surface, not a pane: its option is in the surface
-        // switcher, before the panes strip, and its test id does not end in
+        // The roadmap is a surface, not a pane: its option is in the takeover
+        // group, after the panes strip, and its test id does not end in
         // -pane-option, so the selector the strip's tests use keeps matching the
         // three panes and nothing else.
         Assert.Contains("TestId=\"roadmap-toggle-button\"", home, StringComparison.Ordinal);
@@ -35,8 +35,8 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("roadmap-band-toggle", home, StringComparison.Ordinal);
         Assert.True(
             home.IndexOf("TestId=\"roadmap-toggle-button\"", StringComparison.Ordinal)
-            < home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal),
-            "The Roadmap option is in the surface switcher, ahead of the panes strip.");
+            > home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal),
+            "The Roadmap option is in the takeover group, after the panes strip.");
 
         // Each pane carries its own landmark id from its own folder; the shell
         // only points the multiselect's aria-controls at them. The roadmap's
@@ -49,24 +49,27 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// The workspace surfaces are one segmented control, because
-    /// <c>WorkspaceSurface</c> is one field with one state at a time. They used to be
-    /// independent <c>AppButton</c> disclosures carrying <c>aria-expanded</c>, which
-    /// described neither their exclusivity nor the fact that a takeover replaces the
-    /// workspace instead of expanding beside it. Pressed states describe both, and
-    /// the Workspace segment gives the way back a control of its own.
+    /// The takeovers are one segmented control, because <c>WorkspaceSurface</c> is
+    /// one field with one state at a time. They used to be independent
+    /// <c>AppButton</c> disclosures carrying <c>aria-expanded</c>, which described
+    /// neither their exclusivity nor the fact that a takeover replaces the workspace
+    /// instead of expanding beside it. Pressed states describe both.
     /// <para>
-    /// Every takeover is named here rather than counted, so adding one to the header
-    /// without adding it to the group cannot pass.
+    /// The way back is the pane strip, which leads the nav: a "Workspace" segment
+    /// used to head this group, and it is gone. Every takeover is named here rather
+    /// than counted, so adding one to the header without adding it to the group
+    /// cannot pass, and their order is pinned — Roadmap first, because it is the
+    /// Tasks pane's plan and sits right after the strip.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_surfaces_are_one_segmented_group_with_a_way_back()
+    public void The_takeovers_are_one_segmented_group_and_the_panes_are_the_way_back()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
         Assert.Contains("TestId=\"workspace-surface-switcher\"", home, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"workspace-surface-option\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("workspace-surface-option", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("PressedChanged=\"CloseSurface\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"tools-toggle-button\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"dashboard-toggle-button\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"roadmap-toggle-button\"", home, StringComparison.Ordinal);
@@ -76,16 +79,27 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("ListTestId=\"dashboard-tabs\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("TabTestId=\"dashboard-sessions-tab\"", home, StringComparison.Ordinal);
 
-        // Workspace leads, because it is the surface the reader starts on and the
-        // one the other two return to.
-        Assert.True(
-            home.IndexOf("TestId=\"workspace-surface-option\"", StringComparison.Ordinal)
-            < home.IndexOf("TestId=\"tools-toggle-button\"", StringComparison.Ordinal),
-            "The Workspace segment comes first: it is what the takeovers return to.");
+        // The pane strip leads the nav, then the takeovers: Roadmap, Dashboard,
+        // Sessions, Pull requests, Tools.
+        var order = new[]
+        {
+            "TestId=\"global-pane-multiselect\"",
+            "TestId=\"workspace-surface-switcher\"",
+            "TestId=\"roadmap-toggle-button\"",
+            "TestId=\"dashboard-toggle-button\"",
+            "TestId=\"sessions-toggle-button\"",
+            "TestId=\"pull-requests-toggle-button\"",
+            "TestId=\"tools-toggle-button\"",
+        };
+        for (var i = 1; i < order.Length; i++)
+        {
+            Assert.True(
+                home.IndexOf(order[i - 1], StringComparison.Ordinal) < home.IndexOf(order[i], StringComparison.Ordinal),
+                $"{order[i - 1]} comes before {order[i]}.");
+        }
 
         // A selection, not a disclosure. Only Ask AI keeps aria-expanded, because
         // only its panel opens beside the content rather than replacing it.
-        Assert.Contains("PressedChanged=\"CloseSurface\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"ToggleTools\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"ToggleDashboard\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"ToggleSessions\"", home, StringComparison.Ordinal);
@@ -98,20 +112,24 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("aria-expanded=\"@(_aiExpanded ? \"true\" : \"false\")\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-expanded=\"@_aiExpanded\"", home, StringComparison.Ordinal);
 
-        // The switcher needs something to switch to: with both takeover features
-        // off its only member would be the surface already on screen.
+        // The group renders only when some takeover is offered.
         Assert.Contains("@if (SurfaceSwitcherVisible)", home, StringComparison.Ordinal);
 
-        // The Workspace segment points at a landmark, so the workspace main needs
-        // the id the other two panes already have.
+        // The workspace main keeps its landmark id.
         Assert.Contains("id=\"workspace\"", home, StringComparison.Ordinal);
 
-        // The sections strip is a workspace control, so it renders with the
-        // workspace and not beside a takeover it cannot act on.
-        var sectionsStrip = home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal);
-        var sectionsGate = home.LastIndexOf("@if (WorkspaceVisible)", sectionsStrip, StringComparison.Ordinal);
-        Assert.True(sectionsGate >= 0 && sectionsGate > home.IndexOf("TestId=\"workspace-surface-switcher\"", StringComparison.Ordinal),
-            "The sections strip renders only while the workspace is on screen.");
+        // The pane strip renders whatever surface is up, because during a takeover
+        // it is the way back: nothing gates it between the nav's opening and it.
+        var nav = home.IndexOf("<nav class=\"app-header__nav\"", StringComparison.Ordinal);
+        var strip = home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal);
+        Assert.DoesNotContain("@if", home[nav..strip], StringComparison.Ordinal);
+
+        // During a takeover no option reads pressed and none refuses the press.
+        Assert.Contains(
+            "private bool PaneOptionPressed(GlobalPane pane) => WorkspaceVisible && _globalPanes.IsEnabled(pane);",
+            home,
+            StringComparison.Ordinal);
+        Assert.Contains("return WorkspaceVisible && !_globalPanes.CanDisable(pane);", home, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -158,10 +176,10 @@ public sealed class GlobalPaneMarkupTests
             StringComparison.Ordinal);
         Assert.True(
             home.IndexOf("TestId=\"roadmap-toggle-button\"", StringComparison.Ordinal)
-            < home.IndexOf("<ButtonGroup CssClass=\"header-group header-group--panes\"", StringComparison.Ordinal)
+            > home.IndexOf("<ButtonGroup CssClass=\"header-group header-group--panes\"", StringComparison.Ordinal)
             && home.IndexOf("TestId=\"roadmap-toggle-button\"", StringComparison.Ordinal)
             > home.IndexOf("TestId=\"workspace-surface-switcher\"", StringComparison.Ordinal),
-            "The roadmap option renders inside the surface switcher.");
+            "The roadmap option renders inside the takeover group, after the panes strip.");
 
         // The loose modifier takes the group's own border and fill away and spaces
         // the members out; each member, loose in its own right, then draws the
@@ -311,10 +329,12 @@ public sealed class GlobalPaneMarkupTests
 
         // ToggleButton derives aria-pressed from Pressed, so the visibility of a
         // pane is stated once and the attribute cannot drift away from it.
+        // The panes' pressed state also reads WorkspaceVisible, so during a
+        // takeover none of them claims to be on screen.
         Assert.Contains("Pressed=\"RoadmapVisible\"", home, StringComparison.Ordinal);
-        Assert.Contains("Pressed=\"InboxPaneVisible\"", home, StringComparison.Ordinal);
-        Assert.Contains("Pressed=\"TasksPaneVisible\"", home, StringComparison.Ordinal);
-        Assert.Contains("Pressed=\"DevbookPaneVisible\"", home, StringComparison.Ordinal);
+        Assert.Contains("Pressed=\"PaneOptionPressed(GlobalPane.Inbox)\"", home, StringComparison.Ordinal);
+        Assert.Contains("Pressed=\"PaneOptionPressed(GlobalPane.Tasks)\"", home, StringComparison.Ordinal);
+        Assert.Contains("Pressed=\"PaneOptionPressed(GlobalPane.Devbook)\"", home, StringComparison.Ordinal);
 
         // Three panes have the rule and the band does not, so exactly three options
         // are ever disabled by it. A fourth would mean the band had been folded into
@@ -333,7 +353,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("PressedChanged=\"ToggleRoadmap\"", home, StringComparison.Ordinal);
 
         Assert.Contains("if (_globalPanes.IsEnabled(pane))", home, StringComparison.Ordinal);
-        Assert.Contains("return !_globalPanes.CanDisable(pane);", home, StringComparison.Ordinal);
+        Assert.Contains("return WorkspaceVisible && !_globalPanes.CanDisable(pane);", home, StringComparison.Ordinal);
         Assert.Contains("return !_globalPanes.CanEnable(pane);", home, StringComparison.Ordinal);
 
         Assert.DoesNotContain("Show inbox", home, StringComparison.Ordinal);
@@ -564,6 +584,9 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("await _surfaceElement.FocusAsync();", home, StringComparison.Ordinal);
         Assert.Contains("if (e.Key == \"Escape\") CloseSurface();", home, StringComparison.Ordinal);
 
+        // A pane option pressed during a takeover closes it the same way.
+        Assert.Contains("if (returning) CloseSurface();", home, StringComparison.Ordinal);
+
         // No scrim and no focus trap: Modal owns those, and it is still what the
         // update and feedback dialogs are built from.
         Assert.DoesNotContain("workspace-surface-backdrop", home, StringComparison.Ordinal);
@@ -626,7 +649,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("devbook-layout--inbox-before-backlog", home, StringComparison.Ordinal);
 
         var inboxGuardIndex = home.IndexOf("@if (InboxBeforeTasksVisible)", StringComparison.Ordinal);
-        var backlogPaneIndex = home.IndexOf("<TasksPane OnOpenSession=\"OpenSessionAsync\" />", StringComparison.Ordinal);
+        var backlogPaneIndex = home.IndexOf("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" />", StringComparison.Ordinal);
 
         Assert.True(inboxGuardIndex >= 0);
         Assert.True(backlogPaneIndex > inboxGuardIndex);
@@ -742,12 +765,20 @@ public sealed class GlobalPaneMarkupTests
             Assert.DoesNotContain(containing, block, StringComparison.Ordinal);
         }
 
-        // The band is as short as its contents allow: 2.25rem of control, and block
-        // padding at exactly the reach of a focus ring. Shorter would clip the ring
-        // against .app-shell's overflow — .devbook/design/accessibility.md#focus-visibility
+        // The band is as short as its contents allow: 1.5rem of control, and block
+        // padding at exactly the reach of a focus ring. Shorter padding would clip
+        // the ring against .app-shell's overflow — .devbook/design/accessibility.md#focus-visibility
         // draws focus as an outline offset 2px, so 4px of ink sits outside the
-        // control — and taller is the 8px this change bought back on every route.
+        // control.
         Assert.Contains("padding: var(--spacing-xs) var(--spacing-lg);", block, StringComparison.Ordinal);
+
+        // The utilities give up .header-util's 2.25rem inside the band — the trade
+        // that takes the band from about 45px to about 32px — and keep its type.
+        var utility = css[css.IndexOf(".app-footer .header-util {", StringComparison.Ordinal)..];
+        utility = utility[..utility.IndexOf('}')];
+        Assert.Contains("min-height: 1.5rem;", utility, StringComparison.Ordinal);
+        Assert.Contains("padding-block: 0;", utility, StringComparison.Ordinal);
+        Assert.DoesNotContain("font-size", utility, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -882,7 +913,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("<CaptureSourcesPanel OnImported=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
-        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" />", home, StringComparison.Ordinal);
+        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" />", home, StringComparison.Ordinal);
         Assert.Contains("<DevbookPane RepositoryAlias=", home, StringComparison.Ordinal);
 
         // The roadmap and the dashboard are composed on the same terms. Their content
@@ -912,18 +943,18 @@ public sealed class GlobalPaneMarkupTests
     /// </para>
     /// <para>
     /// The halves themselves are the library's: <c>SplitPane</c> gives each one
-    /// <c>overflow: auto</c>, and that is what scrolls the list column. The list
-    /// inside it must not be a second scroller. It used to declare one, and since
-    /// the half is a block that hands the list its content height, the list was a
-    /// scroll container that never scrolled — which is the one thing a sticky
-    /// child cannot survive, because it measures against its nearest scroll
-    /// container. The bulk bar and the add-entry row both stick to the half, and
-    /// both scrolled straight out of view while the list claimed the job.
+    /// <c>overflow: auto</c>. The Tasks pane turns that off on both and scrolls one
+    /// box deeper on each side. On the list side the scroller is
+    /// <c>.backlog-list__scroll</c>, everything under the filter bar, so the bar
+    /// stays put and the scrollbar starts below it. <c>.backlog-list</c> holds the
+    /// bar and the scroller and must not be a scroller itself: a scroll container
+    /// that never scrolls is the one thing a sticky child cannot survive, because it
+    /// measures against its nearest scroll container.
     /// </para>
     /// <para>
-    /// The pane half scrolls one box deeper than the list's does: the panel fills the
-    /// height it is given so the body inside it can, and a box that both stretched
-    /// its child and scrolled it is a box that could do neither.
+    /// The pane half scrolls one box deeper too: the panel fills the height it is
+    /// given so the body inside it can, and a box that both stretched its child and
+    /// scrolled it is a box that could do neither.
     /// </para>
     /// </summary>
     [Fact]
@@ -942,9 +973,26 @@ public sealed class GlobalPaneMarkupTests
             Assert.Contains("min-height: 0;", halfRule, StringComparison.Ordinal);
         }
 
+        // The list half is a column that hands its height down and scrolls nothing.
+        var listHalf = Block(css, ".backlog-split > .split-pane__start {");
+        Assert.Contains("display: flex;", listHalf, StringComparison.Ordinal);
+        Assert.Contains("flex-direction: column;", listHalf, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", listHalf, StringComparison.Ordinal);
+        Assert.Contains("overflow: hidden;", listHalf, StringComparison.Ordinal);
+
         var list = Block(css, ".backlog-list {");
         Assert.DoesNotContain("overflow", list, StringComparison.Ordinal);
         Assert.Contains("min-height: 0;", list, StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 auto;", list, StringComparison.Ordinal);
+        Assert.Contains("container-type: inline-size;", list, StringComparison.Ordinal);
+
+        // The filter bar keeps its own height; the scroller under it takes the rest.
+        Assert.Contains("flex: none;", Block(css, ".filter-bar {"), StringComparison.Ordinal);
+
+        var scroller = Block(css, ".backlog-list__scroll {");
+        Assert.Contains("flex: 1 1 auto;", scroller, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", scroller, StringComparison.Ordinal);
+        Assert.Contains("overflow-y: auto;", scroller, StringComparison.Ordinal);
 
         var panel = Block(css, ".entry-detail__panel {");
         Assert.Contains("overflow-y: auto;", panel, StringComparison.Ordinal);
@@ -959,15 +1007,12 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// The list half scrolls down and never sideways.
+    /// The list scrolls down and never sideways.
     /// <para>
-    /// The rule above gives both halves <c>overflow: auto</c>, which is two axes,
-    /// and only one of them is a list working as intended. A horizontal bar under
-    /// the rows is always a row that refused to shrink, and reading the end of one
-    /// line by dragging the whole column — filter bar, rows and add row together —
-    /// is not a gesture this pane asks anybody for. So the axis is turned off here,
-    /// where the split is the Tasks pane's, and the shared halves keep both axes for
-    /// the hosts that mean it.
+    /// A horizontal bar under the rows is always a row that refused to shrink, and
+    /// reading the end of one line by dragging every row is not a gesture this pane
+    /// asks anybody for. So the list's scroller turns that axis off, and the shared
+    /// halves keep both axes for the hosts that mean it.
     /// </para>
     /// <para>
     /// The clamps below are what keep it from being a cut: a row that fits is never
@@ -984,12 +1029,12 @@ public sealed class GlobalPaneMarkupTests
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
         var components = NormalizeLineEndings(File.ReadAllText(FindComponentsCss()));
 
-        var listHalf = Block(css, ".backlog-split > .split-pane__start {");
-        Assert.Contains("overflow-x: hidden;", listHalf, StringComparison.Ordinal);
-        // The vertical axis is the half's whole job, so it must not be turned off
-        // with it — a shorthand here would take both.
-        Assert.DoesNotContain("overflow-y", listHalf, StringComparison.Ordinal);
-        Assert.DoesNotContain("overflow:", listHalf, StringComparison.Ordinal);
+        var scroller = Block(css, ".backlog-list__scroll {");
+        Assert.Contains("overflow-x: hidden;", scroller, StringComparison.Ordinal);
+        // The vertical axis is the scroller's whole job, so it must not be turned
+        // off with it — a shorthand here would take both.
+        Assert.Contains("overflow-y: auto;", scroller, StringComparison.Ordinal);
+        Assert.DoesNotContain("overflow:", scroller, StringComparison.Ordinal);
 
         var row = Block(components, ".task-item {");
         Assert.Contains("min-width: 0;", row, StringComparison.Ordinal);
@@ -1013,20 +1058,45 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// The two controls that stick to the list half, and the edge each holds. The
-    /// bulk bar takes the top so the count and the way out of a selection stay in
-    /// reach; the add-entry row takes the bottom so a column longer than the window
-    /// never hides the one control that adds to it. Both are asserted together with
-    /// the rule above because both are dead the moment the list becomes a scroller.
+    /// The two controls that stick to the list's scroller, and the edge each holds.
+    /// The bulk bar takes the top so the count and the way out of a selection stay
+    /// in reach; the add-entry row takes the bottom so a column longer than the
+    /// window never hides the one control that adds to it. Both are asserted together
+    /// with the rules above because both are dead the moment the wrong box becomes
+    /// a scroller. And the filter bar is outside the scroller, so it never scrolls.
     /// </summary>
     [Fact]
-    public void The_bulk_bar_and_the_add_entry_row_stick_to_the_list_half()
+    public void The_bulk_bar_and_the_add_entry_row_stick_to_the_list_scroller()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var tasks = NormalizeLineEndings(File.ReadAllText(FindTasksPane()));
+
+        // Markup order: the filter bar, then the scroller, then the bulk bar and
+        // the rows inside it.
+        var filterBar = tasks.IndexOf("<div class=\"filter-bar\">", StringComparison.Ordinal);
+        var scroll = tasks.IndexOf("<div class=\"backlog-list__scroll\" data-testid=\"backlog-list-scroll\">", StringComparison.Ordinal);
+        var bulkBar = tasks.IndexOf("<SelectionBar", StringComparison.Ordinal);
+        var rows = tasks.IndexOf("<TaskListView", StringComparison.Ordinal);
+        Assert.True(filterBar >= 0 && scroll > filterBar, "The scroller follows the filter bar.");
+        Assert.True(bulkBar > scroll && rows > scroll, "The bulk bar and the rows are inside the scroller.");
+        Assert.True(
+            tasks.IndexOf("<div class=\"backlog-list__scroll\"", filterBar, StringComparison.Ordinal)
+            > tasks.IndexOf("TestId=\"open-work-summary\"", StringComparison.Ordinal),
+            "The scroller opens after the filter bar's last control, not around it.");
+
+        var scroller = Block(css, ".backlog-list__scroll {");
+        Assert.Contains("display: flex;", scroller, StringComparison.Ordinal);
+        Assert.Contains("flex-direction: column;", scroller, StringComparison.Ordinal);
+        Assert.Contains("gap: var(--spacing-md);", scroller, StringComparison.Ordinal);
+        // Positioned, or the rows' absolutely positioned pieces escape its clip and
+        // make the document thousands of pixels taller than the window.
+        Assert.Contains("position: relative;", scroller, StringComparison.Ordinal);
 
         var bar = Block(css, ".backlog-bulk-bar {");
         Assert.Contains("position: sticky;", bar, StringComparison.Ordinal);
         Assert.Contains("top: 0;", bar, StringComparison.Ordinal);
+        // Above the row's edit pencil, which the library lifts to z-index 1.
+        Assert.Contains("z-index: 2;", bar, StringComparison.Ordinal);
 
         var row = Block(css, ".entry-add-row {");
         Assert.Contains("position: sticky;", row, StringComparison.Ordinal);

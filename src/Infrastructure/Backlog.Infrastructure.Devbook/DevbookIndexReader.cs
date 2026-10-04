@@ -1,9 +1,8 @@
 using System.Text.Json;
 
-using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
 
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
 /// The ordered reading outline of a knowledge folder — path, title, status,

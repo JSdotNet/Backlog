@@ -44,7 +44,6 @@ updates:
         patterns:
           - xunit.*
           - bunit
-          - coverlet*
           - Microsoft.Testing.*
     ignore:
       # MauiVersion in Directory.Build.props owns these; they move in lockstep with the workload.

@@ -333,6 +333,13 @@ never over it. Where a run names a session the list holds, it joins that session
 identity; only a run that names none — every dashboard file written before, and any
 writer that does not send one — is attached by worktree key and overlapping activity.
 
+**A run can say what started it, and a sweep what it found.** As of 2026-10-03 a run
+carries its trigger — `attended` or `scheduled` — the schedule that fired it, and the
+repository it worked in, where the writer said; a run that says nothing reads as
+attended. A devbook sync sweep closes its run with its verdicts: one row per sync
+unit, with each chapter's own verdict, kept as sent. The repository is what places a
+scheduled run, since every one cuts a worktree of its own.
+
 **One run reported to two surfaces is one run here.** As of 2026-09-27 a flow reports
 its run to every surface it is bound to, and each surface files it under an id of its
 own — so one piece of work is two files, in two dashboards' folders, that agree on the
@@ -402,6 +409,13 @@ when the run begins, so the surface can show what is still to come; a name is a 
 on a position rather than a key, and two stages may carry one name. An index outside
 the list is refused rather than ignored, because a caller one stage off is reporting
 the wrong stage for the rest of the run and a silent nothing leaves it doing so.
+
+**What started a run is written once.** Starting a run takes the trigger, the
+schedule and the repository; a trigger the engine does not name is refused, and a
+reattach fills in only what an earlier start left out — a scheduled run a person picks
+back up was still fired by its schedule. Finishing a run takes a sync sweep's verdicts,
+kept on the run and, where the run named its repository, filed per chapter as the
+Devbook context's `Sync Verdict`.
 
 **It records what it observes and claims nothing else.** The model a run resolved is
 something the run states, so it is kept. What a run consumed is not something an
@@ -484,13 +498,15 @@ related: [.devbook/domain/sessions/domain.md#run-attachment, .devbook/domain/ses
 aliases: [SessionRow, row]
 ```
 
-One row of the session list: an `Agent Session` and the `Delivery Run`s it drove, or
-a single `Delivery Run` the list holds no session for. The unit the list shows,
+One row of the session list: an `Agent Session` and the `Delivery Run`s it drove, a
+single `Delivery Run` the list holds no session for, or every such run one schedule
+fired in one repository. The unit the list shows,
 because a session and a run describe the same work from two sides and either may be
 the one this environment still has.
 
 Every fact read off a row comes from whichever source has it, and the row says nothing
-either source did not: a run-only row is titled by its worktree, dated by the run,
+either source did not: a schedule's row is titled by the schedule, since each of its
+runs cut a worktree nobody reopens; any other run-only row is titled by its worktree, dated by the run,
 placed on the environment the file was read on, and Finished — there is no liveness
 evidence for it. A session row's repository is the session's, and where the agent
 recorded none, the tracker item a run of it named: a recorded fact from a second

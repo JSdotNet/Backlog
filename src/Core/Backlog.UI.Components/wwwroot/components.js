@@ -342,6 +342,66 @@
         return !elements.some((element) => element.contains(focused));
     };
 
+    /*
+        Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z and Ctrl+Y for a surface that keeps its own
+        undo history (`.devbook/design/interaction-guidelines.md#undo-and-history`).
+
+        On the document rather than on the surface, because the key most often
+        arrives with focus on <body>: a row just deleted, a picker just closed, a
+        drop just made all leave the focus nowhere. So an owner hears the key when
+        the focus is inside its element or on nothing at all.
+
+        Never from a text field: there the browser's own undo already takes back
+        the keystrokes, and stealing the key would leave typing with no undo.
+        Never past a dialog, which owns the keyboard first, and never a key some
+        other handler already took.
+
+        Keyed by the owner's element id, so a surface's registration is its own
+        and a second surface cannot take it out.
+    */
+    window.backlogUndoKeys = (() => {
+        const owners = new Map();
+
+        const nonText = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file', 'image']);
+        const isTextField = (element) => {
+            if (!(element instanceof HTMLElement)) return false;
+            if (element.isContentEditable) return true;
+            if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) return true;
+            return element instanceof HTMLInputElement && !nonText.has(element.type);
+        };
+
+        const actionFor = (event) => {
+            if (!(event.ctrlKey || event.metaKey) || event.altKey) return null;
+            const key = event.key.toLowerCase();
+            if (key === 'z') return event.shiftKey ? 'RedoFromKeyboardAsync' : 'UndoFromKeyboardAsync';
+            if (key === 'y' && event.ctrlKey && !event.shiftKey) return 'RedoFromKeyboardAsync';
+            return null;
+        };
+
+        document.addEventListener('keydown', (event) => {
+            if (event.defaultPrevented || owners.size === 0) return;
+
+            const action = actionFor(event);
+            if (!action || isTextField(event.target)) return;
+            if (document.querySelector('[aria-modal="true"], dialog[open]')) return;
+
+            const nowhere = event.target === document.body || event.target === document.documentElement;
+            for (const [id, owner] of owners) {
+                const element = document.getElementById(id);
+                if (!element || !(nowhere || element.contains(event.target))) continue;
+
+                event.preventDefault();
+                owner.invokeMethodAsync(action);
+                return;
+            }
+        });
+
+        return {
+            register: (id, dotnet) => { owners.set(id, dotnet); },
+            unregister: (id) => { owners.delete(id); }
+        };
+    })();
+
     // Copying is the browser's job, and the browser is allowed to refuse: the
     // async clipboard needs a secure context and a permission the host WebView
     // may not have granted. The execCommand path is the fallback for exactly
@@ -3477,6 +3537,57 @@
             backlogDiagramInstances.delete(id);
         }
     });
+    /*
+        Click demos, the host half of devbook's demo address contract
+        (devbook.demo.address@1).
+
+        The document goes into the frame as it is. The Archify loader above pins
+        its artifact to the dark theme and lays a stylesheet over it; a demo is a
+        picture of the product, so it keeps its own look. The frame is sandboxed
+        into an opaque origin, which makes messages the only channel and means a
+        message is trusted by where it came from, not by what it says: only one
+        whose source is this frame's window counts. A version newer than this
+        reader's is ignored, as the contract asks.
+
+        .NET decides what to send and when; this only carries demo:ready up and
+        demo:goto down. The demo posts to "*" because it cannot name an opaque
+        parent, and this posts to "*" for the same reason in the other direction.
+    */
+    const backlogDemoFrames = new Map();
+
+    window.backlogDemos = {
+        load(frame, id, html, reference) {
+            this.dispose(id);
+            if (!frame) return;
+
+            const listener = (event) => {
+                if (event.source !== frame.contentWindow) return;
+                const message = event.data;
+                if (!message || typeof message !== 'object' || typeof message.type !== 'string') return;
+                if (typeof message.v === 'number' && message.v > 1) return;
+
+                if (message.type === 'demo:ready') {
+                    reference.invokeMethodAsync('OnDemoReady').catch(() => { });
+                }
+            };
+
+            window.addEventListener('message', listener);
+            backlogDemoFrames.set(id, { frame, listener });
+            frame.srcdoc = html;
+        },
+
+        goto(id, address) {
+            const target = backlogDemoFrames.get(id)?.frame.contentWindow;
+            target?.postMessage({ type: 'demo:goto', v: 1, address }, '*');
+        },
+
+        dispose(id) {
+            const entry = backlogDemoFrames.get(id);
+            if (!entry) return;
+            window.removeEventListener('message', entry.listener);
+            backlogDemoFrames.delete(id);
+        }
+    };
     /*
         Roadmap timeline drag.
 

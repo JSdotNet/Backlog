@@ -88,6 +88,35 @@ public class DevbookBuilderParityTests : IDisposable
         using var app = Open(fromApp);
         Assert.Contains(Rows(app, "chapter", "id"), row => row.Contains("open_annotations=INTEGER:2", StringComparison.Ordinal));
         Assert.Contains(Rows(app, "outline_entry", "id"), row => row.Contains("name=TEXT:domain.invariants.md", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "chapter", "id"), row => row.Contains("sync=TEXT:push", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node", "id"), row => row.Contains("sync=TEXT:pull", StringComparison.Ordinal));
+
+        var demos = Rows(app, "demo", "path");
+        Assert.Equal(4, demos.Count);
+        Assert.Contains(demos, row => row.Contains("page_path=TEXT:.devbook/domain/zeta/context.md", StringComparison.Ordinal));
+        Assert.Contains(demos, row => row.Contains("page_path=TEXT:.devbook/domain/alpha/features.checkout.md", StringComparison.Ordinal));
+
+        var links = Rows(app, "demo_link", "chapter_path, line, ordinal");
+        Assert.Equal(4, links.Count);
+        Assert.Contains(links, row => row.Contains("address=TEXT:walkthrough/pay-declined/2?flags=retry,wallet", StringComparison.Ordinal));
+        Assert.Contains(links, row => row.Contains("demo_path=TEXT:.devbook/domain/alpha/gone.demo.html", StringComparison.Ordinal));
+
+        Assert.DoesNotContain(Rows(app, "outline_entry", "id"), row => row.Contains(".html", StringComparison.Ordinal));
+        Assert.Single(Rows(app, "problem", "rowid"), row => row.Contains("orphan.demo.html", StringComparison.Ordinal));
+
+        // And the reader answers a page's demos: by name first, then by field.
+        using var database = DevbookDatabase.TryOpen(fromApp);
+        Assert.NotNull(database);
+        Assert.Equal(
+            [
+                new DevbookPageDemoRow(".devbook/domain/alpha/features.checkout.demo.html", null, null, true),
+                new DevbookPageDemoRow(".devbook/domain/alpha/features.checkout.demo.html", "alpha", "pay", true),
+                new DevbookPageDemoRow(".devbook/domain/alpha/flows.demo.html", "alpha", "walkthrough/pay-declined/2?flags=retry,wallet", true),
+                new DevbookPageDemoRow(".devbook/domain/alpha/gone.demo.html", "alpha", null, false),
+                new DevbookPageDemoRow(".devbook/domain/alpha/flows.demo.html", "declined", null, true)
+            ],
+            database.Demos(".devbook/domain/alpha/features.checkout.md"));
+        Assert.Equal([new DevbookPageDemoRow(".devbook/domain/zeta/demo.html", null, null, true)], database.Demos(".devbook/domain/zeta/context.md"));
     }
 
     private static readonly (string Path, string Text)[] EdgeCases =
@@ -104,8 +133,8 @@ public class DevbookBuilderParityTests : IDisposable
         (".devbook/arc42/tdr/README.md", "# Technical Debt Records\n\n```meta\nindex: root\n```\n"),
         (".devbook/arc42/tdr/0001-debt.md", "# TDR 0001: Debt\n"),
         (".devbook/arc42/tdr/0002-hidden.md", "# TDR 0002: Hidden\n\n```meta\nindex: exclude\n```\n"),
-        (".devbook/domain/context-map.md", "# Context Map\n"),
-        (".devbook/domain/zeta/context.md", "# Zeta\n"),
+        (".devbook/domain/context-map.md", "# Context Map\n\n```meta\nsync: pull\n```\n"),
+        (".devbook/domain/zeta/context.md", "# Zeta\n\n```meta\nsync: push\n```\n"),
         (".devbook/domain/zeta/model.md", "# Zeta\n\n```meta\ntype: aggregate\nstatus: draft\n```\n"),
         (".devbook/domain/zeta/domain.md", """
             Above the first heading.
@@ -176,7 +205,26 @@ public class DevbookBuilderParityTests : IDisposable
         (".devbook/domain/zeta/domain.invariants.md", "# Zeta\n"),
         (".devbook/domain/zeta/domain.order.md", "# Zeta\n"),
         (".devbook/domain/zeta/notes.md", "# Zeta\n"),
-        (".devbook/domain/alpha/features.checkout.md", "# Alpha\n"),
+        // Demos: the context's own beside context.md, a split page's beside it,
+        // one only a field names, one nothing pairs with, and a field that names
+        // a missing demo and an address the metadata parse splits on its comma.
+        (".devbook/domain/zeta/demo.html", "<!doctype html><title>Zeta</title>"),
+        (".devbook/domain/zeta/orphan.demo.html", "<!doctype html><title>Orphan</title>"),
+        (".devbook/domain/alpha/features.checkout.demo.html", "<!doctype html><title>Checkout</title>"),
+        (".devbook/domain/alpha/flows.demo.html", "<!doctype html><title>Flows</title>"),
+        (".devbook/domain/alpha/features.checkout.md", """
+            # Alpha
+
+            ```meta
+            demo: [.devbook/domain/alpha/features.checkout.demo.html#pay, "./.devbook/domain/alpha/flows.demo.html#walkthrough/pay-declined/2?flags=retry,wallet", .devbook/domain/alpha/gone.demo.html]
+            ```
+
+            ## Declined
+
+            ```meta
+            demo: .devbook/domain/alpha/flows.demo.html
+            ```
+            """),
         (".devbook/domain/alpha/actors.md", "# Alpha\n"),
         (".devbook/tech/tooling.md", "# Tooling\n"),
         (".devbook/tech/cloud.md", "# Cloud\n"),
@@ -206,6 +254,8 @@ public class DevbookBuilderParityTests : IDisposable
                 ("outline_entry", "id"),
                 ("chapter", "id"),
                 ("archify_artifact", "chapter_path, fence_hash, ordinal"),
+                ("demo", "path"),
+                ("demo_link", "chapter_path, line, ordinal"),
                 ("chapter_embedding", "content_hash")
             ])
         {

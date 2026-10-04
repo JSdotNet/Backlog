@@ -59,6 +59,17 @@ public sealed record DevbookOutlineRow(
     bool IsRoot);
 
 /// <summary>
+/// A heading of one row of <c>chapter</c>, without its text or file facts — what
+/// <see cref="DevbookDatabase.ChapterHeadings"/> reads for every page at once.
+/// </summary>
+public sealed record DevbookChapterHeadingRow(
+    string Path,
+    string Slug,
+    int Level,
+    string? Title,
+    string? Status);
+
+/// <summary>
 /// One row of <c>chapter</c>: a heading and the text belonging to it, plus the
 /// file-level facts the drift check compares against.
 /// </summary>
@@ -104,6 +115,20 @@ public sealed record DevbookArchifyArtifactRow(
     string? ArtifactPath,
     int? ChecksPassed,
     int? CheckCount);
+
+/// <summary>
+/// One demo a page has: paired with it by name (<see cref="Address"/> null,
+/// <see cref="Slug"/> null), or named by one of its chapters' <c>demo</c> fields.
+/// </summary>
+/// <param name="DemoPath">The <c>*.demo.html</c>, repository-relative.</param>
+/// <param name="Slug">The chapter whose field names it, or null for a pairing by name.</param>
+/// <param name="Address">What follows the address's <c>#</c>, or null for the demo whole.</param>
+/// <param name="Exists">Whether the file is there: a field may name a demo that is not.</param>
+public sealed record DevbookPageDemoRow(string DemoPath, string? Slug, string? Address, bool Exists)
+{
+    /// <summary>Whether the pairing is by name rather than by a field.</summary>
+    public bool ByName => Slug is null;
+}
 
 /// <summary>One row of <c>problem</c> — something the generator could not
 /// resolve, recorded rather than thrown.</summary>

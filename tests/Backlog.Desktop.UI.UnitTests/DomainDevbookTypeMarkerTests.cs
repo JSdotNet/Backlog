@@ -311,7 +311,7 @@ public sealed class DomainDevbookTypeMarkerTests : IDisposable
         // being read as a record at all rather than skipped.
         Assert.Equal(
             "draft",
-            panel.FindAll("[data-testid='domain-chapter-file'] .devbook-record__headline select")[2]
+            panel.FindAll("[data-testid='domain-chapter-file'] .devbook-record__headline .status-editor__select")[2]
                 .GetAttribute("value"));
 
         // What is *not* asserted here, deliberately: that the plain `type` row

@@ -210,6 +210,66 @@ public sealed class SessionRowsTests
     }
 
     /// <summary>
+    /// A schedule's runs are one row per schedule and repository, whatever worktree
+    /// each was cut in — a weekly sweep is one line with its history under it, not a
+    /// new line every week titled by a folder nobody opens again.
+    /// </summary>
+    [Fact]
+    public void Scheduled_runs_with_no_session_are_one_row_per_schedule_and_repository()
+    {
+        DeliveryRun Fired(string id, string worktree, string schedule, string repository, int hoursAgo) =>
+            Run(id, worktree, startedAt: Noon.AddHours(-hoursAgo - 1), updatedAt: Noon.AddHours(-hoursAgo)) with
+            {
+                Trigger = DeliveryRunTriggers.Scheduled,
+                Schedule = schedule,
+                Repository = repository
+            };
+
+        var lastWeek = Fired("pull-1", "sweep-a-00000001", "devbook-pull-sweep", "JSdotNet/Backlog", 170);
+        var thisWeek = Fired("pull-2", "sweep-b-00000002", "devbook-pull-sweep", "jsdotnet/backlog", 2);
+        var otherRepository = Fired("pull-3", "sweep-c-00000003", "devbook-pull-sweep", "JSdotNet/devbook", 3);
+        var push = Fired("push-1", "sweep-d-00000004", "devbook-push-sweep", "JSdotNet/Backlog", 5);
+        var attended = Run("attended", "elsewhere-00000000", startedAt: Noon.AddHours(-4), updatedAt: Noon.AddHours(-1));
+
+        var rows = SessionRows.Of([], [lastWeek, thisWeek, otherRepository, push, attended]);
+
+        Assert.Equal(4, rows.Count);
+
+        var pulls = Assert.Single(rows, row => row.Schedule == "devbook-pull-sweep" && row.Repository == "jsdotnet/backlog");
+        Assert.True(pulls.RunOnly);
+        Assert.Equal("devbook-pull-sweep", pulls.Title);
+        Assert.Equal(["pull-2", "pull-1"], pulls.Runs.Select(run => run.Id));
+        Assert.Equal("schedule/devbook-pull-sweep/jsdotnet/backlog", pulls.Key);
+        Assert.Equal(Noon.AddHours(-2), pulls.LastActivityAt);
+
+        Assert.Single(rows, row => row.Schedule == "devbook-pull-sweep" && row.Repository == "JSdotNet/devbook");
+        Assert.Single(rows, row => row.Schedule == "devbook-push-sweep");
+
+        // An attended run with no session is still a row of its own, titled by its
+        // worktree, and says it is no schedule's.
+        var alone = Assert.Single(rows, row => row.Id == "attended");
+        Assert.Null(alone.Schedule);
+    }
+
+    [Fact]
+    public void A_scheduled_run_whose_session_the_list_holds_joins_that_session()
+    {
+        var session = Session("aaaa", Folder, startedAt: Noon.AddHours(-3), lastActivity: Noon);
+        var run = Run("pull-1", Worktree, startedAt: Noon.AddHours(-2), updatedAt: Noon.AddHours(-1)) with
+        {
+            Trigger = DeliveryRunTriggers.Scheduled,
+            Schedule = "devbook-pull-sweep",
+            Repository = "JSdotNet/Backlog"
+        };
+
+        var row = Assert.Single(SessionRows.Of([session], [run]));
+
+        Assert.Equal("aaaa", row.Id);
+        Assert.Null(row.Schedule);
+        Assert.Equal(["pull-1"], row.Runs.Select(attached => attached.Id));
+    }
+
+    /// <summary>
     /// What a row the run alone accounts for says about itself: the facts the run
     /// file carries, and nothing it does not. Finished, because there is no
     /// liveness evidence — a session still running would be in the reading.

@@ -221,6 +221,22 @@ It is outlined rather than filled, and that is the component's own answer rather
         <p class="sb-state" data-testid="tags-sectioned-value">[@string.Join(", ", _dependencies)]</p>
     </Story>
 
+    <Story Name="TagMultiSelect long lists"
+           Description="A list that runs into the hundreds — a repository's Devbook pages and chapters — draws a page of matches and says how many more there are. MaxOptions sets the page; the count line is not an option, the keyboard never lands on it, and the input is described by it so a screen reader hears the list is cut short.
+
+                        MatchValue lets the query find an option by its value as well as its label, for a host whose values are something a reader types. Here the values are paths: type &quot;page-12&quot; and the pages titled &quot;Page 12&quot; and &quot;Page 120&quot; to &quot;Page 129&quot; are found by their file names."
+           Code="@TagLongCode">
+        <TagMultiSelect Options="Pages"
+                        SelectedValues="_pages"
+                        SelectedValuesChanged="v => _pages = v"
+                        Label="Devbook chapter"
+                        Placeholder="Find a page, or type its path"
+                        MaxOptions="10"
+                        MatchValue="true"
+                        TestId="tags-long" />
+        <p class="sb-state" data-testid="tags-long-value">[@string.Join(", ", _pages)]</p>
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -333,6 +349,15 @@ It is outlined rather than filled, and that is the component's own answer rather
     private IReadOnlyList<string> _openTags = ["ui", "markdown"];
     private IReadOnlyList<string> _closedTags = ["aspire"];
     private IReadOnlyList<string> _dependencies = [];
+    private IReadOnlyList<string> _pages = [];
+
+    /// <summary>Two hundred pages, titled as a reader knows them and valued as the
+    /// path a reference stores, the shape a repository's devbook hands the task
+    /// picker.</summary>
+    private static readonly IReadOnlyList<SelectorOption> Pages =
+    [
+        .. Enumerable.Range(1, 200).Select(i => new SelectorOption($".devbook/domain/tasks/page-{i}.md", $"Page {i}", $"page-{i}.md", "domain"))
+    ];
 
     private static string Show(string? value) => string.IsNullOrEmpty(value) ? "(none)" : value;
 
@@ -406,5 +431,12 @@ It is outlined rather than filled, and that is the component's own answer rather
         <TagMultiSelect Options="Dependencies" SelectedValues="_dependencies"
                         SelectedValuesChanged="v => _dependencies = v"
                         Label="Waiting for" Placeholder="Pick an entry" />
+        """;
+
+    private const string TagLongCode = """
+        <TagMultiSelect Options="Pages" SelectedValues="_pages"
+                        SelectedValuesChanged="v => _pages = v"
+                        MaxOptions="10" MatchValue="true"
+                        Label="Devbook chapter" Placeholder="Find a page, or type its path" />
         """;
 }

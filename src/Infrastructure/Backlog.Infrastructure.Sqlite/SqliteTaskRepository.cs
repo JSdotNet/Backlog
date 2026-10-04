@@ -36,7 +36,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
         "id, title, content_md, type, status, priority, sort_order, area, created_at, " +
         "source_inbox_id, recurrence_source_id, due_on, remind_at, recurrence, in_my_day_on, " +
         "view, tags, repo_ids, depends_on, sub_items, usage_events, projections, effort, " +
-        "import_plan_id, import_item_id, updated_at, deleted_at, attachment_path, completed_on, started_on";
+        "import_plan_id, import_item_id, updated_at, deleted_at, attachment_path, completed_on, started_on, " +
+        "devbook_refs";
 
     private readonly string _databasePath;
 
@@ -75,7 +76,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 $source_inbox_id, $recurrence_source_id, $due_on, $remind_at, $recurrence, $in_my_day_on,
                 $view, $tags, $repo_ids, $depends_on, $sub_items, $usage_events, $projections, $effort,
                 $import_plan_id, $import_item_id, $updated_at, $deleted_at, $attachment_path,
-                $completed_on, $started_on)
+                $completed_on, $started_on, $devbook_refs)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 content_md = excluded.content_md,
@@ -105,7 +106,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 deleted_at = excluded.deleted_at,
                 attachment_path = excluded.attachment_path,
                 completed_on = excluded.completed_on,
-                started_on = excluded.started_on;
+                started_on = excluded.started_on,
+                devbook_refs = excluded.devbook_refs;
             """;
 
         command.Parameters.AddWithValue("$id", task.Id.ToString());
@@ -133,6 +135,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         command.Parameters.AddWithValue("$tags", TaskPayloads.Write(task.Tags));
         command.Parameters.AddWithValue("$repo_ids", TaskPayloads.Write(task.RepoIds));
         command.Parameters.AddWithValue("$depends_on", TaskPayloads.Write(task.DependsOn));
+        command.Parameters.AddWithValue("$devbook_refs", TaskPayloads.Write(task.DevbookReferences));
         command.Parameters.AddWithValue("$sub_items", TaskPayloads.Write(
             task.SubItems
                 .Select(s => new SubItemPayload(s.Id.ToString(), s.Title, EnumMap.ToWire(s.Status), s.Notes, s.Order))
@@ -304,7 +307,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 deleted_at           TEXT NULL,
                 attachment_path      TEXT NULL,
                 completed_on         TEXT NULL,
-                started_on           TEXT NULL
+                started_on           TEXT NULL,
+                devbook_refs         TEXT NOT NULL DEFAULT '[]'
             );
 
             CREATE INDEX IF NOT EXISTS ix_tasks_rank ON tasks (sort_order, created_at DESC);
@@ -330,6 +334,11 @@ public sealed class SqliteTaskRepository : ITaskRepository
         // No backfill: nobody recorded when older work started, and the
         // roadmap falls back to the creation date for a row without one.
         await EnsureColumnAsync(connection, "started_on", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+
+        // A JSON list like depends_on, and defaulted the same way, so a row from
+        // before the column reads as pointing at no Devbook chapter — which it
+        // did not. SQLite accepts NOT NULL on an added column with a default.
+        await EnsureColumnAsync(connection, "devbook_refs", "TEXT NOT NULL DEFAULT '[]'", cancellationToken).ConfigureAwait(false);
 
         // And one value the vocabulary retired. `follow_up` was a task type until
         // a follow-up became a relationship between two entries instead of a
@@ -493,7 +502,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         public const int SubItems = 19, UsageEvents = 20, Projections = 21, Effort = 22;
         public const int ImportPlanId = 23, ImportItemId = 24;
         public const int UpdatedAt = 25, DeletedAt = 26;
-        public const int AttachmentPath = 27, CompletedOn = 28, StartedOn = 29;
+        public const int AttachmentPath = 27, CompletedOn = 28, StartedOn = 29, DevbookReferences = 30;
     }
 
     private static TaskItem Read(IDataRecord row)
@@ -521,6 +530,11 @@ public sealed class SqliteTaskRepository : ITaskRepository
         task.SetStartedOn(ParseDate(Text(row, Col.StartedOn)));
         task.SetView(EntryTextParser.ParseView(Text(row, Col.View)));
         task.SetDependsOn(TaskPayloads.Read<string>(Text(row, Col.DependsOn)));
+        // Filtered rather than handed over whole: the aggregate refuses a value that
+        // names no page, and one such value in a hand-edited file must cost that
+        // reference, not every read of the task.
+        task.SetDevbookReferences(TaskPayloads.Read<string>(Text(row, Col.DevbookReferences))
+            .Where(reference => TaskDevbookReference.TryParse(reference, out _)));
         task.SetEffort(Int(row, Col.Effort));
         task.SetImportPlanId(Text(row, Col.ImportPlanId));
         task.SetImportItemId(Text(row, Col.ImportItemId));

@@ -240,7 +240,7 @@
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
     private TechnologyLayer? ActiveLayer => !string.IsNullOrWhiteSpace(SelectedPath)
-        ? _view?.Layers.FirstOrDefault(layer => PathMatches(layer.FileName, SelectedPath)) ?? _view?.Layers.FirstOrDefault()
+        ? _view?.Layers.FirstOrDefault(layer => LayerMatches(layer.FileName, SelectedPath)) ?? _view?.Layers.FirstOrDefault()
         : _view?.Layers.FirstOrDefault(layer => layer.FileName == _activeLayerFile) ?? _view?.Layers.FirstOrDefault();
 
     private int NodeCount => _view?.Layers.Sum(layer => layer.Nodes.Count) ?? 0;
@@ -335,16 +335,16 @@
             StateHasChanged();
         });
 
-    private static bool PathMatches(string candidate, string selectedPath)
-    {
-        var candidatePath = NormalizePath(candidate);
-        var selected = NormalizePath(selectedPath);
-        return string.Equals(candidatePath, selected, StringComparison.OrdinalIgnoreCase)
-            || candidatePath.EndsWith($"/{selected}", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(Path.GetFileName(candidatePath), Path.GetFileName(selected), StringComparison.OrdinalIgnoreCase);
-    }
+    /// <summary>A layer is selected the way every panel selects a chapter, or by its
+    /// file name alone, which only this panel allows because a layer is named by its
+    /// file.</summary>
+    private static bool LayerMatches(string fileName, string selectedPath) =>
+        DevbookPath.Matches(fileName, selectedPath)
+        || string.Equals(
+            Path.GetFileName(DevbookPath.Normalize(fileName)),
+            Path.GetFileName(DevbookPath.Normalize(selectedPath)),
+            StringComparison.OrdinalIgnoreCase);
 
-    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
     private RenderFragment RenderStatusSelect(string itemPath, string title, string status) => @<span class="devbook-status-control">
         @* Read from a branch, the state is shown as the badge rather than the
            select: still stated, but not offering an edit the next fetch would

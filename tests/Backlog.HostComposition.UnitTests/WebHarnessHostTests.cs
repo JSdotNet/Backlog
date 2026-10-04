@@ -137,6 +137,43 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// Every service the harness's inline Devbook block used to register still resolves,
+    /// with scopes validated, now that <c>AddDevbookModule</c> registers them through the
+    /// shared composition — and the two choices that were this harness's own survive the
+    /// move. The domain store is one per circuit, so two visitors never share a reader's
+    /// state; and the Devbook offers and the Archify artifacts sit over a launcher that
+    /// says it cannot start a CLI here rather than starting one.
+    /// </summary>
+    [Fact]
+    public async Task The_desktop_harness_resolves_every_devbook_service_with_its_own_lifetimes_and_launcher()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+        using var first = harness.Services.CreateScope();
+        using var second = harness.Services.CreateScope();
+
+        foreach (var service in DevbookModuleServices.All)
+        {
+            Assert.NotNull(first.ServiceProvider.GetRequiredService(service));
+        }
+
+        Assert.NotSame(
+            first.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Devbook.DomainDevbookStore>(),
+            second.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Devbook.DomainDevbookStore>());
+
+        Assert.IsType<Backlog.Desktop.UI.Devbook.ArchifyDiagramArtifacts>(
+            harness.Services.GetRequiredService<Backlog.UI.Components.Diagrams.IDiagramArtifactSource>());
+        Assert.IsType<Backlog.Infrastructure.Copilot.UnavailableCopilotCliLauncher>(
+            harness.Services.GetRequiredService<Backlog.Infrastructure.Copilot.ICopilotCliLauncher>());
+
+        var copilot = harness.Services.GetRequiredService<Backlog.Desktop.UI.Devbook.DevbookCopilotCli>();
+        var item = new Backlog.Desktop.UI.Devbook.DevbookActionItem(
+            "Decision", "adr", ".arc42/adr/0001-decision.md", new Dictionary<string, string>(), Summary: null);
+
+        await Assert.ThrowsAsync<Backlog.Infrastructure.Copilot.CopilotCliException>(
+            () => copilot.StartAsync(item, workingDirectory: null, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
     /// The GitHub token route asks <see cref="IHttpClientFactory"/> for its client,
     /// by name, on every send — not once, when the singleton transport is built,
     /// which would hold one client for the life of the process where the
@@ -338,5 +375,20 @@ public class WebHarnessHostTests
 
         var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
         Assert.Contains(sections, section => section.Id == "inbox" && section.Title == "Inbox");
+    }
+
+    /// <summary>
+    /// The desktop harness carries the Dashboard's settings section too, without a
+    /// line of its own: the shared composition's <c>AddDashboardUi()</c> registers it.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_registers_the_dashboard_settings_section_through_the_shared_composition()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using var scope = harness.Services.CreateScope();
+
+        var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
+        Assert.Single(sections, section => section.Id == "dashboard" && section.Title == "Dashboard");
     }
 }

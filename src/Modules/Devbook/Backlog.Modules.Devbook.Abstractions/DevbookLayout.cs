@@ -105,12 +105,5 @@ public static class DevbookLayout
             ? System.IO.Path.Combine(repositoryRoot, DevbookFolderSetting.DevbookRoot, MetaDirectory)
             : System.IO.Path.Combine(repositoryRoot, MetaDirectory);
 
-    private static string Normalize(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path)) return string.Empty;
-
-        var forward = path.Trim().Replace('\\', '/');
-        while (forward.StartsWith("./", StringComparison.Ordinal)) forward = forward[2..];
-        return forward.TrimStart('/');
-    }
+    private static string Normalize(string? path) => DevbookPath.NormalizeKeepingDotFolder(path);
 }

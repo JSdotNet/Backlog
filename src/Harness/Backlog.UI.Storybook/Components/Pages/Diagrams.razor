@@ -3,7 +3,7 @@
 <PageTitle>Diagrams — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Diagrams"
-           Summary="DiagramView renders mermaid in the browser, offers an Archify artifact as a second renderer where the host has one, and shows the source for everything else. GraphView hands arbitrary node/edge data to a JS renderer."
+           Summary="DiagramView renders mermaid in the browser, offers an Archify artifact as a second renderer where the host has one, and shows the source for everything else. DemoView frames a devbook click demo. GraphView hands arbitrary node/edge data to a JS renderer."
            Guidelines="@Rules">
 
     <Story Name="Flow diagram with decisions"
@@ -44,6 +44,16 @@ Render artifact is what the app would press to re-run the generator over the spe
            SourceLanguage="mermaid"
            SourceLabel="slice-flow.mmd (edited)">
         <DiagramView Title="Slice flow" Language="mermaid" Source="@StorybookDiagramArtifacts.ComponentMapEdited" />
+    </Story>
+
+    <Story Name="A click demo"
+           Description="DemoView frames a devbook click demo the way the Archify frame above frames an artifact: the document as srcdoc, a stage that goes full screen, and the way out inside it. Two things differ, both from devbook's demo address contract. The sandbox is allow-scripts and nothing else, and the document goes in as it is, with no theme pinned on it, because a demo shows the product the way the product looks.
+
+The places a chapter names in the demo are offered above the frame. The first is sent as demo:goto once the demo reports demo:ready, so this one opens on the declined-card walkthrough; picking the other opens that screen. This is devbook's own sample demo."
+           Code="@DemoCode">
+        <DemoView Html="@StorybookDemos.Sample"
+                  Path="@StorybookDemos.SamplePath"
+                  Addresses="@DemoPlaces" />
     </Story>
 
     <Story Name="A language that cannot be rendered"
@@ -168,6 +178,16 @@ Render artifact is what the app would press to re-run the generator over the spe
         @* The same call. The source is the fence after an edit, so the artifact
            the source knows no longer matches it. *@
         <DiagramView Title="Slice flow" Language="mermaid" Source="@editedSource" />
+        """;
+
+    private static readonly string[] DemoPlaces = [StorybookDemos.Walkthrough, StorybookDemos.DeclinedScreen];
+
+    private const string DemoCode = """
+        @* The places a chapter's demo field names, each what follows the # of a demo
+           address. The first opens once the demo is ready. *@
+        <DemoView Html="@html"
+                  Path=".devbook/domain/ordering/features.demo.html"
+                  Addresses="@(["walkthrough/a-declined-card-keeps-the-basket", "checkout-declined"])" />
         """;
 
     private const string PlantUmlCode = """

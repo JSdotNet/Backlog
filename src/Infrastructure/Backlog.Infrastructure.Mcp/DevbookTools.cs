@@ -77,7 +77,9 @@ public sealed class DevbookTools(
         + "its blocks. Ordinarily the file without the lines of its `meta` record or any `annotation` fence, and with "
         + "no private notes. With review set, the file unmodified, with the reader's private notes spliced in after "
         + "the block each one is anchored to, between `<!-- backlog:private-note ... -->` comment markers. Block "
-        + "indices are the same in both modes. Read-only.")]
+        + "indices are the same in both modes. `demos` lists the page's click demos by path — the `*.demo.html` "
+        + "beside it whose name pairs it with the page, and every address a `demo` field names — never their HTML. "
+        + "Read-only.")]
     public async Task<ChapterPayload> ReadKnowledgeChapterAsync(
         [Description("The repository in owner/name form, e.g. JSdotNet/Backlog.")]
         string repository,
@@ -181,7 +183,17 @@ public sealed class DevbookTools(
             ? ChapterReading.Notes(annotations, scope.Alias, normalized)
             : [];
 
-        return ChapterReading.Build(scope.Id, scope.Alias, folder.Key, normalized, markdown, review, notes);
+        // A clone can be listed and asked about any file in it. A branch snapshot
+        // fetched this one chapter and nothing beside it, so a listing there would
+        // report the demos as missing when what is missing is the fetch: it pairs
+        // nothing by name and says nothing about whether a named demo is there.
+        var clone = location.Source is DevbookSourceKind.LocalFolder ? location.RootPath : null;
+        var besidePage = clone is null ? [] : ChapterDemos.BesidePage(normalized, fullPath);
+
+        return ChapterReading.Build(
+            scope.Id, scope.Alias, folder.Key, normalized, markdown, review, notes,
+            besidePage,
+            demoPath => clone is null ? null : ChapterPaths.ResolveWithin(clone, demoPath) is { } file && File.Exists(file));
     }
 
     // Closed, and the one tool here that is: the notes are Backlog's own store and

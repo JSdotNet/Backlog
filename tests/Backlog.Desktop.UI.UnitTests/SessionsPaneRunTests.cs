@@ -113,6 +113,39 @@ public sealed class SessionsPaneRunTests
         });
     }
 
+    /// <summary>
+    /// The pane opens on one line per session: a row's runs are folded under it, and
+    /// the row's own trigger — naming how many runs it holds — unfolds them.
+    /// </summary>
+    [Fact]
+    public void A_rows_runs_are_folded_until_its_trigger_opens_them()
+    {
+        var first = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-40));
+        var second = SessionRowsTests.Run("run-2", Worktree, Noon.AddMinutes(-30), Noon.AddMinutes(-10));
+
+        using var context = Context([Live], [first, second]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-runs-toggle']")));
+
+        var toggle = pane.Find(".data-table__row [data-testid='sessions-runs-toggle']");
+        var runs = pane.Find("[data-testid='sessions-runs']");
+
+        Assert.Equal("2 runs", toggle.QuerySelector(".fold__label")!.TextContent.Trim());
+        Assert.Equal("false", toggle.GetAttribute("aria-expanded"));
+        Assert.Equal(runs.Id, toggle.GetAttribute("aria-controls"));
+        Assert.True(runs.HasAttribute("hidden"));
+
+        toggle.Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", pane.Find("[data-testid='sessions-runs-toggle']").GetAttribute("aria-expanded"));
+            Assert.False(pane.Find("[data-testid='sessions-runs']").HasAttribute("hidden"));
+        });
+    }
+
     [Fact]
     public void The_fold_opens_on_the_stages_tokens_context_and_tool_calls()
     {
@@ -452,6 +485,82 @@ public sealed class SessionsPaneRunTests
         });
     }
 
+    /// <summary>
+    /// A schedule's runs, each in a worktree of its own and none with a session in the
+    /// list, are one row titled by the schedule with every run a line under it, each
+    /// line carrying the "scheduled" chip.
+    /// </summary>
+    [Fact]
+    public void A_schedules_runs_are_one_row_with_a_scheduled_chip_on_every_line()
+    {
+        DeliveryRun Fired(string id, string worktree, int daysAgo) =>
+            SessionRowsTests.Run(id, worktree, Noon.AddDays(-daysAgo), Noon.AddDays(-daysAgo).AddHours(1), status: "done") with
+            {
+                Trigger = DeliveryRunTriggers.Scheduled,
+                Schedule = "devbook-pull-sweep",
+                Repository = "JSdotNet/Backlog",
+                Verdicts =
+                [
+                    new(".devbook/domain/tasks/domain.md#task", "aggregate", "pull", null, "aligned", "none", null, []),
+                    new(".devbook/domain/inbox/domain.md#inbox-item", "aggregate", "pull", null, "code-ahead", "pr", "https://github.com/JSdotNet/Backlog/pull/951", [])
+                ]
+            };
+
+        using var context = Context([Live], [Fired("pull-2", "sweep-b-00000002", 1), Fired("pull-1", "sweep-a-00000001", 8)]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            var rows = pane.FindAll(".data-table__row");
+
+            Assert.Equal(2, rows.Count);
+
+            var row = rows[1];
+
+            Assert.Contains("devbook-pull-sweep", row.QuerySelector(".sessions-table__title")!.TextContent);
+            Assert.Equal(
+                "Scheduled, unattended. 2 runs recorded on this PC.",
+                row.QuerySelector("[data-testid='sessions-run-only']")!.TextContent.Trim());
+
+            var lines = pane.FindAll(".data-table__row-detail")[1].QuerySelectorAll("[data-testid='sessions-run']");
+
+            Assert.Equal(["pull-2", "pull-1"], lines.Select(line => line.GetAttribute("data-run-id")));
+
+            foreach (var line in lines)
+            {
+                var chip = line.QuerySelector("[data-testid='sessions-run-scheduled']")!;
+
+                Assert.Equal("scheduled", chip.TextContent.Trim());
+                Assert.Contains("badge--trigger", chip.ClassName);
+                Assert.Equal("Fired by the devbook-pull-sweep schedule, unattended", chip.GetAttribute("title"));
+                Assert.Equal("2 units: 1 aligned · 1 code-ahead", line.QuerySelector("[data-testid='sessions-run-verdicts']")!.TextContent.Trim());
+            }
+
+            Assert.Contains("And 1 schedule's unattended runs, as one row.", pane.Find(".sessions-panel__subtitle").TextContent);
+        });
+    }
+
+    [Fact]
+    public void An_attended_run_carries_no_scheduled_chip()
+    {
+        var stray = SessionRowsTests.Run("run-stray", "old-worktree-1a2b3c4d", Noon.AddDays(-5), Noon.AddDays(-5).AddHours(2));
+
+        using var context = Context([Live], [stray]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+            Assert.Empty(pane.FindAll("[data-testid='sessions-run-scheduled']"));
+        });
+    }
+
     /// <summary>The list is one list under every control: a run-only row groups by
     /// the agent whose dashboard wrote it, beside the sessions.</summary>
     [Fact]
@@ -624,6 +733,49 @@ public sealed class SessionsPaneRunTests
         pane.WaitForAssertion(() => Assert.Same(own, opened));
     }
 
+    /// <summary>
+    /// The row's Task column names the entry its runs were started from and opens it,
+    /// so the work is one click from the row while the run lines stay folded.
+    /// </summary>
+    [Fact]
+    public void The_task_column_names_the_rows_entry_and_opens_it()
+    {
+        var own = new DeliveryRunReference(DeliveryRunReferenceKind.Task, "delivery-run-reader", "Plan backlog-mcp-server", null, null, "backlog-mcp-server");
+        var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with { References = [own] };
+        DeliveryRunReference? opened = null;
+
+        using var context = Context([Live], [run]);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(component => component.OnOpenTask, EventCallback.Factory.Create<DeliveryRunReference>(this, reference => opened = reference)));
+
+        pane.WaitForAssertion(() =>
+        {
+            var task = pane.Find(".data-table__row [data-testid='sessions-task']");
+
+            Assert.Contains("delivery-run-reader", task.TextContent);
+        });
+
+        pane.Find(".data-table__row [data-testid='sessions-task']").Click();
+
+        pane.WaitForAssertion(() => Assert.Same(own, opened));
+    }
+
+    /// <summary>A row with no run still names the entry its session was linked to.</summary>
+    [Fact]
+    public void The_task_column_falls_back_to_the_sessions_linked_entry()
+    {
+        var linked = new DeliveryRunReference(DeliveryRunReferenceKind.Task, "Link the done badge", null, null, null, EntryId: Guid.NewGuid());
+
+        using var context = Context([Live], []);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(component => component.SessionTask, _ => linked));
+
+        pane.WaitForAssertion(() =>
+            Assert.Contains("Link the done badge", pane.Find(".data-table__row [data-testid='sessions-task']").TextContent));
+    }
+
     [Fact]
     public void A_dashboard_that_could_not_be_read_is_named_in_the_same_notice()
     {
@@ -699,7 +851,7 @@ public sealed class SessionsPaneRunTests
         // rule held on the trigger and not under it, so opening the fold on a run
         // recorded here answered "0 calls · 0 out · 0 in · 0 cache read · 0 cache
         // write" — a measurement nobody made, contradicting the line that opened it.
-        pane.Find(".fold__trigger").Click();
+        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
 
         pane.WaitForAssertion(() =>
         {
@@ -735,9 +887,9 @@ public sealed class SessionsPaneRunTests
 
         var pane = context.Render<SessionsPane>();
 
-        pane.WaitForAssertion(() => Assert.Contains("1.7M output tokens", pane.Find(".fold__trigger").TextContent, StringComparison.Ordinal));
+        pane.WaitForAssertion(() => Assert.Contains("1.7M output tokens", pane.Find("[data-testid='sessions-run'] .fold__trigger").TextContent, StringComparison.Ordinal));
 
-        pane.Find(".fold__trigger").Click();
+        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
 
         pane.WaitForAssertion(() =>
         {

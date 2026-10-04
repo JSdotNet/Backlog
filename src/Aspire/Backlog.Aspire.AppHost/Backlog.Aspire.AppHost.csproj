@@ -22,6 +22,7 @@
     <PackageReference Include="Aspire.Hosting.DevTunnels" />
     <PackageReference Include="Aspire.Hosting.Foundry" />
     <PackageReference Include="Aspire.Hosting.Maui" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Extensions.Http" />

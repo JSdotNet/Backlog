@@ -9,6 +9,7 @@ using Backlog.Modules.Tasks.Features.RenameRepository;
 using Backlog.Modules.Tasks.Features.RecordTaskUsage;
 using Backlog.Modules.Tasks.Features.ReorderTasks;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
+using Backlog.Modules.Tasks.Features.SetDevbookReferences;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -23,6 +24,7 @@ internal sealed class TaskItems(
     IQueryHandler<ListTasksQuery, IReadOnlyList<TaskItemDto>> list,
     ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>> save,
     ICommandHandler<LinkTaskToIssueCommand, Result<TaskItemDto>> link,
+    ICommandHandler<SetDevbookReferencesCommand, Result<TaskItemDto>> setDevbookReferences,
     ICommandHandler<DeleteTaskCommand> delete,
     ICommandHandler<ReorderTasksCommand> reorder,
     ICommandHandler<RecordTaskUsageCommand> recordUsage,
@@ -54,6 +56,12 @@ internal sealed class TaskItems(
         string targetType,
         CancellationToken cancellationToken = default) =>
         link.Handle(new LinkTaskToIssueCommand(id, repoId, externalId, targetType), cancellationToken);
+
+    public Task<Result<TaskItemDto>> SetDevbookReferencesAsync(
+        Guid id,
+        IReadOnlyList<string> references,
+        CancellationToken cancellationToken = default) =>
+        setDevbookReferences.Handle(new SetDevbookReferencesCommand(id, references), cancellationToken);
 
     public Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default) =>
         recordUsage.Handle(new RecordTaskUsageCommand(id, action), cancellationToken);

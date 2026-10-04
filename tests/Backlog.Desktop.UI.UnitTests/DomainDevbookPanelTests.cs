@@ -377,7 +377,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // It used to have to: the record was at the top of the read view, and the
         // read view is not what is on screen while writing.
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-chapter-surface']")));
-        Assert.Single(component.FindAll(".file-view__header .devbook-record__headline select"));
+        Assert.Single(component.FindAll(".file-view__header .devbook-record__headline .status-editor__select"));
         Assert.Empty(component.FindAll("[data-testid='devbook-state-select']"));
     }
 
@@ -473,6 +473,33 @@ public sealed class DomainDevbookPanelTests : IDisposable
         component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='domain-chapter-file-compare']")));
     }
 
+    /// <summary>
+    /// A direction picked on a page's own block reaches every unit on that page at
+    /// once: the scope is rebuilt from the file after the write, and each unit's
+    /// inherit entry names the level it now inherits from.
+    /// </summary>
+    [Fact]
+    public async Task A_direction_set_on_the_context_reaches_the_units_on_the_same_page_without_reopening_it()
+    {
+        await using var harness = CreateHarness();
+        var contextPath = Path.Combine(harness.Root, ".domain", "inbox", "context.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(contextPath)!);
+        File.WriteAllText(contextPath, "# Inbox\n\n```meta\ntype: context\n```\n\n## Inbox Pane\n\n```meta\ntype: feature-flag\nkey: inbox-pane\n```\n\nThe flag.\n");
+
+        var component = harness.Render(".domain/inbox/context.md");
+        component.WaitForAssertion(() => Assert.Contains("sync report · default", UnitInheritLabel(component), StringComparison.Ordinal));
+
+        // The context states nothing but its type, which the header draws as a
+        // mark — and its headline is still there, because it takes a direction.
+        component.Find(".file-view__header select[aria-label='Sync direction']").Change("push");
+
+        component.WaitForAssertion(() => Assert.Contains("sync: push", File.ReadAllText(contextPath), StringComparison.Ordinal));
+        component.WaitForAssertion(() => Assert.Equal("sync push · from context", UnitInheritLabel(component)));
+    }
+
+    private static string UnitInheritLabel(IRenderedComponent<DomainDevbookPanel> component) =>
+        component.Find("select[aria-label='Sync direction for Inbox Pane'] option").TextContent;
+
     [Fact]
     public async Task A_chapter_changed_in_this_sitting_is_offered_a_comparison()
     {
@@ -537,8 +564,8 @@ public sealed class DomainDevbookPanelTests : IDisposable
     private static void ChangeTheChapterState(IRenderedComponent<DomainDevbookPanel> component)
     {
         component.Find("[data-testid='domain-chapter-file-edit']").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header .devbook-record__headline select")));
-        component.Find(".file-view__header .devbook-record__headline select").Change("accepted");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header .devbook-record__headline .status-editor__select")));
+        component.Find(".file-view__header .devbook-record__headline .status-editor__select").Change("accepted");
     }
 
     [Fact]
@@ -784,7 +811,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // The document's own dropdown, which is the only one on the panel: it is in
         // the file view's header, and the header is what stays on screen while the
         // body is being typed into.
-        component.Find(".file-view__header .devbook-record__headline select").Change("accepted");
+        component.Find(".file-view__header .devbook-record__headline .status-editor__select").Change("accepted");
 
         component.WaitForAssertion(
             () =>
@@ -1059,6 +1086,77 @@ public sealed class DomainDevbookPanelTests : IDisposable
     /// the test and a flake.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// A page's click demo, after the file. Paired by name and named again by a
+    /// chapter's <c>demo</c> field under the other spelling of the same folder, it
+    /// is still one demo — and the place the field names is what the frame offers
+    /// and opens. The document reaches the frame exactly as it is on disk.
+    /// </summary>
+    [Fact]
+    public async Task A_page_shows_its_demo_with_the_places_its_chapters_name()
+    {
+        await using var harness = CreateHarness();
+        var html = WriteOrdersContext(harness.Root);
+
+        var component = harness.Render(".domain/orders/features.md");
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='demo-view']")));
+        Assert.Equal(".domain/orders/features.demo.html", component.Find(".demo-view__path").TextContent.Trim());
+        Assert.Equal(["walkthrough/checkout"], component.FindAll("[data-testid='demo-view-place']").Select(place => place.TextContent.Trim()));
+        Assert.Equal("allow-scripts", component.Find("[data-testid='demo-view-frame']").GetAttribute("sandbox"));
+
+        var load = Assert.Single(harness.Context.JSInterop.Invocations["backlogDemos.load"]);
+        Assert.Equal(html.Features, load.Arguments[2]);
+    }
+
+    /// <summary>The context's own <c>demo.html</c> counts with <c>context.md</c>,
+    /// so the context view shows it on that card.</summary>
+    [Fact]
+    public async Task The_context_view_shows_the_context_s_own_demo()
+    {
+        await using var harness = CreateHarness();
+        var html = WriteOrdersContext(harness.Root);
+
+        var component = harness.Render("orders");
+
+        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("[data-testid='domain-context'] [data-testid='demo-view']").Count));
+        Assert.Contains(
+            html.Context,
+            harness.Context.JSInterop.Invocations["backlogDemos.load"].Select(load => load.Arguments[2] as string));
+        Assert.Contains(
+            ".domain/orders/demo.html",
+            component.FindAll(".demo-view__path").Select(path => path.TextContent.Trim()));
+    }
+
+    [Fact]
+    public async Task A_page_with_no_demo_shows_no_demo_frame()
+    {
+        await using var harness = CreateHarness();
+        WriteOrdersContext(harness.Root);
+
+        var component = harness.Render(ContextMapPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']")));
+
+        Assert.Empty(component.FindAll("[data-testid='demo-view']"));
+    }
+
+    /// <summary>An <c>orders</c> context with a demo of its own and one for its
+    /// features page, whose checkout chapter names a walkthrough in it.</summary>
+    private static (string Context, string Features) WriteOrdersContext(string root)
+    {
+        var folder = Path.Combine(root, ".domain", "orders");
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "context.md"), "# Orders\n\n```meta\nstatus: draft\nindex: root\ntype: context\n```\n\nOrders prose.\n");
+        File.WriteAllText(Path.Combine(folder, "features.md"),
+            "# Features\n\n```meta\nstatus: draft\ntype: features\n```\n\nWhat ordering offers.\n\n## Checkout\n\n```meta\nstatus: draft\ntype: feature\ndemo: [.devbook/domain/orders/features.demo.html#walkthrough/checkout]\n```\n\nPaying for a cart.\n");
+
+        const string context = "<!doctype html><html><body>orders context demo</body></html>";
+        const string features = "<!doctype html><html><body>orders features demo</body></html>";
+        File.WriteAllText(Path.Combine(folder, "demo.html"), context);
+        File.WriteAllText(Path.Combine(folder, "features.demo.html"), features);
+        return (context, features);
+    }
+
     private static Task OpenRemarkOnBlockTwoAsync(IRenderedComponent<DomainDevbookPanel> component) =>
         component.InvokeAsync(() => component.Find("[data-testid='markdown-comment-2']").ClickAsync(new()));
 

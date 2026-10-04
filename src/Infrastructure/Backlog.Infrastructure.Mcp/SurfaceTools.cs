@@ -125,10 +125,16 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
         string? changeKind = null,
         [Description("Optional. The host's session id, so the run and the session it ran in join by identity rather than by time.")]
         string? sessionId = null,
+        [Description("Optional. What started the run: attended when a person did, scheduled when a schedule fired it. Omitted reads as attended.")]
+        string? trigger = null,
+        [Description("Optional. The catalog name of the schedule that fired the run, e.g. devbook-pull-sweep. Scheduled runs are grouped by it.")]
+        string? schedule = null,
+        [Description("Optional. The repository the run works in, as owner/name. A scheduled run sends it.")]
+        string? repo = null,
         CancellationToken cancellationToken = default)
     {
         var started = await surface
-            .StartRunAsync(worktree, skillId, title, stages, changeKind, sessionId, cancellationToken)
+            .StartRunAsync(worktree, skillId, title, stages, changeKind, sessionId, trigger, schedule, repo, cancellationToken)
             .ConfigureAwait(false);
 
         return Projections.RunStarted(started);
@@ -276,8 +282,10 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
         string status,
         [Description("Optional. What the run delivered.")]
         string? summary = null,
+        [Description("Optional. A devbook sync sweep's verdicts: the units rows of its devbook-sync-report block, verbatim. Backlog keeps the latest verdict per chapter. Omit for a run that verified nothing.")]
+        IReadOnlyList<SyncUnitVerdictInput>? verdicts = null,
         CancellationToken cancellationToken = default) =>
-        surface.FinishRunAsync(worktree, runId, status, summary, cancellationToken);
+        surface.FinishRunAsync(worktree, runId, status, summary, Projections.Verdicts(verdicts), cancellationToken);
 
     /// <summary>Every run this machine has recorded for one worktree.</summary>
     [McpServerTool(

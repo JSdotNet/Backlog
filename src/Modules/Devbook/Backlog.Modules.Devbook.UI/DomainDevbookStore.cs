@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 
+using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.UI.Components.Devbook;
 using Backlog.UI.Components.Markdown;
@@ -163,6 +164,50 @@ public sealed class DomainDevbookStore : IDisposable
         var folderPath = location.WritablePath("Domain");
 
         DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".domain/");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// The <c>sync</c> state of every block in one document, its page, its context and the context map: where each
+    /// sits and the direction in force there, read with the blocks above it. Read
+    /// from whatever the folder resolves to, branch snapshot included — a direction
+    /// is part of what the chapter says, and only writing it needs a local folder.
+    /// </summary>
+    public Task<DevbookSyncReading> ReadSyncAsync(string? repositoryAlias, string documentPath, CancellationToken cancellationToken = default)
+    {
+        var location = source.Resolve(".domain", repositoryAlias);
+        if (!location.Available || location.FullPath is null) return Task.FromResult(DevbookSyncReading.None);
+
+        var folderPath = location.FullPath;
+        return Task.Run(() => DevbookSyncReading.Read(folderPath, DevbookFolder.Domain, documentPath), cancellationToken);
+    }
+
+    /// <summary>Set the item's <c>sync</c> direction, through the same address and
+    /// the same guard as its status. A block that may not state one is
+    /// refused.</summary>
+    public Task UpdateSyncAsync(string? repositoryAlias, string itemPath, string direction, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
+        if (string.IsNullOrWhiteSpace(direction)) throw new ArgumentException("Sync direction is required.", nameof(direction));
+
+        var folderPath = source.Resolve(".domain", repositoryAlias).WritablePath("Domain");
+
+        DevbookMarkdownSyncWriter.UpdateSync(folderPath, itemPath, ".domain/", direction);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Remove the item's <c>sync</c> field, so it inherits its direction
+    /// from the level above. A separate verb from <see cref="UpdateSyncAsync"/>
+    /// for the reason the status has one.</summary>
+    public Task ClearSyncAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
+
+        var folderPath = source.Resolve(".domain", repositoryAlias).WritablePath("Domain");
+
+        DevbookMarkdownSyncWriter.RemoveSync(folderPath, itemPath, ".domain/");
         return Task.CompletedTask;
     }
     /// <summary>
@@ -427,7 +472,37 @@ public sealed class DomainDevbookStore : IDisposable
         foreach (var link in metadata.Values.SelectMany(FindLinks)) links.Add(link);
         foreach (var link in FindLinks(string.Join('\n', intro))) links.Add(link);
 
-        return new DomainDevbookDocument(relative, title, kind, Status(metadata), metadata, Quote(intro), diagrams, sections, [.. links]);
+        return new DomainDevbookDocument(relative, title, kind, Status(metadata), metadata, Quote(intro), diagrams, sections, [.. links])
+        {
+            Demos = DemosBeside(path, relative)
+        };
+    }
+
+    /// <summary>
+    /// The demos beside a page that pair with it by name
+    /// (<see cref="DevbookReadingConvention.DemoPage"/>), spelled as the page is —
+    /// <c>.domain/ordering/features.demo.html</c> beside
+    /// <c>.domain/ordering/features.md</c>. A demo is not a document: it has no
+    /// <c>meta</c> block and no reading position, so it rides on its page rather
+    /// than taking a place in the context's list.
+    /// </summary>
+    private static IReadOnlyList<string> DemosBeside(string path, string relative)
+    {
+        var directory = Path.GetDirectoryName(path);
+        if (directory is null) return [];
+
+        string[] names;
+        try
+        {
+            names = [.. Directory.EnumerateFiles(directory, "*.html", SearchOption.TopDirectoryOnly).Select(file => Path.GetFileName(file))];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return [];
+        }
+
+        var prefix = relative[..(relative.LastIndexOf('/') + 1)];
+        return [.. DevbookReadingConvention.DemosOf(Path.GetFileName(path), names).Select(name => prefix + name)];
     }
     private static DomainDevbookSection ReadSection(string[] lines, int start, int end, string documentPath)
     {
@@ -682,6 +757,15 @@ public sealed record DomainDevbookDeployment(string? MapValue, string? ContextVa
 
 public sealed record DomainDevbookDocument(string Path, string Title, DomainDevbookDocumentKind Kind, string Status, IReadOnlyDictionary<string, string> Metadata, string Summary, IReadOnlyList<DomainDevbookDiagram> Diagrams, IReadOnlyList<DomainDevbookSection> Sections, IReadOnlyList<string> Links)
 {
+    /// <summary>The <c>*.demo.html</c> beside this page that pair with it by
+    /// name — <c>features.demo.html</c> with <c>features.md</c>, <c>demo.html</c>
+    /// with <c>context.md</c> — spelled as <see cref="Path"/> is.</summary>
+    public IReadOnlyList<string> Demos { get; init; } = [];
+
+    /// <summary>Every place the page's own <c>demo</c> field names.</summary>
+    public IReadOnlyList<DevbookDemoReference> DemoReferences =>
+        DevbookReadingConvention.DemoField(Metadata.GetValueOrDefault("demo"));
+
     public static DomainDevbookDocument Empty { get; } = new(string.Empty, string.Empty, DomainDevbookDocumentKind.Other, "none", new Dictionary<string, string>(), string.Empty, [], [], []);
     public string KindLabel => Kind switch
     {
@@ -701,7 +785,12 @@ public sealed record DomainDevbookDocument(string Path, string Title, DomainDevb
     };
 }
 
-public sealed record DomainDevbookSection(string Title, int Level, string Status, IReadOnlyDictionary<string, string> Metadata, string Excerpt, IReadOnlyList<DomainDevbookDiagram> Diagrams, IReadOnlyList<string> Links, string Anchor);
+public sealed record DomainDevbookSection(string Title, int Level, string Status, IReadOnlyDictionary<string, string> Metadata, string Excerpt, IReadOnlyList<DomainDevbookDiagram> Diagrams, IReadOnlyList<string> Links, string Anchor)
+{
+    /// <summary>Every place the chapter's <c>demo</c> field names.</summary>
+    public IReadOnlyList<DevbookDemoReference> DemoReferences =>
+        DevbookReadingConvention.DemoField(Metadata.GetValueOrDefault("demo"));
+}
 public sealed record DomainDevbookDiagram(string Title, string Kind, string Source, string Language);
 
 /// <summary>What a <c>.domain</c> file is — contract 19's file types, plus the

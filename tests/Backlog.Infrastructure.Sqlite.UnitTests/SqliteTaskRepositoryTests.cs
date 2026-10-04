@@ -162,6 +162,33 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Equal(["a1b2c3", "d4e5f6"], loaded.DependsOn);
     }
 
+    /// <summary>The Devbook references are the task's own field rather than text,
+    /// so they need a column of their own: set, replaced and cleared, each comes
+    /// back as it was written, in order.</summary>
+    [Fact]
+    public async Task Devbook_references_are_set_replaced_and_cleared()
+    {
+        var task = new TaskItem("Link the chapter", "The body.", EntryType.Task);
+        task.SetDevbookReferences([".devbook/domain/tasks/domain.md#task", ".devbook/arc42/adr/0007.md"]);
+
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal([".devbook/domain/tasks/domain.md#task", ".devbook/arc42/adr/0007.md"], loaded.DevbookReferences);
+        Assert.Equal("The body.", loaded.ContentMd);
+
+        loaded.SetDevbookReferences([".devbook/design/README.md"]);
+        await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
+        Assert.Equal(
+            [".devbook/design/README.md"],
+            (await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.DevbookReferences);
+
+        loaded.SetDevbookReferences([]);
+        await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
+        Assert.Empty((await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.DevbookReferences);
+    }
+
     /// <summary>Status is rehydrated through the constructor, so loading an
     /// in-progress row written before <c>started_on</c> existed does not invent a
     /// start date of today — there is no backfill.</summary>
@@ -729,6 +756,71 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         var again = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
 
         Assert.Equal(new Attachment("notes/"), again!.Attachment);
+    }
+
+    /// <summary>
+    /// The same contract for the Devbook references column, the latest of them: a
+    /// file written by the build before it — every column up to and including
+    /// <c>started_on</c> — opens, reads its rows with no references, and takes them
+    /// on the next save.
+    /// </summary>
+    [Fact]
+    public async Task A_database_written_before_the_devbook_references_column_still_opens_and_reads()
+    {
+        var id = Guid.NewGuid();
+        var createdAt = new DateTimeOffset(2026, 9, 1, 9, 0, 0, TimeSpan.Zero);
+
+        Directory.CreateDirectory(_root);
+
+        await using (var seed = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = _repository.DatabasePath }.ToString()))
+        {
+            await seed.OpenAsync(TestContext.Current.CancellationToken);
+
+            await using var create = seed.CreateCommand();
+            create.CommandText = """
+                CREATE TABLE tasks (
+                    id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, content_md TEXT NOT NULL DEFAULT '',
+                    type TEXT NOT NULL, status TEXT NOT NULL, priority TEXT NOT NULL,
+                    sort_order INTEGER NOT NULL DEFAULT 0, area TEXT NULL, created_at TEXT NOT NULL,
+                    source_inbox_id TEXT NULL, recurrence_source_id TEXT NULL, due_on TEXT NULL,
+                    remind_at TEXT NULL, recurrence TEXT NULL, in_my_day_on TEXT NULL, view TEXT NULL,
+                    tags TEXT NOT NULL DEFAULT '[]', repo_ids TEXT NOT NULL DEFAULT '[]',
+                    depends_on TEXT NOT NULL DEFAULT '[]', sub_items TEXT NOT NULL DEFAULT '[]',
+                    usage_events TEXT NOT NULL DEFAULT '[]', projections TEXT NOT NULL DEFAULT '[]',
+                    effort INTEGER NULL, import_plan_id TEXT NULL, import_item_id TEXT NULL,
+                    updated_at TEXT NULL, deleted_at TEXT NULL, attachment_path TEXT NULL,
+                    completed_on TEXT NULL, started_on TEXT NULL
+                );
+                """;
+            await create.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+
+            await using var insert = seed.CreateCommand();
+            insert.CommandText = """
+                INSERT INTO tasks (id, title, type, status, priority, created_at, updated_at)
+                VALUES ($id, $title, 'task', 'ready', 'high', $created_at, $created_at);
+                """;
+            insert.Parameters.AddWithValue("$id", id.ToString());
+            insert.Parameters.AddWithValue("$title", "Written before Devbook references existed");
+            insert.Parameters.AddWithValue(
+                "$created_at",
+                createdAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            await insert.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        var loaded = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal("Written before Devbook references existed", loaded.Title);
+        Assert.Empty(loaded.DevbookReferences);
+
+        loaded.SetDevbookReferences([".devbook/domain/tasks/domain.md#task"]);
+        await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
+        var again = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
+
+        Assert.Equal([".devbook/domain/tasks/domain.md#task"], again!.DevbookReferences);
     }
 
     /// <summary>

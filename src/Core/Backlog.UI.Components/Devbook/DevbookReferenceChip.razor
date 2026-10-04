@@ -1,0 +1,171 @@
+@*
+    A Devbook page or chapter something else holds — a task pointing at the chapter
+    it is about — drawn as a chip.
+
+    Not DevbookReferenceLink. That one is a reference inside a chapter's own record,
+    where the address is the content and a link is all it should look like. Here the
+    reference is a thing the holder chose and can drop again, so it carries two acts
+    (open it, remove it) and two facts a reader decides on at a glance: whether the
+    chapter is still current, which is the status badge the record's own headline
+    wears, and whether the reference still names anything at all.
+
+    Broken is said three ways and never by colour alone: the dashed edge, a mark
+    with the reason as its accessible name, and the reason again after the raw
+    reference in the label's tooltip. The raw reference is the tooltip in every
+    state, so the stored text is never further away than a hover.
+
+    The accessible names carry more than the visible text. Several pages share a
+    title — more than one is called "Tasks" — so a name made of the title alone
+    gave a row of chips identical names, "Open Tasks in the Devbook" twice over.
+    Each name therefore says where the reference lies: the reference as stored,
+    anchor included, without the `.devbook/` every one of them starts with, in
+    brackets after the title. The anchor is part of it because a page and a
+    heading on that page can share a title and a page. The visible text stays the
+    title alone. And both names carry the problem of a broken one after them, as
+    the tooltip does: the mark beside it has the reason as its own name, but the
+    label and the remove button are the controls a keyboard user lands on, so a
+    name without it would let them tab past a reference that names nothing and
+    never hear so.
+
+    The title is the host's to supply — only something that read the devbook knows
+    a heading's words — and with none the reference's own short label stands in.
+    The folder the status is judged against is read off the reference itself, the
+    way DevbookReference already reads it, so a host cannot hand in a second
+    opinion about where the chapter lives.
+*@
+
+@if (Parsed is { } reference)
+{
+    <span class="@ClassValue"
+          data-testid="@TestId"
+          data-reference="@Reference"
+          @attributes="AdditionalAttributes">
+        @if (OnOpen.HasDelegate)
+        {
+            <button type="button"
+                    class="devbook-chip__label"
+                    title="@Tooltip"
+                    aria-label="@OpenName"
+                    disabled="@Disabled"
+                    @onclick="OpenAsync">@Text</button>
+        }
+        else
+        {
+            <span class="devbook-chip__label" title="@Tooltip">@Text</span>
+        }
+
+        <DevbookStatusPill Status="@Status" Folder="@reference.Folder" CssClass="devbook-chip__badge" />
+
+        @if (Broken)
+        {
+            @* A mark rather than a word, beside the label, because the label is the
+               title and a chip reading "Task (broken)" would put the problem in the
+               place a reader looks for the name. role="img" is what gives the mark
+               a name of its own. *@
+            <span class="devbook-chip__broken" role="img" aria-label="@ProblemText" title="@ProblemText">!</span>
+        }
+
+        @if (OnRemove.HasDelegate)
+        {
+            <IconButton AriaLabel="@RemoveName"
+                        BaseClass="devbook-chip__remove"
+                        Disabled="@Disabled"
+                        OnClick="RemoveAsync">&#215;</IconButton>
+        }
+    </span>
+}
+
+@code {
+    /// <summary>The reference as it is stored: <c>path</c> or <c>path#anchor</c>.
+    /// Nothing is drawn for a blank one.</summary>
+    [Parameter, EditorRequired]
+    public string Reference { get; set; } = string.Empty;
+
+    /// <summary>What the reference reads as — the heading's text, or the page's
+    /// title. Null falls back to <see cref="DevbookReference.Label"/>.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>The chapter's <c>meta</c> status, judged against the folder the
+    /// reference lies in. Null draws no badge: a page has none, and a reference
+    /// nobody could read has none to report.</summary>
+    [Parameter]
+    public string? Status { get; set; }
+
+    /// <summary>Whether the reference names something that is not there.</summary>
+    [Parameter]
+    public bool Broken { get; set; }
+
+    /// <summary>Why it is broken, in a sentence. Read only while
+    /// <see cref="Broken"/> is set.</summary>
+    [Parameter]
+    public string? Problem { get; set; }
+
+    /// <summary>Raised with <see cref="Reference"/> when the label is pressed. With
+    /// no handler the label is text, not a control that would have to refuse the
+    /// click.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpen { get; set; }
+
+    /// <summary>Raised with <see cref="Reference"/> when the remove control is
+    /// pressed. With no handler there is no remove control.</summary>
+    [Parameter]
+    public EventCallback<string> OnRemove { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private DevbookReference? Parsed => DevbookReference.Parse(Reference);
+
+    private string Text => string.IsNullOrWhiteSpace(Title) ? Parsed?.Label ?? Reference : Title;
+
+    private string ProblemText => string.IsNullOrWhiteSpace(Problem) ? "This reference names nothing in the Devbook." : Problem;
+
+    private string Tooltip => Broken ? $"{Reference} — {ProblemText}" : Reference;
+
+    /// <summary>Where the reference points, anchor included, without the
+    /// <c>.devbook/</c> every one of them shares — the part that tells two equal
+    /// titles apart.</summary>
+    private string Location
+    {
+        get
+        {
+            var raw = Parsed?.Raw ?? Reference;
+            return raw.StartsWith(DevbookPrefix, StringComparison.Ordinal) ? raw[DevbookPrefix.Length..] : raw;
+        }
+    }
+
+    private const string DevbookPrefix = ".devbook/";
+
+    /// <summary>The visible text and, when it says something the text does not,
+    /// the location after it.</summary>
+    private string NamedText => string.Equals(Text, Location, StringComparison.Ordinal) ? Text : $"{Text} ({Location})";
+
+    private string OpenName => WithProblem($"Open {NamedText} in the Devbook");
+
+    private string RemoveName => WithProblem($"Remove {NamedText}");
+
+    private string WithProblem(string name) => Broken ? $"{name} — {ProblemText}" : name;
+
+    private string ClassValue
+    {
+        get
+        {
+            var classes = Broken ? "devbook-chip devbook-chip--broken" : "devbook-chip";
+            return string.IsNullOrWhiteSpace(CssClass) ? classes : $"{classes} {CssClass}";
+        }
+    }
+
+    private Task OpenAsync() => OnOpen.InvokeAsync(Reference);
+
+    private Task RemoveAsync() => OnRemove.InvokeAsync(Reference);
+}
