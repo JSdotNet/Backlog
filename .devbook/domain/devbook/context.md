@@ -28,22 +28,10 @@ status: draft
 type: feature-flag
 key: repository-devbook
 default: on
-related: [".devbook/domain/devbook/features.md#repository-devbook-areas"]
+related: [".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/devbook/features.md#area-selection-and-scope"]
 ```
 
-Turning it on shows the Devbook side pane for the selected repository; the Shell reads it to decide whether to offer the pane at all. Released and on by default. It replaced `repository-knowledge`, which the catalog still reads so a `features.json` written before the rename keeps its choice. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices.
-
-## Devbook sections
-
-```meta
-status: draft
-type: feature-flag
-key: devbook-sections
-default: on
-related: [".devbook/domain/devbook/features.md#area-selection-and-scope"]
-```
-
-Turning it on shows the design, architecture, domain, technology, AI adoption, and instruction sections in the Devbook pane and its header. This context's own scope service reads it. Released and on by default, and it replaced `knowledge-sections` the same way the pane's key replaced its former one. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices.
+Turning it on shows the Devbook side pane for the selected repository, with its design, architecture, domain, technology, AI adoption, and instruction sections; the Shell reads it to decide whether to offer the pane at all, and this context's own scope service reads it to decide which sections to show. Released and on by default. It absorbed `devbook-sections`, which switched the sections separately and left an empty pane when turned off alone, and it replaced `repository-knowledge`. The catalog still reads all three former keys, `knowledge-sections` among them, so a `features.json` that turned either switch off keeps Devbook off. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices.
 
 ## Instruction optimization
 

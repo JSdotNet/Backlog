@@ -323,7 +323,7 @@ public sealed class DevbookFolderChangeRefreshTests
     /// <summary>
     /// One handler and no more. The pane has two collaborators standing between it
     /// and the folder source, and subscribing to a forwarder on each of them would
-    /// reload the menu twice for one folder change. Counted with the sections
+    /// reload the menu twice for one folder change. Counted with Devbook
     /// turned off, because a pane with sections in it holds the subscriptions of
     /// the panels it renders as well as its own.
     /// </summary>
@@ -331,7 +331,7 @@ public sealed class DevbookFolderChangeRefreshTests
     public void Devbook_pane_attaches_one_handler_to_the_folder_source()
     {
         using var workspace = DevbookWorkspace.Create();
-        Assert.Null(workspace.Features.SetEnabled(DevbookFeatures.DevbookSections, false));
+        Assert.Null(workspace.Features.SetEnabled(DevbookFeatures.RepositoryDevbook, false));
         var source = new CountingDevbookFolderSource(workspace.Folders);
         using var context = workspace.CreateBunitContext(source);
 
@@ -495,7 +495,6 @@ internal sealed class DevbookWorkspace : IDisposable
         Folders = new DevbookFolderSource(RepositorySettings, WorkspaceSettings);
 
         Features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        Assert.Null(Features.SetEnabled(DevbookFeatures.DevbookSections, true));
         Assert.Null(Features.SetEnabled(DevbookFeatures.RepositoryDevbook, true));
     }
 
@@ -529,7 +528,7 @@ internal sealed class DevbookWorkspace : IDisposable
         Assert.Null(RepositorySettings.SetDevbookFolder(Alias, key, enabled, null));
 
     /// <summary>The feature settings the pane's scope is gated on, so a test can
-    /// take the Devbook sections away and leave the pane with no panels of its
+    /// take Devbook away and leave the pane with no panels of its
     /// own inside it.</summary>
     public AppFeatureSettingsStore Features { get; }
 

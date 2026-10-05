@@ -271,7 +271,6 @@ public sealed class HomeInboxWiringTests
         _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, false);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, false);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, false);
-        _ = featureSettings.SetEnabled(DevbookFeatures.DevbookSections, false);
         _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
         _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);

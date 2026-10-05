@@ -76,18 +76,15 @@ public static class AppFeatures
         new(TasksFeatures.Tasks, "Tasks", "Create, edit, filter, reorder, and store tasks.", AlwaysEnabled: true),
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false, Status: AppFeatureStatus.Dev),
         new(RoadmapFeatures.Roadmap, "Roadmap band", "Show the roadmap band above the panes in the Home shell."),
-        // The four devbook keys carried the context's former name; the former keys
+        // The devbook keys carried the context's former name; the former keys
         // keep a features.json written before the rename reading as it did.
-        new(
-            DevbookFeatures.DevbookSections,
-            "Devbook sections",
-            "Show design, architecture, domain, technology, and instruction sections in the Devbook pane and header.",
-            FormerKeys: ["knowledge-sections"]),
+        // Devbook also absorbed the separate Devbook sections switch, so a
+        // choice to turn either off still reads as Devbook off.
         new(
             DevbookFeatures.RepositoryDevbook,
             "Devbook",
-            "Show the Devbook side pane for the selected repository.",
-            FormerKeys: ["repository-knowledge"]),
+            "Show the Devbook side pane for the selected repository, with its design, architecture, domain, technology, and instruction sections.",
+            FormerKeys: ["repository-knowledge", "devbook-sections", "knowledge-sections"]),
         new(
             DevbookFeatures.ArchifyDiagrams,
             "Archify diagrams",

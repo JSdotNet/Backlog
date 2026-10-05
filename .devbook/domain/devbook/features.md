@@ -95,7 +95,7 @@ screen.
 ```meta
 type: sub-feature
 status: draft
-feature-flag: .devbook/domain/devbook/context.md#devbook-sections
+feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 ```
 
 Switch between areas, and between repositories when more than one is registered,
