@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
-using Backlog.UI.Components.Devbook;
+using Backlog.SharedKernel.Devbook;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 

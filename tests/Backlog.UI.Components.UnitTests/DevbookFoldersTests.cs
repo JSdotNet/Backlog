@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Devbook;
+using Backlog.SharedKernel.Devbook;
 
 namespace Backlog.UI.Components.UnitTests;
 

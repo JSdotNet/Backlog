@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Backlog.UI.Components.Markdown;
+namespace Backlog.SharedKernel.Markdown;
 
 /// <summary>
 /// Turns a markdown body into a small block/inline tree for the read view — what

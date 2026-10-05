@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Markdown;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.UI.Components.Compare;
 

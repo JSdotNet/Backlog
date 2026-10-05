@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Devbook;
+using Backlog.SharedKernel.Devbook;
 using System.Text;
 using System.Text.RegularExpressions;
 

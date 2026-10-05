@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using Backlog.SharedKernel.Devbook;
 using Backlog.UI.Components.Devbook;
 
 namespace Backlog.Desktop.UI.UnitTests;

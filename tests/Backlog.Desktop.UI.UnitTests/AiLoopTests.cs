@@ -1,6 +1,6 @@
 using Backlog.Desktop.UI.Devbook;
-using Backlog.UI.Components.Devbook;
-using Backlog.UI.Components.Metadata;
+using Backlog.SharedKernel.Devbook;
+using Backlog.SharedKernel.Metadata;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

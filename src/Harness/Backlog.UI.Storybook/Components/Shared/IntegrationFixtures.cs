@@ -1,4 +1,5 @@
 ﻿using Backlog.UI.Components.Integrations;
+using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Markdown;
 
 namespace Backlog.UI.Storybook.Components.Shared;

@@ -11,6 +11,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- MarkdownPreview, MetadataReader and the devbook schema they read against:
+         the parsers whose model the views render. They live in the kernel so an
+         adapter can parse a chapter without taking this library. -->
+    <ProjectReference Include="..\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The markdown parser moved here together with the view that renders it, and
          it is still worth testing directly rather than only through a component. -->
     <InternalsVisibleTo Include="Backlog.UI.Components.UnitTests" />

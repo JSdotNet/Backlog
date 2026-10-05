@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 
 using Backlog.Infrastructure.Devbook;
-using Backlog.UI.Components.Markdown;
+using Backlog.SharedKernel.Markdown;
 
 using Backlog.Modules.Devbook.Abstractions;
 
@@ -111,7 +111,7 @@ public sealed class Arc42DevbookStore : IDisposable
         if (!location.Available || location.FullPath is null) return Task.FromResult(DevbookSyncReading.None);
 
         var folderPath = location.FullPath;
-        return Task.Run(() => DevbookSyncReading.Read(folderPath, Backlog.UI.Components.Devbook.DevbookFolder.Arc42, documentPath), cancellationToken);
+        return Task.Run(() => DevbookSyncReading.Read(folderPath, Backlog.SharedKernel.Devbook.DevbookFolder.Arc42, documentPath), cancellationToken);
     }
 
     /// <summary>Set the item's <c>sync</c> direction, through the same address and

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.UI.Components.Markdown;
 

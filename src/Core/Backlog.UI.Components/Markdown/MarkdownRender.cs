@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.UI.Components.Markdown;
 

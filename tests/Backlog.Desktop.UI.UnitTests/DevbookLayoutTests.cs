@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.GitHub;
-using Backlog.UI.Components.Devbook;
+using Backlog.SharedKernel.Devbook;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
