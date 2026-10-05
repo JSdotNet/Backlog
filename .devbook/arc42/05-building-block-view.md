@@ -157,7 +157,7 @@ flowchart TB
 ## Desktop App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
+related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md"]
 ```
 
 Local-first Windows client. Serves Capture, Inbox, Tasks, Roadmap Planning, Devbook, Monitoring, Technology Stack, Dev PC Management, Sessions, and Repository Management. It runs in two seamless modes,
@@ -165,69 +165,111 @@ Local-first Windows client. Serves Capture, Inbox, Tasks, Roadmap Planning, Devb
 
 ```mermaid
 graph TB
-  subgraph "Desktop App"
-    UI["UI Layer\n(.NET MAUI Blazor Hybrid)"]
+  McpCallers["MCP clients\n(agents, IDE extensions)"]
 
-    subgraph "Core Services"
-      Inbox["Inbox Service\n(capture, triage)"]
-      Backlog["Backlog Service\n(browse, edit, route)"]
-      Devbook["Devbook Service\n(organize, link)"]
-      Monitoring["Monitoring Service\n(signals, dashboards)"]
+  subgraph "Desktop App (Backlog.Desktop)"
+    Shell["Shell UI — Backlog.Desktop.UI\n(.NET MAUI Blazor Hybrid, Ask AI panel)"]
+
+    subgraph "Module UIs"
+      TasksUI["Backlog.Modules.Tasks.UI"]
+      InboxUI["Backlog.Modules.Inbox.UI"]
+      RoadmapUI["Backlog.Modules.Roadmap.UI"]
+      DevbookUI["Backlog.Modules.Devbook.UI"]
+      DashboardUI["Backlog.Modules.Dashboard.UI"]
+      CaptureUI["Backlog.Modules.Capture.UI"]
+      ToolsUI["Backlog.Modules.DevPc.UI\n(Tools)"]
+      SessionsUI["Backlog.Modules.Sessions.UI"]
     end
 
-    subgraph "Local Fetch Workers"
-      YTWorker["YouTube Fetcher\n(poll subscriptions)"]
-      WebWorker["Website Monitor\n(RSS, DOM diff)"]
-      EmailWorker["Email Fetcher\n(IMAP polling)"]
-      GitHubWorker["GitHub Sync\n(gh CLI / API)"]
-      StaleWorker["Stale Detection\n(flag old items)"]
+    subgraph "Modules"
+      Tasks["Backlog.Modules.Tasks"]
+      Inbox["Backlog.Modules.Inbox"]
+      Roadmap["Backlog.Modules.Roadmap"]
+      Dashboard["Backlog.Modules.Dashboard"]
+      Capture["Backlog.Modules.Capture"]
     end
 
-    subgraph "Infrastructure"
-      LocalStore["Local Storage\n(Markdown files)"]
-      JsonIndex["JSON Indexes\n(metadata, search)"]
-      SyncClient["Sync Client\n(optional)"]
+    subgraph "Background workers"
+      SyncWorkers["TaskSyncWorker, SessionSyncWorker,\nAnnotationSyncWorker"]
+      BackupWorker["BackupWorker"]
+      McpWorker["McpServerWorker"]
+    end
+
+    subgraph "Adapters (Backlog.Infrastructure.*)"
+      Sqlite["Infrastructure.Sqlite\n(backlog.db: tasks, roadmap,\ninbox_items, inbox_lists, inbox_groups)"]
+      FileSystem["Infrastructure.FileSystem\n(InboxBacklogTarget, backups)"]
+      DevbookInfra["Infrastructure.Devbook\n(devbook database in app storage)"]
+      SyncClient["Infrastructure.Sync\n(Sync Client, optional)"]
+      Mcp["Infrastructure.Mcp\n(MCP server, loopback only)"]
+      CaptureInfra["Infrastructure.Capture\n(YouTube, Website / Feeds, Import\n→ InboxCaptureDelivery)"]
+      Foundry["Infrastructure.AzureFoundry\n(IInboxPlanDrafter, Ask AI)"]
+      Claude["Infrastructure.Claude"]
+      Copilot["Infrastructure.Copilot"]
+      GitHubInfra["Infrastructure.GitHub"]
+      DevPcInfra["Infrastructure.DevPc"]
+      SessionsInfra["Infrastructure.Sessions"]
     end
   end
 
   SyncAPI["Cloud Sync API\n(optional)"]
   GitHub["GitHub API"]
-  YouTube["YouTube API"]
-  Websites["Websites / RSS"]
-  Email["Email (IMAP)"]
-  AppInsights["Application Insights"]
+  Sources["YouTube, websites / feeds,\nimport manifests"]
+  FoundryApi["Azure AI Foundry"]
 
-  UI --> Inbox
-  UI --> Backlog
-  UI --> Devbook
-  UI --> Monitoring
+  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & DashboardUI & CaptureUI & ToolsUI & SessionsUI
+  Shell --> Foundry & Claude & GitHubInfra & FileSystem & SyncClient & Mcp
 
-  Inbox --> LocalStore
-  Backlog --> LocalStore
-  Devbook --> LocalStore
-  Monitoring --> LocalStore
+  TasksUI -->|Abstractions| Tasks
+  InboxUI -->|Abstractions| Inbox
+  RoadmapUI -->|Abstractions| Roadmap
+  DashboardUI -->|Abstractions| Dashboard
+  CaptureUI -->|Abstractions| Capture
+  ToolsUI -->|DevPc.Abstractions| DevPcInfra
+  SessionsUI -->|Sessions.Abstractions| SessionsInfra
 
-  Inbox --> JsonIndex
-  Backlog --> JsonIndex
-  Devbook --> JsonIndex
+  TasksUI --> Copilot & GitHubInfra
+  RoadmapUI --> GitHubInfra
+  DevbookUI --> DevbookInfra & Copilot & GitHubInfra
 
-  YTWorker --> YouTube
-  WebWorker --> Websites
-  EmailWorker --> Email
-  GitHubWorker --> GitHub
+  Tasks --> Sqlite
+  Roadmap --> Sqlite
+  Inbox --> Sqlite
+  Inbox -->|IInboxBacklogTarget| FileSystem
+  FileSystem -->|ITaskItems| Tasks
+  Inbox -->|IInboxPlanDrafter| Foundry
+  Claude -->|Dashboard.Abstractions| Dashboard
 
-  YTWorker --> Inbox
-  WebWorker --> Inbox
-  EmailWorker --> Inbox
-  GitHubWorker --> Backlog
+  Capture -->|ICaptureDelivery| CaptureInfra
+  CaptureInfra --> Sources
+  CaptureInfra -->|IInboxIntake| Inbox
 
-  SyncClient -.->|push state| SyncAPI
-  SyncAPI -.->|webhook events| SyncClient
-  Monitoring --> AppInsights
+  SyncWorkers --> SyncClient
+  SyncClient -->|captures via IInboxIntake| Inbox
+  SyncClient -.->|push / pull| SyncAPI
+  BackupWorker --> FileSystem
+
+  McpCallers -->|HTTP on 127.0.0.1 / ::1| Mcp
+  McpWorker --> Mcp
+  Mcp --> Tasks & Roadmap & DevbookInfra & SessionsInfra
+
+  GitHubInfra --> GitHub
+  Foundry --> FoundryApi
 ```
 
-Local fetch workers keep external credentials on the machine, work offline (queuing
-fetches), and give the user full control over frequency and retry behavior.
+Capture sources and background workers run inside the desktop process, so external
+credentials stay on the machine. `MauiProgram` starts the sync, backup and MCP
+workers at launch.
+
+**MCP server** is `Backlog.Infrastructure.Mcp`, hosted by `McpServerWorker` on its
+own Kestrel listener bound to `127.0.0.1` and `::1` and never to a wildcard address
+(local ADR 0012). Agents and IDE extensions on the same machine reach Tasks, Roadmap,
+Devbook and Sessions through it; `McpServerRegistrationTests` holds the binding.
+
+Module UI projects reference adapters directly where a pane needs one: Tasks.UI and
+Devbook.UI reference Copilot and GitHub, Roadmap.UI references GitHub, and Devbook.UI
+references `Backlog.Infrastructure.Devbook`, whose database lives in app storage
+(local ADR 0015). `ModuleBoundaryTests` permits a module UI to take an adapter and
+forbids it another module's implementation.
 
 **Inbox Service** is `Backlog.Modules.Inbox` since 2026-09-15 — a module with its
 own `Abstractions` project and its own tables in `backlog.db` (`inbox_items`,
