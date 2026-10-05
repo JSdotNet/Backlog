@@ -97,6 +97,8 @@
                                  LabelledBy="roadmap-band-title"
                                  ShowSteps="false"
                                  Collapsible="true"
+                                 CollapsedGroups="@ViewPreferences.CollapsedGroups"
+                                 OnCollapsedChanged="ViewPreferences.SetCollapsedGroups"
                                  SelectedId="@_selectedId"
                                  OnBarSelected="Select"
                                  OnBarChanged="Apply"

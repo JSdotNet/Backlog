@@ -27,7 +27,8 @@ namespace Backlog.Infrastructure.FileSystem;
 /// <para>
 /// The roadmap's Hours switch rides here too (local ADR 0019, §4): it is how the
 /// reader last had the roadmap drawn, it belongs to this device, and sync never
-/// carries it. Roadmap reads it through its own port, answered over this store.
+/// carries it. Roadmap reads it through its own port, answered over this store. The
+/// bands the reader folded to one lane are the same kind of choice and ride beside it.
 /// </para>
 /// </summary>
 public sealed class ShellNavigationStore
@@ -71,6 +72,7 @@ public sealed class ShellNavigationStore
         LastSurface = dto?.LastSurface;
         LastEnabledPanes = dto?.LastEnabledPanes ?? Empty;
         RoadmapHoursShown = dto?.RoadmapHoursShown ?? true;
+        RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -89,6 +91,10 @@ public sealed class ShellNavigationStore
     /// <summary>Whether the roadmap's day and week heads carry their hours line: on until
     /// the reader turns the Hours switch off on this device.</summary>
     public bool RoadmapHoursShown { get; private set; }
+
+    /// <summary>The roadmap bands, by group id, the reader folded to one lane on this
+    /// device. Empty until one is folded.</summary>
+    public IReadOnlyList<string> RoadmapCollapsedGroups { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
@@ -117,6 +123,15 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetRoadmapCollapsedGroups(IReadOnlyCollection<string> collapsed)
+    {
+        string[] sorted = [.. collapsed.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+        if (sorted.SequenceEqual(RoadmapCollapsedGroups)) return;
+
+        RoadmapCollapsedGroups = sorted;
+        Save();
+    }
+
     private void Save()
     {
         try
@@ -126,7 +141,9 @@ public sealed class ShellNavigationStore
                 LastSurface = LastSurface,
                 LastEnabledPanes = [.. LastEnabledPanes],
                 // Left out while on, so a file from before the switch keeps its shape.
-                RoadmapHoursShown = RoadmapHoursShown ? null : false
+                RoadmapHoursShown = RoadmapHoursShown ? null : false,
+                // Likewise left out while no band is folded.
+                RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups]
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -165,5 +182,8 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? RoadmapHoursShown { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string[]? RoadmapCollapsedGroups { get; init; }
     }
 }
