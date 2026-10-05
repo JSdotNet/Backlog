@@ -670,10 +670,15 @@ from the session's own `Session State`.
 
 ```meta
 type: feature
+feature-flag: .devbook/domain/sessions/context.md#sessions-area
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_the_sessions_feature_off_there_is_no_segment_and_no_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_remembered_sessions_surface_falls_back_to_the_workspace_when_its_feature_is_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Opening_a_session_from_a_task_with_sessions_switched_off_says_so_and_stays, unit:dotnet:Backlog.HostComposition.UnitTests.McpEndpointGateTests.The_delivery_surface_is_absent_while_its_feature_is_off, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentActivityHoursWorkedSourceTests.With_the_sessions_area_switched_off_the_hours_are_not_read, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapActualHoursTests.With_the_sessions_area_switched_off_the_hours_are_not_read]
 ```
 
 The whole area can be switched off, and when it is there is no way in and nothing to
-find — not a disabled control and not an empty surface.
+find — not a disabled control and not an empty surface. Nothing else reads the
+sessions either: the `list_sessions` tool and the eight delivery-surface operations
+leave the MCP endpoint, and the dashboard's hours worked and the roadmap's actual
+hours stop reading agent activity.
 
 One switch for the area rather than one per column or per grouping, because "should
 this product show me sessions at all" is a single question.
