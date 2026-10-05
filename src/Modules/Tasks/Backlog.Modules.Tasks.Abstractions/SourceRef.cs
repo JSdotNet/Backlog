@@ -36,6 +36,7 @@ namespace Backlog.Modules.Tasks.Abstractions;
 public sealed record SourceRef
 {
     private readonly IReadOnlyList<string> _flags = [];
+    private readonly IReadOnlyList<string> _waitsOn = [];
     private readonly string? _blockedReason;
 
     public SourceRef(
@@ -140,17 +141,37 @@ public sealed record SourceRef
         init => _blockedReason = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
+    /// <summary>
+    /// The external ids of the items the source says this one waits on, as the
+    /// last sync saw them — trimmed, de-duplicated and in ordinal order, so they
+    /// compare as a set; empty on a reference written before this was kept.
+    /// <para>
+    /// The source's word, overwritten on every sync. It is also how the sync tells
+    /// the dependencies it gave the task from the ones the person added: a waits-on
+    /// recorded here that the source no longer names is taken off the task, and
+    /// nothing else is.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string> WaitsOn
+    {
+        get => _waitsOn;
+        init => _waitsOn = Normalise(value);
+    }
+
     /// <summary>The Backlog-owned sync flags, trimmed, de-duplicated and in
     /// ordinal order, so two equal sets are two equal lists.</summary>
     public IReadOnlyList<string> Flags
     {
         get => _flags;
-        init => _flags = [.. (value ?? [])
-            .Select(flag => (flag ?? string.Empty).Trim())
-            .Where(flag => flag.Length > 0)
+        init => _flags = Normalise(value);
+    }
+
+    private static IReadOnlyList<string> Normalise(IEnumerable<string>? values) =>
+        [.. (values ?? [])
+            .Select(value => (value ?? string.Empty).Trim())
+            .Where(value => value.Length > 0)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)];
-    }
 
     /// <summary>Whether the reference carries <paramref name="flag"/>.</summary>
     public bool HasFlag(string flag) => _flags.Contains(flag, StringComparer.Ordinal);
@@ -177,7 +198,8 @@ public sealed record SourceRef
         && string.Equals(SourceTitle, other.SourceTitle, StringComparison.Ordinal)
         && Blocked == other.Blocked
         && string.Equals(BlockedReason, other.BlockedReason, StringComparison.Ordinal)
-        && _flags.SequenceEqual(other._flags, StringComparer.Ordinal);
+        && _flags.SequenceEqual(other._flags, StringComparer.Ordinal)
+        && _waitsOn.SequenceEqual(other._waitsOn, StringComparer.Ordinal);
 
     public override int GetHashCode()
     {
@@ -190,6 +212,7 @@ public sealed record SourceRef
         hash.Add(SourceTitle, StringComparer.Ordinal);
         hash.Add(Blocked);
         foreach (var flag in _flags) hash.Add(flag, StringComparer.Ordinal);
+        foreach (var id in _waitsOn) hash.Add(id, StringComparer.Ordinal);
         return hash.ToHashCode();
     }
 }

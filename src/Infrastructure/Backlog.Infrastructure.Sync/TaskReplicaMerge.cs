@@ -307,7 +307,8 @@ public sealed class TaskReplicaMerge(
                     source.NormalisedState is { } state ? NormalisedSourceStates.ToWire(state) : null,
                     source.SourceTitle,
                     source.Blocked ? true : null,
-                    source.BlockedReason)
+                    source.BlockedReason,
+                    source.WaitsOn.Count == 0 ? null : [.. source.WaitsOn])
                 : null);
     }
 
@@ -335,6 +336,7 @@ public sealed class TaskReplicaMerge(
             {
                 Blocked = payload.Blocked == true,
                 BlockedReason = payload.BlockedReason,
+                WaitsOn = payload.WaitsOn ?? [],
             };
 
     /// <summary>

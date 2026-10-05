@@ -52,7 +52,8 @@ internal static class TaskPayloads
                     sourceRef.NormalisedState is { } state ? NormalisedSourceStates.ToWire(state) : null,
                     sourceRef.SourceTitle,
                     sourceRef.Blocked ? true : null,
-                    sourceRef.BlockedReason),
+                    sourceRef.BlockedReason,
+                    sourceRef.WaitsOn.Count == 0 ? null : [.. sourceRef.WaitsOn]),
                 Options);
 
     /// <summary>Reads the <c>source_ref</c> column back. A value that does not parse,
@@ -95,6 +96,7 @@ internal static class TaskPayloads
         {
             Blocked = payload.Blocked == true,
             BlockedReason = payload.BlockedReason,
+            WaitsOn = payload.WaitsOn ?? [],
         };
     }
 }
@@ -118,4 +120,5 @@ internal sealed record SourceRefPayload(
     string? NormalisedState = null,
     string? SourceTitle = null,
     bool? Blocked = null,
-    string? BlockedReason = null);
+    string? BlockedReason = null,
+    List<string>? WaitsOn = null);

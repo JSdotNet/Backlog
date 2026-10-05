@@ -20,7 +20,13 @@ namespace Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 /// where the person put it (ADR 0020 §4, as amended at implementation). The task's
 /// blocked mark follows the source's blocked moves on the same terms, and the
 /// item's devbook references are added to the task's on every sync and never taken
-/// away. The item's <see cref="SourceItem.WaitsOn"/> is not read yet.
+/// away. What the item waits on becomes the task's <c>after:</c> dependencies when
+/// both ends are linked tasks, and follows the source from then on.
+/// </para>
+/// <para>
+/// A <c>+</c> label gives the task its plan tag and files it under that plan, so the
+/// plan shows on the roadmap's shelf. The sync reaches no Roadmap port and never
+/// creates a Roadmap Item (ADR 0020, §6; ADR 0013, ruling 3).
 /// </para>
 /// <para>
 /// <c>.devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md</c> is the
@@ -33,7 +39,7 @@ public sealed record SyncLinkedTasksCommand(string ConnectorId, string Target);
 /// <summary>What one sync did, counted per task.</summary>
 /// <param name="Created">Items that became a task.</param>
 /// <param name="Updated">Tasks a source field, the status, the blocked mark, a
-/// devbook reference or a flag changed on.</param>
+/// devbook reference, a dependency, the plan or a flag changed on.</param>
 /// <param name="Unchanged">Tasks the sync read and left alone.</param>
 /// <param name="SkippedTombstoned">Items whose task the person deleted; never made
 /// again.</param>
@@ -114,6 +120,7 @@ public sealed class SyncLinkedTasksCommandHandler(
         var connectorId = connector.Descriptor.Id;
         var today = DateOnly.FromDateTime(time.GetLocalNow().DateTime);
         var seen = new HashSet<Guid>();
+        var synced = new List<Synced>();
         int created = 0, updated = 0, unchanged = 0, tombstoned = 0, untouched = 0, vanished = 0;
 
         foreach (var item in items)
@@ -141,17 +148,34 @@ public sealed class SyncLinkedTasksCommandHandler(
                     continue;
                 }
 
-                await tasks.SaveAsync(Create(id, connectorId, target, item, fetchStartedAt, today, FinishedOn(item, today)), cancellationToken);
-                created++;
+                synced.Add(new Synced(Create(id, connectorId, target, item, fetchStartedAt, today, FinishedOn(item, today)), [], IsNew: true, Changed: true));
                 continue;
             }
+
+            var heldWaitsOn = existing.SourceRef?.WaitsOn ?? [];
+            var changed = Update(existing, connectorId, target, item, today, FinishedOn(item, today));
+            synced.Add(new Synced(existing, heldWaitsOn, IsNew: false, changed));
+        }
+
+        // Dependencies after every item has its task, so an item that waits on one
+        // later in the same fetch still finds it linked.
+        var linkedHere = synced.Select(entry => entry.Task.Id).ToHashSet();
+
+        foreach (var entry in synced)
+        {
+            var dependenciesChanged = await FollowWaitsOnAsync(entry, connectorId, linkedHere, cancellationToken);
 
             // A quiet sync stays quiet: a task nothing changed on is not saved, so its
             // UpdatedAt does not move and an idle machine never wins last-write-wins
             // over a real edit made elsewhere (ADR 0020, §5).
-            if (Update(existing, connectorId, target, item, today, FinishedOn(item, today)))
+            if (entry.IsNew)
             {
-                await tasks.SaveAsync(existing, cancellationToken);
+                await tasks.SaveAsync(entry.Task, cancellationToken);
+                created++;
+            }
+            else if (entry.Changed || dependenciesChanged)
+            {
+                await tasks.SaveAsync(entry.Task, cancellationToken);
                 updated++;
             }
             else
@@ -310,6 +334,10 @@ public sealed class SyncLinkedTasksCommandHandler(
             sourceInboxId: null,
             createdAt);
 
+        // Filed under its plan tag, which is what the roadmap's shelf groups by: the
+        // plan shows there with no step in Roadmap.
+        task.SetImportPlanId(PlanTagOf(tags));
+
         // Copied once, here, and never again: the person owns the body, the tags,
         // the effort and the due date from now on (ADR 0020, §4).
         if (item.Effort is >= 0) task.SetEffort(item.Effort);
@@ -416,6 +444,17 @@ public sealed class SyncLinkedTasksCommandHandler(
 
         changed |= AddSourceReferences(task, item.References);
 
+        // A task linked before the sync filed tasks under their plan is filed once,
+        // while it still carries the plan tag its labels gave it. The tags are the
+        // person's after creation, so a tag they took off files nothing.
+        if (task.ImportPlanId is null
+            && PlanTagOf(TagsFrom(item.Labels ?? []).Tags) is { } planTag
+            && task.Tags.Contains(planTag, StringComparer.Ordinal))
+        {
+            task.SetImportPlanId(planTag);
+            changed = true;
+        }
+
         // Decided from where the task is now on every sync, moved or not, so the
         // mismatch is flagged the sync after the person finishes a task the source
         // still holds open, and cleared once either side catches up.
@@ -494,6 +533,7 @@ public sealed class SyncLinkedTasksCommandHandler(
             Blocked = item.IsBlocked,
             // A reason for a block the source does not report explains nothing.
             BlockedReason = item.IsBlocked ? item.BlockedReason : null,
+            WaitsOn = item.WaitsOn ?? [],
         };
 
     /// <summary>The local day <paramref name="item"/> was finished on, by this
@@ -537,6 +577,61 @@ public sealed class SyncLinkedTasksCommandHandler(
         : !string.IsNullOrWhiteSpace(item.DisplayKey) ? item.DisplayKey.Trim()
         : item.ExternalId;
 
+    // --- Waits-on ---------------------------------------------------------------
+
+    /// <summary>A task the sync read this run, with what its reference said the
+    /// item waited on before this sync.</summary>
+    private sealed record Synced(TaskItem Task, IReadOnlyList<string> HeldWaitsOn, bool IsNew, bool Changed);
+
+    /// <summary>
+    /// Turns what the item waits on into the task's <c>after:</c> dependencies, and
+    /// answers whether the list changed.
+    /// <para>
+    /// A waited-on item becomes a dependency only when both ends are linked tasks:
+    /// it has a task this sync read, or one already on this device the person has
+    /// not deleted. The source owns the dependencies its waits-on give — every one
+    /// it named last sync or names now is taken off and the linked ones put back —
+    /// and nothing else: a dependency the person added in Backlog stays.
+    /// </para>
+    /// </summary>
+    private async Task<bool> FollowWaitsOnAsync(Synced entry, string connectorId, HashSet<Guid> linkedHere, CancellationToken cancellationToken)
+    {
+        var task = entry.Task;
+        var named = entry.HeldWaitsOn
+            .Concat(task.SourceRef?.WaitsOn ?? [])
+            .Select(externalId => LinkedTaskIds.For(connectorId, externalId))
+            .Where(id => id != task.Id)
+            .ToHashSet();
+        if (named.Count == 0) return false;
+
+        var linked = new List<Guid>();
+        foreach (var externalId in task.SourceRef?.WaitsOn ?? [])
+        {
+            var id = LinkedTaskIds.For(connectorId, externalId);
+            if (id == task.Id) continue;
+            if (linkedHere.Contains(id)
+                || await tasks.GetIncludingDeletedAsync(id, cancellationToken) is { DeletedAt: null })
+            {
+                linked.Add(id);
+            }
+        }
+
+        // Compared as Guids, the way dependency resolution matches them, so an id
+        // written in another case is still the one the source gave. What stays keeps
+        // its place, so a list the person reordered is no change.
+        var held = task.DependsOn
+            .Select(dependency => Guid.TryParse(dependency, out var id) ? id : (Guid?)null)
+            .ToList();
+        var next = task.DependsOn
+            .Where((_, index) => held[index] is not { } id || !named.Contains(id) || linked.Contains(id))
+            .Concat(linked.Where(id => !held.Contains(id)).Select(id => id.ToString()))
+            .ToList();
+        if (next.SequenceEqual(task.DependsOn, StringComparer.Ordinal)) return false;
+
+        task.SetDependsOn(next);
+        return true;
+    }
+
     // --- Labels ---------------------------------------------------------------
 
     /// <summary>
@@ -568,6 +663,10 @@ public sealed class SyncLinkedTasksCommandHandler(
 
         return (tags, plans.Count > 1);
     }
+
+    /// <summary>The plan tag among <paramref name="tags"/>, <c>+slug</c>, or null.</summary>
+    private static string? PlanTagOf(IEnumerable<string> tags) =>
+        tags.FirstOrDefault(tag => tag.StartsWith('+'));
 
     /// <summary>
     /// A label's name as a tag: lower case, each run of spaces a hyphen, anything a
