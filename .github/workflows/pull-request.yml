@@ -1,11 +1,10 @@
 name: Pull request
 
 on:
-  # ready_for_review is listed beside the defaults so marking a draft ready
-  # builds it again: auto-merge.yml starts on that event and judges the head
-  # commit's latest check runs, which would otherwise be the draft's.
+  # A draft builds like any pull request, so marking it ready does not build it
+  # again: the required checks on its head commit already count.
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened]
     branches:
       - main
   workflow_dispatch:
@@ -29,8 +28,8 @@ concurrency:
 # devbook-meta and devbook-metadata workflows check those, and the .NET tests that
 # read .devbook/ catch up on the next pull request that touches code. The skip is
 # a job-level `if`, not a `paths-ignore` on the workflow, because these jobs are
-# required checks: a skipped job reports success to the ruleset and to
-# auto-merge.yml, while a workflow that never starts leaves them Expected forever.
+# required checks: a skipped job reports success to the ruleset, and so to
+# auto-merge, while a workflow that never starts leaves them Expected forever.
 jobs:
   changes:
     name: Detect code changes
