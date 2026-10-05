@@ -122,7 +122,7 @@ flowchart LR
         end
 
         subgraph Mobile["Mobile - Android capture and review"]
-            OfflineStore["Local Offline Store"]:::candidate
+            OfflineStore["Local Offline Store"]:::adopted
             SkiaSharp["SkiaSharp"]:::adopted
             AndroidTools["Android SDK Build Tools"]:::adopted
             APK["APK Packaging"]:::adopted
@@ -243,6 +243,8 @@ flowchart LR
     MSIX --> WinAppSDK
     AppInstaller --> MSIX
 
+    OfflineStore --> Sqlite
+    OfflineStore --> DataSqlite
     OfflineStore --> JSON
     SkiaSharp --> DotNet
     AndroidTools --> Android
