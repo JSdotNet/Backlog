@@ -267,7 +267,7 @@ public class RoadmapBandTests : RoadmapBandHarness
     }
 
     [Fact]
-    public async Task WorkNamingARepositoryNobodyConfigured_IsNotDrawn()
+    public async Task WorkNamingARepositoryNobodyConfigured_IsDrawnUnderNoRepository()
     {
         Configure("JSdotNet/Backlog");
         await Planning.AddItemAsync(
@@ -284,9 +284,15 @@ public class RoadmapBandTests : RoadmapBandHarness
         using var context = Context();
         var band = Drawn(context);
 
-        Assert.Contains("Current work", band.Markup);
-        Assert.DoesNotContain("Old work", band.Markup);
-        Assert.DoesNotContain("Unfiled", band.Markup);
+        // Still drawn, not in a band of its own: under no repository, beside the work
+        // filed under one that is configured.
+        var bars = band.FindComponent<RoadmapTimeline>().Instance.Bars;
+        Assert.StartsWith("backlog::", bars.Single(bar => bar.Title == "Current work").RowId, StringComparison.Ordinal);
+        Assert.StartsWith(
+            $"{RoadmapPlanView.NoRepositoryGroupId}::",
+            bars.Single(bar => bar.Title == "Old work").RowId,
+            StringComparison.Ordinal);
+        Assert.Contains("Old work", band.Markup);
     }
 
     [Fact]

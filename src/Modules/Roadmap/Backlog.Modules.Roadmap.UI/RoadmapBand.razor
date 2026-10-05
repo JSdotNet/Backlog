@@ -331,15 +331,17 @@
     /// sidebar and above its named lanes — where the reader is looking at them.
     /// <para>
     /// Drawn only for a band that asked for room (<see cref="RoadmapPlanView"/> gives
-    /// every configured repository's band <see cref="RoadmapPlanView.PaceRows"/>). A
-    /// repository's band carries that repository's pace. A band with nothing measured
-    /// places by the reader's own pace in the heading. The milestones band places
-    /// nothing and has none. A change redraws every plan still sized by its effort,
-    /// each at its own pace, and writes nothing to the plan.
+    /// every configured repository's band and the no-repository band
+    /// <see cref="RoadmapPlanView.PaceRows"/>). A repository's band carries that
+    /// repository's pace. The no-repository band carries the default pace — the one its
+    /// plans are placed at — measured over all finished work. A band with nothing
+    /// measured places by the reader's own pace in the heading. The milestones band
+    /// places nothing and has none. A change redraws every plan still sized by its
+    /// effort, each at its own pace, and writes nothing to the plan.
     /// </para>
     /// </summary>
     private RenderFragment<RoadmapGroup> BandPace => group =>
-        @<RoadmapPaceControl Repository="@group.Id" />;
+        @<RoadmapPaceControl Repository="@(group.Id == RoadmapPlanView.NoRepositoryGroupId ? null : group.Id)" />;
 
     /// <summary>Where the "now" line is drawn. A parameter so a test can put
     /// today somewhere it chooses rather than wherever the clock happens to
@@ -708,7 +710,8 @@
     }
 
     /// <summary>The configured repository a row's band stands for, or null for a row
-    /// no repository's band holds.</summary>
+    /// no repository's band holds — the no-repository band, where work is planned
+    /// under none.</summary>
     private string? RepositoryOf(string rowId)
     {
         var separator = rowId.IndexOf("::", StringComparison.Ordinal);
