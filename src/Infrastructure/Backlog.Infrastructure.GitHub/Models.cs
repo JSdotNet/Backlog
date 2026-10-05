@@ -239,6 +239,35 @@ public sealed record GitHubIssueSnapshot(
         ?? PullRequests.FirstOrDefault();
 }
 
+/// <summary>
+/// One issue as the issue search answers it — what the GitHub connector turns into
+/// a linked task's item.
+/// </summary>
+/// <param name="NodeId">GitHub's global id for the issue. Stable across a transfer
+/// or a rename, which the number and the repository are not.</param>
+/// <param name="StateReason">Why a closed issue closed — <c>completed</c>,
+/// <c>not_planned</c>, <c>duplicate</c> — or null, which an issue closed before
+/// GitHub recorded reasons answers with.</param>
+/// <param name="AssigneeLogin">The first assignee's login, or null.</param>
+/// <param name="Labels">The label names, as GitHub spells them.</param>
+public sealed record GitHubSearchedIssue(
+    string NodeId,
+    int Number,
+    string Url,
+    string Title,
+    string Body,
+    bool IsOpen,
+    string? StateReason,
+    string? AssigneeLogin,
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<string> Labels);
+
+/// <summary>What one repository's issue search read. <see cref="Truncated"/> is set
+/// when search would not hand back every match — past its thousand-result limit, or
+/// an answer GitHub itself marked incomplete — so the list is not the whole
+/// repository.</summary>
+public sealed record GitHubIssueSearchRead(IReadOnlyList<GitHubSearchedIssue> Issues, bool Truncated);
+
 /// <summary>A compressed screenshot captured by the app for a feedback report.</summary>
 public sealed record GitHubFeedbackScreenshot(
     string DataUrl,

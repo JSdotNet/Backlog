@@ -28,6 +28,18 @@ public interface ITaskConnector
     TaskConnectorCapabilities Capabilities { get; }
 
     /// <summary>
+    /// What a person may connect through this source — repositories, product slugs —
+    /// in the spelling <see cref="FetchAsync"/> takes and a
+    /// <see cref="ConnectedTarget.Target"/> stores. What the settings page offers.
+    /// <para>
+    /// A default body, answering none, so a connector whose targets are typed in
+    /// rather than picked need not say so.
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyList<string>> ListTargetsAsync(CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>([]);
+
+    /// <summary>
     /// Every open item of <paramref name="target"/>, plus every item closed since
     /// <paramref name="since"/>, each normalised to a <see cref="SourceItem"/>.
     /// <para>
