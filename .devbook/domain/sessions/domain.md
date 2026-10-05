@@ -701,13 +701,24 @@ session that then shows an empty list would answer a question nobody asked.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/features.md#session-grouping]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/domain.md#environment, .devbook/domain/sessions/features.md#session-grouping]
 aliases: [AgentSessionGrouping]
 ```
 
-Carves a set of `Agent Session`s into named groups — one per environment, or one per
-agent — each ordered most recently active first, with the groups themselves in a
-stable order.
+Carves a set of `Session Row`s, run-only rows included, into sections, each ordered
+most recently active first, with the sections themselves in a stable order. There are
+three groupings:
+
+- **None**, the one a reader starts from: one section with no name, holding every
+  row. No rows means no sections at all, not one empty section.
+- **Environment**: a section per environment, keyed by the environment's id rather
+  than its name. A section's heading is the name its most recent row carries, so a
+  renamed machine shows the name it has now. Two machines that share a name are two
+  sections, ordered by name, ignoring case, and then by id.
+- **Agent**: a section per agent, keyed by the agent's name.
+
+Each section carries the key that made it one, so a surface can tell apart two
+sections whose headings match.
 
 A service because grouping spans sessions rather than belonging to any one of them,
 and a pure one: no clock, no I/O, no state. Two properties it guarantees, both of
