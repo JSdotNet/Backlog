@@ -257,6 +257,38 @@ public sealed class MyDayScopeTests
         Assert.DoesNotContain("Write your first entry", empty, StringComparison.Ordinal);
     }
 
+    /// <summary>An entry written while the scope is on is written into it. Otherwise
+    /// it would leave the list the moment it saved, since the scope keeps exactly the
+    /// entries stamped for its date — the reason a scoped repository is seeded too.</summary>
+    [Fact]
+    public async Task A_new_entry_written_under_the_scope_lands_in_my_day()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        host.State.SetMyDayFilter(Today);
+        host.State.NewRow();
+        var row = host.State.SelectedRow!;
+
+        Assert.Contains($"`myday:{Token(Today)}`", row.RawText, StringComparison.Ordinal);
+
+        await host.State.RenameEntryAsync(row, "Book the venue");
+        await host.State.SelectAsync(null);
+
+        Assert.NotNull(row.Id);
+        Assert.Equal(Today, row.PreviewInMyDayOn);
+        Assert.Contains(row, host.State.FilteredRows);
+    }
+
+    [Fact]
+    public async Task A_new_entry_written_with_the_scope_off_is_not_put_in_my_day()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        host.State.NewRow();
+
+        Assert.DoesNotContain("myday:", host.State.SelectedRow?.RawText ?? string.Empty, StringComparison.Ordinal);
+    }
+
     /// <summary>Nothing sweeps and nothing expires: the same entry, read on two
     /// dates, is in My Day on one of them and not on the other because the scope is
     /// pinned to a date rather than to a flag on the row.</summary>
