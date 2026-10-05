@@ -201,6 +201,39 @@ public sealed class MyDayScopeTests
         Assert.Equal("2", pane.Find($"{Chip} .chip__count").TextContent);
     }
 
+    /// <summary>The count is what is still to do today, the way a tag chip's face is
+    /// its open count: an entry ticked off stays in My Day, and stays listed while no
+    /// status is pressed, but it is no longer counted.</summary>
+    [Fact]
+    public async Task The_count_leaves_out_what_is_ticked_off()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        await host.WriteEntryAsync($"# Provision the box\n`task` `!ready` `@backlog` `myday:{Token(Today)}`\n");
+        await host.WriteEntryAsync($"# Deploy it\n`task` `!done` `completed:{Token(Today)}` `@backlog` `myday:{Token(Today)}`\n");
+        await host.State.SelectAsync(null);
+
+        var pane = host.Render();
+
+        Assert.Equal("1", pane.Find($"{Chip} .chip__count").TextContent);
+    }
+
+    /// <summary>No repo counts the same way: the open entries filed against no
+    /// repository, not the finished ones beside them.</summary>
+    [Fact]
+    public async Task The_no_repo_count_leaves_out_what_is_ticked_off()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@backlog`\n");
+        await host.WriteEntryAsync($"# Run the QA pass\n`task` `!done` `completed:{Token(Today)}` `@backlog`\n");
+        await host.State.SelectAsync(null);
+
+        var pane = host.Render();
+
+        Assert.Equal("1", pane.Find("[data-testid='norepo-filter-option'] .chip__count").TextContent);
+    }
+
     /// <summary>Orthogonal, which is the reason it is a toggle: turning it on narrows
     /// whatever tag and status have already left in view instead of replacing
     /// either.</summary>
