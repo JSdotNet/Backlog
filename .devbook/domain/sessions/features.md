@@ -346,6 +346,18 @@ calls — and the skill that owned it last. The stages, the token buckets, the g
 the tool activity by category and by MCP server, and the run's own title are behind a
 fold.
 
+Each stage the owner session worked in names that session in the fold. It names the
+model too when the run called exactly one, since then every call in every stage was on
+it; the run file records the models for the run as a whole, never per stage, so with
+more than one the session is named without a model rather than with a guess. A stage
+still pending or skipped names no one, because nobody worked in it.
+
+Where the host can render one, the open fold shows the run's Archify artifact full
+width above the figures, in place of the stage flow. The artifact is produced only
+once the fold opens, and not again when a refresh brings the same stages. Where it
+cannot be produced, for example because Node.js is missing, the fold keeps the stage
+flow and says why.
+
 Under the row rather than in a column, because a run is not a property of a session;
 across every column rather than inside the name cell, because a quarter of the width
 turned each of its parts into three lines while the rest of the row sat empty.
@@ -353,6 +365,26 @@ turned each of its parts into three lines while the rest of the row sat empty.
 Behind a fold, because a run holds ten stages
 and tens of thousands of tool calls, and a row that showed them would be a report with
 a table around it.
+
+### One line for a run two surfaces reported
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#delivery-run]
+```
+
+A flow reports its run to every surface it is bound to, and each surface files it as
+a run of its own. The list shows such a run as one line under its session, because it
+is one piece of work (see [Delivery Run](domain.md#delivery-run)).
+
+Two files are the same run when they name the same skill, come from different
+dashboards and started within five minutes of each other. They must also either sit
+under the same worktree with session ids that agree, or share a session id that both files name.
+Two files from one surface stay two runs, whatever else they share.
+
+The line shows the record of the preferred surface: `delivery-surface-dashboard`, then
+`orch-dashboard`, then `backlog`. Its fold names the surfaces that reported the run, so
+a reader who sees one line where a dashboard shows two knows why.
 
 ### The work a run is linked to
 
