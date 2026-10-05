@@ -391,4 +391,19 @@ public class WebHarnessHostTests
         var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
         Assert.Single(sections, section => section.Id == "dashboard" && section.Title == "Dashboard");
     }
+
+    /// <summary>
+    /// And the working week's page, which the Dashboard registers beside its own
+    /// with no switch, so the desktop harness offers it whatever is turned on.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_registers_the_working_week_settings_section_through_the_shared_composition()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using var scope = harness.Services.CreateScope();
+
+        var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
+        Assert.Single(sections, section => section.Id == "working-week" && section.Title == "Working week" && section.FeatureKey is null);
+    }
 }
