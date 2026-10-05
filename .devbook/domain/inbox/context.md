@@ -5,6 +5,7 @@ status: draft
 index: root
 type: context
 deployment: module
+sync: pull
 related: [.devbook/arc42/05-building-block-view.md#desktop-app]
 ```
 
