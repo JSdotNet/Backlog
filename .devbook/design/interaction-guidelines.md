@@ -315,6 +315,7 @@ related: [".devbook/design/accessibility.md#focus-visibility", ".devbook/design/
 | Structure | Provide an `icon-xl`/`icon-2xl` illustration, a one-line explanation, and a primary CTA when the user can act. |
 | Variants | First-use (CTA to create), filtered/no-results (Clear filters), permissions (no action), error (Try again), complete (e.g. empty inbox — celebratory, no action). |
 | Copy | Calm, human copy; no dead ends. |
+| Title | The title is a short fragment with no closing period ("No open work", not "Nothing here yet."), whether it is a literal, an interpolation, or a branch of a condition; a full sentence goes in the Description. |
 
 ### Loading States
 
