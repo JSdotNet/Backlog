@@ -333,13 +333,17 @@ edit.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
 The timeline fills the width it is given and is ruled finer the nearer it is to
 today, the same way in both directions: last week, this week and next a column a
 day, the three weeks either side of those a column each, then months for about a
-quarter, then quarters. The work in flight sits around today, and a single week
+quarter, then quarters. The four weeks before this one are always ruled, whatever
+is drawn: last week in days and the three before it in weeks. Earlier months and
+quarters appear only when something drawn reaches that far back. Forward, the axis
+always reaches at least to the end of its months, and further when the plan does.
+The work in flight sits around today, and a single week
 column stacked every bar that started in it on the same few pixels. Every column
 widens by the same factor until the chart from last week on fills the screen, so a
 short plan never leaves the right of it empty, and the chart opens on last week.
@@ -424,19 +428,63 @@ dialog promises is in
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/tasks/domain.md#started, .devbook/domain/tasks/domain.md#completed]
+related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/tasks/domain.md#started, .devbook/domain/tasks/domain.md#completed, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/features.md#forecasting-work-in-flight]
 ```
 
 Scroll back from this week to see what was finished and how long it really took. A
 plan whose tasks are all done is drawn where its work actually ran — from the day
 its first task was started to the day its last was ticked off — rather than where it
 was planned, because a finished plan is a record and its planned window was only a
-hope. History is ruled as the horizon is, mirrored: last week in days and the three
-weeks before it in weeks, always, where recent work sits; then months for at least a
-quarter, then quarters, as far back as the earliest thing drawn.
+hope. When nothing says when the work ended, the planned end stands, but never
+later than today: finished work cannot end in the future.
+
+History is ruled as the horizon is, mirrored. The four weeks before this one are
+always there, where recent work sits: last week in days and the three weeks before
+it in weeks. Months and then quarters appear before them only when something drawn
+reaches that far back.
 
 A finished plan cannot be dragged: its dates are read off the work, so a move would
-change nothing the next reading keeps. Opening it still edits the stored item.
+change nothing the next reading keeps. Opening it still edits the stored item. A
+plan still being worked on is drawn from its work too, to a forecast end
+([Forecasting work in flight](#forecasting-work-in-flight)).
+
+### Forecasting work in flight
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#effort, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/tasks/domain.md#started, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+```
+
+See where a plan that is under way will really land, rather than where it was hoped
+to. A plan is in flight when some of its tasks are in progress or done and some are
+still open. A planned window that stretches finished work over months, or ends
+before the work left could, is the hope again rather than the reading.
+
+A plan in flight is drawn from the day its work began, when that was earlier than
+planned. That day is the earliest start of its begun tasks: a task's own started
+date, else the start of the session linked to it, else the day the task was
+created. Its end is a forecast of when the open work will be done. The open points,
+with an unestimated task counted as one, are spent at the band's pace in use from
+the first worked day on or after the later of today and the start. The hours are
+counted through the person's [working week](domain.md#working-week), the same way
+every other window is counted
+([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)).
+
+The bar is locked like a finished one: its dates are read off the work, so a drag
+would change nothing the next reading keeps. A pinned end is a person's date and
+outranks the forecast, but it never ends the bar before the first day open work can
+be drawn on. The forecast still shows in the bar's detail, with the pace it was
+read at, so pinning does not hide what the pace says.
+
+When the plan hands work over between repositories, each segment whose tasks are
+all done is drawn where that work ran, and only the open phases share out the time
+from the first day open work can be drawn on to the bar's end. A done segment
+stretched over a slice of the future would draw finished work that has not happened
+yet.
+
+Nothing is stored. The plan keeps its [planned window](domain.md#planned-window),
+and the forecast is read off the work at every draw, like the totals it comes from.
 
 ### Telling one project from another at a glance
 
