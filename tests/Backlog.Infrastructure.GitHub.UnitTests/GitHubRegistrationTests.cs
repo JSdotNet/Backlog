@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Sync.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
@@ -29,6 +30,7 @@ public sealed class GitHubRegistrationTests
     [InlineData(typeof(IGitHubActivityBaselineClient))]
     [InlineData(typeof(IGitHubBillingClient))]
     [InlineData(typeof(GitHubIntegration))]
+    [InlineData(typeof(IGitHubSettingsReplication))]
     public void Every_github_port_is_registered_once_as_a_singleton(Type port)
     {
         var services = new ServiceCollection();

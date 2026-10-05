@@ -14,14 +14,18 @@ public enum SyncDirection
 /// <summary>What kind of document it was. Several rather than one because they
 /// travel by different rules and a person reading the log asks different
 /// questions of each: a task is the backlog, a capture is the Inbox's, a
-/// session is a record of what an agent did somewhere, and a roadmap document is
-/// the whole plan or the pace it is drawn at (local ADR 0018).</summary>
+/// session is a record of what an agent did somewhere, a roadmap document is
+/// the whole plan or the pace it is drawn at (local ADR 0018), and a GitHub
+/// settings document is the repository registry or the account identities (local
+/// ADR 0021). Appended, never reordered: nothing stores the ordinal, but a log line
+/// read beside an older one should name the same kind.</summary>
 public enum SyncItemKind
 {
     Task,
     Capture,
     Session,
     Roadmap,
+    GitHubSettings,
 }
 
 /// <summary>

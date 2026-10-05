@@ -192,10 +192,11 @@ public sealed class AccountBindingTests : IDisposable
     // --- Migration ------------------------------------------------------------
 
     /// <summary>
-    /// A workspace nobody has bound anything in writes a registry byte for byte
-    /// identical to the one today's build writes. An install that never opens the
-    /// Accounts panel produces no diff at all — which is the property that makes
-    /// this change safe to ship.
+    /// A workspace nobody has bound anything in writes the rows today's build
+    /// writes, with no account key in them. An install that never opens the
+    /// Accounts panel produces no diff in its rows — which is the property that
+    /// makes this change safe to ship. The one key beside them is the document's
+    /// <c>updatedAt</c> stamp (local ADR 0021), which every change writes.
     /// </summary>
     [Fact]
     public void An_unbound_workspace_writes_no_account_key_at_all()
@@ -203,6 +204,9 @@ public sealed class AccountBindingTests : IDisposable
         var store = Store();
         Assert.Null(store.SetRepositories([Repository("backlog", "JSdotNet", "Backlog")]));
         Assert.Null(store.SetRepositoryColour("backlog", 3));
+
+        var registry = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(store.RegistryPath))!.AsObject();
+        Assert.True(registry.Remove("updatedAt"));
 
         Assert.Equal(
             """
@@ -216,7 +220,7 @@ public sealed class AccountBindingTests : IDisposable
               ]
             }
             """.ReplaceLineEndings(),
-            File.ReadAllText(store.RegistryPath).ReplaceLineEndings());
+            registry.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }).ReplaceLineEndings());
     }
 
     /// <summary>A registry written before accounts existed has no <c>account</c>

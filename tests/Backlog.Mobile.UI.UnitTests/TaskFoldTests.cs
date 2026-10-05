@@ -128,6 +128,21 @@ public sealed class TaskFoldTests
         Assert.Empty(rows);
     }
 
+    /// <summary>ADR 0021 Verification 10: the phone ignores the repository registry
+    /// and the GitHub accounts, so its view store keeps no row for either.</summary>
+    [Theory]
+    [InlineData("repository-registry")]
+    [InlineData("github-accounts")]
+    public void A_github_settings_document_is_never_a_row(string type)
+    {
+        var rows = new Dictionary<Guid, TaskViewRow>();
+
+        var changed = TaskFold.Apply(rows, [Record(TestTasks.Task("Repository registry", T0, inMyDayOn: Today, type: type), 1)]);
+
+        Assert.Empty(changed);
+        Assert.Empty(rows);
+    }
+
     private static TaskChangeRecord Record(TaskChange change, long serverTimestamp) =>
         new(change, Guid.NewGuid(), serverTimestamp);
 

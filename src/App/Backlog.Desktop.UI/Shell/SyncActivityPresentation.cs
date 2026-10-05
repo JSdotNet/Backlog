@@ -126,6 +126,7 @@ public static class SyncActivityPresentation
         SyncItemKind.Capture => "Capture",
         SyncItemKind.Session => "Session",
         SyncItemKind.Roadmap => "Roadmap",
+        SyncItemKind.GitHubSettings => "GitHub settings",
         _ => kind.ToString(),
     };
 
