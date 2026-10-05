@@ -47,6 +47,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- Also the GitHub settings replication port (local ADR 0020): the merge hands
+         a repository-registry or github-accounts document to
+         IGitHubSettingsReplication and the session reads both from it on the push.
+         Taken as optional, like the roadmap's, so this project routes by kind and
+         never sees the GitHub adapter that answers it. -->
     <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
     <!-- TaskItem, its full constructor, LoadStamps and ITaskRepository. See the
          header for why the implementation and not only its Abstractions. -->

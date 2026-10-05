@@ -78,30 +78,5 @@ public static class RoadmapReplicaDocuments
     /// like any other.
     /// </summary>
     public static TaskChange ToChange(RoadmapReplicaDocument document, string content, DateTimeOffset updatedAt) =>
-        new(IdOf(document), updatedAt, DeletedAt: null, new TaskPayload(
-            TitleOf(document),
-            content,
-            TypeOf(document),
-            Status: "draft",
-            Priority: "medium",
-            Order: 0,
-            Area: null,
-            CreatedAt: updatedAt,
-            SourceInboxId: null,
-            RecurrenceSourceId: null,
-            DueOn: null,
-            RemindAt: null,
-            Recurrence: null,
-            InMyDayOn: null,
-            View: null,
-            Effort: null,
-            ImportPlanId: null,
-            ImportItemId: null,
-            AttachmentPath: null,
-            Tags: [],
-            RepoIds: [],
-            DependsOn: [],
-            SubItems: [],
-            UsageEvents: [],
-            ProjectionRefs: []));
+        WholeDocumentChange.Of(IdOf(document), TitleOf(document), TypeOf(document), content, updatedAt);
 }

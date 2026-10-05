@@ -5,6 +5,7 @@ using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Services;
 using Backlog.Modules.Tasks.DomainModels;
@@ -548,6 +549,42 @@ public sealed class TaskSyncWorkerTests
         Assert.Equal("roadmap-plan", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
     }
 
+    /// <summary>ADR 0020, Decision §4: a binding set or an account added here is
+    /// pushed after the same settle delay a task write is.</summary>
+    [Fact]
+    public async Task A_github_settings_change_runs_a_cycle_after_the_settle_delay()
+    {
+        using var fixture = Fixture.Create(featureOn: true, paired: true, github: new RecordingGitHubSettingsReplication());
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        Assert.Empty(fixture.PushedBodies);
+
+        fixture.GitHub!.Held[GitHubReplicaDocument.Registry] =
+            new GitHubReplicaCopyDto("""{"repositories":[]}""", Noon.AddMinutes(1));
+        fixture.GitHub.RaiseChanged();
+
+        var settled = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.ChangeSettleDelay);
+        await settled.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal("repository-registry", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
+    }
+
+    /// <summary>A disposed worker stops listening, so a settings change after the
+    /// window closed arms nothing.</summary>
+    [Fact]
+    public void A_disposed_worker_no_longer_listens_to_github_settings_changes()
+    {
+        var github = new RecordingGitHubSettingsReplication();
+        var fixture = Fixture.Create(featureOn: true, paired: true, github: github);
+
+        fixture.Dispose();
+
+        Assert.False(github.HasListeners);
+    }
+
     /// <summary>"Republish everything" offers the roadmap's documents again too.</summary>
     [Fact]
     public async Task Republishing_offers_the_roadmap_documents_again()
@@ -823,12 +860,14 @@ public sealed class TaskSyncWorkerTests
             RepositoryGate gate,
             List<string> pushedBodies,
             RecordingRoadmapReplication? roadmap,
+            RecordingGitHubSettingsReplication? github,
             TokenPipeline? tokens)
         {
             _http = http;
             _repository = repository;
             _tokens = tokens;
             Roadmap = roadmap;
+            GitHub = github;
 
             Handler = handler;
             Tasks = tasks;
@@ -846,10 +885,15 @@ public sealed class TaskSyncWorkerTests
                 state,
                 clock,
                 changes: Changes,
-                roadmap: roadmap);
+                roadmap: roadmap,
+                github: github);
         }
 
         public TaskSyncWorker Worker { get; }
+
+        /// <summary>The GitHub settings replication port, where a test composed one,
+        /// handed to the merge, the session and the worker alike.</summary>
+        public RecordingGitHubSettingsReplication? GitHub { get; }
 
         /// <summary>Roadmap's replication port, where a test composed one — the
         /// merge, the session and the worker are handed the same one, as the
@@ -898,7 +942,8 @@ public sealed class TaskSyncWorkerTests
             TaskSyncState? initialState = null,
             Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
             RecordingRoadmapReplication? roadmap = null,
-            bool authenticated = false)
+            bool authenticated = false,
+            RecordingGitHubSettingsReplication? github = null)
         {
             var tasks = new InMemoryTaskStore();
             seed?.Invoke(tasks);
@@ -962,6 +1007,7 @@ public sealed class TaskSyncWorkerTests
                 gate,
                 pushedBodies,
                 roadmap,
+                github,
                 tokens);
         }
 
@@ -1021,12 +1067,13 @@ public sealed class TaskSyncWorkerTests
 
             return new TaskSyncSession(
                 new TaskSyncClient(_http),
-                new TaskReplicaMerge(_repository, changes: Changes, roadmap: Roadmap),
+                new TaskReplicaMerge(_repository, changes: Changes, roadmap: Roadmap, github: GitHub),
                 _repository,
                 State,
                 Credentials,
                 Clock,
-                roadmap: Roadmap);
+                roadmap: Roadmap,
+                github: GitHub);
         }
     }
 

@@ -1,6 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks;
 using Backlog.SharedKernel;
 
@@ -126,6 +127,7 @@ public sealed class TaskSyncWorker : IDisposable
     private readonly TimeProvider _time;
     private readonly ITaskChangeSignal? _changes;
     private readonly IRoadmapReplication? _roadmap;
+    private readonly IGitHubSettingsReplication? _github;
     private readonly ILogger _log;
 
     /// <summary>Completed when the first cycle this worker runs has finished,
@@ -191,6 +193,10 @@ public sealed class TaskSyncWorker : IDisposable
     /// <param name="roadmap">Roadmap's replication port, for its local-change notice
     /// only: a plan saved or a pace set here is pushed after the same settle delay a
     /// task write is (local ADR 0018). Null on a head without a roadmap.</param>
+    /// <param name="github">The GitHub settings replication port, for its
+    /// local-change notice only: a binding set or an account added here is pushed
+    /// after the same settle delay (local ADR 0020). Null on a head that keeps no
+    /// GitHub settings.</param>
     public TaskSyncWorker(
         IServiceProvider services,
         IAppFeatureSettings features,
@@ -199,7 +205,8 @@ public sealed class TaskSyncWorker : IDisposable
         TimeProvider time,
         ILogger<TaskSyncWorker>? log = null,
         ITaskChangeSignal? changes = null,
-        IRoadmapReplication? roadmap = null)
+        IRoadmapReplication? roadmap = null,
+        IGitHubSettingsReplication? github = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(features);
@@ -214,6 +221,7 @@ public sealed class TaskSyncWorker : IDisposable
         _time = time;
         _changes = changes;
         _roadmap = roadmap;
+        _github = github;
         _log = log ?? NullLogger<TaskSyncWorker>.Instance;
 
         // Both gates can move while the app is running, and each of them moving
@@ -222,6 +230,7 @@ public sealed class TaskSyncWorker : IDisposable
         _credentials.Changed += OnGateChanged;
         if (_changes is not null) _changes.Changed += OnLocalChange;
         if (_roadmap is not null) _roadmap.Changed += OnLocalChange;
+        if (_github is not null) _github.Changed += OnLocalChange;
 
         ApplyGates();
     }
@@ -353,6 +362,7 @@ public sealed class TaskSyncWorker : IDisposable
         _credentials.Changed -= OnGateChanged;
         if (_changes is not null) _changes.Changed -= OnLocalChange;
         if (_roadmap is not null) _roadmap.Changed -= OnLocalChange;
+        if (_github is not null) _github.Changed -= OnLocalChange;
 
         _lifetime.Cancel();
         _lifetime.Dispose();
@@ -651,7 +661,8 @@ public sealed class TaskSyncWorker : IDisposable
 
         var state = _state.Current;
 
-        // Every document the push offers again: the tasks, and the roadmap's two.
+        // Every document the push offers again: the tasks, the roadmap's two and the
+        // GitHub settings' two.
         if (republish) state = state with { PushWatermark = DateTimeOffset.MinValue, DocumentWatermarks = null };
         if (rehydrate) state = state with { PullCursor = null };
 

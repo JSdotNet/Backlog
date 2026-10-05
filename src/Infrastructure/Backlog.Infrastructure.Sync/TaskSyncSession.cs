@@ -2,6 +2,7 @@ using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.SharedKernel.Results;
@@ -59,6 +60,7 @@ public sealed class TaskSyncSession
     private readonly IInboxCaptureOutbox? _outbox;
     private readonly SyncActivityLog? _activity;
     private readonly IRoadmapReplication? _roadmap;
+    private readonly IGitHubSettingsReplication? _github;
 
     /// <param name="credentials">Whose device this is. Read before every push
     /// and pull to check the progress in <paramref name="state"/> belongs to the
@@ -73,6 +75,9 @@ public sealed class TaskSyncSession
     /// <param name="roadmap">Where the roadmap plan and the planning pace are read
     /// from for the push (local ADR 0018), or null on a head without a roadmap.
     /// Optional for the reason <paramref name="outbox"/> is.</param>
+    /// <param name="github">Where the repository registry and the GitHub accounts are
+    /// read from for the push (local ADR 0020), or null on a head that keeps no GitHub
+    /// settings. Optional for the same reason.</param>
     public TaskSyncSession(
         TaskSyncClient client,
         TaskReplicaMerge merge,
@@ -82,7 +87,8 @@ public sealed class TaskSyncSession
         TimeProvider time,
         IInboxCaptureOutbox? outbox = null,
         SyncActivityLog? activity = null,
-        IRoadmapReplication? roadmap = null)
+        IRoadmapReplication? roadmap = null,
+        IGitHubSettingsReplication? github = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -100,6 +106,7 @@ public sealed class TaskSyncSession
         _outbox = outbox;
         _activity = activity;
         _roadmap = roadmap;
+        _github = github;
     }
 
     /// <summary>
@@ -287,6 +294,15 @@ public sealed class TaskSyncSession
             refused += documents.Value.Refused;
         }
 
+        if (_github is not null)
+        {
+            var documents = await PushGitHubSettingsAsync(_github, cancellationToken).ConfigureAwait(false);
+            if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
+
+            pushed += documents.Value.Pushed;
+            refused += documents.Value.Refused;
+        }
+
         return Result.Success(new TaskSyncSummary(pushed, 0, 0, 0, _time.GetUtcNow()) { Refused = refused });
     }
 
@@ -309,40 +325,77 @@ public sealed class TaskSyncSession
     /// replacing them with an empty plan or the default of seven.
     /// </para>
     /// </summary>
-    private async Task<Result<(int Pushed, int Refused)>> PushRoadmapAsync(
+    private Task<Result<(int Pushed, int Refused)>> PushRoadmapAsync(
         IRoadmapReplication roadmap,
+        CancellationToken cancellationToken) =>
+        PushWholeDocumentsAsync(
+            RoadmapReplicaDocuments.All,
+            async document => await roadmap.ReadAsync(document, cancellationToken).ConfigureAwait(false) is { } copy
+                ? RoadmapReplicaDocuments.ToChange(document, copy.Content, copy.UpdatedAt)
+                : null,
+            SyncItemKind.Roadmap,
+            cancellationToken);
+
+    /// <summary>
+    /// The loop both kinds of whole document share: one request per document whose
+    /// copy is later than its mark, the mark moved past whatever was offered, and the
+    /// accepted and refused counts kept apart. <paramref name="read"/> answers the
+    /// document as a change, or null for one this device never saved.
+    /// </summary>
+    private async Task<Result<(int Pushed, int Refused)>> PushWholeDocumentsAsync<TDocument>(
+        IEnumerable<TDocument> documents,
+        Func<TDocument, Task<TaskChange?>> read,
+        SyncItemKind itemKind,
         CancellationToken cancellationToken)
     {
         var pushed = 0;
         var refused = 0;
 
-        foreach (var document in RoadmapReplicaDocuments.All)
+        foreach (var document in documents)
         {
-            var copy = await roadmap.ReadAsync(document, cancellationToken).ConfigureAwait(false);
-            if (copy is null) continue;
+            if (await read(document).ConfigureAwait(false) is not { } change) continue;
 
-            var kind = RoadmapReplicaDocuments.TypeOf(document);
-            if (_state.Current.DocumentWatermark(kind) is { } sent && copy.UpdatedAt <= sent) continue;
+            var kind = change.Task.Type;
+            if (_state.Current.DocumentWatermark(kind) is { } sent && change.UpdatedAt <= sent) continue;
 
-            var change = RoadmapReplicaDocuments.ToChange(document, copy.Content, copy.UpdatedAt);
             var response = await _client.PushAsync([change], cancellationToken).ConfigureAwait(false);
             if (response.IsFailure) return Result.Failure<(int, int)>(response.Error);
 
             if (response.Value.Accepted > 0)
             {
                 pushed += 1;
-                _activity?.Record(SyncDirection.Sent, SyncItemKind.Roadmap, change.Id.ToString("D"), change.Task.Title);
+                _activity?.Record(SyncDirection.Sent, itemKind, change.Id.ToString("D"), change.Task.Title);
             }
             else
             {
                 refused += 1;
             }
 
-            _state.Save(_state.Current.WithDocumentWatermark(kind, copy.UpdatedAt));
+            _state.Save(_state.Current.WithDocumentWatermark(kind, change.UpdatedAt));
         }
 
         return Result.Success((pushed, refused));
     }
+
+    /// <summary>
+    /// Sends the repository registry and the GitHub accounts, each as one whole
+    /// document, when its stamp is later than the one this device last had accepted
+    /// for it (local ADR 0020, Decision §4) — on the terms
+    /// <see cref="PushRoadmapAsync"/> gives for the roadmap's, mark and all. A
+    /// document the port answers nothing for was never saved here and is not sent, so
+    /// a newly paired machine takes the other machine's registry and accounts rather
+    /// than replacing them with empty lists.
+    /// </summary>
+    private Task<Result<(int Pushed, int Refused)>> PushGitHubSettingsAsync(
+        IGitHubSettingsReplication github,
+        CancellationToken cancellationToken) =>
+        PushWholeDocumentsAsync(
+            GitHubReplicaDocuments.All,
+            async document => await github.ReadAsync(document, cancellationToken).ConfigureAwait(false) is { } copy
+                ? GitHubReplicaDocuments.ToChange(document, copy.Content, copy.UpdatedAt)
+                : null,
+            SyncItemKind.GitHubSettings,
+            cancellationToken);
 
     /// <summary>The note a sent task's log line carries: what was already known
     /// about it, and — when the replica took the batch only in part — how much

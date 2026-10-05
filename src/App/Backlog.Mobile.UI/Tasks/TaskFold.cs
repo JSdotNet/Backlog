@@ -30,6 +30,25 @@ public static class TaskFold
     /// <inheritdoc cref="RoadmapPlanType"/>
     public const string PlanningPaceType = "planning-pace";
 
+    /// <summary>The kind tokens of the GitHub settings' two documents — the
+    /// repository registry and the account identities (.devbook/arc42/adr/0020). The
+    /// phone keeps no GitHub settings, so it keeps no row for either. Literals
+    /// duplicated for the reason <see cref="CaptureType"/> is.</summary>
+    public const string RepositoryRegistryType = "repository-registry";
+
+    /// <inheritdoc cref="RepositoryRegistryType"/>
+    public const string GitHubAccountsType = "github-accounts";
+
+    /// <summary>Every kind the Tasks tab never lists.</summary>
+    private static readonly HashSet<string> NotTasks = new(StringComparer.OrdinalIgnoreCase)
+    {
+        CaptureType,
+        RoadmapPlanType,
+        PlanningPaceType,
+        RepositoryRegistryType,
+        GitHubAccountsType,
+    };
+
     /// <summary>Folds <paramref name="records"/> into <paramref name="rows"/>, and
     /// answers with the rows that changed — the ones to write.</summary>
     public static IReadOnlyList<TaskViewRow> Apply(IDictionary<Guid, TaskViewRow> rows, IEnumerable<TaskChangeRecord> records)
@@ -56,11 +75,9 @@ public static class TaskFold
     }
 
     /// <summary>Whether a document of this kind is one the Tasks tab could list: not
-    /// the Inbox's capture, and not either of the roadmap's documents.</summary>
-    private static bool IsTask(string? type) =>
-        !string.Equals(type, CaptureType, StringComparison.OrdinalIgnoreCase)
-        && !string.Equals(type, RoadmapPlanType, StringComparison.OrdinalIgnoreCase)
-        && !string.Equals(type, PlanningPaceType, StringComparison.OrdinalIgnoreCase);
+    /// the Inbox's capture, and none of the whole documents the desktop
+    /// replicates.</summary>
+    private static bool IsTask(string? type) => type is null || !NotTasks.Contains(type);
 
     /// <summary>Whether <paramref name="incoming"/> replaces <paramref name="current"/>.
     /// A strict order over every field that can differ, so two phones folding the
