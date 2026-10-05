@@ -145,6 +145,22 @@ public sealed record DeliveryRun(
     }
 
     private readonly IReadOnlyList<string>? _surfaces;
+
+    /// <summary>
+    /// Every id the surfaces filed this run under, the record's <see cref="Id"/> first
+    /// and then each folded partner's, in the order of <see cref="Surfaces"/>. A
+    /// surface's id means nothing to another surface, so a surface asked for its own
+    /// run by its own id finds it here after the fold made another file the record.
+    /// Computed from <see cref="Id"/> until set, for the reason <see cref="Surfaces"/>
+    /// gives.
+    /// </summary>
+    public IReadOnlyList<string> RunIds
+    {
+        get => _runIds ?? [Id];
+        init => _runIds = value;
+    }
+
+    private readonly IReadOnlyList<string>? _runIds;
 }
 
 /// <summary>What a run is linked to.</summary>
