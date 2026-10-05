@@ -15,30 +15,48 @@ namespace Backlog.ArchitectureTests;
 /// line; what is left here is the two things a reference cannot say.
 /// </para>
 /// <para>
-/// First, that the split is still the shape of the repository — three context
-/// projects and a Shell that is not one, and nothing quietly moved back inside
+/// First, that the split is still the shape of the repository — a project per
+/// context and a Shell that is not one, and nothing quietly moved back inside
 /// another. Second, the finer grain: a reference is coarse, and the
 /// moment <c>Backlog.Modules.Tasks.UI</c> takes its one allowed reference on
 /// the Inbox the compiler will accept any Backlog-Management file naming any
 /// Inbox type. These rules read the source text instead, so a <c>using</c> is
 /// caught in the file that wrote it rather than at the reference it would
-/// eventually need. They read namespaces, which still say
-/// <c>Backlog.Desktop.UI.*</c> — see the <c>RootNamespace</c> comments in the
-/// csproj files for why renaming them does not compile.
+/// eventually need. They read namespaces, which for the first three contexts
+/// still say <c>Backlog.Desktop.UI.*</c> — see the <c>RootNamespace</c> comments
+/// in those csproj files for why renaming them does not compile — and for the
+/// later ones say <c>Backlog.Modules.*.UI</c>, so each rule asks the project.
+/// </para>
+/// <para>
+/// The contexts are read from <c>src/Modules</c> rather than listed here. The
+/// list used to name Inbox, Tasks and Devbook, and Capture, Dashboard, DevPc,
+/// Roadmap and Sessions each arrived with a UI project of their own that these
+/// rules never read (issue #741). A new module's UI project is covered the day
+/// it lands.
 /// </para>
 /// </summary>
 public class DesktopDomainBoundaryTests
 {
-    private const string RootNamespace = "Backlog.Desktop.UI";
+    /// <summary>The Shell's namespace. It is a folder of the desktop app rather
+    /// than a project, so there is no csproj to ask.</summary>
+    private const string ShellNamespace = "Backlog.Desktop.UI.Shell";
 
-    /// <summary>The desktop's contexts, keyed by the namespace segment their
-    /// types carry and valued by the project that holds them.</summary>
-    private static readonly Dictionary<string, string> ContextProjects = new(StringComparer.Ordinal)
-    {
-        ["Inbox"] = "src/Modules/Inbox/Backlog.Modules.Inbox.UI",
-        ["Tasks"] = "src/Modules/Tasks/Backlog.Modules.Tasks.UI",
-        ["Devbook"] = "src/Modules/Devbook/Backlog.Modules.Devbook.UI"
-    };
+    /// <summary>The desktop's contexts, keyed by their module folder under
+    /// <c>src/Modules</c> and valued by the <c>.UI</c> project that holds their
+    /// screens. A module with no screens — Sync — is not one.</summary>
+    private static readonly Dictionary<string, string> ContextProjects = ModuleUiProjects()
+        .ToDictionary(
+            project => project.Directory!.Parent!.Name,
+            project => Repository.RelativePath(project.Directory!),
+            StringComparer.Ordinal);
+
+    /// <summary>The namespace each context's types are declared in: its UI
+    /// project's own <c>RootNamespace</c>.</summary>
+    private static readonly Dictionary<string, string> ContextNamespaces = ModuleUiProjects()
+        .ToDictionary(
+            project => project.Directory!.Parent!.Name,
+            Repository.RootNamespaceOf,
+            StringComparer.Ordinal);
 
     /// <summary>The one area that is not a context: the Shell that composes the
     /// rest. It is a folder rather than a project because it <em>is</em> the
@@ -64,13 +82,62 @@ public class DesktopDomainBoundaryTests
 
     /// <summary>Where each namespace segment's source lives, the contexts and the
     /// Shell alike, so a rule can name an area and get a folder.</summary>
-    private static readonly Dictionary<string, string> Areas = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, string> Areas =
+        new(ContextProjects.Append(new("Shell", ShellFolder)), StringComparer.Ordinal);
+
+    /// <summary>The namespace each area's types carry, the same keys as
+    /// <see cref="Areas"/>.</summary>
+    private static readonly Dictionary<string, string> AreaNamespaces =
+        new(ContextNamespaces.Append(new("Shell", ShellNamespace)), StringComparer.Ordinal);
+
+    /// <summary>Every ordered pair of two different contexts.</summary>
+    public static TheoryData<string, string> ContextPairs()
     {
-        ["Inbox"] = ContextProjects["Inbox"],
-        ["Tasks"] = ContextProjects["Tasks"],
-        ["Devbook"] = ContextProjects["Devbook"],
-        ["Shell"] = ShellFolder
-    };
+        var pairs = new TheoryData<string, string>();
+
+        foreach (var context in ContextProjects.Keys.Order(StringComparer.Ordinal))
+        {
+            foreach (var other in ContextProjects.Keys.Order(StringComparer.Ordinal).Where(other => other != context))
+            {
+                pairs.Add(context, other);
+            }
+        }
+
+        return pairs;
+    }
+
+    /// <summary>Every context.</summary>
+    public static TheoryData<string> Contexts()
+    {
+        var contexts = new TheoryData<string>();
+
+        foreach (var context in ContextProjects.Keys.Order(StringComparer.Ordinal))
+        {
+            contexts.Add(context);
+        }
+
+        return contexts;
+    }
+
+    /// <summary>
+    /// The contexts are read from the module folders, and a reading that broke
+    /// would leave every rule below iterating nothing — green for the wrong
+    /// reason. These anchors are the contexts there are today: the three the
+    /// list used to name and the five it missed.
+    /// </summary>
+    [Fact]
+    public void The_contexts_are_read_from_the_module_folders()
+    {
+        foreach (var context in new[] { "Inbox", "Tasks", "Devbook", "Capture", "Dashboard", "DevPc", "Roadmap", "Sessions" })
+        {
+            Assert.True(
+                ContextProjects.ContainsKey(context),
+                $"{context} has a UI project under src/Modules but is not one of the contexts these rules read.");
+        }
+
+        Assert.Equal("Backlog.Desktop.UI.Tasks", ContextNamespaces["Tasks"]);
+        Assert.Equal("Backlog.Modules.Sessions.UI", ContextNamespaces["Sessions"]);
+    }
 
     /// <summary>
     /// Each context is its own compilation unit. That is what turns "a knowledge
@@ -136,7 +203,7 @@ public class DesktopDomainBoundaryTests
         {
             Assert.False(
                 Directory.Exists(Path.Combine(Folder(path), "Shell")),
-                $"{context} has grown its own Shell. There is one, above all three contexts; a second "
+                $"{context} has grown its own Shell. There is one, above every context; a second "
                 + "copy is a context deciding for everybody.");
         }
     }
@@ -156,15 +223,10 @@ public class DesktopDomainBoundaryTests
     /// </para>
     /// </summary>
     [Theory]
-    [InlineData("Inbox", "Tasks")]
-    [InlineData("Inbox", "Devbook")]
-    [InlineData("Devbook", "Tasks")]
-    [InlineData("Devbook", "Inbox")]
-    [InlineData("Tasks", "Inbox")]
-    [InlineData("Tasks", "Devbook")]
+    [MemberData(nameof(ContextPairs))]
     public void A_context_never_names_another_context(string context, string forbidden)
     {
-        var offenders = FilesNaming(context, $"{RootNamespace}.{forbidden}");
+        var offenders = FilesNaming(context, AreaNamespaces[forbidden]);
 
         Assert.True(
             offenders.Count == 0,
@@ -176,12 +238,10 @@ public class DesktopDomainBoundaryTests
     /// reverse would make the panes unable to exist without the page they happen
     /// to sit on today.</summary>
     [Theory]
-    [InlineData("Inbox")]
-    [InlineData("Tasks")]
-    [InlineData("Devbook")]
+    [MemberData(nameof(Contexts))]
     public void Nothing_below_the_shell_depends_on_the_shell(string area)
     {
-        var offenders = FilesNaming(area, $"{RootNamespace}.Shell");
+        var offenders = FilesNaming(area, ShellNamespace);
 
         Assert.True(
             offenders.Count == 0,
@@ -205,7 +265,7 @@ public class DesktopDomainBoundaryTests
         var text = File.ReadAllText(imports);
         foreach (var area in Areas.Keys)
         {
-            Assert.DoesNotContain($"{RootNamespace}.{area}", text, StringComparison.Ordinal);
+            Assert.DoesNotContain(AreaNamespaces[area], text, StringComparison.Ordinal);
         }
     }
 
@@ -222,9 +282,7 @@ public class DesktopDomainBoundaryTests
     /// </para>
     /// </summary>
     [Theory]
-    [InlineData("Inbox")]
-    [InlineData("Tasks")]
-    [InlineData("Devbook")]
+    [MemberData(nameof(Contexts))]
     public void A_contexts_own_razor_imports_name_no_other_context(string context)
     {
         var imports = Path.Combine(Folder(ContextProjects[context]), "_Imports.razor");
@@ -234,9 +292,12 @@ public class DesktopDomainBoundaryTests
 
         foreach (var other in ContextProjects.Keys.Where(name => name != context).Append("Shell"))
         {
-            Assert.DoesNotContain($"{RootNamespace}.{other}", text, StringComparison.Ordinal);
+            Assert.DoesNotContain(AreaNamespaces[other], text, StringComparison.Ordinal);
         }
     }
+
+    private static IEnumerable<FileInfo> ModuleUiProjects() =>
+        Repository.ProjectsUnder("src", "Modules").Where(Repository.IsUserInterface);
 
     private static string Folder(string relativePath) =>
         Path.Combine([Repository.Root.FullName, .. relativePath.Split('/')]);
