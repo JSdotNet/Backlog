@@ -65,6 +65,13 @@ else
     [Parameter]
     public bool ShowTitle { get; set; } = true;
 
+    /// <summary>Carry the artifact's state as the link's own colour rather than as
+    /// a chip beside it, for a table where the link is the one button per row and
+    /// a chip would say the state a second time. The words stay — in the title and
+    /// an sr-only span — so the colour is never the sole carrier.</summary>
+    [Parameter]
+    public bool StateAsInk { get; set; }
+
     [Parameter]
     public string? CssClass { get; set; }
 
@@ -127,11 +134,27 @@ else
     /// <summary>The artifact's own title where it has one, and the label
     /// otherwise. Kept on every shape including the inert one, because the
     /// reason a reference is unfollowable is never that it is uninteresting.</summary>
-    private string TitleValue => string.IsNullOrWhiteSpace(Link.Title) ? Link.Label : Link.Title;
+    private string TitleValue
+    {
+        get
+        {
+            var title = string.IsNullOrWhiteSpace(Link.Title) ? Link.Label : Link.Title;
+            return InkedState is { } state ? $"{title} — {IntegrationStates.TitleOf(state)}" : title;
+        }
+    }
+
+    /// <summary>The state the link wears as its colour, or null when it draws a
+    /// chip instead.</summary>
+    private IntegrationArtifactState? InkedState => StateAsInk ? Link.ArtifactState : null;
 
     private string ClassValue(string shape)
     {
         var stem = $"integration-link integration-link--{shape} integration-link--{IntegrationStates.SlugOf(Density)}";
+        if (InkedState is { } state)
+        {
+            stem += $" integration-link--stateful integration-link--state-{IntegrationStates.SlugOf(state)}";
+        }
+
         return string.IsNullOrWhiteSpace(CssClass) ? stem : $"{stem} {CssClass}";
     }
 
@@ -150,6 +173,11 @@ else
                           TestId="@MarkTestId" />
 
             <span class="integration-link__label" data-testid="@LabelTestId">@Link.Label</span>
+
+            @if (InkedState is { } inked)
+            {
+                <span class="sr-only" data-testid="@StateTestId">@IntegrationStates.LabelOf(inked)</span>
+            }
 
             @* Two small marks about the pull request, after the number they speak
                about and before anything else, so the label stays the first thing a
@@ -199,9 +227,9 @@ else
                 <span class="integration-link__title">@Link.Title</span>
             }
 
-            @if (Link.ArtifactState is not null || Link.SessionState is not null)
+            @if ((Link.ArtifactState is not null && InkedState is null) || Link.SessionState is not null)
             {
-                <IntegrationStateChip Artifact="@Link.ArtifactState"
+                <IntegrationStateChip Artifact="@(InkedState is null ? Link.ArtifactState : null)"
                                       Session="@Link.SessionState"
                                       Kind="@Link.Kind"
                                       IconOnly="@IconOnly"
