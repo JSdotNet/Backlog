@@ -392,6 +392,40 @@ downstream progress is visible from the backlog. Reading GitHub state is a
 deliberate act rather than a background poll, because the backlog has to open
 instantly and offline.
 
+## Linked tasks
+
+```meta
+type: feature
+status: proposed
+related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+Connect a GitHub repository or a spec-manager product, and every open item in it
+appears on the Tasks list as a [Linked Task](domain.md#linked-task). The item
+needs no triage and no copying. Each sync keeps the title, status and assignee
+in step with the source, and leaves the person's own priority, My Day, area,
+sub-items and notes alone.
+
+Every linked task shows a source badge on its row, in the editor header and in
+My Day, and the badge opens the item at the source. The Tasks pane filters by
+source and by "Assigned to me". A label written `+slug` at the source files the
+task under that plan, so it appears on the roadmap's shelf without a step in
+Backlog.
+
+### Promote to plan
+
+```meta
+type: sub-feature
+status: proposed
+related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+Turn one linked task that is really an epic into a Roadmap Item. The person
+picks Promote to plan, and the item is created under the issue's plan tag. Its
+steps come from the issue's sub-issues, its checklist, or a plan generated from
+its body and imported. The original task is then archived, or kept as an
+umbrella step, as the connected target's setting says.
+
 ## Search, filter and organize
 
 ```meta

@@ -107,7 +107,7 @@ flowchart LR
 ```mermaid
 flowchart TD
     Item["Roadmap Item<br/>(tag, task_id, knowledge_refs)"]
-    Item --> Named["By name:<br/>the linked task + listed knowledge_refs"]
+    Item --> Named["By name:<br/>the named task + listed knowledge_refs"]
     Item --> Tagged["By tag:<br/>tasks filed under the tag + chapters whose roadmap list names it"]
     Tasks["Tasks<br/>(supplier)"] -.-> Tagged
     Tasks -.-> Named

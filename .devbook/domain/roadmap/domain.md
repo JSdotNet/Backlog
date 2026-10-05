@@ -279,6 +279,12 @@ one may return several. This is the vocabulary two other contexts borrow — the
 roadmap tag, and a knowledge chapter names roadmap tags in its `roadmap` list — so
 its stability across a rename is a contract with them, not an internal detail.
 
+An outside system can file work under a tag too. A [Source Label](#source-label)
+written `+slug` on a GitHub issue or a spec-manager item becomes the plan tag on
+its [Linked Task](../tasks/domain.md#linked-task), and the item gathers that task
+like any other. The sync that writes the tag never creates an item: a tag with no
+item waits on the shelf until the person places it (local ADR 0013, ruling 3).
+
 ### Knowledge Ref
 
 ```meta
@@ -470,7 +476,7 @@ and on every reschedule that actually moves a date.
   is newly planned, which is how a consumer tells the two apart.
 - `planning_priority` — the plan's own priority, not any task's.
 - `repository_aliases` — the item's Repository Scope as written, unresolved.
-- `task_id` — the linked task, when there is one.
+- `task_id` — the task the item names, when there is one.
 
 ### Consumers
 
@@ -640,3 +646,35 @@ A plan that disagrees with itself about dates — work opening before the thing 
 waits on has closed, or finishing after a milestone it was meant to precede.
 Reported, never corrected. Distinct from a **cycle**, which is refused outright:
 a contradiction is a plan with a date problem, a cycle is not a plan.
+
+### Source Label
+
+```meta
+type: term
+status: proposed
+aliases: [plus label, plan label, +label]
+related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/domain.md#linked-task, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+A label on a GitHub issue or a spec-manager item whose name starts with a plus
+sign, such as `+offline-sync`. On the item's [Linked Task](../tasks/domain.md#linked-task)
+it is the plan tag of the same name, made into a slug: lower case, spaces to
+hyphens. Any other label becomes a general tag and means nothing to the roadmap.
+
+A task counts in one plan only. When an item carries several source labels, the
+first one is the plan tag and the task is flagged, so no effort is counted twice.
+
+### Promote to Plan
+
+```meta
+type: term
+status: proposed
+aliases: [promote, Promote to plan]
+related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/tasks/features.md#promote-to-plan, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+A person's action on one linked task that turns it into a
+[Roadmap Item](#roadmap-item). Tasks hands the item over through
+`IRoadmapPlanIntake`, the port Import uses, so the plan changes because a person
+asked. The item's tag is the task's [Source Label](#source-label) when it has one.
+Its steps come from the source's sub-issues, its checklist, or a generated plan.
