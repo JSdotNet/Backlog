@@ -374,61 +374,64 @@ other — is not a supported path and corrupts the store; see
 ## IDE Extensions
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#ide-context-aware-capture", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture"]
+related: [".devbook/arc42/06-runtime-view.md#ide-context-aware-capture", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/tech/ide.md#vs-code-extension-api"]
 ```
-
-Repo-aware integrations for VS Code and Visual Studio, plus GitHub Copilot App sessions
-running one local agent process per worktree. These hosts serve Inbox (capture intake),
-Tasks, and Devbook browsing. Packaging and host APIs are architecture
-concerns; domain lifecycle rules stay with the owning domains.
-
-The GitHub Copilot App path is a peer IDE-class host, not a new container: it reuses
-the same local capture/query services and local markdown + API paths already used by
-the desktop and extension adapters.
 
 ```mermaid
-graph TB
-  subgraph "VS Code Extension"
-    UI["Webview UI\n(React / Vue)"]
-    Commands["Commands & Context\n(Menus, Keybindings)"]
-    ExtAPI["Extension API\n(Repo context, File selection)"]
+graph LR
+  subgraph "VS Code extension (Backlog.Ide.VsCode)"
+    Tree["backlogInbox\n(explorer tree view)"]
+    Refresh["backlog.refreshInbox"]
+    Capture["backlog.capture\n(selection to title)"]
   end
 
-  subgraph "Visual Studio Extension"
-    VSUI["WPF UI\n(Tool Windows)"]
-    VSCmd["Commands & Context\n(Context Menu)"]
-    VSAPI["Extension API\n(Project context)"]
+  subgraph "Agent sessions"
+    Claude["Claude Code"]
+    Copilot["GitHub Copilot"]
   end
 
-  subgraph "Shared Services"
-    Capture["Capture Service\n(Selection to Item)"]
-    Browse["Backlog Browser\n(Repo-scoped queries)"]
-    KnowBrowser["Devbook Browser\n(Search & links)"]
-  end
+  Sync["Sync service\n(/api/sync/inbox at backlog.cloudUrl)"]
+  Mcp["MCP server in the desktop app\n(Backlog.Infrastructure.Mcp)"]
 
-  API["Backend API\n(REST + Auth)"]
-  LocalStore["Local Markdown\n(Cache)"]
-
-  UI --> Capture
-  UI --> Browse
-  UI --> KnowBrowser
-  Commands --> ExtAPI
-  ExtAPI -->|Repo context| Capture
-
-  VSUI --> Capture
-  VSUI --> Browse
-  VSCmd --> VSAPI
-  VSAPI -->|Project context| Capture
-
-  Capture --> LocalStore
-  Browse --> API
-  KnowBrowser --> API
-  Capture -->|Sync| API
+  Refresh --> Tree
+  Tree -->|"GET /api/sync/inbox"| Sync
+  Capture -->|"POST /api/sync/inbox"| Sync
+  Claude -->|"Streamable HTTP, loopback"| Mcp
+  Copilot -->|"Streamable HTTP, loopback"| Mcp
 ```
 
-Note: this capture-channel integration is distinct from Dev PC Management
-`Copilot Session Tracking`. Tracking records active/archived session lifecycle for
-compliance/monitoring; capture uses session context to create backlog/knowledge items.
+Two kinds of editor-side client reach Backlog, and they take different paths. The VS Code
+extension talks to the sync service. Claude Code and GitHub Copilot sessions talk to the
+desktop app through its MCP server. Domain lifecycle rules stay with the owning domains.
+
+The VS Code extension, `Backlog.Ide.VsCode`, serves the Inbox (capture intake). It adds one
+explorer tree view, `backlogInbox`, and two commands:
+
+- `backlog.refreshInbox` reloads the tree, which lists the captures from `GET /api/sync/inbox`.
+- `backlog.capture` turns the editor selection into a title and sends it to
+  `POST /api/sync/inbox` with the source `vscode`.
+
+The extension reads the service's base URL from the `backlog.cloudUrl` setting. Local ADR
+0009 fixes the shape of both calls. Local ADR 0005 is why the extension goes to the sync
+service rather than to the desktop's files: only the service can serve an editor on a second
+machine. The extension has no webview and keeps no local cache.
+
+The extension is a TypeScript project outside `Backlog.sln`. In development the AppHost
+hosts it through two explicit-start resources. `ide-vscode-build` runs `npm run watch`, and
+`ide-vscode-host` opens a VS Code Extension Development Host with the extension side-loaded.
+`.devbook/tech/ide.md#vs-code-extension-api` has the detail.
+
+Agent sessions are IDE-class hosts, not a container of their own. Local ADR 0012 has them
+call the MCP server that runs inside the desktop app, `Backlog.Infrastructure.Mcp`. Its tools
+read and change the desktop's own store: tasks, the roadmap, devbook chapters and their
+remarks, sessions and delivery runs.
+
+Visual Studio has no extension yet, and no project exists for it. `.devbook/tech/ide.md`
+lists Visual Studio extensibility and a VS Code webview UI as candidates.
+
+This capture channel is distinct from Dev PC Management `Copilot Session Tracking`. Tracking
+records active and archived session lifecycle for compliance and monitoring. Capture uses
+session context to create backlog and knowledge items.
 
 ## Cloud Service
 
