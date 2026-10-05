@@ -191,7 +191,8 @@ aliases: [RepositoryScope, repository_aliases, repos, scope]
 
 The repositories an item or milestone belongs to: a set of repository aliases,
 normalized, without duplicates. Equality is by value. An empty scope is valid and
-means unfiled; it is not an error, and not a default repository.
+means the work is under no repository; it is not an error, and not a default
+repository.
 
 Aliases are the shared key with
 [Repository Management](../repository-management/domain.md#repository) and
@@ -370,7 +371,7 @@ and reports which aliases did not resolve.
 
 It exists so the aggregate never holds a foreign repository model and never
 depends on the registry being reachable. An unresolved alias is a normal outcome
-with a normal presentation — an unfiled band — not a failure that stops a plan
+with a normal presentation — the band for work under no repository — not a failure that stops a plan
 from being read. Invocation semantics: query/composition-oriented, on the read
 path.
 
