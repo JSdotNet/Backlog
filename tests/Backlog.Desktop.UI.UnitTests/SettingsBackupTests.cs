@@ -16,9 +16,9 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Storage tab after its consolidation: three blocks — where the backlog
-/// is, where it is backed up to, and the working week — with the branch
-/// snapshot folder under the first. The devbook-section rows and the disk
+/// The Storage tab after its consolidation: two blocks — where the backlog
+/// is and where it is backed up to — with the branch snapshot folder under
+/// the first. The working week moved to the page the Dashboard registers. The devbook-section rows and the disk
 /// poll are gone; a devbook belongs to a repository, and the poll's only
 /// reason was the shared folder the tab now warns against.
 /// </summary>
@@ -28,7 +28,7 @@ public sealed class SettingsBackupTests
     private const string RepositoryInput = "[data-testid='storage-repository-input']";
 
     [Fact]
-    public void The_storage_tab_carries_three_blocks_and_no_devbook_sections_or_disk_poll()
+    public void The_storage_tab_carries_two_blocks_and_no_devbook_sections_working_week_or_disk_poll()
     {
         using var settings = RenderSettings();
         OpenStorageTab(settings.Component);
@@ -36,8 +36,8 @@ public sealed class SettingsBackupTests
         Assert.Single(settings.Component.FindAll("[data-testid='storage-path-input']"));
         Assert.Single(settings.Component.FindAll("[data-testid='devbook-cache-settings']"));
         Assert.Single(settings.Component.FindAll("[data-testid='storage-backup-settings']"));
-        Assert.Single(settings.Component.FindAll("[data-testid='working-hours-settings']"));
 
+        Assert.Empty(settings.Component.FindAll("[data-testid='working-hours-settings']"));
         Assert.Empty(settings.Component.FindAll("[data-testid='storage-devbook-folder-settings']"));
         Assert.Empty(settings.Component.FindAll("[data-testid='storage-refresh-settings']"));
     }

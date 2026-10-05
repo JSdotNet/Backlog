@@ -143,8 +143,8 @@
 
     /// <summary>The wire format a <c>time</c> input takes and returns, and the
     /// one the settings file is written in - invariant, so the two never drift
-    /// apart on a machine whose locale writes times some other way. The shell's
-    /// working-week editor keeps its own copy.</summary>
+    /// apart on a machine whose locale writes times some other way. The
+    /// working-week editor beside it keeps its own copy.</summary>
     private static string FormatTime(TimeOnly time) =>
         time.ToString("HH:mm", CultureInfo.InvariantCulture);
 

@@ -96,7 +96,7 @@ public sealed class DashboardSettingsTests
         using var settings = RenderSettings(dashboard: true);
 
         var tabs = Tabs(settings.Component);
-        Assert.Equal(["Inbox", "Dashboard"], tabs[^2..]);
+        Assert.Equal(["Inbox", "Dashboard", "Working week"], tabs[^3..]);
 
         OpenTab(settings.Component, "Dashboard");
         settings.Component.Find("[data-testid='usage-reset-day'] select").Change("Monday");
@@ -105,11 +105,13 @@ public sealed class DashboardSettingsTests
     }
 
     [Fact]
-    public void With_the_dashboard_off_the_settings_screen_offers_no_dashboard_page()
+    public void With_the_dashboard_off_the_settings_screen_offers_no_dashboard_page_but_keeps_the_working_week()
     {
         using var settings = RenderSettings(dashboard: false);
 
-        Assert.DoesNotContain("Dashboard", Tabs(settings.Component));
+        var tabs = Tabs(settings.Component);
+        Assert.DoesNotContain("Dashboard", tabs);
+        Assert.Equal(["Inbox", "Working week"], tabs[^2..]);
     }
 
     [Fact]
