@@ -12720,6 +12720,48 @@ select.field__input {
     white-space: nowrap;
 }
 
+/* The layer that opens a head's hours report (local ADR 0019, §6) lays out the
+   head's lines again over the head, so its one button lands on the hours line. The
+   layer itself takes no press and draws nothing but that button: no rule, no fill,
+   and the first two lines unseen. The head's own hours line stays in place under it,
+   unseen too, so the head keeps its baseline. */
+.roadmap-timeline__hours-layer {
+    border-left-color: transparent;
+    background: transparent;
+    pointer-events: none;
+}
+
+.roadmap-timeline__hours-layer > .roadmap-timeline__quarter-label,
+.roadmap-timeline__hours-layer > .roadmap-timeline__quarter-year,
+.roadmap-timeline__quarter-hours--covered {
+    visibility: hidden;
+}
+
+.roadmap-timeline__hours-open {
+    appearance: none;
+    max-width: 100%;
+    margin: 0;
+    padding: 0 var(--spacing-2xs);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    font-family: inherit;
+    text-decoration: underline dotted;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.roadmap-timeline__hours-open:hover {
+    color: var(--color-text-primary);
+    text-decoration-style: solid;
+}
+
+.roadmap-timeline__hours-open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(var(--border-width-2) * -1);
+}
+
 .roadmap-timeline__body {
     position: relative;
     /* Banding drawn rather than applied per row: the rows are absolutely

@@ -12,10 +12,12 @@ namespace Backlog.Modules.Roadmap.Abstractions.Services;
 /// <para>
 /// The figure is the union of the person's working stretches over every session on
 /// every paired machine, so two sessions' stretches over the same hour count that
-/// hour once. A stretch starts at a human turn, joins turns less than 30 minutes
-/// apart, and ends when the reply to its last turn ends. A stretch that crosses local
-/// midnight counts toward each date for its own part. Agent time with no human turn
-/// behind it, subagents included, counts nothing.
+/// hour once. A stretch starts at a human turn and ends when the reply to its last
+/// turn ends; a turn, or another session's stretch, less than 30 minutes after that
+/// end continues it. A date is a working day, from 04:00 local to 04:00 the next
+/// morning, so an evening past midnight counts on the date it began, and a stretch
+/// across 04:00 counts toward each date for its own part. Agent time with no human
+/// turn behind it, subagents included, counts nothing.
 /// </para>
 /// <para>
 /// Presentation only. The actual hours move no bar and change no pace; a pace is

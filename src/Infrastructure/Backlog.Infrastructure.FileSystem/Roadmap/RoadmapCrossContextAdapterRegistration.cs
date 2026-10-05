@@ -99,11 +99,17 @@ public static class RoadmapCrossContextAdapterRegistration
         // composed no Sessions activity still resolves the port and it answers that it
         // cannot state the hours. Resolved in the factory rather than at this call, so
         // AddAgentActivitySource may come after it.
-        services.AddSingleton<IRoadmapActualHours>(sp =>
+        services.AddSingleton(sp =>
             new RoadmapActualHours(
                 sp.GetService<IAgentActivitySource>(),
                 sp.GetService<TimeProvider>(),
-                sp.GetService<IAppFeatureSettings>()));
+                sp.GetService<IAppFeatureSettings>(),
+                sp.GetService<IAgentSessionSource>()));
+        services.AddSingleton<IRoadmapActualHours>(sp => sp.GetRequiredService<RoadmapActualHours>());
+
+        // The stretches behind those hours, which a head's hours open so the person can
+        // check the figure. The same adapter, so the report and the head never disagree.
+        services.AddSingleton<IRoadmapHoursReport>(sp => sp.GetRequiredService<RoadmapActualHours>());
 
         // The roadmap's per-device view choices — the Hours switch (ADR 0019, §4) — kept
         // in the shell's own per-device file beside the surface it reopens on. A singleton
