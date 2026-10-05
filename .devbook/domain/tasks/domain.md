@@ -25,7 +25,10 @@ A refined, actionable item in the personal backlog and the consistency boundary
 for all of its sub-items, projections, and usage history. It is the single source
 of truth: one logical item with one priority and one status even when it targets
 multiple repositories. Invariants: status only moves through the defined
-lifecycle; all mutations to sub-items, projection references, AI work log events, and usage events go through the root; parent progress reflects sub-item completion; projections are created on `Ready → In Progress` (`TaskProjected`, one per `repo_id`) and closed on completion (`TaskCompleted`). A manually created task starts at `draft` with no `source_inbox_id`.
+lifecycle; all mutations to sub-items, projection references, AI work log events, and usage events go through the root; parent progress reflects sub-item completion; projections are created on `Ready → In Progress` (`TaskProjected`, one per `repo_id`) and closed on completion (`TaskCompleted`). A manually created task starts at `draft` with no `source_inbox_id`. A task
+that stands for an item in an outside system carries a [Source Ref](#source-ref)
+and is a [Linked Task](#linked-task); the source then owns its title, status
+and assignee (local ADR 0020).
 
 The task also carries two attributes that place it in the person's own working
 set rather than in any external system: `area`, its [Area](#area), with blank
@@ -195,7 +198,34 @@ status: draft
 
 An immutable link to a downstream external artifact created from the task:
 `repo_id`, `external_id`, and `target_type` (e.g. github-issue, cli-task).
-Equality is by value.
+Equality is by value. It points outward. The inbound counterpart is the
+[Source Ref](#source-ref).
+
+### Source Ref
+
+```meta
+type: value-object
+status: proposed
+aliases: [SourceRef, source_ref]
+related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#task-connector, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+Where a [Linked Task](#linked-task) came from. It holds seven values:
+`connector_id`, `external_id`, `url`, `display_key`, `assignee`,
+`source_state` and `source_updated_at`. Equality is by value. A task has at
+most one, and a task without one is local work.
+
+`connector_id` is a string, not an enum, so a new
+[Task Connector](#task-connector) needs no schema change. A device that does not
+know the id still shows `display_key`. `external_id` is the source's stable id,
+never a number that moves when the item is transferred. `assignee` and
+`source_state` are the source's own values, kept for display and for the
+"Assigned to me" filter. They are not the task's status.
+
+Each sync rewrites the Source Ref. It is held in an additive `source_ref`
+column (local ADR 0006) and travels in the replica payload. A
+[Projection Ref](#projection-ref) points the other way: at an artifact created
+from the task.
 
 ### Recurrence
 
@@ -839,6 +869,8 @@ related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.m
 ```
 
 A deleted task that is kept rather than removed, marked by its `deleted_at`.
+A tombstoned [Linked Task](#linked-task) is never re-created by a sync, so
+deleting one is how a person says they do not want it back.
 
 It exists because deletion has to travel. A task that is simply absent from one
 device is indistinguishable from one that device has never seen, so an outright
@@ -846,3 +878,78 @@ removal cannot be told apart from a task that has not arrived yet, and the
 deletion would be undone by the next reconciliation. A tombstoned task is gone
 to every read; it survives only far enough for the other devices to learn that
 it went.
+
+### Linked Task
+
+```meta
+type: term
+status: proposed
+aliases: [linked tasks, external task, synced task]
+related: [.devbook/domain/tasks/domain.md#source-ref, .devbook/domain/tasks/domain.md#task-connector, .devbook/domain/tasks/features.md#linked-tasks, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+A [Task](#task) that carries a [Source Ref](#source-ref): it stands for an open
+item in a GitHub repository or a spec-manager product the person connected. It
+arrives directly, with no Inbox step, whoever the item is assigned to.
+
+The source owns three of its fields: the title, the status and the assignee.
+Each sync overwrites them. Backlog owns every other field, and the body is
+copied once, when the task is created. The status follows the item's
+[Source State](#source-state) along the task lifecycle, with one exception: a
+task the person finished stays done, and the mismatch is flagged.
+
+Its id is derived from the connector id and the item's external id, so every
+device that syncs the same item holds the same task. An item that leaves the
+source archives its task with a flag; the task is never deleted.
+
+"Linked" means linked to a source. A Roadmap Item that names a task by
+`task_id` names it; that task is not a linked task for that reason.
+
+### Task Connector
+
+```meta
+type: term
+status: proposed
+aliases: [ITaskConnector, connector, GitHubConnector, SpecManagerConnector]
+related: [.devbook/domain/tasks/domain.md#linked-task, .devbook/domain/tasks/domain.md#connected-target, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+One outside system seen through the one contract Tasks knows,
+`ITaskConnector`. A connector describes itself with an id, a name, an icon and a
+colour token. It fetches the items of a [Connected Target](#connected-target),
+names each one by a display key, and reports its
+[Source State](#source-state), whether it is blocked and why, what the
+system can do, and who the connected account is. GitHub and spec-manager are
+the first two. This context never names a connector, so the source badge and
+the Source filter are drawn from the descriptors.
+
+### Connected Target
+
+```meta
+type: term
+status: proposed
+aliases: [connected repository, connected product, target]
+related: [.devbook/domain/tasks/domain.md#task-connector, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+One GitHub repository or one spec-manager product a person has connected. It
+holds the connector id, whether it is enabled, and its settings: skip old items
+on the first sync, "Assigned to me" on by default, whether the title follows
+the source, the sync interval, and what Promote to plan does with the original
+task. It never holds credentials.
+
+### Source State
+
+```meta
+type: term
+status: proposed
+aliases: [normalised state, SourceState]
+related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/flow.md#task-lifecycle, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+An item's state at its source, normalised by its connector to one of four
+values. One map turns it into a [Task Status](#task-status) for every
+connector: `Open` is Ready, `Active` is In progress, `Done` is Done and
+`Dropped` is Archived. The sync reaches that status along the lifecycle's own
+edges, so a closed issue walks its task through In progress to Done. The
+source's own status name is kept beside it for display.

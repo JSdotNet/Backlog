@@ -214,7 +214,7 @@ related: [.devbook/domain/roadmap/domain.md#planning-priority]
 
 Decide what matters most across projects at once, and record that decision in the
 plan rather than in each project. The plan's priority is its own judgement: it is
-never overwritten by the priority of a linked task, and setting it never
+never overwritten by the priority of a task the item names, and setting it never
 reaches into that task — so reprioritising a quarter does not mean editing a
 dozen issues.
 
