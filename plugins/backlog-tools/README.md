@@ -49,11 +49,11 @@ for the remarks a person leaves while reading.
   progress → Done back (`transition`), every call carrying the `repository` read off the
   git remote; without one it falls back to searching git and says the status has to be set
   by hand.
-- **`backlog-implement-plan`** — runs a whole plan, after the pattern of Matt Pocock's
+- **`backlog-execute-plan`** — runs a whole plan, after the pattern of Matt Pocock's
   `implement-spec`. It reads the plan from the `backlog` MCP server by its `+tag`
   (`get_plan_items`) or from a file `backlog-import-plan` wrote, builds the graph its `after:`
   tokens draw, and changes nothing itself: each `prompt` entry whose prerequisites are done
-  goes to its own sub-agent, briefed by `skills/backlog-implement-plan/assets/item-brief.md`,
+  goes to its own sub-agent, briefed by `skills/backlog-execute-plan/assets/item-brief.md`,
   which makes its own worktree and runs the entry through `backlog-run-plan-item` — so every
   entry passes the repository's gate and its own Personal Validation, which the orchestrator
   relays to the person. Entries that wait on nothing run in parallel. An entry is done when

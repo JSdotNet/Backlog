@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "i=$(cat); case \"$i\" in *backlog-implement-plan*) ;; *) printf '%s' \"$i\" | grep -q -E 'Backlog plan item `|backlog-run-plan-item entry `' && printf '%s\\n' 'This prompt carries a Backlog marker: invoke the backlog-run-plan-item skill before doing anything else with it.' ;; esac; true"
+            "command": "i=$(cat); case \"$i\" in *backlog-execute-plan*) ;; *) printf '%s' \"$i\" | grep -q -E 'Backlog plan item `|backlog-run-plan-item entry `' && printf '%s\\n' 'This prompt carries a Backlog marker: invoke the backlog-run-plan-item skill before doing anything else with it.' ;; esac; true"
           }
         ]
       }

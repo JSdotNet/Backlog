@@ -1,10 +1,10 @@
 ---
-name: backlog-implement-plan
-description: Implement a whole Backlog import plan by delegating its prompt entries to sub-agents — each entry run through backlog-run-plan-item in its own worktree and landed through its own pull request, entries that wait on nothing in parallel, an entry's dependents started once its pull request merges. Reads the plan from the Backlog MCP server by its +tag, or from a plan file backlog-import-plan wrote. Stops at task and test entries, which only the person does. Optional branch mode lands the whole plan on one integration branch and opens a single pull request to the base branch.
+name: backlog-execute-plan
+description: Execute a whole Backlog import plan by delegating its prompt entries to sub-agents — each entry run through backlog-run-plan-item in its own worktree and landed through its own pull request, entries that wait on nothing in parallel, an entry's dependents started once its pull request merges. Reads the plan from the Backlog MCP server by its +tag, or from a plan file backlog-import-plan wrote. Stops at task and test entries, which only the person does. Optional branch mode lands the whole plan on one integration branch and opens a single pull request to the base branch.
 disable-model-invocation: true
 ---
 
-# Implement a Backlog plan
+# Execute a Backlog plan
 
 Open the reply with `backlog-tools@<version>`, `version` read from `../../.claude-plugin/plugin.json`, not recalled.
 

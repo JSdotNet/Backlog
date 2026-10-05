@@ -1,6 +1,6 @@
 # Plan entry brief
 
-The brief `backlog-implement-plan` hands each sub-agent, with the `<…>` filled in.
+The brief `backlog-execute-plan` hands each sub-agent, with the `<…>` filled in.
 
 ---
 
