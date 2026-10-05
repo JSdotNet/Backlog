@@ -62,7 +62,7 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
             return 0;
         }
 
-        var container = Container();
+        var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
         var partition = new PartitionKey(ReplicaDocumentSerialization.Key(scope.OwnerId.Value));
         var accepted = 0;
 
@@ -209,7 +209,8 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
 
         // The stream iterator, not GetChangeFeedIterator<T>, because only the
         // ResponseMessage carries the 304 that says "nothing since your cursor".
-        using var iterator = Container().GetChangeFeedStreamIterator(
+        var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+        using var iterator = container.GetChangeFeedStreamIterator(
             startFrom,
             ChangeFeedMode.Incremental,
             new ChangeFeedRequestOptions { PageSizeHint = maxItems });
@@ -322,6 +323,9 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
     /// <summary>The container, resolved once. Internal so the activity the
     /// client is constructed under can be asserted without reaching Cosmos.</summary>
     internal Container Container() => _container.Container();
+
+    private ValueTask<Container> ContainerAsync(CancellationToken cancellationToken) =>
+        _container.ContainerAsync(cancellationToken);
 
     private sealed record ChangeFeedPage(
         [property: JsonPropertyName("Documents")] IReadOnlyList<AnnotationDocument> Documents);

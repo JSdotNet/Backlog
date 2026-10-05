@@ -63,7 +63,8 @@ internal sealed class CosmosPairingCodeStore : IPairingCodeStore
             // two live codes is a one-in-10^11 event over a ten-minute window,
             // and if it ever happened the newer code winning is the same answer
             // the dictionary gives.
-            await Container().UpsertItemAsync(
+            var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+            await container.UpsertItemAsync(
                 document,
                 new PartitionKey(document.Id),
                 cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -108,7 +109,8 @@ internal sealed class CosmosPairingCodeStore : IPairingCodeStore
 
         try
         {
-            await Container().ReplaceItemAsync(
+            var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+            await container.ReplaceItemAsync(
                 document,
                 document.Id,
                 new PartitionKey(document.Id),
@@ -131,7 +133,8 @@ internal sealed class CosmosPairingCodeStore : IPairingCodeStore
     {
         try
         {
-            var response = await Container().ReadItemAsync<PairingCodeDocument>(
+            var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+            var response = await container.ReadItemAsync<PairingCodeDocument>(
                 codeHash,
                 new PartitionKey(codeHash),
                 cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -150,7 +153,8 @@ internal sealed class CosmosPairingCodeStore : IPairingCodeStore
         }
     }
 
-    private Container Container() => _container.Container();
+    private ValueTask<Container> ContainerAsync(CancellationToken cancellationToken) =>
+        _container.ContainerAsync(cancellationToken);
 
     /// <summary>What a Cosmos failure becomes on the way out: a coded problem
     /// rather than an unclassified 500 (inherited ADR 0017).</summary>

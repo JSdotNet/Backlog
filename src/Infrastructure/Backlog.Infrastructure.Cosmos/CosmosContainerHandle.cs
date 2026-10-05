@@ -49,6 +49,7 @@ namespace Backlog.Infrastructure.Cosmos;
 /// </summary>
 internal sealed class CosmosContainerHandle
 {
+    private readonly IServiceProvider _services;
     private readonly Lazy<Container> _container;
     private readonly string _unavailableMessage;
 
@@ -67,6 +68,7 @@ internal sealed class CosmosContainerHandle
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        _services = services;
         _unavailableMessage = unavailableMessage;
         _container = new Lazy<Container>(() =>
         {
@@ -86,6 +88,21 @@ internal sealed class CosmosContainerHandle
                 Activity.Current = ambient;
             }
         }, LazyThreadSafetyMode.PublicationOnly);
+    }
+
+    /// <summary>The container, once the account has answered — or the coded
+    /// 503 within the readiness budget when it has not. Every operation goes
+    /// through this rather than <see cref="Container()"/>: resolving a container
+    /// does no IO, so on its own it never notices an account that is not there,
+    /// and the operation that does notice waits a minute to say so. See
+    /// <see cref="CosmosAccountGate"/>.</summary>
+    public async ValueTask<Container> ContainerAsync(CancellationToken cancellationToken)
+    {
+        await _services.GetRequiredService<CosmosAccountGate>()
+            .WaitUntilReachable(_unavailableMessage, cancellationToken)
+            .ConfigureAwait(false);
+
+        return Container();
     }
 
     /// <summary>The container, resolved once. A failure to build it is the
