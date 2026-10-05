@@ -120,6 +120,10 @@ public sealed record RoadmapBar(
 /// the caller's choice because only the caller knows which dates are that kind of
 /// date: a chart where every milestone drew a line would be a chart of lines.
 /// </para></param>
+/// <param name="Bands">The groups a rule is drawn down at this date, each from its
+/// first row to its last — for a date that belongs to some bands rather than the whole
+/// plan, such as one repository's target. A group that is not drawn rules nothing.
+/// Ignored when <paramref name="Line"/> already rules the whole chart.</param>
 public sealed record RoadmapMilestone(
     string Id,
     string RowId,
@@ -127,7 +131,8 @@ public sealed record RoadmapMilestone(
     DateOnly On,
     RoadmapMarker Marker = RoadmapMarker.Diamond,
     string? Detail = null,
-    bool Line = false);
+    bool Line = false,
+    IReadOnlyList<string>? Bands = null);
 
 /// <summary>Which glyph a milestone is drawn as.</summary>
 public enum RoadmapMarker

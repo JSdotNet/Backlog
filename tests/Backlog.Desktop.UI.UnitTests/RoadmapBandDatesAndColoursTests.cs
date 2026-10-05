@@ -179,6 +179,35 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
     }
 
     [Fact]
+    public async Task ARepositorysDateDrawsARuleThroughThatRepositorysBandOnly()
+    {
+        Configure("JSdotNet/Backlog", "JSdotNet/Website");
+        await Planning.AddItemAsync(
+            "Work",
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 9),
+            repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+        await Planning.AddItemAsync(
+            "Site",
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 9),
+            repositoryAliases: ["website"], cancellationToken: TestContext.Current.CancellationToken);
+        var target = await Planning.AddMilestoneAsync(
+            "Heerlen Target",
+            new DateOnly(2026, 2, 2),
+            repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+
+        using var context = Context();
+        var band = Drawn(context);
+
+        // Down the band the date was filed under, and not down the whole chart: that is
+        // what a plan-wide date is for.
+        Assert.NotNull(band.Find($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Value.Id}-backlog\"]"));
+        Assert.Empty(band.FindAll($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Value.Id}\"]"));
+        Assert.Empty(band.FindAll($"[data-testid=\"roadmap-timeline-milestone-rule-{target.Value.Id}-website\"]"));
+    }
+
+    [Fact]
     public async Task ADateWaitsForThingsJustAsWorkDoes()
     {
         var work = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
