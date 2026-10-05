@@ -9,6 +9,10 @@
     render slot and the shell fills it with this, so neither context references
     the other. It references the shared control library rather than growing its
     own controls, which is the rule every module UI project follows.
+
+    The panel's own rules ship here too, in wwwroot/capture.css, served at
+    _content/Backlog.Modules.Capture.UI/capture.css; every host that renders the
+    panel links it after the library's components.css.
   -->
   <PropertyGroup>
     <RootNamespace>Backlog.Modules.Capture.UI</RootNamespace>

@@ -22,6 +22,7 @@ public class StylesheetDuplicateSelectorTests
 {
     private const string App = "src/App/Backlog.Desktop.UI/wwwroot/app.css";
     private const string Components = "src/Core/Backlog.UI.Components/wwwroot/components.css";
+    private const string Capture = "src/Modules/Capture/Backlog.Modules.Capture.UI/wwwroot/capture.css";
 
     /// <summary>A duplicate this test tolerates: the selector, how many top-level
     /// rules declare it, and why it has not been folded.</summary>
@@ -190,10 +191,12 @@ public class StylesheetDuplicateSelectorTests
             new(".roadmap-bar__unestimated", 2, SharedWithSiblings),
             new(".integration-link__auto-merge", 2, SharedWithSiblings),
             new(".graph-atlas-index__status", 2, SharedWithSiblings),
-        ]
+        ],
+        // A module stylesheet starts with none, and a duplicate in it fails.
+        [Capture] = []
     };
 
-    public static TheoryData<string> Stylesheets => [App, Components];
+    public static TheoryData<string> Stylesheets => [App, Components, Capture];
 
     [Theory]
     [MemberData(nameof(Stylesheets))]
