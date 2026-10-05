@@ -81,7 +81,6 @@ public sealed class AppFeatureSettingsStoreTests
                 TasksFeatures.Tasks,
                 AppFeatures.InboxPane,
                 RoadmapFeatures.Roadmap,
-                DevbookFeatures.DevbookSections,
                 DevbookFeatures.RepositoryDevbook,
                 DevbookFeatures.ArchifyDiagrams,
                 DevbookFeatures.C4Diagrams,
@@ -364,7 +363,6 @@ public sealed class AppFeatureSettingsStoreTests
             var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
             Assert.False(store.IsEnabled(DevbookFeatures.RepositoryDevbook));
-            Assert.False(store.IsEnabled(DevbookFeatures.DevbookSections));
             Assert.True(store.IsEnabled(DevbookFeatures.Search));
             Assert.True(store.IsEnabled(DevbookFeatures.SemanticSearch));
 
@@ -372,10 +370,49 @@ public sealed class AppFeatureSettingsStoreTests
 
             var saved = File.ReadAllText(path);
             Assert.Contains("repository-devbook", saved);
-            Assert.Contains("devbook-sections", saved);
             Assert.Contains("devbook-search", saved);
             Assert.Contains("devbook-semantic-search", saved);
             Assert.DoesNotContain("knowledge", saved);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// Devbook sections folded into Devbook: the pane and its sections were two
+    /// switches that only ever meant something together. Somebody who had turned
+    /// either one off had no Devbook to read, so a file that disabled the sections
+    /// alone — under either name they had — reads as Devbook off, and the next
+    /// save carries only the one key.
+    /// </summary>
+    [Theory]
+    [InlineData("devbook-sections")]
+    [InlineData("knowledge-sections")]
+    public void Turning_off_the_former_sections_switch_reads_as_devbook_off(string formerKey)
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, JsonSerializer.Serialize(new
+            {
+                disabledFeatures = new[] { formerKey },
+                enabledFeatures = Array.Empty<string>()
+            }));
+
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+
+            Assert.False(store.IsEnabled(DevbookFeatures.RepositoryDevbook));
+            Assert.DoesNotContain(AppFeatures.All, feature => feature.Name == "Devbook sections");
+
+            store.SetEnabled(AppFeatures.FeedbackReporting, enabled: false);
+
+            var saved = File.ReadAllText(path);
+            Assert.Contains("repository-devbook", saved);
+            Assert.DoesNotContain("sections", saved);
         }
         finally
         {

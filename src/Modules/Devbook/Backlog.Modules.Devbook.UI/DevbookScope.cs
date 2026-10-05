@@ -29,13 +29,13 @@ public sealed class DevbookScope(GitHubSettingsStore repositories, IDevbookFolde
         folders.Folders(repositoryAlias);
 
     /// <summary>The sections that actually have something behind them, or none
-    /// at all while Devbook sections are turned off — or while nothing is
+    /// at all while Devbook is turned off — or while nothing is
     /// scoped. The second case is asked here rather than left to the catalog,
     /// because the catalog normalises whatever it is handed against the
     /// defaults, and "no folders" would come back as "every folder".</summary>
     public IReadOnlyList<DevbookArea> VisibleAreas(string? repositoryAlias)
     {
-        if (!features.IsEnabled(DevbookFeatures.DevbookSections)) return [];
+        if (!features.IsEnabled(DevbookFeatures.RepositoryDevbook)) return [];
 
         var folders = Folders(repositoryAlias);
         return folders.Count == 0 ? [] : DevbookAreaCatalog.VisibleAreas(folders);

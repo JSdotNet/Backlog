@@ -3,21 +3,24 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// <summary>
 /// The feature keys Devbook owns.
 /// <para>
-/// <see cref="DevbookSections"/> is read by this context's own scope service
-/// and <see cref="RepositoryDevbook"/> by the Shell that decides whether to
-/// offer the pane at all. Both name something about the devbook rather than about
-/// the screen asking, so both sit here and the Shell reads them across — the
-/// direction that works, because nothing below the Shell may read the Shell.
+/// <see cref="RepositoryDevbook"/> is read by this context's own scope service
+/// and by the Shell that decides whether to offer the pane at all. It names
+/// something about the devbook rather than about the screen asking, so it sits
+/// here and the Shell reads it across — the direction that works, because
+/// nothing below the Shell may read the Shell.
 /// </para>
 /// </summary>
 public static class DevbookFeatures
 {
-    /// <summary>Show the side pane for repository knowledge.</summary>
+    /// <summary>Show the Devbook side pane and its design, architecture, domain,
+    /// technology, AI adoption and instruction sections.
+    /// <para>
+    /// One switch where there were two: <c>devbook-sections</c> gated the sections
+    /// and this key the pane, and neither meant anything without the other — a pane
+    /// with its sections off offered nothing to read. The catalog names the former
+    /// key, so a choice made under it carries over.
+    /// </para></summary>
     public const string RepositoryDevbook = "repository-devbook";
-
-    /// <summary>Show the design, architecture, domain, technology, AI adoption
-    /// and instruction sections in the Devbook pane and header.</summary>
-    public const string DevbookSections = "devbook-sections";
 
     /// <summary>Draw a chapter diagram from its generated Archify artifact where
     /// one exists, instead of rendering the mermaid.
