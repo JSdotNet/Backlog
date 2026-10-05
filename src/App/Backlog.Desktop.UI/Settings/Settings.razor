@@ -1317,10 +1317,11 @@
                                     </AppButton>
                                 </div>
 
-                                <p class="setting__note">
-                                    Accounts are kept in <code>@GitHub.Settings.SettingsPath</code> - deliberately
-                                    outside the backlog folder, so they are never synced or committed with entries.
-                                    A token the GitHub CLI hands over is never written there at all.
+                                <p class="setting__note" data-testid="accounts-storage-note">
+                                    Accounts are kept in <code>@GitHub.Settings.SettingsPath</code>, outside the backlog
+                                    folder. Each account's login, name, host and endpoint sync to your paired devices;
+                                    its token and whether it signs in through the GitHub CLI stay on this machine.
+                                    A token the GitHub CLI hands over is never written down at all.
                                 </p>
                             </ChildContent>
                         </TabPanel>
