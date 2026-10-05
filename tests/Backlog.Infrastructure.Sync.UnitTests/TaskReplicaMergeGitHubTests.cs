@@ -92,7 +92,7 @@ public sealed class TaskReplicaMergeGitHubTests
         var entry = Assert.Single(activity.Snapshot());
         Assert.Equal(SyncDirection.Received, entry.Direction);
         Assert.Equal(SyncItemKind.GitHubSettings, entry.Kind);
-        Assert.Equal(GitHubReplicaDocuments.AccountsId.ToString("D"), entry.Id);
+        Assert.Equal(GitHubReplicaDocuments.IdentitiesId.ToString("D"), entry.Id);
         Assert.Equal("GitHub accounts", entry.Title);
     }
 
@@ -147,7 +147,7 @@ public sealed class TaskReplicaMergeGitHubTests
         var accounts = GitHubReplicaChanges.Accounts(AccountsJson, Morning);
 
         Assert.Equal(GitHubReplicaDocuments.RegistryId, registry.Id);
-        Assert.Equal(GitHubReplicaDocuments.AccountsId, accounts.Id);
+        Assert.Equal(GitHubReplicaDocuments.IdentitiesId, accounts.Id);
         Assert.NotEqual(registry.Id, accounts.Id);
         Assert.Equal(Morning, registry.UpdatedAt);
         Assert.Null(registry.DeletedAt);
@@ -167,8 +167,8 @@ public sealed class TaskReplicaMergeGitHubTests
     public void The_document_ids_never_change()
     {
         Assert.Equal(Guid.Parse("42925550-7da3-413f-ba66-d3584ef64d27"), GitHubReplicaDocuments.RegistryId);
-        Assert.Equal(Guid.Parse("1be600c0-ac5f-47cb-9e92-4f34fa9c2ef2"), GitHubReplicaDocuments.AccountsId);
+        Assert.Equal(Guid.Parse("1be600c0-ac5f-47cb-9e92-4f34fa9c2ef2"), GitHubReplicaDocuments.IdentitiesId);
         Assert.NotEqual(RoadmapReplicaDocuments.PlanId, GitHubReplicaDocuments.RegistryId);
-        Assert.NotEqual(RoadmapReplicaDocuments.PaceId, GitHubReplicaDocuments.AccountsId);
+        Assert.NotEqual(RoadmapReplicaDocuments.PaceId, GitHubReplicaDocuments.IdentitiesId);
     }
 }

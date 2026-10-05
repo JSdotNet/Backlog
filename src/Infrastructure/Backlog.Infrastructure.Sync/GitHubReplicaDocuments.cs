@@ -31,9 +31,10 @@ public static class GitHubReplicaDocuments
     /// </summary>
     public static readonly Guid RegistryId = Guid.Parse("42925550-7da3-413f-ba66-d3584ef64d27");
 
-    /// <summary>The accounts document's id, on the same terms as
-    /// <see cref="RegistryId"/>: never to be changed.</summary>
-    public static readonly Guid AccountsId = Guid.Parse("1be600c0-ac5f-47cb-9e92-4f34fa9c2ef2");
+    /// <summary>The <c>github-accounts</c> document's id, on the same terms as
+    /// <see cref="RegistryId"/>: never to be changed. Named for the identities the
+    /// document carries; it holds no credential.</summary>
+    public static readonly Guid IdentitiesId = Guid.Parse("1be600c0-ac5f-47cb-9e92-4f34fa9c2ef2");
 
     /// <summary>Both documents, in the order a push sends them.</summary>
     public static IReadOnlyList<GitHubReplicaDocument> All { get; } =
@@ -58,7 +59,7 @@ public static class GitHubReplicaDocuments
     public static Guid IdOf(GitHubReplicaDocument document) => document switch
     {
         GitHubReplicaDocument.Registry => RegistryId,
-        GitHubReplicaDocument.Accounts => AccountsId,
+        GitHubReplicaDocument.Accounts => IdentitiesId,
         _ => throw new ArgumentOutOfRangeException(nameof(document)),
     };
 

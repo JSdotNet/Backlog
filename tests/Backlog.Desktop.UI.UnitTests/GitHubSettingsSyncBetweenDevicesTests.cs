@@ -73,7 +73,7 @@ public sealed class GitHubSettingsSyncBetweenDevicesTests : IDisposable
         Assert.Equal(GitHubCredentialKind.GhCli, account.Credential);
         Assert.Null(account.Token);
 
-        var travelled = _replica.Held(GitHubReplicaDocuments.AccountsId);
+        var travelled = _replica.Held(GitHubReplicaDocuments.IdentitiesId);
         Assert.NotNull(travelled);
         Assert.Equal("github-accounts", travelled.Task.Type);
         Assert.DoesNotContain("ghp_stays_on_a", travelled.Task.ContentMd, StringComparison.Ordinal);

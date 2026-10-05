@@ -56,7 +56,7 @@ public sealed class TaskSyncSessionGitHubTests
         Assert.Null(registry.DeletedAt);
 
         var accounts = Assert.Single(Pushed(fixture.Bodies[2]));
-        Assert.Equal(GitHubReplicaDocuments.AccountsId, accounts.Id);
+        Assert.Equal(GitHubReplicaDocuments.IdentitiesId, accounts.Id);
         Assert.Equal("github-accounts", accounts.Task.Type);
         Assert.Equal(AccountsJson, accounts.Task.ContentMd);
     }
