@@ -111,7 +111,7 @@ Microsoft Entra token credentials.
 ## Azure Container Apps
 
 ```meta
-status: candidate
+status: trial
 type: platform
 depends-on: [".devbook/tech/cloud.md#aspnet-core-minimal-apis"]
 related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
@@ -129,8 +129,9 @@ The compute host for the cloud service.
 - **How** — `infra/sync/main.bicep` declares a consumption-profile managed
   environment and one container app (`minReplicas: 0`), pulling from a container
   registry with the same user-assigned managed identity it reaches Cosmos with.
-  Candidate rather than adopted because nothing is deployed yet: the template and
-  its `Deploy Sync` workflow exist, the Azure resources do not.
+  Trial rather than adopted: the environment and the app run in `JS-AI`, put
+  there by hand, but the `Deploy Sync` workflow has never completed and no second
+  device has synced against the service in real use.
 
 ## Azure AI Foundry
 
@@ -164,7 +165,7 @@ The managed model endpoint the product's own AI features call.
 ## Azure Cosmos DB
 
 ```meta
-status: candidate
+status: trial
 type: service
 related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
 alternatives: ["Azure PostgreSQL", "Azure Table Storage"]
@@ -199,14 +200,14 @@ one database, **five containers**.
   because one container has one TTL and a container-level 180 days would expire
   live tasks too. Local runs use the Cosmos preview emulator started by the
   Aspire AppHost, so no Azure account is needed to build or test the sync path.
-- **Status** — `candidate` and no higher. The template and its `Deploy Sync`
-  workflow exist, but nothing is provisioned in Azure and none of it has been
-  validated by real use.
+- **Status** — `trial` and no higher. The account is provisioned in `JS-AI` and
+  the hand-deployed sync service reaches it, but the `Deploy Sync` workflow has
+  never completed and no real multi-device use has validated it.
 
 ## Azure Blob Storage
 
 ```meta
-status: candidate
+status: trial
 type: service
 depends-on: [".devbook/tech/cloud.md#aspnet-core-minimal-apis"]
 related: [".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/tech/cloud.md#azure-cosmos-db"]
@@ -221,13 +222,14 @@ The attachment store beside the Cosmos replica (local ADR 0014).
   the AppHost runs Azurite in its place.
 - **Why** — a capture document carries metadata only, and a device never holds
   a storage credential.
-- **Status** — `candidate` for the same reason as the rest of the Azure tier:
-  the deployment view records nothing provisioned and validated by real use.
+- **Status** — `trial` for the same reason as the rest of the Azure tier: the
+  deployment view records the storage account provisioned and running, but not
+  yet validated by real use.
 
 ## Azure Key Vault
 
 ```meta
-status: candidate
+status: trial
 type: service
 related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md"]
 ```
@@ -246,7 +248,7 @@ The secret store for the cloud service.
 ## Azure Monitor
 
 ```meta
-status: candidate
+status: trial
 type: service
 related: [".devbook/arc42/07-deployment-view.md#provisioning-and-delivery", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
 alternatives: ["Aspire dashboard only"]

@@ -12,11 +12,12 @@ related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook
 Bootstrap is over for most of the stack. The shared runtimes and frameworks, the
 desktop channel, the testing layer, and everything used to build and govern the
 repository are in daily use and marked `adopted`. What is still `candidate` is
-concentrated in three places: the Azure deployment targets the sync service will
-eventually run on, the Visual Studio channel, and the parts of the desktop and
-mobile clients that are designed but not yet implemented. Two things sit at
-`trial`: the unattended schedules, and the inventory scripts this graph's
-package versions are checked against.
+concentrated in two places: the Visual Studio channel, and the parts of the
+desktop and mobile clients that are designed but not yet implemented. Three
+things sit at `trial`: the Azure tier the sync service runs on, provisioned and
+deployed by hand but not yet through its workflow or in real use; the unattended
+schedules; and the inventory scripts this graph's package versions are checked
+against.
 
 ## Layers
 
@@ -67,9 +68,9 @@ flowchart LR
         GitHubPlatform["GitHub Platform"]:::adopted
         Anthropic["Anthropic Claude Platform"]:::candidate
         Foundry["Azure AI Foundry"]:::adopted
-        Cosmos["Azure Cosmos DB"]:::candidate
-        KeyVault["Azure Key Vault"]:::candidate
-        AzureMonitor["Azure Monitor"]:::candidate
+        Cosmos["Azure Cosmos DB"]:::trial
+        KeyVault["Azure Key Vault"]:::trial
+        AzureMonitor["Azure Monitor"]:::trial
         FCM["Firebase Cloud Messaging"]:::candidate
         Git["Git"]:::adopted
         PowerShell["PowerShell"]:::adopted
@@ -141,8 +142,8 @@ flowchart LR
             JsonWebTokens["Microsoft.IdentityModel.JsonWebTokens"]:::adopted
             OpenApi["Microsoft.AspNetCore.OpenApi"]:::adopted
             AzureIdentity["Azure.Identity"]:::adopted
-            BlobStorage["Azure Blob Storage"]:::candidate
-            ACA["Azure Container Apps"]:::candidate
+            BlobStorage["Azure Blob Storage"]:::trial
+            ACA["Azure Container Apps"]:::trial
         end
     end
 
@@ -477,11 +478,5 @@ Full authoring rules: `.agents/rules/devbook-tech.md`.
   change nobody has scheduled. `YamlDotNet` was its visible symptom, pinned
   centrally and referenced by nothing, until the pin was dropped; it now
   arrives only transitively.
-- The Azure tier's ratings wait on the deployment view. `cloud.md` holds Cosmos
-  DB, Container Apps, Blob Storage, Key Vault and Azure Monitor at `candidate`
-  because `.devbook/arc42/07-deployment-view.md#cloud-deployment-azure` says
-  nothing is provisioned, while `docs/deployment/sync.md` records the template
-  provisioned into Azure on 2026-09-14 and a sync service has been deployed by
-  hand since. The deployment view is corrected first; the ratings follow it.
 - The Visual Studio channel has no project yet, so `Visual Studio Extensibility`
   and `WPF` remain named intentions rather than validated choices.
