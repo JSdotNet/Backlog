@@ -32,7 +32,8 @@ internal static class RecurrencePolicy
     /// is everything that was about the occurrence rather than the repeat: the new
     /// entry starts at <see cref="EntryStatus.Ready"/> with its sub-items reset to
     /// pending, and with no projections, no usage history, no reminder that has
-    /// already fired and no My Day stamp.
+    /// already fired, no My Day stamp and no hand-set block — what was in the way
+    /// of last week's occurrence is not known to be in the way of this one.
     /// </para>
     /// </summary>
     public static TaskItem NextOccurrence(TaskItem completed)

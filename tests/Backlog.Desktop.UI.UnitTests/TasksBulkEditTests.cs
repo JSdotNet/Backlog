@@ -920,6 +920,64 @@ public sealed class TasksBulkEditTests
         Assert.Contains("`remind:2026-09-01T09:00`", two.RawText, StringComparison.Ordinal);
     }
 
+    // --- Marked blocked ------------------------------------------------------
+
+    /// <summary>Under Classification rather than on the resting bar, labelled in
+    /// the words the row menu uses, and stamped with today on every picked
+    /// row.</summary>
+    [Fact]
+    public async Task Mark_as_blocked_stamps_today_on_every_row()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var (pane, one, two) = await TwoPickedAsync(host);
+
+        await OpenGroupAsync(pane, "classification");
+        Assert.Contains("Mark as blocked", pane.Find("[data-testid='bulk-blocked-set']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("Unblock", pane.Find("[data-testid='bulk-blocked-clear']").TextContent, StringComparison.Ordinal);
+        await pane.Find("[data-testid='bulk-blocked-set']").ClickAsync(new());
+
+        Assert.Contains($"`blocked:{TodayToken}`", one.RawText, StringComparison.Ordinal);
+        Assert.Contains($"`blocked:{TodayToken}`", two.RawText, StringComparison.Ordinal);
+    }
+
+    /// <summary>A row that was already marked keeps the day it was marked: "since
+    /// when" is the first press, not the latest one.</summary>
+    [Fact]
+    public async Task Mark_as_blocked_keeps_the_day_on_a_row_already_marked()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var one = await host.WriteEntryAsync("# Marked already\n`task` `!ready` `blocked:2026-01-02`\n");
+        var two = await host.WriteEntryAsync(Second);
+        host.State.SetSelectionMode(true);
+        host.State.SetSelection([one.TaskId, two.TaskId]);
+
+        var outcome = await host.State.BulkChangeBlockedAsync(true, new DateOnly(2026, 10, 5));
+
+        Assert.Equal(new DateOnly(2026, 1, 2), one.PreviewBlockedSince);
+        Assert.Equal(new DateOnly(2026, 10, 5), two.PreviewBlockedSince);
+        Assert.Equal(1, outcome.Updated);
+    }
+
+    [Fact]
+    public async Task Unblock_removes_only_that_token()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var (pane, one, two) = await TwoPickedAsync(host);
+
+        await OpenGroupAsync(pane, "classification");
+        await pane.Find("[data-testid='bulk-blocked-set']").ClickAsync(new());
+
+        // The group closes on commit, so it is asked for again.
+        await OpenGroupAsync(pane, "classification");
+        await pane.Find("[data-testid='bulk-blocked-clear']").ClickAsync(new());
+
+        Assert.DoesNotContain("blocked:", one.RawText, StringComparison.Ordinal);
+        Assert.DoesNotContain("blocked:", two.RawText, StringComparison.Ordinal);
+
+        Assert.Contains("`due:2026-08-21`", one.RawText, StringComparison.Ordinal);
+        Assert.Contains("`remind:2026-09-01T09:00`", two.RawText, StringComparison.Ordinal);
+    }
+
     // --- Due date (AC2, AC4) -----------------------------------------------
 
     [Fact]

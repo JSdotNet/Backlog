@@ -2252,6 +2252,30 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     public async Task ChangeMyDayAsync(EntryRow row, DateOnly? inMyDayOn) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithMyDay(row.RawText, inMyDayOn));
 
+    /// <summary>
+    /// Marks the entry blocked by hand as of <paramref name="today"/>, or
+    /// unblocks it.
+    /// <para>
+    /// A flag to the caller and a date in the text. The person says "blocked" or
+    /// "not any more"; what is written down is since when, and the day comes from
+    /// the caller for the reason the scheduling methods above give. Marking an
+    /// entry that is already marked keeps the day it was marked — re-dating it
+    /// would make "since when" mean "since somebody last pressed the button".
+    /// </para>
+    /// <para>
+    /// Nothing else moves. The status, the tick and the chain are all left as they
+    /// were: the mark is a person's statement that something outside the backlog
+    /// is in the way, not a lifecycle step, and not the Blocked readiness the
+    /// chain derives from <c>after:</c> tokens — that one this pane never writes.
+    /// </para>
+    /// </summary>
+    public async Task ChangeBlockedAsync(EntryRow row, bool blocked, DateOnly today)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        await RewriteMetadataAsync(row, BlockedText(row, blocked, today));
+    }
+
     public async Task ChangeDependsOnAsync(EntryRow row, IEnumerable<string>? dependsOn) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithDependsOn(row.RawText, dependsOn));
 
@@ -2424,6 +2448,20 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// day it is stays the caller's to know, the same as it is for one row.</summary>
     public Task<BulkEditOutcome> BulkChangeMyDayAsync(DateOnly? inMyDayOn) =>
         ApplyToSelectionAsync(row => EntryTextParser.WithMyDay(row.RawText, inMyDayOn));
+
+    /// <summary>Marks every picked entry blocked, or unblocks every one of them.
+    /// The single-row rule holds per row: an entry already marked keeps the day it
+    /// was marked, so it counts as unchanged rather than being re-dated.</summary>
+    public Task<BulkEditOutcome> BulkChangeBlockedAsync(bool blocked, DateOnly today) =>
+        ApplyToSelectionAsync(row => BlockedText(row, blocked, today));
+
+    /// <summary>The row's text with the hand-set block written as asked. One
+    /// place, so the single-row and bulk paths cannot disagree about whether a
+    /// second "mark as blocked" re-dates the first.</summary>
+    private static string BlockedText(EntryRow row, bool blocked, DateOnly today) =>
+        blocked
+            ? row.IsPreviewBlocked ? row.RawText : EntryTextParser.WithBlocked(row.RawText, today)
+            : EntryTextParser.WithBlocked(row.RawText, null);
 
     public Task<BulkEditOutcome> BulkChangeDueAsync(DateOnly? dueOn) =>
         ApplyToSelectionAsync(row => EntryTextParser.WithDue(row.RawText, dueOn));
@@ -5115,6 +5153,21 @@ public sealed class EntryRow
     /// this is the one the list, the Completed section and the row menu read.</summary>
     public bool IsPreviewCompleted => PreviewCompletedOn is not null;
 
+    /// <summary>The day a person marked the entry blocked by hand, or null while
+    /// it is not marked. A preview like the tick: the <c>blocked:</c> token is in
+    /// the text and a reader can type one.</summary>
+    public DateOnly? PreviewBlockedSince
+    {
+        get { Render(); return _parsed!.BlockedSince; }
+    }
+
+    /// <summary>What the row's hand-set chip, the refused copy buttons, the
+    /// menu's label and the detail pane's toggle read. Deliberately not anything a
+    /// dependency chain decides — that is <c>TaskChain</c>'s derived Blocked, read
+    /// from <see cref="PreviewDependsOn"/> — and a marked entry is still ready to
+    /// the entries after it.</summary>
+    public bool IsPreviewBlocked => PreviewBlockedSince is not null;
+
     public IReadOnlyList<string> PreviewDependsOn
     {
         get { Render(); return _parsed!.DependsOn ?? []; }
@@ -5250,6 +5303,14 @@ public sealed class EntryRow
             if (PreviewInMyDayOn is { } myDay)
             {
                 readings.Add(new MetaReading("my day", EntryTextParser.DateToken(myDay), true));
+            }
+
+            // Beside My Day, because both are something a person said about the
+            // entry rather than something worked out from it — and only when
+            // written down, the way every other optional field here is.
+            if (PreviewBlockedSince is { } blockedSince)
+            {
+                readings.Add(new MetaReading("blocked", EntryTextParser.DateToken(blockedSince), true));
             }
 
             foreach (var id in PreviewDependsOn)

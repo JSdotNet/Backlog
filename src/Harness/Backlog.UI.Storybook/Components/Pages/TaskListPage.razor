@@ -431,6 +431,10 @@ It exists for the row that was projected from a document the task itself does no
         new("f5", "Tagged", Group: "Tasks", Tags: ["ui", "storybook"]),
         new("f8", "A kind, which is what it was filed as", Group: "Tasks", Kind: new("✨", "prompt"), StepsDone: 0, StepCount: 2, Note: true),
         new("f9", "Another kind, so the marks can be told apart", Group: "Tasks", Kind: new("💡", "idea")),
+        // Marked blocked by hand: the chip and the quieter title, a circle that can
+        // still be ticked, and a copy button refused in place. Not the chain's
+        // "Waiting for", which a row is given by naming another one.
+        new("f10", "Blocked, which a person said", Group: "Tasks", Kind: new("📋", "task"), Due: "Friday", MarkedBlocked: true),
         new("f6", "Everything at once", Group: "Tasks", Kind: new("📋", "task"), Due: "Friday", Reminder: "09:00", Repeats: true, InMyDay: true, StepsDone: 2, StepCount: 5, Note: true, Tags: ["ui"]) { RepeatLabel = "Weekly" },
         new("f7", "Finished, so nothing competes", Done: true, Group: "Tasks", Due: "Yesterday", Reminder: "08:00", Tags: ["ui"])
     ];

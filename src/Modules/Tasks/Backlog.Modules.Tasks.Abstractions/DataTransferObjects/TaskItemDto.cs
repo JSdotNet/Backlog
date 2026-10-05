@@ -62,6 +62,14 @@ namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 /// the tasks that were routed from it. Last, for the reason
 /// <paramref name="StartedOn"/> is.
 /// </para>
+/// <para>
+/// <paramref name="BlockedSince"/> is the day a person marked the entry blocked
+/// by hand, or null. Not the Blocked readiness a dependency chain derives, which
+/// is never stored. It round-trips through the text as a <c>blocked:</c> token,
+/// so it is one of the fields the rule above is about: a mark this record did not
+/// carry would be taken off by the next save. Last, for the reason
+/// <paramref name="StartedOn"/> is.
+/// </para>
 /// </summary>
 public sealed record TaskItemDto(
     Guid Id,
@@ -91,7 +99,8 @@ public sealed record TaskItemDto(
     DateTimeOffset? CreatedAt = null,
     DateOnly? StartedOn = null,
     string? SourceInboxId = null,
-    IReadOnlyList<string>? DevbookReferences = null)
+    IReadOnlyList<string>? DevbookReferences = null,
+    DateOnly? BlockedSince = null)
 {
     /// <summary>The Devbook pages and chapters the entry is about, as normalised
     /// references (<c>path</c> or <c>path#anchor</c>), in order. Published on

@@ -4396,6 +4396,28 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-primary);
 }
 
+/* A person marked this row blocked by hand. Not part of the chain — nothing
+   derives it, and it is not the `--blocked` state above — but it sits here
+   because it answers the same question a wait does: why is this not moving.
+   Painted on like the cycle, in the warning surface rather than the error one,
+   because the mark is a fact somebody recorded and not a mistake in the data. */
+.task-item__detail--markedblocked {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: var(--color-warning);
+    color: var(--color-text-primary);
+}
+
+/* The row itself steps back a little: the title reads in the secondary ink, so a
+   column of marked rows reads as stuck without looking finished. Quieter than the
+   done row on purpose — no strike-through and no disabled ink — and the circle is
+   left alone, unlike the derived `--blocked` row's, because a marked task can
+   still be ticked off. Its copy button is refused in the markup, not here: the
+   disabled button keeps its slot, so nothing on the row moves. */
+.task-item--blocked-flag .task-item__title {
+    color: var(--color-text-secondary);
+}
+
 /* The row to pick up next still carries this outline of its own — the badge
    that used to sit on the metadata line and name it is gone, but the row
    itself is still worth finding from across the list. */
@@ -4881,6 +4903,18 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-primary);
 }
 
+/* Refused — a row marked blocked keeps the button in its slot so nothing moves,
+   and reaching the row must not lift it into the ink that says "press me". The
+   reason is the button's tooltip; the cursor says there is one to read. Scoped
+   under the wrapper on purpose: `.btn:disabled` sets `cursor: default` with the
+   same specificity as a bare `.task-item__copy-button:disabled` and comes later
+   in this file, so the bare rule lost and the row disagreed with the heading. */
+.task-item:hover .task-item__copy-button:disabled,
+.task-item__copy .task-item__copy-button:disabled {
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+}
+
 /* A reader copying several rows in turn tracks which are done by the check, so
    it stands for a minute (TaskItem sets the duration) and wears the accent
    rather than the text colour: a row already copied has to read as different
@@ -5352,6 +5386,14 @@ button.task-panel__check:focus-visible {
 .task-panel__copy-button:hover,
 .task-panel__copy-button:focus-visible {
     color: var(--color-text-primary);
+}
+
+/* Refused the same way the row's is, scoped under the wrapper for the same
+   reason, so the heading wears the same not-allowed cursor as the row. */
+.task-panel:hover .task-panel__copy-button:disabled,
+.task-panel__copy .task-panel__copy-button:disabled {
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
 }
 
 /* Announced, not drawn — the heading line must not reflow because someone

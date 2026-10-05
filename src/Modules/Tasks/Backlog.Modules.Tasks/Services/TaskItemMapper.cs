@@ -38,5 +38,6 @@ internal static class TaskItemMapper
         entry.CreatedAt,
         entry.StartedOn,
         entry.SourceInboxId,
-        [.. entry.DevbookReferences]);
+        [.. entry.DevbookReferences],
+        entry.BlockedSince);
 }

@@ -646,6 +646,14 @@
     private const string RowMenuMyDay = "myday";
     private const string RowMenuImportant = "important";
     private const string RowMenuDone = "done";
+    private const string RowMenuBlocked = "blocked";
+
+    /// <summary>Why the open entry's copy is refused while a person has it marked
+    /// blocked — the same sentence the list row's own copy button says, so the
+    /// two places a task can be copied from refuse in one voice. Only the hand-set
+    /// mark refuses: an entry the chain says is waiting copies as it always has,
+    /// because what it waits for is on the list beside it.</summary>
+    private const string BlockedCopyReason = "Blocked — unblock to copy";
     private const string RowMenuDueToday = "due-today";
     private const string RowMenuDueTomorrow = "due-tomorrow";
     private const string RowMenuDuePick = "due-pick";
@@ -1112,7 +1120,12 @@
             // opens into never disagree. It used to be absent from the row
             // altogether, which left "is this a prompt or a task" a question only
             // the panel could answer.
-            Kind: KindOf(row.PreviewType))
+            Kind: KindOf(row.PreviewType),
+            // The hand-set block, read off the text like the tick. Handed to the
+            // row as a fact and never folded into DependsOn: the chain the list
+            // derives its own Blocked from must not learn about it. The row also
+            // refuses its copy button from this.
+            MarkedBlocked: row.IsPreviewBlocked)
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence)
         })];
@@ -1255,7 +1268,7 @@
     // --- The bulk bar ------------------------------------------------------
 
     /// <summary>
-    /// The eight fields a reader can change across a whole selection, and the one
+    /// The nine fields a reader can change across a whole selection, and the one
     /// thing they can do to it that is not a change, as one band across the width
     /// of the bar: five acts and a delete.
     /// <para>
@@ -1336,8 +1349,9 @@
     /// hook <c>StatusSelector</c> grew for it.
     /// </para>
     /// <para>
-    /// Clearing is offered on exactly the three fields that have an absent state:
-    /// due date, reminder and My Day. Status, priority and type are set-only,
+    /// Clearing is offered on exactly the four fields that have an absent state:
+    /// due date, reminder, My Day and the hand-set block — the last as a pair of buttons under
+    /// Classification. Status, priority and type are set-only,
     /// because there is no "no status" for an entry to be in — the same argument
     /// that leaves the detail pane's priority row without a ✕.
     /// </para>
@@ -1454,6 +1468,34 @@
                                          Label="Set the type of the selected tasks"
                                          TestId="bulk-type"
                                          OnChanged="OnBulkTypeAsync" />
+
+                            @* The hand-set block, here rather than as a sixth act on the
+                               resting bar: the bar is already at the edge of its density
+                               budget, and the mark is the nearest thing to the status
+                               beside it — what the entry currently is to the person, not
+                               when it happens. Two labelled buttons rather than a toggle,
+                               for the reason My Day has two directions: a selection is
+                               usually half marked and half not, and a pressed reading
+                               would be a claim rather than a fact. Marking keeps the day
+                               on the rows that were already marked. Only the stored mark
+                               is written here; the chain's Blocked follows from what the
+                               entries wait for. *@
+                            <span class="backlog-bulk__pair">
+                                <AppButton Variant="ButtonVariant.Ghost"
+                                           Size="ButtonSize.Small"
+                                           AriaLabel="Mark the selected tasks as blocked"
+                                           TestId="bulk-blocked-set"
+                                           OnClick="OnBulkBlockedSetAsync">
+                                    Mark as blocked
+                                </AppButton>
+                                <AppButton Variant="ButtonVariant.Ghost"
+                                           Size="ButtonSize.Small"
+                                           AriaLabel="Unblock the selected tasks"
+                                           TestId="bulk-blocked-clear"
+                                           OnClick="OnBulkBlockedClearAsync">
+                                    Unblock
+                                </AppButton>
+                            </span>
                         </span>
                     }
                 </TaskActionGroup>
@@ -1808,6 +1850,10 @@
 
     private Task OnBulkMyDayClearAsync() => ApplyBulkAsync(() => State.BulkChangeMyDayAsync(null));
 
+    private Task OnBulkBlockedSetAsync() => ApplyBulkAsync(() => State.BulkChangeBlockedAsync(true, Today));
+
+    private Task OnBulkBlockedClearAsync() => ApplyBulkAsync(() => State.BulkChangeBlockedAsync(false, Today));
+
     private Task OnBulkDuePickedAsync(ChangeEventArgs e) =>
         DateOnly.TryParseExact(
             e.Value?.ToString() ?? string.Empty,
@@ -2057,6 +2103,10 @@
             new(RowMenuMyDay, IsInMyDay(row) ? "Remove from My Day" : "Add to My Day", "☀"),
             new(RowMenuImportant, important ? "Remove importance" : "Mark as important", important ? "★" : "☆"),
             new(RowMenuDone, done ? "Mark as not completed" : "Mark as completed", done ? "○" : "✓"),
+            // With the marks, after the tick: it is one more thing a person says
+            // about the row rather than a date, and like My Day it names the way
+            // back off once it is on.
+            new(RowMenuBlocked, row.IsPreviewBlocked ? "Unblock" : "Mark as blocked", row.IsPreviewBlocked ? "✓" : "⛔"),
             MenuItem.Divider("schedule"),
             new(RowMenuDueToday, "Due today", "🗓"),
             new(RowMenuDueTomorrow, "Due tomorrow", "🗓"),
@@ -2154,6 +2204,9 @@
                 break;
             case RowMenuDone:
                 await State.ToggleCompletedAsync(row, Today);
+                break;
+            case RowMenuBlocked:
+                await State.ChangeBlockedAsync(row, !row.IsPreviewBlocked, Today);
                 break;
             case RowMenuDueToday:
                 await State.ChangeDueAsync(row, Today);
@@ -2431,6 +2484,7 @@
                        OnRenamePreview="text => OnEntryTitlePreview(row, text)"
                        OnTabBackward="MoveFocusToListAsync"
                        CopyValue="@(EntryCopyText(row) ?? DetailTitle(row))"
+                       CopyDisabledReason="@(row.IsPreviewBlocked ? BlockedCopyReason : null)"
                        CssClass="entry-detail__panel"
                        TestId="entry-panel">
                 <StatusContent>
@@ -3291,6 +3345,22 @@
                                         CssClass="entry-doc__schedule-depends"
                                         TestId="entry-depends-select" />
                     }
+
+                    @* The hand-set block, in the group that already answers "why is
+                       this not moving" and under the chain rather than in it.
+                       Waiting for is what the other entries decide — the derived
+                       Blocked — while this is a person saying something outside the
+                       list is in the way, so it is a toggle they press rather than a
+                       list they edit. Togglable like My Day and for the same reason it
+                       has no ✕: pressing it again is how it comes off. Set, it reads
+                       "Blocked since" and the day, so the row says since when. *@
+                    <TaskAction Icon="⛔"
+                                Label="@(row.IsPreviewBlocked ? "Blocked since" : "Mark as blocked")"
+                                Value="@FormatDate(row.PreviewBlockedSince)"
+                                Set="@row.IsPreviewBlocked"
+                                Togglable="true"
+                                OnSet="() => State.ChangeBlockedAsync(row, !row.IsPreviewBlocked, Today)"
+                                TestId="entry-action-blocked" />
                 </TaskActionGroup>
 
                 @* Under Dependencies and across the full width for the same reason:

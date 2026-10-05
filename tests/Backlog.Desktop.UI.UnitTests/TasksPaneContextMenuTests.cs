@@ -53,7 +53,7 @@ public sealed class TasksPaneContextMenuTests
 
         // The order Microsoft To Do settled on: the marks, the dates, the place, the end.
         Assert.Equal(
-            ["myday", "important", "done", "due-today", "due-tomorrow", "due-pick", "due-clear", "move-up", "move-down", "delete"],
+            ["myday", "important", "done", "blocked", "due-today", "due-tomorrow", "due-pick", "due-clear", "move-up", "move-down", "delete"],
             pane.FindAll("[data-testid='entry-menu'] [role='menuitem']")
                 .Select(item => item.GetAttribute("data-testid")!["entry-menu-item-".Length..]));
     }
@@ -132,6 +132,37 @@ public sealed class TasksPaneContextMenuTests
         await ChooseAsync(pane, "myday");
 
         Assert.Null(row.PreviewInMyDayOn);
+    }
+
+    /// <summary>Mark as blocked is a toggle like My Day: the label names the way
+    /// back once it is on, and unblocking clears the token rather than writing a
+    /// different date. The status is left exactly where it was both ways, and so is
+    /// the circle — the hand-set mark is not the chain's Blocked.</summary>
+    [Fact]
+    public async Task Mark_as_blocked_is_a_toggle_whose_label_names_the_way_back()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(Entry);
+        var pane = host.Render();
+
+        await OpenMenuAsync(pane, row);
+        Assert.Equal("Mark as blocked", Label(pane, "blocked"));
+        await ChooseAsync(pane, "blocked");
+
+        Assert.Equal(Today, row.PreviewBlockedSince);
+        Assert.Equal(EntryStatus.InProgress, row.PreviewStatus);
+        Assert.Empty(pane.FindAll("[data-testid='entry-menu']"));
+
+        // The row says so on its own line, and its circle is still a control.
+        Assert.NotEmpty(pane.FindAll($"[data-testid='{RowTestId(row)}'] .task-item__detail--markedblocked"));
+        Assert.Equal("checkbox", pane.Find($"[data-testid='{RowTestId(row)}-check']").GetAttribute("role"));
+
+        await OpenMenuAsync(pane, row);
+        Assert.Equal("Unblock", Label(pane, "blocked"));
+        await ChooseAsync(pane, "blocked");
+
+        Assert.Null(row.PreviewBlockedSince);
+        Assert.Equal(EntryStatus.InProgress, row.PreviewStatus);
     }
 
     [Fact]
