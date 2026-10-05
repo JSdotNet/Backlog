@@ -93,6 +93,29 @@ public sealed class IntegrationLinkTests
     }
 
     [Fact]
+    public void State_as_ink_colours_the_link_and_says_the_state_in_words_instead_of_a_chip()
+    {
+        // One button per artifact: the state is the link's own colour, and the
+        // words travel in the title and an sr-only span so colour is never the
+        // sole carrier.
+        using var context = new BunitContext();
+
+        var link = context.Render<IntegrationLink>(parameters => parameters
+            .Add(l => l.Link, Pull with { Url = "https://example.invalid/pull/74" })
+            .Add(l => l.StateAsInk, true)
+            .Add(l => l.TestId, "link")
+            .Add(l => l.StateTestId, "state"));
+
+        var anchor = link.Find("a[data-testid='link']");
+
+        Assert.Contains("integration-link--state-open", anchor.ClassList);
+        Assert.Empty(link.FindAll(".badge--integration"));
+        Assert.Equal("Open", link.Find("[data-testid='state']").TextContent.Trim());
+        Assert.Contains("sr-only", link.Find("[data-testid='state']").ClassList);
+        Assert.Contains("Open on GitHub", anchor.GetAttribute("title"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_drift_note_replaces_the_general_sentence()
     {
         using var context = new BunitContext();

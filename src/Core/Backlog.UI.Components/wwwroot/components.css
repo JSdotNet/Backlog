@@ -13863,6 +13863,42 @@ select.field__input {
     color: inherit;
 }
 
+/* State as ink: the link is the one button for its artifact, outlined in the
+   state chip's own inks and edges so a row says Open, Draft or Merged once.
+   Positioned for the .sr-only copy of the state's words, which keeps colour
+   from being the sole carrier. */
+.integration-link--stateful {
+    position: relative;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--integration-edge);
+    border-radius: var(--border-radius-full);
+}
+
+.integration-link--state-open {
+    color: var(--integration-live);
+    border-color: var(--integration-live-edge);
+}
+
+.integration-link--state-merged {
+    background: var(--integration-settled-surface);
+    border-color: var(--integration-edge-strong);
+    color: var(--integration-ink);
+}
+
+.integration-link--state-draft {
+    background: var(--color-background-raised);
+    color: var(--integration-ink-quiet);
+}
+
+.integration-link--state-closed {
+    border-color: var(--integration-edge-strong);
+    color: var(--integration-ink-muted);
+}
+
+.integration-link--stateful .integration-link__title {
+    color: inherit;
+}
+
 /* The title is the part that gives, because it is the part a reader can lose and
    still know what they are looking at. */
 .integration-link__title {

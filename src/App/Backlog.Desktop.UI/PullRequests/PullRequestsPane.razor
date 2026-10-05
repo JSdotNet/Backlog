@@ -194,21 +194,21 @@
 
                         <td class="pull-requests-table__pull-request">
                             <IntegrationLink Link="@MergedLink(pull)"
+                                             StateAsInk="true"
                                              CssClass="pull-requests-table__link"
-                                             TestId="pull-request-link" />
+                                             TestId="pull-request-link"
+                                             StateTestId="pull-request-state" />
                         </td>
 
                         @BranchCell(pull.HeadRefName, pull.BaseRefName)
 
-                        @* Coarse beside the chip, exact in the title: "2h ago" is what
+                        @* Coarse in the cell, exact in the title: "2h ago" is what
                            tells a reader whether this is the one they just merged. Who
                            merged it rides along here rather than in a column of its
-                           own, which would push the table past the pane's width. *@
+                           own, which would push the table past the pane's width. The
+                           link already wears Merged as its colour, so no chip here. *@
                         <td>
                             <span class="pull-requests-table__facts">
-                                <IntegrationStateChip Artifact="IntegrationArtifactState.Merged"
-                                                      Kind="IntegrationLinkKind.PullRequest"
-                                                      TestId="pull-request-state" />
                                 <span>
                                     <span title="@MergedTitle(pull)" data-testid="pull-request-merged-at">@MergedAgo(pull)</span>
                                     @if (pull.MergedByLogin is { } merger)
@@ -242,21 +242,21 @@
 
                         <td class="pull-requests-table__pull-request">
                             <IntegrationLink Link="@Link(pull)"
+                                             StateAsInk="true"
                                              CssClass="pull-requests-table__link"
-                                             TestId="pull-request-link" />
+                                             TestId="pull-request-link"
+                                             StateTestId="pull-request-state" />
                         </td>
 
                         @BranchCell(pull.HeadRefName, pull.BaseRefName)
 
-                        @* Words, each in the library's own badge: the state chip says
-                           draft or open with its glyph, and every other fact a reader
-                           acts on is its own badge, so none of them is carried by
-                           colour alone. GitHub's raw merge state is in the title. *@
+                        @* Words, each in the library's own badge. Draft or open is not
+                           here: the link is the one GitHub button and wears it as its
+                           colour, with the words in its title. Every other fact a reader
+                           acts on is its own badge, so none is carried by colour alone.
+                           GitHub's raw merge state is in the title. *@
                         <td title="@StatusTitle(pull)">
                             <span class="pull-requests-table__facts">
-                                <IntegrationStateChip Artifact="@(pull.IsDraft ? IntegrationArtifactState.Draft : IntegrationArtifactState.Open)"
-                                                      Kind="IntegrationLinkKind.PullRequest"
-                                                      TestId="pull-request-state" />
                                 @if (ChecksLabel(pull.Checks) is { } checks)
                                 {
                                     <Badge Kind="@ChecksKind(pull.Checks)" Slug="@ChecksSlug(pull.Checks)" TestId="pull-request-checks">@checks</Badge>
@@ -899,11 +899,10 @@
             }
         </td>;
 
-    /// <summary>The pull request as a link without a state of its own: every row is
-    /// merged, and the Merged column already says so once.</summary>
+    /// <summary>The pull request as a link wearing Merged as its colour — the one
+    /// place the row says it.</summary>
     private static IntegrationLinkRef MergedLink(GitHubMergedPullRequest pull) =>
-        IntegrationLinkRef.PullRequest(pull.Url, $"#{pull.Number}", IntegrationArtifactState.Merged, pull.Title, pull.Url)
-            with { ArtifactState = null };
+        IntegrationLinkRef.PullRequest(pull.Url, $"#{pull.Number}", IntegrationArtifactState.Merged, pull.Title, pull.Url);
 
     /// <summary>How long before the reading it was merged, coarsely — the exact
     /// moment is in <see cref="MergedTitle"/>.</summary>
@@ -919,7 +918,8 @@
     }
 
     /// <summary>The pull request as the Integrations family draws one: the number,
-    /// its title, an anchor to GitHub. The status column says the rest in words.</summary>
+    /// its title, an anchor to GitHub, its state as the link's colour. The status
+    /// column says the rest in words.</summary>
     private static IntegrationLinkRef Link(GitHubOpenPullRequest pull) =>
         IntegrationLinkRef.PullRequest(
             pull.Url,
