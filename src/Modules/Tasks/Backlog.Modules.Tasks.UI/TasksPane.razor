@@ -2436,21 +2436,23 @@
 
     private bool MyDayOnly => State.MyDayOn is not null;
 
-    /// <summary>How many entries are in today's My Day, counted off the rows the
+    /// <summary>How many open entries are in today's My Day, counted off the rows the
     /// repository scope leaves in view — the same pool the No repo chip counts, so
-    /// neither number changes meaning when a tag or a status is picked. Derived here
-    /// because this is where the clock is.</summary>
-    private int MyDayCount => State.ScopedRows.Count(IsInMyDay);
+    /// neither number changes meaning when a tag or a status is picked. Open, as on a
+    /// tag chip's face: a ticked-off entry stays in My Day and stays listed, but it is
+    /// no longer something to do. Derived here because this is where the clock is.</summary>
+    private int MyDayCount => State.ScopedRows.Count(row => !row.IsPreviewCompleted && IsInMyDay(row));
 
-    /// <summary>How many of those same rows are filed against no repository. It is
-    /// the state that decides what "no repository" means — see
+    /// <summary>How many of those same open rows are filed against no repository. It
+    /// is the state that decides what "no repository" means — see
     /// <c>TasksDesktopState.NoRepositoryOnly</c> — so the count asks it rather than
     /// working the answer out a second way here.</summary>
-    private int NoRepositoryCount => State.ScopedRows.Count(row => State.RepositoryFor(row) is null);
+    private int NoRepositoryCount => State.ScopedRows.Count(row => !row.IsPreviewCompleted && State.RepositoryFor(row) is null);
 
     /// <summary>How many of those same rows are ready in a plan. The same
     /// arrangement as No repo: the state decides, and the count asks it — see
-    /// <c>TasksDesktopState.IsReadyInPlan</c>.</summary>
+    /// <c>TasksDesktopState.IsReadyInPlan</c>, which already leaves finished rows
+    /// out.</summary>
     private int ReadyInPlanCount => State.ScopedRows.Count(State.IsReadyInPlan);
 
     // --- The open-work summary and its report --------------------------------
