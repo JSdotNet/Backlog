@@ -639,42 +639,63 @@ the silence lasts, and reads as running again the moment the agent writes.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/features.md#open-on-the-live-sessions]
-aliases: [AgentSessionView, view, live, all]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/domain/sessions/features.md#only-the-rows-with-a-run]
+aliases: [AgentSessionView, view, live, all, AgentSessionEnvironments]
 ```
 
-Narrows a set of `Agent Session`s to the ones a reader currently wants in front of
-them: the live ones, or all of them.
+Narrows a set of `Session Row`s to the ones a reader currently wants in front of
+them: the live ones, or all of them. A row is a session with its runs or a run the
+list holds no session for, and the view narrows both alike. A run-only row is always
+Finished, so the live view never keeps one.
 
 It decides nothing about liveness. The `Session Log`'s invariant on derived
 `Session State` has already settled that question, and this service does no more than
-read the answer — which is why "live" here can only mean running or stalled. A second
+read the answer. That is why "live" here can only mean running or stalled. A second
 place that worked out for itself whether a session was still going would be a second
 definition of live, free to drift from the first, and the two would disagree first on
 exactly the sessions a reader most needs to trust.
 
-A service of its own rather than one more member of `Session Grouping`. Grouping guarantees that every session in is a session out; a
-"live" grouping would falsify that guarantee while sitting in the same strip as
-environment and agent, leaving the reader one control whose options sometimes
-rearrange the list and sometimes shorten it. Two operations with two guarantees is the
-honest shape: exactly one of them removes sessions, and the surface can therefore say
-which one did.
+A service of its own rather than one more member of `Session Grouping`. Grouping
+guarantees that every row in is a row out. A "live" grouping would falsify that
+guarantee while sitting in the same strip as environment and agent, leaving the reader
+one control whose options sometimes rearrange the list and sometimes shorten it.
 
-**View first, then grouping.** A set is narrowed and then carved up, never the reverse,
-so an environment with nothing live on it loses its section rather than keeping an
-empty one. The view also does not reorder — ordering is the grouping's answer to give,
+**The environment narrowing sits beside it.** `AgentSessionEnvironments` narrows the
+same rows to the ones on one environment, or hands every row back when none is named.
+It keys on the environment's id rather than its name, because a machine can be renamed
+and two can share a name. It offers only the environments the rows name, in the order
+a grouping by environment draws its sections. It is a separate narrowing rather than a
+third view, because a view answers a question about liveness and the environment
+answers one about place. Folded together, "Live" would mean "live here" on some presses
+and "live anywhere" on others.
+
+**Grouping is the one operation that never removes rows.** The narrowings are the ones
+that do: the environment, the view, and the surface's own "with runs" toggle (see
+`.devbook/domain/sessions/features.md#only-the-rows-with-a-run`). Because only the
+narrowings shorten the list, the surface can say what they left out.
+
+**Narrow first, then group.** A surface narrows to the environment, then applies the
+view, then the "with runs" toggle, and only then carves what is left into groups. Never
+the reverse, so an environment with nothing live on it loses its section rather than
+keeping an empty one. No narrowing reorders. Ordering is the grouping's answer to give,
 and a narrowing that sorted would be a second answer to what "most recently active
 first" means.
 
 Pure, like `Session Grouping`: no clock, no I/O, no state. The clock was already spent
-by `Liveness Assessment`, which is what lets a reader change view without anything
-being read again — and what makes two views of one reading two renderings of the same
-facts rather than two readings that might disagree.
+by `Liveness Assessment`. That is what lets a reader change view without anything
+being read again, and what makes two views of one reading two renderings of the same
+facts rather than two readings that might disagree. `All` hands back the same list it
+was given, as an environment narrowing with no environment named does.
 
 Invocation semantics: query/composition-oriented; invoked per view, never stored. Which
 view is in force is the reader's choice, is not part of this context's state, and is
-not part of what a reading returns — a surface holding it starts at the live view every
+not part of what a reading returns. A surface holding it starts at the live view every
 time it is opened.
+
+One thing besides the reader changes the view. When a surface is asked to focus one
+session and the current narrowings hide that session's row, the surface switches to
+`All`, turns the "with runs" toggle off and clears the environment. A request to show a
+session that then shows an empty list would answer a question nobody asked.
 
 ## Session Grouping
 
