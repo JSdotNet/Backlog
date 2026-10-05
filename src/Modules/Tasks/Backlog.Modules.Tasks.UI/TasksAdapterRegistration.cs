@@ -33,6 +33,10 @@ public static class TasksAdapterRegistration
 
         services.AddSingleton<IRepositoryDirectory, SettingsRepositoryDirectory>();
 
+        // The Connectors page, which reads the connectors and the connected targets
+        // the host registers rather than anything this call does.
+        services.AddConnectorSettings();
+
         return services;
     }
 }

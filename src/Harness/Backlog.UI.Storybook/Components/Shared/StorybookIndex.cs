@@ -324,7 +324,13 @@ internal static class StorybookIndex
             new("integrations/actions", "Actions", "The six acts the product performs on an external tool, the two hand-offs to an agent session, and which of them wear a provider mark."),
             new("integrations/references", "References", "Issues, pull requests and agent sessions that live outside the product: their state, their drift against local truth, and when it was last read."),
             new("integrations/density", "Density and overflow", "The same acts as a header toolbar, an inline row, an icon-only cluster and a set of menu items, and how the budget decides which."),
-            new("integrations/ai", "AI in the document", "Rewriting a block and resolving a comment, attached to the comment model that already exists.")
+            new("integrations/ai", "AI in the document", "Rewriting a block and resolving a comment, attached to the comment model that already exists."),
+
+            // Last of the group: a tool tasks can follow, with its sign-in and what
+            // is connected through it. It draws the freshness line References
+            // introduces, and the toggle, field and buttons from Input and action,
+            // inside the card; the EmptyState it shows for no tool is Feedback's.
+            new("integrations/connectors", "Connectors", "ConnectorCard: one outside tool tasks can follow — who is signed in, and what is connected through it.")
         ]),
 
         // Its own chapter, out of Input and action where its pages used to be three

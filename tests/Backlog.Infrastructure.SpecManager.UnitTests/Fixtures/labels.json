@@ -1,0 +1,7 @@
+{
+  "labels": [
+    { "id": "20000000-0000-0000-0000-000000000001", "naam": "Frontend", "kleur": "blauw", "volgorde": 1, "aantalItems": 1, "gebruiktInIndeling": false },
+    { "id": "20000000-0000-0000-0000-000000000002", "naam": "Backend", "kleur": "groen", "volgorde": 2, "aantalItems": 1, "gebruiktInIndeling": false },
+    { "id": "20000000-0000-0000-0000-000000000003", "naam": "+release-2", "kleur": "paars", "volgorde": 3, "aantalItems": 1, "gebruiktInIndeling": true }
+  ]
+}

@@ -50,7 +50,11 @@ internal static class TaskPayloads
                     sourceRef.SourceUpdatedAt,
                     sourceRef.Flags.Count == 0 ? null : [.. sourceRef.Flags],
                     sourceRef.NormalisedState is { } state ? NormalisedSourceStates.ToWire(state) : null,
-                    sourceRef.SourceTitle),
+                    sourceRef.SourceTitle,
+                    // Null rather than false, so a reference that is not blocked
+                    // writes the JSON it wrote before the member existed.
+                    sourceRef.Blocked ? true : null,
+                    sourceRef.BlockedReason),
                 Options);
 
     /// <summary>Reads the <c>source_ref</c> column back. A value that does not parse,
@@ -89,7 +93,9 @@ internal static class TaskPayloads
             payload.SourceUpdatedAt,
             payload.Flags,
             NormalisedSourceStates.FromWire(payload.NormalisedState),
-            payload.SourceTitle);
+            payload.SourceTitle,
+            payload.Blocked == true,
+            payload.BlockedReason);
     }
 }
 
@@ -110,4 +116,6 @@ internal sealed record SourceRefPayload(
     DateTimeOffset SourceUpdatedAt,
     List<string>? Flags,
     string? NormalisedState = null,
-    string? SourceTitle = null);
+    string? SourceTitle = null,
+    bool? Blocked = null,
+    string? BlockedReason = null);

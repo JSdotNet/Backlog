@@ -42,6 +42,9 @@
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sessions\Backlog.Infrastructure.Sessions.csproj" />
+    <!-- The spec-manager connector for linked tasks, and the token store each head
+         hands in through the options. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.SpecManager\Backlog.Infrastructure.SpecManager.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
     <!-- The shell and, through it, every context's screen project: the window's
          state, the Ask AI sources and the settings pages are registered from

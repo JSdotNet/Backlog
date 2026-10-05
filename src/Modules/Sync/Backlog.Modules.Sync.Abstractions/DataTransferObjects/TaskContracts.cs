@@ -146,7 +146,11 @@ public sealed record ProjectionPayload(string RepoId, string ExternalId, string 
 /// defaulted because it arrived after the rest: an older document carries none,
 /// and the device reading it treats the state as moved, once. <c>SourceTitle</c>
 /// is the item's title at the source when last synced, which tells a local rename
-/// from a stale title; last and defaulted for the same reason.</summary>
+/// from a stale title; last and defaulted for the same reason. <c>Blocked</c> and
+/// <c>BlockedReason</c> are whether the source said the item was blocked at the last
+/// sync, and why; defaulted for the same reason, and null rather than false on a
+/// reference that is not blocked, so its document serialises as it did
+/// before.</summary>
 public sealed record SourceRefPayload(
     string ConnectorId,
     string Target,
@@ -158,7 +162,9 @@ public sealed record SourceRefPayload(
     DateTimeOffset SourceUpdatedAt,
     IReadOnlyList<string>? Flags = null,
     string? NormalisedState = null,
-    string? SourceTitle = null)
+    string? SourceTitle = null,
+    bool? Blocked = null,
+    string? BlockedReason = null)
 {
     /// <summary>What this build has no member for, carried through as it
     /// arrived — see <see cref="TaskPayload.Unrecognised"/>.</summary>

@@ -1,0 +1,10 @@
+{
+  "statussen": [
+    { "id": "10000000-0000-0000-0000-000000000001", "naam": "Te doen", "kleur": null, "volgorde": 1, "isEindstatus": false, "isAistatus": false, "isReviewstatus": false, "isOntwikkelstatus": false },
+    { "id": "10000000-0000-0000-0000-000000000002", "naam": "Verfijnd", "kleur": "blauw", "volgorde": 2, "isEindstatus": false, "isAistatus": false, "isReviewstatus": false, "isOntwikkelstatus": false },
+    { "id": "10000000-0000-0000-0000-000000000003", "naam": "In ontwikkeling", "kleur": "geel", "volgorde": 3, "isEindstatus": false, "isAistatus": false, "isReviewstatus": false, "isOntwikkelstatus": true },
+    { "id": "10000000-0000-0000-0000-000000000006", "naam": "AI bezig", "kleur": "oranje", "volgorde": 4, "isEindstatus": false, "isAistatus": true, "isReviewstatus": false, "isOntwikkelstatus": false },
+    { "id": "10000000-0000-0000-0000-000000000004", "naam": "Review", "kleur": "paars", "volgorde": 5, "isEindstatus": false, "isAistatus": false, "isReviewstatus": true, "isOntwikkelstatus": false },
+    { "id": "10000000-0000-0000-0000-000000000005", "naam": "Klaar", "kleur": "groen", "volgorde": 6, "isEindstatus": true, "isAistatus": false, "isReviewstatus": false, "isOntwikkelstatus": false }
+  ]
+}

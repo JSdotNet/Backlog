@@ -65,7 +65,8 @@ public sealed partial class DesktopCompositionTests
         "AddGitHub",
         "AddClaude",
         "AddCopilot",
-        "AddWorkspaceCaches"
+        "AddWorkspaceCaches",
+        "AddSpecManager"
     ];
 
     [Fact]

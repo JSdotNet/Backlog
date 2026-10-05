@@ -48,7 +48,9 @@ public sealed record SourceRef
         DateTimeOffset sourceUpdatedAt,
         IEnumerable<string>? flags = null,
         NormalisedSourceState? normalisedState = null,
-        string? sourceTitle = null)
+        string? sourceTitle = null,
+        bool blocked = false,
+        string? blockedReason = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectorId);
         ArgumentException.ThrowIfNullOrWhiteSpace(externalId);
@@ -64,6 +66,8 @@ public sealed record SourceRef
         Flags = flags?.ToList() ?? [];
         NormalisedState = normalisedState;
         SourceTitle = sourceTitle;
+        Blocked = blocked;
+        BlockedReason = string.IsNullOrWhiteSpace(blockedReason) ? null : blockedReason;
     }
 
     /// <summary>The connector's id, such as <c>github</c>.</summary>
@@ -118,6 +122,22 @@ public sealed record SourceRef
     /// </summary>
     public string? SourceTitle { get; init; }
 
+    /// <summary>
+    /// Whether the source said the item was blocked at the last sync; false on a
+    /// reference written before this was kept.
+    /// <para>
+    /// The source's, not the task's: what the sync compares against to decide
+    /// whether the source's blocked-ness <em>moved</em>. The task's own
+    /// blocked mark follows the source only on a move, the way its status does, so a
+    /// person who marks or clears it between two moves keeps what they set.
+    /// </para>
+    /// </summary>
+    public bool Blocked { get; init; }
+
+    /// <summary>Why the source says the item is blocked, or null when it is not or
+    /// gives no reason.</summary>
+    public string? BlockedReason { get; init; }
+
     /// <summary>The Backlog-owned sync flags, trimmed, de-duplicated and in
     /// ordinal order, so two equal sets are two equal lists.</summary>
     public IReadOnlyList<string> Flags
@@ -153,6 +173,8 @@ public sealed record SourceRef
         && SourceUpdatedAt.Equals(other.SourceUpdatedAt)
         && NormalisedState == other.NormalisedState
         && string.Equals(SourceTitle, other.SourceTitle, StringComparison.Ordinal)
+        && Blocked == other.Blocked
+        && string.Equals(BlockedReason, other.BlockedReason, StringComparison.Ordinal)
         && _flags.SequenceEqual(other._flags, StringComparer.Ordinal);
 
     public override int GetHashCode()
@@ -164,6 +186,8 @@ public sealed record SourceRef
         hash.Add(SourceUpdatedAt);
         hash.Add(NormalisedState);
         hash.Add(SourceTitle, StringComparer.Ordinal);
+        hash.Add(Blocked);
+        hash.Add(BlockedReason, StringComparer.Ordinal);
         foreach (var flag in _flags) hash.Add(flag, StringComparer.Ordinal);
         return hash.ToHashCode();
     }

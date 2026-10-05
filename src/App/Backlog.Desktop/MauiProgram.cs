@@ -15,6 +15,7 @@ using Backlog.Infrastructure.FileSystem.Logging;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.DevPc;
+using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Sessions;
@@ -105,6 +106,9 @@ public static class MauiProgram
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(),
             CaptureRunLog = _ => new CaptureRunLogStore(),
             ConnectedTargets = _ => new ConnectedTargetsSettingsStore(),
+            // A refresh token is a secret, so DPAPI, beside github.json under the
+            // per-user Backlog folder; the connected targets above stay plain text.
+            SpecManagerTokenStore = _ => new DpapiSpecManagerTokenStore(),
             InboxRoutingRules = _ => new InboxRoutingRulesStore(),
             GitHubSettings = root => new GitHubSettingsStore(GitHubSettingsStore.DefaultLocalPath, root),
             ClaudeSettings = _ => new ClaudeSettingsStore(),

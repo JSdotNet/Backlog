@@ -17,7 +17,10 @@ namespace Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 /// The title and the assignee follow the source on every sync. The status follows
 /// the source's <em>state moves</em>: it is walked to the map's answer when the
 /// normalised state differs from the one the last sync recorded, and otherwise left
-/// where the person put it (ADR 0020 §4, as amended at implementation).
+/// where the person put it (ADR 0020 §4, as amended at implementation). The task's
+/// blocked mark follows the source's blocked moves on the same terms, and the
+/// item's devbook references are added to the task's on every sync and never taken
+/// away. The item's <see cref="SourceItem.WaitsOn"/> is not read yet.
 /// </para>
 /// <para>
 /// <c>.devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md</c> is the
@@ -29,7 +32,8 @@ public sealed record SyncLinkedTasksCommand(string ConnectorId, string Target);
 
 /// <summary>What one sync did, counted per task.</summary>
 /// <param name="Created">Items that became a task.</param>
-/// <param name="Updated">Tasks a source field, the status or a flag changed on.</param>
+/// <param name="Updated">Tasks a source field, the status, the blocked mark, a
+/// devbook reference or a flag changed on.</param>
 /// <param name="Unchanged">Tasks the sync read and left alone.</param>
 /// <param name="SkippedTombstoned">Items whose task the person deleted; never made
 /// again.</param>
@@ -137,7 +141,7 @@ public sealed class SyncLinkedTasksCommandHandler(
                     continue;
                 }
 
-                await tasks.SaveAsync(Create(id, connectorId, target, item, fetchStartedAt, today), cancellationToken);
+                await tasks.SaveAsync(Create(id, connectorId, target, item, fetchStartedAt, today, FinishedOn(item, today)), cancellationToken);
                 created++;
                 continue;
             }
@@ -145,7 +149,7 @@ public sealed class SyncLinkedTasksCommandHandler(
             // A quiet sync stays quiet: a task nothing changed on is not saved, so its
             // UpdatedAt does not move and an idle machine never wins last-write-wins
             // over a real edit made elsewhere (ADR 0020, §5).
-            if (Update(existing, connectorId, target, item, today))
+            if (Update(existing, connectorId, target, item, today, FinishedOn(item, today)))
             {
                 await tasks.SaveAsync(existing, cancellationToken);
                 updated++;
@@ -246,13 +250,15 @@ public sealed class SyncLinkedTasksCommandHandler(
     /// <para>
     /// <b>The tick.</b> An item the source finished is work that is over, which is what
     /// the tick says in the app: ticking an entry off moves it to Done. So a walk that
-    /// lands on Done ticks the task off today unless it already was, and a walk that
-    /// takes a task out of Done or Archived back into open work unticks it, so a
-    /// reopened item does not sit under Completed. Sub-items are not cascaded:
-    /// <see cref="TaskItem.ChangeStatus"/> does not cascade them either.
+    /// lands on Done ticks the task off on <paramref name="finishedOn"/> — the local
+    /// day the source says the item was finished, or today when it does not say —
+    /// unless it already was, and a walk that takes a task out of Done or Archived
+    /// back into open work unticks it, so a reopened item does not sit under
+    /// Completed. Sub-items are not cascaded: <see cref="TaskItem.ChangeStatus"/> does
+    /// not cascade them either.
     /// </para>
     /// </summary>
-    private static bool WalkTo(TaskItem task, EntryStatus target, DateOnly today)
+    private static bool WalkTo(TaskItem task, EntryStatus target, DateOnly today, DateOnly? finishedOn = null)
     {
         var from = task.Status;
         if (from == target) return false;
@@ -264,7 +270,7 @@ public sealed class SyncLinkedTasksCommandHandler(
 
         if (target == EntryStatus.Done && task.CompletedOn is null)
         {
-            task.SetCompletedOn(today);
+            task.SetCompletedOn(finishedOn ?? today);
         }
         else if (from is EntryStatus.Done or EntryStatus.Archived
             && target is EntryStatus.Draft or EntryStatus.Ready or EntryStatus.InProgress
@@ -284,7 +290,8 @@ public sealed class SyncLinkedTasksCommandHandler(
         ConnectedTarget target,
         SourceItem item,
         DateTimeOffset createdAt,
-        DateOnly today)
+        DateOnly today,
+        DateOnly finishedOn)
     {
         var (tags, multiplePlanTags) = TagsFrom(item.Labels ?? []);
 
@@ -308,7 +315,12 @@ public sealed class SyncLinkedTasksCommandHandler(
         if (item.Effort is >= 0) task.SetEffort(item.Effort);
         if (item.DueOn is { } dueOn) task.SetDueOn(dueOn);
 
-        WalkTo(task, StatusFor(item.State), today);
+        WalkTo(task, StatusFor(item.State), today, finishedOn);
+
+        // Followed rather than copied: the source goes on owning these, the blocked
+        // mark by its moves and the references as a union (see Update).
+        if (item.IsBlocked) task.SetBlockedSince(today);
+        AddSourceReferences(task, item.References);
 
         var flags = multiplePlanTags ? new[] { LinkedTaskFlags.MultiplePlanTags } : [];
         task.SetSourceRef(ReferenceTo(connectorId, target.Target, item, flags));
@@ -339,12 +351,25 @@ public sealed class SyncLinkedTasksCommandHandler(
     /// item's return is a move however the state reads.
     /// </para>
     /// <para>
+    /// The blocked mark is owned the same way. When the source's blocked-ness differs
+    /// from the one the held reference recorded — none counts as not blocked — the
+    /// task is marked blocked today if it was not already, or unmarked; otherwise the
+    /// mark is left where the person put it. The reference records the source's
+    /// blocked-ness and its reason on every sync.
+    /// </para>
+    /// <para>
+    /// The item's devbook references are added to the task's when it does not hold
+    /// them yet, and none is ever removed: the person may have added their own, and
+    /// one the source dropped still says what the task was about. A reference the
+    /// person removed comes back while the source still names it.
+    /// </para>
+    /// <para>
     /// Each mutator is called only when its value differs, so a task the source
     /// said nothing new about comes out of here untouched. Answers whether anything
     /// changed.
     /// </para>
     /// </summary>
-    private static bool Update(TaskItem task, string connectorId, ConnectedTarget target, SourceItem item, DateOnly today)
+    private static bool Update(TaskItem task, string connectorId, ConnectedTarget target, SourceItem item, DateOnly today, DateOnly finishedOn)
     {
         var changed = false;
         var held = task.SourceRef;
@@ -379,8 +404,17 @@ public sealed class SyncLinkedTasksCommandHandler(
             // the exception, because the sync archived it, not the person.
             if (status == EntryStatus.Done && task.Status == EntryStatus.Archived && !wasVanished) status = EntryStatus.Archived;
 
-            changed |= WalkTo(task, status, today);
+            changed |= WalkTo(task, status, today, finishedOn);
         }
+
+        var blockedMoved = item.IsBlocked != (held?.Blocked == true);
+        if (blockedMoved && item.IsBlocked != task.IsBlocked)
+        {
+            task.SetBlockedSince(item.IsBlocked ? today : null);
+            changed = true;
+        }
+
+        changed |= AddSourceReferences(task, item.References);
 
         // Decided from where the task is now on every sync, moved or not, so the
         // mismatch is flagged the sync after the person finishes a task the source
@@ -455,7 +489,44 @@ public sealed class SyncLinkedTasksCommandHandler(
             item.UpdatedAt,
             flags,
             item.State,
-            TitleOf(item));
+            TitleOf(item),
+            item.IsBlocked,
+            // A reason for a block the source does not report explains nothing.
+            item.IsBlocked ? item.BlockedReason : null);
+
+    /// <summary>The local day <paramref name="item"/> was finished on, by this
+    /// machine's calendar, when the source says when; <paramref name="today"/>
+    /// otherwise.</summary>
+    private DateOnly FinishedOn(SourceItem item, DateOnly today) =>
+        item.CompletedAt is { } completedAt
+            ? DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(completedAt, time.LocalTimeZone).DateTime)
+            : today;
+
+    /// <summary>
+    /// Adds each of the item's devbook references the task does not hold yet, after
+    /// the task's own end, and answers whether it added any.
+    /// <para>
+    /// Compared in the normalised spelling <see cref="TaskDevbookReference"/> stores,
+    /// so a reference written another way is no change and a quiet sync stays quiet.
+    /// One that names no page is skipped rather than refusing the rest.
+    /// </para>
+    /// </summary>
+    private static bool AddSourceReferences(TaskItem task, IReadOnlyList<string>? references)
+    {
+        if (references is null || references.Count == 0) return false;
+
+        var held = task.DevbookReferences;
+        var added = references
+            .Select(reference => TaskDevbookReference.TryParse(reference, out var parsed) ? parsed.Value : null)
+            .OfType<string>()
+            .Where(value => !held.Contains(value, StringComparer.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (added.Count == 0) return false;
+
+        task.SetDevbookReferences([.. held, .. added]);
+        return true;
+    }
 
     /// <summary>The title a task is given. An item with none is named by its key, so
     /// it still has a row a person can read.</summary>

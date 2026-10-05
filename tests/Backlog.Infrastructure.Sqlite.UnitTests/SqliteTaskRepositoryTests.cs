@@ -200,7 +200,9 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
             "github", "JSdotNet/Backlog", "I_kwDO42", "https://github.com/JSdotNet/Backlog/issues/42", "#42",
             "Job", "open", sourceUpdatedAt, [LinkedTaskFlags.Vanished, LinkedTaskFlags.MultiplePlanTags],
             Backlog.Modules.Tasks.Abstractions.Connectors.NormalisedSourceState.Active,
-            "The title at the source");
+            "The title at the source",
+            blocked: true,
+            blockedReason: "Waits on #41");
 
         var task = new TaskItem("Linked", "The body.", EntryType.Task);
         task.SetSourceRef(source);
@@ -214,6 +216,8 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Equal(sourceUpdatedAt, loaded.SourceRef!.SourceUpdatedAt);
         Assert.Equal(Backlog.Modules.Tasks.Abstractions.Connectors.NormalisedSourceState.Active, loaded.SourceRef.NormalisedState);
         Assert.Equal("The title at the source", loaded.SourceRef.SourceTitle);
+        Assert.True(loaded.SourceRef.Blocked);
+        Assert.Equal("Waits on #41", loaded.SourceRef.BlockedReason);
         Assert.Equal(Noon, loaded.UpdatedAt);
 
         loaded.SetSourceRef(null);
@@ -234,6 +238,28 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
 
         Assert.NotNull(loaded!.SourceRef);
         Assert.Null(loaded.SourceRef.NormalisedState);
+    }
+
+    /// <summary>A <c>source_ref</c> written before the source's blocked-ness was kept
+    /// carries neither member and reads as not blocked; one that is not blocked
+    /// writes neither, so its JSON is what it was before.</summary>
+    [Fact]
+    public void A_source_reference_written_before_blocked_was_kept_reads_as_not_blocked()
+    {
+        const string older = """
+            {"ConnectorId":"github","Target":"JSdotNet/Backlog","ExternalId":"I_1","Url":"u","DisplayKey":"#1",
+             "SourceState":"open","SourceUpdatedAt":"2026-10-01T08:00:00+00:00","NormalisedState":"open","SourceTitle":"T"}
+            """;
+
+        var read = TaskPayloads.ReadSourceRef(older);
+
+        Assert.NotNull(read);
+        Assert.False(read.Blocked);
+        Assert.Null(read.BlockedReason);
+
+        var written = TaskPayloads.WriteSourceRef(read);
+        Assert.DoesNotContain("Blocked", written, StringComparison.Ordinal);
+        Assert.Equal(read, TaskPayloads.ReadSourceRef(written));
     }
 
     /// <summary>Status is rehydrated through the constructor, so loading an

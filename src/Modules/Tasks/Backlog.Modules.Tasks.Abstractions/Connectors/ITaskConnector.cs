@@ -14,7 +14,8 @@ namespace Backlog.Modules.Tasks.Abstractions.Connectors;
 /// A connector holds no settings of its own. What a person connected — the
 /// repositories, the products, how each behaves — is an
 /// <see cref="IConnectedTargets"/> entry; the credentials it signs in with are the
-/// connector's adapter's business and never pass through here.
+/// connector's adapter's business and never pass through here. A connector a person
+/// has to sign in to also implements <see cref="ITaskConnectorSignIn"/>.
 /// </para>
 /// </summary>
 public interface ITaskConnector
@@ -129,6 +130,10 @@ public static class NormalisedSourceStates
 /// body, the labels, the effort and the due date are copied once, when the task is
 /// created, and the person owns them after that (ADR 0020, §4).
 /// </para>
+/// <para>
+/// <see cref="WaitsOn"/> is carried but not read by the sync yet: turning it into
+/// the task's dependencies is later work.
+/// </para>
 /// </summary>
 /// <param name="ExternalId">The source's stable id for the item.</param>
 /// <param name="DisplayKey">How a person names it, such as <c>#412</c>.</param>
@@ -144,10 +149,16 @@ public static class NormalisedSourceStates
 /// <param name="Effort">Its size, when the source has one.</param>
 /// <param name="DueOn">The day it is due, when the source has one.</param>
 /// <param name="WaitsOn">The external ids of the items it waits on.</param>
-/// <param name="IsBlocked">Whether it cannot be worked on now.</param>
+/// <param name="IsBlocked">Whether it cannot be worked on now. The source owns this
+/// by its moves, the way it owns the state: the task is marked blocked the day the
+/// source blocks the item and unmarked the day it unblocks it.</param>
 /// <param name="BlockedReason">Why, when the source says.</param>
-/// <param name="References">Links the item makes to other things, as the source
-/// writes them.</param>
+/// <param name="References">The devbook pages and chapters the item points at,
+/// written <c>path</c> or <c>path#anchor</c>. Added to the task's own references on
+/// every sync and never taken away; one that names no page is skipped.</param>
+/// <param name="CompletedAt">When the source says the item was finished, if it says.
+/// The day the task is ticked off on when the item closes; today when this is
+/// null.</param>
 public sealed record SourceItem(
     string ExternalId,
     string DisplayKey,
@@ -164,4 +175,5 @@ public sealed record SourceItem(
     IReadOnlyList<string>? WaitsOn = null,
     bool IsBlocked = false,
     string? BlockedReason = null,
-    IReadOnlyList<string>? References = null);
+    IReadOnlyList<string>? References = null,
+    DateTimeOffset? CompletedAt = null);

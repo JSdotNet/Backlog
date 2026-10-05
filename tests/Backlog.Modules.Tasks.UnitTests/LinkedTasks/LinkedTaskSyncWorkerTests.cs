@@ -124,6 +124,26 @@ public sealed class LinkedTaskSyncWorkerTests
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ITaskConnector));
     }
 
+    [Fact]
+    public void The_sync_trigger_a_screen_asks_is_the_worker_the_timer_runs_in()
+    {
+        var services = new ServiceCollection();
+        services.AddLinkedTaskSync();
+        using var worker = Worker(new InMemoryConnectedTargets());
+
+        var trigger = Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ILinkedTaskSyncTrigger));
+
+        Assert.Equal(ServiceLifetime.Singleton, trigger.Lifetime);
+        Assert.Same(worker, trigger.ImplementationFactory!(new OnlyTheWorker(worker)));
+    }
+
+    /// <summary>A container holding nothing but the worker, which is all the
+    /// trigger's registration may ask for.</summary>
+    private sealed class OnlyTheWorker(LinkedTaskSyncWorker worker) : IServiceProvider
+    {
+        public object? GetService(Type serviceType) => serviceType == typeof(LinkedTaskSyncWorker) ? worker : null;
+    }
+
     private LinkedTaskSyncWorker Worker(InMemoryConnectedTargets targets) =>
         new(new HandlerScopeFactory(_handler), targets, [new StubTaskConnector()], _time);
 }

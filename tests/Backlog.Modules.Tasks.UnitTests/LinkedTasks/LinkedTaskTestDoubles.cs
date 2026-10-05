@@ -80,17 +80,22 @@ internal sealed class InMemoryConnectedTargets(params IEnumerable<ConnectedTarge
     }
 }
 
-/// <summary>A clock the test sets, in UTC so "today" is the UTC date, whose timers
-/// are recorded and never fire.</summary>
+/// <summary>A clock the test sets, whose timers are recorded and never fire. It is
+/// in UTC, so "today" is the UTC date, unless the test sets another
+/// <see cref="Zone"/>.</summary>
 internal sealed class ManualTimeProvider(DateTimeOffset now) : TimeProvider
 {
     public DateTimeOffset Now { get; set; } = now;
+
+    /// <summary>The local time zone the clock answers, for a test about which local
+    /// day an instant falls on.</summary>
+    public TimeZoneInfo Zone { get; set; } = TimeZoneInfo.Utc;
 
     public List<(TimeSpan DueTime, TimeSpan Period)> Timers { get; } = [];
 
     public override DateTimeOffset GetUtcNow() => Now;
 
-    public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+    public override TimeZoneInfo LocalTimeZone => Zone;
 
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {

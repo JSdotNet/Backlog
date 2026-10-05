@@ -14110,6 +14110,68 @@ select.field__input {
     }
 }
 
+/* --- A tool tasks can follow --------------------------------------------- */
+
+.connector-card__head {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.connector-card__mark {
+    display: inline-flex;
+    flex: none;
+    font-size: var(--font-size-base);
+}
+
+.connector-card__name {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.connector-card__account {
+    color: var(--integration-ink-quiet);
+    font-size: var(--font-size-sm);
+}
+
+.connector-card__none {
+    margin: 0;
+    color: var(--integration-ink-quiet);
+    font-size: var(--font-size-sm);
+}
+
+.connector-card__targets {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.connector-card__target {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.connector-card__toggle {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.connector-card__add {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--spacing-sm);
+}
+
+.connector-card__add-field {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 /* --- Data table ---------------------------------------------------------- */
 
 /* Rows of records, optionally in named sections. The Metric family's five tables

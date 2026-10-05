@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <!-- FakeTimeProvider: token expiry and the status cache's age are read off the
+         clock, so these tests move it rather than wait. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.SpecManager\Backlog.Infrastructure.SpecManager.csproj" />
+  </ItemGroup>
+
+  <!-- Responses recorded in the shape spec-manager answers with, read from disk so a
+       reader can compare them with the contract without reading C#. -->
+  <ItemGroup>
+    <None Update="Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

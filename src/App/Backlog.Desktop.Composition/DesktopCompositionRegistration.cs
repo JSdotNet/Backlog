@@ -13,6 +13,7 @@ using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sessions;
+using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
@@ -112,11 +113,12 @@ public static class DesktopCompositionRegistration
         services.AddTasksModule();
 
         // Linked tasks (local ADR 0020): the head decides where the connected
-        // targets are kept, and the module brings the sync and its timer. No
-        // connector ships yet, so the timer starts none until one is added with
-        // AddTaskConnector<T>().
+        // targets are kept, and the module brings the sync and its timer. The
+        // connectors come after it, each through AddTaskConnector<T>(): spec-manager
+        // first, with the head saying where its sign-in is kept.
         services.AddSingleton(options.ConnectedTargets);
         services.AddLinkedTaskSync();
+        services.AddSpecManager(options.SpecManagerTokenStore);
 
         services.AddRoadmapModule();
         // The plan behind the shell's Ask AI port, after the module so the scoped
