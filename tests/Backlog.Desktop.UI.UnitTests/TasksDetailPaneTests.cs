@@ -1165,6 +1165,36 @@ public sealed class TasksDetailPaneTests
         Assert.Empty(pane.FindAll($"[data-testid='{RowTestId(row)}'] .task-item__title-tag"));
     }
 
+    /// <summary>
+    /// A tag the body's prose mentions is not a chip, so the picker never offers a
+    /// removal the next save would undo. It used to be one: the save wrote the
+    /// stored tag set — body tags included — back on to the metadata line, so
+    /// <c>#number</c> in a sentence turned into a <c>`#number`</c> token, and taking
+    /// the chip off was put straight back because the body still said it.
+    /// </summary>
+    [Fact]
+    public async Task A_tag_the_body_mentions_is_not_a_chip_the_save_puts_back()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(
+            "# Add the GitHub issues connector\n"
+            + "`prompt` `*medium` `+external-task-connectors` `#number`\n\n"
+            + "Built: the #number display key.\n");
+
+        var pane = host.Render();
+
+        Assert.DoesNotContain("`#number`", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("the #number display key", row.RawText, StringComparison.Ordinal);
+        Assert.Equal(
+            ["+external-task-connectors"],
+            pane.FindAll("[data-testid='entry-tags-input'] .tag-select__chip .tag-chip__label").Select(chip => chip.TextContent));
+
+        await pane.Find("[data-testid='entry-tags-input'] .tag-chip__remove").ClickAsync(new());
+
+        Assert.DoesNotContain("`+external-task-connectors`", row.RawText, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='entry-tags-input'] .tag-select__chip"));
+    }
+
     /// <summary>Types a tag into the picker and commits it, which is the gesture the
     /// picker calls "create": the popup opens on input, the new tag is the active
     /// option when nothing else matches, and Enter takes it.</summary>
