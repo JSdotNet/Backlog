@@ -23,3 +23,5 @@ struck through, the way D2 and D3 already are.
 ```
 
 - **[0001 — Archify artifacts are invisible when the Devbook reads from a branch snapshot](0001-archify-artifacts-are-invisible-on-a-branch-snapshot.md)** — identified 2026-09-16.
+- **[0002 — The coding and testing conventions have no checked-in home](0002-coding-and-testing-conventions-have-no-checked-in-home.md)** — identified 2026-10-05.
+- **[0003 — The devbook check is not a zero-warning signal](0003-the-devbook-check-is-not-a-zero-warning-signal.md)** — identified 2026-10-05.
