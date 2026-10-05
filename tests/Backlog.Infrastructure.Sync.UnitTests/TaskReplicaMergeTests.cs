@@ -594,6 +594,31 @@ public sealed class TaskReplicaMergeTests
         Assert.Equal(Noon, restored.UpdatedAt);
     }
 
+    /// <summary>The source's word that an item is blocked crosses the wire with its
+    /// reason; a reference that is not blocked carries neither, so a document from an
+    /// older build reads as not blocked.</summary>
+    [Fact]
+    public void A_blocked_source_reference_round_trips_through_the_wire_shape()
+    {
+        var task = TaskChanges.Task("Blocked", Noon);
+        task.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_9", "u", "#9", null, "open", Noon)
+        {
+            Blocked = true,
+            BlockedReason = "Waiting on the design review",
+        });
+        task.LoadStamps(Noon, null);
+
+        var change = TaskReplicaMerge.ToChange(task);
+        Assert.True(change.Task.SourceRef!.Blocked);
+        Assert.Equal("Waiting on the design review", change.Task.SourceRef.BlockedReason);
+        Assert.Equal(task.SourceRef, TaskReplicaMerge.ToTaskItem(change).SourceRef);
+
+        var older = change with { Task = change.Task with { SourceRef = change.Task.SourceRef with { Blocked = null, BlockedReason = null } } };
+        var restored = TaskReplicaMerge.ToTaskItem(older).SourceRef!;
+        Assert.False(restored.Blocked);
+        Assert.Null(restored.BlockedReason);
+    }
+
     /// <summary>A local task writes no source reference — its document serialises
     /// as it did before — and a document from a build that never heard of one reads
     /// as local work.</summary>

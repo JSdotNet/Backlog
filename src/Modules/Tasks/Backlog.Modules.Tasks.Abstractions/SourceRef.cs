@@ -36,6 +36,7 @@ namespace Backlog.Modules.Tasks.Abstractions;
 public sealed record SourceRef
 {
     private readonly IReadOnlyList<string> _flags = [];
+    private readonly string? _blockedReason;
 
     public SourceRef(
         string connectorId,
@@ -118,6 +119,18 @@ public sealed record SourceRef
     /// </summary>
     public string? SourceTitle { get; init; }
 
+    /// <summary>Whether the source says the item cannot be worked on now. The
+    /// source's, not a Backlog flag: the sync overwrites it on every run.</summary>
+    public bool Blocked { get; init; }
+
+    /// <summary>Why the source says the item is blocked, or null when it gave no
+    /// reason or the item is not blocked.</summary>
+    public string? BlockedReason
+    {
+        get => _blockedReason;
+        init => _blockedReason = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
     /// <summary>The Backlog-owned sync flags, trimmed, de-duplicated and in
     /// ordinal order, so two equal sets are two equal lists.</summary>
     public IReadOnlyList<string> Flags
@@ -153,6 +166,8 @@ public sealed record SourceRef
         && SourceUpdatedAt.Equals(other.SourceUpdatedAt)
         && NormalisedState == other.NormalisedState
         && string.Equals(SourceTitle, other.SourceTitle, StringComparison.Ordinal)
+        && Blocked == other.Blocked
+        && string.Equals(BlockedReason, other.BlockedReason, StringComparison.Ordinal)
         && _flags.SequenceEqual(other._flags, StringComparer.Ordinal);
 
     public override int GetHashCode()
@@ -164,6 +179,7 @@ public sealed record SourceRef
         hash.Add(SourceUpdatedAt);
         hash.Add(NormalisedState);
         hash.Add(SourceTitle, StringComparer.Ordinal);
+        hash.Add(Blocked);
         foreach (var flag in _flags) hash.Add(flag, StringComparer.Ordinal);
         return hash.ToHashCode();
     }

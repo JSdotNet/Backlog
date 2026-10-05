@@ -2609,6 +2609,21 @@ h1, h2, h3 {
     color: var(--color-text-primary);
 }
 
+/* The Connectors page: the connect row, then one card per connected target,
+   each with room around it so a button never sits against a field or a card. */
+.task-connectors__connect {
+    display: grid;
+    gap: var(--spacing-sm);
+    justify-items: start;
+    margin-top: var(--spacing-md);
+}
+
+.task-connectors__targets {
+    display: grid;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+}
+
 .setting__note {
     margin: var(--spacing-md) 0 0;
     font-size: var(--font-size-sm);

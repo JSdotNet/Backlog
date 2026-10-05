@@ -32,7 +32,7 @@ namespace Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 /// at all.
 /// </para>
 /// </summary>
-public sealed class LinkedTaskSyncWorker : IDisposable
+public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
 {
     /// <summary>How long after the app starts the first tick runs. Not zero: the
     /// first seconds of a launch belong to drawing the window, not to the

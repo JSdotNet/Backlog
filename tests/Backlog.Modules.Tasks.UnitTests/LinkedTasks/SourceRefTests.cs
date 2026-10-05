@@ -34,6 +34,15 @@ public sealed class SourceRefTests
         Assert.NotEqual(reference, reference with { NormalisedState = NormalisedSourceState.Done });
         Assert.NotEqual(reference, reference with { SourceTitle = "Renamed at the source" });
         Assert.NotEqual(reference, reference.WithFlag(LinkedTaskFlags.Vanished, set: true));
+        Assert.NotEqual(reference, reference with { Blocked = true });
+        Assert.NotEqual(reference with { Blocked = true }, reference with { Blocked = true, BlockedReason = "Waiting" });
+    }
+
+    [Fact]
+    public void A_blank_blocked_reason_is_no_reason()
+    {
+        Assert.Null((Reference() with { Blocked = true, BlockedReason = "   " }).BlockedReason);
+        Assert.Equal("Waiting", (Reference() with { BlockedReason = " Waiting " }).BlockedReason);
     }
 
     [Fact]

@@ -221,6 +221,34 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Null((await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.SourceRef);
     }
 
+    /// <summary>The source's own word that an item is blocked, and its reason, come
+    /// back with the reference; a reference that is not blocked writes neither.</summary>
+    [Fact]
+    public async Task A_blocked_source_reference_round_trips_with_its_reason()
+    {
+        var blocked = new TaskItem("Blocked at the source", string.Empty, EntryType.Task);
+        blocked.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_2", "u", "#2", null, "open", Noon)
+        {
+            Blocked = true,
+            BlockedReason = "Waiting on the design review",
+        });
+        var open = new TaskItem("Not blocked", string.Empty, EntryType.Task);
+        open.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_3", "u", "#3", null, "open", Noon));
+
+        await _repository.SaveAsync(blocked, TestContext.Current.CancellationToken);
+        await _repository.SaveAsync(open, TestContext.Current.CancellationToken);
+
+        var loadedBlocked = (await _repository.GetAsync(blocked.Id, TestContext.Current.CancellationToken))!.SourceRef!;
+        Assert.True(loadedBlocked.Blocked);
+        Assert.Equal("Waiting on the design review", loadedBlocked.BlockedReason);
+        Assert.Equal(blocked.SourceRef, loadedBlocked);
+
+        var loadedOpen = (await _repository.GetAsync(open.Id, TestContext.Current.CancellationToken))!.SourceRef!;
+        Assert.False(loadedOpen.Blocked);
+        Assert.Null(loadedOpen.BlockedReason);
+        Assert.DoesNotContain("blocked", TaskPayloads.WriteSourceRef(loadedOpen)!, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>A reference written before the normalised state was kept reads back
     /// with none, which is what tells the sync to treat the state as changed once.</summary>
     [Fact]
