@@ -1,0 +1,156 @@
+@*
+    A month of days to pick by pressing them: each date is a toggle button whose
+    pressed state is the host's answer to IsSelected, so the calendar keeps no
+    selection of its own and a host that writes on every press redraws it from what
+    it wrote. A press reports the date; a press with Shift held also says Extend, so
+    a host can take the run from the date pressed before it as a range.
+
+    IsMarked draws a corner tick - the same shape the roadmap's day heads use for a
+    date set off its pattern - so a second fact about a date is seen without colour.
+    DayDescription is what a screen reader hears after the date, and the tooltip.
+
+    The weeks start on the reader's culture's first day. Days of the neighbouring
+    months are left blank rather than drawn, so every button on the grid belongs to
+    the month in its heading.
+*@
+
+@using System.Globalization
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <div class="day-calendar__header">
+        <AppButton Variant="ButtonVariant.Ghost"
+                   Size="ButtonSize.Small"
+                   aria-label="Previous month"
+                   OnClick="() => Move(-1)"
+                   TestId="@Part("previous")">
+            ‹
+        </AppButton>
+        <span class="day-calendar__month" aria-live="polite" data-testid="@Part("month")">
+            @_month.ToString("MMMM yyyy", CultureInfo.CurrentCulture)
+        </span>
+        <AppButton Variant="ButtonVariant.Ghost"
+                   Size="ButtonSize.Small"
+                   aria-label="Next month"
+                   OnClick="() => Move(1)"
+                   TestId="@Part("next")">
+            ›
+        </AppButton>
+    </div>
+
+    <div class="day-calendar__grid" role="group" aria-label="@(AriaLabel ?? _month.ToString("MMMM yyyy", CultureInfo.CurrentCulture))">
+        @foreach (var day in WeekDays)
+        {
+            <span class="day-calendar__weekday" aria-hidden="true">
+                @CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedDayName(day)
+            </span>
+        }
+
+        @for (var blank = 0; blank < Leading; blank++)
+        {
+            <span class="day-calendar__blank" aria-hidden="true"></span>
+        }
+
+        @foreach (var date in Dates)
+        {
+            var selected = IsSelected?.Invoke(date) ?? false;
+            var description = DayDescription?.Invoke(date);
+            <AppButton @key="date"
+                       BaseClass="day-calendar__day"
+                       Variant="ButtonVariant.None"
+                       CssClass="@DayClass(date, selected)"
+                       aria-pressed="@(selected ? "true" : "false")"
+                       aria-label="@Spoken(date, description)"
+                       title="@description"
+                       OnClick="args => PressAsync(date, args)"
+                       TestId="@Part(date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))">
+                @date.Day
+            </AppButton>
+        }
+    </div>
+</div>
+
+@code {
+    private DateOnly _month;
+    private DateOnly? _shown;
+
+    /// <summary>Any date in the month shown first. The calendar moves between months on
+    /// its own after that; a new value here moves it again.</summary>
+    [Parameter]
+    public DateOnly Month { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+
+    /// <summary>The date drawn as today.</summary>
+    [Parameter]
+    public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+
+    /// <summary>Whether a date is pressed. The calendar holds no selection of its own.</summary>
+    [Parameter]
+    public Func<DateOnly, bool>? IsSelected { get; set; }
+
+    /// <summary>Whether a date carries the corner tick.</summary>
+    [Parameter]
+    public Func<DateOnly, bool>? IsMarked { get; set; }
+
+    /// <summary>A few words on a date, read after it and shown as its tooltip.</summary>
+    [Parameter]
+    public Func<DateOnly, string?>? DayDescription { get; set; }
+
+    /// <summary>Raised on every press, with Extend set when Shift was held.</summary>
+    [Parameter]
+    public EventCallback<DayCalendarPress> OnDayPressed { get; set; }
+
+    /// <summary>The name of the grid; the month shown when not given.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "day-calendar" : $"day-calendar {CssClass}";
+
+    private static DayOfWeek FirstDay => CultureInfo.CurrentCulture.DateTimeFormat.FirstDayOfWeek;
+
+    private static IEnumerable<DayOfWeek> WeekDays =>
+        Enumerable.Range(0, 7).Select(offset => (DayOfWeek)(((int)FirstDay + offset) % 7));
+
+    /// <summary>How many blank cells come before the 1st, so it sits under its weekday.</summary>
+    private int Leading => ((int)_month.DayOfWeek - (int)FirstDay + 7) % 7;
+
+    private IEnumerable<DateOnly> Dates =>
+        Enumerable.Range(0, DateTime.DaysInMonth(_month.Year, _month.Month)).Select(_month.AddDays);
+
+    protected override void OnParametersSet()
+    {
+        if (_shown != Month)
+        {
+            _shown = Month;
+            _month = new DateOnly(Month.Year, Month.Month, 1);
+        }
+    }
+
+    private void Move(int months) => _month = _month.AddMonths(months);
+
+    private Task PressAsync(DateOnly date, MouseEventArgs args) =>
+        OnDayPressed.InvokeAsync(new DayCalendarPress(date, args.ShiftKey));
+
+    private string DayClass(DateOnly date, bool selected)
+    {
+        var classes = new List<string>(3);
+        if (selected) classes.Add("day-calendar__day--selected");
+        if (IsMarked?.Invoke(date) == true) classes.Add("day-calendar__day--marked");
+        if (date == Today) classes.Add("day-calendar__day--today");
+        return string.Join(' ', classes);
+    }
+
+    private static string Spoken(DateOnly date, string? description)
+    {
+        var spoken = date.ToString("D", CultureInfo.CurrentCulture);
+        return string.IsNullOrWhiteSpace(description) ? spoken : $"{spoken}, {description}";
+    }
+
+    private string? Part(string name) => TestId is null ? null : $"{TestId}-{name}";
+}

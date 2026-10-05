@@ -255,6 +255,24 @@
         </div>
     </Story>
 
+    <Story Name="DayCalendar"
+           Description="A month of dates to press, for picking days rather than typing them — the roadmap's days off. Each date is a toggle button whose pressed state is the host's `IsSelected`, so the calendar keeps no selection of its own and a host that saves on every press redraws from what it saved. A press with Shift held says `Extend`, for a host that takes the run from the previous press as a range. `IsMarked` draws the corner tick the roadmap's day heads use for a date set off its pattern, and `DayDescription` is read after the date and shown as its tooltip."
+           Code="@CalendarCode">
+        <div>
+            <DayCalendar Month="@CalendarToday"
+                         Today="@CalendarToday"
+                         IsSelected="date => _picked.Contains(date)"
+                         IsMarked="date => date.DayOfWeek is DayOfWeek.Saturday"
+                         DayDescription="Picked"
+                         OnDayPressed="Pick"
+                         AriaLabel="Days picked"
+                         TestId="input-calendar" />
+            <p class="sb-state" data-testid="input-calendar-value">
+                @(_picked.Count == 0 ? "Nothing picked" : string.Join(", ", _picked.Order().Select(date => date.ToString("d MMM"))))
+            </p>
+        </div>
+    </Story>
+
     <Story Name="A date, a time and a repeat"
            Description="The three fields a scheduled thing is set with. `Type=&quot;date&quot;` takes and returns `yyyy-MM-dd`, `Type=&quot;time&quot;` takes `HH:mm`, and `Type=&quot;datetime-local&quot;` takes `yyyy-MM-ddTHH:mm` — the native wire formats, invariant. What each is called on screen is the browser's, from the locale.
 
@@ -438,6 +456,37 @@ It exists because two panels had each written a private class to get here, which
         new("accessibility.md#keyboard-navigation", "What every control has to be reachable and operable with."),
         new("typography-and-layout.md#density", "Control heights, label pairing and how tight a form is allowed to be.")
     ];
+
+    private static readonly DateOnly CalendarToday = new(2026, 10, 5);
+
+    private readonly HashSet<DateOnly> _picked = [new(2026, 10, 9), new(2026, 10, 12)];
+    private DateOnly? _calendarAnchor;
+
+    private string? Picked(DateOnly date) => _picked.Contains(date) ? "picked" : null;
+
+    private void Pick(DayCalendarPress press)
+    {
+        if (press.Extend && _calendarAnchor is { } anchor)
+        {
+            var (from, through) = anchor < press.Date ? (anchor, press.Date) : (press.Date, anchor);
+            for (var date = from; date <= through; date = date.AddDays(1)) _picked.Add(date);
+        }
+        else if (!_picked.Remove(press.Date))
+        {
+            _picked.Add(press.Date);
+        }
+
+        _calendarAnchor = press.Date;
+    }
+
+    private const string CalendarCode = """
+        <DayCalendar Month="@Today"
+                     Today="@Today"
+                     IsSelected="date => !Week.IsWorked(date)"
+                     IsMarked="date => Week.OverrideOn(date) is not null"
+                     DayDescription="Described"
+                     OnDayPressed="press => Paces.ToggleWorkedDay(press.Date)" />
+        """;
 
     private const string CompactCode = """
         @* The form input, which is what a dialog row wants. *@

@@ -15383,3 +15383,88 @@ select.field__input {
     cursor: default;
     opacity: 0.55;
 }
+
+/* A month of days pressed one at a time: seven columns, a weekday letter over each,
+   the month's dates as toggle buttons. Pressed reads as filled in the primary
+   colour — the pressed state is the date the host picked — and the corner tick is
+   the roadmap day head's, a shape rather than a hue, for a second fact about a date.
+   Today is ringed so it stays findable whatever its other states. */
+.day-calendar {
+    display: grid;
+    gap: var(--spacing-xs);
+    max-width: 22rem;
+}
+
+.day-calendar__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.day-calendar__month {
+    font-weight: var(--font-weight-semibold);
+    text-transform: capitalize;
+}
+
+.day-calendar__grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: var(--spacing-2xs);
+}
+
+.day-calendar__weekday {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-align: center;
+}
+
+.day-calendar__day {
+    position: relative;
+    min-height: 2.25rem;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.day-calendar__day:hover {
+    border-color: var(--color-border-strong);
+}
+
+.day-calendar__day:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.day-calendar__day--selected {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.day-calendar__day--selected:hover {
+    border-color: var(--color-primary-dark);
+}
+
+.day-calendar__day--today {
+    box-shadow: inset 0 0 0 var(--border-width-2) var(--color-border-focus);
+}
+
+.day-calendar__day--marked::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    border-style: solid;
+    border-width: 0 0.5rem 0.5rem 0;
+    border-color: transparent currentColor transparent transparent;
+    border-top-right-radius: var(--border-radius-sm);
+    pointer-events: none;
+}
