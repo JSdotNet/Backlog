@@ -701,6 +701,17 @@
     [Parameter]
     public bool Collapsible { get; set; }
 
+    /// <summary>The bands, by group id, drawn folded when the chart opens — what the host
+    /// remembered from last time. Read once: from then on the chart owns the folds and
+    /// reports each change through <see cref="OnCollapsedChanged"/>. An id the chart does
+    /// not draw is kept rather than dropped, so a band that comes back is still folded.</summary>
+    [Parameter]
+    public IReadOnlyCollection<string>? CollapsedGroups { get; set; }
+
+    /// <summary>Raised after a band is folded or opened, with every group id now folded.</summary>
+    [Parameter]
+    public EventCallback<IReadOnlyCollection<string>> OnCollapsedChanged { get; set; }
+
     /// <summary>
     /// Something of the host's under a band's name in the sidebar — a control that
     /// belongs to the band rather than to any one row of it. Drawn for a group whose
@@ -1024,6 +1035,8 @@
         Invalidate();
         StateHasChanged();
 
+        await OnCollapsedChanged.InvokeAsync([.. _collapsed]);
+
         try
         {
             await Js.InvokeVoidAsync("backlogFocus", CollapseButtonId(group.Id));
@@ -1208,6 +1221,11 @@
     /// <summary>Which bar the current gesture is about, whichever kind of
     /// gesture it is.</summary>
     private string? ActiveId => _dragId ?? _grabbedId;
+
+    protected override void OnInitialized()
+    {
+        if (CollapsedGroups is not null) _collapsed.UnionWith(CollapsedGroups);
+    }
 
     protected override void OnParametersSet() => Invalidate();
 
