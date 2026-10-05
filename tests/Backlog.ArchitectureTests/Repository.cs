@@ -117,6 +117,42 @@ internal static class Repository
         return text;
     }
 
+    /// <summary>
+    /// The namespace a project's types are declared in: its <c>RootNamespace</c>
+    /// when it sets one, else its own name, which is what MSBuild falls back to.
+    /// The desktop's first three contexts kept <c>Backlog.Desktop.UI.*</c> when
+    /// they moved into module projects and the later ones did not, so a rule
+    /// about a project's namespace asks the project rather than assuming.
+    /// </summary>
+    public static string RootNamespaceOf(FileInfo project)
+    {
+        var declared = XDocument.Load(project.FullName)
+            .Descendants("RootNamespace")
+            .Select(element => element.Value.Trim())
+            .FirstOrDefault(value => value.Length > 0);
+
+        return declared ?? Path.GetFileNameWithoutExtension(project.Name);
+    }
+
+    /// <summary>
+    /// Every file under <paramref name="folder"/> with one of
+    /// <paramref name="extensions"/>, leaving out build output: the generated
+    /// Razor sources under <c>obj</c> repeat every namespace and call their
+    /// component makes, so reading them back would report each file twice.
+    /// </summary>
+    public static IEnumerable<FileInfo> SourceFilesUnder(DirectoryInfo folder, params string[] extensions) =>
+        folder.Exists
+            ? folder.EnumerateFiles("*", SearchOption.AllDirectories)
+                .Where(f => extensions.Contains(f.Extension, StringComparer.OrdinalIgnoreCase))
+                .Where(f => !f.FullName.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                         && !f.FullName.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            : [];
+
+    /// <summary>A path relative to <see cref="Root"/>, with forward slashes, the
+    /// way the exception lists in these tests spell one.</summary>
+    public static string RelativePath(FileSystemInfo item) =>
+        Path.GetRelativePath(Root.FullName, item.FullName).Replace('\\', '/');
+
     public static IEnumerable<string> ReferencedProjectNames(FileInfo project)
     {
         return XDocument.Load(project.FullName)
