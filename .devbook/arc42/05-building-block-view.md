@@ -6,7 +6,7 @@
 ## Container View
 
 ```meta
-related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/domain/context-map.md"]
+related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 ```
 
 Container boundaries below are the deployable/runtime split; the domains they
@@ -15,6 +15,10 @@ Monitoring, Technology Stack, Dev PC Management, Sessions, Repository Management
 `.devbook/domain/context-map.md` and each context's own `.devbook/domain/<context>/domain.md` —
 this view does not restate domain responsibilities.
 
+The desktop's canonical store is one SQLite database, `backlog.db` (local ADR 0003);
+a task's content is markdown text held in it. The cloud keeps the replica in Cosmos DB
+(local ADR 0005) and attachments in a Blob container beside it (local ADR 0014).
+
 ```mermaid
 C4Container
     title Container Diagram — Prompt Backlog
@@ -22,31 +26,37 @@ C4Container
     Person(user, "ME", "Personal owner of the system")
 
     System_Boundary(b0, "Prompt Backlog") {
-        Container(desktop, "Desktop App", ".NET MAUI Blazor Hybrid, Markdown + JSON", "Local-first Windows client — runs all fetch workers and manages all domains")
+        Container(desktop, "Desktop App", ".NET MAUI Blazor Hybrid, SQLite", "Local-first Windows client — runs all fetch workers and manages all domains")
         Container(mobile, "Mobile App", ".NET MAUI / Blazor Hybrid, JSON", "Capture-first mobile client with offline storage")
         Container(ide, "IDE Extensions", "TypeScript / C#", "VS Code, Visual Studio, and GitHub Copilot App integrations")
         Container(cloud, "Cloud Service", ".NET / ASP.NET Core", "Thin optional sync layer: device sync, webhook forwarding, push, PC registry")
-        ContainerDb(localStore, "Local Storage", "Markdown files, JSON", "Desktop canonical data store — markdown is source of truth")
-        ContainerDb(cloudDb, "Cloud Database", "Cosmos DB / PostgreSQL", "Sync state, webhook events, machine registry")
+        ContainerDb(localStore, "Local Storage", "SQLite (backlog.db)", "Desktop canonical data store — tasks, inbox and roadmap plans; task content is markdown text in the database")
+        ContainerDb(cloudDb, "Cloud Database", "Cosmos DB", "Sync state, webhook events, machine registry")
+        ContainerDb(attachments, "Attachments", "Azure Blob Storage, container attachments", "Capture attachments, owner-scoped, beside the replica")
     }
 
     System_Ext(github, "GitHub", "Issues and webhooks")
     System_Ext(pushProvider, "Push Provider", "FCM")
     System_Ext(externalSources, "External Sources", "YouTube, Email, Websites / RSS")
+    System_Ext(azureFoundry, "Azure AI Foundry", "Chat, embeddings and plan drafting; resource cost")
+    System_Ext(claude, "Claude", "Usage and cost reporting")
 
     Rel(user, desktop, "Uses — capture, backlog, knowledge, monitoring", "local")
     Rel(user, mobile, "Captures on mobile", "touch / voice")
     Rel(user, ide, "Browses backlog and knowledge; captures from IDE and Copilot sessions", "IDE commands / session prompts")
 
-    Rel(desktop, localStore, "Reads and writes", "file system")
+    Rel(desktop, localStore, "Reads and writes", "SQLite")
     Rel(desktop, github, "Syncs issues", "HTTPS / gh CLI")
     Rel(desktop, externalSources, "Polls for new content", "HTTPS / IMAP")
     Rel(desktop, cloud, "Pushes state snapshots", "HTTPS, optional")
+    Rel(desktop, azureFoundry, "Drafts plans and reads cost", "HTTPS, optional")
+    Rel(desktop, claude, "Reads usage", "HTTPS, optional")
 
     Rel(mobile, cloud, "Syncs items and pulls state", "HTTPS")
-    Rel(ide, desktop, "Reads backlog and knowledge", "local API / file system")
+    Rel(ide, cloud, "Reads and posts inbox items", "HTTPS /api/sync/inbox")
 
     Rel(cloud, cloudDb, "Reads and writes sync state", "")
+    Rel(cloud, attachments, "Stores and serves attachments", "Blob SDK")
     Rel(cloud, pushProvider, "Sends notifications", "HTTPS")
     Rel(cloud, github, "Receives webhooks", "HTTPS")
     Rel(cloud, desktop, "Forwards webhook events", "SSE / WebSocket, optional")
