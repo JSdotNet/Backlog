@@ -46,7 +46,7 @@ between inherited ADRs 0005 and 0009.
 - **[0017 — Inbox import is a capture source; its manifest is Markdown with front matter, not entry text](0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md)** *(accepted, not yet built)*
 - **[0018 — The roadmap plan and the planning pace ride the task feed as two whole documents](0018-roadmap-plan-and-pace-ride-the-task-feed.md)** *(answers an open question in 0005, amends 0013)*
 - **[0019 — The roadmap counts the person's working week in hours, and the week travels with the pace](0019-roadmap-counts-the-working-week.md)** *(proposed; amends 0013 and 0018)*
-- **[0020 — The GitHub accounts and the repository registry ride the task feed as two whole documents](0020-github-accounts-and-repository-registry-ride-the-task-feed.md)** *(accepted, not yet built; amends 0005)*
+- **[0020 — The GitHub accounts and the repository registry ride the task feed as two whole documents](0020-github-accounts-and-repository-registry-ride-the-task-feed.md)** *(accepted, built; amends 0005)*
 
 ## Inherited decisions
 

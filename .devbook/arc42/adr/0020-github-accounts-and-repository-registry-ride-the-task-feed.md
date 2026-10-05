@@ -17,7 +17,8 @@ and the pace. No token and no credential kind ever leaves the machine.
 ```
 
 Accepted, 2026-10-05, by the repository owner at the Personal Validation gate of
-the flow-spec run that drafted it. Nothing is built yet.
+the flow-spec run that drafted it. Built on 2026-10-05 by the flow-code run that
+followed it, on the branch `claude/sync-github-accounts`.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
