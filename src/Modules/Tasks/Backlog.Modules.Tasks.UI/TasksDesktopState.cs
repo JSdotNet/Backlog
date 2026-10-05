@@ -192,9 +192,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// nothing is waiting. See <see cref="ScheduleSaveStateSettle"/>.</summary>
     private CancellationTokenSource? _saveStateSettle;
 
-    /// <summary>The background read of never-read pull requests, whether one is
+    /// <summary>The background read of pull requests not yet landed, whether one is
     /// running, and whether another pass is owed behind it. See
-    /// <see cref="CheckUnreadPullRequestsAsync"/>.</summary>
+    /// <see cref="CheckPullRequestsAsync"/>.</summary>
     private Task _pullRequestCheck = Task.CompletedTask;
     private bool _pullRequestCheckRunning;
     private bool _pullRequestCheckOwed;
@@ -3446,25 +3446,28 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
-    /// Reads, in the background, the pull requests of Done entries that have never
-    /// been read, so a merged one shows merged without the reader pressing the sync
-    /// button. The shell asks after the list loads and after every reload; the list
-    /// is already on screen by then and nothing about it waits on this.
+    /// Reads, in the background, the pull requests of Done entries that have not
+    /// landed yet as far as the list knows, so a merged one shows merged without the
+    /// reader pressing the sync button. The shell asks after the list loads and after
+    /// every reload; the list is already on screen by then and nothing about it waits
+    /// on this.
     /// <para>
-    /// Only what was never read. A state already on the row is the sync button's to
-    /// refresh: asking again here would put a round trip behind every write somebody
-    /// else makes, and the reload that writes set off carries the last read across
-    /// anyway (<see cref="CarryGitHubRead"/>). Only Done entries, because that is
-    /// where a recorded pull request is the work waiting to land.
+    /// What is due (<see cref="PullRequestDue"/>): a pull request never asked about,
+    /// and one last read open or draft — or not read at all — once
+    /// <see cref="PullRequestRecheckInterval"/> has passed since it was last asked
+    /// about. An entry goes Done when its pull request is recorded, usually while it
+    /// is still open, so the first read is rarely the one that says it merged; a
+    /// check that only filled in unread pull requests left that first Open read on
+    /// screen for the life of the app. Merged and closed are not asked about again,
+    /// and nothing is asked about twice within the interval: an agent's every write
+    /// reloads the list, and asking on each would put the network behind all of them.
+    /// Only Done entries, because that is where a recorded pull request is the work
+    /// waiting to land.
     /// </para>
     /// <para>
     /// Quiet throughout — no toast, no line on the row. Nobody asked for this read,
     /// so nobody is owed word of its failure; a pull request that cannot be read
-    /// simply stays unread for the sync button to try. And it is tried once, not on
-    /// every reload: an agent's every write reloads the list, and a pull request
-    /// GitHub will not answer for would otherwise spend two requests of the rate
-    /// limit each time. <see cref="SyncGitHubAsync"/> forgets those failures, so the
-    /// button is the retry.
+    /// simply stays as it was, for the next interval or the sync button to try.
     /// </para>
     /// <para>
     /// One check at a time. A request that arrives while one runs is owed a single
@@ -3474,7 +3477,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// already in flight finishes and its answer is dropped.
     /// </para>
     /// </summary>
-    public Task CheckUnreadPullRequestsAsync()
+    public Task CheckPullRequestsAsync()
     {
         if (_disposed || !GitHubConfigured) return Task.CompletedTask;
 
@@ -3501,7 +3504,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             while (_pullRequestCheckOwed && !_untilDisposed.IsCancellationRequested)
             {
                 _pullRequestCheckOwed = false;
-                await ReadUnreadPullRequestsAsync();
+                await ReadDuePullRequestsAsync();
             }
         }
         catch (Exception ex)
@@ -3521,7 +3524,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
-    /// One pass of <see cref="CheckUnreadPullRequestsAsync"/>.
+    /// One pass of <see cref="CheckPullRequestsAsync"/>.
     /// <para>
     /// By id rather than by row, and the row looked up again after every read. A
     /// reload replaces every row while a read is in flight — the writes that set
@@ -3529,10 +3532,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// onto the row it started from would land on a row nobody can see any more.
     /// </para>
     /// </summary>
-    private async Task ReadUnreadPullRequestsAsync()
+    private async Task ReadDuePullRequestsAsync()
     {
         var ids = Rows
-            .Where(row => row.Id is not null && row.Status is EntryStatus.Done && UnreadPullRequests(row).Any())
+            .Where(row => row.Id is not null && row.Status is EntryStatus.Done && row.PullRequestLinks.Any(pr => PullRequestDue(row, pr)))
             .Select(row => row.Id!.Value)
             .Distinct()
             .ToList();
@@ -3541,8 +3544,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         {
             if (RowById(id) is not { } row) continue;
 
-            foreach (var pr in UnreadPullRequests(row).Where(pr => !_unreadablePullRequests.Contains(pr)).ToList())
+            foreach (var pr in row.PullRequestLinks.Where(pr => PullRequestDue(row, pr)).ToList())
             {
+                var landedBefore = _pullRequestReadStamps.GetValueOrDefault(pr);
                 PullRequestRead? read;
 
                 try
@@ -3561,16 +3565,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
                 if (_untilDisposed.IsCancellationRequested) return;
 
-                if (read is null)
-                {
-                    _unreadablePullRequests.Add(pr);
-                    continue;
-                }
+                // Unreadable: the ask is already stamped, so it waits out the interval.
+                if (read is null) continue;
 
                 // Somebody else's read may have landed while this one was out — the
                 // sync button's, or a merge act's — and it is no older than this.
                 if (RowById(id) is not { } current) break;
-                if (!current.PullRequestLinks.Contains(pr) || current.PullRequestStates.ContainsKey(pr)) continue;
+                if (!current.PullRequestLinks.Contains(pr) || _pullRequestReadStamps.GetValueOrDefault(pr) != landedBefore) continue;
 
                 RecordPullRequestRead(current, pr, read.Value.State, read.Value.Status);
                 Changed?.Invoke();
@@ -3580,13 +3581,31 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private EntryRow? RowById(Guid id) => Rows.FirstOrDefault(row => row.Id == id);
 
-    /// <summary>The pull requests the background check could not read, which it
-    /// does not ask about again until <see cref="SyncGitHubAsync"/> forgets them.
-    /// Only touched on the renderer's dispatcher, as the rows are.</summary>
-    private readonly HashSet<EntryPullRequestLink> _unreadablePullRequests = [];
+    /// <summary>How long the background check leaves a pull request it asked about
+    /// before asking again, when it is still open or could not be read. Long enough
+    /// that a burst of agent writes, each reloading the list, asks GitHub once; short
+    /// enough that a merge shows within a couple of minutes of the next reload.</summary>
+    public static readonly TimeSpan PullRequestRecheckInterval = TimeSpan.FromMinutes(2);
 
-    private static IEnumerable<EntryPullRequestLink> UnreadPullRequests(EntryRow row) =>
-        row.PullRequestLinks.Where(pr => !row.PullRequestStates.ContainsKey(pr));
+    /// <summary>When each pull request was last asked about, by any read. Only
+    /// touched on the renderer's dispatcher, as the rows are.</summary>
+    private readonly Dictionary<EntryPullRequestLink, DateTimeOffset> _pullRequestAskedAt = [];
+
+    /// <summary>Which read last landed on each pull request, as a count of reads
+    /// recorded, so a background read can tell that another landed while it was out.
+    /// See <see cref="RecordPullRequestRead"/>.</summary>
+    private readonly Dictionary<EntryPullRequestLink, long> _pullRequestReadStamps = [];
+    private long _pullRequestReadsRecorded;
+
+    /// <summary>Whether the background check should ask about <paramref name="pr"/>
+    /// now. See <see cref="CheckPullRequestsAsync"/>.</summary>
+    private bool PullRequestDue(EntryRow row, EntryPullRequestLink pr)
+    {
+        if (row.PullRequestStates.TryGetValue(pr, out var state) && state is GitHubItemState.Merged or GitHubItemState.Closed) return false;
+
+        return !_pullRequestAskedAt.TryGetValue(pr, out var askedAt)
+            || _timeProvider.GetUtcNow() - askedAt >= PullRequestRecheckInterval;
+    }
 
     /// <summary>What one read of a pull request found: its state, and its status
     /// when the status query answered.</summary>
@@ -3616,12 +3635,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// the same row can be in flight at once, the sweep's and a merge act's.
     /// </para>
     /// </summary>
-    private static void RecordPullRequestRead(
+    private void RecordPullRequestRead(
         EntryRow row,
         EntryPullRequestLink pr,
         GitHubItemState state,
         GitHubPullRequestStatus? status)
     {
+        _pullRequestReadStamps[pr] = ++_pullRequestReadsRecorded;
+
         row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState>(row.PullRequestStates) { [pr] = state };
 
         var statuses = new Dictionary<EntryPullRequestLink, GitHubPullRequestStatus>(row.PullRequestStatuses);
@@ -3636,6 +3657,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// re-read after a merge act.</summary>
     private async Task<GitHubPullRequestStatus?> TryReadPullRequestStatusAsync(EntryPullRequestLink pr)
     {
+        // Every read starts here, so this is the one place the ask is stamped —
+        // answered or not, which is what spaces out the retries of an unreadable one.
+        _pullRequestAskedAt[pr] = _timeProvider.GetUtcNow();
+
         try
         {
             return await _gitHub.ReadPullRequestStatusAsync(pr.Repository, pr.Number);
@@ -3806,15 +3831,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// before. Explicit rather than automatic on load: the backlog must open
     /// instantly and offline, so nothing about it waits on the network until asked.
     /// The one read that happens unasked is
-    /// <see cref="CheckUnreadPullRequestsAsync"/>'s, which only fills in pull
-    /// requests never read, after the list is already on screen.</summary>
+    /// <see cref="CheckPullRequestsAsync"/>'s, which only asks about pull requests
+    /// that have not landed yet, after the list is already on screen.</summary>
     public async Task SyncGitHubAsync()
     {
         if (GitHubSyncing) return;
-
-        // The explicit retry: what the background check gave up on is read below,
-        // and the check may ask about it again afterwards.
-        _unreadablePullRequests.Clear();
 
         GitHubSyncing = true;
         Changed?.Invoke();

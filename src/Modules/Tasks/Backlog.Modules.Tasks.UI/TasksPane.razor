@@ -658,6 +658,7 @@
     private const string RowMenuDueTomorrow = "due-tomorrow";
     private const string RowMenuDuePick = "due-pick";
     private const string RowMenuDueClear = "due-clear";
+    private const string RowMenuMoveTop = "move-top";
     private const string RowMenuMoveUp = "move-up";
     private const string RowMenuMoveDown = "move-down";
     private const string RowMenuDelete = "delete";
@@ -2080,11 +2081,12 @@
     /// item that vanishes reads as a thing the product cannot do.
     /// </para>
     /// <para>
-    /// Move up and Move down are the explicit commands
+    /// Move to top, Move up and Move down are the explicit commands
     /// <c>.devbook/design/interaction-guidelines.md#keyboard-accessible-reordering</c> asks
     /// a context menu to carry. They move along the order on screen — the same
-    /// neighbour Alt+Arrow would swap with — so a finished row, folded into
-    /// Completed, has nowhere to go and both are disabled.
+    /// neighbour Alt+Arrow would swap with, the same first row the reader sees —
+    /// so a finished row, folded into Completed, has nowhere to go and all three
+    /// are disabled.
     /// </para>
     /// </summary>
     private IReadOnlyList<MenuItem> RowMenuItems()
@@ -2113,6 +2115,7 @@
             new(RowMenuDuePick, "Pick a date", "🗓"),
             new(RowMenuDueClear, "Remove due date", "🗓", Disabled: row.PreviewDueOn is null),
             MenuItem.Divider("order"),
+            new(RowMenuMoveTop, "Move to top", "⤒", Disabled: above is null),
             new(RowMenuMoveUp, "Move up", "↑", Disabled: above is null),
             new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null)
         ];
@@ -2173,9 +2176,7 @@
     /// out exactly as the list leaves them out of its own order.</summary>
     private (EntryRow? Above, EntryRow? Below) RowMenuNeighbours(EntryRow row)
     {
-        if (row.IsPreviewCompleted) return (null, null);
-
-        var open = State.FilteredRows.Where(candidate => !candidate.IsPreviewCompleted).ToList();
+        var open = RowMenuOrder(row);
         var index = open.IndexOf(row);
         if (index < 0) return (null, null);
 
@@ -2183,6 +2184,19 @@
             index > 0 ? open[index - 1] : null,
             index < open.Count - 1 ? open[index + 1] : null);
     }
+
+    /// <summary>The row Move to top takes the place of: the first open row on
+    /// screen, or nothing when <paramref name="row"/> already is it.</summary>
+    private EntryRow? RowMenuTop(EntryRow row)
+    {
+        var open = RowMenuOrder(row);
+        return open.Count > 0 && open.Contains(row) && !ReferenceEquals(open[0], row) ? open[0] : null;
+    }
+
+    private List<EntryRow> RowMenuOrder(EntryRow row) =>
+        row.IsPreviewCompleted
+            ? []
+            : State.FilteredRows.Where(candidate => !candidate.IsPreviewCompleted).ToList();
 
     /// <summary>High or above. "Important" is Microsoft To Do's word for the one
     /// mark a task carries; this product ranks in four steps, so marking one
@@ -2223,6 +2237,9 @@
                 break;
             case RowMenuDueClear:
                 await State.ChangeDueAsync(row, null);
+                break;
+            case RowMenuMoveTop:
+                if (RowMenuTop(row) is { } top) await State.MoveEntryAsync(row, top);
                 break;
             case RowMenuMoveUp:
                 if (RowMenuNeighbours(row).Above is { } above) await State.MoveEntryAsync(row, above);

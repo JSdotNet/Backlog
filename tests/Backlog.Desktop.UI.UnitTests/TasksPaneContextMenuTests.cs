@@ -53,7 +53,7 @@ public sealed class TasksPaneContextMenuTests
 
         // The order Microsoft To Do settled on: the marks, the dates, the place, the end.
         Assert.Equal(
-            ["myday", "important", "done", "blocked", "due-today", "due-tomorrow", "due-pick", "due-clear", "move-up", "move-down", "delete"],
+            ["myday", "important", "done", "blocked", "due-today", "due-tomorrow", "due-pick", "due-clear", "move-top", "move-up", "move-down", "delete"],
             pane.FindAll("[data-testid='entry-menu'] [role='menuitem']")
                 .Select(item => item.GetAttribute("data-testid")!["entry-menu-item-".Length..]));
     }
@@ -232,6 +232,28 @@ public sealed class TasksPaneContextMenuTests
         await ChooseAsync(pane, "move-up");
 
         Assert.Equal([second, third, first], host.State.Rows);
+    }
+
+    [Fact]
+    public async Task Move_to_top_puts_the_row_first_among_the_open_rows()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var first = await host.WriteEntryAsync("# First\n`task`\n");
+        var second = await host.WriteEntryAsync("# Second\n`task`\n");
+        var third = await host.WriteEntryAsync("# Third\n`task`\n");
+        var pane = host.Render();
+
+        await OpenMenuAsync(pane, first);
+        Assert.True(IsDisabled(pane, "move-top"));
+        await pane.Find(".context-menu__backdrop").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        await OpenMenuAsync(pane, third);
+        Assert.Equal("Move to top", Label(pane, "move-top"));
+        Assert.False(IsDisabled(pane, "move-top"));
+        await ChooseAsync(pane, "move-top");
+
+        Assert.Equal([third, first, second], host.State.Rows);
+        Assert.Empty(pane.FindAll("[data-testid='entry-menu']"));
     }
 
     [Fact]
