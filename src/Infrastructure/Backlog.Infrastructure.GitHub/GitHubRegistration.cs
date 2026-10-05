@@ -86,7 +86,7 @@ public static class GitHubRegistration
         services.AddSingleton<GitHubIntegration>();
 
         // The registry and the account identities ride the task feed (local ADR
-        // 0020). The sync client takes this port as optional, so a head that never
+        // 0021). The sync client takes this port as optional, so a head that never
         // calls AddGitHub — the phone — composes without it and skips both kinds.
         services.AddSingleton<IGitHubSettingsReplication>(sp => new GitHubSettingsReplication(
             sp.GetRequiredService<GitHubSettingsStore>()));

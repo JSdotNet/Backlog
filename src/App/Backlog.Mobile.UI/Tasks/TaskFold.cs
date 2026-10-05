@@ -31,7 +31,7 @@ public static class TaskFold
     public const string PlanningPaceType = "planning-pace";
 
     /// <summary>The kind tokens of the GitHub settings' two documents — the
-    /// repository registry and the account identities (.devbook/arc42/adr/0020). The
+    /// repository registry and the account identities (.devbook/arc42/adr/0021). The
     /// phone keeps no GitHub settings, so it keeps no row for either. Literals
     /// duplicated for the reason <see cref="CaptureType"/> is.</summary>
     public const string RepositoryRegistryType = "repository-registry";

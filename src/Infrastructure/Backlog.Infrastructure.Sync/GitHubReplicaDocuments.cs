@@ -5,7 +5,7 @@ namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
 /// How the two GitHub settings documents are written on the task feed (local ADR
-/// 0020): the kind token each carries, the one id each is stored under, and the title
+/// 0021): the kind token each carries, the one id each is stored under, and the title
 /// the activity log shows. The wire half of the arrangement only — what a document
 /// says, and which copy wins, is the GitHub settings store's, behind
 /// <see cref="IGitHubSettingsReplication"/>.
