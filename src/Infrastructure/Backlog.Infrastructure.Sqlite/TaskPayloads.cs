@@ -1,6 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Connectors;
+
 namespace Backlog.Infrastructure.Sqlite;
 
 /// <summary>
@@ -29,6 +32,65 @@ internal static class TaskPayloads
         string.IsNullOrWhiteSpace(json)
             ? []
             : JsonSerializer.Deserialize<List<T>>(json, Options) ?? [];
+
+    /// <summary>The <c>source_ref</c> column: one JSON object, or null for local
+    /// work.</summary>
+    public static string? WriteSourceRef(SourceRef? sourceRef) =>
+        sourceRef is null
+            ? null
+            : JsonSerializer.Serialize(
+                new SourceRefPayload(
+                    sourceRef.ConnectorId,
+                    sourceRef.Target,
+                    sourceRef.ExternalId,
+                    sourceRef.Url,
+                    sourceRef.DisplayKey,
+                    sourceRef.Assignee,
+                    sourceRef.SourceState,
+                    sourceRef.SourceUpdatedAt,
+                    sourceRef.Flags.Count == 0 ? null : [.. sourceRef.Flags],
+                    sourceRef.NormalisedState is { } state ? NormalisedSourceStates.ToWire(state) : null,
+                    sourceRef.SourceTitle),
+                Options);
+
+    /// <summary>Reads the <c>source_ref</c> column back. A value that does not parse,
+    /// or names no connector or item, reads as no reference: one hand-edited row
+    /// must cost that link, not every read of the task — the rule the Devbook
+    /// references are read by.</summary>
+    public static SourceRef? ReadSourceRef(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+
+        SourceRefPayload? payload;
+        try
+        {
+            payload = JsonSerializer.Deserialize<SourceRefPayload>(json, Options);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        if (payload is null
+            || string.IsNullOrWhiteSpace(payload.ConnectorId)
+            || string.IsNullOrWhiteSpace(payload.ExternalId))
+        {
+            return null;
+        }
+
+        return new SourceRef(
+            payload.ConnectorId,
+            payload.Target,
+            payload.ExternalId,
+            payload.Url,
+            payload.DisplayKey,
+            payload.Assignee,
+            payload.SourceState,
+            payload.SourceUpdatedAt,
+            payload.Flags,
+            NormalisedSourceStates.FromWire(payload.NormalisedState),
+            payload.SourceTitle);
+    }
 }
 
 internal sealed record SubItemPayload(string Id, string Title, string Status, string? Notes, int Order);
@@ -36,3 +98,16 @@ internal sealed record SubItemPayload(string Id, string Title, string Status, st
 internal sealed record UsageEventPayload(DateTimeOffset Timestamp, string Action);
 
 internal sealed record ProjectionPayload(string RepoId, string ExternalId, string TargetType);
+
+internal sealed record SourceRefPayload(
+    string ConnectorId,
+    string Target,
+    string ExternalId,
+    string Url,
+    string DisplayKey,
+    string? Assignee,
+    string SourceState,
+    DateTimeOffset SourceUpdatedAt,
+    List<string>? Flags,
+    string? NormalisedState = null,
+    string? SourceTitle = null);

@@ -6,6 +6,7 @@ using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.DomainModels;
 
 using Microsoft.Extensions.Logging;
@@ -278,8 +279,44 @@ public sealed class TaskReplicaMerge(
             task.CompletedOn,
             StartedOn: task.StartedOn,
             DevbookReferences: task.DevbookReferences.Count == 0 ? null : [.. task.DevbookReferences],
-            BlockedSince: task.BlockedSince);
+            BlockedSince: task.BlockedSince,
+            SourceRef: task.SourceRef is { } source
+                ? new SourceRefPayload(
+                    source.ConnectorId,
+                    source.Target,
+                    source.ExternalId,
+                    source.Url,
+                    source.DisplayKey,
+                    source.Assignee,
+                    source.SourceState,
+                    source.SourceUpdatedAt,
+                    source.Flags.Count == 0 ? null : [.. source.Flags],
+                    source.NormalisedState is { } state ? NormalisedSourceStates.ToWire(state) : null,
+                    source.SourceTitle)
+                : null);
     }
+
+    /// <summary>The source reference a document carries, or null. One that names no
+    /// connector or item is read as none, for the reason a Devbook reference the
+    /// aggregate would refuse is filtered: it costs that link, not the
+    /// document.</summary>
+    private static SourceRef? ToSourceRef(SourceRefPayload? payload) =>
+        payload is null
+        || string.IsNullOrWhiteSpace(payload.ConnectorId)
+        || string.IsNullOrWhiteSpace(payload.ExternalId)
+            ? null
+            : new SourceRef(
+                payload.ConnectorId,
+                payload.Target,
+                payload.ExternalId,
+                payload.Url,
+                payload.DisplayKey,
+                payload.Assignee,
+                payload.SourceState,
+                payload.SourceUpdatedAt,
+                payload.Flags,
+                NormalisedSourceStates.FromWire(payload.NormalisedState),
+                payload.SourceTitle);
 
     /// <summary>
     /// The aggregate a change describes.
@@ -332,6 +369,7 @@ public sealed class TaskReplicaMerge(
         task.SetImportPlanId(payload.ImportPlanId);
         task.SetImportItemId(payload.ImportItemId);
         task.SetAttachment(Attachment.From(payload.AttachmentPath));
+        task.SetSourceRef(ToSourceRef(payload.SourceRef));
 
         foreach (var subItem in payload.SubItems.OrderBy(s => s.Order))
         {

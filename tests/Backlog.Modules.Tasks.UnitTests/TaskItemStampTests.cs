@@ -77,6 +77,12 @@ public sealed class TaskItemStampTests
         [nameof(TaskItem.AddSubItem)] = task => task.AddSubItem("Step"),
         [nameof(TaskItem.AddProjectionRef)] = task => task.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", "issue")),
 
+        // What the source says about a linked task travels like any other edit.
+        // The sync is what keeps a quiet run from calling it at all.
+        [nameof(TaskItem.SetSourceRef)] = task => task.SetSourceRef(new SourceRef(
+            "github", "JSdotNet/Backlog", "I_42", "https://github.com/JSdotNet/Backlog/issues/42", "#42",
+            assignee: null, "open", Stamped)),
+
         // A rename that moved something is an edit the other machine has to hear
         // about, so the stamp moves. Seeded first, because a rename that finds
         // nothing to move leaves the stamp alone by design - the same rule as

@@ -565,6 +565,90 @@ public sealed class TaskReplicaMergeTests
         Assert.Equal(Noon, here.UpdatedAt);
     }
 
+    /// <summary>A linked task's source reference crosses the wire whole — flags
+    /// included — and comes back equal, without the pull restamping the
+    /// task.</summary>
+    [Fact]
+    public void A_source_reference_round_trips_through_the_wire_shape()
+    {
+        var source = new SourceRef(
+            "github", "JSdotNet/Backlog", "I_kwDO42", "https://github.com/JSdotNet/Backlog/issues/42", "#42",
+            "Job", "open", Noon.AddDays(-1), [LinkedTaskFlags.DoneLocally],
+            Backlog.Modules.Tasks.Abstractions.Connectors.NormalisedSourceState.Open,
+            "The title at the source");
+        var task = TaskChanges.Task("Linked", Noon);
+        task.SetSourceRef(source);
+        task.LoadStamps(Noon, null);
+
+        var change = TaskReplicaMerge.ToChange(task);
+        Assert.NotNull(change.Task.SourceRef);
+        Assert.Equal("github", change.Task.SourceRef.ConnectorId);
+        Assert.Equal([LinkedTaskFlags.DoneLocally], change.Task.SourceRef.Flags!);
+        Assert.Equal("open", change.Task.SourceRef.NormalisedState);
+        Assert.Equal("The title at the source", change.Task.SourceRef.SourceTitle);
+
+        var restored = TaskReplicaMerge.ToTaskItem(change);
+        Assert.Equal(source, restored.SourceRef);
+        Assert.Equal(Backlog.Modules.Tasks.Abstractions.Connectors.NormalisedSourceState.Open, restored.SourceRef!.NormalisedState);
+        Assert.Equal("The title at the source", restored.SourceRef.SourceTitle);
+        Assert.Equal(Noon, restored.UpdatedAt);
+    }
+
+    /// <summary>A local task writes no source reference — its document serialises
+    /// as it did before — and a document from a build that never heard of one reads
+    /// as local work.</summary>
+    [Fact]
+    public void A_source_reference_is_absent_from_the_wire_on_local_work()
+    {
+        var task = TaskChanges.Task("Local", Noon);
+        task.LoadStamps(Noon, null);
+
+        var payload = TaskReplicaMerge.ToPayload(task);
+        Assert.Null(payload.SourceRef);
+
+        var restored = TaskReplicaMerge.ToTaskItem(new TaskChange(task.Id, Noon, null, payload with { SourceRef = null }));
+        Assert.Null(restored.SourceRef);
+    }
+
+    /// <summary>A reference from a build that kept no normalised state reads back with
+    /// none, and a state word this build does not know reads as none too rather than
+    /// failing the document.</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("reopened-later")]
+    public void A_source_reference_with_no_readable_normalised_state_reads_as_none(string? state)
+    {
+        var task = TaskChanges.Task("Linked", Noon);
+        task.LoadStamps(Noon, null);
+        var payload = TaskReplicaMerge.ToPayload(task) with
+        {
+            SourceRef = new SourceRefPayload("github", "JSdotNet/Backlog", "I_1", "u", "#1", null, "open", Noon, null, state),
+        };
+
+        var restored = TaskReplicaMerge.ToTaskItem(new TaskChange(task.Id, Noon, null, payload));
+
+        Assert.NotNull(restored.SourceRef);
+        Assert.Null(restored.SourceRef.NormalisedState);
+    }
+
+    /// <summary>A document from a newer build whose source reference carries a
+    /// property this build has no member for keeps it on the way back out, the way
+    /// the payload itself does.</summary>
+    [Fact]
+    public void A_source_reference_keeps_what_this_build_cannot_read()
+    {
+        const string json = """
+            {"connectorId":"github","target":"JSdotNet/Backlog","externalId":"I_1","url":"u","displayKey":"#1",
+             "sourceState":"open","sourceUpdatedAt":"2026-10-01T08:00:00+00:00","priority":"p1"}
+            """;
+        var options = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
+
+        var payload = System.Text.Json.JsonSerializer.Deserialize<SourceRefPayload>(json, options);
+
+        Assert.NotNull(payload);
+        Assert.Contains("\"priority\":\"p1\"", System.Text.Json.JsonSerializer.Serialize(payload, options), StringComparison.Ordinal);
+    }
+
     /// <summary>The opaque tokens the payload carries are the ones the local
     /// store already writes, so a status crosses the wire as the same word the
     /// database holds rather than as a number whose meaning moves.</summary>
