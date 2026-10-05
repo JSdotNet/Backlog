@@ -344,9 +344,7 @@ public static class EntryTextParser
 
         var body = string.Join('\n', lines.Skip(i)).TrimEnd('\n');
 
-        var bodyTags = TagRegex.Matches(StripFencedCode(body))
-            .Select(m => m.Groups[1].Value.ToLowerInvariant())
-            .ToList();
+        var bodyTags = BodyTags(body);
 
         // Tags typed into the title. Derived, exactly like the body's: the title
         // text stays verbatim and nothing here is ever written back on to the
@@ -360,9 +358,7 @@ public static class EntryTextParser
         // A person or plan tag keeps its sigil in the stored value and a general
         // tag drops it: an unsigilled stored tag has always meant "general", and
         // keeping that true is what spares every existing entry a migration.
-        var titleTags = TitleTagRegex.Matches(title)
-            .Select(m => (m.Groups[1].Value == "#" ? string.Empty : m.Groups[1].Value) + m.Groups[2].Value.ToLowerInvariant())
-            .ToList();
+        var titleTags = TitleTags(title);
 
         var distinctMetadataTags = metadataTags.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var tags = distinctMetadataTags
@@ -1436,6 +1432,19 @@ public static class EntryTextParser
         return string.Join('\n', rebuilt) + "\n";
     }
 
+    /// <summary>The tags <see cref="Parse"/> derives from a title, which has already
+    /// had its <c># </c> marker taken off.</summary>
+    private static List<string> TitleTags(string title) =>
+        TitleTagRegex.Matches(title)
+            .Select(m => (m.Groups[1].Value == "#" ? string.Empty : m.Groups[1].Value) + m.Groups[2].Value.ToLowerInvariant())
+            .ToList();
+
+    /// <summary>The tags <see cref="Parse"/> derives from a body's prose.</summary>
+    private static List<string> BodyTags(string body) =>
+        TagRegex.Matches(StripFencedCode(body))
+            .Select(m => m.Groups[1].Value.ToLowerInvariant())
+            .ToList();
+
     /// <summary>Builds the canonical raw-text form of an entry — the inverse of
     /// <see cref="Parse"/> — so the editor always reflects exactly what was
     /// saved. Sub-items need no special handling: they are already written as
@@ -1458,9 +1467,19 @@ public static class EntryTextParser
         // A plan tag is written, and written as `+slug` rather than `#+slug`: `+`
         // is free on this line, so the sigil the stored value already carries is
         // the token's own.
+        //
+        // A tag the body's prose already says is skipped. The stored set is the
+        // union of line, title and body, and the next parse derives a body tag
+        // from the body again, so writing it here promoted prose — `#number` in a
+        // sentence — to a token the tag editor offered to remove and every save
+        // then put back. The DTO cannot tell a line token from prose, so a tag on
+        // both stays a tag through the body alone. A title tag is still written:
+        // the plan-tag round trip keeps it on the line on purpose.
+        var bodyOnly = new HashSet<string>(BodyTags(entry.Body), StringComparer.OrdinalIgnoreCase);
+        bodyOnly.ExceptWith(TitleTags(entry.Title));
         foreach (var tag in entry.Tags
             .Select(tag => tag.Trim())
-            .Where(tag => !IsPersonTag(tag))
+            .Where(tag => !IsPersonTag(tag) && !bodyOnly.Contains(tag))
             .Select(MetaTagToken)
             .Where(token => token.Length > 1)
             .Distinct(StringComparer.OrdinalIgnoreCase))
