@@ -201,6 +201,34 @@ public class ContinuousIntegrationWorkflowTests
         Assert.True(projects.Length == 0, $"Still referencing coverlet: {string.Join(", ", projects)}");
     }
 
+    /// <summary>
+    /// A pull request that changes only <c>.devbook/</c> skips the build jobs. Every
+    /// one of them waits on the detection job and is skipped only on its explicit
+    /// <c>'false'</c>, so a detection that fails or answers nothing still builds: a
+    /// skipped required check reports success, and a gate that skipped on failure
+    /// would merge untested code green.
+    /// </summary>
+    [Fact]
+    public void The_pull_request_build_jobs_skip_only_on_a_devbook_only_change()
+    {
+        const string Gate = "${{ !cancelled() && needs.changes.outputs.code != 'false' }}";
+        var jobs = Jobs(File.ReadAllLines(WorkflowPath(PullRequestWorkflow)));
+
+        var detect = Assert.Single(jobs, job => job.Name == "changes");
+        var builds = jobs.Where(job => job.Name != "changes").ToArray();
+
+        Assert.NotEmpty(builds);
+        Assert.All(builds, job =>
+        {
+            Assert.Equal("changes", JobKey(job, "needs"));
+            Assert.Equal(Gate, JobKey(job, "if"));
+        });
+
+        var detection = string.Join('\n', detect.Lines);
+        Assert.Contains("grep -v '^\\.devbook/'", detection, StringComparison.Ordinal);
+        Assert.Contains("code=false", detection, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Every_node_step_runs_one_node_version()
     {
