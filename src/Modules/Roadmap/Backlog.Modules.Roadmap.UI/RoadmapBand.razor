@@ -92,6 +92,7 @@
                                  ActualHoursByDate="@_actual"
                                  ShowHours="@_hoursShown"
                                  OnDayToggled="ToggleDay"
+                                 OnHoursOpened="OpenHours"
                                  TitleContent="@BandHeading"
                                  LabelledBy="roadmap-band-title"
                                  ShowSteps="false"
@@ -178,6 +179,12 @@
                           Week="@_week"
                           Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
                           RestoreFocusToId="roadmap-band-days-off" />
+
+    <RoadmapHoursReport Open="@_hoursOpen"
+                        OpenChanged="open => _hoursOpen = open"
+                        Date="@_hoursDate"
+                        Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                        RestoreFocusToId="@($"roadmap-hours-{_hoursDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}")" />
 </section>
 
 @code {
@@ -212,6 +219,10 @@
 
     /// <summary>Whether the Days off dialog is open.</summary>
     private bool _daysOffOpen;
+
+    /// <summary>Whether the hours report is open, and the date whose head opened it.</summary>
+    private bool _hoursOpen;
+    private DateOnly _hoursDate;
 
     /// <summary>The dates the actual hours were last asked for, so a render asks again
     /// only when they move: a new day, or a change that asked for a fresh read.</summary>
@@ -402,6 +413,17 @@
     /// refusals are.
     /// </summary>
     private void ToggleDay(DateOnly date) => _error = Paces.ToggleWorkedDay(date);
+
+    /// <summary>
+    /// A begun head's hours were pressed: open the report of the week the head's date
+    /// falls in, so the person can check the figure against the stretches behind it
+    /// (local ADR 0019, §6).
+    /// </summary>
+    private void OpenHours(DateOnly date)
+    {
+        _hoursDate = date;
+        _hoursOpen = true;
+    }
 
     /// <summary>
     /// The Hours switch moved: the heads gain or lose their hours line at once, the choice

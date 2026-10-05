@@ -5413,6 +5413,104 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
 }
 
+/* The hours report a begun head's hours open (local ADR 0019, §6): a week of working
+   days, each a small heading with its total and then its stretches, one line each:
+   when, how long, how many prompts, and the sessions it was worked in. The day whose
+   head was pressed is marked. A bounded height, so a busy week scrolls inside the
+   dialog. */
+.roadmap-hours__intro {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-hours__actions {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.roadmap-hours__total {
+    margin: 0;
+    font-weight: 600;
+}
+
+.roadmap-hours__days {
+    display: grid;
+    gap: var(--spacing-sm);
+    max-height: 28rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.roadmap-hours__day {
+    display: grid;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: var(--border-width-2) solid transparent;
+    border-radius: var(--border-radius-sm);
+}
+
+.roadmap-hours__day--focused {
+    border-left-color: var(--color-border-focus);
+}
+
+.roadmap-hours__day-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-hours__day-total,
+.roadmap-hours__when,
+.roadmap-hours__length {
+    font-variant-numeric: tabular-nums;
+}
+
+.roadmap-hours__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-hours__stretches {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.roadmap-hours__stretch {
+    display: grid;
+    grid-template-columns: auto auto auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-hours__turns {
+    color: var(--color-text-secondary);
+}
+
+.roadmap-hours__sessions {
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 40rem) {
+    .roadmap-hours__stretch {
+        grid-template-columns: auto auto minmax(0, 1fr);
+    }
+
+    .roadmap-hours__sessions {
+        grid-column: 1 / -1;
+    }
+}
+
 /* The waves a roadmap item's gathered entries fall into — the plan review's Order
    diagram, inside the dialog. A column per wave; what shares a column can run side
    by side. Scrolls sideways rather than squeezing a long chain. */

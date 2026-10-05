@@ -237,6 +237,24 @@ The system SHALL count as a date's actual hours the time the person's working st
 - **When** the axis shows that day
 - **Then** its actual hours are two stretches of 5 minutes each, and the 35 minutes between them count nothing
 
+#### Scenario: The pause counts from the end of the answer
+
+- **Given** on Thursday 8 October the person prompted at 09:00, the agent answered until 09:40, and the person prompted again at 09:45 and the agent answered until 09:50
+- **When** the axis shows that day
+- **Then** its actual hours are one stretch of 50 minutes, from 09:00 to 09:50
+
+#### Scenario: Moving between sessions within half an hour
+
+- **Given** on Thursday 8 October the person worked a stretch from 10:00 to 10:20 in one session and a stretch from 10:40 to 11:00 in another
+- **When** the axis shows that day
+- **Then** its actual hours are one hour, from 10:00 to 11:00
+
+#### Scenario: An evening past midnight counts on its own date
+
+- **Given** the person worked one stretch from 23:00 on Wednesday 7 October to 02:00 on Thursday 8 October
+- **When** the axis shows both days
+- **Then** Wednesday 7 October's actual hours are 3 hours and Thursday 8 October gains none
+
 #### Scenario: A stretch ends at the end of the reply
 
 - **Given** on Thursday 8 October the person prompted at 11:00, the agent answered until 11:45, and the person made no turn after it
@@ -281,6 +299,27 @@ The system SHALL start or extend a working stretch only at a human turn.
 - **Given** a Copilot session ran from 09:00 to 12:00 on Thursday 8 October
 - **When** the axis shows that day
 - **Then** that session adds no actual hours
+
+### Requirement: A begun head's hours open the report behind them
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL let the person open, from the hours on a begun day or week head, the working days of that head's week with each day's total and the working stretches it adds up from.
+
+#### Scenario: Checking a day's figure
+
+- **Given** today is Monday 5 October and Thursday 1 October's head reads "4.0h"
+- **When** the person presses "4.0h"
+- **Then** the report opens on 28 September to 4 October, Thursday's total reads 4.0h, and its stretches each show when they ran, how long they count, their prompts and their sessions
+
+#### Scenario: The day head still toggles
+
+- **Given** Thursday 1 October's head reads "4.0h"
+- **When** the person presses "4.0h"
+- **Then** Thursday 1 October stays a worked day
 
 ### Requirement: A begun head shows no hours when actual hours cannot be read
 

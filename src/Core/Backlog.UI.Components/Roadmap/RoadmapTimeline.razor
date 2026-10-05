@@ -204,6 +204,31 @@
                                     @HeadContent(column)
                                 </div>
                             }
+
+                            @* A begun head's actual hours open the report behind them, where
+                               the host listens (local ADR 0019, §6). A layer of its own over
+                               the head rather than a button inside it: a day head is already
+                               a button, and one button may not hold another. The layer lays
+                               out the head's three lines again, the first two unseen, so the
+                               hours button sits exactly where the head's hours line is, and
+                               only that button takes a press. *@
+                            @if (HoursOpenable(column))
+                            {
+                                var iso = column.Start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                                <div class="roadmap-timeline__quarter roadmap-timeline__hours-layer"
+                                     style="left: @Rem(Geometry.XFor(column.Start)); width: @Rem(Geometry.WidthFor(column.Start, column.End))">
+                                    <span class="roadmap-timeline__quarter-label" aria-hidden="true">@HeadLabel(column)</span>
+                                    <span class="roadmap-timeline__quarter-year" aria-hidden="true">@HeadCaption(column)</span>
+                                    <button type="button"
+                                            class="roadmap-timeline__quarter-hours roadmap-timeline__hours-open"
+                                            id="@($"roadmap-hours-{iso}")"
+                                            aria-label="@HoursOpenName(column)"
+                                            data-testid="@Suffix($"hours-{iso}")"
+                                            @onclick="() => OnHoursOpened.InvokeAsync(column.Start)">
+                                        @HoursCaption(column)
+                                    </button>
+                                </div>
+                            }
                         }
                     </div>
 
@@ -577,6 +602,15 @@
     /// </summary>
     [Parameter]
     public EventCallback<DateOnly> OnDayToggled { get; set; }
+
+    /// <summary>
+    /// Raised with a column's first date when the actual hours on its head are pressed,
+    /// so the host can show the working stretches they add up from (local ADR 0019, §6).
+    /// With a listener, the hours of every begun day or week head that shows them are a
+    /// button of their own, beside the day head's own button rather than inside it.
+    /// </summary>
+    [Parameter]
+    public EventCallback<DateOnly> OnHoursOpened { get; set; }
 
     /// <summary>Which day a week starts on here, and so where a drag lands.</summary>
     [Parameter]
@@ -2022,7 +2056,10 @@
             <span class="roadmap-timeline__quarter-year">@HeadCaption(column)</span>
             @if (HoursLineShown)
             {
-                <span class="roadmap-timeline__quarter-hours">@HoursCaption(column)</span>
+                @* Under the layer that opens the report, the line keeps its place and
+                   is not drawn or read twice. *@
+                <span class="@(HoursOpenable(column) ? "roadmap-timeline__quarter-hours roadmap-timeline__quarter-hours--covered" : "roadmap-timeline__quarter-hours")"
+                      aria-hidden="@(HoursOpenable(column) ? "true" : null)">@HoursCaption(column)</span>
             }
         }
     </text>;
@@ -2044,7 +2081,7 @@
             return column.Start.Day.ToString(CultureInfo.CurrentCulture);
         }
 
-        return HoursInline(column) && HoursText(column) is { } hours ? $"{column.Label} · {hours}" : column.Label;
+        return HoursInline(column) && !HoursOpenable(column) && HoursText(column) is { } hours ? $"{column.Label} · {hours}" : column.Label;
     }
 
     /// <summary>Whether a column is wide enough to say its hours on the head's own line:
@@ -2081,7 +2118,28 @@
     /// what the figure counts. Nothing where the head says no hours, or says them inline.
     /// </summary>
     private string? HoursCaption(RoadmapColumn column) =>
-        HoursText(column) is { } withUnit && !HoursInline(column) ? Fitted(column, withUnit) : null;
+        HoursText(column) is { } withUnit && (!HoursInline(column) || HoursOpenable(column)) ? Fitted(column, withUnit) : null;
+
+    /// <summary>
+    /// Whether a head's hours open the report behind them: the host listens, the head has
+    /// begun, its actual hours were read and it shows them, and it is wide enough to be
+    /// labelled at all. Such a head says its hours on its own line, never beside its name,
+    /// so the line can be pressed on its own.
+    /// </summary>
+    private bool HoursOpenable(RoadmapColumn column) =>
+        OnHoursOpened.HasDelegate
+        && HasBegun(column)
+        && ActualIn(column) is not null
+        && HoursText(column) is not null
+        && Geometry.WidthFor(column.Start, column.End) >= MinLabelled(column);
+
+    /// <summary>The hours button's accessible name: what it opens, for which day or week,
+    /// and the figure — "Hours worked on Thu 1 Oct, 4.0h, show the stretches".</summary>
+    private string HoursOpenName(RoadmapColumn column) =>
+        (column.Scale == RoadmapColumnScale.Day
+            ? $"Hours worked on {column.Start.ToString("ddd d MMM", CultureInfo.CurrentCulture)}"
+            : $"Hours worked in {column.Label}")
+        + $", {HoursText(column)}, show the stretches";
 
     /// <summary>A figure with its unit where that fits the column, else without it.</summary>
     private string Fitted(RoadmapColumn column, string withUnit) =>

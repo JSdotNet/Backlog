@@ -588,11 +588,14 @@ aliases: [actual hours, actual]
 related: [.devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/requirements.md#reading-the-near-term-closely, .devbook/domain/roadmap/dependencies.md, .devbook/domain/productivity/features.md#hours-worked, .devbook/domain/productivity/domain.md#office-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
-How long the person worked on one local date. Actual hours are the union of the
-person's [working stretches](#working-stretch) over every session on every paired
-machine, so stretches that overlap count once. A stretch that crosses midnight
-counts toward each date for its own part. Today counts up to now, and so does a
-stretch that is still open.
+How long the person worked on one working day. A working day runs from 04:00
+local on its date to 04:00 the next morning, so an evening that goes on past
+midnight counts on the date it began. Actual hours are the union of the person's
+[working stretches](#working-stretch) over every session on every paired machine,
+so stretches that overlap count once. Stretches less than 30 minutes apart join,
+whichever sessions they are in. A stretch across 04:00 counts toward each date
+for its own part. Today counts up to now, and so does a stretch that is still
+open.
 
 Only time the person was there counts. Agent and subagent time with no
 [human turn](../sessions/domain.md#human-turn) in it adds nothing, such as
@@ -621,8 +624,10 @@ related: [.devbook/domain/roadmap/domain.md#actual-hours, .devbook/domain/sessio
 
 A span of time in one session during which the person was working. Each of its
 [human turns](../sessions/domain.md#human-turn) comes less than 30 minutes after
-the one before. A turn 30 minutes or more after the one before it starts a new
-stretch, and the gap between the two belongs to neither.
+the stretch so far ended, which is when the agent finished answering. A turn 30
+minutes or more after that end starts a new stretch, and the gap between the two
+belongs to neither. The owner moved the measure from the previous turn to the end
+of the answer on 2026-10-05, because reading the answer is work.
 
 The stretch starts at its first turn. It ends when the agent finishes answering
 its last turn, which is the end of the run that turn started. When no run follows

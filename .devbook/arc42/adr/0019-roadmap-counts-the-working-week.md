@@ -55,6 +55,17 @@ planned hours on a column still to come (§4, §6). A new "Hours worked" part on
 the Dashboard splits the actual hours into inside and outside office hours (§7).
 This review drops the "6.2 / 8.5h" form that the earlier round settled.
 
+Revised again on 2026-10-05, after the stretches were built. The owner said: "I
+have been working many days from before 9:00 till sometimes 2:00. that is not
+visible in the current calculations." The figures matched the transcripts, so
+the rule was the cause. Three choices changed the rule (§6). The 30-minute pause
+is measured from the end of the agent's answer, not from the prompt before it.
+Stretches of different sessions less than 30 minutes apart join. A working day
+runs from 04:00 to 04:00 local, so an evening past midnight counts on the day it
+began. At the Personal Validation of that change the owner asked: "Can we add a
+report somewhere for the working hours for a week, so that I can check the
+calculations?" They chose a report opened from a roadmap head (§6).
+
 | Choice | Settled as |
 |---|---|
 | What placement and measured pace count | **The working week, in hours.** A window counts working hours forward and skips days and hours not worked. |
@@ -64,7 +75,7 @@ This review drops the "6.2 / 8.5h" form that the earlier round settled.
 | Holidays and one-off days off | **In scope since 2026-10-03.** A person blocks or unblocks a single date from the axis, or sets dates in the Days off dialog (§4, §5). On 2026-10-01 this was out of scope. |
 | How per-date blocking is reached (2026-10-03) | **A design pass first**, this revision, then the build. |
 | What "actual hours" means (2026-10-03) | **The person's working stretches**, built from their own turns (§6). |
-| Joining turns into a stretch (2026-10-03) | **Turns less than 30 minutes apart join** (§6). |
+| Joining turns into a stretch (2026-10-03) | **Turns less than 30 minutes apart join** (§6). Since 2026-10-05, measured from the end of the answer. |
 | Where date overrides live (2026-10-03) | **They travel with the pace**, inside `workingWeek` (§3). |
 | When a toggle moves bars (2026-10-03) | **At once**, as a change to the working week in settings does (§4). |
 | A past day not worked with activity (2026-10-03) | **Its actual hours**, such as "2.0h" (§6). |
@@ -73,6 +84,10 @@ This review drops the "6.2 / 8.5h" form that the earlier round settled.
 | The hours figure on a head (review, 2026-10-03) | **One figure, behind an "Hours" switch** that is on by default and kept per device. A begun column shows actual hours, a column still to come shows planned hours. A head never shows both (§4, §6). |
 | A begun column whose actual hours cannot be read (review, 2026-10-03) | **Shows nothing**, rather than the planned hours (§6). |
 | Hours inside and outside office hours (review, 2026-10-03) | **An "Hours worked" part on the Dashboard**, presentation only (§7). |
+| Where the 30-minute pause is measured from (2026-10-05) | **The end of the agent's answer**, so reading the answer counts (§6). |
+| Moving between sessions (2026-10-05) | **Stretches of any two sessions less than 30 minutes apart join** (§6). |
+| Where a date ends (2026-10-05) | **At 04:00 local**, so work until two in the morning counts on the evening's date (§6). |
+| How the person checks a figure (2026-10-05) | **An hours report opened from a begun head's hours**: the week's working days and the stretches behind each (§6). |
 
 This record **amends** ADR 0013 ruling 4, which drew a window in calendar days
 because "Roadmap models no working week". It also **amends** ADR 0018 §2, which
@@ -350,16 +365,17 @@ flowchart TD
     A["A user turn in a session's transcript"] --> B{"Did the person make it?"}
     B -- no --> X["Not a human turn: adds nothing"]
     B -- yes --> C["Human turn"]
-    C --> D["Per session: turns less than 30 minutes apart join one stretch"]
+    C --> D["Per session: a turn less than 30 minutes after the stretch ended joins it"]
     D --> E["The stretch ends when the reply to its last turn ends"]
-    E --> F["Union of stretches over every session and paired machine"]
-    F --> G["Split at local midnight"]
+    E --> F["Stretches of every session and paired machine less than 30 minutes apart join"]
+    F --> G["Split at 04:00 local, where a working day starts"]
     G --> H["Actual hours on each date"]
 ```
 
 With the "Hours" switch on, a day or week head whose column has begun shows the
 **actual hours** in place of the planned hours (§4). They are the time the person
-spent in working stretches on that local date, or in that week.
+spent in working stretches on that working day, or in that week. A working day
+runs from 04:00 local on its date to 04:00 the next morning.
 
 **A human turn** is a turn the person made. They start a session, give a
 follow-up prompt, or answer a question the agent asked them. In a Claude
@@ -370,9 +386,11 @@ notifications, subagent hand-backs and schedules, and every other tool result,
 are not human turns. `promptSource` cannot tell them apart, because the desktop
 app records the person's own prompts as `sdk`.
 
-**A working stretch** starts at a human turn. Within one session, human turns
-less than 30 minutes apart belong to one stretch, and the stretch covers the gap
-between them. Turns 30 minutes or more apart start a new stretch.
+**A working stretch** starts at a human turn. Within one session, a human turn
+that comes less than 30 minutes after the stretch so far ended belongs to it, and
+the stretch covers the gap. A turn 30 minutes or more after that end starts a new
+stretch. The pause is measured from the end of the agent's answer, because
+reading the answer is work.
 
 **A stretch ends** when the agent finishes answering its last human turn. That
 is the end of the agent run the turn started. If that run ended before the turn
@@ -380,9 +398,16 @@ itself, the stretch ends at the turn.
 
 **Actual hours on a date** are the union of every stretch, built per session
 first, over every session on every paired machine. Overlapping stretches from
-two sessions therefore count once. The union is split at local midnight, so a
-stretch that crosses midnight counts on both dates. Today counts up to now, and
-an open stretch counts up to now.
+two sessions therefore count once. Stretches of any two sessions less than 30
+minutes apart join as well, because the person moving from one session to the
+next was working between them. A lone turn nobody answered still joins the
+stretches around it.
+
+The union is split at 04:00 local, where a working day starts. An evening that
+goes on until two in the morning counts on the date it began. A stretch across
+04:00 counts on both dates. The cut also stays clear of the hour a European clock
+change skips or repeats. Today counts up to now, and an open stretch counts up
+to now.
 
 Agent and subagent time with no human turn behind it adds nothing. Overnight
 subagents, scheduled sweeps and automated sessions therefore count no hours.
@@ -395,6 +420,16 @@ stretch shows "0h". The tooltip carries both figures, as §4 says.
 
 The actual hours count every stretch, inside office hours and outside them. Only
 the Dashboard splits them (§7).
+
+**The hours report** lets the person check a figure. The hours on a begun day or
+week head are a button of their own. Pressing it opens a dialog for the week the
+head's date falls in. Each working day shows its total, which is the figure on its
+head, and its stretches. Each stretch shows when it ran, how long it counts, how
+many prompts it holds, and the sessions it was worked in, by title and repository.
+The person can step to the week before. The day head itself still blocks or
+unblocks its date, so the hours button sits beside it, never inside it. The report
+reads a second Roadmap port, answered by the same adapter over the same stretches,
+so the report and the heads cannot disagree.
 
 The actual hours are presentation only. They move no bar and change no pace. A
 pace is still measured from finished points.
@@ -446,7 +481,9 @@ shows the actual hours split into **inside office hours** and **outside office
 hours**, against the planned hours.
 
 **Office hours on a date are that date's working hours.** They run from the
-weekday's start to its end in the weekly pattern, with the overrides applied. A
+weekday's start to its end in the weekly pattern, with the overrides applied, on
+the calendar date. The part of a working day after midnight therefore counts
+outside them. A
 blocked date has no office hours, so all its time counts outside. An unblocked
 date uses its weekday's stored start and end (§5).
 
@@ -548,7 +585,10 @@ Negative:
   contributes no human turns. Work done only in such a session reads as no
   actual hours. Work done outside any agent session reads as none too.
 - **A long pause splits a stretch.** Reading or thinking for 30 minutes or more
-  before the next prompt, after the reply has ended, is not counted.
+  after the reply has ended, with no prompt in any session, is not counted.
+- **A date is a working day, not a calendar day.** Work between midnight and
+  04:00 counts on the date before. A roadmap head for today therefore gains
+  nothing until 04:00.
 - **The working week is set in Productivity's settings and carried by Roadmap's
   document.** Two contexts now share one value. The value type was already the
   shared kernel's, so no model is copied, but a change to its shape touches both.
@@ -688,8 +728,9 @@ The implementing `flow-code` run turns these into tests:
 28. **A day off shows its actual hours, and an idle worked day shows zero.** A
     past Saturday the pattern leaves off, with a 2-hour stretch, reads "2.0h". A
     past worked Wednesday with no stretch reads "0h".
-29. **A stretch crossing midnight splits.** A stretch from 23:00 to 01:00 adds one
-    hour to each date.
+29. **An evening past midnight counts on its own date.** A stretch from 23:00 to
+    02:00 adds three hours to the first date. A stretch from 03:00 to 05:00 adds
+    one hour to each date.
 30. **A replicated session's turns count.** A session on a paired machine adds its
     stretches to the date, through the replicated activity record.
 31. **A toggle moves bars at once.** Blocking a date inside an `effort`-placed
@@ -725,3 +766,12 @@ The implementing `flow-code` run turns these into tests:
 41. **A blocked date's stretch counts entirely outside.** On a blocked Wednesday,
     a 2-hour stretch inside the weekday's stored 09:00 to 17:30 counts 0 hours
     inside office hours and 2 hours outside.
+42. **The pause counts from the end of the answer.** A prompt at 09:00 answered
+    until 09:40, and a prompt at 09:45, make one stretch.
+43. **Moving between sessions joins.** A stretch from 10:00 to 10:20 in one
+    session and one from 10:40 to 11:00 in another add one hour.
+44. **After midnight counts outside office hours.** A stretch from 23:00 to 01:00
+    after a worked Wednesday counts 2 hours outside on that Wednesday.
+45. **A head's hours open the week's report.** Pressing "4.0h" on Thu 1 Oct
+    opens the report of 28 Sep to 4 Oct. Thursday's total reads 4.0h, its
+    stretches add up to it, and each names its sessions. The day stays unblocked.

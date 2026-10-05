@@ -7,13 +7,18 @@ namespace Backlog.Infrastructure.FileSystem.Activity;
 /// session's human turns and the agent's runs (ADR 0019 §6). Pure: no I/O, and the
 /// clock arrives as a parameter.
 /// <para>
-/// A stretch starts at a human turn. Turns of one session less than
-/// <see cref="JoinWithin"/> apart belong to one stretch, which covers the gap between
-/// them. It ends when the agent finishes answering its last turn: the end of the run
-/// that turn started, being the run that contains it or begins at it. When no such run
-/// ends after the turn, the stretch ends at the turn itself. Only the session's own
-/// runs count; a subagent's work starts and extends nothing, so overnight agents with
-/// no human turn behind them add no time.
+/// A stretch starts at a human turn. It ends when the agent finishes answering its last
+/// turn: the end of the run that turn started, being the run that contains it or begins
+/// at it. When no such run ends after the turn, the stretch ends at the turn itself. A
+/// turn less than <see cref="JoinWithin"/> after the stretch so far ended belongs to it,
+/// and the stretch covers the gap. Only the session's own runs count; a subagent's work
+/// starts and extends nothing, so overnight agents with no human turn behind them add
+/// no time.
+/// </para>
+/// <para>
+/// Stretches of every session are then joined the same way: one that starts less than
+/// <see cref="JoinWithin"/> after another ended continues it, because the person moving
+/// from one session to the next was working between them.
 /// </para>
 /// <para>
 /// Here, beside the two adapters that read it, because only an adapter may see both
@@ -24,17 +29,37 @@ namespace Backlog.Infrastructure.FileSystem.Activity;
 /// </summary>
 internal static class WorkingStretches
 {
+    /// <summary>A stretch with what it was made of: the sessions worked in it and the
+    /// person's turns inside it, ascending.</summary>
+    internal sealed record TracedStretch(
+        DateTimeOffset Start,
+        DateTimeOffset End,
+        IReadOnlyList<AgentSessionActivity> Sessions,
+        IReadOnlyList<DateTimeOffset> Turns);
+
     /// <summary>
-    /// Thirty minutes. Turns closer than this belong to one stretch; turns this far
-    /// apart or further start a new one, and the gap between them belongs to neither.
-    /// The owner's choice of 2026-10-03: the reading and thinking between two prompts
-    /// is work, and a longer pause is not.
+    /// Thirty minutes. A turn closer than this to the end of a stretch, in its own
+    /// session or another, continues it; one this far or further starts a new one, and
+    /// the gap between them belongs to neither. The owner's choice of 2026-10-03: the
+    /// reading and thinking between two prompts is work, and a longer pause is not. Since
+    /// 2026-10-05 the pause is measured from the end of the agent's answer rather than
+    /// from the prompt before it, and across sessions: reading the answer is the work.
     /// </summary>
     internal static readonly TimeSpan JoinWithin = TimeSpan.FromMinutes(30);
 
     /// <summary>
-    /// Every session's stretches in a log, merged where they overlap or touch so time
-    /// two sessions shared counts once, clipped to the window and to now, in order.
+    /// Four in the morning, local. A working day runs from this time on its date to this
+    /// time on the next, so an evening that goes on past midnight counts on the day it
+    /// began. The owner's choice of 2026-10-05, after evenings worked until two read as
+    /// two short days. It also keeps the cut clear of the hour a European clock change
+    /// skips or repeats.
+    /// </summary>
+    internal static readonly TimeSpan DayStartsAt = TimeSpan.FromHours(4);
+
+    /// <summary>
+    /// Every session's stretches in a log, joined where one starts less than
+    /// <see cref="JoinWithin"/> after another ended, so time two sessions shared counts
+    /// once, clipped to the window and to now, in order.
     /// <para>
     /// Sessions from every source the log composed count alike — this machine's
     /// transcripts, its records and the records replicated from paired machines — and
@@ -52,6 +77,19 @@ internal static class WorkingStretches
         AgentActivityLog log,
         DateTimeOffset from,
         DateTimeOffset to,
+        DateTimeOffset now) =>
+        [.. Traced(log, from, to, now).Select(stretch => (stretch.Start, stretch.End))];
+
+    /// <summary>
+    /// The same stretches as <see cref="Of(AgentActivityLog, DateTimeOffset, DateTimeOffset, DateTimeOffset)"/>,
+    /// each with the sessions it was worked in and the human turns inside it, for the
+    /// hours report that lets the person check a head's figure. One code path, so the
+    /// report and the figure never disagree.
+    /// </summary>
+    internal static IReadOnlyList<TracedStretch> Traced(
+        AgentActivityLog log,
+        DateTimeOffset from,
+        DateTimeOffset to,
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(log);
@@ -61,25 +99,45 @@ internal static class WorkingStretches
         var idleAfter = log.IdleAfter > TimeSpan.Zero ? log.IdleAfter : DefaultIdleAfter;
 
         var clipped = log.Sessions
-            .SelectMany(session => Of(session, now, idleAfter))
-            .Select(stretch => (Start: stretch.Start > from ? stretch.Start : from, End: stretch.End < to ? stretch.End : to))
-            .Where(stretch => stretch.End > stretch.Start)
+            .SelectMany(session => Of(session, now, idleAfter).Select(stretch => (Session: session, stretch.Start, stretch.End)))
+            .Select(stretch => (
+                stretch.Session,
+                Start: stretch.Start > from ? stretch.Start : from,
+                End: stretch.End < to ? stretch.End : to))
+            .Where(stretch => stretch.End >= stretch.Start)
             .OrderBy(stretch => stretch.Start)
             .ToList();
 
-        var merged = new List<(DateTimeOffset Start, DateTimeOffset End)>();
-        foreach (var stretch in clipped)
+        // An empty stretch, a lone turn nobody answered, still bridges the gap it falls
+        // in, and is dropped only once it has had the chance to.
+        var merged = new List<(DateTimeOffset Start, DateTimeOffset End, List<AgentSessionActivity> Sessions)>();
+        foreach (var (session, start, end) in clipped)
         {
-            if (merged.Count > 0 && stretch.Start <= merged[^1].End)
+            if (merged.Count > 0 && start - merged[^1].End < JoinWithin)
             {
-                if (stretch.End > merged[^1].End) merged[^1] = (merged[^1].Start, stretch.End);
+                var last = merged[^1];
+                if (!last.Sessions.Contains(session)) last.Sessions.Add(session);
+                if (end > last.End) merged[^1] = (last.Start, end, last.Sessions);
                 continue;
             }
 
-            merged.Add(stretch);
+            merged.Add((start, end, [session]));
         }
 
-        return merged;
+        return
+        [
+            .. merged
+                .Where(stretch => stretch.End > stretch.Start)
+                .Select(stretch => new TracedStretch(
+                    stretch.Start,
+                    stretch.End,
+                    stretch.Sessions,
+                    [.. stretch.Sessions
+                        .SelectMany(session => session.HumanTurns)
+                        .Where(turn => turn >= stretch.Start && turn <= stretch.End)
+                        .Distinct()
+                        .Order()]))
+        ];
     }
 
     /// <summary>
@@ -110,30 +168,32 @@ internal static class WorkingStretches
         var stretches = new List<(DateTimeOffset Start, DateTimeOffset End)>();
 
         var start = turns[0];
-        var last = turns[0];
+        var end = EndOf(turns[0], runs, now, idleAfter);
 
         foreach (var turn in turns.Skip(1))
         {
-            if (turn - last < JoinWithin)
+            if (turn - end < JoinWithin)
             {
-                last = turn;
+                var answered = EndOf(turn, runs, now, idleAfter);
+                if (answered > end) end = answered;
                 continue;
             }
 
-            stretches.Add((start, EndOf(last, runs, now, idleAfter)));
+            stretches.Add((start, end));
             start = turn;
-            last = turn;
+            end = EndOf(turn, runs, now, idleAfter);
         }
 
-        stretches.Add((start, EndOf(last, runs, now, idleAfter)));
+        stretches.Add((start, end));
 
         return stretches;
     }
 
     /// <summary>
-    /// Each stretch cut at every local midnight it crosses, each part on its own date.
-    /// A date runs from one local midnight to the next, so the day the clocks go back
-    /// holds twenty-five hours and the day they go forward twenty-three.
+    /// Each stretch cut at every start of a working day it crosses, <see cref="DayStartsAt"/>
+    /// local, each part on its own date. A working day runs from one such start to the
+    /// next, so the one the clocks go back in holds twenty-five hours and the one they go
+    /// forward in twenty-three.
     /// </summary>
     internal static IEnumerable<(DateOnly Date, DateTimeOffset Start, DateTimeOffset End)> ByLocalDate(
         IEnumerable<(DateTimeOffset Start, DateTimeOffset End)> stretches,
@@ -150,7 +210,7 @@ internal static class WorkingStretches
                 var date = LocalDate(cursor, zone);
                 var next = StartOf(date.AddDays(1), zone);
 
-                // A zone whose midnight is skipped can name a next midnight at or before
+                // A zone whose day start is skipped can name a next start at or before
                 // the cursor; the rest of the stretch then stays on this date rather than
                 // looping.
                 if (next <= cursor || next > end) next = end;
@@ -161,15 +221,16 @@ internal static class WorkingStretches
         }
     }
 
-    /// <summary>The local date an instant falls on.</summary>
+    /// <summary>The working day an instant falls in: its local date, or the date before
+    /// when it is earlier than <see cref="DayStartsAt"/>.</summary>
     internal static DateOnly LocalDate(DateTimeOffset instant, TimeZoneInfo zone) =>
-        DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, zone).DateTime);
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, zone).DateTime - DayStartsAt);
 
-    /// <summary>The instant a local date begins at, the way the dashboard's grid turns a
-    /// local cell back into an instant.</summary>
+    /// <summary>The instant a working day begins at, <see cref="DayStartsAt"/> on its
+    /// date, the way the dashboard's grid turns a local cell back into an instant.</summary>
     internal static DateTimeOffset StartOf(DateOnly date, TimeZoneInfo zone)
     {
-        var local = date.ToDateTime(TimeOnly.MinValue);
+        var local = date.ToDateTime(TimeOnly.FromTimeSpan(DayStartsAt));
         return new DateTimeOffset(local, zone.GetUtcOffset(local));
     }
 
