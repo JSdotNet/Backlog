@@ -77,6 +77,43 @@ different reason — a record carries no liveness marker whichever agent wrote i
 so it too falls out of this view once it has been quiet long enough. See
 `.devbook/domain/sessions/features.md#sessions-from-another-machine`.
 
+### Narrow to one machine
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#environment, .devbook/domain/sessions/features.md#group-by-environment]
+```
+
+A machine filter sits beside `Live` / `All` and opens on "All machines". Choosing a
+machine keeps only the rows that machine gathered, and the count beside the title
+names both numbers — "1 of 4 sessions" — so the rows on the other machines are
+counted rather than forgotten. It composes with the view: `Live` on one machine is
+the running and stalled sessions there and nothing else.
+
+A list rather than a row of buttons, because the options are however many machines
+have reported, which is not this list's decision. An option is offered exactly when
+there are rows behind it, named and ordered the way Group by environment names its
+sections, so the two cannot disagree. Like the view, it is not remembered: every open
+starts on "All machines".
+
+### Open on the session a task names
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#narrow-to-one-machine]
+```
+
+A task that names a session opens the list on that session. Its row is marked, the
+focus moves to it, and its runs show, because a task that names a session is usually
+asking about the run it drove. When the view or the machine filter would hide the
+row, both widen — to `All` and "All machines" — rather than answer with a list the
+session is missing from. They widen once: re-reading the list does not undo what the
+reader narrowed since.
+
+The shell's repository scope is left alone, because it is the shell's. A session
+outside it is said out loud instead, and so is a session this machine has no record
+of, rather than a list with no row marked.
+
 ### Only what the agent recorded
 
 ```meta
@@ -87,8 +124,8 @@ related: [.devbook/domain/sessions/domain.md#working-location]
 Each session shows what its own agent wrote down and no more. The agents disagree
 about one field of the two — Copilot names the repository and the branch, Claude
 names the branch and never the repository — so a Claude row shows its branch and
-reads "not recorded" where its repository would be, visibly rather than blankly,
-while a Copilot row shows both.
+an em dash where its repository would be, visibly rather than blankly, while a
+Copilot row shows both.
 
 The alternative was inferring the missing repository from the working folder. A
 wrong repository attributed to a session renders exactly as convincingly as a right
@@ -100,7 +137,7 @@ agent recorded none and the folder was placed inside a registered clone. This is
 not the inference above: it is not read off the path but looked up against the
 clone directory the person registered (`.devbook/domain/sessions/domain.md#working-location`).
 A recorded repository always outranks it in the cell, and a session with neither
-still reads "not recorded". The repository scope in the shell's header admits a
+still shows an em dash. The repository scope in the shell's header admits a
 session by either — which is what makes a scoped list able to hold the Claude
 sessions running in that repository's clone — and its narrowing sentence names
 both terms, so a Claude session missing from a scoped list is understood as one
@@ -138,12 +175,15 @@ same list rather than a panel of its own — somebody running agents on a deskto
 and a laptop has one set of sessions on two boxes, not two inventories to check
 in turn.
 
-Off until it is switched on, and switched on separately from anything else that
-syncs. A record of what the assistants have been doing is the kind of thing a
-person agrees to let off a machine rather than finds out has left it, and wanting
-the same backlog on two machines is a different wish from wanting that — so it is
-a switch of its own, and it starts off. Until it is on, this is the list it has
-always been: everything read here and nothing else.
+Off until it is switched on, by the one Sync switch that also turns on pairing and
+the tasks' sync, and that starts off. A record of what the assistants have been
+doing is the kind of thing a person agrees to let off a machine rather than finds
+out has left it. Until 2026-09-14 that argued for a separate flag; the switches
+were folded into one because the question a person actually answers is whether this
+machine takes part in sync at all, and the sanitization boundary — only the metadata
+below travels, never the transcript — is what makes that one answer safe to give
+(`.devbook/arc42/08-crosscutting-concepts.md#session-record-sync`). Until it is on,
+this is the list it has always been: everything read here and nothing else.
 
 **A row from elsewhere says less than a row read here, and visibly so.** Only the
 whitelisted metadata travelled — which agent, which machine, which repository and
