@@ -281,8 +281,15 @@ status: draft
 
 Group the plan into per-repository bands, with the person's own lanes inside each.
 Work that names several repositories is shown once, under the first of them, and
-stays findable under any of them; work that names none reads as unfiled rather than
-being hidden.
+stays findable under any of them.
+
+Work that names no repository, or names only repositories that are not configured,
+sits in a last band of its own rather than being hidden. That band takes no colour
+and shows no name, because being last and colourless already tells it apart; a
+screen reader still hears it called "No repository". The chart always draws it,
+with one empty "Planned" lane when nothing is filed there. That lane is where the
+person plans the next project before it has a repository, by double-clicking or
+dragging on it.
 
 ### Surviving a repository that is no longer configured
 
@@ -457,7 +464,7 @@ strings rather than resolving them. A plan that recorded a colour of its own wou
 make the same project one colour here and another on the filter beside it, and
 would have to be rewritten whenever the choice changed.
 
-The band for work naming no repository, and the band carrying the plan's dates,
+The band for work under no repository, and the band carrying the plan's dates,
 take no colour at all. A colour here means "which repository", and neither of those
 is one.
 
@@ -478,6 +485,9 @@ An edit submits the whole item — title, window, priority, repositories, lane, 
 rather than the fields that changed, because "leave this alone" and "clear this" are
 different intentions and a partial edit cannot tell them apart. The item's identity
 survives every edit, so anything waiting on it still is.
+
+Naming a repository is optional. The repository picker does not prompt for one, and
+an item saved with none lands in the band for work under no repository.
 
 ### Editing what something waits for
 
@@ -589,8 +599,8 @@ always in view, the band growing to fit them. A stretch that finished nothing
 estimated is not offered, and when none did there is nothing to choose between
 and only the points are shown. When the stretch a band chose has since emptied,
 a line under the choices says the typed pace is used instead. A repository's measured paces
-count only the work finished in it. The unfiled band carries the **default**
-points a week, measured over all finished work. A plan filed under one repository is placed at
+count only the work finished in it. The band for work under no repository carries
+the **default** points a week, measured over all finished work. A plan filed under one repository is placed at
 that repository's pace; one filed under several, at the slowest of theirs, so
 its bar is the longest they would make; one filed under none, or under a
 repository that is not configured, at the default pace. A repository nobody has
