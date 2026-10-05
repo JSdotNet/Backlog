@@ -1081,7 +1081,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// locally. When a repository is scoped, the new entry starts already filed
     /// there — otherwise it would vanish the moment it saved, since the scope keeps
     /// exactly the rows that say they belong to it
-    /// (<see cref="RowBelongsToSelectedRepository"/>).
+    /// (<see cref="RowBelongsToSelectedRepository"/>). The My Day scope seeds its
+    /// date for the same reason: it keeps exactly the entries stamped for it.
     /// <para>
     /// It used to seed a filtered area as <c>`@area`</c> alongside the
     /// <c>`repo:`</c>, for the same reason. There is no area filter any more, so
@@ -1100,9 +1101,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         var seedRepository = AnchorRepositoryAlias.Length > 0 ? AnchorRepositoryAlias : null;
 
-        if (seedRepository is not null)
+        if (seedRepository is not null || MyDayOn is not null)
         {
-            row.RawText = $"# \n`task` `*medium` `!draft` `repo:{seedRepository}`\n";
+            var tokens = "`task` `*medium` `!draft`";
+            if (seedRepository is not null) tokens += $" `repo:{seedRepository}`";
+
+            row.RawText = $"# \n{tokens}\n";
+            if (MyDayOn is { } myDay) row.RawText = EntryTextParser.WithMyDay(row.RawText, myDay);
             row.SeedText = row.RawText;
         }
 
