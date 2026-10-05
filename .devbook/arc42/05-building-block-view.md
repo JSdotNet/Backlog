@@ -433,11 +433,11 @@ compliance/monitoring; capture uses session context to create backlog/knowledge 
 ## Cloud Service
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
+related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 ```
 
 The **thin cloud** `.devbook/arc42/12-glossary.md` defines — deliberately not the backbone. It coordinates
-device sync, receives and forwards GitHub webhooks, sends push notifications, and hosts a Remote PC registry / Wake-on-LAN relay. It stores minimal, mostly TTL-based state — never domain data or external credentials.
+device sync, receives and forwards GitHub webhooks, sends push notifications, and hosts a Remote PC registry / Wake-on-LAN relay. It persists only sync-oriented state, much of it TTL-based, and never the canonical domain data or external credentials (local ADR 0005).
 
 "Cloud Service" names where this container runs; the code is named after what it
 does. It is implemented by `src/Modules/Sync/Backlog.Modules.Sync.Api` and appears
@@ -461,6 +461,27 @@ served from the same project against two more containers, `devices` and
 `pairingCodes`, so a registration survives a restart of the service; the module's
 in-memory adapters remain for the endpoint tests and for a run with no Cosmos
 configured.
+
+Two more replicas take the task replica's shape. The module declares
+`ISessionReplica` and `IAnnotationReplica` in its `Ports`, each with an
+in-memory stand-in in its `Adapters`. `Backlog.Infrastructure.Cosmos`
+implements them against the `sessions` and `annotations` containers (local
+ADRs 0005 and 0011). The API head serves each as one route,
+`/api/sync/sessions` and `/api/sync/annotations`. A device pushes a batch with
+`POST` and pulls the owner's feed from a cursor with `GET`, as it does on
+`/api/sync/tasks`.
+
+Captures have no container of their own. A capture is a document kind in the
+`tasks` container, and the module writes it through `ITaskReplica` (local ADR
+0009). A device posts a capture to `/api/sync/inbox`, the desktop lists the
+owner's waiting captures from the same route, and it acknowledges one with
+`POST /api/sync/inbox/{id}/ack`. The session, annotation and inbox routes sit
+behind the same paired-device authorization, owner-scope and replica-fault
+filters as every other sync route.
+
+The Cosmos database therefore holds five containers. `tasks`, `sessions` and
+`annotations` are partitioned on the owner, and `devices` and `pairingCodes`
+on their own id.
 
 Attachment bytes take the same shape with a fifth project (local ADR 0014): the
 module declares an `IAttachmentStore` port beside `ITaskReplica`, with an
@@ -488,7 +509,7 @@ flowchart TB
       NotificationService["Notification Service\n(Push to Phone)"]
     end
     subgraph "Data Layer"
-      DB["Cloud Database\n(Sync state only)"]
+      DB["Cosmos DB (sync state only)\ntasks, sessions, annotations,\ndevices, pairingCodes"]
       Blobs["Attachment Store\n(capture files, 30-day backstop)"]
     end
   end
@@ -520,7 +541,7 @@ Cloud components:
 | Component | Responsibility |
 |---|---|
 | **API Gateway & Auth** | Minimal REST surface; GitHub OAuth for webhook registration; JWT device sessions; rate limiting. |
-| **Sync Service** | The only domain-aware service; stores sync *state* (not domain data); delta push/pull, conflict listing/resolution. |
+| **Sync Service** | The only domain-aware service; stores sync *state*, never the canonical domain data; delta push/pull of the task, session and annotation replicas, the capture inbox, and attachments; conflict listing/resolution. |
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
 | **Notification Service** | Push to phone (FCM); SSE/WebSocket to desktop for real-time forwarding. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
