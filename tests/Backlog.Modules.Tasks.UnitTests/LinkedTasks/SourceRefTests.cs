@@ -39,23 +39,22 @@ public sealed class SourceRefTests
     }
 
     [Fact]
+    public void A_blank_blocked_reason_is_no_reason()
+    {
+        Assert.Null((Reference() with { Blocked = true, BlockedReason = "   " }).BlockedReason);
+        Assert.Equal("Waiting", (Reference() with { BlockedReason = " Waiting " }).BlockedReason);
+    }
+
+    [Fact]
     public void Two_references_blocked_for_the_same_reason_are_equal()
     {
-        var first = new SourceRef("github", "JSdotNet/Backlog", "I_1", "u", "#1", null, "open", Stamp, blocked: true, blockedReason: "Waits on #3");
-        var second = new SourceRef("github", "JSdotNet/Backlog", "I_1", "u", "#1", null, "open", Stamp, blocked: true, blockedReason: "Waits on #3");
+        var first = Reference() with { Blocked = true, BlockedReason = "Waits on #3" };
+        var second = Reference() with { Blocked = true, BlockedReason = "Waits on #3" };
 
         Assert.Equal(first, second);
         Assert.Equal(first.GetHashCode(), second.GetHashCode());
         Assert.True(first.Blocked);
         Assert.Equal("Waits on #3", first.BlockedReason);
-    }
-
-    [Fact]
-    public void A_blank_blocked_reason_is_no_reason()
-    {
-        var reference = new SourceRef("github", "JSdotNet/Backlog", "I_1", "u", "#1", null, "open", Stamp, blocked: true, blockedReason: "  ");
-
-        Assert.Null(reference.BlockedReason);
     }
 
     [Fact]

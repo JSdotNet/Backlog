@@ -30,6 +30,16 @@
          adapters under Dashboard/ answer its repository-directory, activity,
          baseline and Copilot-spend ports from the clients beside them. -->
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <!-- The Sync module's published surface, in the same direction: the settings
+         store answers IGitHubSettingsReplication (local ADR 0021), which is how the
+         repository registry and the account identities ride the task feed without
+         this adapter and the sync adapter ever seeing each other. -->
+    <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
+    <!-- Tasks' published surface, in the same direction again: GitHubConnector
+         answers the module's ITaskConnector port (local ADR 0020) from the issue
+         search beside it, and reads the entries' issue projections for its loop
+         guard. -->
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

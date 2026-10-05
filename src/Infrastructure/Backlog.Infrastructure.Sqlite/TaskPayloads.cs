@@ -51,8 +51,6 @@ internal static class TaskPayloads
                     sourceRef.Flags.Count == 0 ? null : [.. sourceRef.Flags],
                     sourceRef.NormalisedState is { } state ? NormalisedSourceStates.ToWire(state) : null,
                     sourceRef.SourceTitle,
-                    // Null rather than false, so a reference that is not blocked
-                    // writes the JSON it wrote before the member existed.
                     sourceRef.Blocked ? true : null,
                     sourceRef.BlockedReason),
                 Options);
@@ -93,9 +91,11 @@ internal static class TaskPayloads
             payload.SourceUpdatedAt,
             payload.Flags,
             NormalisedSourceStates.FromWire(payload.NormalisedState),
-            payload.SourceTitle,
-            payload.Blocked == true,
-            payload.BlockedReason);
+            payload.SourceTitle)
+        {
+            Blocked = payload.Blocked == true,
+            BlockedReason = payload.BlockedReason,
+        };
     }
 }
 

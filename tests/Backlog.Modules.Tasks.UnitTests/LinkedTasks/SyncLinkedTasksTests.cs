@@ -102,6 +102,28 @@ public sealed class SyncLinkedTasksTests
         Assert.Equal(Now, task.SourceRef.SourceUpdatedAt);
     }
 
+    /// <summary>Blocked is the source's word, so it follows the source on every
+    /// sync like the assignee does: set with its reason, then cleared, reason and
+    /// all, when the source unblocks the item.</summary>
+    [Fact]
+    public async Task Blocked_and_its_reason_follow_the_source()
+    {
+        _connector.Items.Add(Item("I_1") with { IsBlocked = true, BlockedReason = "Waiting on the design review" });
+        await SyncAsync();
+
+        var source = Assert.Single(_tasks.Entries.Values).SourceRef!;
+        Assert.True(source.Blocked);
+        Assert.Equal("Waiting on the design review", source.BlockedReason);
+
+        _connector.Items[0] = _connector.Items[0] with { IsBlocked = false, UpdatedAt = Now };
+        var summary = await SyncAsync();
+
+        Assert.Equal(1, summary.Updated);
+        source = Assert.Single(_tasks.Entries.Values).SourceRef!;
+        Assert.False(source.Blocked);
+        Assert.Null(source.BlockedReason);
+    }
+
     [Fact]
     public async Task The_body_labels_effort_and_due_date_are_copied_once()
     {

@@ -113,6 +113,11 @@ internal static class StorybookIndex
             // as a mark instead of a word — and the row it leads is made of the
             // source badge and the person chip the page above introduced.
             new("badges/capture-kinds", "Capture kinds", "CaptureKindMarker: the ten marks a captured thing's kind is drawn as, and the inbox row they lead — kind, channel and person on one meta line."),
+
+            // Under Badges because it is a Badge of the `linked` kind: a value — an
+            // item's key — with the class that says where it came from, drawn from
+            // a connector's descriptor rather than from a family of its own.
+            new("badges/source", "Source badge", "SourceBadge: where a linked task came from — the connector's name and the item's key, opening the item at the source, and the neutral badge for a connector this build does not know."),
             new("selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect and the three ready-made selectors."),
 
             // Last in the group, because it is the one page here made out of the
@@ -326,11 +331,16 @@ internal static class StorybookIndex
             new("integrations/density", "Density and overflow", "The same acts as a header toolbar, an inline row, an icon-only cluster and a set of menu items, and how the budget decides which."),
             new("integrations/ai", "AI in the document", "Rewriting a block and resolving a comment, attached to the comment model that already exists."),
 
-            // Last of the group: a tool tasks can follow, with its sign-in and what
-            // is connected through it. It draws the freshness line References
-            // introduces, and the toggle, field and buttons from Input and action,
-            // inside the card; the EmptyState it shows for no tool is Feedback's.
-            new("integrations/connectors", "Connectors", "ConnectorCard: one outside tool tasks can follow — who is signed in, and what is connected through it.")
+            // The pages about connecting a tool rather than acting on one. The first
+            // draws a Card, the switches, two SelectFields and two AppButtons, all
+            // introduced above, and the ProviderMark the first page of this chapter
+            // did.
+            new("integrations/connected-targets", "Connected targets", "ConnectedTargetEditor: one repository or product connected to a task source, and the options its sync runs by — the card a connector settings page draws per target."),
+
+            // Last in the chapter: signing in to the tool those targets come
+            // through. It draws the ProviderMark, an AppButton and an Alert, all
+            // introduced above.
+            new("integrations/connector-sign-in", "Connector sign-in", "ConnectorSignIn: who is signed in to one outside tool tasks can follow, and the one button that changes it — the line a connector settings page draws per connector that signs in.")
         ]),
 
         // Its own chapter, out of Input and action where its pages used to be three

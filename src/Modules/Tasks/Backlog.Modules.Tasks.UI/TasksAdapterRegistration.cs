@@ -1,6 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Ai;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Desktop.UI.Tasks;
 
@@ -33,9 +34,10 @@ public static class TasksAdapterRegistration
 
         services.AddSingleton<IRepositoryDirectory, SettingsRepositoryDirectory>();
 
-        // The Connectors page, which reads the connectors and the connected targets
-        // the host registers rather than anything this call does.
-        services.AddConnectorSettings();
+        // The installed connectors and the connected targets, as the Tasks screens
+        // draw them. A singleton because who "me" is at a source is asked once per
+        // session, not once per window.
+        services.TryAddSingleton<LinkedTaskSources>();
 
         return services;
     }

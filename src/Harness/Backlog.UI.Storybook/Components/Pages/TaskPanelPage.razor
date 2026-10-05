@@ -291,6 +291,18 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
         </div>
     </Story>
 
+    <Story Name="A linked task"
+           Description="A task that came in from another system shows its source badge on the heading line, where the row puts it, so the link is in the same shape in both places. What the sync noticed and left in place is said under the heading, one quiet line each — here the source's own word that the item is blocked, with its reason, and that it carried several plan labels."
+           Code="@LinkedPanelCode">
+        <div class="sb-side-panel">
+            <TaskPanel Title="Review the spacing tokens"
+                       Status="Ready"
+                       Source="@LinkedSource"
+                       Tags="@(["+beta"])"
+                       TestId="panel-linked" />
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -302,6 +314,25 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
         new("interaction-guidelines.md#auto-save-no-save-buttons", "Why nothing in the pane has a save button."),
         new("content-editing.md#task-structure", "What a step, a tag and a body are in the file behind the pane.")
     ];
+
+    private static readonly TaskSource LinkedSource =
+        new("#418", "https://example.com/issues/418", "GitHub", "github", "color-primary-light")
+        {
+            Blocked = true,
+            BlockedReason = "Waiting on the design review",
+            SeveralPlanLabels = true
+        };
+
+    private const string LinkedPanelCode = """
+        <TaskPanel Title="Review the spacing tokens"
+                   Status="Ready"
+                   Source="@(new TaskSource("#418", url, "GitHub", "github", "color-primary-light")
+                   {
+                       Blocked = true,
+                       BlockedReason = "Waiting on the design review",
+                       SeveralPlanLabels = true
+                   })" />
+        """;
 
     private IReadOnlyList<string> _devbookReferences =
     [

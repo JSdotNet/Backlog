@@ -7,6 +7,7 @@ using Backlog.Desktop.UI.AppUpdate;
 using Backlog.Desktop.UI.Shell;
 using Backlog.SharedKernel;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
@@ -138,6 +139,11 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     // show one visitor's toasts to every other.
     WindowStateLifetime = ServiceLifetime.Scoped
 });
+
+// A connector of this harness's own, so the linked-task screens can be driven
+// before a real one ships. It brings nothing in until a target is connected on
+// the Connectors settings page; see HarnessTaskConnector.
+builder.Services.AddTaskConnector<HarnessTaskConnector>();
 
 // The Devbook - its adapters and AddDevbookModule - is in the composition above
 // since issue #738. The two things this harness did differently arrive through

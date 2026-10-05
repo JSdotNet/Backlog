@@ -1,0 +1,88 @@
+@*
+    Signing in to one outside tool tasks can follow: its mark and name, who is
+    signed in, and the one button that changes that — Sign in when nobody is,
+    Sign out when somebody is. A connector settings page draws one per connector
+    that signs in, above the targets connected through it.
+
+    Every value is a parameter and every act a callback, so the line holds no
+    state of its own. The host decides whether a sign-in is under way and words
+    what went wrong; that is what lets the storybook show a signed-in tool, a
+    signed-out one and one mid-sign-in with no application behind it.
+
+    The mark is drawn only when the descriptor's icon names a provider mark this
+    library has, beside the name and never instead of it.
+*@
+
+<div class="connector-sign-in" data-testid="@TestId">
+    <div class="connector-sign-in__head">
+        @if (Mark is not IntegrationProvider.None)
+        {
+            <ProviderMark Provider="@Mark" Size="16" />
+        }
+        <span class="connector-sign-in__name">@ConnectorName</span>
+        <span class="connector-sign-in__account" role="status" data-testid="@Suffix("account")">
+            @(SignedIn ? $"Signed in as {AccountName}" : "Not signed in")
+        </span>
+
+        @if (SignedIn)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Size="ButtonSize.Small"
+                       TestId="@Suffix("sign-out")"
+                       OnClick="() => OnSignOut.InvokeAsync()">Sign out</AppButton>
+        }
+        else
+        {
+            <AppButton Variant="ButtonVariant.Primary"
+                       Size="ButtonSize.Small"
+                       Busy="@SigningIn"
+                       BusyLabel="Signing in"
+                       TestId="@Suffix("sign-in")"
+                       OnClick="() => OnSignIn.InvokeAsync()">Sign in</AppButton>
+        }
+    </div>
+
+    <Alert Message="@Error" TestId="@Suffix("error")" />
+</div>
+
+@code {
+    /// <summary>The connector descriptor's display name.</summary>
+    [Parameter, EditorRequired]
+    public string ConnectorName { get; set; } = string.Empty;
+
+    /// <summary>The descriptor's icon name, drawn when it names a provider mark.</summary>
+    [Parameter]
+    public string? Icon { get; set; }
+
+    /// <summary>Who is signed in, or null when nobody is.</summary>
+    [Parameter]
+    public string? AccountName { get; set; }
+
+    /// <summary>A sign-in is under way: the button is busy and cannot be pressed
+    /// twice.</summary>
+    [Parameter]
+    public bool SigningIn { get; set; }
+
+    /// <summary>Why the last sign-in or sign-out did not work, as the host words
+    /// it.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    [Parameter]
+    public EventCallback OnSignIn { get; set; }
+
+    [Parameter]
+    public EventCallback OnSignOut { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private bool SignedIn => !string.IsNullOrWhiteSpace(AccountName);
+
+    private IntegrationProvider Mark =>
+        Enum.TryParse<IntegrationProvider>(Icon, ignoreCase: true, out var provider)
+            ? provider
+            : IntegrationProvider.None;
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+}

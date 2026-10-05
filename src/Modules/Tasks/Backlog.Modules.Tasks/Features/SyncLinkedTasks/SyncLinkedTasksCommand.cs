@@ -489,10 +489,12 @@ public sealed class SyncLinkedTasksCommandHandler(
             item.UpdatedAt,
             flags,
             item.State,
-            TitleOf(item),
-            item.IsBlocked,
+            TitleOf(item))
+        {
+            Blocked = item.IsBlocked,
             // A reason for a block the source does not report explains nothing.
-            item.IsBlocked ? item.BlockedReason : null);
+            BlockedReason = item.IsBlocked ? item.BlockedReason : null,
+        };
 
     /// <summary>The local day <paramref name="item"/> was finished on, by this
     /// machine's calendar, when the source says when; <paramref name="today"/>

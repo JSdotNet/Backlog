@@ -542,8 +542,8 @@ button.badge {
    draft the disabled ink. Repainting them all amber would say "followable" about a
    row where every badge is, and lose the only thing the row was distinguishing.
 */
-a.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict),
-button.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict) {
+a.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--linked),
+button.badge:not(.badge--status, .badge--feature, .badge--gh, .badge--sync-verdict, .badge--linked) {
     border-color: var(--color-primary-dark);
     color: var(--color-primary-light);
 }
@@ -1164,6 +1164,87 @@ button.badge:hover {
     background: transparent;
     color: inherit;
     font-size: inherit;
+}
+
+/* A linked task's source: the connector's name and the item's key, opening the
+   item at the source. Outlined like `.badge--gh` — a link is something the reader
+   acts on, never something the product acts on, so it takes no fill
+   (color-scheme.md#badge-and-chip-tones). The ink and edge are the connector
+   descriptor's own token, handed in as `--source-badge-tone`, so a connector
+   added later is drawn without a rule of its own; it is held out of the generic
+   followable-badge rule above for the reason `.badge--gh` is — its tone is the cue.
+   `-neutral` is a connector this build does not know: the quiet ink inside a
+   dashed edge, saying "linked" without naming where. */
+.badge--linked {
+    gap: var(--spacing-xs);
+    text-decoration: none;
+    background: transparent;
+    border: var(--border-width) solid var(--source-badge-tone, var(--color-border-strong));
+    color: var(--source-badge-tone, var(--color-text-secondary));
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.badge--linked:hover { border-color: var(--color-border-strong); color: var(--color-text-primary); }
+
+.badge--linked-neutral {
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+    color: var(--color-secondary);
+}
+
+.badge--linked .badge__connector {
+    font-weight: var(--font-weight-semibold);
+}
+
+/* One connected repository or product on a connector settings page: who it is
+   and when it last synced on one line, its options under it, its actions last. */
+.connected-target__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.connected-target__connector {
+    font-weight: var(--font-weight-semibold);
+}
+
+.connected-target__synced {
+    margin-left: auto;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.connected-target__options {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.connected-target__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+}
+
+/* The sync's flags under a panel's heading: one quiet line each. */
+.task-panel__source-flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.task-panel__source-flags > li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
 }
 
 /* GitHub badges are links, so they are underline-free but clearly interactive,
@@ -14110,66 +14191,31 @@ select.field__input {
     }
 }
 
-/* --- A tool tasks can follow --------------------------------------------- */
+/* --- Signing in to a tool tasks can follow ------------------------------- */
 
-.connector-card__head {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    flex-wrap: wrap;
-}
-
-.connector-card__mark {
-    display: inline-flex;
-    flex: none;
-    font-size: var(--font-size-base);
-}
-
-.connector-card__name {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.connector-card__account {
-    color: var(--integration-ink-quiet);
-    font-size: var(--font-size-sm);
-}
-
-.connector-card__none {
-    margin: 0;
-    color: var(--integration-ink-quiet);
-    font-size: var(--font-size-sm);
-}
-
-.connector-card__targets {
+/* One line per connector that signs in: its mark and name, who is signed in in
+   the quiet ink, and the one button that changes it, pushed to the end. */
+.connector-sign-in {
     display: grid;
     gap: var(--spacing-xs);
-    margin: 0;
-    padding: 0;
-    list-style: none;
 }
 
-.connector-card__target {
+.connector-sign-in__head {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs) var(--spacing-sm);
     flex-wrap: wrap;
 }
 
-.connector-card__toggle {
-    flex: 1 1 auto;
-    min-width: 0;
+.connector-sign-in__name {
+    font-weight: var(--font-weight-semibold);
 }
 
-.connector-card__add {
-    display: flex;
-    align-items: flex-end;
-    gap: var(--spacing-sm);
-}
-
-.connector-card__add-field {
+.connector-sign-in__account {
     flex: 1 1 auto;
     min-width: 0;
+    color: var(--integration-ink-quiet);
+    font-size: var(--font-size-sm);
 }
 
 /* --- Data table ---------------------------------------------------------- */

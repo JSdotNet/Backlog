@@ -1,0 +1,88 @@
+@page "/integrations/connector-sign-in"
+
+<PageTitle>Connector sign-in — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Connector sign-in"
+           Summary="ConnectorSignIn: who is signed in to one outside tool tasks can follow, and the one button that changes it. A connector settings page draws one per connector that signs in, above the targets connected through it. Every value is handed in and every act is a callback, so the tools below are stubs with no application behind them."
+           Guidelines="@Rules">
+
+    <Story Name="Signed out"
+           Description="A tool that signs in and has nobody signed in. Sign in is busy while the host waits on the sign-in — a browser window, in the real app — and cannot be pressed twice. The stub signs in after a moment; Sign out then signs it out again."
+           Code="@SignedOutCode">
+        <div class="sb-menu-wide">
+            <ConnectorSignIn ConnectorName="spec-manager"
+                             Icon="spec-manager"
+                             AccountName="@_account"
+                             SigningIn="@_signingIn"
+                             OnSignIn="SignInAsync"
+                             OnSignOut="() => _account = null"
+                             TestId="connector-sign-in-live" />
+        </div>
+    </Story>
+
+    <Story Name="Signed in"
+           Description="Who is signed in, in the quiet ink, and Sign out. The mark is drawn only when the descriptor's icon names a provider mark this library has, beside the name and never instead of it."
+           Code="@SignedInCode">
+        <div class="sb-menu-wide">
+            <ConnectorSignIn ConnectorName="GitHub"
+                             Icon="github"
+                             AccountName="sam-reviewer"
+                             OnSignOut="() => { }"
+                             TestId="connector-sign-in-signed-in" />
+        </div>
+    </Story>
+
+    <Story Name="A sign-in that did not work"
+           Description="The host's own sentence for what went wrong, under the line as an alert: it happened because somebody pressed something."
+           Code="@FailedCode">
+        <div class="sb-menu-wide">
+            <ConnectorSignIn ConnectorName="spec-manager"
+                             Error="The sign-in window was closed before it finished."
+                             OnSignIn="() => { }"
+                             TestId="connector-sign-in-failed" />
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#integration-roles", "The quiet ink the account line is drawn in."),
+        new("interaction-guidelines.md#error-states", "Where a failed sign-in shows, and in whose words."),
+        new("accessibility.md#iconography-accessibility", "Why the provider mark is drawn beside the connector's name, never instead of it.")
+    ];
+
+    private string? _account;
+    private bool _signingIn;
+
+    private async Task SignInAsync()
+    {
+        _signingIn = true;
+        await Task.Delay(1200);
+        _signingIn = false;
+        _account = "Sam Reviewer";
+    }
+
+    private const string SignedOutCode = """
+        <ConnectorSignIn ConnectorName="@descriptor.DisplayName"
+                         Icon="@descriptor.Icon"
+                         AccountName="@signIn.Account?.DisplayName"
+                         SigningIn="@signingIn"
+                         Error="@error"
+                         OnSignIn="SignInAsync"
+                         OnSignOut="SignOutAsync" />
+        """;
+
+    private const string SignedInCode = """
+        <ConnectorSignIn ConnectorName="GitHub"
+                         Icon="github"
+                         AccountName="sam-reviewer"
+                         OnSignOut="SignOutAsync" />
+        """;
+
+    private const string FailedCode = """
+        <ConnectorSignIn ConnectorName="spec-manager"
+                         Error="The sign-in window was closed before it finished."
+                         OnSignIn="SignInAsync" />
+        """;
+}

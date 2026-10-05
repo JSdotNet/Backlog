@@ -109,6 +109,22 @@ public interface IGitHubClient
         CancellationToken cancellationToken = default) =>
         Task.FromException<GitHubMergedPullRequestRead>(new GitHubException("This GitHub client cannot list merged pull requests."));
 
+    /// <summary>
+    /// The repository's issues through the issue search: every open one, plus, when
+    /// <paramref name="closedSince"/> is given, every one closed at or after it. Pull
+    /// requests are left out. Paged until search has nothing more to give; an answer
+    /// search cut short says so in <see cref="GitHubIssueSearchRead.Truncated"/>.
+    /// <para>
+    /// A default body for the reason <see cref="GetPullRequestAsync"/> has one: a test
+    /// double that is not about linked tasks answers like a GitHub that refused.
+    /// </para>
+    /// </summary>
+    Task<GitHubIssueSearchRead> SearchIssuesAsync(
+        GitHubRepositoryRef repository,
+        DateTimeOffset? closedSince,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<GitHubIssueSearchRead>(new GitHubException("This GitHub client cannot search issues."));
+
     /// <summary>Takes a draft out of draft — GitHub's "Ready for review".</summary>
     /// <param name="pullRequestId">The pull request's GraphQL node id, from
     /// <see cref="ListOpenPullRequestsAsync"/>.</param>
@@ -522,6 +538,154 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
 
             after = read.EndCursor;
         }
+    }
+
+    /// <summary>How many issues one search page asks for — the search API's
+    /// maximum.</summary>
+    public const int SearchPageSize = 100;
+
+    /// <summary>How many pages one search query follows at most. Search hands back
+    /// the first thousand matches and no more, so a tenth page is the last one that
+    /// can hold anything.</summary>
+    public const int SearchPageCap = 10;
+
+    /// <summary>
+    /// The open query, then the closed one when there is a since. Both through
+    /// <c>search/issues</c>, whose <c>repo:</c> qualifier is what
+    /// <see cref="GitHubSettings.AccountForPath"/> routes to the repository's
+    /// account. An issue can come back from both — it closed between the two
+    /// queries, or search has not re-indexed it yet — and the later sighting
+    /// replaces the earlier one, so the closed query's answer stands.
+    /// </summary>
+    public async Task<GitHubIssueSearchRead> SearchIssuesAsync(
+        GitHubRepositoryRef repository,
+        DateTimeOffset? closedSince,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        var issues = new OrderedDictionary<string, GitHubSearchedIssue>(StringComparer.Ordinal);
+        var truncated = await SearchAsync(repository, closedSince: null, issues, cancellationToken).ConfigureAwait(false);
+
+        if (closedSince is { } since)
+        {
+            truncated |= await SearchAsync(repository, since, issues, cancellationToken).ConfigureAwait(false);
+        }
+
+        return new GitHubIssueSearchRead([.. issues.Values], truncated);
+    }
+
+    /// <summary>One query, every page of it, into <paramref name="issues"/> by node
+    /// id. Answers whether search held anything back.</summary>
+    private async Task<bool> SearchAsync(
+        GitHubRepositoryRef repository,
+        DateTimeOffset? closedSince,
+        OrderedDictionary<string, GitHubSearchedIssue> issues,
+        CancellationToken cancellationToken)
+    {
+        var read = 0;
+
+        for (var page = 1; ; page++)
+        {
+            var response = await transport.SendAsync(
+                HttpMethod.Get,
+                SearchIssuesPath(repository, closedSince, page),
+                body: null,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            var answer = ReadSearchedIssues(response);
+            read += answer.Rows;
+            foreach (var issue in answer.Issues) issues[issue.NodeId] = issue;
+
+            if (answer.Incomplete) return true;
+
+            // Fewer rows than a page holds is the last page, whatever the total
+            // says; a total the walk has reached is the end too.
+            if (answer.Rows < SearchPageSize || read >= answer.TotalCount) return false;
+
+            if (page >= SearchPageCap) return true;
+        }
+    }
+
+    /// <summary>
+    /// The search path for one page. Qualifiers are joined with <c>+</c>, the way
+    /// GitHub's own query strings carry a space; the closed qualifier's value is
+    /// escaped because <c>&gt;=</c> and the time's colons would otherwise be read as
+    /// part of the URL. Oldest first, so an issue opened while the walk runs lands on
+    /// a later page instead of pushing an unread one onto a page already read.
+    /// </summary>
+    internal static string SearchIssuesPath(GitHubRepositoryRef repository, DateTimeOffset? closedSince, int page)
+    {
+        var state = closedSince is { } since
+            ? $"is:closed+closed:{Uri.EscapeDataString($">={Rfc3339(since)}")}"
+            : "is:open";
+
+        return $"search/issues?q=is:issue+repo:{repository.Owner}/{repository.Name}+{state}"
+            + $"&sort=created&order=asc&per_page={SearchPageSize}&page={page}";
+    }
+
+    /// <summary>
+    /// One search page. A row carrying a <c>pull_request</c> object is a pull
+    /// request and is left out, as is one without a node id or a number; both still
+    /// count as rows read, because paging is about where search is, not about what
+    /// was kept.
+    /// </summary>
+    internal static SearchPage ReadSearchedIssues(JsonElement response)
+    {
+        if (response.ValueKind != JsonValueKind.Object)
+        {
+            throw new GitHubException("GitHub did not return search results.");
+        }
+
+        var total = response.TryGetProperty("total_count", out var count) && count.TryGetInt32(out var value) ? value : 0;
+        var incomplete = response.TryGetProperty("incomplete_results", out var partial) && partial.ValueKind == JsonValueKind.True;
+
+        if (!response.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+        {
+            return new SearchPage([], 0, total, incomplete);
+        }
+
+        var issues = new List<GitHubSearchedIssue>();
+        var rows = 0;
+
+        foreach (var item in items.EnumerateArray())
+        {
+            rows++;
+            if (item.ValueKind != JsonValueKind.Object) continue;
+            if (item.TryGetProperty("pull_request", out var pull) && pull.ValueKind == JsonValueKind.Object) continue;
+
+            var nodeId = String(item, "node_id");
+            var number = item.TryGetProperty("number", out var n) && n.TryGetInt32(out var parsed) ? parsed : 0;
+            if (string.IsNullOrWhiteSpace(nodeId) || number == 0) continue;
+
+            issues.Add(new GitHubSearchedIssue(
+                nodeId,
+                number,
+                String(item, "html_url") ?? string.Empty,
+                String(item, "title") ?? string.Empty,
+                String(item, "body") ?? string.Empty,
+                IsOpen: !string.Equals(String(item, "state"), "closed", StringComparison.OrdinalIgnoreCase),
+                StateReason: String(item, "state_reason"),
+                AssigneeLogin: Login(item, "assignee"),
+                UpdatedAt: Timestamp(item, "updated_at") ?? DateTimeOffset.MinValue,
+                Labels: ReadLabelNames(item)));
+        }
+
+        return new SearchPage(issues, rows, total, incomplete);
+    }
+
+    /// <summary>One search page: the issues kept, how many rows it held, the total
+    /// search reported, and whether search said it gave up early.</summary>
+    internal sealed record SearchPage(IReadOnlyList<GitHubSearchedIssue> Issues, int Rows, int TotalCount, bool Incomplete);
+
+    private static IReadOnlyList<string> ReadLabelNames(JsonElement item)
+    {
+        if (!item.TryGetProperty("labels", out var labels) || labels.ValueKind != JsonValueKind.Array) return [];
+
+        return [.. labels.EnumerateArray()
+            .Select(label => label.ValueKind == JsonValueKind.Object ? String(label, "name") : null)
+            .OfType<string>()
+            .Where(name => name.Length > 0)];
     }
 
     /// <summary>The list's version of <see cref="OnlyTheCheckRollupWasRefused"/>: the

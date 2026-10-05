@@ -2,6 +2,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.UI.Components.Layout;
 
@@ -170,6 +171,58 @@ public sealed class SettingsAccountsTests
             Assert.Equal(
                 "j-schepers_innobv",
                 settings.Component.Find("[data-testid='repo-account-select'] select").GetAttribute("value"));
+        });
+    }
+
+    /// <summary>Local ADR 0021: the identities travel to paired devices and the
+    /// credential does not, and the panel says exactly that rather than the old
+    /// "never synced".</summary>
+    [Fact]
+    public void The_accounts_note_says_identities_sync_and_credentials_stay_on_this_machine()
+    {
+        using var settings = RenderSettings(seed: store =>
+            Assert.Null(store.SetAccounts([new GitHubAccount("JSdotNet")])));
+
+        OpenAccountsTab(settings.Component);
+
+        var note = settings.Component.WaitForElement("[data-testid='accounts-storage-note']").TextContent;
+        Assert.Contains("sync to your paired devices", note, StringComparison.Ordinal);
+        Assert.Contains("token", note, StringComparison.Ordinal);
+        Assert.Contains("stay on this machine", note, StringComparison.Ordinal);
+        Assert.DoesNotContain("never synced", note, StringComparison.Ordinal);
+    }
+
+    /// <summary>Local ADR 0021 Verification 4: a registry pulled from another device
+    /// can bind a repository to a login this machine has no account for yet. The open
+    /// panel reloads and lists the binding as unsatisfied — it never reads as the
+    /// default.</summary>
+    [Fact]
+    public async Task A_binding_pulled_before_its_account_is_listed_as_unsatisfied()
+    {
+        using var settings = RenderSettings();
+        OpenAccountsTab(settings.Component);
+        Assert.Empty(settings.Component.FindAll("[data-testid='unsatisfied-binding']"));
+
+        var other = new GitHubSettingsStore(
+            Path.Combine(settings.Root, "other-device", "github.json"),
+            () => Path.Combine(settings.Root, "other-device", "workspace"));
+        Assert.Null(other.SetAccounts([new GitHubAccount("j-schepers_innobv")]));
+        Assert.Null(other.SetRepositories(GitHubSettings.ParseText("spec = innovadis-dev/spec-manager").Repositories));
+        Assert.Null(other.SetRepositoryAccount("spec", "j-schepers_innobv"));
+        var registry = await new GitHubSettingsReplication(other).ReadAsync(
+            GitHubReplicaDocument.Registry, TestContext.Current.CancellationToken);
+
+        var outcome = await new GitHubSettingsReplication(settings.GitHub).ApplyAsync(
+            GitHubReplicaDocument.Registry,
+            registry! with { UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(1) },
+            TestContext.Current.CancellationToken);
+        Assert.Equal(GitHubReplicaOutcome.Taken, outcome);
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            var reported = settings.Component.Find("[data-testid='unsatisfied-binding']").TextContent;
+            Assert.Contains("innovadis-dev/spec-manager", reported, StringComparison.Ordinal);
+            Assert.Contains("j-schepers_innobv", reported, StringComparison.Ordinal);
         });
     }
 

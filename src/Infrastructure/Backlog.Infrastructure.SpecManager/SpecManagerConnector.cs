@@ -79,12 +79,12 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
     }
 
     /// <summary>
-    /// The badge: a boxed glyph, the text icon the shared library already draws
-    /// for a system (<c>C4SvgWriter</c>), coloured with <c>color-band-2</c>, the
-    /// teal of the design palette's bands — distinct from the primary yellow a
-    /// GitHub badge would most likely take.
+    /// The badge: the icon is a name, as every descriptor's is, and the library has
+    /// no provider mark by this one, so the badge draws the name and key alone,
+    /// coloured with <c>color-band-2</c>, the teal of the design palette's bands —
+    /// distinct from the ink a GitHub badge takes.
     /// </summary>
-    public TaskConnectorDescriptor Descriptor { get; } = new(ConnectorId, "spec-manager", "▣", "color-band-2");
+    public TaskConnectorDescriptor Descriptor { get; } = new(ConnectorId, "spec-manager", ConnectorId, "color-band-2");
 
     /// <summary>Items carry storypoints and say what they wait on. Nothing is
     /// written back yet.</summary>

@@ -147,10 +147,8 @@ public sealed record ProjectionPayload(string RepoId, string ExternalId, string 
 /// and the device reading it treats the state as moved, once. <c>SourceTitle</c>
 /// is the item's title at the source when last synced, which tells a local rename
 /// from a stale title; last and defaulted for the same reason. <c>Blocked</c> and
-/// <c>BlockedReason</c> are whether the source said the item was blocked at the last
-/// sync, and why; defaulted for the same reason, and null rather than false on a
-/// reference that is not blocked, so its document serialises as it did
-/// before.</summary>
+/// <c>BlockedReason</c> are the source's own word that the item cannot be worked
+/// on now, defaulted after those for the same reason.</summary>
 public sealed record SourceRefPayload(
     string ConnectorId,
     string Target,

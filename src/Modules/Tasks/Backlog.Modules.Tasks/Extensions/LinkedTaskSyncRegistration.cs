@@ -56,7 +56,7 @@ public static class LinkedTaskSyncRegistration
 
         // The same worker behind the port the settings screen's "Sync now" asks, so
         // a request and the timer share one run at a time rather than racing.
-        services.TryAddSingleton<ILinkedTaskSyncTrigger>(sp => sp.GetRequiredService<LinkedTaskSyncWorker>());
+        services.TryAddSingleton<ILinkedTaskSync>(provider => provider.GetRequiredService<LinkedTaskSyncWorker>());
 
         return services;
     }

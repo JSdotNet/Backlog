@@ -78,6 +78,10 @@
                         </span>
                     </AppButton>
 
+                    @* Beside the row's button rather than in it, because the badge is
+                       a link and a button cannot hold one. *@
+                    <SourceBadge Source="@SourceOf(task)" CssClass="my-day__source" TestId="task-source" />
+
                     @if (line.Pending is { IsParked: true } parked)
                     {
                         <AppButton Size="ButtonSize.Small" aria-label="@($"Waiting — tap to retry {task.Title}")"
@@ -170,6 +174,21 @@
     /// <summary>One line of the list: the row, and the outbox entry still sending
     /// it when the task was added on this phone and has not gone yet.</summary>
     private sealed record Line(TaskViewRow Task, OutboxEntry? Pending);
+
+    /// <summary>
+    /// Where a linked task came from, as the badge draws it, or null for local work.
+    /// <para>
+    /// The phone installs no connector, so it knows no descriptor: every source is
+    /// drawn the way ADR 0020 §2 draws a connector a device does not know — its
+    /// stored key under the neutral tone, still opening the item at the source.
+    /// </para>
+    /// </summary>
+    private static Backlog.UI.Components.Tasks.TaskSource? SourceOf(TaskPayload task) =>
+        task.SourceRef is { } source && !string.IsNullOrWhiteSpace(source.DisplayKey)
+            ? new Backlog.UI.Components.Tasks.TaskSource(
+                source.DisplayKey,
+                string.IsNullOrWhiteSpace(source.Url) ? null : source.Url)
+            : null;
 
     private string _draft = string.Empty;
     private string? _pullNotice;

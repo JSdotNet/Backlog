@@ -114,6 +114,10 @@ namespace Backlog.UI.Components.Tasks;
 /// button is refused, since handing a blocked task's text to somebody is handing
 /// them work they cannot start.
 /// </para></param>
+/// <param name="Source">Where a linked task came from, or null for local work. The
+/// row draws its <see cref="SourceBadge"/> beside the title's controls and its
+/// flags on the metadata line, after a hand-set block and ahead of where the task
+/// is filed — see <see cref="Details"/>.</param>
 public sealed record TaskRow(
     string Id,
     string Title,
@@ -132,7 +136,8 @@ public sealed record TaskRow(
     IReadOnlyList<string>? DependsOn = null,
     string? Status = null,
     TaskKind? Kind = null,
-    bool MarkedBlocked = false)
+    bool MarkedBlocked = false,
+    TaskSource? Source = null)
 {
     public bool HasSteps => StepCount > 0;
 
@@ -198,6 +203,7 @@ public sealed record TaskRow(
             var steps = HasSteps ? new TaskDetail(TaskDetailKind.Steps, $"{StepsDone} of {StepCount}") { LedByKind = Kind is not null } : null;
             var note = Note || HasBody ? new TaskDetail(TaskDetailKind.Note, "Note") { LedByKind = Kind is not null } : null;
             var marked = MarkedBlocked ? new TaskDetail(TaskDetailKind.MarkedBlocked, "Blocked") : null;
+            IReadOnlyList<TaskDetail?> source = Source?.Flags ?? [];
 
             // With a kind, the mark and the facts about what is under the title
             // are one statement and open the line together; without one, the
@@ -209,6 +215,7 @@ public sealed record TaskRow(
                     steps,
                     note,
                     marked,
+                    .. source,
                     Group is null ? null : new TaskDetail(TaskDetailKind.Group, Group),
                     InMyDay ? new TaskDetail(TaskDetailKind.MyDay, "My Day") : null,
                     Due is null ? null : new TaskDetail(TaskDetailKind.Due, Due),
@@ -218,6 +225,7 @@ public sealed record TaskRow(
                 :
                 [
                     marked,
+                    .. source,
                     Group is null ? null : new TaskDetail(TaskDetailKind.Group, Group),
                     InMyDay ? new TaskDetail(TaskDetailKind.MyDay, "My Day") : null,
                     steps,
@@ -274,7 +282,22 @@ public enum TaskDetailKind
     /// waits for, this one is set on the row by the host and names nothing —
     /// nothing derives it, and nothing about the chain reads it. See
     /// <see cref="TaskRow.MarkedBlocked"/>.</summary>
-    MarkedBlocked
+    MarkedBlocked,
+
+    /// <summary>The source says the item cannot be worked on now, with its reason
+    /// as the text. A third blocked beside <see cref="Blocked"/> and
+    /// <see cref="MarkedBlocked"/>, because it is the source's word rather than the
+    /// list's or the person's — see <see cref="TaskSource"/>.</summary>
+    SourceBlocked,
+
+    /// <summary>The item is gone from the source, so the task was archived.</summary>
+    SourceRemoved,
+
+    /// <summary>Done here while the source still holds the item open.</summary>
+    SourceOpen,
+
+    /// <summary>The item carried several plan labels; the first was kept.</summary>
+    SourcePlanLabels
 }
 
 /// <summary>One part of a row's metadata line.</summary>
@@ -310,6 +333,12 @@ public sealed record TaskDetail(TaskDetailKind Kind, string Text)
         // moving, and one mark for both would make the reader open the row to
         // learn which.
         TaskDetailKind.MarkedBlocked => "⛔",
+        // The source's flags each say what disagrees with the source, so none of
+        // them borrows a mark the list already spends on its own facts.
+        TaskDetailKind.SourceBlocked => "🚧",
+        TaskDetailKind.SourceRemoved => "⊘",
+        TaskDetailKind.SourceOpen => "↗",
+        TaskDetailKind.SourcePlanLabels => "🏷",
         _ => string.Empty
     };
 
@@ -332,6 +361,10 @@ public sealed record TaskDetail(TaskDetailKind Kind, string Text)
         // the one thing the word does not say — that a person set it, which is
         // what tells it apart from the chain's "Waiting for".
         TaskDetailKind.MarkedBlocked => "Marked by hand",
+        TaskDetailKind.SourceBlocked => "Blocked at the source",
+        TaskDetailKind.SourceRemoved => "Linked item",
+        TaskDetailKind.SourceOpen => "Done here",
+        TaskDetailKind.SourcePlanLabels => "Linked item",
         _ => "Note"
     };
 

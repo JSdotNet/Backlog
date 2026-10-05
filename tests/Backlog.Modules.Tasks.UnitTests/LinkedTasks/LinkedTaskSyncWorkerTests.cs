@@ -131,7 +131,7 @@ public sealed class LinkedTaskSyncWorkerTests
         services.AddLinkedTaskSync();
         using var worker = Worker(new InMemoryConnectedTargets());
 
-        var trigger = Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ILinkedTaskSyncTrigger));
+        var trigger = Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ILinkedTaskSync));
 
         Assert.Equal(ServiceLifetime.Singleton, trigger.Lifetime);
         Assert.Same(worker, trigger.ImplementationFactory!(new OnlyTheWorker(worker)));

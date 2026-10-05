@@ -1,0 +1,304 @@
+@*
+    The Connectors page on the settings screen: connect a repository or a product
+    to a connector, and set how each one syncs (ADR 0020 §9). The shell draws it
+    because the host registered it (AddTaskConnectorSettings), not because the
+    shell knows anything about connectors.
+
+    Drawn entirely from the installed connectors' descriptors and the connected
+    targets, so a connector added later is offered here with no change to this
+    page. A target whose connector this build does not have stays listed under its
+    stored id, so it can still be disconnected.
+
+    A connector a person signs in to (ITaskConnectorSignIn) gets a sign-in line
+    above the targets, drawn from its descriptor like everything else here.
+
+    The namespace is the project's root rather than a Settings folder's, for the
+    reason InboxSettings gives: a ...Tasks.Settings namespace would shadow the
+    settings screen's own component.
+*@
+@namespace Backlog.Desktop.UI.Tasks
+@using Backlog.Modules.Tasks.Abstractions.Connectors
+@using Microsoft.Extensions.DependencyInjection
+@using Microsoft.Extensions.Logging
+@implements IDisposable
+@inject LinkedTaskSources Sources
+@inject IServiceProvider Services
+@inject ILogger<TaskConnectorSettings> Log
+
+@* No heading of its own: the shell titles the section "Connectors" already. *@
+<p class="setting__body">
+    Connect a repository or a product and every open item in it appears on the Tasks list
+    as a linked task, kept in step with the source. Its title, status and assignee follow
+    the source; your priority, My Day, sub-items and notes stay yours.
+</p>
+
+@if (Sources.Descriptors.Count == 0)
+{
+    <EmptyState Title="No connector is installed"
+                Description="This build has no connector to bring tasks in from. Once one is installed, its repositories or products are connected here."
+                TestId="task-connectors-empty" />
+}
+else
+{
+    @if (Sources.SignIns.Count > 0)
+    {
+        <div class="task-connectors__sign-ins" data-testid="task-connectors-sign-ins">
+            @foreach (var (descriptor, signIn) in Sources.SignIns)
+            {
+                var state = SignInStateOf(descriptor.Id);
+                <ConnectorSignIn @key="descriptor.Id"
+                                 ConnectorName="@descriptor.DisplayName"
+                                 Icon="@descriptor.Icon"
+                                 AccountName="@signIn.Account?.DisplayName"
+                                 SigningIn="@state.SigningIn"
+                                 Error="@state.Error"
+                                 OnSignIn="() => SignInAsync(descriptor.Id, signIn)"
+                                 OnSignOut="() => SignOutAsync(descriptor.Id, signIn)"
+                                 TestId="@($"task-connector-sign-in-{descriptor.Id}")" />
+            }
+        </div>
+    }
+
+    @if (Targets is null)
+    {
+        <Alert Message="This host keeps no connected targets, so nothing can be connected here."
+               Role="status"
+               TestId="task-connectors-unavailable" />
+    }
+    else
+    {
+        <div class="task-connectors__connect" data-testid="task-connectors-connect">
+            <SelectField Form="true"
+                         Label="Connector"
+                         Id="task-connector-choice"
+                         TestId="task-connector-choice"
+                         CurrentValue="@_connectorId"
+                         Options="@ConnectorOptions"
+                         OnChanged="value => _connectorId = value ?? string.Empty" />
+            <TextField Label="Repository or product"
+                       Id="task-connector-target"
+                       Placeholder="owner/repository"
+                       Value="@_target"
+                       ValueChanged="value => _target = value"
+                       ErrorMessage="@_connectError"
+                       TestId="task-connector-target" />
+            <AppButton Variant="ButtonVariant.Primary"
+                       Disabled="@(string.IsNullOrWhiteSpace(_target) || string.IsNullOrWhiteSpace(_connectorId))"
+                       TestId="task-connector-connect"
+                       OnClick="Connect">
+                Connect
+            </AppButton>
+        </div>
+
+        @if (ConnectedTargets.Count == 0)
+        {
+            <Alert Message="Nothing is connected yet." Role="status" BaseClass="setting__note" TestId="task-connectors-none" />
+        }
+        else
+        {
+            <div class="task-connectors__targets" data-testid="task-connectors-targets">
+                @foreach (var target in ConnectedTargets)
+                {
+                    <ConnectedTargetEditor @key="@($"{target.ConnectorId}/{target.Target}")"
+                                           Options="@ToOptions(target)"
+                                           Syncing="@_syncing"
+                                           OnChange="options => Change(target, options)"
+                                           OnSyncNow="@(Sync is null ? default(EventCallback<ConnectedTargetOptions>) : EventCallback.Factory.Create<ConnectedTargetOptions>(this, SyncNowAsync))"
+                                           OnRemove="_ => Remove(target)"
+                                           TestId="task-connector-target-card" />
+                }
+            </div>
+        }
+
+        @if (_message is not null)
+        {
+            <Alert Message="@_message" Role="status" BaseClass="setting__note" TestId="task-connectors-message" />
+        }
+    }
+}
+
+@code {
+    private string _connectorId = string.Empty;
+    private string _target = string.Empty;
+    private string? _connectError;
+    private string? _message;
+    private bool _syncing;
+
+    /// <summary>A sign-in under way, or the reason the last one failed, per
+    /// connector id.</summary>
+    private readonly Dictionary<string, SignInState> _signIns = new(StringComparer.Ordinal);
+
+    /// <summary>The page has closed. A sign-in it started may still be running and
+    /// is left to finish; this only stops it writing to a page nobody sees.</summary>
+    private bool _disposed;
+
+    /// <summary>Where connected targets are kept, or null in a host that keeps none.</summary>
+    private IConnectedTargets? Targets => Sources.Targets;
+
+    /// <summary>The sync, for "Sync now", or null in a host that runs none.</summary>
+    private ILinkedTaskSync? Sync => Services.GetService<ILinkedTaskSync>();
+
+    private IReadOnlyList<SelectorOption> ConnectorOptions =>
+        [.. Sources.Descriptors.Select(descriptor => new SelectorOption(descriptor.Id, descriptor.DisplayName))];
+
+    private IReadOnlyList<ConnectedTarget> ConnectedTargets =>
+        [.. (Targets?.List() ?? [])
+            .OrderBy(target => Sources.NameOf(target.ConnectorId), StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(target => target.Target, StringComparer.OrdinalIgnoreCase)];
+
+    protected override void OnInitialized()
+    {
+        _connectorId = Sources.Descriptors.FirstOrDefault()?.Id ?? string.Empty;
+        if (Targets is not null) Targets.Changed += OnExternalChange;
+        foreach (var (_, signIn) in Sources.SignIns) signIn.AccountChanged += OnExternalChange;
+    }
+
+    /// <summary>Both the store and a sign-in may raise off the renderer's thread —
+    /// a sync recording its progress, a sign-in the source stopped honouring — so
+    /// the re-render is marshalled rather than called.</summary>
+    private void OnExternalChange() => _ = InvokeAsync(StateHasChanged);
+
+    private SignInState SignInStateOf(string connectorId)
+    {
+        if (!_signIns.TryGetValue(connectorId, out var state))
+        {
+            state = new SignInState();
+            _signIns[connectorId] = state;
+        }
+
+        return state;
+    }
+
+    private async Task SignInAsync(string connectorId, ITaskConnectorSignIn signIn)
+    {
+        var state = SignInStateOf(connectorId);
+        if (state.SigningIn) return;
+
+        state.SigningIn = true;
+        state.Error = null;
+
+        string? error;
+        try
+        {
+            // Not tied to this page's lifetime, on purpose. The browser is still open
+            // on the sign-in and will redirect to the connector's loopback listener;
+            // cancelling when somebody switches settings sections would send it to a
+            // dead port. The connector bounds the wait with its own timeout, and a
+            // sign-in that lands after the page closed reaches the next one through
+            // AccountChanged.
+            error = await signIn.SignInAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Log.LogError(ex, "Signing in to {Connector} threw.", connectorId);
+            error = "Signing in did not finish. Try again.";
+        }
+
+        // Nobody is left to tell once the page has closed.
+        if (_disposed) return;
+
+        state.SigningIn = false;
+        state.Error = error;
+    }
+
+    private async Task SignOutAsync(string connectorId, ITaskConnectorSignIn signIn)
+    {
+        var state = SignInStateOf(connectorId);
+        state.Error = null;
+
+        try
+        {
+            // Finished even if the page closes meanwhile: a sign-out cut off halfway
+            // could leave credentials behind that the person asked to forget.
+            await signIn.SignOutAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Log.LogError(ex, "Signing out of {Connector} threw.", connectorId);
+            if (!_disposed) state.Error = "Signing out did not finish. Try again.";
+        }
+    }
+
+    private ConnectedTargetOptions ToOptions(ConnectedTarget target) =>
+        new(
+            Sources.NameOf(target.ConnectorId),
+            target.Target,
+            target.Enabled,
+            target.AssignedToMeByDefault,
+            target.TitleFollowsSource,
+            target.PromoteArchivesOriginal,
+            (int)Math.Max(1, Math.Round(target.SyncInterval.TotalMinutes)),
+            target.SkipUntouchedOlderThan is { } skip ? (int)Math.Round(skip.TotalDays) : null)
+        {
+            Icon = Sources.Find(target.ConnectorId)?.Icon,
+            LastSynced = target.LastSyncedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
+        };
+
+    private void Connect()
+    {
+        if (Targets is null) return;
+
+        var target = _target.Trim();
+        if (Targets.Get(_connectorId, target) is not null)
+        {
+            _connectError = $"{target} is already connected.";
+            return;
+        }
+
+        _connectError = Targets.Save(new ConnectedTarget(_connectorId, target));
+        if (_connectError is not null) return;
+
+        _message = $"Connected {target}. Its items arrive with the next sync.";
+        _target = string.Empty;
+    }
+
+    private void Change(ConnectedTarget target, ConnectedTargetOptions options)
+    {
+        _message = Targets?.Update(target.ConnectorId, target.Target, stored => stored with
+        {
+            Enabled = options.Enabled,
+            AssignedToMeByDefault = options.AssignedToMeByDefault,
+            TitleFollowsSource = options.TitleFollowsSource,
+            PromoteArchivesOriginal = options.PromoteArchivesOriginal,
+            SyncInterval = TimeSpan.FromMinutes(options.SyncIntervalMinutes),
+            SkipUntouchedOlderThan = options.SkipUntouchedOlderThanDays is { } days ? TimeSpan.FromDays(days) : null,
+        });
+    }
+
+    private void Remove(ConnectedTarget target)
+    {
+        var error = Targets?.Remove(target.ConnectorId, target.Target);
+        _message = error ?? $"Disconnected {target.Target}. Its tasks stay on the list as they are.";
+    }
+
+    private async Task SyncNowAsync(ConnectedTargetOptions _)
+    {
+        if (Sync is not { } sync || _syncing) return;
+
+        _syncing = true;
+        _message = null;
+        try
+        {
+            await sync.RequestSync();
+            _message = "Synced.";
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (Targets is not null) Targets.Changed -= OnExternalChange;
+        foreach (var (_, signIn) in Sources.SignIns) signIn.AccountChanged -= OnExternalChange;
+        _disposed = true;
+    }
+
+    private sealed class SignInState
+    {
+        public bool SigningIn { get; set; }
+
+        public string? Error { get; set; }
+    }
+}

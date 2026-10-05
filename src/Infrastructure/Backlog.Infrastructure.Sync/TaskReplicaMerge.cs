@@ -4,6 +4,7 @@ using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
@@ -105,6 +106,12 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// without the port counts both Skipped and writes nothing, which is exactly what
 /// an older build that has never heard of the tokens does.
 /// </para>
+/// <para>
+/// <b>Nor are the GitHub settings.</b> A document whose kind token is
+/// <c>repository-registry</c> or <c>github-accounts</c> is handed to the GitHub
+/// settings port on the same terms (local ADR 0021): before the local task is read,
+/// routed by kind alone, Skipped on a head composed without the port.
+/// </para>
 /// </summary>
 public sealed class TaskReplicaMerge(
     ITaskRepository tasks,
@@ -112,7 +119,8 @@ public sealed class TaskReplicaMerge(
     ILogger<TaskReplicaMerge>? log = null,
     SyncActivityLog? activity = null,
     ITaskChangeSignal? changes = null,
-    IRoadmapReplication? roadmap = null)
+    IRoadmapReplication? roadmap = null,
+    IGitHubSettingsReplication? github = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -131,6 +139,11 @@ public sealed class TaskReplicaMerge(
     /// <summary>Where the plan and the pace go, or null on a head without a
     /// roadmap — the phone, or a desktop build from before the port.</summary>
     private readonly IRoadmapReplication? _roadmap = roadmap;
+
+    /// <summary>Where the repository registry and the GitHub accounts go, or null on
+    /// a head that keeps no GitHub settings — the phone, or a build from before the
+    /// port.</summary>
+    private readonly IGitHubSettingsReplication? _github = github;
 
     /// <summary>The signal the host's repository raises on every write, held
     /// here only to be silenced. A document arriving from the replica is not a
@@ -318,9 +331,11 @@ public sealed class TaskReplicaMerge(
                 payload.SourceUpdatedAt,
                 payload.Flags,
                 NormalisedSourceStates.FromWire(payload.NormalisedState),
-                payload.SourceTitle,
-                payload.Blocked == true,
-                payload.BlockedReason);
+                payload.SourceTitle)
+            {
+                Blocked = payload.Blocked == true,
+                BlockedReason = payload.BlockedReason,
+            };
 
     /// <summary>
     /// The aggregate a change describes.
@@ -516,6 +531,11 @@ public sealed class TaskReplicaMerge(
             return await ApplyRoadmapAsync(record, document, cancellationToken).ConfigureAwait(false);
         }
 
+        if (GitHubReplicaDocuments.KindOf(record.Change.Task.Type) is { } settings)
+        {
+            return await ApplyGitHubSettingsAsync(record, settings, cancellationToken).ConfigureAwait(false);
+        }
+
         var local = await _tasks
             .GetIncludingDeletedAsync(record.Change.Id, cancellationToken)
             .ConfigureAwait(false);
@@ -604,6 +624,52 @@ public sealed class TaskReplicaMerge(
                 return ApplyOutcome.Unreadable;
 
             // An echo or an older copy: the local one stands, as it does for a task.
+            default:
+                return ApplyOutcome.Held;
+        }
+    }
+
+    /// <summary>
+    /// Hands a GitHub settings document to its port and counts what it answered,
+    /// exactly as <see cref="ApplyRoadmapAsync"/> does for the roadmap's.
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyGitHubSettingsAsync(
+        TaskChangeRecord record,
+        GitHubReplicaDocument document,
+        CancellationToken cancellationToken)
+    {
+        if (_github is null)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no GitHub settings.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _github
+            .ApplyAsync(
+                document,
+                new GitHubReplicaCopyDto(record.Change.Task.ContentMd ?? string.Empty, record.Change.UpdatedAt),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        switch (outcome)
+        {
+            case GitHubReplicaOutcome.Taken:
+                _activity?.Record(
+                    SyncDirection.Received, SyncItemKind.GitHubSettings, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                return ApplyOutcome.Written;
+
+            case GitHubReplicaOutcome.Unreadable:
+                _log.LogWarning(
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that document. "
+                    + "The local copy is left as it is.",
+                    record.Change.Task.Type,
+                    record.Change.Id);
+                return ApplyOutcome.Unreadable;
+
             default:
                 return ApplyOutcome.Held;
         }

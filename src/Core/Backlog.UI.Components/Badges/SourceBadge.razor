@@ -1,0 +1,89 @@
+@using Backlog.UI.Components.Integrations
+@using Backlog.UI.Components.Tasks
+@*
+    Where a linked task came from: the connector's name and the item's key, and a
+    link that opens the item at the source.
+
+    Drawn entirely from what the host hands in — the reference's key and URL, the
+    connector descriptor's name, icon and colour token — so a connector added later
+    needs no change here. A connector this build does not know still has its key
+    to show: the badge then names the key alone under the neutral tone, which says
+    "this came from somewhere" without claiming to know where.
+
+    Badge with the `linked` kind rather than a second badge implementation. The
+    tone is an inline custom property naming the descriptor's token, read by
+    `.badge--linked`; a token that is not a plain token name is dropped rather than
+    written into a style attribute.
+
+    Nothing without a source: local work is the ordinary case and draws nothing.
+*@
+
+@if (Source is not null && !string.IsNullOrWhiteSpace(Source.DisplayKey))
+{
+    <Badge Kind="linked"
+           Slug="@(Source.IsKnownConnector ? null : "neutral")"
+           Href="@Href"
+           Title="@TitleText"
+           CssClass="@CssClass"
+           TestId="@TestId"
+           target="@(Href is null ? null : "_blank")"
+           rel="@(Href is null ? null : "noopener noreferrer")"
+           style="@ToneStyle"
+           data-connector="@(Source.IsKnownConnector ? Source.ConnectorName : null)">
+        @if (Mark is not IntegrationProvider.None)
+        {
+            <ProviderMark Provider="@Mark" Size="12" />
+        }
+        @if (Source.IsKnownConnector)
+        {
+            <span class="badge__connector">@Source.ConnectorName</span>
+            @* A real space, so the name reads "GitHub #412" to a screen reader and
+               a copy; the flex gap is what spaces them on screen. *@
+            @(" ")
+        }
+        <span class="badge__key">@Source.DisplayKey</span>
+    </Badge>
+}
+
+@code {
+    /// <summary>The task's source, or null for local work.</summary>
+    [Parameter]
+    public TaskSource? Source { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string? Href =>
+        Source?.Url is { } url
+        && Uri.TryCreate(url, UriKind.Absolute, out var parsed)
+        && (parsed.Scheme == Uri.UriSchemeHttps || parsed.Scheme == Uri.UriSchemeHttp)
+            ? url
+            : null;
+
+    private string TitleText =>
+        Href is null
+            ? $"Linked to {Source!.Label}"
+            : $"Open {Source!.Label} at the source";
+
+    private IntegrationProvider Mark =>
+        Enum.TryParse<IntegrationProvider>(Source?.Icon, ignoreCase: true, out var provider)
+            ? provider
+            : IntegrationProvider.None;
+
+    /// <summary>The descriptor's token as the badge's tone, or nothing for the
+    /// neutral one. Only a plain token name passes: this is written into a style
+    /// attribute, and a descriptor is not trusted to write CSS.</summary>
+    private string? ToneStyle =>
+        Source is { IsKnownConnector: true, ColorToken: { } token } && IsTokenName(token)
+            ? $"--source-badge-tone: var(--{token.TrimStart('-')})"
+            : null;
+
+    internal static bool IsTokenName(string token)
+    {
+        var name = token.TrimStart('-');
+        return name.Length > 0 && name.All(c => c is >= 'a' and <= 'z' or >= '0' and <= '9' or '-');
+    }
+}
