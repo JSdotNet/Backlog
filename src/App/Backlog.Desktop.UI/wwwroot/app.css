@@ -2609,8 +2609,15 @@ h1, h2, h3 {
     color: var(--color-text-primary);
 }
 
-/* The Connectors page: the connect row, then one card per connected target,
-   each with room around it so a button never sits against a field or a card. */
+/* The Connectors page: a sign-in line per connector that signs in, the connect
+   row, then one card per connected target, each with room around it so a button
+   never sits against a field or a card. */
+.task-connectors__sign-ins {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+}
+
 .task-connectors__connect {
     display: grid;
     gap: var(--spacing-sm);

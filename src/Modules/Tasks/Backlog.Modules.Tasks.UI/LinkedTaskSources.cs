@@ -24,6 +24,17 @@ public sealed class LinkedTaskSources
     {
         _connectors = [.. connectors.DistinctBy(connector => connector.Descriptor.Id, StringComparer.Ordinal)];
         Targets = targets;
+
+        // Who "me" is changes with the account: a sign-in after "me" was asked would
+        // otherwise leave "Assigned to me" judging by nobody until the app restarts.
+        // Both live for the app's lifetime, so the handler is never taken off.
+        foreach (var connector in _connectors)
+        {
+            if (connector is not ITaskConnectorSignIn signIn) continue;
+
+            var id = connector.Descriptor.Id;
+            signIn.AccountChanged += () => _me.TryRemove(id, out _);
+        }
     }
 
     /// <summary>A host with no connector and nowhere to keep targets.</summary>
@@ -35,6 +46,14 @@ public sealed class LinkedTaskSources
     /// <summary>The installed connectors' descriptors, in their display order.</summary>
     public IReadOnlyList<TaskConnectorDescriptor> Descriptors =>
         [.. _connectors.Select(connector => connector.Descriptor).OrderBy(descriptor => descriptor.DisplayName, StringComparer.CurrentCultureIgnoreCase)];
+
+    /// <summary>The installed connectors a person signs in to (those that also
+    /// implement <see cref="ITaskConnectorSignIn"/>), in their display order.</summary>
+    public IReadOnlyList<(TaskConnectorDescriptor Descriptor, ITaskConnectorSignIn SignIn)> SignIns =>
+        [.. _connectors
+            .Where(connector => connector is ITaskConnectorSignIn)
+            .Select(connector => (connector.Descriptor, (ITaskConnectorSignIn)connector))
+            .OrderBy(entry => entry.Descriptor.DisplayName, StringComparer.CurrentCultureIgnoreCase)];
 
     /// <summary>The descriptor for <paramref name="connectorId"/>, or null when this
     /// build has no connector by that id.</summary>

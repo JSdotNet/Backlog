@@ -4,6 +4,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.DevPc.Abstractions;
@@ -92,6 +93,12 @@ public sealed class DesktopCompositionOptions
     /// <summary>The repositories and products connected for linked tasks, with their
     /// settings and sync progress (local ADR 0020, §9).</summary>
     public required Func<IServiceProvider, IConnectedTargets> ConnectedTargets { get; init; }
+
+    /// <summary>Where the spec-manager sign-in is kept: the client registration and
+    /// the token pair. DPAPI at its default path beside <c>github.json</c> in the
+    /// installed app; a file under the content root in the harness, so a sign-in
+    /// there is not the installed app's. Never a settings file.</summary>
+    public required Func<IServiceProvider, ISpecManagerTokenStore> SpecManagerTokenStore { get; init; }
 
     /// <summary>The reader's inbox routing rules.</summary>
     public required Func<IServiceProvider, IInboxRoutingRules> InboxRoutingRules { get; init; }

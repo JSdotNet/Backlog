@@ -14,6 +14,7 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.DevPc;
+using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Sessions;
@@ -100,6 +101,9 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     CaptureSourceSettings = _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath),
     CaptureRunLog = _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath),
     ConnectedTargets = _ => CreateLocalDevelopmentConnectedTargetsSettingsStore(builder.Environment.ContentRootPath),
+    // Per worktree, like the device credential: a sign-in here is not the installed
+    // app's, and DPAPI still keeps the refresh token out of the clear.
+    SpecManagerTokenStore = _ => CreateLocalDevelopmentSpecManagerTokenStore(builder.Environment.ContentRootPath),
     InboxRoutingRules = _ => CreateLocalDevelopmentInboxRoutingRulesStore(builder.Environment.ContentRootPath),
     GitHubSettings = root => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath, root),
     ClaudeSettings = _ => CreateLocalDevelopmentClaudeSettingsStore(builder.Environment.ContentRootPath),
@@ -443,6 +447,17 @@ static ConnectedTargetsSettingsStore CreateLocalDevelopmentConnectedTargetsSetti
     }
 
     return new ConnectedTargetsSettingsStore(settingsPath);
+}
+
+static ISpecManagerTokenStore CreateLocalDevelopmentSpecManagerTokenStore(string contentRootPath)
+{
+    var credentialsPath = Environment.GetEnvironmentVariable("BACKLOG_SPEC_MANAGER_CREDENTIALS_PATH");
+    if (string.IsNullOrWhiteSpace(credentialsPath))
+    {
+        credentialsPath = Path.Combine(contentRootPath, "obj", "local-development", "spec-manager-credentials.json");
+    }
+
+    return SpecManagerTokenStoreFactory.Create(credentialsPath);
 }
 
 static CaptureRunLogStore CreateLocalDevelopmentCaptureRunLogStore(string contentRootPath)

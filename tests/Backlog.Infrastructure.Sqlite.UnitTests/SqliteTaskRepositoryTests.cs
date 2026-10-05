@@ -264,6 +264,28 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Null(loaded.SourceRef.NormalisedState);
     }
 
+    /// <summary>A <c>source_ref</c> written before the source's blocked-ness was kept
+    /// carries neither member and reads as not blocked; one that is not blocked
+    /// writes neither, so its JSON is what it was before.</summary>
+    [Fact]
+    public void A_source_reference_written_before_blocked_was_kept_reads_as_not_blocked()
+    {
+        const string older = """
+            {"ConnectorId":"github","Target":"JSdotNet/Backlog","ExternalId":"I_1","Url":"u","DisplayKey":"#1",
+             "SourceState":"open","SourceUpdatedAt":"2026-10-01T08:00:00+00:00","NormalisedState":"open","SourceTitle":"T"}
+            """;
+
+        var read = TaskPayloads.ReadSourceRef(older);
+
+        Assert.NotNull(read);
+        Assert.False(read.Blocked);
+        Assert.Null(read.BlockedReason);
+
+        var written = TaskPayloads.WriteSourceRef(read);
+        Assert.DoesNotContain("Blocked", written, StringComparison.Ordinal);
+        Assert.Equal(read, TaskPayloads.ReadSourceRef(written));
+    }
+
     /// <summary>Status is rehydrated through the constructor, so loading an
     /// in-progress row written before <c>started_on</c> existed does not invent a
     /// start date of today — there is no backfill.</summary>

@@ -14191,6 +14191,33 @@ select.field__input {
     }
 }
 
+/* --- Signing in to a tool tasks can follow ------------------------------- */
+
+/* One line per connector that signs in: its mark and name, who is signed in in
+   the quiet ink, and the one button that changes it, pushed to the end. */
+.connector-sign-in {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.connector-sign-in__head {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.connector-sign-in__name {
+    font-weight: var(--font-weight-semibold);
+}
+
+.connector-sign-in__account {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--integration-ink-quiet);
+    font-size: var(--font-size-sm);
+}
+
 /* --- Data table ---------------------------------------------------------- */
 
 /* Rows of records, optionally in named sections. The Metric family's five tables

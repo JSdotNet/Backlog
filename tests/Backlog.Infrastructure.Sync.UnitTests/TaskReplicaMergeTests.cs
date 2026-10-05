@@ -594,6 +594,37 @@ public sealed class TaskReplicaMergeTests
         Assert.Equal(Noon, restored.UpdatedAt);
     }
 
+    /// <summary>A reference that is not blocked sends neither blocked member, so its
+    /// document serialises as it did before they existed — and a document from a
+    /// build that never sent them reads as not blocked.</summary>
+    [Fact]
+    public void A_source_reference_that_is_not_blocked_sends_no_blocked_members()
+    {
+        var task = TaskChanges.Task("Linked", Noon);
+        task.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_1", "u", "#1", null, "open", Noon));
+        task.LoadStamps(Noon, null);
+        var options = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)
+        {
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        };
+
+        var payload = TaskReplicaMerge.ToPayload(task);
+        Assert.Null(payload.SourceRef!.Blocked);
+        Assert.Null(payload.SourceRef.BlockedReason);
+        Assert.DoesNotContain("blocked", System.Text.Json.JsonSerializer.Serialize(payload.SourceRef, options), StringComparison.OrdinalIgnoreCase);
+
+        const string older = """
+            {"connectorId":"github","target":"JSdotNet/Backlog","externalId":"I_1","url":"u","displayKey":"#1",
+             "sourceState":"open","sourceUpdatedAt":"2026-10-01T08:00:00+00:00","normalisedState":"open"}
+            """;
+        var olderPayload = System.Text.Json.JsonSerializer.Deserialize<SourceRefPayload>(older, options);
+        var restored = TaskReplicaMerge.ToTaskItem(new TaskChange(task.Id, Noon, null, payload with { SourceRef = olderPayload }));
+
+        Assert.NotNull(restored.SourceRef);
+        Assert.False(restored.SourceRef.Blocked);
+        Assert.Null(restored.SourceRef.BlockedReason);
+    }
+
     /// <summary>The source's word that an item is blocked crosses the wire with its
     /// reason; a reference that is not blocked carries neither, so a document from an
     /// older build reads as not blocked.</summary>

@@ -119,8 +119,17 @@ public sealed record SourceRef
     /// </summary>
     public string? SourceTitle { get; init; }
 
-    /// <summary>Whether the source says the item cannot be worked on now. The
-    /// source's, not a Backlog flag: the sync overwrites it on every run.</summary>
+    /// <summary>
+    /// Whether the source says the item cannot be worked on now; false on a
+    /// reference written before this was kept. The source's, not a Backlog flag:
+    /// the sync overwrites it on every run.
+    /// <para>
+    /// Also what the sync compares against to decide whether the source's
+    /// blocked-ness <em>moved</em>. The task's own blocked mark follows the source
+    /// only on a move, the way its status does, so a person who marks or clears it
+    /// between two moves keeps what they set.
+    /// </para>
+    /// </summary>
     public bool Blocked { get; init; }
 
     /// <summary>Why the source says the item is blocked, or null when it gave no

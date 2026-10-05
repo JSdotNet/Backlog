@@ -33,9 +33,9 @@ public sealed class SourceRefTests
         Assert.NotEqual(reference, reference with { SourceUpdatedAt = Stamp.AddSeconds(1) });
         Assert.NotEqual(reference, reference with { NormalisedState = NormalisedSourceState.Done });
         Assert.NotEqual(reference, reference with { SourceTitle = "Renamed at the source" });
-        Assert.NotEqual(reference, reference.WithFlag(LinkedTaskFlags.Vanished, set: true));
         Assert.NotEqual(reference, reference with { Blocked = true });
-        Assert.NotEqual(reference with { Blocked = true }, reference with { Blocked = true, BlockedReason = "Waiting" });
+        Assert.NotEqual(reference with { Blocked = true }, reference with { Blocked = true, BlockedReason = "Waits on #3" });
+        Assert.NotEqual(reference, reference.WithFlag(LinkedTaskFlags.Vanished, set: true));
     }
 
     [Fact]
@@ -43,6 +43,18 @@ public sealed class SourceRefTests
     {
         Assert.Null((Reference() with { Blocked = true, BlockedReason = "   " }).BlockedReason);
         Assert.Equal("Waiting", (Reference() with { BlockedReason = " Waiting " }).BlockedReason);
+    }
+
+    [Fact]
+    public void Two_references_blocked_for_the_same_reason_are_equal()
+    {
+        var first = Reference() with { Blocked = true, BlockedReason = "Waits on #3" };
+        var second = Reference() with { Blocked = true, BlockedReason = "Waits on #3" };
+
+        Assert.Equal(first, second);
+        Assert.Equal(first.GetHashCode(), second.GetHashCode());
+        Assert.True(first.Blocked);
+        Assert.Equal("Waits on #3", first.BlockedReason);
     }
 
     [Fact]

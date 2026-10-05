@@ -22,6 +22,9 @@ public sealed class SyncLinkedTasksTests
     private static readonly DateTimeOffset Now = new(2026, 10, 5, 9, 0, 0, TimeSpan.Zero);
     private static readonly DateOnly Today = new(2026, 10, 5);
 
+    private static readonly TimeZoneInfo FiveHoursEast =
+        TimeZoneInfo.CreateCustomTimeZone("Test +05:00", TimeSpan.FromHours(5), "Test +05:00", "Test +05:00");
+
     private readonly StubTaskConnector _connector = new();
     private readonly InMemoryTaskRepository _tasks = new();
     private readonly InMemoryConnectedTargets _targets = new(new ConnectedTarget(StubTaskConnector.Id, Repo));
@@ -364,6 +367,52 @@ public sealed class SyncLinkedTasksTests
         await SyncAsync();
 
         Assert.Equal(EntryStatus.Ready, Assert.Single(_tasks.Entries.Values).Status);
+    }
+
+    /// <summary>The tick is the day the work finished, and when the source says when
+    /// that was, it is that day — on this machine's calendar, so an item finished
+    /// late in the evening UTC is ticked off on the next day five hours east.</summary>
+    [Fact]
+    public async Task A_closed_item_is_ticked_off_on_the_local_day_the_source_finished_it()
+    {
+        _time.Zone = FiveHoursEast;
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+
+        _connector.Items[0] = Item("I_1", NormalisedSourceState.Done) with
+        {
+            CompletedAt = new DateTimeOffset(2026, 10, 3, 21, 30, 0, TimeSpan.Zero),
+        };
+        await SyncAsync();
+
+        var task = Assert.Single(_tasks.Entries.Values);
+        Assert.Equal(EntryStatus.Done, task.Status);
+        Assert.Equal(new DateOnly(2026, 10, 4), task.CompletedOn);
+    }
+
+    [Fact]
+    public async Task An_item_created_finished_is_ticked_off_on_the_day_the_source_finished_it()
+    {
+        _connector.Items.Add(Item("I_1", NormalisedSourceState.Done) with
+        {
+            CompletedAt = new DateTimeOffset(2026, 9, 28, 10, 0, 0, TimeSpan.FromHours(2)),
+        });
+
+        await SyncAsync();
+
+        Assert.Equal(new DateOnly(2026, 9, 28), Assert.Single(_tasks.Entries.Values).CompletedOn);
+    }
+
+    /// <summary>A finish the source gives no day for is ticked off today, the day the
+    /// sync learned of it.</summary>
+    [Fact]
+    public async Task A_closed_item_without_a_finish_day_is_ticked_off_today()
+    {
+        _connector.Items.Add(Item("I_1", NormalisedSourceState.Done));
+
+        await SyncAsync();
+
+        Assert.Equal(Today, Assert.Single(_tasks.Entries.Values).CompletedOn);
     }
 
     // --- The status moves only when the source's state moved ------------------------
@@ -795,6 +844,169 @@ public sealed class SyncLinkedTasksTests
             Assert.Equal(mine.CreatedAt, theirs.CreatedAt);
             Assert.Equal(mine.SourceRef, theirs.SourceRef);
         }
+    }
+
+    // --- Blocked ------------------------------------------------------------------
+
+    [Fact]
+    public async Task An_item_blocked_at_the_source_is_created_blocked_today_with_its_reason()
+    {
+        _connector.Items.Add(Item("I_1") with { IsBlocked = true, BlockedReason = "Waits on #3" });
+
+        await SyncAsync();
+
+        var task = Assert.Single(_tasks.Entries.Values);
+        Assert.Equal(Today, task.BlockedSince);
+        Assert.True(task.SourceRef!.Blocked);
+        Assert.Equal("Waits on #3", task.SourceRef.BlockedReason);
+    }
+
+    [Fact]
+    public async Task An_item_the_source_blocks_marks_its_task_blocked_on_the_day_of_the_move()
+    {
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        Assert.Null(task.BlockedSince);
+        Assert.False(task.SourceRef!.Blocked);
+
+        _time.Now = Now.AddDays(1);
+        _connector.Items[0] = _connector.Items[0] with { IsBlocked = true, BlockedReason = "Impeded" };
+        var summary = await SyncAsync();
+
+        Assert.Equal(1, summary.Updated);
+        Assert.Equal(Today.AddDays(1), task.BlockedSince);
+        Assert.Equal("Impeded", task.SourceRef!.BlockedReason);
+    }
+
+    /// <summary>A task the person already marked blocked keeps the day they marked
+    /// it: the source agreeing says nothing about since when.</summary>
+    [Fact]
+    public async Task A_task_the_person_marked_blocked_keeps_its_day_when_the_source_blocks_it_too()
+    {
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        task.SetBlockedSince(Today.AddDays(-3));
+
+        _connector.Items[0] = _connector.Items[0] with { IsBlocked = true };
+        await SyncAsync();
+
+        Assert.Equal(Today.AddDays(-3), task.BlockedSince);
+        Assert.True(task.SourceRef!.Blocked);
+    }
+
+    [Fact]
+    public async Task An_item_the_source_unblocks_unblocks_its_task_and_drops_the_reason()
+    {
+        _connector.Items.Add(Item("I_1") with { IsBlocked = true, BlockedReason = "Waits on #3" });
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+
+        _connector.Items[0] = _connector.Items[0] with { IsBlocked = false, BlockedReason = null };
+        await SyncAsync();
+
+        Assert.Null(task.BlockedSince);
+        Assert.False(task.SourceRef!.Blocked);
+        Assert.Null(task.SourceRef.BlockedReason);
+    }
+
+    /// <summary>The source owns blocked-ness by its moves, as it owns the state: what
+    /// the person set between two of them stands, either way round.</summary>
+    [Fact]
+    public async Task A_blocked_mark_the_person_changed_stands_while_the_source_does_not_move()
+    {
+        _connector.Items.Add(Item("I_1"));
+        _connector.Items.Add(Item("I_2") with { IsBlocked = true });
+        await SyncAsync();
+        var markedHere = _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_1")];
+        var clearedHere = _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_2")];
+        markedHere.SetBlockedSince(Today);
+        clearedHere.SetBlockedSince(null);
+        var writes = _tasks.Writes;
+
+        var summary = await SyncAsync();
+
+        Assert.Equal(2, summary.Unchanged);
+        Assert.Equal(writes, _tasks.Writes);
+        Assert.Equal(Today, markedHere.BlockedSince);
+        Assert.Null(clearedHere.BlockedSince);
+    }
+
+    /// <summary>A reason the source gives without blocking the item explains nothing,
+    /// so the reference records none.</summary>
+    [Fact]
+    public async Task A_reason_on_an_item_that_is_not_blocked_is_not_recorded()
+    {
+        _connector.Items.Add(Item("I_1") with { BlockedReason = "Stale reason" });
+
+        await SyncAsync();
+
+        Assert.Null(Assert.Single(_tasks.Entries.Values).SourceRef!.BlockedReason);
+    }
+
+    // --- Devbook references ---------------------------------------------------------
+
+    [Fact]
+    public async Task An_items_references_become_its_tasks_devbook_references_and_one_naming_no_page_is_skipped()
+    {
+        _connector.Items.Add(Item("I_1") with
+        {
+            References = ["domain/tasks/features.md#linked-tasks", "not a page", ".devbook/arc42/adr/0020-linked.md"],
+        });
+
+        await SyncAsync();
+
+        Assert.Equal(
+            [".devbook/domain/tasks/features.md#linked-tasks", ".devbook/arc42/adr/0020-linked.md"],
+            Assert.Single(_tasks.Entries.Values).DevbookReferences);
+    }
+
+    /// <summary>The references are a union: one the source adds is added, one the
+    /// person added stays, and one the source removed stays too — a reference says
+    /// what the task was about, and losing it silently loses that.</summary>
+    [Fact]
+    public async Task The_sources_references_are_added_to_the_tasks_and_never_removed()
+    {
+        _connector.Items.Add(Item("I_1") with { References = [".devbook/domain/tasks/features.md"] });
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        task.SetDevbookReferences([.. task.DevbookReferences, ".devbook/design/README.md"]);
+
+        _connector.Items[0] = _connector.Items[0] with { References = [".devbook/arc42/adr/0020-linked.md#decision"] };
+        var summary = await SyncAsync();
+
+        Assert.Equal(1, summary.Updated);
+        Assert.Equal(
+            [".devbook/domain/tasks/features.md", ".devbook/design/README.md", ".devbook/arc42/adr/0020-linked.md#decision"],
+            task.DevbookReferences);
+    }
+
+    /// <summary>A reference the task already holds — in any spelling that normalises
+    /// to it — is no change, so the quiet sync stays quiet.</summary>
+    [Fact]
+    public async Task A_sync_whose_references_the_task_already_holds_saves_nothing()
+    {
+        _connector.Items.Add(Item("I_1") with
+        {
+            IsBlocked = true,
+            BlockedReason = "Waits on #3",
+            References = ["domain/tasks/features.md#linked-tasks", "./.devbook/design/README.md"],
+        });
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        var stamp = task.UpdatedAt;
+        var writes = _tasks.Writes;
+
+        _connector.Items[0] = _connector.Items[0] with
+        {
+            References = [".devbook/domain/tasks/features.md#linked-tasks", "[.devbook/design/README.md]", "not a page"],
+        };
+        var summary = await SyncAsync();
+
+        Assert.Equal(1, summary.Unchanged);
+        Assert.Equal(writes, _tasks.Writes);
+        Assert.Equal(stamp, task.UpdatedAt);
     }
 
     // --- Helpers -------------------------------------------------------------------

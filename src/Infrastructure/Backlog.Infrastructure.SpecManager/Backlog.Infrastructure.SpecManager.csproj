@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The spec-manager connector (local ADR 0020): a product's backlog brought in as
+    linked tasks. Three parts, each thin:
+      SpecManagerSignIn     OAuth 2.1 authorization code with PKCE on a loopback
+                            redirect, the one dynamic client registration per base
+                            URL, and the refresh that rotates the refresh token
+      SpecManagerClient     the four REST reads the connector needs, through the
+                            named "spec-manager" client and its own pipeline
+      SpecManagerConnector  ITaskConnector and ITaskConnectorSignIn: what an item
+                            is called, how its status reads, what blocks it
+    Tokens are kept by ISpecManagerTokenStore — DPAPI on Windows — and never in a
+    settings file or a log.
+
+    Of the Tasks module it sees the implementation as well as the published
+    surface, for AddTaskConnector<T>() alone: that registration line lives beside
+    the sync, not in the abstractions, because a container is not part of the
+    published language. An adapter referencing a module implementation is the
+    normal direction, the one Backlog.Infrastructure.Sqlite takes.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Infrastructure.SpecManager</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+    <!-- AddTaskConnector<T>(); see the header. -->
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- The "spec-manager" client's pipeline: SpecManagerHttpRegistration. -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- What the pipeline throws when it gives up — a total timeout, an open
+         circuit. Named so the sign-in can read them as "out of reach". -->
+    <PackageReference Include="Polly.Core" />
+    <!-- DPAPI. A refresh token is a long-lived secret, so on Windows the OS ties
+         its envelope to the signed-in user rather than it sitting in plain text
+         beside the app's other settings. -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The mapping, the PKCE pair, the loopback listener and the token refresh are
+         asserted directly against recorded responses. -->
+    <InternalsVisibleTo Include="Backlog.Infrastructure.SpecManager.UnitTests" />
+  </ItemGroup>
+
+</Project>

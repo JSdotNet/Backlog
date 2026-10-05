@@ -53,6 +53,9 @@ public static class LinkedTaskSyncRegistration
         // One, because the schedule is what it holds: a second would be a second
         // timer running the same targets.
         services.TryAddSingleton<LinkedTaskSyncWorker>();
+
+        // The same worker behind the port the settings screen's "Sync now" asks, so
+        // a request and the timer share one run at a time rather than racing.
         services.TryAddSingleton<ILinkedTaskSync>(provider => provider.GetRequiredService<LinkedTaskSyncWorker>());
 
         return services;

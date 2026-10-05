@@ -1,0 +1,7 @@
+{
+  "leden": [
+    { "gebruikerId": "30000000-0000-0000-0000-000000000002", "naam": "Kees de Vries", "isJij": false, "isActief": true, "isServiceAccount": false },
+    { "gebruikerId": "30000000-0000-0000-0000-000000000001", "naam": "Jip Jansen", "isJij": true, "isActief": true, "isServiceAccount": false },
+    { "gebruikerId": "30000000-0000-0000-0000-000000000009", "naam": "Build agent", "isJij": false, "isActief": true, "isServiceAccount": true }
+  ]
+}

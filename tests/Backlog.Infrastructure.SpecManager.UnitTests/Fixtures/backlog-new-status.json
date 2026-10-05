@@ -1,0 +1,30 @@
+{
+  "prioriteitsversie": 18,
+  "items": [
+    {
+      "id": "a0000000-0000-0000-0000-000000000013",
+      "titel": "In a status added after the cache was filled",
+      "omschrijving": null,
+      "statusId": "10000000-0000-0000-0000-000000000006",
+      "prioriteit": 1,
+      "nummer": 13,
+      "verwijzingen": [],
+      "labelIds": [],
+      "toegewezenAanId": null,
+      "jira": null,
+      "isGearchiveerd": false,
+      "inspanning": null,
+      "wachtOpIds": [],
+      "wachtOp": null,
+      "geblokkeerd": null,
+      "belemmering": null,
+      "issuetype": "Story",
+      "deadline": null,
+      "afgerondOp": null,
+      "bijgewerktOp": "2026-10-05T08:00:00+00:00",
+      "sprintId": null,
+      "sprintnaam": null,
+      "externeSleutel": null
+    }
+  ]
+}

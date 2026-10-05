@@ -1,0 +1,35 @@
+{
+  "prioriteitsversie": 17,
+  "items": [
+    {
+      "id": "a0000000-0000-0000-0000-000000000012",
+      "titel": "Dropped idea",
+      "omschrijving": "Archived without being finished.",
+      "statusId": "10000000-0000-0000-0000-000000000001",
+      "prioriteit": 12,
+      "nummer": 12,
+      "projectIds": [],
+      "aangemaaktOp": "2026-09-20T08:00:00+02:00",
+      "verwijzingen": [],
+      "labelIds": [],
+      "toegewezenAanId": null,
+      "jira": null,
+      "isGearchiveerd": true,
+      "jiraaanmaak": null,
+      "inspanning": null,
+      "wachtOpIds": [],
+      "wachtOp": null,
+      "geblokkeerd": null,
+      "bijlagen": [],
+      "belemmering": null,
+      "issuetype": "Story",
+      "deadline": null,
+      "opdrachtgevers": [],
+      "afgerondOp": null,
+      "bijgewerktOp": "2026-10-04T09:00:00+00:00",
+      "sprintId": null,
+      "sprintnaam": null,
+      "externeSleutel": null
+    }
+  ]
+}

@@ -331,11 +331,16 @@ internal static class StorybookIndex
             new("integrations/density", "Density and overflow", "The same acts as a header toolbar, an inline row, an icon-only cluster and a set of menu items, and how the budget decides which."),
             new("integrations/ai", "AI in the document", "Rewriting a block and resolving a comment, attached to the comment model that already exists."),
 
-            // Last in the chapter: the one page about connecting a tool rather than
-            // acting on one. It draws a Card, the switches, two SelectFields and two
-            // AppButtons, all introduced above, and the ProviderMark the first page
-            // of this chapter did.
-            new("integrations/connected-targets", "Connected targets", "ConnectedTargetEditor: one repository or product connected to a task source, and the options its sync runs by — the card a connector settings page draws per target.")
+            // The pages about connecting a tool rather than acting on one. The first
+            // draws a Card, the switches, two SelectFields and two AppButtons, all
+            // introduced above, and the ProviderMark the first page of this chapter
+            // did.
+            new("integrations/connected-targets", "Connected targets", "ConnectedTargetEditor: one repository or product connected to a task source, and the options its sync runs by — the card a connector settings page draws per target."),
+
+            // Last in the chapter: signing in to the tool those targets come
+            // through. It draws the ProviderMark, an AppButton and an Alert, all
+            // introduced above.
+            new("integrations/connector-sign-in", "Connector sign-in", "ConnectorSignIn: who is signed in to one outside tool tasks can follow, and the one button that changes it — the line a connector settings page draws per connector that signs in.")
         ]),
 
         // Its own chapter, out of Input and action where its pages used to be three

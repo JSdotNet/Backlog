@@ -1,0 +1,6 @@
+{
+  "client_id": "client-backlog-1",
+  "client_name": "Backlog",
+  "redirect_uris": ["http://127.0.0.1/callback"],
+  "token_endpoint_auth_method": "none"
+}
