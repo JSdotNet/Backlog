@@ -1,9 +1,9 @@
 ---
-name: backlog-answer-notes
-description: Answer the private reading notes a person left on this repository's Devbook chapters in the Backlog app, and close the loop on each one. Use when asked to answer, clear, work through or empty the Devbook notes, remarks or annotations for a repository, or when a session is told there are open notes waiting. Writes each answer into the chapter as a devbook `annotation` fence and then resolves the note in Backlog; reports the changed chapters and offers the commit, and never pushes.
+name: backlog-handle-remarks
+description: Handle the private reading notes (remarks) a person left on this repository's Devbook chapters in the Backlog app, and close the loop on each one. Use when asked to handle, answer, clear, work through or empty the Devbook notes, remarks or annotations for a repository, or when a session is told there are open notes waiting. Writes each answer into the chapter as a devbook `annotation` fence and then resolves the note in Backlog; reports the changed chapters and offers the commit, and never pushes.
 ---
 
-# Answer the notes on a repository's Devbook chapters
+# Handle the remarks on a repository's Devbook chapters
 
 Open the reply with `backlog-tools@<version>`, `version` read from `../../.claude-plugin/plugin.json`, not recalled.
 

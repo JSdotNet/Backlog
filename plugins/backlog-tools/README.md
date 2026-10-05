@@ -78,7 +78,7 @@ for the remarks a person leaves while reading.
   hand-edited manifest can break in ways a generated one never does. User-invoked only
   (`disable-model-invocation: true`); it never talks to the Backlog app, the source tool, or
   GitHub.
-- **`backlog-answer-notes`** — empties the other inbox: the private reading notes a person
+- **`backlog-handle-remarks`** — empties the other inbox: the private reading notes a person
   left on a repository's Devbook chapters in the app. It reads them over MCP
   (`list_annotations`), writes each answer into the chapter as a devbook `annotation` fence
   through the devbook plugin's own `annotations.mjs`, and only then resolves the note

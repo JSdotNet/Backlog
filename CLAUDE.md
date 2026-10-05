@@ -61,7 +61,7 @@ the gate — the matching flow — rather than adding an execution path beside i
 `backlog-execute-plan` is user-invoked and changes nothing itself: it hands each prompt
 entry of a plan to a sub-agent that runs it through `backlog-run-plan-item`, so every entry
 still passes the gate and its own Personal Validation.
-`backlog-answer-notes` is model-invoked when asked to answer the Devbook notes; it writes
+`backlog-handle-remarks` is model-invoked when asked to handle or answer the Devbook remarks; it writes
 only `annotation` fences, through `.devbook/_tools/devbook-meta/annotations.mjs`, offers the
 commit and never pushes.
 
@@ -167,5 +167,5 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   delegating its prompt entries to sub-agents, one worktree and pull request each; user-invoked only.
 - `plugins/backlog-tools/skills/backlog-import-inbox/SKILL.md` — turns an export from another
   to-do tool into an inbox import manifest (ADR 0017); user-invoked only.
-- `plugins/backlog-tools/skills/backlog-answer-notes/SKILL.md` — answers the reading notes left
+- `plugins/backlog-tools/skills/backlog-handle-remarks/SKILL.md` — handles the reading notes left
   on Devbook chapters in the Backlog app as `annotation` fences and resolves each note.

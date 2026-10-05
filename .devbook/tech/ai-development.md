@@ -239,7 +239,7 @@ version: "0.11.2"
 This repository's own plugin, `plugins/backlog-tools`, with a Claude Code manifest.
 
 - **Used for** — four skills (`backlog-import-plan`, `backlog-run-plan-item`,
-  `backlog-import-inbox`, `backlog-answer-notes`) and two hooks (the plan-item nudge and the telemetry
+  `backlog-import-inbox`, `backlog-handle-remarks`) and two hooks (the plan-item nudge and the telemetry
   forwarder). Installed on demand from this repository as a marketplace; see
   its `README.md`.
 - **Why** — the skills speak Backlog's own entry grammar and MCP tools, so they

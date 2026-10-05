@@ -89,7 +89,7 @@ date: 2026-09-26
 ```
 
 The private notes a person leaves on devbook chapters while reading them in the app are read
-over the Backlog MCP server by `backlog-answer-notes`, answered in the chapter as a devbook
+over the Backlog MCP server by `backlog-handle-remarks`, answered in the chapter as a devbook
 `annotation` fence, and only then resolved in the app.
 
 - **Used for** — turning a reader's questions into written answers next to the passage they

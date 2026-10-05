@@ -64,9 +64,9 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    a sub-item's status line cannot be changed through the connector — no tool edits one.
 6. **Answer the notes the item leaves open.** With the connector, `list_annotations` for the
    repository; a chapter this item rewrote may carry a remark the change now answers. Answer
-   each open note by steps 3–5 of `../backlog-answer-notes/SKILL.md` — fence first, resolve
+   each open note by steps 3–5 of `../backlog-handle-remarks/SKILL.md` — fence first, resolve
    second. Name the changed chapter files and offer the commit; never push.
-   `backlog-answer-notes` is the skill to invoke when notes are the whole job.
+   `backlog-handle-remarks` is the skill to invoke when notes are the whole job.
 7. **Close.** The knowledge/devbook reminder is a real step — do it through the repository's
    knowledge skills. Report `(tag, id)`, what was done, and the evidence behind anything
    skipped as already done. The flow's own Work Item Update phase is the one that speaks to
