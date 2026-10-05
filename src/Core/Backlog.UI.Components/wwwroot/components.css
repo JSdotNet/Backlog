@@ -12729,6 +12729,16 @@ select.field__input {
     background-size: var(--border-width) 8px;
 }
 
+/* Down one band only: the markup places its top and height. Dotted in the brand
+   colour, with its marker, so a band's own date stands out from the plan-wide
+   dashes and from the solid today line. */
+.roadmap-timeline__milestone-rule--band {
+    bottom: auto;
+    width: 0;
+    background: none;
+    border-left: var(--border-width-2) dotted var(--color-primary);
+}
+
 /* Today is the one line on the chart that is not a quarter, so it is the one
    line that gets the brand colour. */
 .roadmap-timeline__today {
@@ -13430,6 +13440,10 @@ select.field__input {
     font-size: var(--font-size-base);
     line-height: 1;
     cursor: pointer;
+}
+
+.roadmap-milestone--banded .roadmap-milestone__marker {
+    color: var(--color-primary);
 }
 
 .roadmap-milestone__marker:focus-visible {

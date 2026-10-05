@@ -255,6 +255,16 @@
                                       data-testid="@Suffix($"milestone-rule-{Slug(milestone.Id)}")"></span>
                             }
 
+                            @* A milestone filed under some bands rules those bands alone,
+                               top of their first row to the bottom of their last. *@
+                            @foreach (var rule in BandRules)
+                            {
+                                <span @key="(rule.Milestone.Id, rule.Group.Id)"
+                                      class="roadmap-timeline__milestone-rule roadmap-timeline__milestone-rule--band"
+                                      style="left: @Rem(Geometry.XFor(rule.Milestone.On)); top: @Rem(Geometry.RowTop(rule.First)); height: @Rem(Geometry.RowTop(rule.Last + 1) - Geometry.RowTop(rule.First))"
+                                      data-testid="@Suffix($"milestone-rule-{Slug(rule.Milestone.Id)}-{Slug(rule.Group.Id)}")"></span>
+                            }
+
                             @if (Today is { } today && Span.Contains(today))
                             {
                                 <span class="roadmap-timeline__today" style="left: @Rem(Geometry.XFor(today))"></span>
@@ -1839,6 +1849,19 @@
     private IEnumerable<RoadmapMilestone> SpanningMilestones =>
         MilestoneList.Where(milestone => milestone.Line && Span.Contains(milestone.On));
 
+    /// <summary>
+    /// The rules of the milestones filed under particular bands, one to each band that
+    /// is drawn: its first placed row to its last, padding and a folded lane included,
+    /// so the rule is as tall as the band reads. A plan-wide line already crosses them.
+    /// </summary>
+    private IEnumerable<(RoadmapMilestone Milestone, RoadmapGroup Group, int First, int Last)> BandRules =>
+        from milestone in MilestoneList
+        let bands = milestone.Bands ?? []
+        where !milestone.Line && bands.Count > 0 && Span.Contains(milestone.On)
+        from band in Rows.GroupBy(placed => placed.Group)
+        where bands.Any(id => Is(id, band.Key.Id))
+        select (milestone, band.Key, band.Min(placed => placed.Index), band.Max(placed => placed.Index));
+
     private RoadmapBar? Bar(string id) => BarList.FirstOrDefault(bar => Is(bar.Id, id));
 
     // --- Dependencies ------------------------------------------------------
@@ -2334,7 +2357,8 @@
         + (IsCurrent(column) ? " roadmap-timeline__quarter--current" : null);
 
     private static string MilestoneClass(RoadmapMilestone milestone) =>
-        "roadmap-milestone roadmap-milestone--" + milestone.Marker.ToString().ToLowerInvariant();
+        "roadmap-milestone roadmap-milestone--" + milestone.Marker.ToString().ToLowerInvariant()
+        + (!milestone.Line && milestone.Bands is { Count: > 0 } ? " roadmap-milestone--banded" : null);
 
     /// <summary>Where a row is, said the way a reader would: the band first,
     /// then the line within it.</summary>
