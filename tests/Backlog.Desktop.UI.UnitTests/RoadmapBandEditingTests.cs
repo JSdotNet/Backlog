@@ -105,40 +105,56 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     }
 
     [Fact]
-    public async Task SavingNewWorkWithNoRepositoryPicked_IsRefusedAndStoresNothing()
+    public async Task SavingNewWorkWithNoRepositoryPicked_StoresItUnderNoRepository()
     {
-        // The roadmap draws work by repository, so work saved under none would close
-        // the dialog and appear nowhere. The editor says so instead of saving.
+        // A project not started yet has no repository to pick. Leaving the picker empty
+        // is an answer, not an omission: the work is saved and drawn in the
+        // no-repository band.
         Configure("JSdotNet/Backlog");
 
         using var context = Context();
         var band = context.Render<RoadmapBand>();
         Open(band, "roadmap-band-add", "roadmap-editor");
 
-        band.Find("[data-testid=\"roadmap-editor-title\"] input").Input("Filed nowhere");
+        band.Find("[data-testid=\"roadmap-editor-title\"] input").Input("Not started yet");
         band.Find("[data-testid=\"roadmap-editor-save\"]").Click();
 
-        band.WaitForAssertion(() => Assert.Contains(
-            "Pick a repository. The roadmap draws work by repository.",
-            band.Find("[data-testid=\"roadmap-editor-error\"]").TextContent));
-        Assert.NotNull(band.Find("[data-testid=\"roadmap-editor\"]"));
-        Assert.Empty((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
+        band.WaitForAssertion(() => Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]")));
+        var item = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
+        Assert.Equal("Not started yet", item.Title);
+        Assert.Empty(item.RepositoryAliases);
+        band.WaitForAssertion(() => Assert.StartsWith(
+            $"{RoadmapPlanView.NoRepositoryGroupId}::",
+            Assert.Single(band.FindComponent<RoadmapTimeline>().Instance.Bars).RowId,
+            StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task SavingNewWorkWithNoRepositoryConfigured_PointsToSettingsAndStoresNothing()
+    public void ThePickerCarriesNoPlaceholder_BecauseLeavingItEmptyIsAnAnswer()
+    {
+        Configure("JSdotNet/Backlog");
+
+        using var context = Context();
+        var band = context.Render<RoadmapBand>();
+        Open(band, "roadmap-band-add", "roadmap-editor");
+
+        Assert.Null(band.Find("[data-testid=\"roadmap-editor-repositories\"] input").GetAttribute("placeholder"));
+    }
+
+    [Fact]
+    public async Task SavingNewWorkWithNoRepositoryConfigured_StoresItUnderNoRepository()
     {
         using var context = Context();
         var band = context.Render<RoadmapBand>();
         Open(band, "roadmap-band-add", "roadmap-editor");
 
-        band.Find("[data-testid=\"roadmap-editor-title\"] input").Input("Filed nowhere");
+        band.Find("[data-testid=\"roadmap-editor-title\"] input").Input("Not started yet");
         band.Find("[data-testid=\"roadmap-editor-save\"]").Click();
 
-        band.WaitForAssertion(() => Assert.Contains(
-            "Add a repository in Settings first.",
-            band.Find("[data-testid=\"roadmap-editor-error\"]").TextContent));
-        Assert.Empty((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
+        band.WaitForAssertion(() => Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]")));
+        var item = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
+        Assert.Empty(item.RepositoryAliases);
+        band.WaitForAssertion(() => Assert.Contains("Not started yet", band.Markup));
     }
 
     [Fact]

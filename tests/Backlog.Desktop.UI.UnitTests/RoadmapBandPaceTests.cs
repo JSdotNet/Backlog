@@ -22,20 +22,22 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// to one redrawing every bar still sized by its effort, each at its own pace
 /// (ruling 5 as amended).
 /// <para>
-/// A repository's band carries that repository's paces. Work filed under no configured
-/// repository is not drawn, so no band carries the default ones.
+/// A repository's band carries that repository's paces. The no-repository band carries
+/// the default ones, measured over all finished work.
 /// </para>
 /// </summary>
 public sealed class RoadmapBandPaceTests : RoadmapBandHarness
 {
+    private const string Default = "default";
+
     // --- Where the paces are ------------------------------------------------------
 
     [Fact]
     public async Task Mine_is_typed_once_in_the_heading_and_each_band_carries_its_measured_pace()
     {
-        Configure("JSdotNet/Backlog", "JSdotNet/Site");
+        Configure("JSdotNet/Backlog");
         await ImportedAsync("plan-a", "backlog");
-        await ImportedAsync("plan-b", "site");
+        await UnderNoRepositoryAsync("plan-b");
 
         using var context = Context();
         var band = Banded(context);
@@ -67,12 +69,12 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
     }
 
     [Fact]
-    public async Task Each_repository_band_carries_its_own_pace_and_the_dates_band_none()
+    public async Task Each_repository_band_and_the_no_repository_band_carry_a_pace_and_the_dates_band_none()
     {
         Configure("JSdotNet/Backlog", "JSdotNet/Site");
         await ImportedAsync("plan-a", "backlog");
         await ImportedAsync("plan-b", "site");
-        await UnfiledAsync("plan-c");
+        await UnderNoRepositoryAsync("plan-c");
         _ = await Planning.AddMilestoneAsync("1.0", PaceToday.AddDays(30), cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
@@ -80,12 +82,23 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
 
         Assert.NotNull(band.Find("[data-testid='roadmap-timeline-group-backlog-content'] [data-testid='roadmap-pace-backlog']"));
         Assert.NotNull(band.Find("[data-testid='roadmap-timeline-group-site-content'] [data-testid='roadmap-pace-site']"));
+        Assert.NotNull(band.Find("[data-testid='roadmap-timeline-group-no-repository-content'] [data-testid='roadmap-pace-default']"));
         Assert.Empty(band.FindAll("[data-testid='roadmap-timeline-group-milestones-content']"));
+    }
 
-        // Work filed under no repository draws no band, so nothing in the chart carries
-        // the default pace: Mine in the heading is the only pace not a repository's.
-        Assert.Empty(band.FindAll("[data-testid='roadmap-timeline-group-unfiled']"));
-        Assert.Empty(band.FindAll("[data-testid='roadmap-pace-default']"));
+    [Fact]
+    public async Task The_no_repository_band_carries_the_default_pace_with_nothing_filed_there()
+    {
+        // The band stands on every chart, empty or not, and so does the pace a plan
+        // placed in it would be drawn at.
+        Configure("JSdotNet/Backlog");
+        await ImportedAsync("plan-a", "backlog");
+
+        using var context = Context();
+        var band = Banded(context);
+
+        Assert.NotNull(band.Find("[data-testid='roadmap-timeline-group-no-repository-content'] [data-testid='roadmap-pace-default']"));
+        Assert.Equal("7 pt/wk", ValueText(band, Default));
     }
 
     [Fact]
@@ -231,19 +244,21 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
     }
 
     [Fact]
-    public async Task A_repositorys_pace_counts_only_its_own_finished_work()
+    public async Task The_default_pace_counts_all_finished_work_and_a_repository_only_its_own()
     {
         Configure("JSdotNet/Backlog", "JSdotNet/Site");
         Finished.Add(new CompletedEffortDto(PaceToday, 14) { RepositoryAliases = ["backlog"] });
-        Finished.Add(new CompletedEffortDto(PaceToday, 28)); // filed nowhere: no band's
+        Finished.Add(new CompletedEffortDto(PaceToday, 28));
         await ImportedAsync("plan-a", "backlog");
         await ImportedAsync("plan-b", "site");
+        await UnderNoRepositoryAsync("plan-c");
 
         using var context = Context();
         var band = Banded(context);
 
         band.WaitForAssertion(() =>
         {
+            Assert.Contains("last 2 weeks 21 pt/wk", Hint(band, Default), StringComparison.Ordinal); // 42 over 2 weeks
             Assert.Contains("last 2 weeks 7 pt/wk", Hint(band, "backlog"), StringComparison.Ordinal);
 
             // Site finished nothing of its own, so it places by Mine.
@@ -555,6 +570,48 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         });
     }
 
+    [Fact]
+    public async Task The_no_repository_bands_slider_writes_the_headings_typed_pace()
+    {
+        await UnderNoRepositoryAsync("plan-a");
+
+        using var context = Context();
+        var band = Banded(context);
+
+        Slider(band, Default).Change("10");
+
+        Assert.Equal(10m, PaceFile.StoryPointsPerWeek);
+        Assert.Equal(PaceSource.Set, PaceFile.Source);
+        band.WaitForAssertion(() => Assert.Equal("10", Manual(band).GetAttribute("value")));
+    }
+
+    [Fact]
+    public async Task Moving_the_no_repository_bands_slider_leaves_a_measuring_lane_as_it_was()
+    {
+        Configure("JSdotNet/Backlog");
+        Finished.Add(new CompletedEffortDto(PaceToday, 6) { RepositoryAliases = ["backlog"] }); // 3 a week
+        await ImportedAsync("plan-a", "backlog");
+        await UnderNoRepositoryAsync("plan-b");
+
+        using var context = Context();
+        var band = Banded(context);
+
+        // Within the default line, which runs from what all the work measured (3) to Mine (7).
+        Slider(band, Default).Change("5");
+        band.WaitForAssertion(() => Assert.Equal("5", Manual(band).GetAttribute("value")));
+
+        // The default band's figure is the heading's; it is nobody else's pace to place by.
+        Assert.Equal(PaceSource.Manual, PaceFile.SourceFor("backlog"));
+        band.WaitForAssertion(() =>
+        {
+            Assert.Equal("3 pt/wk", ValueText(band, "backlog"));
+            Assert.Equal("3", Slider(band, "backlog").GetAttribute("value"));
+            Assert.Equal("true", Measured(band, "backlog").GetAttribute("aria-pressed"));
+            Assert.Contains("measured over 2 weeks", Hint(band, "backlog"), StringComparison.Ordinal);
+            Assert.DoesNotContain("set by hand", Hint(band, "backlog"), StringComparison.Ordinal);
+        });
+    }
+
     // --- A pace change redraws the bars sized by effort -------------------------
 
     [Fact]
@@ -574,6 +631,25 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
 
         // 14 points at 14 a week is a working week, from the same start.
         band.WaitForAssertion(() => Assert.Equal((plan.Start, 7), DrawnWindow(band, plan.Id)));
+    }
+
+    [Fact]
+    public async Task Moving_the_default_slider_redraws_a_plan_under_no_repository()
+    {
+        Finished.Add(new CompletedEffortDto(PaceToday, 56)); // 28 a week over two weeks, 7 over eight
+        var plan = await UnderNoRepositoryAsync("plan-a");
+
+        using var context = GatheringContext(14);
+        var band = Banded(context);
+
+        // Two weeks is in use until a pace is set: 14 points at 28 a week is half a
+        // working week, Friday to Tuesday.
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 5), DrawnWindow(band, plan.Id)));
+
+        Slider(band, Default).Change("7");
+
+        // 14 points at 7 a week is two working weeks.
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 14), DrawnWindow(band, plan.Id)));
     }
 
     [Fact]
@@ -760,7 +836,7 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         return await StoredAsync(tag);
     }
 
-    private async Task<RoadmapItemDto> UnfiledAsync(string tag)
+    private async Task<RoadmapItemDto> UnderNoRepositoryAsync(string tag)
     {
         var imported = await Planning.ImportPlanItemsAsync(
             [new PlanImportEntryDto("Plan", tag, RepositoryAliases: [])],

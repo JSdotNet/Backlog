@@ -78,6 +78,30 @@ public sealed class RoadmapTimelineTests
     private static string Announcement(IRenderedComponent<RoadmapTimeline> view) =>
         view.Find("[data-testid='rm-announcement']").TextContent;
 
+    // --- Band names ----------------------------------------------------------
+
+    [Fact]
+    public void An_unnamed_band_shows_no_name_but_still_names_its_rows_to_a_reader()
+    {
+        using var context = new BunitContext();
+        IReadOnlyList<RoadmapGroup> plan = [Plan[0] with { Unnamed = true }, Plan[1]];
+
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var view = context.Render<RoadmapTimeline>(parameters => parameters
+            .Add(timeline => timeline.Groups, plan)
+            .Add(timeline => timeline.Bars, Work)
+            .Add(timeline => timeline.Milestones, Moments)
+            .Add(timeline => timeline.Window, Q1)
+            .Add(timeline => timeline.TestId, "rm"));
+
+        var names = view.FindAll(".roadmap-timeline__group-name").Select(name => name.TextContent.Trim()).ToList();
+        Assert.DoesNotContain("Delivery", names);
+        Assert.Contains("Dates", names);
+        Assert.Contains(
+            view.FindAll(".roadmap-timeline__group-rows p"),
+            row => row.GetAttribute("title")?.StartsWith("Delivery", StringComparison.Ordinal) == true);
+    }
+
     // --- Where a date lands ---------------------------------------------------
 
     [Fact]

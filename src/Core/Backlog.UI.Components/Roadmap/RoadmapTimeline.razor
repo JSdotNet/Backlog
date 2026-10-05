@@ -1029,7 +1029,7 @@
                 <p class="@RowNameClass(placed)"
                    style="height: @Rem(Geometry.RowHeightRem)"
                    title="@(placed.Padding ? null : Context(placed))">
-                    @if (first)
+                    @if (first && !group.Unnamed)
                     {
                         @* The sidebar is narrow, so a long name is cut short with an
                            ellipsis; the title carries it whole. *@

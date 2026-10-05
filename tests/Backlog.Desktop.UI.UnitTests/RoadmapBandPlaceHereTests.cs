@@ -83,6 +83,32 @@ public class RoadmapBandPlaceHereTests : RoadmapBandHarness
     }
 
     [Fact]
+    public async Task TheNoRepositoryBandFilesNewWorkAgainstNoRepository()
+    {
+        Configure("JSdotNet/Backlog");
+
+        using var context = Context();
+        var band = await PlannedAsync(context);
+
+        // Nothing is filed under no repository, so this is the band's one empty lane.
+        await PlaceAsync(band, new RoadmapSlot($"{RoadmapPlanView.NoRepositoryGroupId}::Planned", Week, RoadmapRowKind.Bars));
+        band.WaitForElement("[data-testid=\"roadmap-editor\"]");
+
+        Assert.Null(band.FindComponent<RoadmapItemEditor>().Instance.Placement!.Repository);
+
+        band.Find("[data-testid=\"roadmap-editor-title\"] input").Input("Next project");
+        band.Find("[data-testid=\"roadmap-editor-save\"]").Click();
+
+        band.WaitForAssertion(() => Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]")));
+
+        var placed = Assert.Single(
+            (await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items,
+            item => item.Title == "Next project");
+        Assert.Equal(Week, placed.Start);
+        Assert.Empty(placed.RepositoryAliases);
+    }
+
+    [Fact]
     public async Task ADoubleClickOnTheDatesRowOpensTheDateEditorOnThatWeek()
     {
         Configure("JSdotNet/Backlog");
