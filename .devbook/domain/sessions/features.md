@@ -275,8 +275,14 @@ arrived as the whole picture.
 type: sub-feature
 ```
 
-When one agent's records cannot be read — never installed, or not readable by this
-user — the other agent's sessions are still shown and the unreadable one is named.
+When one agent's records are there but cannot be read, because this user may not
+read them or reading them fails, the other agent's sessions are still shown and the
+unreadable one is named.
+
+An agent that was never installed is not unreadable. A machine with only one agent
+installed is the ordinary case, so the absent agent is an empty source and is not
+named. Naming it would put a permanent warning on every machine that has never run
+that agent.
 
 "No Copilot sessions" and "Copilot could not be read" are different facts, and only
 one of them is worth investigating.
