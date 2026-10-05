@@ -1856,9 +1856,10 @@
     /// </summary>
     private IEnumerable<(RoadmapMilestone Milestone, RoadmapGroup Group, int First, int Last)> BandRules =>
         from milestone in MilestoneList
-        where !milestone.Line && milestone.Bands is { Count: > 0 } && Span.Contains(milestone.On)
+        let bands = milestone.Bands ?? []
+        where !milestone.Line && bands.Count > 0 && Span.Contains(milestone.On)
         from band in Rows.GroupBy(placed => placed.Group)
-        where milestone.Bands.Any(id => Is(id, band.Key.Id))
+        where bands.Any(id => Is(id, band.Key.Id))
         select (milestone, band.Key, band.Min(placed => placed.Index), band.Max(placed => placed.Index));
 
     private RoadmapBar? Bar(string id) => BarList.FirstOrDefault(bar => Is(bar.Id, id));
