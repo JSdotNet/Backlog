@@ -32,18 +32,21 @@ since the desktop channel now uses the same framework
 ## Local Offline Store
 
 ```meta
-status: candidate
+status: adopted
 type: library
-depends-on: [".devbook/tech/shared.md#json"]
-related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/tech/desktop.md#local-task-store"]
-alternatives: ["SQLite"]
+depends-on: [".devbook/tech/shared.md#sqlite", ".devbook/tech/shared.md#microsoftdatasqlite", ".devbook/tech/shared.md#json"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/tech/desktop.md#local-task-store"]
+alternatives: ["JSON files on the device"]
 ```
 
-One SQLite file on the device, `SqliteDeviceStore` in `Backlog.Mobile.UI`, for
-work made while offline.
+One SQLite file on the device, written through Microsoft.Data.Sqlite, for work
+made while offline. Two stores in `Backlog.Mobile.UI` share it, each with its
+own tables.
 
-- **Used for** — the outbox of captures and tasks waiting for the next sync
-  flush, and the cached reads the phone draws before it asks the service.
+- **Used for** — `SqliteDeviceStore` holds the outbox of captures and tasks
+  waiting for the next sync flush, and the cached inbox the phone draws before
+  it asks the service; `SqliteTaskViewStore` holds the task view, the phone's
+  projection of the task feed.
 - **Why** — mobile is not canonical, so it only needs a durable queue plus a
   cache, not the whole task database; it keeps a schema of its own rather than
   sharing the desktop's adapter.

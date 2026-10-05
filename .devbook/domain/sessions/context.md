@@ -37,3 +37,15 @@ machines ran. Two agents run on them now, and "which agent, in which repository,
 how long" is a different question in a different language from "how is this PC
 configured" — so the subject moved out to here and Dev PC Management stopped
 modelling it.
+
+## Sessions area
+
+```meta
+status: draft
+type: feature-flag
+key: sessions
+default: on
+related: [".devbook/domain/sessions/features.md#turn-the-area-off"]
+```
+
+Turning it on shows the Sessions segment and its list in the Home shell. Switching it off withdraws the area everywhere else too: the `list_sessions` tool and the eight delivery-surface operations leave the MCP endpoint, and the dashboard's hours worked and the roadmap's actual hours stop reading agent activity. On by default and marked `DEV`. The key is `SessionFeatures.Sessions` in the Sessions module; the string is unchanged from when it lived on `DevPcFeatures`, so nobody's switched-off area came back. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the Sessions area leaves `DEV`.

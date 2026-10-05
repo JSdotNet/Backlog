@@ -6,7 +6,7 @@
 ## Container View
 
 ```meta
-related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/domain/context-map.md"]
+related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/domain/context-map.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 ```
 
 Container boundaries below are the deployable/runtime split; the domains they
@@ -15,6 +15,10 @@ Monitoring, Technology Stack, Dev PC Management, Sessions, Repository Management
 `.devbook/domain/context-map.md` and each context's own `.devbook/domain/<context>/domain.md` —
 this view does not restate domain responsibilities.
 
+The desktop's canonical store is one SQLite database, `backlog.db` (local ADR 0003);
+a task's content is markdown text held in it. The cloud keeps the replica in Cosmos DB
+(local ADR 0005) and attachments in a Blob container beside it (local ADR 0014).
+
 ```mermaid
 C4Container
     title Container Diagram — Prompt Backlog
@@ -22,31 +26,37 @@ C4Container
     Person(user, "ME", "Personal owner of the system")
 
     System_Boundary(b0, "Prompt Backlog") {
-        Container(desktop, "Desktop App", ".NET MAUI Blazor Hybrid, Markdown + JSON", "Local-first Windows client — runs all fetch workers and manages all domains")
+        Container(desktop, "Desktop App", ".NET MAUI Blazor Hybrid, SQLite", "Local-first Windows client — runs all fetch workers and manages all domains")
         Container(mobile, "Mobile App", ".NET MAUI / Blazor Hybrid, JSON", "Capture-first mobile client with offline storage")
         Container(ide, "IDE Extensions", "TypeScript / C#", "VS Code, Visual Studio, and GitHub Copilot App integrations")
         Container(cloud, "Cloud Service", ".NET / ASP.NET Core", "Thin optional sync layer: device sync, webhook forwarding, push, PC registry")
-        ContainerDb(localStore, "Local Storage", "Markdown files, JSON", "Desktop canonical data store — markdown is source of truth")
-        ContainerDb(cloudDb, "Cloud Database", "Cosmos DB / PostgreSQL", "Sync state, webhook events, machine registry")
+        ContainerDb(localStore, "Local Storage", "SQLite (backlog.db)", "Desktop canonical data store — tasks, inbox and roadmap plans; task content is markdown text in the database")
+        ContainerDb(cloudDb, "Cloud Database", "Cosmos DB", "Sync state, webhook events, machine registry")
+        ContainerDb(attachments, "Attachments", "Azure Blob Storage, container attachments", "Capture attachments, owner-scoped, beside the replica")
     }
 
     System_Ext(github, "GitHub", "Issues and webhooks")
     System_Ext(pushProvider, "Push Provider", "FCM")
     System_Ext(externalSources, "External Sources", "YouTube, Email, Websites / RSS")
+    System_Ext(azureFoundry, "Azure AI Foundry", "Chat, embeddings and plan drafting; resource cost")
+    System_Ext(claude, "Claude", "Usage and cost reporting")
 
     Rel(user, desktop, "Uses — capture, backlog, knowledge, monitoring", "local")
     Rel(user, mobile, "Captures on mobile", "touch / voice")
     Rel(user, ide, "Browses backlog and knowledge; captures from IDE and Copilot sessions", "IDE commands / session prompts")
 
-    Rel(desktop, localStore, "Reads and writes", "file system")
+    Rel(desktop, localStore, "Reads and writes", "SQLite")
     Rel(desktop, github, "Syncs issues", "HTTPS / gh CLI")
     Rel(desktop, externalSources, "Polls for new content", "HTTPS / IMAP")
     Rel(desktop, cloud, "Pushes state snapshots", "HTTPS, optional")
+    Rel(desktop, azureFoundry, "Drafts plans and reads cost", "HTTPS, optional")
+    Rel(desktop, claude, "Reads usage", "HTTPS, optional")
 
     Rel(mobile, cloud, "Syncs items and pulls state", "HTTPS")
-    Rel(ide, desktop, "Reads backlog and knowledge", "local API / file system")
+    Rel(ide, cloud, "Reads and posts inbox items", "HTTPS /api/sync/inbox")
 
     Rel(cloud, cloudDb, "Reads and writes sync state", "")
+    Rel(cloud, attachments, "Stores and serves attachments", "Blob SDK")
     Rel(cloud, pushProvider, "Sends notifications", "HTTPS")
     Rel(cloud, github, "Receives webhooks", "HTTPS")
     Rel(cloud, desktop, "Forwards webhook events", "SSE / WebSocket, optional")
@@ -157,7 +167,7 @@ flowchart TB
 ## Desktop App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
+related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md"]
 ```
 
 Local-first Windows client. Serves Capture, Inbox, Tasks, Roadmap Planning, Devbook, Monitoring, Technology Stack, Dev PC Management, Sessions, and Repository Management. It runs in two seamless modes,
@@ -165,69 +175,111 @@ Local-first Windows client. Serves Capture, Inbox, Tasks, Roadmap Planning, Devb
 
 ```mermaid
 graph TB
-  subgraph "Desktop App"
-    UI["UI Layer\n(.NET MAUI Blazor Hybrid)"]
+  McpCallers["MCP clients\n(agents, IDE extensions)"]
 
-    subgraph "Core Services"
-      Inbox["Inbox Service\n(capture, triage)"]
-      Backlog["Backlog Service\n(browse, edit, route)"]
-      Devbook["Devbook Service\n(organize, link)"]
-      Monitoring["Monitoring Service\n(signals, dashboards)"]
+  subgraph "Desktop App (Backlog.Desktop)"
+    Shell["Shell UI — Backlog.Desktop.UI\n(.NET MAUI Blazor Hybrid, Ask AI panel)"]
+
+    subgraph "Module UIs"
+      TasksUI["Backlog.Modules.Tasks.UI"]
+      InboxUI["Backlog.Modules.Inbox.UI"]
+      RoadmapUI["Backlog.Modules.Roadmap.UI"]
+      DevbookUI["Backlog.Modules.Devbook.UI"]
+      DashboardUI["Backlog.Modules.Dashboard.UI"]
+      CaptureUI["Backlog.Modules.Capture.UI"]
+      ToolsUI["Backlog.Modules.DevPc.UI\n(Tools)"]
+      SessionsUI["Backlog.Modules.Sessions.UI"]
     end
 
-    subgraph "Local Fetch Workers"
-      YTWorker["YouTube Fetcher\n(poll subscriptions)"]
-      WebWorker["Website Monitor\n(RSS, DOM diff)"]
-      EmailWorker["Email Fetcher\n(IMAP polling)"]
-      GitHubWorker["GitHub Sync\n(gh CLI / API)"]
-      StaleWorker["Stale Detection\n(flag old items)"]
+    subgraph "Modules"
+      Tasks["Backlog.Modules.Tasks"]
+      Inbox["Backlog.Modules.Inbox"]
+      Roadmap["Backlog.Modules.Roadmap"]
+      Dashboard["Backlog.Modules.Dashboard"]
+      Capture["Backlog.Modules.Capture"]
     end
 
-    subgraph "Infrastructure"
-      LocalStore["Local Storage\n(Markdown files)"]
-      JsonIndex["JSON Indexes\n(metadata, search)"]
-      SyncClient["Sync Client\n(optional)"]
+    subgraph "Background workers"
+      SyncWorkers["TaskSyncWorker, SessionSyncWorker,\nAnnotationSyncWorker"]
+      BackupWorker["BackupWorker"]
+      McpWorker["McpServerWorker"]
+    end
+
+    subgraph "Adapters (Backlog.Infrastructure.*)"
+      Sqlite["Infrastructure.Sqlite\n(backlog.db: tasks, roadmap,\ninbox_items, inbox_lists, inbox_groups)"]
+      FileSystem["Infrastructure.FileSystem\n(InboxBacklogTarget, backups)"]
+      DevbookInfra["Infrastructure.Devbook\n(devbook database in app storage)"]
+      SyncClient["Infrastructure.Sync\n(Sync Client, optional)"]
+      Mcp["Infrastructure.Mcp\n(MCP server, loopback only)"]
+      CaptureInfra["Infrastructure.Capture\n(YouTube, Website / Feeds, Import\n→ InboxCaptureDelivery)"]
+      Foundry["Infrastructure.AzureFoundry\n(IInboxPlanDrafter, Ask AI)"]
+      Claude["Infrastructure.Claude"]
+      Copilot["Infrastructure.Copilot"]
+      GitHubInfra["Infrastructure.GitHub"]
+      DevPcInfra["Infrastructure.DevPc"]
+      SessionsInfra["Infrastructure.Sessions"]
     end
   end
 
   SyncAPI["Cloud Sync API\n(optional)"]
   GitHub["GitHub API"]
-  YouTube["YouTube API"]
-  Websites["Websites / RSS"]
-  Email["Email (IMAP)"]
-  AppInsights["Application Insights"]
+  Sources["YouTube, websites / feeds,\nimport manifests"]
+  FoundryApi["Azure AI Foundry"]
 
-  UI --> Inbox
-  UI --> Backlog
-  UI --> Devbook
-  UI --> Monitoring
+  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & DashboardUI & CaptureUI & ToolsUI & SessionsUI
+  Shell --> Foundry & Claude & GitHubInfra & FileSystem & SyncClient & Mcp
 
-  Inbox --> LocalStore
-  Backlog --> LocalStore
-  Devbook --> LocalStore
-  Monitoring --> LocalStore
+  TasksUI -->|Abstractions| Tasks
+  InboxUI -->|Abstractions| Inbox
+  RoadmapUI -->|Abstractions| Roadmap
+  DashboardUI -->|Abstractions| Dashboard
+  CaptureUI -->|Abstractions| Capture
+  ToolsUI -->|DevPc.Abstractions| DevPcInfra
+  SessionsUI -->|Sessions.Abstractions| SessionsInfra
 
-  Inbox --> JsonIndex
-  Backlog --> JsonIndex
-  Devbook --> JsonIndex
+  TasksUI --> Copilot & GitHubInfra
+  RoadmapUI --> GitHubInfra
+  DevbookUI --> DevbookInfra & Copilot & GitHubInfra
 
-  YTWorker --> YouTube
-  WebWorker --> Websites
-  EmailWorker --> Email
-  GitHubWorker --> GitHub
+  Tasks --> Sqlite
+  Roadmap --> Sqlite
+  Inbox --> Sqlite
+  Inbox -->|IInboxBacklogTarget| FileSystem
+  FileSystem -->|ITaskItems| Tasks
+  Inbox -->|IInboxPlanDrafter| Foundry
+  Claude -->|Dashboard.Abstractions| Dashboard
 
-  YTWorker --> Inbox
-  WebWorker --> Inbox
-  EmailWorker --> Inbox
-  GitHubWorker --> Backlog
+  Capture -->|ICaptureDelivery| CaptureInfra
+  CaptureInfra --> Sources
+  CaptureInfra -->|IInboxIntake| Inbox
 
-  SyncClient -.->|push state| SyncAPI
-  SyncAPI -.->|webhook events| SyncClient
-  Monitoring --> AppInsights
+  SyncWorkers --> SyncClient
+  SyncClient -->|captures via IInboxIntake| Inbox
+  SyncClient -.->|push / pull| SyncAPI
+  BackupWorker --> FileSystem
+
+  McpCallers -->|HTTP on 127.0.0.1 / ::1| Mcp
+  McpWorker --> Mcp
+  Mcp --> Tasks & Roadmap & DevbookInfra & SessionsInfra
+
+  GitHubInfra --> GitHub
+  Foundry --> FoundryApi
 ```
 
-Local fetch workers keep external credentials on the machine, work offline (queuing
-fetches), and give the user full control over frequency and retry behavior.
+Capture sources and background workers run inside the desktop process, so external
+credentials stay on the machine. `MauiProgram` starts the sync, backup and MCP
+workers at launch.
+
+**MCP server** is `Backlog.Infrastructure.Mcp`, hosted by `McpServerWorker` on its
+own Kestrel listener bound to `127.0.0.1` and `::1` and never to a wildcard address
+(local ADR 0012). Agents and IDE extensions on the same machine reach Tasks, Roadmap,
+Devbook and Sessions through it; `McpServerRegistrationTests` holds the binding.
+
+Module UI projects reference adapters directly where a pane needs one: Tasks.UI and
+Devbook.UI reference Copilot and GitHub, Roadmap.UI references GitHub, and Devbook.UI
+references `Backlog.Infrastructure.Devbook`, whose database lives in app storage
+(local ADR 0015). `ModuleBoundaryTests` permits a module UI to take an adapter and
+forbids it another module's implementation.
 
 **Inbox Service** is `Backlog.Modules.Inbox` since 2026-09-15 — a module with its
 own `Abstractions` project and its own tables in `backlog.db` (`inbox_items`,
@@ -374,70 +426,73 @@ other — is not a supported path and corrupts the store; see
 ## IDE Extensions
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#ide-context-aware-capture", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture"]
+related: [".devbook/arc42/06-runtime-view.md#ide-context-aware-capture", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/tech/ide.md#vs-code-extension-api"]
 ```
-
-Repo-aware integrations for VS Code and Visual Studio, plus GitHub Copilot App sessions
-running one local agent process per worktree. These hosts serve Inbox (capture intake),
-Tasks, and Devbook browsing. Packaging and host APIs are architecture
-concerns; domain lifecycle rules stay with the owning domains.
-
-The GitHub Copilot App path is a peer IDE-class host, not a new container: it reuses
-the same local capture/query services and local markdown + API paths already used by
-the desktop and extension adapters.
 
 ```mermaid
-graph TB
-  subgraph "VS Code Extension"
-    UI["Webview UI\n(React / Vue)"]
-    Commands["Commands & Context\n(Menus, Keybindings)"]
-    ExtAPI["Extension API\n(Repo context, File selection)"]
+graph LR
+  subgraph "VS Code extension (Backlog.Ide.VsCode)"
+    Tree["backlogInbox\n(explorer tree view)"]
+    Refresh["backlog.refreshInbox"]
+    Capture["backlog.capture\n(selection to title)"]
   end
 
-  subgraph "Visual Studio Extension"
-    VSUI["WPF UI\n(Tool Windows)"]
-    VSCmd["Commands & Context\n(Context Menu)"]
-    VSAPI["Extension API\n(Project context)"]
+  subgraph "Agent sessions"
+    Claude["Claude Code"]
+    Copilot["GitHub Copilot"]
   end
 
-  subgraph "Shared Services"
-    Capture["Capture Service\n(Selection to Item)"]
-    Browse["Backlog Browser\n(Repo-scoped queries)"]
-    KnowBrowser["Devbook Browser\n(Search & links)"]
-  end
+  Sync["Sync service\n(/api/sync/inbox at backlog.cloudUrl)"]
+  Mcp["MCP server in the desktop app\n(Backlog.Infrastructure.Mcp)"]
 
-  API["Backend API\n(REST + Auth)"]
-  LocalStore["Local Markdown\n(Cache)"]
-
-  UI --> Capture
-  UI --> Browse
-  UI --> KnowBrowser
-  Commands --> ExtAPI
-  ExtAPI -->|Repo context| Capture
-
-  VSUI --> Capture
-  VSUI --> Browse
-  VSCmd --> VSAPI
-  VSAPI -->|Project context| Capture
-
-  Capture --> LocalStore
-  Browse --> API
-  KnowBrowser --> API
-  Capture -->|Sync| API
+  Refresh --> Tree
+  Tree -->|"GET /api/sync/inbox"| Sync
+  Capture -->|"POST /api/sync/inbox"| Sync
+  Claude -->|"Streamable HTTP, loopback"| Mcp
+  Copilot -->|"Streamable HTTP, loopback"| Mcp
 ```
 
-Note: this capture-channel integration is distinct from Dev PC Management
-`Copilot Session Tracking`. Tracking records active/archived session lifecycle for
-compliance/monitoring; capture uses session context to create backlog/knowledge items.
+Two kinds of editor-side client reach Backlog, and they take different paths. The VS Code
+extension talks to the sync service. Claude Code and GitHub Copilot sessions talk to the
+desktop app through its MCP server. Domain lifecycle rules stay with the owning domains.
+
+The VS Code extension, `Backlog.Ide.VsCode`, serves the Inbox (capture intake). It adds one
+explorer tree view, `backlogInbox`, and two commands:
+
+- `backlog.refreshInbox` reloads the tree, which lists the captures from `GET /api/sync/inbox`.
+- `backlog.capture` turns the editor selection into a title and sends it to
+  `POST /api/sync/inbox` with the source `vscode`.
+
+The extension reads the service's base URL from the `backlog.cloudUrl` setting. Local ADR
+0009 fixes the shape of both calls. Local ADR 0005 is why the extension goes to the sync
+service rather than to the desktop's files: only the service can serve an editor on a second
+machine. The extension has no webview and keeps no local cache.
+
+The extension is a TypeScript project outside `Backlog.sln`. In development the AppHost
+hosts it through two explicit-start resources. `ide-vscode-build` runs `npm run watch`, and
+`ide-vscode-host` opens a VS Code Extension Development Host with the extension side-loaded.
+`.devbook/tech/ide.md#vs-code-extension-api` has the detail.
+
+Agent sessions are IDE-class hosts, not a container of their own. Local ADR 0012 has them
+call the MCP server that runs inside the desktop app, `Backlog.Infrastructure.Mcp`. Its tools
+read and change the desktop's own store: tasks, the roadmap, devbook chapters and their
+remarks, sessions and delivery runs.
+
+Visual Studio has no extension yet, and no project exists for it. `.devbook/tech/ide.md`
+lists Visual Studio extensibility and a VS Code webview UI as candidates.
+
+This capture channel is distinct from Dev PC Management `Copilot Session Tracking`. Tracking
+records active and archived session lifecycle for compliance and monitoring. Capture uses
+session context to create backlog and knowledge items.
 
 ## Cloud Service
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
+related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 ```
 
 The **thin cloud** `.devbook/arc42/12-glossary.md` defines — deliberately not the backbone. It coordinates
-device sync, receives and forwards GitHub webhooks, sends push notifications, and hosts a Remote PC registry / Wake-on-LAN relay. It stores minimal, mostly TTL-based state — never domain data or external credentials.
+device sync, receives and forwards GitHub webhooks, sends push notifications, and hosts a Remote PC registry / Wake-on-LAN relay. It persists only sync-oriented state, much of it TTL-based, and never the canonical domain data or external credentials (local ADR 0005).
 
 "Cloud Service" names where this container runs; the code is named after what it
 does. It is implemented by `src/Modules/Sync/Backlog.Modules.Sync.Api` and appears
@@ -461,6 +516,27 @@ served from the same project against two more containers, `devices` and
 `pairingCodes`, so a registration survives a restart of the service; the module's
 in-memory adapters remain for the endpoint tests and for a run with no Cosmos
 configured.
+
+Two more replicas take the task replica's shape. The module declares
+`ISessionReplica` and `IAnnotationReplica` in its `Ports`, each with an
+in-memory stand-in in its `Adapters`. `Backlog.Infrastructure.Cosmos`
+implements them against the `sessions` and `annotations` containers (local
+ADRs 0005 and 0011). The API head serves each as one route,
+`/api/sync/sessions` and `/api/sync/annotations`. A device pushes a batch with
+`POST` and pulls the owner's feed from a cursor with `GET`, as it does on
+`/api/sync/tasks`.
+
+Captures have no container of their own. A capture is a document kind in the
+`tasks` container, and the module writes it through `ITaskReplica` (local ADR
+0009). A device posts a capture to `/api/sync/inbox`, the desktop lists the
+owner's waiting captures from the same route, and it acknowledges one with
+`POST /api/sync/inbox/{id}/ack`. The session, annotation and inbox routes sit
+behind the same paired-device authorization, owner-scope and replica-fault
+filters as every other sync route.
+
+The Cosmos database therefore holds five containers. `tasks`, `sessions` and
+`annotations` are partitioned on the owner, and `devices` and `pairingCodes`
+on their own id.
 
 Attachment bytes take the same shape with a fifth project (local ADR 0014): the
 module declares an `IAttachmentStore` port beside `ITaskReplica`, with an
@@ -488,7 +564,7 @@ flowchart TB
       NotificationService["Notification Service\n(Push to Phone)"]
     end
     subgraph "Data Layer"
-      DB["Cloud Database\n(Sync state only)"]
+      DB["Cosmos DB (sync state only)\ntasks, sessions, annotations,\ndevices, pairingCodes"]
       Blobs["Attachment Store\n(capture files, 30-day backstop)"]
     end
   end
@@ -520,7 +596,7 @@ Cloud components:
 | Component | Responsibility |
 |---|---|
 | **API Gateway & Auth** | Minimal REST surface; GitHub OAuth for webhook registration; JWT device sessions; rate limiting. |
-| **Sync Service** | The only domain-aware service; stores sync *state* (not domain data); delta push/pull, conflict listing/resolution. |
+| **Sync Service** | The only domain-aware service; stores sync *state*, never the canonical domain data; delta push/pull of the task, session and annotation replicas, the capture inbox, and attachments; conflict listing/resolution. |
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
 | **Notification Service** | Push to phone (FCM); SSE/WebSocket to desktop for real-time forwarding. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |

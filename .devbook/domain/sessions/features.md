@@ -77,6 +77,43 @@ different reason — a record carries no liveness marker whichever agent wrote i
 so it too falls out of this view once it has been quiet long enough. See
 `.devbook/domain/sessions/features.md#sessions-from-another-machine`.
 
+### Narrow to one machine
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#environment, .devbook/domain/sessions/features.md#group-by-environment]
+```
+
+A machine filter sits beside `Live` / `All` and opens on "All machines". Choosing a
+machine keeps only the rows that machine gathered, and the count beside the title
+names both numbers — "1 of 4 sessions" — so the rows on the other machines are
+counted rather than forgotten. It composes with the view: `Live` on one machine is
+the running and stalled sessions there and nothing else.
+
+A list rather than a row of buttons, because the options are however many machines
+have reported, which is not this list's decision. An option is offered exactly when
+there are rows behind it, named and ordered the way Group by environment names its
+sections, so the two cannot disagree. Like the view, it is not remembered: every open
+starts on "All machines".
+
+### Open on the session a task names
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#narrow-to-one-machine]
+```
+
+A task that names a session opens the list on that session. Its row is marked, the
+focus moves to it, and its runs show, because a task that names a session is usually
+asking about the run it drove. When the view or the machine filter would hide the
+row, both widen — to `All` and "All machines" — rather than answer with a list the
+session is missing from. They widen once: re-reading the list does not undo what the
+reader narrowed since.
+
+The shell's repository scope is left alone, because it is the shell's. A session
+outside it is said out loud instead, and so is a session this machine has no record
+of, rather than a list with no row marked.
+
 ### Only what the agent recorded
 
 ```meta
@@ -87,8 +124,8 @@ related: [.devbook/domain/sessions/domain.md#working-location]
 Each session shows what its own agent wrote down and no more. The agents disagree
 about one field of the two — Copilot names the repository and the branch, Claude
 names the branch and never the repository — so a Claude row shows its branch and
-reads "not recorded" where its repository would be, visibly rather than blankly,
-while a Copilot row shows both.
+an em dash where its repository would be, visibly rather than blankly, while a
+Copilot row shows both.
 
 The alternative was inferring the missing repository from the working folder. A
 wrong repository attributed to a session renders exactly as convincingly as a right
@@ -100,7 +137,7 @@ agent recorded none and the folder was placed inside a registered clone. This is
 not the inference above: it is not read off the path but looked up against the
 clone directory the person registered (`.devbook/domain/sessions/domain.md#working-location`).
 A recorded repository always outranks it in the cell, and a session with neither
-still reads "not recorded". The repository scope in the shell's header admits a
+still shows an em dash. The repository scope in the shell's header admits a
 session by either — which is what makes a scoped list able to hold the Claude
 sessions running in that repository's clone — and its narrowing sentence names
 both terms, so a Claude session missing from a scoped list is understood as one
@@ -138,12 +175,15 @@ same list rather than a panel of its own — somebody running agents on a deskto
 and a laptop has one set of sessions on two boxes, not two inventories to check
 in turn.
 
-Off until it is switched on, and switched on separately from anything else that
-syncs. A record of what the assistants have been doing is the kind of thing a
-person agrees to let off a machine rather than finds out has left it, and wanting
-the same backlog on two machines is a different wish from wanting that — so it is
-a switch of its own, and it starts off. Until it is on, this is the list it has
-always been: everything read here and nothing else.
+Off until it is switched on, by the one Sync switch that also turns on pairing and
+the tasks' sync, and that starts off. A record of what the assistants have been
+doing is the kind of thing a person agrees to let off a machine rather than finds
+out has left it. Until 2026-09-14 that argued for a separate flag; the switches
+were folded into one because the question a person actually answers is whether this
+machine takes part in sync at all, and the sanitization boundary — only the metadata
+below travels, never the transcript — is what makes that one answer safe to give
+(`.devbook/arc42/08-crosscutting-concepts.md#session-record-sync`). Until it is on,
+this is the list it has always been: everything read here and nothing else.
 
 **A row from elsewhere says less than a row read here, and visibly so.** Only the
 whitelisted metadata travelled — which agent, which machine, which repository and
@@ -275,8 +315,14 @@ arrived as the whole picture.
 type: sub-feature
 ```
 
-When one agent's records cannot be read — never installed, or not readable by this
-user — the other agent's sessions are still shown and the unreadable one is named.
+When one agent's records are there but cannot be read, because this user may not
+read them or reading them fails, the other agent's sessions are still shown and the
+unreadable one is named.
+
+An agent that was never installed is not unreadable. A machine with only one agent
+installed is the ordinary case, so the absent agent is an empty source and is not
+named. Naming it would put a permanent warning on every machine that has never run
+that agent.
 
 "No Copilot sessions" and "Copilot could not be read" are different facts, and only
 one of them is worth investigating.
@@ -346,6 +392,18 @@ calls — and the skill that owned it last. The stages, the token buckets, the g
 the tool activity by category and by MCP server, and the run's own title are behind a
 fold.
 
+Each stage the owner session worked in names that session in the fold. It names the
+model too when the run called exactly one, since then every call in every stage was on
+it; the run file records the models for the run as a whole, never per stage, so with
+more than one the session is named without a model rather than with a guess. A stage
+still pending or skipped names no one, because nobody worked in it.
+
+Where the host can render one, the open fold shows the run's Archify artifact full
+width above the figures, in place of the stage flow. The artifact is produced only
+once the fold opens, and not again when a refresh brings the same stages. Where it
+cannot be produced, for example because Node.js is missing, the fold keeps the stage
+flow and says why.
+
 Under the row rather than in a column, because a run is not a property of a session;
 across every column rather than inside the name cell, because a quarter of the width
 turned each of its parts into three lines while the rest of the row sat empty.
@@ -353,6 +411,26 @@ turned each of its parts into three lines while the rest of the row sat empty.
 Behind a fold, because a run holds ten stages
 and tens of thousands of tool calls, and a row that showed them would be a report with
 a table around it.
+
+### One line for a run two surfaces reported
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#delivery-run]
+```
+
+A flow reports its run to every surface it is bound to, and each surface files it as
+a run of its own. The list shows such a run as one line under its session, because it
+is one piece of work (see [Delivery Run](domain.md#delivery-run)).
+
+Two files are the same run when they name the same skill, come from different
+dashboards and started within five minutes of each other. They must also either sit
+under the same worktree with session ids that agree, or share a session id that both files name.
+Two files from one surface stay two runs, whatever else they share.
+
+The line shows the record of the preferred surface: `delivery-surface-dashboard`, then
+`orch-dashboard`, then `backlog`. Its fold names the surfaces that reported the run, so
+a reader who sees one line where a dashboard shows two knows why.
 
 ### The work a run is linked to
 
@@ -592,10 +670,15 @@ from the session's own `Session State`.
 
 ```meta
 type: feature
+feature-flag: .devbook/domain/sessions/context.md#sessions-area
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_the_sessions_feature_off_there_is_no_segment_and_no_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_remembered_sessions_surface_falls_back_to_the_workspace_when_its_feature_is_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Opening_a_session_from_a_task_with_sessions_switched_off_says_so_and_stays, unit:dotnet:Backlog.HostComposition.UnitTests.McpEndpointGateTests.The_delivery_surface_is_absent_while_its_feature_is_off, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentActivityHoursWorkedSourceTests.With_the_sessions_area_switched_off_the_hours_are_not_read, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapActualHoursTests.With_the_sessions_area_switched_off_the_hours_are_not_read]
 ```
 
 The whole area can be switched off, and when it is there is no way in and nothing to
-find — not a disabled control and not an empty surface.
+find — not a disabled control and not an empty surface. Nothing else reads the
+sessions either: the `list_sessions` tool and the eight delivery-surface operations
+leave the MCP endpoint, and the dashboard's hours worked and the roadmap's actual
+hours stop reading agent activity.
 
 One switch for the area rather than one per column or per grouping, because "should
 this product show me sessions at all" is a single question.

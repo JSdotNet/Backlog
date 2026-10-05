@@ -600,12 +600,21 @@ Builds the list of `Session Row`s from the sessions and the runs: which `Agent
 Session` each `Delivery Run` ran in, and which runs stand on their own. A pure
 function over what it is given, like `Session Grouping`.
 
-Two conditions, and both are needed. **The worktree:** the run's key must equal the
+**Identity first.** A run that names the sessions that drove it, in `sessionIds`,
+joins the first of them the list holds, by identity and with no worktree or window
+test. Where it names sessions and the list holds none of them, it becomes a run-only
+row and is never attached by its worktree: the run said whose it is, and a guess
+would put it on someone else's row.
+
+A run that names no session is matched on its worktree and its window. Two
+conditions, and both are needed. **The worktree:** the run's key must equal the
 key derived from the session's `Working Location` — or from a folder above it, since
 a session may be started below the worktree's top level — compared without regard to
 letter case, because the dashboard slugs git's casing of the leaf and a session
-records the folder as it was launched in. **The window:** that session's `Activity
-Window` must overlap the run's. The worktree alone names a place, and a worktree is
+records the folder as it was launched in. A session with no `Working Location`, a
+replicated record, is matched on the worktree key its record carried, since the folder
+stayed on the machine that ran it and the key travelled. **The window:** that
+session's `Activity Window` must overlap the run's. The worktree alone names a place, and a worktree is
 worked in by several sessions over its life; only the overlap names a time. Where more
 than one session passes both, the one whose start is nearest the run's own wins — the
 session that opened the run started with it. A run whose file does not date its start
@@ -701,13 +710,24 @@ session that then shows an empty list would answer a question nobody asked.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/features.md#session-grouping]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/domain.md#environment, .devbook/domain/sessions/features.md#session-grouping]
 aliases: [AgentSessionGrouping]
 ```
 
-Carves a set of `Agent Session`s into named groups — one per environment, or one per
-agent — each ordered most recently active first, with the groups themselves in a
-stable order.
+Carves a set of `Session Row`s, run-only rows included, into sections, each ordered
+most recently active first, with the sections themselves in a stable order. There are
+three groupings:
+
+- **None**, the one a reader starts from: one section with no name, holding every
+  row. No rows means no sections at all, not one empty section.
+- **Environment**: a section per environment, keyed by the environment's id rather
+  than its name. A section's heading is the name its most recent row carries, so a
+  renamed machine shows the name it has now. Two machines that share a name are two
+  sections, ordered by name, ignoring case, and then by id.
+- **Agent**: a section per agent, keyed by the agent's name.
+
+Each section carries the key that made it one, so a surface can tell apart two
+sections whose headings match.
 
 A service because grouping spans sessions rather than belonging to any one of them,
 and a pure one: no clock, no I/O, no state. Two properties it guarantees, both of

@@ -137,7 +137,6 @@ public sealed class HomeInitialLoadTests
         foreach (var feature in new[]
                  {
                      AppFeatures.InboxPane,
-                     DevbookFeatures.DevbookSections,
                      DevbookFeatures.RepositoryDevbook,
                      DevPcFeatures.SystemTools,
                      AppFeatures.AiAssistant,

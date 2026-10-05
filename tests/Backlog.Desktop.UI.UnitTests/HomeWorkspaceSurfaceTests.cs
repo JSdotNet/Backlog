@@ -2080,7 +2080,6 @@ public sealed class HomeWorkspaceSurfaceTests
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
         _ = featureSettings.SetEnabled(SessionFeatures.PullRequests, true);
-        _ = featureSettings.SetEnabled(DevbookFeatures.DevbookSections, true);
         _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
