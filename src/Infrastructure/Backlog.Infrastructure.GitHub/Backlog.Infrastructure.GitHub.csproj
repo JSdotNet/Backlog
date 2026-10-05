@@ -30,6 +30,11 @@
          adapters under Dashboard/ answer its repository-directory, activity,
          baseline and Copilot-spend ports from the clients beside them. -->
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <!-- Tasks' published surface, in the same direction again: GitHubConnector
+         answers the module's ITaskConnector port (local ADR 0020) from the issue
+         search beside it, and reads the entries' issue projections for its loop
+         guard. -->
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

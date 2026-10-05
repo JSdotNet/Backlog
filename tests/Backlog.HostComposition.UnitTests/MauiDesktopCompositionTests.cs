@@ -85,6 +85,9 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.NotNull(provider.GetRequiredService<TaskSyncSession>());
         Assert.NotNull(provider.GetRequiredService<TaskSyncWorker>());
         Assert.NotNull(provider.GetRequiredService<Backlog.Modules.Tasks.Features.SyncLinkedTasks.LinkedTaskSyncWorker>());
+        Assert.Contains(
+            provider.GetServices<Backlog.Modules.Tasks.Abstractions.Connectors.ITaskConnector>(),
+            connector => connector is Backlog.Infrastructure.GitHub.GitHubConnector);
     }
 
     /// <summary>

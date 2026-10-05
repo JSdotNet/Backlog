@@ -112,11 +112,12 @@ public static class DesktopCompositionRegistration
         services.AddTasksModule();
 
         // Linked tasks (local ADR 0020): the head decides where the connected
-        // targets are kept, and the module brings the sync and its timer. No
-        // connector ships yet, so the timer starts none until one is added with
-        // AddTaskConnector<T>().
+        // targets are kept, and the module brings the sync and its timer. Each
+        // connector is added with AddTaskConnector<T>(); GitHub issues come through
+        // the GitHub adapter registered below.
         services.AddSingleton(options.ConnectedTargets);
         services.AddLinkedTaskSync();
+        services.AddTaskConnector<GitHubConnector>();
 
         services.AddRoadmapModule();
         // The plan behind the shell's Ask AI port, after the module so the scoped
