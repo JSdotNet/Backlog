@@ -8,7 +8,7 @@ namespace Backlog.ArchitectureTests;
 ///
 /// <para>The first is the import grammar. The model sees nothing but the prompt,
 /// so every token the grammar names — the ones under
-/// <c>plugins/backlog-tools/skills/backlog-import-plan/assets/backlog-import-grammar.md</c>'s
+/// <c>plugins/backlog-tools/skills/import-plan/assets/backlog-import-grammar.md</c>'s
 /// two metadata tables — has to be named in the prompt too, either as a token
 /// to write or as one to leave alone. A token added to the grammar and not to
 /// the prompt is a plan the model cannot be asked for; one dropped from the
@@ -29,7 +29,7 @@ public class FoundryPlanPromptTests
         Repository.Root.FullName, "src", "Harness", "Backlog.AzureFoundry.TestService", "LocalAzureFoundryCompletion.cs");
 
     private static readonly string GrammarAsset = Path.Combine(
-        Repository.Root.FullName, "plugins", "backlog-tools", "skills", "backlog-import-plan", "assets", "backlog-import-grammar.md");
+        Repository.Root.FullName, "plugins", "backlog-tools", "skills", "import-plan", "assets", "backlog-import-grammar.md");
 
     /// <summary>A table row whose first cell is a backtick-quoted token: the
     /// sigil rows and the named-token rows. The type row's first cell is

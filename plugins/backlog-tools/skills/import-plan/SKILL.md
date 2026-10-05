@@ -1,5 +1,5 @@
 ---
-name: backlog-import-plan
+name: import-plan
 description: Turn an agreed specification (a .devbook/domain feature, an ADR, or other planning material) into a Backlog import plan — an ordered, dependency-linked sequence of entries in Backlog's entry-text grammar, ready to paste or upload — together with a review view of it, always.
 disable-model-invocation: true
 ---
@@ -76,7 +76,7 @@ approval before a pull request.
    - **Marker first.** One opening body line in the exact shape of the grammar's
      `## Plan item marker`, restating the entry's `id`, the plan tag, every `repo:` and every
      `after:` — Backlog's copy button drops the metadata line, so this is how an entry pasted
-     back out of the app is still recognized and run by `backlog-run-plan-item`. Every prompt
+     back out of the app is still recognized and run by `run-plan-item`. Every prompt
      carries it; write the metadata line first and derive the marker from it, so the two
      never disagree.
    - **Session name second.** One body line telling whoever runs the prompt what to title

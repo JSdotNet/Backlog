@@ -41,7 +41,7 @@ internal sealed record ImportManifestReading(
 /// <summary>
 /// Reads an inbox import manifest — Markdown with front matter, local ADR 0017;
 /// every key's rule is in the generating skill's grammar,
-/// <c>plugins/backlog-tools/skills/backlog-import-inbox/assets/inbox-import-manifest.md</c>.
+/// <c>plugins/backlog-tools/skills/import-inbox/assets/inbox-import-manifest.md</c>.
 /// <para>
 /// Never throws for what is in the file. A manifest is often edited by hand
 /// before it is imported, so a broken one is the expected case rather than the

@@ -15,7 +15,7 @@ public sealed class EntryRunMarkerTests
         var id = Guid.Parse("0f3f1b1a-6a2c-4d0e-9b3f-8a1c2d3e4f50");
 
         Assert.Equal(
-            "/backlog-tools:backlog-run-plan-item entry `0f3f1b1a-6a2c-4d0e-9b3f-8a1c2d3e4f50`:",
+            "/backlog-tools:run-plan-item entry `0f3f1b1a-6a2c-4d0e-9b3f-8a1c2d3e4f50`:",
             EntryRunMarker.Build(id));
     }
 }

@@ -163,12 +163,16 @@ public sealed class DeliveryRunReaderTests : IDisposable
     /// The line the app puts on every entry it copies names the entry by its stored id,
     /// and a run started from that paste is a run started from that entry. The title
     /// under the line is what the reference is called, because a Guid is not something
-    /// a reader recognises their task by.
+    /// a reader recognises their task by. Runs stored before the skill lost its
+    /// <c>backlog-</c> prefix carry the older spelling, and still count.
     /// </summary>
-    [Fact]
-    public async Task The_entry_marker_in_the_prompt_becomes_a_task_reference_by_id()
+    [Theory]
+    [InlineData("/backlog-tools:run-plan-item")]
+    [InlineData("/backlog-tools:backlog-run-plan-item")]
+    public async Task The_entry_marker_in_the_prompt_becomes_a_task_reference_by_id(string command)
     {
-        GivenRun("orch-dashboard", "done-link-9a5a08-9e68802b", "run.json", EntryMarkerRun);
+        GivenRun("orch-dashboard", "done-link-9a5a08-9e68802b", "run.json",
+            EntryMarkerRun.Replace("/backlog-tools:backlog-run-plan-item", command, StringComparison.Ordinal));
 
         var run = Assert.Single((await ReadAsync()).Runs);
         var reference = Assert.Single(run.References);
