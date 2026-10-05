@@ -19,7 +19,7 @@ namespace Backlog.Infrastructure.AzureFoundry;
 /// Ready without a person's look (the import enforces that whatever the
 /// model answers; asking for it keeps the two in step), and <c>repo:</c>
 /// copied verbatim from the repositories the item names. The token list is
-/// held to <c>plugins/backlog-tools/skills/backlog-import-plan/assets/backlog-import-grammar.md</c>
+/// held to <c>plugins/backlog-tools/skills/import-plan/assets/backlog-import-grammar.md</c>
 /// by <c>FoundryPlanPromptTests</c>, so a token added to the grammar is also
 /// added, or deliberately refused, here.
 /// </para>

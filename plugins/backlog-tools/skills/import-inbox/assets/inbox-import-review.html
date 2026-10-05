@@ -512,7 +512,7 @@
   let timer = null;
   raw.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => render(raw.value), 250); });
 
-  // Boot: the manifest is embedded verbatim by the backlog-import-inbox skill, each "</script"
+  // Boot: the manifest is embedded verbatim by the import-inbox skill, each "</script"
   // written as "<\/script" so it cannot close this element; reverse that to get the file back.
   const source = (document.getElementById('manifest-source').textContent || '').replace(/^\n/, '').replace(/<\\\/script/gi, '</script');
   raw.value = source;

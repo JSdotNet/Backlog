@@ -53,15 +53,15 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
 auto-enabled — see `plugins/backlog-tools/README.md`. None of its five skills changes the
-paragraph above. `backlog-import-plan` and `backlog-import-inbox` are user-invoked
+paragraph above. `import-plan` and `import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
-app, so neither is a flow and neither goes through the gate. `backlog-run-plan-item` is
+app, so neither is a flow and neither goes through the gate. `run-plan-item` is
 model-invoked when a plan item is pasted in, but it runs the item's instructions *through*
 the gate — the matching flow — rather than adding an execution path beside it.
-`backlog-execute-plan` is user-invoked and changes nothing itself: it hands each prompt
-entry of a plan to a sub-agent that runs it through `backlog-run-plan-item`, so every entry
+`execute-plan` is user-invoked and changes nothing itself: it hands each prompt
+entry of a plan to a sub-agent that runs it through `run-plan-item`, so every entry
 still passes the gate and its own Personal Validation.
-`backlog-handle-remarks` is model-invoked when asked to handle or answer the Devbook remarks; it writes
+`handle-remarks` is model-invoked when asked to handle or answer the Devbook remarks; it writes
 only `annotation` fences, through `.devbook/_tools/devbook-meta/annotations.mjs`, offers the
 commit and never pushes.
 
@@ -159,13 +159,13 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
 - `.agents/rules/mcp-usage.md` — guidance authority order and which MCP servers remain in use.
 - `.claude/skills/run-backlog/SKILL.md` — the `run` procedure; `.agents/skills/` holds the
   `show`, `capture`, `debug` and `estimate` procedures.
-- `plugins/backlog-tools/skills/backlog-import-plan/SKILL.md` — generates a Backlog import
+- `plugins/backlog-tools/skills/import-plan/SKILL.md` — generates a Backlog import
   plan (ADR 0007) from an agreed specification; user-invoked only.
-- `plugins/backlog-tools/skills/backlog-run-plan-item/SKILL.md` — runs one item of such a
+- `plugins/backlog-tools/skills/run-plan-item/SKILL.md` — runs one item of such a
   plan pasted back out of the Backlog app, after checking it is still outstanding.
-- `plugins/backlog-tools/skills/backlog-execute-plan/SKILL.md` — runs a whole plan by
+- `plugins/backlog-tools/skills/execute-plan/SKILL.md` — runs a whole plan by
   delegating its prompt entries to sub-agents, one worktree and pull request each; user-invoked only.
-- `plugins/backlog-tools/skills/backlog-import-inbox/SKILL.md` — turns an export from another
+- `plugins/backlog-tools/skills/import-inbox/SKILL.md` — turns an export from another
   to-do tool into an inbox import manifest (ADR 0017); user-invoked only.
-- `plugins/backlog-tools/skills/backlog-handle-remarks/SKILL.md` — handles the reading notes left
+- `plugins/backlog-tools/skills/handle-remarks/SKILL.md` — handles the reading notes left
   on Devbook chapters in the Backlog app as `annotation` fences and resolves each note.

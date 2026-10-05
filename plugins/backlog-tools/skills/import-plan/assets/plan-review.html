@@ -233,7 +233,7 @@
 (function () {
   'use strict';
   const EFFORT_SCALE = [1, 2, 3, 5, 8, 13, 21];
-  const MARKER_RE = /^Backlog plan item `([^`]+)` of plan `([^`]+)` for ((?:`[^`]+`)(?:, `[^`]+`)*)(?:, after ((?:`[^`]+`)(?:, `[^`]+`)*))?\s[—-]+\srun it with the `backlog-run-plan-item` skill\.?\s*$/;
+  const MARKER_RE = /^Backlog plan item `([^`]+)` of plan `([^`]+)` for ((?:`[^`]+`)(?:, `[^`]+`)*)(?:, after ((?:`[^`]+`)(?:, `[^`]+`)*))?\s[—-]+\srun it with the `(?:backlog-)?run-plan-item` skill\.?\s*$/;
   const SESSION_RE = /^Title this session `([^`]+)` before you start\.?\s*$/;
   // The line plans carried before steps were numbered: it names the tag alone.
   const LEGACY_SESSION_RE = /^Add the plan name `([^`]+)` to this session['’]s title before you start\.?\s*$/;
@@ -686,7 +686,7 @@
   let timer = null;
   raw.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => render(raw.value), 250); });
 
-  // Boot: the plan text is embedded verbatim by the backlog-import-plan skill.
+  // Boot: the plan text is embedded verbatim by the import-plan skill.
   const source = (document.getElementById('plan-source').textContent || '').replace(/^\n/, '');
   raw.value = source;
   const t = document.title && !/\{\{/.test(document.title) ? document.title : null;

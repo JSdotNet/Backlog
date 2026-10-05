@@ -42,7 +42,7 @@ date: 2026-09-25
 ```
 
 A session starts from a Backlog entry the person copies out of the app and pastes in.
-`backlog-run-plan-item` establishes first whether the item is still outstanding — from the
+`run-plan-item` establishes first whether the item is still outstanding — from the
 entry's status over MCP, else from git — checks its `after:` items have landed, then runs
 the instructions through the gate like any other request. A `UserPromptSubmit` hook in the
 same plugin notices the entry marker and nudges the session to invoke the skill.

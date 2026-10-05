@@ -479,7 +479,8 @@ internal sealed partial class DeliveryRunReader
     [GeneratedRegex("""Backlog plan item [`'"]([\w.-]+)[`'"] of plan [`'"]([\w.-]+)[`'"]""")]
     private static partial Regex PlanMarker();
 
-    [GeneratedRegex("""backlog-run-plan-item entry `([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`""")]
+    // The skill was backlog-run-plan-item before the plugin dropped its prefix; stored runs keep that spelling.
+    [GeneratedRegex("""(?:backlog-)?run-plan-item entry `([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`""")]
     private static partial Regex EntryMarker();
 
     /// <summary>

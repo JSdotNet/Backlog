@@ -1,6 +1,6 @@
 ---
-name: backlog-execute-plan
-description: Execute a whole Backlog import plan by delegating its prompt entries to sub-agents — each entry run through backlog-run-plan-item in its own worktree and landed through its own pull request, entries that wait on nothing in parallel, an entry's dependents started once its pull request merges. Reads the plan from the Backlog MCP server by its +tag, or from a plan file backlog-import-plan wrote. Stops at task and test entries, which only the person does. Optional branch mode lands the whole plan on one integration branch and opens a single pull request to the base branch.
+name: execute-plan
+description: Execute a whole Backlog import plan by delegating its prompt entries to sub-agents — each entry run through run-plan-item in its own worktree and landed through its own pull request, entries that wait on nothing in parallel, an entry's dependents started once its pull request merges. Reads the plan from the Backlog MCP server by its +tag, or from a plan file import-plan wrote. Stops at task and test entries, which only the person does. Optional branch mode lands the whole plan on one integration branch and opens a single pull request to the base branch.
 disable-model-invocation: true
 ---
 
@@ -10,7 +10,7 @@ Open the reply with `backlog-tools@<version>`, `version` read from `../../.claud
 
 This skill is the layer above a flow: it orders the plan and hands out entries, and changes
 no file itself. Every entry is one flow, run by one sub-agent per `assets/item-brief.md`.
-Read `../backlog-import-plan/assets/backlog-import-grammar.md` — `## Metadata line`,
+Read `../import-plan/assets/backlog-import-grammar.md` — `## Metadata line`,
 `## Entry kinds` and `## Two levels` are what the plan's lines mean.
 
 ## Inputs

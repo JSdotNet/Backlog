@@ -1,7 +1,7 @@
 # Backlog Import Plan Grammar
 
-Reference for `skills/backlog-import-plan`, which writes plans, and
-`skills/backlog-run-plan-item`, which runs one entry of a plan pasted back out of Backlog.
+Reference for `skills/import-plan`, which writes plans, and
+`skills/run-plan-item`, which runs one entry of a plan pasted back out of Backlog.
 Restates the grammar a generated plan must match — nothing here is invented; it mirrors
 Backlog's own decision (`.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`) and its
 entry-text rules (`.devbook/design/content-editing.md#scheduling-and-dependency-tokens`) in the
@@ -158,7 +158,7 @@ Title this session `<tag>:<n> - <Title>` before you start.
 
 — the bare plan tag, a colon, then the entry's title exactly as written, number included.
 Plans written before numbering carry ``Add the plan name `<tag>` to this session's title
-before you start.`` instead; `backlog-run-plan-item` still recognizes that line.
+before you start.`` instead; `run-plan-item` still recognizes that line.
 
 ## Worked example
 
@@ -180,7 +180,7 @@ Kept manual: the publisher account needs my own Microsoft sign-in.
 
 `prompt` `*high` `!ready` `@repos` `+vscode-desktop-rollout` `id:add-command` `after:reserve-publisher` `repo:backlog-desktop` `effort:5`
 
-Backlog plan item `add-command` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `reserve-publisher` — run it with the `backlog-run-plan-item` skill.
+Backlog plan item `add-command` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `reserve-publisher` — run it with the `run-plan-item` skill.
 
 Title this session `vscode-desktop-rollout:2 - Add the export command` before you start.
 
@@ -195,7 +195,7 @@ with front matter, publisher `backlog` in the extension manifest.
 
 `prompt` `!ready` `@repos` `+vscode-desktop-rollout` `id:wire-toolbar` `after:add-command` `repo:backlog-desktop` `effort:2`
 
-Backlog plan item `wire-toolbar` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `add-command` — run it with the `backlog-run-plan-item` skill.
+Backlog plan item `wire-toolbar` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `add-command` — run it with the `run-plan-item` skill.
 
 Title this session `vscode-desktop-rollout:3 - Wire the export command into the toolbar` before you start.
 
@@ -207,7 +207,7 @@ Wire the command from the previous prompt into the toolbar as a button.
 
 `prompt` `!ready` `@repos` `+vscode-desktop-rollout` `id:review-plan` `after:wire-toolbar` `repo:backlog-desktop` `effort:2`
 
-Backlog plan item `review-plan` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `wire-toolbar` — run it with the `backlog-run-plan-item` skill.
+Backlog plan item `review-plan` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `wire-toolbar` — run it with the `run-plan-item` skill.
 
 Title this session `vscode-desktop-rollout:4 - Review the VS Code desktop rollout plan for anything missed` before you start.
 
@@ -244,10 +244,10 @@ its body — never the metadata line, which Backlog treats as its own bookkeepin
 copied out of the app and pasted into a chat has therefore lost its `id:`, `+tag`, `repo:`
 and `after:` unless the body restates them, and the marker is that restatement — the
 plan's own slugs, which the app's marker does not carry — in a shape
-`backlog-run-plan-item` recognizes:
+`run-plan-item` recognizes:
 
 ```
-Backlog plan item `<id>` of plan `<tag>` for `<repo>`[, `<repo>`…][, after `<id>`[, `<id>`…]] — run it with the `backlog-run-plan-item` skill.
+Backlog plan item `<id>` of plan `<tag>` for `<repo>`[, `<repo>`…][, after `<id>`[, `<id>`…]] — run it with the `run-plan-item` skill.
 ```
 
 - Clauses in exactly that order; the `after` clause is omitted when the entry waits on
@@ -260,18 +260,20 @@ Backlog plan item `<id>` of plan `<tag>` for `<repo>`[, `<repo>`…][, after `<i
   — title, blank, body — is pasted back into Backlog.
 - It goes before the session-name line, which stays: the marker is what a tool keys on,
   the session-name line is an instruction a person can follow without one.
+- Plans written before the skill dropped its prefix name `backlog-run-plan-item` here;
+  that spelling is still recognized.
 
 ## Entry marker
 
 The line the Backlog app itself puts ahead of every entry its copy button hands over —
 `task` entries included, since the app copies what it has and the skill is what declines to
-run one. `backlog-import-plan` never writes it: it exists only once an entry is stored, and
+run one. `import-plan` never writes it: it exists only once an entry is stored, and
 a plan is written before that. It is a slash command rather than prose, so a paste that
-opens with it invokes `backlog-run-plan-item` directly, with everything under it — the
+opens with it invokes `run-plan-item` directly, with everything under it — the
 title on the very next line, then the body — as the command's content:
 
 ```
-/backlog-tools:backlog-run-plan-item entry `<id>`:
+/backlog-tools:run-plan-item entry `<id>`:
 <Title>
 
 <body>
@@ -282,6 +284,8 @@ title on the very next line, then the body — as the command's content:
   repositories and the dependencies are the connector's to answer; without one, an
   imported prompt still has them in its plan-item marker, which is body prose and comes
   along under the title.
+- Entries copied before the skill dropped its prefix open with
+  `/backlog-tools:backlog-run-plan-item`; the hook and the run reader still recognize it.
 - The colon closes the command; the title follows on the next line with no blank line
   between, so the command and its content paste as one message.
 

@@ -1,5 +1,5 @@
 ---
-name: backlog-handle-remarks
+name: handle-remarks
 description: Handle the private reading notes (remarks) a person left on this repository's Devbook chapters in the Backlog app, and close the loop on each one. Use when asked to handle, answer, clear, work through or empty the Devbook notes, remarks or annotations for a repository, or when a session is told there are open notes waiting. Writes each answer into the chapter as a devbook `annotation` fence and then resolves the note in Backlog; reports the changed chapters and offers the commit, and never pushes.
 ---
 

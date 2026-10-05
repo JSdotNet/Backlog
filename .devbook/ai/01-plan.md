@@ -43,7 +43,7 @@ related: [".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-i
 date: 2026-09-25
 ```
 
-An agreed specification becomes a Backlog import plan through `backlog-import-plan`: one
+An agreed specification becomes a Backlog import plan through `import-plan`: one
 `plan` entry that Import turns into a Roadmap Item, and under it the step entries — a
 `prompt` an agent session runs, or a `task` or `test` only a person does — ordered by
 `after:`.
@@ -89,12 +89,12 @@ date: 2026-09-26
 ```
 
 The private notes a person leaves on devbook chapters while reading them in the app are read
-over the Backlog MCP server by `backlog-handle-remarks`, answered in the chapter as a devbook
+over the Backlog MCP server by `handle-remarks`, answered in the chapter as a devbook
 `annotation` fence, and only then resolved in the app.
 
 - **Used for** — turning a reader's questions into written answers next to the passage they
   were asked about.
-- **Adopted by** — the repository owner, on demand; `backlog-run-plan-item` runs the short
+- **Adopted by** — the repository owner, on demand; `run-plan-item` runs the short
   form of it after an item rewrites a chapter.
 - **Evidence** — the answer loop shipped in PRs #580 and #581; no sweep of a full inbox is
   on record yet.

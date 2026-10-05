@@ -42,7 +42,7 @@ public sealed class TasksCopyForPromptTests
     private static string EntryTaskId(EntryRow row) => (row.Id ?? row.Key).ToString();
 
     private static string MarkerFor(EntryRow row) =>
-        $"/backlog-tools:backlog-run-plan-item entry `{row.Id}`:";
+        $"/backlog-tools:run-plan-item entry `{row.Id}`:";
 
     [Fact]
     public async Task An_entry_row_copies_the_whole_written_entry()

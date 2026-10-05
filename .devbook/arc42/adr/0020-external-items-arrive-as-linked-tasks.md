@@ -239,7 +239,7 @@ It then breaks the item down from one of three places:
 - **Sub-issues.** Each becomes a linked task with the plan tag. It stays linked
   to its source.
 - **A checklist** in the body. Each line becomes a local task with the plan tag.
-- **A generated plan.** The body is the specification for `backlog-import-plan`.
+- **A generated plan.** The body is the specification for `import-plan`.
   Importing the result fills the item, and a re-import updates the steps nobody
   started (ADR 0007).
 

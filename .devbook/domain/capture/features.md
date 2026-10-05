@@ -280,7 +280,7 @@ related: [.devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdo
 
 Bring the items from another tool into the Inbox by importing a manifest.
 Microsoft To Do is the first tool. A skill outside the product,
-`backlog-import-inbox` in the `backlog-tools` plugin, reads the tool's export
+`import-inbox` in the `backlog-tools` plugin, reads the tool's export
 and writes the manifest. It leaves out completed items, and it maps the tool's
 lists to Inbox Lists and the labels the person chooses to tags. The manifest is Markdown with front matter. A `---` block
 names the `schema` and the `tool`. Then comes one `#`-titled item per capture.

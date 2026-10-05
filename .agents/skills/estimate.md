@@ -12,7 +12,7 @@ below is a Backlog pull request that has landed.
 Points measure work: how much there is, how uncertain it is, and how many places it touches.
 They never measure time.
 
-The main caller is `backlog-import-plan`. It sends every drafted step of a plan in one call
+The main caller is `import-plan`. It sends every drafted step of a plan in one call
 and writes the points back unchanged as each entry's `effort:`. The Roadmap then divides
 open `effort:` by a pace it measures (see `.devbook/domain/roadmap/context.md`). That only
 works while a 3 means the same thing in every plan.

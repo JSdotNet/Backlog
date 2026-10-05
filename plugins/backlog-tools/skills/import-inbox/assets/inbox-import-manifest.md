@@ -1,6 +1,6 @@
 # Inbox Import Manifest Grammar
 
-Reference for `skills/backlog-import-inbox`, which writes manifests, and for
+Reference for `skills/import-inbox`, which writes manifests, and for
 `inbox-import-review.html`, whose checks mirror this file rule for rule. The decision behind
 it is local ADR 0017
 (`.devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md`), and
