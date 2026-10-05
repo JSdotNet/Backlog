@@ -1,9 +1,9 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or knowledge-folder tooling. Four skills: one for each direction of a plan,
-one for bringing another tool's items into the Inbox, and one for the remarks a person leaves
-while reading.
+general-purpose or knowledge-folder tooling. Five skills: one for each direction of a plan,
+one for running a whole plan, one for bringing another tool's items into the Inbox, and one
+for the remarks a person leaves while reading.
 
 - **`backlog-import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -49,6 +49,20 @@ while reading.
   progress → Done back (`transition`), every call carrying the `repository` read off the
   git remote; without one it falls back to searching git and says the status has to be set
   by hand.
+- **`backlog-implement-plan`** — runs a whole plan, after the pattern of Matt Pocock's
+  `implement-spec`. It reads the plan from the `backlog` MCP server by its `+tag`
+  (`get_plan_items`) or from a file `backlog-import-plan` wrote, builds the graph its `after:`
+  tokens draw, and changes nothing itself: each `prompt` entry whose prerequisites are done
+  goes to its own sub-agent, briefed by `skills/backlog-implement-plan/assets/item-brief.md`,
+  which makes its own worktree and runs the entry through `backlog-run-plan-item` — so every
+  entry passes the repository's gate and its own Personal Validation, which the orchestrator
+  relays to the person. Entries that wait on nothing run in parallel. An entry is done when
+  its pull request merges; the orchestrator then moves it to Done and starts what waited on
+  it. It stops at `task` and `test` entries, listing what they hold up, and resumes from the
+  plan's state when invoked again. In branch mode the entry pull requests target one
+  `plan/<tag>` branch, the orchestrator merges each approved one into it, and the plan ends in
+  a single pull request to the base branch. User-invoked only. The `UserPromptSubmit` hook
+  stays quiet on a prompt that names this skill, so a pasted plan is not mistaken for one item.
 - **`backlog-import-inbox`** — turns an export from another to-do tool into an inbox import
   manifest (ADR 0017:
   `.devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md`).

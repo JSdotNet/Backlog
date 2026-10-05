@@ -52,12 +52,15 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 `.devbook/config.json` holds the bindings, extensions, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. None of its four skills changes the
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its five skills changes the
 paragraph above. `backlog-import-plan` and `backlog-import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
 app, so neither is a flow and neither goes through the gate. `backlog-run-plan-item` is
 model-invoked when a plan item is pasted in, but it runs the item's instructions *through*
 the gate — the matching flow — rather than adding an execution path beside it.
+`backlog-implement-plan` is user-invoked and changes nothing itself: it hands each prompt
+entry of a plan to a sub-agent that runs it through `backlog-run-plan-item`, so every entry
+still passes the gate and its own Personal Validation.
 `backlog-answer-notes` is model-invoked when asked to answer the Devbook notes; it writes
 only `annotation` fences, through `.devbook/_tools/devbook-meta/annotations.mjs`, offers the
 commit and never pushes.
@@ -160,6 +163,8 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   plan (ADR 0007) from an agreed specification; user-invoked only.
 - `plugins/backlog-tools/skills/backlog-run-plan-item/SKILL.md` — runs one item of such a
   plan pasted back out of the Backlog app, after checking it is still outstanding.
+- `plugins/backlog-tools/skills/backlog-implement-plan/SKILL.md` — runs a whole plan by
+  delegating its prompt entries to sub-agents, one worktree and pull request each; user-invoked only.
 - `plugins/backlog-tools/skills/backlog-import-inbox/SKILL.md` — turns an export from another
   to-do tool into an inbox import manifest (ADR 0017); user-invoked only.
 - `plugins/backlog-tools/skills/backlog-answer-notes/SKILL.md` — answers the reading notes left
