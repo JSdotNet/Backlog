@@ -600,12 +600,21 @@ Builds the list of `Session Row`s from the sessions and the runs: which `Agent
 Session` each `Delivery Run` ran in, and which runs stand on their own. A pure
 function over what it is given, like `Session Grouping`.
 
-Two conditions, and both are needed. **The worktree:** the run's key must equal the
+**Identity first.** A run that names the sessions that drove it, in `sessionIds`,
+joins the first of them the list holds, by identity and with no worktree or window
+test. Where it names sessions and the list holds none of them, it becomes a run-only
+row and is never attached by its worktree: the run said whose it is, and a guess
+would put it on someone else's row.
+
+A run that names no session is matched on its worktree and its window. Two
+conditions, and both are needed. **The worktree:** the run's key must equal the
 key derived from the session's `Working Location` — or from a folder above it, since
 a session may be started below the worktree's top level — compared without regard to
 letter case, because the dashboard slugs git's casing of the leaf and a session
-records the folder as it was launched in. **The window:** that session's `Activity
-Window` must overlap the run's. The worktree alone names a place, and a worktree is
+records the folder as it was launched in. A session with no `Working Location`, a
+replicated record, is matched on the worktree key its record carried, since the folder
+stayed on the machine that ran it and the key travelled. **The window:** that
+session's `Activity Window` must overlap the run's. The worktree alone names a place, and a worktree is
 worked in by several sessions over its life; only the overlap names a time. Where more
 than one session passes both, the one whose start is nearest the run's own wins — the
 session that opened the run started with it. A run whose file does not date its start
