@@ -500,8 +500,13 @@ public sealed record RepositoryRemoval(string Id, DateTimeOffset At);
 /// Follows the house rule of no save button: callers commit a whole value and it
 /// is persisted immediately.
 /// </para>
+/// <para>
+/// The registry and the account identities also travel between paired devices as
+/// two stamped documents (local ADR 0020); the replica half of this class is in
+/// <c>GitHubSettingsStore.Replica.cs</c>.
+/// </para>
 /// </summary>
-public sealed class GitHubSettingsStore
+public sealed partial class GitHubSettingsStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -1236,36 +1241,21 @@ public sealed class GitHubSettingsStore
     /// rename record, which is about ids and so belongs with them. No token ever
     /// reaches this file, and no clone path. The account is a login, never a
     /// credential — which is why it may travel.</summary>
-    private string? WriteRegistry(GitHubSettings settings) =>
-        WriteRegistryRows(
-        [
-            .. settings.Repositories.Select(r => new RegistryRepositoryDto
-            {
-                Id = r.FullName,
-                Alias = r.Alias,
-                Colour = r.Colour,
-                Account = r.Account,
-                DevbookBranch = r.DevbookBranch
-            })
-        ]);
+    private string? WriteRegistry(GitHubSettings settings) => WriteRegistryRows(RegistryRowsFor(settings));
 
     private string? WriteRegistryRows(List<RegistryRepositoryDto> rows)
     {
+        var dto = RegistryDtoFor(rows);
+
+        // A write whose shared content differs from the last one is a new version of
+        // the registry document (local ADR 0020); one that rewrites the same content
+        // keeps the stamp it had, so an unrelated save never reads as a change.
+        var restamped = StampRegistry(dto);
+
         try
         {
             var path = RegistryPath;
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-
-            var dto = new RegistryDto
-            {
-                Repositories = rows,
-                Renames = _renames.Count == 0
-                    ? null
-                    : [.. _renames.Select(r => new RegistryRenameDto { From = r.OldId, To = r.NewId, At = r.At })],
-                Removals = _removals.Count == 0
-                    ? null
-                    : [.. _removals.Select(r => new RegistryRemovalDto { Id = r.Id, At = r.At })]
-            };
 
             File.WriteAllText(path, JsonSerializer.Serialize(dto, JsonOptions));
             return null;
@@ -1274,7 +1264,38 @@ public sealed class GitHubSettingsStore
         {
             return SaveFailed;
         }
+        finally
+        {
+            if (restamped) SharedDocumentChanged?.Invoke();
+        }
     }
+
+    /// <summary>The registry file's shape for these rows and the store's current
+    /// rename and removal records, without its stamp.</summary>
+    private RegistryDto RegistryDtoFor(List<RegistryRepositoryDto> rows) => new()
+    {
+        Repositories = rows,
+        Renames = _renames.Count == 0
+            ? null
+            : [.. _renames.Select(r => new RegistryRenameDto { From = r.OldId, To = r.NewId, At = r.At })],
+        Removals = _removals.Count == 0
+            ? null
+            : [.. _removals.Select(r => new RegistryRemovalDto { Id = r.Id, At = r.At })]
+    };
+
+    /// <summary>The shared half of a whole value, one row per repository, as the
+    /// registry file states it.</summary>
+    private static List<RegistryRepositoryDto> RegistryRowsFor(GitHubSettings settings) =>
+    [
+        .. settings.Repositories.Select(r => new RegistryRepositoryDto
+        {
+            Id = r.FullName,
+            Alias = r.Alias,
+            Colour = r.Colour,
+            Account = r.Account,
+            DevbookBranch = r.DevbookBranch
+        })
+    ];
 
     /// <summary>The machine half, plus the two settings that are about this
     /// install rather than about a repository.</summary>
@@ -1282,11 +1303,16 @@ public sealed class GitHubSettingsStore
     {
         var rows = LocalRowsFor(settings);
 
+        // The accounts document is the identities alone, so only a change to one of
+        // them restamps it: a pasted token or a credential choice is this machine's.
+        var restamped = StampAccounts(settings.Accounts);
+
         try
         {
             var dto = new SettingsDto
             {
                 Repositories = rows,
+                AccountsUpdatedAt = _accountsStamp,
                 Accounts =
                 [
                     .. settings.Accounts.Select(account => new AccountDto
@@ -1321,6 +1347,10 @@ public sealed class GitHubSettingsStore
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return SaveFailed;
+        }
+        finally
+        {
+            if (restamped) SharedDocumentChanged?.Invoke();
         }
     }
 
@@ -1434,30 +1464,28 @@ public sealed class GitHubSettingsStore
         _renames = registry.Renames;
         _removals = registry.Removals;
 
+        // The registry document's version as read: the file's own stamp, or once,
+        // for a file from before the stamp, when it was last written.
+        _registryStamp = registry.Stamp;
+        _registrySignature = RegistrySignature(RegistryRowsFor(registry.Rows));
+
         var rows = registry.Rows;
         var carriedOver = false;
+        var carryOverAttempted = false;
 
         if (_registryState is not RegistryState.Unreadable)
         {
-            var withCarryOver = WithCarryOver(rows, local.Rows);
+            var withCarryOver = WithCarryOver(rows, local.Rows, _renames, _removals);
             if (withCarryOver.Count != rows.Count)
             {
+                carryOverAttempted = true;
+
                 // The shared write comes first and the reduced local write only
                 // follows a successful one. If the registry could not be written,
                 // the legacy file stays exactly as it is and the next start tries
                 // again — a failure here must not be the thing that loses the
                 // repositories it was carrying.
-                carriedOver = WriteRegistryRows(
-                [
-                    .. withCarryOver.Select(row => new RegistryRepositoryDto
-                    {
-                        Id = row.Id,
-                        Alias = row.Alias,
-                        Colour = row.Colour,
-                        Account = row.Account,
-                        DevbookBranch = row.DevbookBranch
-                    })
-                ]) is null;
+                carriedOver = WriteRegistryRows(RegistryRowsFor(withCarryOver)) is null;
 
                 // Either way the session runs on the carried-over list, so a
                 // read-only workspace still shows the repositories it has.
@@ -1467,10 +1495,35 @@ public sealed class GitHubSettingsStore
 
         var composed = Compose(rows, local);
 
+        // What an unchanged save would write is the baseline a change is measured
+        // against, so normalizing what was read is never mistaken for an edit. Not
+        // after a carry-over: that write already set the baseline to what it wrote.
+        if (_registryState is not RegistryState.Unreadable && !carryOverAttempted)
+        {
+            _registrySignature = RegistrySignature(RegistryRowsFor(composed));
+        }
+
+        _accountsStamp = local.AccountsUpdatedAt
+            ?? (composed.Accounts.Count > 0 ? local.LastWrite : null);
+        _accountsSignature = AccountsSignature(composed.Accounts);
+
         if (carriedOver) _ = WriteLocal(composed);
 
         return composed;
     }
+
+    /// <summary>The identity rows as the registry file states them.</summary>
+    private static List<RegistryRepositoryDto> RegistryRowsFor(List<RegistryRow> rows) =>
+    [
+        .. rows.Select(row => new RegistryRepositoryDto
+        {
+            Id = row.Id,
+            Alias = row.Alias,
+            Colour = row.Colour,
+            Account = row.Account,
+            DevbookBranch = row.DevbookBranch
+        })
+    ];
 
     /// <summary>
     /// The registry rows, plus one for every legacy local row the registry does
@@ -1490,8 +1543,19 @@ public sealed class GitHubSettingsStore
     /// successful carry-over. If that write fails the window stays open — degrade,
     /// do not fail.
     /// </para>
+    /// <para>
+    /// An id the registry records as removed, or as renamed away, is never carried
+    /// back. Once the registry travels between devices (local ADR 0020) that is the
+    /// ordinary state of a repository another device removed or renamed while this
+    /// one still holds a clone directory for it — and carrying it over would undo
+    /// the other device's change on every start.
+    /// </para>
     /// </summary>
-    private static List<RegistryRow> WithCarryOver(List<RegistryRow> registry, List<RepositoryDto> localRows)
+    private static List<RegistryRow> WithCarryOver(
+        List<RegistryRow> registry,
+        List<RepositoryDto> localRows,
+        List<RepositoryRename> renames,
+        List<RepositoryRemoval> removals)
     {
         var carried = new List<RegistryRow>(registry);
 
@@ -1499,6 +1563,8 @@ public sealed class GitHubSettingsStore
         {
             if (IdentityOf(row) is not { } identity) continue;
             if (carried.Any(known => string.Equals(known.Id, identity.Id, StringComparison.OrdinalIgnoreCase))) continue;
+            if (removals.Any(removal => string.Equals(removal.Id, identity.Id, StringComparison.OrdinalIgnoreCase))) continue;
+            if (renames.Any(rename => string.Equals(rename.OldId, identity.Id, StringComparison.OrdinalIgnoreCase))) continue;
 
             carried.Add(identity);
         }
@@ -1522,13 +1588,16 @@ public sealed class GitHubSettingsStore
             ? LegacyIdentities(local.Rows)
             : rows;
 
+        var renames = new GitHubSettings { Renames = [.. _renames] };
+
         return new GitHubSettings
         {
             Repositories = NormalizeRepositories(
             [
                 .. identities.Select(identity =>
                 {
-                    var overlay = FindOverlay(local.Rows, identity);
+                    var overlay = FindOverlay(local.Rows, identity)
+                        ?? FindRenamedOverlay(local.Rows, identity, identities, renames);
 
                     return new GitHubRepositoryRef(identity.Alias, identity.Owner, identity.Name)
                     {
@@ -1644,6 +1713,32 @@ public sealed class GitHubSettingsStore
             && string.Equals(GitHubRepositoryRef.NormalizeAlias(row.Alias!), identity.Alias, StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// The local row this machine kept under an id the registry has since renamed
+    /// to <paramref name="identity"/>, when no row is keyed on the new id yet.
+    /// <para>
+    /// A rename made here moves the row itself. A rename made on another device
+    /// arrives as a registry that names only the new id (local ADR 0020), and this
+    /// is what keeps the clone directory, token and folder overrides this machine
+    /// had for the old one: the next write files them under the new id. An old id
+    /// that is itself configured again keeps its own row.
+    /// </para>
+    /// </summary>
+    private static RepositoryDto? FindRenamedOverlay(
+        List<RepositoryDto> localRows,
+        RegistryRow identity,
+        List<RegistryRow> identities,
+        GitHubSettings renames)
+    {
+        if (renames.Renames.Count == 0) return null;
+
+        return localRows.FirstOrDefault(row =>
+            ExplicitIdOf(row) is { } id
+            && !string.Equals(id, identity.Id, StringComparison.OrdinalIgnoreCase)
+            && !identities.Any(known => string.Equals(known.Id, id, StringComparison.OrdinalIgnoreCase))
+            && string.Equals(renames.RenamedTo(id), identity.Id, StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>The row's own id: the <c>id</c> field, or the legacy
     /// <c>owner</c>/<c>name</c> pair it replaced. Null when the row states
     /// neither, which is a row that can only be matched by alias.</summary>
@@ -1664,7 +1759,7 @@ public sealed class GitHubSettingsStore
             ? RegistryRow.From(id, row.Alias, CleanColour(row.Colour))
             : null;
 
-    private (RegistryState State, List<RegistryRow> Rows, List<RepositoryRename> Renames, List<RepositoryRemoval> Removals, string? Error) ReadRegistry()
+    private (RegistryState State, List<RegistryRow> Rows, List<RepositoryRename> Renames, List<RepositoryRemoval> Removals, DateTimeOffset? Stamp, string? Error) ReadRegistry()
     {
         try
         {
@@ -1673,16 +1768,17 @@ public sealed class GitHubSettingsStore
             // Missing is the ordinary first-run and fresh-workspace state, and it
             // is writable: the next save creates the file. Deliberately not an
             // error, so nothing tells somebody about a problem they do not have.
-            if (!File.Exists(path)) return (RegistryState.Missing, [], [], [], null);
+            if (!File.Exists(path)) return (RegistryState.Missing, [], [], [], null, null);
 
             var dto = JsonSerializer.Deserialize<RegistryDto>(File.ReadAllText(path), JsonOptions);
-            if (dto is null) return (RegistryState.Missing, [], [], [], null);
+            if (dto is null) return (RegistryState.Missing, [], [], [], null, null);
 
             return (
                 RegistryState.Loaded,
                 [.. dto.Repositories.Select(row => RegistryRow.From(row)).OfType<RegistryRow>()],
                 [.. (dto.Renames ?? []).Select(RenameFrom).OfType<RepositoryRename>()],
                 [.. (dto.Removals ?? []).Select(RemovalFrom).OfType<RepositoryRemoval>()],
+                dto.UpdatedAt ?? (IsEmpty(dto) ? null : LastWriteOf(path)),
                 null);
         }
         catch (Exception)
@@ -1692,7 +1788,7 @@ public sealed class GitHubSettingsStore
             // empty shared registry would prune every overlay row and refuse
             // nothing. So the state is remembered, and the writes that would act
             // on a list nobody has are refused instead.
-            return (RegistryState.Unreadable, [], [], [], RegistryUnreadable);
+            return (RegistryState.Unreadable, [], [], [], null, RegistryUnreadable);
         }
     }
 
@@ -1729,6 +1825,8 @@ public sealed class GitHubSettingsStore
             {
                 Rows = dto.Repositories,
                 Accounts = dto.Accounts,
+                AccountsUpdatedAt = dto.AccountsUpdatedAt,
+                LastWrite = LastWriteOf(_path),
                 Token = dto.Token,
                 ApiEndpoint = dto.ApiEndpoint,
                 ShowRepositoryColours = dto.ShowRepositoryColours
@@ -1964,6 +2062,15 @@ public sealed class GitHubSettingsStore
     {
         public List<RepositoryDto> Rows { get; init; } = [];
         public List<AccountDto> Accounts { get; init; } = [];
+
+        /// <summary>The accounts document's stamp as the file states it, or null for
+        /// a file from before the stamp.</summary>
+        public DateTimeOffset? AccountsUpdatedAt { get; init; }
+
+        /// <summary>When the file was last written, which stands in for a missing
+        /// stamp once (local ADR 0020, as ADR 0018 does for the pace file).</summary>
+        public DateTimeOffset? LastWrite { get; init; }
+
         public string? Token { get; init; }
         public string? ApiEndpoint { get; init; }
         public bool ShowRepositoryColours { get; init; }
@@ -1971,6 +2078,14 @@ public sealed class GitHubSettingsStore
 
     private sealed class RegistryDto
     {
+        /// <summary>When the shared content last changed — the registry document's
+        /// stamp (local ADR 0020). Written on every change; omitted only by a
+        /// registry nobody has put anything in yet, which is no document at all.
+        /// Additive: a file without it is stamped once from its last-write
+        /// time.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public DateTimeOffset? UpdatedAt { get; set; }
+
         public List<RegistryRepositoryDto> Repositories { get; set; } = [];
 
         /// <summary>Every rename applied to a row in this file, oldest first.
@@ -2047,6 +2162,13 @@ public sealed class GitHubSettingsStore
         /// empty, which is what every install written before accounts existed
         /// says.</summary>
         public List<AccountDto> Accounts { get; set; } = [];
+
+        /// <summary>When an account identity last changed — the accounts document's
+        /// stamp (local ADR 0020). A credential change does not move it. Omitted
+        /// while no account was ever saved; additive, so a file without it is
+        /// stamped once from its last-write time.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public DateTimeOffset? AccountsUpdatedAt { get; set; }
 
         public string? Token { get; set; }
         public string? ApiEndpoint { get; set; }
