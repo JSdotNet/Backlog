@@ -10,8 +10,9 @@ namespace Backlog.Desktop.WebHarness;
 /// Nothing arrives until a target is connected on the Connectors page; every
 /// target then answers the same four open items, chosen so each screen has
 /// something to show: one assigned to the harness account, one the source says is
-/// blocked, one carrying two plan labels and assigned to somebody else, and one
-/// assigned to nobody. The links go to <c>example.com</c>, which opens harmlessly.
+/// blocked, one carrying two plan labels and assigned to somebody else — so its
+/// plan reaches the roadmap's shelf — and one assigned to nobody that waits on the
+/// first. The links go to <c>example.com</c>, which opens harmlessly.
 /// </para>
 /// </summary>
 internal sealed class HarnessTaskConnector : ITaskConnector
@@ -28,7 +29,7 @@ internal sealed class HarnessTaskConnector : ITaskConnector
         var updated = new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero);
         var slug = Uri.EscapeDataString(target);
 
-        SourceItem Item(int number, string title, string? assignee, IReadOnlyList<string>? labels = null, bool blocked = false, string? reason = null) =>
+        SourceItem Item(int number, string title, string? assignee, IReadOnlyList<string>? labels = null, bool blocked = false, string? reason = null, int? waitsOn = null) =>
             new(
                 $"{target}#{number}",
                 $"H-{number}",
@@ -41,14 +42,15 @@ internal sealed class HarnessTaskConnector : ITaskConnector
                 updated,
                 labels ?? [],
                 IsBlocked: blocked,
-                BlockedReason: reason);
+                BlockedReason: reason,
+                WaitsOn: waitsOn is { } other ? [$"{target}#{other}"] : null);
 
         return Task.FromResult<IReadOnlyList<SourceItem>>(
         [
             Item(1, "Assigned to the harness account", Me),
             Item(2, "Blocked at the source", Me, blocked: true, reason: "Waiting on the design review"),
             Item(3, "Filed under two plans", "someone-else", ["+harness-alpha", "+harness-beta"]),
-            Item(4, "Assigned to nobody", null),
+            Item(4, "Assigned to nobody", null, waitsOn: 1),
         ]);
     }
 
