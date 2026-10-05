@@ -7,6 +7,7 @@ using Backlog.Desktop.UI.AppUpdate;
 using Backlog.Desktop.UI.Shell;
 using Backlog.SharedKernel;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Infrastructure.GitHub;
@@ -92,6 +93,7 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     ShellNavigation = _ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath),
     CaptureSourceSettings = _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath),
     CaptureRunLog = _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath),
+    ConnectedTargets = _ => CreateLocalDevelopmentConnectedTargetsSettingsStore(builder.Environment.ContentRootPath),
     InboxRoutingRules = _ => CreateLocalDevelopmentInboxRoutingRulesStore(builder.Environment.ContentRootPath),
     GitHubSettings = root => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath, root),
     ClaudeSettings = _ => CreateLocalDevelopmentClaudeSettingsStore(builder.Environment.ContentRootPath),
@@ -200,6 +202,10 @@ _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 // And the backup loop, on the same terms: a timer that only existed while the
 // Storage tab was open would miss every slot it was set for.
 _ = app.Services.GetRequiredService<BackupWorker>();
+
+// And the linked task sync's timer, on the same terms and for the same reason the
+// desktop head resolves it.
+_ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 
 // And the devbook database refresher: resolving it points every database reader
 // at the app's storage, so it has to exist before the first pane opens.
@@ -415,6 +421,17 @@ static CaptureSourcesSettingsStore CreateLocalDevelopmentCaptureSourcesSettingsS
     }
 
     return new CaptureSourcesSettingsStore(settingsPath);
+}
+
+static ConnectedTargetsSettingsStore CreateLocalDevelopmentConnectedTargetsSettingsStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_CONNECTED_TARGETS_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "connected-targets.settings.json");
+    }
+
+    return new ConnectedTargetsSettingsStore(settingsPath);
 }
 
 static CaptureRunLogStore CreateLocalDevelopmentCaptureRunLogStore(string contentRootPath)

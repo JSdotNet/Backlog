@@ -904,6 +904,73 @@ public static class EntryTextParser
     /// <see cref="ReplaceParentText"/> want.</summary>
     public static int CountSubItems(string raw) => LocateSubItems(raw).Count;
 
+    /// <summary>
+    /// Text from somewhere else, made safe to store as an entry's body: every line
+    /// that this grammar would read as structure is escaped so it reads as the prose
+    /// it was.
+    /// <para>
+    /// For a writer that cannot refuse. A caller-facing tool refuses a heading,
+    /// checklist line or fence in text it splices in (the MCP <c>comment</c> tool
+    /// does), and that is the better answer where somebody can be asked again. A
+    /// sync copying an issue's description cannot ask, and stored as it came the text
+    /// becomes the entry: <c>##</c> lines become sub-items, a <c>#</c> line starts a
+    /// second entry on the next split, a <c>- [ ]</c> line becomes a step, and one
+    /// unmatched fence turns every chapter written below it into fenced prose.
+    /// </para>
+    /// <para>
+    /// Escaped with a backslash in front of the marker, after any indentation, so
+    /// Markdown renders the line as written and none of the parser's expressions
+    /// match it. A <c>#tag</c> is untouched — a tag has no space after the hash,
+    /// which is the line <see cref="HeadingRegex"/> already draws. Fences are matched
+    /// the way the parser matches them, by toggling: a balanced code block is left
+    /// as it is, content and all, because the parser already ignores what is inside
+    /// it; only the fence left open at the end is escaped.
+    /// </para>
+    /// </summary>
+    public static string AsProse(string? text)
+    {
+        var lines = Normalize(text ?? string.Empty).Split('\n');
+
+        var fences = new List<int>();
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].TrimStart().StartsWith("```", StringComparison.Ordinal)) fences.Add(i);
+        }
+
+        // The last fence of an odd count opens a block nothing closes.
+        var unmatched = fences.Count % 2 == 1 ? fences[^1] : -1;
+
+        var inFence = false;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].TrimStart();
+
+            if (i == unmatched)
+            {
+                lines[i] = Escape(lines[i]);
+                continue;
+            }
+
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence) continue;
+
+            if (HeadingRegex.IsMatch(trimmed) || ChecklistRegex.IsMatch(trimmed)) lines[i] = Escape(lines[i]);
+        }
+
+        return string.Join('\n', lines);
+
+        static string Escape(string line)
+        {
+            var indent = line.Length - line.TrimStart().Length;
+            return line[..indent] + "\\" + line[indent..];
+        }
+    }
+
     // The detail pane edits an entry a field at a time — a title, a note, one
     // step's name, one step's notes — where the raw editor used to hand over the
     // whole document. Every one of these is still a text rewrite, and the text is

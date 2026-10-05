@@ -9,6 +9,7 @@ using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -87,6 +88,10 @@ public sealed class DesktopCompositionOptions
 
     /// <summary>Where what past capture runs said is kept.</summary>
     public required Func<IServiceProvider, ICaptureRunLog> CaptureRunLog { get; init; }
+
+    /// <summary>The repositories and products connected for linked tasks, with their
+    /// settings and sync progress (local ADR 0020, §9).</summary>
+    public required Func<IServiceProvider, IConnectedTargets> ConnectedTargets { get; init; }
 
     /// <summary>The reader's inbox routing rules.</summary>
     public required Func<IServiceProvider, IInboxRoutingRules> InboxRoutingRules { get; init; }

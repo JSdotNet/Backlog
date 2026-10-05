@@ -62,6 +62,14 @@ namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 /// the tasks that were routed from it. Last, for the reason
 /// <paramref name="StartedOn"/> is.
 /// </para>
+/// <para>
+/// <paramref name="SourceRef"/> is the item in another system a linked task
+/// follows, or null for local work — the source badge and the Source and
+/// Assigned-to-me filters read it. Published as the value object itself, the way
+/// <paramref name="Attachment"/> is, on <paramref name="SourceInboxId"/>'s terms:
+/// its own column, never rebuilt from the text. Last, for the reason
+/// <paramref name="StartedOn"/> is.
+/// </para>
 /// </summary>
 public sealed record TaskItemDto(
     Guid Id,
@@ -91,7 +99,8 @@ public sealed record TaskItemDto(
     DateTimeOffset? CreatedAt = null,
     DateOnly? StartedOn = null,
     string? SourceInboxId = null,
-    IReadOnlyList<string>? DevbookReferences = null)
+    IReadOnlyList<string>? DevbookReferences = null,
+    SourceRef? SourceRef = null)
 {
     /// <summary>The Devbook pages and chapters the entry is about, as normalised
     /// references (<c>path</c> or <c>path#anchor</c>), in order. Published on

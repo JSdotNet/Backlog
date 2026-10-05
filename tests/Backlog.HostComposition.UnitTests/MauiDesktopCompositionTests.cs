@@ -84,6 +84,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
 
         Assert.NotNull(provider.GetRequiredService<TaskSyncSession>());
         Assert.NotNull(provider.GetRequiredService<TaskSyncWorker>());
+        Assert.NotNull(provider.GetRequiredService<Backlog.Modules.Tasks.Features.SyncLinkedTasks.LinkedTaskSyncWorker>());
     }
 
     /// <summary>
@@ -254,6 +255,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             ShellNavigation = _ => new ShellNavigationStore(Path.Combine(_appData, "shell-navigation.json")),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(_appData, "capture-sources.json")),
             CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(_appData, "capture-runs.json")),
+            ConnectedTargets = _ => new ConnectedTargetsSettingsStore(Path.Combine(_appData, "connected-targets.json")),
             InboxRoutingRules = _ => new InboxRoutingRulesStore(Path.Combine(_appData, "inbox-routing-rules.json")),
             GitHubSettings = root => new GitHubSettingsStore(Path.Combine(_appData, "github.settings.json"), root),
             ClaudeSettings = _ => new ClaudeSettingsStore(Path.Combine(_appData, "claude.settings.json")),

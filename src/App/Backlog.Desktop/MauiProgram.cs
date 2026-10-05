@@ -6,6 +6,7 @@ using Backlog.Aspire.ServiceDefaults;
 using Backlog.SharedKernel;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
@@ -101,6 +102,7 @@ public static class MauiProgram
             ShellNavigation = _ => new ShellNavigationStore(),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(),
             CaptureRunLog = _ => new CaptureRunLogStore(),
+            ConnectedTargets = _ => new ConnectedTargetsSettingsStore(),
             InboxRoutingRules = _ => new InboxRoutingRulesStore(),
             GitHubSettings = root => new GitHubSettingsStore(GitHubSettingsStore.DefaultLocalPath, root),
             ClaudeSettings = _ => new ClaudeSettingsStore(),
@@ -195,6 +197,10 @@ public static class MauiProgram
         // And the backup loop, on the same terms: a timer that only existed
         // while the Storage tab was open would miss every slot it was set for.
         _ = app.Services.GetRequiredService<BackupWorker>();
+
+        // And the linked task sync's timer, on the same terms: each connected
+        // repository or product syncs on its own interval only while this exists.
+        _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 
         // And the MCP listener, on the same terms again - its constructor is
         // what binds the port, so a singleton nobody resolves is a server no
