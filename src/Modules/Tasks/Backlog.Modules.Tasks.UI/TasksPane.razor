@@ -176,6 +176,44 @@
                         </ToggleButton>
                     </div>
 
+                    @* Where a task came from, and whose it is there. Nothing at all
+                       until a connector is installed or a task is linked, so a
+                       backlog that never connected anything keeps the bar it had.
+                       Every chip is drawn from a connector's descriptor (ADR 0020
+                       §3): a connector added later appears here with no change.
+
+                       Pressable chips rather than a radiogroup, for the scopes'
+                       reason: each narrows what the bar left in view, and pressing
+                       the pressed one widens again — so with nothing pressed the
+                       list is already every source and there is no "All" chip.
+                       Pressing another source lets go of the first, because a task
+                       comes from exactly one. "Assigned to me" composes with it. *@
+                    @if (State.SourceFilters.Count > 0)
+                    {
+                        <div class="filter-group filter-group--source" role="group" aria-label="Filter by source">
+                            @foreach (var source in State.SourceFilters)
+                            {
+                                <ToggleButton BaseClass="chip chip--filter"
+                                              PressedCssClass="chip--active"
+                                              Pressed="@(State.SelectedSource == source.Value)"
+                                              TestId="source-filter-option"
+                                              data-source="@source.Value"
+                                              Title="@(State.SelectedSource == source.Value ? "Show every source again" : $"Show only {source.Label} tasks")"
+                                              PressedChanged="pressed => State.SetSourceFilter(pressed ? source.Value : null)">
+                                    @source.Label<span class="chip__count">@source.Count</span>
+                                </ToggleButton>
+                            }
+                            <ToggleButton BaseClass="chip chip--filter"
+                                          PressedCssClass="chip--active"
+                                          Pressed="@State.AssignedToMeOnly"
+                                          TestId="assigned-to-me-filter"
+                                          Title="@(State.AssignedToMeOnly ? "Show linked tasks assigned to anyone" : "Show only the linked tasks assigned to you")"
+                                          PressedChanged="State.SetAssignedToMeFilter">
+                                Assigned to me
+                            </ToggleButton>
+                        </div>
+                    }
+
                     @* Nothing at all until something in scope carries a tag: the group
                        is built from what people typed, so a backlog with no tags has
                        no third group rather than a dead chip filtering nothing.
@@ -1126,7 +1164,10 @@
             // row as a fact and never folded into DependsOn: the chain the list
             // derives its own Blocked from must not learn about it. The row also
             // refuses its copy button from this.
-            MarkedBlocked: row.IsPreviewBlocked)
+            MarkedBlocked: row.IsPreviewBlocked,
+            // Where a linked task came from, drawn from the connector's descriptor
+            // so a connector added later needs nothing here.
+            Source: State.LinkedSources.ToTaskSource(row.SourceRef))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence)
         })];
@@ -2502,6 +2543,7 @@
                        OnTabBackward="MoveFocusToListAsync"
                        CopyValue="@(EntryCopyText(row) ?? DetailTitle(row))"
                        CopyDisabledReason="@(row.IsPreviewBlocked ? BlockedCopyReason : null)"
+                       Source="@State.LinkedSources.ToTaskSource(row.SourceRef)"
                        CssClass="entry-detail__panel"
                        TestId="entry-panel">
                 <StatusContent>

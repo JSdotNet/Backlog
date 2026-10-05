@@ -1,0 +1,165 @@
+@using Backlog.UI.Components.Buttons
+@using Backlog.UI.Components.Inputs
+@using Backlog.UI.Components.Layout
+@using Backlog.UI.Components.Selects
+@*
+    One connected repository or product, and how its sync behaves: the card a
+    connector settings page draws once per target.
+
+    The same options for every connector, because they are the sync's rather than
+    the source's — ADR 0020 §9 — so the card needs nothing from a connector beyond
+    its descriptor's name and icon. A connector added later is edited here with no
+    change to this file.
+
+    Every change is reported at once as the whole options record, and nothing is
+    held as a draft: the host saves it and hands the saved record back, so what
+    the card shows is always what is stored.
+*@
+
+<Card Compact="true" CssClass="connected-target" TestId="@TestId" AriaLabel="@($"{Options.ConnectorName} {Options.Target}")">
+    <div class="connected-target__head">
+        @if (Mark is not IntegrationProvider.None)
+        {
+            <ProviderMark Provider="@Mark" Size="16" />
+        }
+        <span class="connected-target__connector">@Options.ConnectorName</span>
+        <code class="connected-target__name" data-testid="@Suffix("name")">@Options.Target</code>
+        <span class="connected-target__synced" data-testid="@Suffix("synced")">
+            @(Options.LastSynced is null ? "Not synced yet" : $"Synced {Options.LastSynced}")
+        </span>
+    </div>
+
+    <div class="connected-target__options">
+        <Toggle Label="Sync this target"
+                Description="Off keeps its tasks and stops bringing in new ones."
+                Checked="@Options.Enabled"
+                CheckedChanged="value => ChangeAsync(Options with { Enabled = value })"
+                TestId="@Suffix("enabled")" />
+        <Toggle Label="Assigned to me by default"
+                Description="The Tasks pane starts with only your items from here."
+                Checked="@Options.AssignedToMeByDefault"
+                CheckedChanged="value => ChangeAsync(Options with { AssignedToMeByDefault = value })"
+                TestId="@Suffix("assigned")" />
+        <Toggle Label="Titles follow the source"
+                Description="A title you rename stops following until you reset it."
+                Checked="@Options.TitleFollowsSource"
+                CheckedChanged="value => ChangeAsync(Options with { TitleFollowsSource = value })"
+                TestId="@Suffix("title-follows")" />
+        <Toggle Label="Promoting archives the original"
+                Description="Promoting a linked task to a plan archives the task it came from."
+                Checked="@Options.PromoteArchivesOriginal"
+                CheckedChanged="value => ChangeAsync(Options with { PromoteArchivesOriginal = value })"
+                TestId="@Suffix("promote-archives")" />
+        <SelectField Form="true"
+                     Label="Sync every"
+                     Id="@Suffix("interval")"
+                     TestId="@Suffix("interval")"
+                     CurrentValue="@Options.SyncIntervalMinutes.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                     Options="@IntervalOptions"
+                     OnChanged="OnIntervalChangedAsync" />
+        <SelectField Form="true"
+                     Label="Skip items untouched for"
+                     Id="@Suffix("skip")"
+                     TestId="@Suffix("skip")"
+                     CurrentValue="@(Options.SkipUntouchedOlderThanDays?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)"
+                     IncludeEmptyOption="true"
+                     EmptyLabel="Never skip"
+                     Options="@SkipOptions"
+                     OnChanged="OnSkipChangedAsync" />
+    </div>
+
+    @if (OnSyncNow.HasDelegate || OnRemove.HasDelegate)
+    {
+    <div class="connected-target__actions">
+        @if (OnSyncNow.HasDelegate)
+        {
+            <AppButton Size="ButtonSize.Small"
+                       Disabled="@(!Options.Enabled)"
+                       Busy="@Syncing"
+                       BusyLabel="Syncing"
+                       TestId="@Suffix("sync")"
+                       OnClick="() => OnSyncNow.InvokeAsync(Options)">
+                Sync now
+            </AppButton>
+        }
+        @if (OnRemove.HasDelegate)
+        {
+            <AppButton Variant="ButtonVariant.Danger"
+                       Size="ButtonSize.Small"
+                       TestId="@Suffix("remove")"
+                       OnClick="() => OnRemove.InvokeAsync(Options)">
+                Disconnect
+            </AppButton>
+        }
+    </div>
+    }
+</Card>
+
+@code {
+    /// <summary>The target as it is stored.</summary>
+    [Parameter, EditorRequired]
+    public ConnectedTargetOptions Options { get; set; } = new(string.Empty, string.Empty);
+
+    /// <summary>Raised with the whole record on every change.</summary>
+    [Parameter]
+    public EventCallback<ConnectedTargetOptions> OnChange { get; set; }
+
+    /// <summary>Raised to sync the target now. The button is left off without a
+    /// listener.</summary>
+    [Parameter]
+    public EventCallback<ConnectedTargetOptions> OnSyncNow { get; set; }
+
+    /// <summary>Raised to disconnect the target. The button is left off without a
+    /// listener.</summary>
+    [Parameter]
+    public EventCallback<ConnectedTargetOptions> OnRemove { get; set; }
+
+    /// <summary>Whether a sync the host started is still running.</summary>
+    [Parameter]
+    public bool Syncing { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private IntegrationProvider Mark =>
+        Enum.TryParse<IntegrationProvider>(Options.Icon, ignoreCase: true, out var provider)
+            ? provider
+            : IntegrationProvider.None;
+
+    private IReadOnlyList<SelectorOption> IntervalOptions =>
+    [
+        .. ConnectedTargetOptions.IntervalChoices
+            .Append(Options.SyncIntervalMinutes)
+            .Distinct()
+            .Order()
+            .Select(minutes => new SelectorOption(
+                minutes.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                minutes < 60 ? $"{minutes} minutes" : minutes == 60 ? "1 hour" : $"{minutes / 60} hours"))
+    ];
+
+    private IReadOnlyList<SelectorOption> SkipOptions =>
+    [
+        .. ConnectedTargetOptions.SkipChoices
+            .Concat(Options.SkipUntouchedOlderThanDays is { } days ? [days] : [])
+            .Distinct()
+            .Order()
+            .Select(days => new SelectorOption(
+                days.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                days % 365 == 0 ? (days == 365 ? "a year" : $"{days / 365} years") : $"{days} days"))
+    ];
+
+    private Task ChangeAsync(ConnectedTargetOptions changed) => OnChange.InvokeAsync(changed);
+
+    private Task OnIntervalChangedAsync(string? value) =>
+        int.TryParse(value, out var minutes) && minutes > 0
+            ? ChangeAsync(Options with { SyncIntervalMinutes = minutes })
+            : Task.CompletedTask;
+
+    private Task OnSkipChangedAsync(string? value) =>
+        ChangeAsync(Options with
+        {
+            SkipUntouchedOlderThanDays = int.TryParse(value, out var days) && days > 0 ? days : null
+        });
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+}

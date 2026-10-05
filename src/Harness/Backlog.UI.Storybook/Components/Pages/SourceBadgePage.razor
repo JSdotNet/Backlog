@@ -1,0 +1,71 @@
+@page "/badges/source"
+
+<PageTitle>Source badge — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Source badge"
+           Summary="A subpage of Badges: where a linked task came from — the connector's name and the item's key, opening the item at the source. Drawn entirely from what the host hands in, the reference's key and link and the connector descriptor's name, icon and colour token, so a connector added later needs no change here."
+           Guidelines="@Rules">
+
+    <Story Name="One per connector"
+           Description="The same component for every connector: the descriptor's name and the item's key, in the descriptor's own tone. The tone is a design token named by the descriptor and handed to `.badge--linked` as a custom property, so a new connector brings its colour with it and no rule is written for it. Outlined and never filled — a link is something the reader acts on, never something the product acts on. A descriptor icon that names a provider mark is drawn before the name."
+           Code="@KnownCode">
+        <div class="sb-row" data-testid="source-badge-known">
+            @foreach (var source in Known)
+            {
+                <SourceBadge Source="@source" />
+            }
+        </div>
+    </Story>
+
+    <Story Name="A connector this build does not know"
+           Description="A task synced on another device can carry a connector id this build has no connector for. It still has its stored key, so the badge shows the key alone under the neutral tone — a dashed edge in the quiet ink — and still opens the item when the reference has a link. It says the task came from somewhere without claiming to know where."
+           Code="@UnknownCode">
+        <div class="sb-row" data-testid="source-badge-unknown">
+            <SourceBadge Source="@Unknown" />
+            <SourceBadge Source="@UnknownNoLink" />
+        </div>
+    </Story>
+
+    <Story Name="Local work"
+           Description="A task with no source is local work, the ordinary case, and the badge draws nothing at all — no empty box and no placeholder — so a host hands it whatever the task has and never asks first."
+           Code="@LocalCode">
+        <div class="sb-row" data-testid="source-badge-local">
+            <span class="sb-label">Before</span>
+            <SourceBadge Source="null" />
+            <span class="sb-label">after: nothing between.</span>
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#badge-and-chip-tones", "Why a link is outlined in its own tone and never filled, and what the neutral tone means."),
+        new("accessibility.md#iconography-accessibility", "Why the provider mark never carries the connector's name on its own.")
+    ];
+
+    private static readonly IReadOnlyList<TaskSource> Known =
+    [
+        new("#412", "https://example.com/issues/412", "GitHub", "github", "color-primary-light"),
+        new("SPEC-87", "https://example.com/backlog/87", "Spec manager", null, "color-secondary"),
+    ];
+
+    private static readonly TaskSource Unknown = new("JIRA-301", "https://example.com/browse/JIRA-301");
+
+    private static readonly TaskSource UnknownNoLink = new("ADO-12");
+
+    private const string KnownCode = """
+        <SourceBadge Source="@(new TaskSource("#412", issueUrl, "GitHub", "github", "color-primary-light"))" />
+        <SourceBadge Source="@(new TaskSource("SPEC-87", itemUrl, "Spec manager", null, "color-secondary"))" />
+        """;
+
+    private const string UnknownCode = """
+        @* No connector name: the descriptor was not found. *@
+        <SourceBadge Source="@(new TaskSource("JIRA-301", itemUrl))" />
+        <SourceBadge Source="@(new TaskSource("ADO-12"))" />
+        """;
+
+    private const string LocalCode = """
+        <SourceBadge Source="@task.Source" />   @* null draws nothing *@
+        """;
+}

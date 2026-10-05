@@ -292,7 +292,9 @@ public sealed class TaskReplicaMerge(
                     source.SourceUpdatedAt,
                     source.Flags.Count == 0 ? null : [.. source.Flags],
                     source.NormalisedState is { } state ? NormalisedSourceStates.ToWire(state) : null,
-                    source.SourceTitle)
+                    source.SourceTitle,
+                    source.Blocked ? true : null,
+                    source.BlockedReason)
                 : null);
     }
 
@@ -316,7 +318,11 @@ public sealed class TaskReplicaMerge(
                 payload.SourceUpdatedAt,
                 payload.Flags,
                 NormalisedSourceStates.FromWire(payload.NormalisedState),
-                payload.SourceTitle);
+                payload.SourceTitle)
+            {
+                Blocked = payload.Blocked == true,
+                BlockedReason = payload.BlockedReason,
+            };
 
     /// <summary>
     /// The aggregate a change describes.

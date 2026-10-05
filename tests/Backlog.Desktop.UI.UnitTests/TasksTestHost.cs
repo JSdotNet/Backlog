@@ -151,10 +151,11 @@ internal static class TasksTestHost
         IToastChannel? toasts = null,
         TimeProvider? clock = null,
         TaskStoreCalls? storeCalls = null,
-        IDevbookReferenceResolver? devbookReferences = null)
+        IDevbookReferenceResolver? devbookReferences = null,
+        LinkedTaskSources? linkedSources = null)
     {
         var entries = EntriesFor(store);
-        return new(TaskStoreFor(store), storeCalls?.Watch(entries) ?? entries, gitHub, copilot, roadmapTags, toasts, timeProvider: clock, devbookReferences: devbookReferences);
+        return new(TaskStoreFor(store), storeCalls?.Watch(entries) ?? entries, gitHub, copilot, roadmapTags, toasts, timeProvider: clock, devbookReferences: devbookReferences, linkedSources: linkedSources);
     }
 
     /// <summary>Waits on <see cref="TasksDesktopState.Changed"/> for what a moved

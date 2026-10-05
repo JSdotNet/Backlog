@@ -176,6 +176,10 @@
             <StatusBadge Status="@Status" CssClass="task-panel__status" TestId="@Suffix("status")" />
         }
 
+        @* Where a linked task came from, on the heading line as on the row, so the
+           reader who opened it from the list finds the link in the same shape. *@
+        <SourceBadge Source="@Source" CssClass="task-panel__source" TestId="@Suffix("source")" />
+
         @* Behind the state, which is where the row puts it too. A reader who
            opened this panel to read a task and then wants to take it somewhere
            finds the control in the same place on both surfaces, in the same
@@ -198,6 +202,21 @@
                         StatusTestId="@Suffix("copy-status")" />
         }
     </header>
+
+    @if (Source is { Flags.Count: > 0 })
+    {
+        @* What the sync noticed and left in place, said under the heading rather
+           than inside it: each is a sentence about the task, not a value. *@
+        <ul class="task-panel__source-flags" aria-label="Source" data-testid="@Suffix("source-flags")">
+            @foreach (var flag in Source.Flags)
+            {
+                <li class="@flag.CssClass" title="@flag.Title">
+                    <span class="task-item__glyph" aria-hidden="true">@flag.Glyph</span>
+                    <span class="sr-only">@flag.Name: </span>@flag.Text
+                </li>
+            }
+        </ul>
+    }
 
     @if (TagList.Count > 0)
     {
@@ -320,6 +339,11 @@
     /// </summary>
     [Parameter]
     public RenderFragment? StatusContent { get; set; }
+
+    /// <summary>Where a linked task came from, or null for local work: the source
+    /// badge on the heading line and the sync's flags under it.</summary>
+    [Parameter]
+    public TaskSource? Source { get; set; }
 
     /// <summary>Whether the panel offers to copy the task. On by default, and
     /// still silent until <see cref="CopyValue"/> says what there is to copy —

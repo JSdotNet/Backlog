@@ -49,6 +49,40 @@ public sealed class MyDayScreenTests
         });
     }
 
+    /// <summary>The phone installs no connector, so a linked task's badge is the
+    /// neutral one a device draws for a connector it does not know: the stored key,
+    /// still opening the item at the source, beside the row's button rather than in
+    /// it. A local task draws none.</summary>
+    [Fact]
+    public void A_linked_task_shows_its_source_key_and_a_local_task_none()
+    {
+        var linked = TestTasks.Task("Ship the installer", Now, inMyDayOn: Today);
+        linked = linked with
+        {
+            Task = linked.Task with
+            {
+                SourceRef = new SourceRefPayload("github", "JSdotNet/Backlog", "I_1", "https://example.com/issues/412", "#412", null, "open", Now)
+            }
+        };
+        var tasks = new ScriptedTaskService(linked, TestTasks.Task("Water the plants", Now, inMyDayOn: Today));
+        using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
+        var app = host.Open("tasks");
+
+        app.WaitForAssertion(() =>
+        {
+            var rows = app.FindAll("[data-testid='task-row']");
+            Assert.Equal(2, rows.Count);
+
+            var badge = rows[0].QuerySelector("[data-testid='task-source']")!;
+            Assert.Equal("#412", badge.TextContent.Trim());
+            Assert.Equal("https://example.com/issues/412", badge.GetAttribute("href"));
+            Assert.Contains("badge--linked-neutral", badge.ClassList);
+            Assert.Null(badge.Closest("button"));
+
+            Assert.Null(rows[1].QuerySelector("[data-testid='task-source']"));
+        });
+    }
+
     [Fact]
     public void Tapping_a_row_opens_the_whole_task_read_only()
     {

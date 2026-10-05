@@ -455,7 +455,11 @@ public sealed class SyncLinkedTasksCommandHandler(
             item.UpdatedAt,
             flags,
             item.State,
-            TitleOf(item));
+            TitleOf(item))
+        {
+            Blocked = item.IsBlocked,
+            BlockedReason = item.IsBlocked ? item.BlockedReason : null,
+        };
 
     /// <summary>The title a task is given. An item with none is named by its key, so
     /// it still has a row a person can read.</summary>

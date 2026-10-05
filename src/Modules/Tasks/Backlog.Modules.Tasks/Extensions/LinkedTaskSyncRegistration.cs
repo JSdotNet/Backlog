@@ -53,6 +53,7 @@ public static class LinkedTaskSyncRegistration
         // One, because the schedule is what it holds: a second would be a second
         // timer running the same targets.
         services.TryAddSingleton<LinkedTaskSyncWorker>();
+        services.TryAddSingleton<ILinkedTaskSync>(provider => provider.GetRequiredService<LinkedTaskSyncWorker>());
 
         return services;
     }
