@@ -64,7 +64,8 @@ internal sealed class CosmosDeviceRegistry : IDeviceRegistry
             // writers — it is a bug, and a 409 from the store is the right way
             // for it to surface rather than one registration silently
             // overwriting another's credential hash.
-            await Container().CreateItemAsync(
+            var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+            await container.CreateItemAsync(
                 document,
                 new PartitionKey(document.Id),
                 cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -81,7 +82,8 @@ internal sealed class CosmosDeviceRegistry : IDeviceRegistry
 
         try
         {
-            var response = await Container().ReadItemAsync<DeviceDocument>(
+            var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+            var response = await container.ReadItemAsync<DeviceDocument>(
                 key,
                 new PartitionKey(key),
                 cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -119,7 +121,8 @@ internal sealed class CosmosDeviceRegistry : IDeviceRegistry
         var query = new QueryDefinition("SELECT VALUE COUNT(1) FROM c WHERE c.ownerId = @owner")
             .WithParameter("@owner", ReplicaDocumentSerialization.Key(ownerId.Value));
 
-        using var results = Container().GetItemQueryIterator<int>(query);
+        var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+        using var results = container.GetItemQueryIterator<int>(query);
 
         try
         {
@@ -144,7 +147,8 @@ internal sealed class CosmosDeviceRegistry : IDeviceRegistry
         }
     }
 
-    private Container Container() => _container.Container();
+    private ValueTask<Container> ContainerAsync(CancellationToken cancellationToken) =>
+        _container.ContainerAsync(cancellationToken);
 
     /// <summary>What a Cosmos failure becomes on the way out: a coded problem
     /// rather than an unclassified 500 (inherited ADR 0017). Two answers rather

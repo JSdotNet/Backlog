@@ -74,10 +74,14 @@ public sealed record TaskPayload(
     // readiness a dependency chain derives, which is never stored or sent. Its
     // own member rather than left to ContentMd, because ContentMd is the body
     // alone and the `blocked:` token lives on the metadata line, which never
-    // crosses the wire as text. Last and defaulted for the reason StartedOn is:
+    // crosses the wire as text. Defaulted for the reason StartedOn is:
     // an older document carries none and reads as not marked, and a service
     // built before it passes it through in Unrecognised rather than dropping it.
-    DateOnly? BlockedSince = null)
+    DateOnly? BlockedSince = null,
+    // Where a linked task came from (local ADR 0020, §2). Last and defaulted for
+    // the same reason: an older document carries none and reads as local work,
+    // and null on every local task, so its document serialises as it did before.
+    SourceRefPayload? SourceRef = null)
 {
     /// <summary>
     /// Every property the document carried that this build has no member for,
@@ -126,6 +130,39 @@ public sealed record UsageEventPayload(DateTimeOffset Timestamp, string Action)
 /// request. Ids stay strings: they belong to the remote system's namespace and
 /// nothing here resolves them.</summary>
 public sealed record ProjectionPayload(string RepoId, string ExternalId, string TargetType)
+{
+    /// <summary>What this build has no member for, carried through as it
+    /// arrived — see <see cref="TaskPayload.Unrecognised"/>.</summary>
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? Unrecognised { get; init; }
+}
+
+/// <summary>A linked task's pointer at the item it follows in another system.
+/// Every member is the opaque value the device wrote: the connector id is a
+/// string the service never resolves, and <c>Flags</c> are the Backlog-owned sync
+/// flags as written, so a flag this build has no name for still travels.
+/// <c>NormalisedState</c> is the word the device last normalised the source's
+/// state to (<c>open</c>, <c>active</c>, <c>done</c>, <c>dropped</c>), last and
+/// defaulted because it arrived after the rest: an older document carries none,
+/// and the device reading it treats the state as moved, once. <c>SourceTitle</c>
+/// is the item's title at the source when last synced, which tells a local rename
+/// from a stale title; last and defaulted for the same reason. <c>Blocked</c> and
+/// <c>BlockedReason</c> are the source's own word that the item cannot be worked
+/// on now, defaulted after those for the same reason.</summary>
+public sealed record SourceRefPayload(
+    string ConnectorId,
+    string Target,
+    string ExternalId,
+    string Url,
+    string DisplayKey,
+    string? Assignee,
+    string SourceState,
+    DateTimeOffset SourceUpdatedAt,
+    IReadOnlyList<string>? Flags = null,
+    string? NormalisedState = null,
+    string? SourceTitle = null,
+    bool? Blocked = null,
+    string? BlockedReason = null)
 {
     /// <summary>What this build has no member for, carried through as it
     /// arrived — see <see cref="TaskPayload.Unrecognised"/>.</summary>

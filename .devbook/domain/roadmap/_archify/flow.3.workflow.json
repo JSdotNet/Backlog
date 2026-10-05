@@ -21,7 +21,7 @@
     { "id": "resolution", "lane": "scope", "col": 4, "width": 190, "type": "backend", "label": "Repository Scope Resolution" },
     { "id": "repository-registry", "lane": "registry", "col": 1, "width": 190, "type": "external", "label": "Repository Registry", "sublabel": "supplier" },
     { "id": "known-band", "lane": "bands", "col": 1, "width": 220, "type": "frontend", "label": "Band per configured repository" },
-    { "id": "unfiled-band", "lane": "bands", "col": 4, "width": 220, "type": "frontend", "label": "Unfiled band", "sublabel": "no alias, or alias no longer configured" },
+    { "id": "unfiled-band", "lane": "bands", "col": 4, "width": 220, "type": "frontend", "label": "No-repository band", "sublabel": "no alias, or alias no longer configured" },
     { "id": "planning-lanes", "lane": "planning", "col": 1, "width": 220, "type": "frontend", "label": "Planning lanes inside each band" },
     { "id": "draw", "lane": "drawn", "col": 1, "width": 280, "type": "frontend", "label": "Spans, milestones and dependency arrows", "sublabel": "placed by date" }
   ],

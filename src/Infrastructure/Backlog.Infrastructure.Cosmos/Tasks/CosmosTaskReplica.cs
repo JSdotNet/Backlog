@@ -74,7 +74,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
             return 0;
         }
 
-        var container = Container();
+        var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
         var partition = new PartitionKey(ReplicaDocumentSerialization.Key(scope.OwnerId.Value));
         var accepted = 0;
 
@@ -236,7 +236,8 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         // up or merely between batches. The stream form hands back the
         // ResponseMessage, whose 304 is the documented "nothing since your
         // cursor" signal.
-        using var iterator = Container().GetChangeFeedStreamIterator(
+        var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+        using var iterator = container.GetChangeFeedStreamIterator(
             startFrom,
             ChangeFeedMode.Incremental,
             new ChangeFeedRequestOptions { PageSizeHint = maxItems });
@@ -322,7 +323,8 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         // The partition key on the request, as well as the predicate on the
         // owner: the first keeps the query inside one partition, the second
         // keeps it right if the first is ever forgotten.
-        using var results = Container().GetItemQueryIterator<TaskDocument>(
+        var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+        using var results = container.GetItemQueryIterator<TaskDocument>(
             query,
             requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(key) });
 
@@ -359,7 +361,8 @@ internal sealed class CosmosTaskReplica : ITaskReplica
 
         try
         {
-            var response = await Container().ReadItemAsync<TaskDocument>(
+            var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+            var response = await container.ReadItemAsync<TaskDocument>(
                 ReplicaDocumentSerialization.Key(id),
                 new PartitionKey(key),
                 cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -470,6 +473,9 @@ internal sealed class CosmosTaskReplica : ITaskReplica
     /// that the activity the client is constructed under can be asserted without
     /// a call that would then try to reach Cosmos.</summary>
     internal Container Container() => _container.Container();
+
+    private ValueTask<Container> ContainerAsync(CancellationToken cancellationToken) =>
+        _container.ContainerAsync(cancellationToken);
 
     /// <summary>The envelope a change feed page arrives in. Only the documents
     /// are read; the <c>_rid</c> and <c>_count</c> beside them say nothing this

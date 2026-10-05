@@ -92,6 +92,7 @@
                                  ActualHoursByDate="@_actual"
                                  ShowHours="@_hoursShown"
                                  OnDayToggled="ToggleDay"
+                                 OnHoursOpened="OpenHours"
                                  TitleContent="@BandHeading"
                                  LabelledBy="roadmap-band-title"
                                  ShowSteps="false"
@@ -178,6 +179,12 @@
                           Week="@_week"
                           Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
                           RestoreFocusToId="roadmap-band-days-off" />
+
+    <RoadmapHoursReport Open="@_hoursOpen"
+                        OpenChanged="open => _hoursOpen = open"
+                        Date="@_hoursDate"
+                        Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                        RestoreFocusToId="@($"roadmap-hours-{_hoursDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}")" />
 </section>
 
 @code {
@@ -212,6 +219,10 @@
 
     /// <summary>Whether the Days off dialog is open.</summary>
     private bool _daysOffOpen;
+
+    /// <summary>Whether the hours report is open, and the date whose head opened it.</summary>
+    private bool _hoursOpen;
+    private DateOnly _hoursDate;
 
     /// <summary>The dates the actual hours were last asked for, so a render asks again
     /// only when they move: a new day, or a change that asked for a fresh read.</summary>
@@ -320,15 +331,17 @@
     /// sidebar and above its named lanes — where the reader is looking at them.
     /// <para>
     /// Drawn only for a band that asked for room (<see cref="RoadmapPlanView"/> gives
-    /// every configured repository's band <see cref="RoadmapPlanView.PaceRows"/>). A
-    /// repository's band carries that repository's pace. A band with nothing measured
-    /// places by the reader's own pace in the heading. The milestones band places
-    /// nothing and has none. A change redraws every plan still sized by its effort,
-    /// each at its own pace, and writes nothing to the plan.
+    /// every configured repository's band and the no-repository band
+    /// <see cref="RoadmapPlanView.PaceRows"/>). A repository's band carries that
+    /// repository's pace. The no-repository band carries the default pace — the one its
+    /// plans are placed at — measured over all finished work. A band with nothing
+    /// measured places by the reader's own pace in the heading. The milestones band
+    /// places nothing and has none. A change redraws every plan still sized by its
+    /// effort, each at its own pace, and writes nothing to the plan.
     /// </para>
     /// </summary>
     private RenderFragment<RoadmapGroup> BandPace => group =>
-        @<RoadmapPaceControl Repository="@group.Id" />;
+        @<RoadmapPaceControl Repository="@(group.Id == RoadmapPlanView.NoRepositoryGroupId ? null : group.Id)" />;
 
     /// <summary>Where the "now" line is drawn. A parameter so a test can put
     /// today somewhere it chooses rather than wherever the clock happens to
@@ -402,6 +415,17 @@
     /// refusals are.
     /// </summary>
     private void ToggleDay(DateOnly date) => _error = Paces.ToggleWorkedDay(date);
+
+    /// <summary>
+    /// A begun head's hours were pressed: open the report of the week the head's date
+    /// falls in, so the person can check the figure against the stretches behind it
+    /// (local ADR 0019, §6).
+    /// </summary>
+    private void OpenHours(DateOnly date)
+    {
+        _hoursDate = date;
+        _hoursOpen = true;
+    }
 
     /// <summary>
     /// The Hours switch moved: the heads gain or lose their hours line at once, the choice
@@ -686,7 +710,8 @@
     }
 
     /// <summary>The configured repository a row's band stands for, or null for a row
-    /// no repository's band holds.</summary>
+    /// no repository's band holds — the no-repository band, where work is planned
+    /// under none.</summary>
     private string? RepositoryOf(string rowId)
     {
         var separator = rowId.IndexOf("::", StringComparison.Ordinal);

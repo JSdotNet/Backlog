@@ -189,6 +189,81 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Empty((await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.DevbookReferences);
     }
 
+    /// <summary>A linked task's source reference is one JSON column: it comes back
+    /// equal, flags and all, without the load restamping the task — and a task with
+    /// none reads as local work.</summary>
+    [Fact]
+    public async Task A_source_reference_round_trips_and_clears()
+    {
+        var sourceUpdatedAt = new DateTimeOffset(2026, 10, 1, 8, 15, 0, TimeSpan.FromHours(2));
+        var source = new SourceRef(
+            "github", "JSdotNet/Backlog", "I_kwDO42", "https://github.com/JSdotNet/Backlog/issues/42", "#42",
+            "Job", "open", sourceUpdatedAt, [LinkedTaskFlags.Vanished, LinkedTaskFlags.MultiplePlanTags],
+            Backlog.Modules.Tasks.Abstractions.Connectors.NormalisedSourceState.Active,
+            "The title at the source");
+
+        var task = new TaskItem("Linked", "The body.", EntryType.Task);
+        task.SetSourceRef(source);
+        task.LoadStamps(Noon, null);
+
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(source, loaded.SourceRef);
+        Assert.Equal(sourceUpdatedAt, loaded.SourceRef!.SourceUpdatedAt);
+        Assert.Equal(Backlog.Modules.Tasks.Abstractions.Connectors.NormalisedSourceState.Active, loaded.SourceRef.NormalisedState);
+        Assert.Equal("The title at the source", loaded.SourceRef.SourceTitle);
+        Assert.Equal(Noon, loaded.UpdatedAt);
+
+        loaded.SetSourceRef(null);
+        await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
+        Assert.Null((await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.SourceRef);
+    }
+
+    /// <summary>The source's own word that an item is blocked, and its reason, come
+    /// back with the reference; a reference that is not blocked writes neither.</summary>
+    [Fact]
+    public async Task A_blocked_source_reference_round_trips_with_its_reason()
+    {
+        var blocked = new TaskItem("Blocked at the source", string.Empty, EntryType.Task);
+        blocked.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_2", "u", "#2", null, "open", Noon)
+        {
+            Blocked = true,
+            BlockedReason = "Waiting on the design review",
+        });
+        var open = new TaskItem("Not blocked", string.Empty, EntryType.Task);
+        open.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_3", "u", "#3", null, "open", Noon));
+
+        await _repository.SaveAsync(blocked, TestContext.Current.CancellationToken);
+        await _repository.SaveAsync(open, TestContext.Current.CancellationToken);
+
+        var loadedBlocked = (await _repository.GetAsync(blocked.Id, TestContext.Current.CancellationToken))!.SourceRef!;
+        Assert.True(loadedBlocked.Blocked);
+        Assert.Equal("Waiting on the design review", loadedBlocked.BlockedReason);
+        Assert.Equal(blocked.SourceRef, loadedBlocked);
+
+        var loadedOpen = (await _repository.GetAsync(open.Id, TestContext.Current.CancellationToken))!.SourceRef!;
+        Assert.False(loadedOpen.Blocked);
+        Assert.Null(loadedOpen.BlockedReason);
+        Assert.DoesNotContain("blocked", TaskPayloads.WriteSourceRef(loadedOpen)!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A reference written before the normalised state was kept reads back
+    /// with none, which is what tells the sync to treat the state as changed once.</summary>
+    [Fact]
+    public async Task A_source_reference_written_without_a_normalised_state_reads_back_without_one()
+    {
+        var task = new TaskItem("Linked earlier", string.Empty, EntryType.Task);
+        task.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_1", "u", "#1", null, "open", Noon));
+
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded!.SourceRef);
+        Assert.Null(loaded.SourceRef.NormalisedState);
+    }
+
     /// <summary>Status is rehydrated through the constructor, so loading an
     /// in-progress row written before <c>started_on</c> existed does not invent a
     /// start date of today — there is no backfill.</summary>
@@ -837,6 +912,9 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.NotNull(loaded);
         Assert.Equal("Written before Devbook references existed", loaded.Title);
         Assert.Empty(loaded.DevbookReferences);
+        // Nor a source reference: the column arrived later still, and a row from
+        // before it is the local task it always was.
+        Assert.Null(loaded.SourceRef);
 
         loaded.SetDevbookReferences([".devbook/domain/tasks/domain.md#task"]);
         await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);

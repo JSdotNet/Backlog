@@ -137,6 +137,9 @@ public static class CosmosReplicaRegistration
         // order in the summary above is not a style note — a TryAdd that ran
         // first would leave the service talking to a dictionary while Cosmos sat
         // there.
+        // One gate for the account, shared by every adapter: they reach one
+        // client, so one probe answers for all of them.
+        builder.Services.AddSingleton<CosmosAccountGate>();
         builder.Services.AddSingleton<ITaskReplica, CosmosTaskReplica>();
         builder.Services.AddSingleton<ISessionReplica, CosmosSessionReplica>();
         builder.Services.AddSingleton<IAnnotationReplica, CosmosAnnotationReplica>();

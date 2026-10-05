@@ -200,6 +200,18 @@ A finished task stays readable rather than hidden; how it is set is the rule lin
         </div>
     </Story>
 
+    <Story Name="A linked task, and what the source said"
+           Description="A task that came in from another system carries its `Source`, and the row draws the source badge from it at the head of its badge slot, outside the row's open button so the link can be followed without opening the row.
+
+What the sync noticed and left in place goes on the metadata line, after a hand-set block: the source's own word that the item is blocked, with its reason as the text; removed at the source; done here while the source holds it open; and several plan labels. Each has a glyph of its own, because each is a different reason the task and its source disagree.
+
+A connector this build does not know draws its key under the neutral badge, and a task with no source draws none."
+           Code="@LinkedCode">
+        <div class="sb-menu-wide" data-testid="task-list-linked">
+            <TaskListView Tasks="@Linked" OnToggle="_ => { }" AriaLabel="Linked tasks" TestId="linked" />
+        </div>
+    </Story>
+
     <Story Name="Reordering, by pointer and by key"
            Description="`Reorderable` turns the grip on, and `OnReorder` reports one `TaskMove` when the move settles: what moved, and onto what. Applying it is the host's, because only the host knows whether the new order is saved anywhere — `TaskMove.ApplyTo` is offered for a host with no opinion.
 
@@ -451,6 +463,33 @@ It exists for the row that was projected from a document the task itself does no
         new("t4", "Ask @bob about #bob", Group: "Tasks"),
         new("t5", "Ship the installer @bob #deploy", Group: "Tasks", Tags: ["@bob", "deploy"])
     ];
+
+    /// <summary>Linked tasks: one per flag the sync can leave, one from a connector
+    /// this build does not know, and one local task for contrast.</summary>
+    private static readonly IReadOnlyList<TaskRow> Linked =
+    [
+        new("l1", "Ship the installer", Group: "Tasks", Status: "Ready",
+            Source: new("#412", "https://example.com/issues/412", "GitHub", "github", "color-primary-light")),
+        new("l2", "Review the spacing tokens", Group: "Tasks",
+            Source: new("#418", "https://example.com/issues/418", "GitHub", "github", "color-primary-light") { Blocked = true, BlockedReason = "Waiting on the design review" }),
+        new("l3", "Retire the old exporter", Group: "Tasks", Status: "Archived",
+            Source: new("SPEC-87", "https://example.com/backlog/87", "Spec manager", null, "color-secondary") { RemovedAtSource = true }),
+        new("l4", "Write the release notes", Done: true, Group: "Tasks",
+            Source: new("#420", "https://example.com/issues/420", "GitHub", "github", "color-primary-light") { DoneHereOpenAtSource = true }),
+        new("l5", "Plan the beta", Group: "Tasks", Tags: ["+beta"],
+            Source: new("SPEC-90", "https://example.com/backlog/90", "Spec manager", null, "color-secondary") { SeveralPlanLabels = true }),
+        new("l6", "Triage the import bug", Group: "Tasks", Source: new("JIRA-301", "https://example.com/browse/JIRA-301")),
+        new("l7", "Local work, with no source", Group: "Tasks")
+    ];
+
+    private const string LinkedCode = """
+        new TaskRow("l2", "Review the spacing tokens",
+            Source: new("#418", url, "GitHub", "github", "color-primary-light")
+            {
+                Blocked = true,
+                BlockedReason = "Waiting on the design review"
+            })
+        """;
 
     private static readonly TaskRow Single =
         new("single", "One row, no list around it", Group: "Tasks", Due: "Today");

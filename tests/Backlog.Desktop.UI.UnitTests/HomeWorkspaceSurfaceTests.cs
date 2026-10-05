@@ -1318,8 +1318,8 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>A released feature is the ordinary case and the header stays quiet
     /// about it — otherwise the flag would be wallpaper rather than a warning.
-    /// Devbook is the released one of the four enabled here; the other three
-    /// were moved to Dev and are the control group.</summary>
+    /// Devbook and Roadmap are the released ones of the four enabled here; the
+    /// other two are Dev and are the control group.</summary>
     [Fact]
     public void A_released_feature_adds_no_flag_to_the_header()
     {
@@ -1331,10 +1331,11 @@ public sealed class HomeWorkspaceSurfaceTests
             // Present and unflagged.
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']"));
             Assert.Empty(component.FindAll("[data-testid='devbook-feature-status']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-feature-status']"));
 
             // Present and flagged — proving the absence above is the status
             // talking rather than the badge being broken everywhere.
-            Assert.Single(component.FindAll("[data-testid='roadmap-feature-status']"));
             Assert.Single(component.FindAll("[data-testid='tools-feature-status']"));
             Assert.Single(component.FindAll("[data-testid='dashboard-feature-status']"));
         });
@@ -1578,9 +1579,9 @@ public sealed class HomeWorkspaceSurfaceTests
     /// TextContent now returns "Roadmap dev".</summary>
     private static string LabelWithoutFlag(IElement option)
     {
-        var flag = option.QuerySelector("[class*='badge--feature']")?.TextContent ?? string.Empty;
+        var flag = option.QuerySelector("[class*='badge--feature']")?.TextContent;
 
-        return option.TextContent.Replace(flag, string.Empty).Trim();
+        return (string.IsNullOrEmpty(flag) ? option.TextContent : option.TextContent.Replace(flag, string.Empty)).Trim();
     }
 
     /// <summary>

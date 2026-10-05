@@ -16,7 +16,7 @@ implements this one decision.
 The `url` and `tags` keys and the fallback `external_id` were added on
 2026-09-26, when the generating skill was written (`import-skill`). Its
 grammar,
-`plugins/backlog-tools/skills/backlog-import-inbox/assets/inbox-import-manifest.md`,
+`plugins/backlog-tools/skills/import-inbox/assets/inbox-import-manifest.md`,
 gives every key's rule.
 
 Built on 2026-09-27 (`import-adapter`). Building it changed one rule, marked in

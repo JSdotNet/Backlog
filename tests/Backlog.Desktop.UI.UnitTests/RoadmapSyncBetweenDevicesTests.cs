@@ -357,7 +357,7 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
             services.AddSingleton<IRoadmapPlanRepository>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
             services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
             // Both devices configure the one repository the shared plan is filed under:
-            // the roadmap draws only work filed under a configured repository.
+            // each draws it in that repository's band rather than under no repository.
             var repositories = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
             var (configured, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
             Assert.Empty(errors);

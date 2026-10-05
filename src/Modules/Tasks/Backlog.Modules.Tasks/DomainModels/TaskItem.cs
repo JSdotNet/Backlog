@@ -261,6 +261,12 @@ public sealed class TaskItem
 
     public IReadOnlyList<ProjectionRef> ProjectionRefs => _projectionRefs;
 
+    /// <summary>The item in another system this task follows, or null when the task
+    /// is local work. The inbound counterpart of <see cref="ProjectionRefs"/>: those
+    /// were created from this task, this is what the task was created from — see
+    /// <see cref="Abstractions.SourceRef"/>.</summary>
+    public SourceRef? SourceRef { get; private set; }
+
     // --- Scalar edits -------------------------------------------------------
 
     public void Rename(string title)
@@ -744,6 +750,22 @@ public sealed class TaskItem
     {
         ArgumentNullException.ThrowIfNull(projectionRef);
         _projectionRefs.Add(projectionRef);
+        Touch();
+    }
+
+    /// <summary>Records where the task came from, replaces it with what the source
+    /// says now, or clears it.
+    /// <para>
+    /// Restamps, because a changed reference is the source having said something
+    /// new — an assignee, a state, a flag the sync set — and the person's other
+    /// machine has to hear it. Which is also why the sync calls this only when the
+    /// reference it would write differs from the one held: a sync that restamped
+    /// every task it read would make an idle machine win last-write-wins over real
+    /// edits made elsewhere (ADR 0020, §5).
+    /// </para></summary>
+    public void SetSourceRef(SourceRef? sourceRef)
+    {
+        SourceRef = sourceRef;
         Touch();
     }
 

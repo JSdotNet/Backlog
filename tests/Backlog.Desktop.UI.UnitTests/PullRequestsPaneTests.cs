@@ -459,6 +459,11 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.WaitForAssertion(() =>
         {
             Assert.Contains("Draft", pane.Find("[data-testid='pull-request-state']").TextContent, StringComparison.Ordinal);
+
+            // One GitHub button carrying the state as its colour, and no state chip
+            // repeating it anywhere in the row.
+            Assert.Contains("integration-link--state-draft", pane.Find("a[data-testid='pull-request-link']").ClassList);
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-row'] .badge--integration"));
             Assert.Equal("Checks failing", pane.Find("[data-testid='pull-request-checks']").TextContent.Trim());
             Assert.Equal("Behind", pane.Find("[data-testid='pull-request-behind']").TextContent.Trim());
             Assert.Equal("Conflicts", pane.Find("[data-testid='pull-request-conflicts']").TextContent.Trim());
@@ -500,8 +505,9 @@ public sealed class PullRequestsPaneTests : IDisposable
             Assert.Contains("feature-20 → main", row.TextContent, StringComparison.Ordinal);
             Assert.Contains("Merged", row.QuerySelector("[data-testid='pull-request-state']")!.TextContent, StringComparison.Ordinal);
 
-            // One Merged chip, the Merged column's: the link beside it draws none.
-            Assert.Single(row.QuerySelectorAll(".integration-chip__label"), label => label.TextContent.Trim() == "Merged");
+            // The link carries Merged as its colour, and no chip repeats it.
+            Assert.Contains("integration-link--state-merged", row.QuerySelector("a[data-testid='pull-request-link']")!.ClassList);
+            Assert.Empty(row.QuerySelectorAll(".badge--integration"));
 
             // Coarse in the cell, with who merged it beside; exact in the title.
             var mergedAt = row.QuerySelector("[data-testid='pull-request-merged-at']")!;

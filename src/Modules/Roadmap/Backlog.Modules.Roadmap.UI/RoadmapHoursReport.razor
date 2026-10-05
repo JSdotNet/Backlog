@@ -1,0 +1,209 @@
+@*
+    The hours report a begun head's hours open (local ADR 0019, §6): one week of working
+    days, each with the working stretches its actual hours add up from, so the person
+    can check a head's figure against what they remember doing.
+
+    A stretch is the time from a human turn to the end of the agent's answer to the last
+    turn, joined across pauses under half an hour and across sessions. A working day runs
+    from 04:00 to 04:00. The report reads the same port the heads' figures come from, so
+    a day's total here is always the figure on its head.
+
+    Read when it opens and on each step to another week; never kept. A failed read says
+    so in the dialog and leaves the roadmap as it was.
+*@
+@inject IServiceProvider Services
+
+<Modal Open="@Open"
+       OpenChanged="OpenChanged"
+       Title="@Heading"
+       CssClass="roadmap-editor roadmap-hours"
+       RestoreFocusToId="@RestoreFocusToId"
+       TestId="roadmap-hours">
+    <ChildContent>
+        <div class="roadmap-editor__fields">
+            <p class="roadmap-hours__intro">
+                A stretch runs from your prompt to the end of the agent's answer. A pause shorter than 30 minutes, in any session, keeps it going. A working day runs from 04:00 to 04:00, so an evening past midnight counts on the day it began.
+            </p>
+
+            <div class="roadmap-hours__actions">
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           OnClick="() => StepAsync(-7)"
+                           TestId="roadmap-hours-previous">
+                    Previous week
+                </AppButton>
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           Disabled="@(FirstDay.AddDays(7) > Today)"
+                           OnClick="() => StepAsync(7)"
+                           TestId="roadmap-hours-next">
+                    Next week
+                </AppButton>
+            </div>
+
+            @if (_days is null && _error is null)
+            {
+                <Spinner Label="Reading the hours" TestId="roadmap-hours-loading" />
+            }
+            else if (_error is not null)
+            {
+                <Alert Message="@_error" Role="status" TestId="roadmap-hours-error" />
+            }
+            else
+            {
+                <p class="roadmap-hours__total" data-testid="roadmap-hours-total">
+                    @Hours(Total) worked this week
+                </p>
+
+                <ol class="roadmap-hours__days" data-testid="roadmap-hours-days">
+                    @foreach (var day in _days!)
+                    {
+                        <li @key="day.Date"
+                            class="@(day.Date == Focused ? "roadmap-hours__day roadmap-hours__day--focused" : "roadmap-hours__day")"
+                            data-testid="@($"roadmap-hours-day-{Iso(day.Date)}")">
+                            <h3 class="roadmap-hours__day-heading">
+                                <time datetime="@Iso(day.Date)">@day.Date.ToString("ddd d MMM", CultureInfo.CurrentCulture)</time>
+                                <span class="roadmap-hours__day-total">@Hours(day.Worked)</span>
+                            </h3>
+
+                            @if (day.Stretches.Count == 0)
+                            {
+                                <p class="roadmap-hours__none">No stretches.</p>
+                            }
+                            else
+                            {
+                                <ul class="roadmap-hours__stretches">
+                                    @foreach (var stretch in day.Stretches)
+                                    {
+                                        <li class="roadmap-hours__stretch" data-testid="roadmap-hours-stretch">
+                                            <span class="roadmap-hours__when">@Clock(stretch.Start)–@Clock(stretch.End)</span>
+                                            <span class="roadmap-hours__length">@Length(stretch.Length)</span>
+                                            <span class="roadmap-hours__turns">@Turns(stretch.Turns)</span>
+                                            <span class="roadmap-hours__sessions">@Sessions(stretch)</span>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </li>
+                    }
+                </ol>
+            }
+        </div>
+    </ChildContent>
+</Modal>
+
+@code {
+    private IReadOnlyList<RoadmapWorkedDayDto>? _days;
+    private string? _error;
+    private DateOnly? _shownFrom;
+    private int _offsetDays;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The date whose head was pressed: its week is the one shown first, and the
+    /// day itself is marked.</summary>
+    [Parameter]
+    public DateOnly Date { get; set; }
+
+    /// <summary>Today, which no week shown runs past and no step goes beyond.</summary>
+    [Parameter]
+    public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+
+    /// <summary>The day a week starts on, as the axis rules weeks.</summary>
+    [Parameter]
+    public DayOfWeek WeekStart { get; set; } = DayOfWeek.Monday;
+
+    /// <summary>The id of the control focus goes back to when the dialog closes.</summary>
+    [Parameter]
+    public string? RestoreFocusToId { get; set; }
+
+    private DateOnly FirstDay
+    {
+        get
+        {
+            var date = Date.AddDays(_offsetDays);
+            return date.AddDays(-(((int)date.DayOfWeek - (int)WeekStart + 7) % 7));
+        }
+    }
+
+
+    private DateOnly Focused => Date;
+
+    private TimeSpan Total => _days?.Aggregate(TimeSpan.Zero, (sum, day) => sum + day.Worked) ?? TimeSpan.Zero;
+
+    private string Heading =>
+        $"Hours worked · W{ISOWeek.GetWeekOfYear(FirstDay.ToDateTime(TimeOnly.MinValue))}, "
+        + $"{FirstDay.ToString("d MMM", CultureInfo.CurrentCulture)} – {FirstDay.AddDays(6).ToString("d MMM", CultureInfo.CurrentCulture)}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Open)
+        {
+            _days = null;
+            _error = null;
+            _shownFrom = null;
+            _offsetDays = 0;
+            return;
+        }
+
+        if (_shownFrom == FirstDay) return;
+        await ReadAsync();
+    }
+
+    private async Task StepAsync(int days)
+    {
+        _offsetDays += days;
+        await ReadAsync();
+    }
+
+    private async Task ReadAsync()
+    {
+        var from = FirstDay;
+        _shownFrom = from;
+        _days = null;
+        _error = null;
+
+        try
+        {
+            var days = Services.GetService(typeof(IRoadmapHoursReport)) is IRoadmapHoursReport report
+                ? await report.ReadDaysAsync(from, from.AddDays(6))
+                : null;
+
+            // A read overtaken by a step to another week leaves that week's answer.
+            if (_shownFrom != from) return;
+
+            if (days is null) _error = "The hours cannot be read here: the Sessions area is off or not available.";
+            else _days = days;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            if (_shownFrom == from) _error = "The hours could not be read. Try again in a moment.";
+        }
+    }
+
+    private static string Sessions(RoadmapWorkedStretchDto stretch) =>
+        string.Join(", ", stretch.Sessions.Select(session =>
+            session.Repository is { Length: > 0 } repository ? $"{session.Title} ({repository})" : session.Title));
+
+    private static string Clock(DateTimeOffset instant) => instant.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    /// <summary>A stretch's length as hours and minutes to the nearest minute — "0:15",
+    /// "3:55" — so it reads as the gap between the two clock times beside it.</summary>
+    private static string Length(TimeSpan length)
+    {
+        var minutes = (int)Math.Round(length.TotalMinutes, MidpointRounding.AwayFromZero);
+        return $"{minutes / 60}:{minutes % 60:00}";
+    }
+
+    private static string Turns(int turns) => turns == 1 ? "1 prompt" : $"{turns} prompts";
+
+    /// <summary>Hours as the heads say actual hours: one decimal, "0h" for none.</summary>
+    private static string Hours(TimeSpan worked) =>
+        Math.Round(worked.TotalHours, 1) > 0 ? worked.TotalHours.ToString("0.0", CultureInfo.InvariantCulture) + "h" : "0h";
+
+    private static string Iso(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+}

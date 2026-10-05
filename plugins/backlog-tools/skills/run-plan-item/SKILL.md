@@ -1,6 +1,6 @@
 ---
-name: backlog-run-plan-item
-description: Run one item of a Backlog import plan that the user pasted into the chat. Invoked directly by the line the Backlog app puts on every entry it copies — "/backlog-tools:backlog-run-plan-item entry `<id>`:" with the entry under it — and otherwise whenever a message contains a line beginning "Backlog plan item `", the marker backlog-import-plan writes into every prompt entry, or a plan entry that opens with "Title this session `…`" (or the older "Add the plan name `…` to this session's title"), even when the paste comes with no request attached. Establishes first whether the item is still outstanding, so pasting the same item twice never redoes finished work.
+name: run-plan-item
+description: Run one item of a Backlog import plan that the user pasted into the chat. Invoked directly by the line the Backlog app puts on every entry it copies — "/backlog-tools:run-plan-item entry `<id>`:" with the entry under it — and otherwise whenever a message contains a line beginning "Backlog plan item `", the marker import-plan writes into every prompt entry, or a plan entry that opens with "Title this session `…`" (or the older "Add the plan name `…` to this session's title"), even when the paste comes with no request attached. Establishes first whether the item is still outstanding, so pasting the same item twice never redoes finished work.
 ---
 
 # Run a Backlog plan item
@@ -12,7 +12,7 @@ Recognize it, decide whether it still needs doing, and only then do it. When a `
 MCP server is in the live tool list, the entry's status is read from it and reported back
 to it; when it is not, the pasted text is the whole input and nothing is reported.
 
-Read `../backlog-import-plan/assets/backlog-import-grammar.md`: `## Plan item marker` and
+Read `../import-plan/assets/backlog-import-grammar.md`: `## Plan item marker` and
 `## Entry marker` are the two markers' exact shapes, `## Step numbers` the numbered title
 and the session-name line, `## Sub-item conventions` what the item's `##` headings mean.
 
@@ -64,9 +64,9 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    a sub-item's status line cannot be changed through the connector — no tool edits one.
 6. **Answer the notes the item leaves open.** With the connector, `list_annotations` for the
    repository; a chapter this item rewrote may carry a remark the change now answers. Answer
-   each open note by steps 3–5 of `../backlog-answer-notes/SKILL.md` — fence first, resolve
+   each open note by steps 3–5 of `../handle-remarks/SKILL.md` — fence first, resolve
    second. Name the changed chapter files and offer the commit; never push.
-   `backlog-answer-notes` is the skill to invoke when notes are the whole job.
+   `handle-remarks` is the skill to invoke when notes are the whole job.
 7. **Close.** The knowledge/devbook reminder is a real step — do it through the repository's
    knowledge skills. Report `(tag, id)`, what was done, and the evidence behind anything
    skipped as already done. The flow's own Work Item Update phase is the one that speaks to

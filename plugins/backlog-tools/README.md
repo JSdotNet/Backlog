@@ -1,11 +1,11 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or knowledge-folder tooling. Four skills: one for each direction of a plan,
-one for bringing another tool's items into the Inbox, and one for the remarks a person leaves
-while reading.
+general-purpose or knowledge-folder tooling. Five skills: one for each direction of a plan,
+one for running a whole plan, one for bringing another tool's items into the Inbox, and one
+for the remarks a person leaves while reading.
 
-- **`backlog-import-plan`** — turns an agreed specification into a Backlog import plan
+- **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
   a `prompt` an AI session runs, or a `task` or `test` only the user does — never both in one
   entry. Prompts are the default: while it writes the plan it interviews you — the open
@@ -14,7 +14,7 @@ while reading.
   as an AI-run QA prompt first, and a step stays a `task` or `test` only when you keep it,
   with a `Kept manual:` line saying why. Every step, whatever its kind, names its
   repository with `repo:`. It always ships a review view next to the raw plan — one HTML page built from
-  `skills/backlog-import-plan/assets/plan-review.html` that parses the embedded plan
+  `skills/import-plan/assets/plan-review.html` that parses the embedded plan
   itself and shows its checks, dependency order and entries, published as an artifact where
   the host has one and written beside the plan otherwise. User-invoked only
   (`disable-model-invocation: true`); it never talks to the Backlog app or GitHub.
@@ -35,12 +35,12 @@ while reading.
 
   Asked for the roadmap level, it writes `plan` entries only, one per agreed feature
   chapter, ordered by `after:` from the chapters' `depends-on` lists.
-- **`backlog-run-plan-item`** — runs one entry of such a plan after it is copied out of the
+- **`run-plan-item`** — runs one entry of such a plan after it is copied out of the
   Backlog app and pasted into a session. The app puts the invocation on the first line of
-  every entry it copies — `/backlog-tools:backlog-run-plan-item entry `<id>`:`, the entry
+  every entry it copies — `/backlog-tools:run-plan-item entry `<id>`:`, the entry
   under it — so the paste runs the skill outright; it is also model-invoked on the marker
   line every generated `prompt` entry opens with (`Backlog plan item `…``). Both shapes are
-  defined in `skills/backlog-import-plan/assets/backlog-import-grammar.md`. It checks the
+  defined in `skills/import-plan/assets/backlog-import-grammar.md`. It checks the
   item is still outstanding before doing anything — pasting the same item twice is expected
   and must not redo finished work, and declines a `plan` entry in one line, since only
   Import acts on one — and then carries out the instructions the way the
@@ -49,7 +49,21 @@ while reading.
   progress → Done back (`transition`), every call carrying the `repository` read off the
   git remote; without one it falls back to searching git and says the status has to be set
   by hand.
-- **`backlog-import-inbox`** — turns an export from another to-do tool into an inbox import
+- **`execute-plan`** — runs a whole plan, after the pattern of Matt Pocock's
+  `implement-spec`. It reads the plan from the `backlog` MCP server by its `+tag`
+  (`get_plan_items`) or from a file `import-plan` wrote, builds the graph its `after:`
+  tokens draw, and changes nothing itself: each `prompt` entry whose prerequisites are done
+  goes to its own sub-agent, briefed by `skills/execute-plan/assets/item-brief.md`,
+  which makes its own worktree and runs the entry through `run-plan-item` — so every
+  entry passes the repository's gate and its own Personal Validation, which the orchestrator
+  relays to the person. Entries that wait on nothing run in parallel. An entry is done when
+  its pull request merges; the orchestrator then moves it to Done and starts what waited on
+  it. It stops at `task` and `test` entries, listing what they hold up, and resumes from the
+  plan's state when invoked again. In branch mode the entry pull requests target one
+  `plan/<tag>` branch, the orchestrator merges each approved one into it, and the plan ends in
+  a single pull request to the base branch. User-invoked only. The `UserPromptSubmit` hook
+  stays quiet on a prompt that names this skill, so a pasted plan is not mistaken for one item.
+- **`import-inbox`** — turns an export from another to-do tool into an inbox import
   manifest (ADR 0017:
   `.devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md`).
   The manifest is Markdown with front matter, one `#` item per open task, each with a `meta`
@@ -58,20 +72,20 @@ while reading.
   file into which Inbox Lists. Microsoft To Do is the first tool it knows. Another tool is
   added as a row of the skill's Formats table, never as a second manifest shape, so the
   product needs no converter per tool. Like the plan skill, it always ships a review view,
-  built from `skills/backlog-import-inbox/assets/inbox-import-review.html`. The view parses
+  built from `skills/import-inbox/assets/inbox-import-review.html`. The view parses
   the embedded manifest itself and runs the checks of the grammar in
-  `skills/backlog-import-inbox/assets/inbox-import-manifest.md`. That matters more here: a
+  `skills/import-inbox/assets/inbox-import-manifest.md`. That matters more here: a
   hand-edited manifest can break in ways a generated one never does. User-invoked only
   (`disable-model-invocation: true`); it never talks to the Backlog app, the source tool, or
   GitHub.
-- **`backlog-answer-notes`** — empties the other inbox: the private reading notes a person
+- **`handle-remarks`** — empties the other inbox: the private reading notes a person
   left on a repository's Devbook chapters in the app. It reads them over MCP
   (`list_annotations`), writes each answer into the chapter as a devbook `annotation` fence
   through the devbook plugin's own `annotations.mjs`, and only then resolves the note
   (`resolve_annotation`). Fence first, resolve second, because that is the order whose
   half-done state is recoverable. The two annotation kinds stay two things —
   `.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md` §6 is the decision,
-  and the app is never the fence's writer. `backlog-run-plan-item` carries a short form of
+  and the app is never the fence's writer. `run-plan-item` carries a short form of
   the same procedure for the notes an item it just ran leaves answerable.
 
 The plan-item marker exists because a plan is written before the app has given its entries
@@ -80,7 +94,7 @@ entry line carries what only the app knows — the stored id — and is what mak
 entry a runnable paste.
 
 `hooks/hooks.json` adds a `UserPromptSubmit` hook (Claude Code) that notices either line in
-a prompt and nudges the session to invoke `backlog-run-plan-item`, so triggering does not
+a prompt and nudges the session to invoke `run-plan-item`, so triggering does not
 rest on the skill description alone. It needs `grep` on the hook shell, which Claude Code
 provides on every platform it runs on.
 

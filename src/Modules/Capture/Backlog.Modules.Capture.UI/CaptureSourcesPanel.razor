@@ -93,7 +93,7 @@
                        Accept=".md,.markdown,text/markdown"
                        MaxBytes="ImportMaxBytes"
                        Disabled="_importing"
-                       HelpText="An import manifest, as the backlog-import-inbox skill writes one from another tool's export. Items already here are skipped, so importing the same file twice adds nothing."
+                       HelpText="An import manifest, as the import-inbox skill writes one from another tool's export. Items already here are skipped, so importing the same file twice adds nothing."
                        ErrorMessage="@_importError"
                        OnTextRead="ImportAsync"
                        OnRejected="error => _importError = error" />

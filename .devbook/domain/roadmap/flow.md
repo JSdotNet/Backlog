@@ -85,7 +85,7 @@ flowchart LR
     Scope --> Resolve["Repository Scope Resolution"]
     Registry["Repository Registry<br/>(supplier)"] -.-> Resolve
     Resolve --> Known["Band per configured repository"]
-    Resolve --> Unresolved["Unfiled band:<br/>no alias, or alias no longer configured"]
+    Resolve --> Unresolved["No-repository band:<br/>no alias, or alias no longer configured"]
     Known --> Lanes["Planning lanes inside each band"]
     Unresolved --> Lanes
     Lanes --> Draw["Spans, milestones and dependency arrows placed by date"]

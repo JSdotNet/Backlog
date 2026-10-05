@@ -22,9 +22,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Only for AddTasksModule(); the domain and the handlers know nothing
-         about the container. -->
+    <!-- For AddTasksModule() and the linked task sync's timer, which resolves its
+         scoped handler per run; the domain and the handlers know nothing about
+         the container. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- The linked task sync and its timer report a source that failed to the
+         structured logs; a background loop has nobody else to tell. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

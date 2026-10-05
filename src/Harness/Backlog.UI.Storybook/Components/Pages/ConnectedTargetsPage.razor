@@ -1,0 +1,70 @@
+@page "/integrations/connected-targets"
+
+<PageTitle>Connected targets — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Connected targets"
+           Summary="ConnectedTargetEditor: one repository or product connected to a task source, and how its sync behaves. The same options for every connector — they are the sync's, not the source's — so a connector settings page draws one card per target and needs nothing from a connector beyond its descriptor's name and icon."
+           Guidelines="@Rules">
+
+    <Story Name="One target and its options"
+           Description="Every change is reported at once as the whole options record and nothing is held as a draft: the host saves it and hands the stored record back, so the card always shows what is stored. Sync now and Disconnect are drawn only when the host listens for them. Try the switches — this page plays the host and stores each change."
+           Code="@EditorCode">
+        <div class="sb-menu-wide" data-testid="connected-target-live">
+            <ConnectedTargetEditor Options="@_live"
+                                   OnChange="options => _live = options"
+                                   OnSyncNow="_ => _syncs++"
+                                   OnRemove="_ => _removed = true"
+                                   TestId="connected-target" />
+            <p class="sb-label" data-testid="connected-target-log">Synced @_syncs @(_syncs == 1 ? "time" : "times")@(_removed ? "; disconnect pressed" : string.Empty).</p>
+        </div>
+    </Story>
+
+    <Story Name="Off, and never synced"
+           Description="A target switched off keeps its tasks and stops bringing in new ones, so Sync now is refused rather than hidden. One that has never synced says so where the last sync would be. A stored interval or age that is none of the offered choices is still offered, so editing another option never rewrites it."
+           Code="@OffCode">
+        <div class="sb-menu-wide" data-testid="connected-target-off">
+            <ConnectedTargetEditor Options="@Off" OnChange="_ => { }" OnSyncNow="_ => { }" />
+        </div>
+    </Story>
+
+    <Story Name="Read-only, with no actions"
+           Description="A host that cannot sync or disconnect passes neither callback, and the card draws no action row at all rather than buttons that do nothing."
+           Code="@ReadOnlyCode">
+        <div class="sb-menu-wide" data-testid="connected-target-readonly">
+            <ConnectedTargetEditor Options="@ReadOnly" OnChange="_ => { }" />
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Why every switch on the card commits at once, with no save button."),
+        new("accessibility.md#iconography-accessibility", "Why the provider mark is drawn beside the connector's name, never instead of it.")
+    ];
+
+    private ConnectedTargetOptions _live = new("GitHub", "JSdotNet/Backlog", AssignedToMeByDefault: true) { Icon = "github", LastSynced = "5 Oct 2026 09:15" };
+    private int _syncs;
+    private bool _removed;
+
+    private static readonly ConnectedTargetOptions Off =
+        new("Spec manager", "backlog-product", Enabled: false, SyncIntervalMinutes: 45, SkipUntouchedOlderThanDays: 120);
+
+    private static readonly ConnectedTargetOptions ReadOnly =
+        new("GitHub", "JSdotNet/Marketplace", TitleFollowsSource: false) { Icon = "github", LastSynced = "4 Oct 2026 18:02" };
+
+    private const string EditorCode = """
+        <ConnectedTargetEditor Options="@options"
+                               OnChange="Save"
+                               OnSyncNow="SyncNowAsync"
+                               OnRemove="Disconnect" />
+        """;
+
+    private const string OffCode = """
+        <ConnectedTargetEditor Options="@(options with { Enabled = false })" OnChange="Save" OnSyncNow="SyncNowAsync" />
+        """;
+
+    private const string ReadOnlyCode = """
+        <ConnectedTargetEditor Options="@options" OnChange="Save" />
+        """;
+}

@@ -278,7 +278,7 @@
         @RenderOpen()
     }
 
-    @if (Badges is not null)
+    @if (Badges is not null || Task.Source is not null)
     {
         @* What the host knows about this task that the row has no field for — the
            pull request work on it opened, the session that did it. Facts rather
@@ -291,7 +291,10 @@
         <span class="task-item__badges"
               @onmousedown:stopPropagation="true"
               @onclick:stopPropagation="true">
-            @Badges(Task)
+            @* A linked task's source leads the slot: it is the one badge every
+               linked row has, so it holds the same place on each of them. *@
+            <SourceBadge Source="@Task.Source" CssClass="task-item__source" TestId="@Suffix("source")" />
+            @Badges?.Invoke(Task)
         </span>
     }
 

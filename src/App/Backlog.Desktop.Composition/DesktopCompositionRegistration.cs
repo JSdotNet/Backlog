@@ -111,6 +111,14 @@ public static class DesktopCompositionRegistration
         services.AddSqlite(sp => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory);
         services.AddTasksModule();
 
+        // Linked tasks (local ADR 0020): the head decides where the connected
+        // targets are kept, and the module brings the sync and its timer. Each
+        // connector is added with AddTaskConnector<T>(); GitHub issues come through
+        // the GitHub adapter registered below.
+        services.AddSingleton(options.ConnectedTargets);
+        services.AddLinkedTaskSync();
+        services.AddTaskConnector<GitHubConnector>();
+
         services.AddRoadmapModule();
         // The plan behind the shell's Ask AI port, after the module so the scoped
         // planning port it holds exists.
@@ -237,6 +245,10 @@ public static class DesktopCompositionRegistration
         // The Inbox's page on the settings screen: the routing rules. The shell draws
         // it only because it is registered here, and holds no copy of its own.
         services.AddInboxSettings();
+        // The Connectors page: connect a repository or a product and set how it
+        // syncs. Drawn from the connectors' descriptors, so it needs no change when
+        // one is added.
+        services.AddTaskConnectorSettings();
         // The band under every route reads the backlog's save state through the
         // library's interface, and the toast tray in MainLayout reads the channel a
         // screen puts a message in; concrete type and interface resolve the same one.

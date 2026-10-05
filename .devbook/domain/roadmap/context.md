@@ -111,10 +111,10 @@ Changed on the roadmap, beside the chart it sizes — each pace under its band's
 name in the chart's sidebar and above the band's named lanes, as a points field
 ("pt/wk") over the choices, each measured one showing its figure, the band growing
 to fit them: a repository's own pace in its band, and the global pace, the
-**default**, in the unfiled band, measured over all finished work. With no
-unfiled plan there is no unfiled band, so the default is not offered for editing
-until there is one; every repository band with no pace of its own still shows it
-until edited. A stretch that counted nothing is not offered at all, and with none
+**default**, in the band for work under no repository, measured over all finished
+work. That band is drawn whenever the chart is, even with nothing filed in it, so
+the default is always offered for editing. Every repository band with no pace of
+its own shows the default until edited. A stretch that counted nothing is not offered at all, and with none
 measured only the field is shown; a chosen stretch that has since emptied says in
 a line under the choices that the typed pace is used — and read per placement
 rather than pinned at startup, so the next plan laid out uses the pace now in force. Stored on

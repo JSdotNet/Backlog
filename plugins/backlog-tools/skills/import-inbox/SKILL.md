@@ -1,5 +1,5 @@
 ---
-name: backlog-import-inbox
+name: import-inbox
 description: Turn an export from another to-do tool (Microsoft To Do first) into a Backlog inbox import manifest — Markdown with front matter, one item per open task, completed tasks dropped — together with a review view of it, always, ready for the Sources panel's Import file.
 disable-model-invocation: true
 ---

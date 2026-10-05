@@ -547,6 +547,45 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
             () => surface.RecordPromptAsync(Worktree, "run-nothing-here", "Anything.", cancellationToken: TestContext.Current.CancellationToken));
     }
 
+    /// <summary>
+    /// The dashboard server files its copy of the same run under the main checkout's
+    /// folder, and the reader folds the two with the dashboard's file as the record.
+    /// The run must still be this worktree's, and still answer to the id this surface
+    /// handed out — a resumed flow asks for it by that id.
+    /// </summary>
+    [Fact]
+    public async Task A_run_the_dashboard_filed_under_the_main_checkout_is_still_this_worktrees_and_answers_to_its_own_id()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, sessionId: "session-a", cancellationToken: TestContext.Current.CancellationToken);
+
+        var mainCheckout = DeliveryRunWorktrees.KeyOf(@"D:\Repos\Backlog")!;
+        var folder = Directory.CreateDirectory(Path.Combine(_home, "delivery-surface-dashboard", mainCheckout, "runs"));
+        var dashboardRun = new JsonObject
+        {
+            ["id"] = "run-dashboard-copy",
+            ["skillId"] = "flow-code",
+            ["title"] = "Run",
+            ["status"] = "in_progress",
+            ["sessionIds"] = new JsonArray("session-a"),
+            ["startedAt"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["updatedAt"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["stages"] = new JsonArray()
+        };
+        File.WriteAllText(Path.Combine(folder.FullName, "run-dashboard-copy.json"), dashboardRun.ToJsonString());
+
+        var listed = Assert.Single(await surface.ListRunsAsync(Worktree, TestContext.Current.CancellationToken));
+
+        Assert.Equal("run-dashboard-copy", listed.Id);
+        Assert.Equal(["delivery-surface-dashboard", "backlog"], listed.Surfaces);
+        Assert.Equal("lifecycle-tools-8da0a4", listed.WorktreeName);
+
+        var fetched = await surface.GetRunAsync(Worktree, started.RunId, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(fetched);
+        Assert.Equal("run-dashboard-copy", fetched.Id);
+    }
+
     [Fact]
     public async Task A_run_is_written_where_the_reader_already_looks()
     {
