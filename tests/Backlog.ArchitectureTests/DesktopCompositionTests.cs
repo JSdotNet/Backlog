@@ -110,6 +110,22 @@ public sealed partial class DesktopCompositionTests
     }
 
     /// <summary>
+    /// The pace store blocks and unblocks a day only through the device's working
+    /// week (local ADR 0019), so each head hands it the one store the container
+    /// registers for <c>IWorkingHoursSettings</c>. Given none, every Days off press
+    /// answers that this device keeps no working week.
+    /// </summary>
+    [Theory]
+    [InlineData("src/App/Backlog.Desktop/MauiProgram.cs")]
+    [InlineData("src/Harness/Backlog.Desktop.WebHarness/Program.cs")]
+    public void Each_desktop_head_gives_the_pace_store_the_registered_working_week(string head)
+    {
+        var text = File.ReadAllText(Path.Combine([Repository.Root.FullName, .. head.Split('/')]));
+
+        Assert.Matches(PaceStoreGivenTheWorkingWeek(), text);
+    }
+
+    /// <summary>
     /// What differs between the heads arrives through the options. A shared
     /// composition that looked at its surroundings instead — a preprocessor branch,
     /// the environment, the operating system — would be two compositions again, one
@@ -177,4 +193,7 @@ public sealed partial class DesktopCompositionTests
 
     [GeneratedRegex(@"\b(class|record)\s+DesktopCompositionOptions\b")]
     private static partial Regex OptionsDefinition();
+
+    [GeneratedRegex(@"PlanningVelocitySettings\s*=\s*(\w+)\s*=>\s*new\s+PlanningVelocitySettingsStore\([^;]*\1\.GetRequiredService<WorkingHoursSettingsStore>\(\)")]
+    private static partial Regex PaceStoreGivenTheWorkingWeek();
 }

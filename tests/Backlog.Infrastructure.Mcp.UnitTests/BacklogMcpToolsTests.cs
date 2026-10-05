@@ -31,6 +31,7 @@ public class BacklogMcpToolsTests
                 "find_item",
                 "read_item",
                 "transition",
+                "set_blocked",
                 "comment",
                 "link_change",
                 "link_session",
@@ -195,6 +196,7 @@ public class BacklogMcpToolsTests
         [
             DevbookTools.ResolveAnnotation,
             TrackerTools.Transition,
+            TrackerTools.SetBlocked,
             TrackerTools.Comment,
             TrackerTools.LinkChange,
             TrackerTools.LinkSession,
@@ -220,6 +222,7 @@ public class BacklogMcpToolsTests
         [
             DevbookTools.ResolveAnnotation,
             TrackerTools.Transition,
+            TrackerTools.SetBlocked,
             TrackerTools.LinkSession,
             TrackerTools.SetDevbookReferences,
             SurfaceTools.OpenDashboard,

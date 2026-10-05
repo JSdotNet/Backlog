@@ -107,7 +107,8 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
             parsed.SubItems.Count,
             parsed.SubItems.Count(subItem => subItem.Done),
             existing?.Projections ?? [],
-            RepoIds: parsed.RepoIds);
+            RepoIds: parsed.RepoIds,
+            BlockedSince: parsed.BlockedSince);
 
         if (existing is not null) _entries[_entries.IndexOf(existing)] = saved;
         else _entries.Add(saved);
@@ -249,7 +250,8 @@ internal static class Entries
         IReadOnlyList<string>? tags = null,
         IReadOnlyList<EntryProjectionDto>? projections = null,
         int totalSubItems = 0,
-        IReadOnlyList<string>? devbookReferences = null) =>
+        IReadOnlyList<string>? devbookReferences = null,
+        DateOnly? blockedSince = null) =>
         new(
             id ?? Guid.NewGuid(),
             title,
@@ -266,5 +268,6 @@ internal static class Entries
             RepoIds: repoIds,
             ImportPlanId: importPlanId,
             ImportItemId: importItemId,
-            DevbookReferences: devbookReferences);
+            DevbookReferences: devbookReferences,
+            BlockedSince: blockedSince);
 }

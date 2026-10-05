@@ -3,7 +3,7 @@ using Backlog.Modules.Sync.Abstractions.Services;
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
-/// The repository registry and the GitHub accounts are not tasks (local ADR 0020,
+/// The repository registry and the GitHub accounts are not tasks (local ADR 0021,
 /// Decision §4). Each goes to the GitHub settings port whole — its text and its
 /// stamp — never to the task store, and how it is counted follows what the port
 /// said.
@@ -51,7 +51,7 @@ public sealed class TaskReplicaMergeGitHubTests
             });
     }
 
-    /// <summary>ADR 0020 Verification 8: an older copy and an echo write nothing, so
+    /// <summary>ADR 0021 Verification 8: an older copy and an echo write nothing, so
     /// they count as neither applied nor skipped.</summary>
     [Theory]
     [InlineData(GitHubReplicaOutcome.Echo)]
@@ -68,7 +68,7 @@ public sealed class TaskReplicaMergeGitHubTests
         Assert.Empty(activity.Snapshot());
     }
 
-    /// <summary>ADR 0020 Verification 9: a payload that does not parse counts
+    /// <summary>ADR 0021 Verification 9: a payload that does not parse counts
     /// Skipped, and the port has left the local accounts as they were.</summary>
     [Fact]
     public async Task A_copy_the_store_cannot_read_counts_skipped()
@@ -137,7 +137,7 @@ public sealed class TaskReplicaMergeGitHubTests
         Assert.Single(github.Offered);
     }
 
-    /// <summary>The wire shape of ADR 0018 Decision §1, which ADR 0020 reuses: one
+    /// <summary>The wire shape of ADR 0018 Decision §1, which ADR 0021 reuses: one
     /// constant id, the stamp, the kind token, the text verbatim, a title, the Tasks
     /// defaults, and never a tombstone.</summary>
     [Fact]

@@ -367,9 +367,17 @@
            rather than in front of the question.
 
            Still ahead of the bin. Everything to the left of the bin leaves the row
-           where it is. *@
+           where it is.
+
+           Refused, not removed, on a row a person marked blocked: handing that
+           task's text to somebody is handing them work they cannot start. The
+           button keeps its slot so the row does not shift, and says why. Only the
+           hand-set mark refuses it — a row the chain says is waiting copies as it
+           always has, because what it waits for is on the list beside it. *@
         <CopyButton Text="@CopyText"
                     Label="@($"Copy {Task.Title}")"
+                    Disabled="@MarkedBlocked"
+                    DisabledReason="Blocked — unblock to copy"
                     CssClass="task-item__copy"
                     ButtonCssClass="task-item__copy-button"
                     StatusCssClass="task-item__copy-status"
@@ -1425,6 +1433,16 @@
     /// exactly one place.</summary>
     private bool Blocked => Status is { Readiness: TaskReadiness.Blocked };
 
+    /// <summary>A person marked this row blocked by hand — <see cref="TaskRow.MarkedBlocked"/>.
+    /// Named apart from <see cref="Blocked"/> on purpose: that one is the chain's
+    /// derived readiness and takes the circle away; this one is a stored fact that
+    /// leaves the circle alone and refuses only the copy. Two meanings of one word,
+    /// so two names in the code.</summary>
+    private bool MarkedBlocked => Task.MarkedBlocked;
+
+    // "Blocked" here is the chain's state only, read on a row whose circle is not
+    // a control. A row marked blocked by hand keeps its circle as a control, so it
+    // never reaches this label.
     private string StateLabel => Task.Done ? "Done" : Blocked ? "Blocked" : "Not done";
 
     /// <summary>The clipboard text. Unchanged by editing, and correct while it is
@@ -1947,6 +1965,12 @@
         // edit is emptying it.
         HasFold ? "task-item--has-body" : null,
         Blocked ? "task-item--blocked" : null,
+        // The hand-set mark, beside the chain's class and never instead of it: a
+        // row can be marked blocked and waiting at once, and the two classes say
+        // two different things. "--blocked-flag" rather than anything under
+        // "--blocked", which is the derived state's and dashes the circle; this
+        // one quiets the title and leaves the circle a control.
+        MarkedBlocked ? "task-item--blocked-flag" : null,
         Next ? "task-item--next" : null,
         Selected ? "task-item--selected" : null,
         // Picked, not open. Two states with two meanings, so two classes:

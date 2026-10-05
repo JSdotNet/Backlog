@@ -1021,4 +1021,30 @@ public sealed class TaskPanelTests
 
         Assert.Empty(view.FindAll("[data-testid='panel-copy']"));
     }
+
+    /// <summary>A host that has the text and may not hand it over yet keeps the
+    /// button where it is — the heading line does not shift — but disabled, and
+    /// says why on the wrapper and to a screen reader. Pressing it copies
+    /// nothing.</summary>
+    [Fact]
+    public void A_panel_can_offer_its_copy_disabled_with_a_reason()
+    {
+        using var context = new BunitContext();
+        var copy = context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true);
+        copy.SetResult(true);
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Ship the sync spike")
+            .Add(t => t.CopyValue, "Ship the sync spike")
+            .Add(t => t.CopyDisabledReason, "Blocked — unblock to copy")
+            .Add(t => t.TestId, "panel"));
+
+        var button = view.Find("[data-testid='panel-copy']");
+        Assert.True(button.HasAttribute("disabled"));
+        Assert.Equal("true", button.GetAttribute("aria-disabled"));
+        Assert.Equal("Blocked — unblock to copy", view.Find(".task-panel__copy").GetAttribute("title"));
+
+        button.Click();
+        Assert.Empty(copy.Invocations);
+    }
 }

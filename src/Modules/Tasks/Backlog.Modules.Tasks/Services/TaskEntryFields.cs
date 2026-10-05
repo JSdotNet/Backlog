@@ -125,6 +125,13 @@ internal static class TaskEntryFields
         // not of the status (SaveTaskFromTextCommand.UpdateAsync).
         entry.SetCompletedOn(parsed.CompletedOn);
 
+        // The hand-set block, beside the tick and on the same terms: not
+        // scheduling and not a lifecycle step, and unconditional because deleting
+        // the `blocked:` token is how an entry is unblocked. Unconditional here,
+        // that is: Import's update path keeps a block its plan text says nothing
+        // about, because the plan is not the person's editor.
+        entry.SetBlockedSince(parsed.BlockedSince);
+
         // Not scheduling, and here anyway. What is attached is a fact about the
         // work like the fields above it — set once, cleared by deleting the
         // token — and the alternative was a method of one line whose only claim

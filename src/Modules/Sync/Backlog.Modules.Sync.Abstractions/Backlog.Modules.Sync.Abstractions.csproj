@@ -13,7 +13,7 @@
       SyncErrorCodes        the stable codes a ProblemDetails `type` is built from
       Services/             IGitHubSettingsReplication, the port the client hands
                             the repository registry and the GitHub accounts
-                            documents to (local ADR 0020); the GitHub adapter
+                            documents to (local ADR 0021); the GitHub adapter
                             answers it, so neither adapter sees the other
     The device aggregate, the ports, and the use-case handlers stay in the
     implementation project. Nothing here may reference it, or anything else in

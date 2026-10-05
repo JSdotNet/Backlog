@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 /// <summary>
 /// The GitHub settings replication port, holding one copy of each document and
 /// answering whatever the test set — <see cref="RecordingRoadmapReplication"/>'s
-/// shape for the registry and the accounts (local ADR 0020). The sync client never
+/// shape for the registry and the accounts (local ADR 0021). The sync client never
 /// sees past this port, so what the store does with a copy is not this project's
 /// business: only that it was handed over whole, and how the answer is counted.
 /// </summary>

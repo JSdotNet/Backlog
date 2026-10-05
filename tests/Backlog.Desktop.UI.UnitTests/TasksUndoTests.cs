@@ -192,6 +192,28 @@ public sealed class TasksUndoTests
         Assert.Empty(await host.EntriesElsewhere().ListAsync(TestContext.Current.CancellationToken));
     }
 
+    /// <summary>Marking an entry blocked is one change like any other, and undoing
+    /// it takes the mark back off in the store — not only on the row.</summary>
+    [Fact]
+    public async Task Undo_takes_a_hand_set_block_back_off_and_redo_puts_it_on_again()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(Provision);
+        var day = new DateOnly(2026, 10, 5);
+
+        await host.State.ChangeBlockedAsync(row, blocked: true, day);
+        Assert.Equal(day, (await StoredAsync(host, row.Id!.Value)).BlockedSince);
+
+        Assert.True(await host.State.UndoAsync());
+
+        Assert.Null(row.PreviewBlockedSince);
+        Assert.Null((await StoredAsync(host, row.Id!.Value)).BlockedSince);
+
+        Assert.True(await host.State.RedoAsync());
+
+        Assert.Equal(day, (await StoredAsync(host, row.Id!.Value)).BlockedSince);
+    }
+
     [Fact]
     public async Task A_bulk_edit_is_one_undo_step()
     {

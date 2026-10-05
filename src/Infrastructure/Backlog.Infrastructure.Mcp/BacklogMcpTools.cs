@@ -75,9 +75,9 @@ public static class BacklogMcpTools
         [WorkTools.ListEntries, WorkTools.GetPlanItems]);
 
     /// <summary>
-    /// The tracker operations — find, read, transition, comment, link, create,
-    /// and set or list an entry's Devbook references — behind <c>backlog</c>, the
-    /// same key <see cref="Work"/> reads.
+    /// The tracker operations — find, read, transition, mark blocked or unblock,
+    /// comment, link, create, and set or list an entry's Devbook references —
+    /// behind <c>backlog</c>, the same key <see cref="Work"/> reads.
     /// <para>
     /// <b>The shared key is the decision, not an oversight.</b> Local ADR 0012 §7
     /// requires one <see cref="IAppFeatureSettings"/> check per group, which this
@@ -103,6 +103,7 @@ public static class BacklogMcpTools
             TrackerTools.FindItem,
             TrackerTools.ReadItem,
             TrackerTools.Transition,
+            TrackerTools.SetBlocked,
             TrackerTools.Comment,
             TrackerTools.LinkChange,
             TrackerTools.LinkSession,

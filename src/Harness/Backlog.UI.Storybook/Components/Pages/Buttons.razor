@@ -199,11 +199,14 @@ The confirmation is a role=&quot;status&quot; line beside the button rather than
 
 The glyph confirms it too: press the first one and the two sheets fade down into a check for as long as the sentence stands, then fade back. That is not a second copy of the message — a task row and the task panel hide the status line and keep only its announcement, so there the check is the whole confirmation a sighted reader gets, which is also why confirming promotes the glyph's colour rather than leaving a state indicator drawn in the disabled tone. Only a success is animated; a refusal keeps the sentence that says what to do instead, because motion here means &quot;that worked&quot;. Under prefers-reduced-motion the check still fades in — only the growing is dropped.
 
-The second sample puts words on the button instead. There is no glyph to swap, so it keeps them — but the wrapper still carries data-copied, which is the hook for a host that wants to dress its own confirmation."
+The second sample puts words on the button instead. There is no glyph to swap, so it keeps them — but the wrapper still carries data-copied, which is the hook for a host that wants to dress its own confirmation.
+
+The third is refused: Disabled keeps the button in its slot with its glyph, so the row or heading it sits on does not move, and DisabledReason says why — as the wrapper's tooltip, since a disabled button raises no pointer events of its own, and as a described-by for a screen reader. A task row marked blocked by hand draws its copy this way."
            Code="@CopyButtonCode">
         <div class="sb-row">
             <CopyButton Text="Copied from the storybook." Label="Copy the sample text" TestId="copy-sample" />
             <CopyButton Text="Words instead of a glyph." Label="Copy with a label">Copy</CopyButton>
+            <CopyButton Text="Not handed over." Label="Copy the blocked sample" Disabled="true" DisabledReason="Blocked — unblock to copy" TestId="copy-disabled" />
         </div>
     </Story>
 
@@ -222,6 +225,7 @@ The second sample puts words on the button instead. There is no glyph to swap, s
 
     private const string CopyButtonCode = """
         <CopyButton Text="@source" Label="Copy the release notes" />
+        <CopyButton Text="@source" Label="Copy the task" Disabled="@blocked" DisabledReason="Blocked — unblock to copy" />
         """;
 
     private static readonly ButtonVariant[] Variants =

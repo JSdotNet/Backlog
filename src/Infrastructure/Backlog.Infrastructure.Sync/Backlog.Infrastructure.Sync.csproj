@@ -47,7 +47,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
-    <!-- Also the GitHub settings replication port (local ADR 0020): the merge hands
+    <!-- Also the GitHub settings replication port (local ADR 0021): the merge hands
          a repository-registry or github-accounts document to
          IGitHubSettingsReplication and the session reads both from it on the push.
          Taken as optional, like the roadmap's, so this project routes by kind and

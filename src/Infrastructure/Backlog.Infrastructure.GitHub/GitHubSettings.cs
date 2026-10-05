@@ -502,7 +502,7 @@ public sealed record RepositoryRemoval(string Id, DateTimeOffset At);
 /// </para>
 /// <para>
 /// The registry and the account identities also travel between paired devices as
-/// two stamped documents (local ADR 0020); the replica half of this class is in
+/// two stamped documents (local ADR 0021); the replica half of this class is in
 /// <c>GitHubSettingsStore.Replica.cs</c>.
 /// </para>
 /// </summary>
@@ -1248,7 +1248,7 @@ public sealed partial class GitHubSettingsStore
         var dto = RegistryDtoFor(rows);
 
         // A write whose shared content differs from the last one is a new version of
-        // the registry document (local ADR 0020); one that rewrites the same content
+        // the registry document (local ADR 0021); one that rewrites the same content
         // keeps the stamp it had, so an unrelated save never reads as a change.
         var restamped = StampRegistry(dto);
 
@@ -1545,7 +1545,7 @@ public sealed partial class GitHubSettingsStore
     /// </para>
     /// <para>
     /// An id the registry records as removed, or as renamed away, is never carried
-    /// back. Once the registry travels between devices (local ADR 0020) that is the
+    /// back. Once the registry travels between devices (local ADR 0021) that is the
     /// ordinary state of a repository another device removed or renamed while this
     /// one still holds a clone directory for it — and carrying it over would undo
     /// the other device's change on every start.
@@ -1718,7 +1718,7 @@ public sealed partial class GitHubSettingsStore
     /// to <paramref name="identity"/>, when no row is keyed on the new id yet.
     /// <para>
     /// A rename made here moves the row itself. A rename made on another device
-    /// arrives as a registry that names only the new id (local ADR 0020), and this
+    /// arrives as a registry that names only the new id (local ADR 0021), and this
     /// is what keeps the clone directory, token and folder overrides this machine
     /// had for the old one: the next write files them under the new id. An old id
     /// that is itself configured again keeps its own row.
@@ -2068,7 +2068,7 @@ public sealed partial class GitHubSettingsStore
         public DateTimeOffset? AccountsUpdatedAt { get; init; }
 
         /// <summary>When the file was last written, which stands in for a missing
-        /// stamp once (local ADR 0020, as ADR 0018 does for the pace file).</summary>
+        /// stamp once (local ADR 0021, as ADR 0018 does for the pace file).</summary>
         public DateTimeOffset? LastWrite { get; init; }
 
         public string? Token { get; init; }
@@ -2079,7 +2079,7 @@ public sealed partial class GitHubSettingsStore
     private sealed class RegistryDto
     {
         /// <summary>When the shared content last changed — the registry document's
-        /// stamp (local ADR 0020). Written on every change; omitted only by a
+        /// stamp (local ADR 0021). Written on every change; omitted only by a
         /// registry nobody has put anything in yet, which is no document at all.
         /// Additive: a file without it is stamped once from its last-write
         /// time.</summary>
@@ -2164,7 +2164,7 @@ public sealed partial class GitHubSettingsStore
         public List<AccountDto> Accounts { get; set; } = [];
 
         /// <summary>When an account identity last changed — the accounts document's
-        /// stamp (local ADR 0020). A credential change does not move it. Omitted
+        /// stamp (local ADR 0021). A credential change does not move it. Omitted
         /// while no account was ever saved; additive, so a file without it is
         /// stamped once from its last-write time.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

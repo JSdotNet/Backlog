@@ -141,7 +141,7 @@ public static class RoadmapPlanView
             .ToList();
 
         var markers = milestones
-            .Select(milestone => Marker(milestone, MilestoneRowId, contradicting))
+            .Select(milestone => Marker(milestone, MilestoneRowId, contradicting, configured))
             .Where(marker => drawn.Contains(marker.RowId))
             .ToList();
 
@@ -1036,7 +1036,8 @@ public static class RoadmapPlanView
     private static RoadmapMilestone Marker(
         RoadmapMilestoneDto milestone,
         string rowId,
-        HashSet<Guid> contradicting) =>
+        HashSet<Guid> contradicting,
+        List<PlannedRepository> configured) =>
         new(
             milestone.Id.ToString(),
             rowId,
@@ -1044,7 +1045,10 @@ public static class RoadmapPlanView
             milestone.On,
             Marker(milestone.Kind),
             Detail(milestone, contradicting),
-            milestone.IsPlanWide);
+            milestone.IsPlanWide,
+            // The marker stays in the dates band; the bands of the repositories it is
+            // filed under are ruled at its date, so their work reads against it there.
+            FiledUnder(milestone.RepositoryAliases, configured));
 
     private static string Detail(RoadmapMilestoneDto milestone, HashSet<Guid> contradicting)
     {

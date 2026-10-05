@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.GitHub;
 /// <summary>
 /// The published <see cref="IGitHubSettingsReplication"/> port over the settings
 /// store: the repository registry and the account identities as two whole
-/// documents, last write wins on each one's own stamp (local ADR 0020).
+/// documents, last write wins on each one's own stamp (local ADR 0021).
 /// <para>
 /// A thin door rather than a second owner of the rules. Which copy wins and what a
 /// copy may change on this machine are the store's, because only the store knows

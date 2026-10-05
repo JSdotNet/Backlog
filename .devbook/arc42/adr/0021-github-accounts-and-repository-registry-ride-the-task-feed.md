@@ -1,4 +1,4 @@
-# ADR 0020: The GitHub accounts and the repository registry ride the task feed as two whole documents
+# ADR 0021: The GitHub accounts and the repository registry ride the task feed as two whole documents
 
 ```meta
 date: 2026-10-05

@@ -108,7 +108,7 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// <para>
 /// <b>Nor are the GitHub settings.</b> A document whose kind token is
 /// <c>repository-registry</c> or <c>github-accounts</c> is handed to the GitHub
-/// settings port on the same terms (local ADR 0020): before the local task is read,
+/// settings port on the same terms (local ADR 0021): before the local task is read,
 /// routed by kind alone, Skipped on a head composed without the port.
 /// </para>
 /// </summary>
@@ -290,7 +290,8 @@ public sealed class TaskReplicaMerge(
             [.. task.ProjectionRefs.Select(p => new ProjectionPayload(p.RepoId, p.ExternalId, p.TargetType))],
             task.CompletedOn,
             StartedOn: task.StartedOn,
-            DevbookReferences: task.DevbookReferences.Count == 0 ? null : [.. task.DevbookReferences]);
+            DevbookReferences: task.DevbookReferences.Count == 0 ? null : [.. task.DevbookReferences],
+            BlockedSince: task.BlockedSince);
     }
 
     /// <summary>
@@ -333,6 +334,7 @@ public sealed class TaskReplicaMerge(
         task.SetInMyDayOn(payload.InMyDayOn);
         task.SetCompletedOn(payload.CompletedOn);
         task.SetStartedOn(payload.StartedOn);
+        task.SetBlockedSince(payload.BlockedSince);
         task.SetView(EntryTextParser.ParseView(payload.View));
         task.SetDependsOn(payload.DependsOn);
         // Filtered for the reason the local store filters them: one value the

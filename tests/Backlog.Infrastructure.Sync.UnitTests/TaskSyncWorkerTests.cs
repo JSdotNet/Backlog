@@ -549,7 +549,7 @@ public sealed class TaskSyncWorkerTests
         Assert.Equal("roadmap-plan", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
     }
 
-    /// <summary>ADR 0020, Decision §4: a binding set or an account added here is
+    /// <summary>ADR 0021, Decision §4: a binding set or an account added here is
     /// pushed after the same settle delay a task write is.</summary>
     [Fact]
     public async Task A_github_settings_change_runs_a_cycle_after_the_settle_delay()

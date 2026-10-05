@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 /// <summary>
 /// The repository registry and the GitHub accounts leave the machine on the push,
 /// after the roadmap's documents, whenever a stamp is later than the one this device
-/// last had accepted for it (local ADR 0020, Decision §4) — and a device that never
+/// last had accepted for it (local ADR 0021, Decision §4) — and a device that never
 /// saved one sends nothing.
 /// </summary>
 public sealed class TaskSyncSessionGitHubTests
@@ -83,7 +83,7 @@ public sealed class TaskSyncSessionGitHubTests
         Assert.Equal(Morning.AddMinutes(5), state.Current.DocumentWatermark(GitHubReplicaDocuments.AccountsType));
     }
 
-    /// <summary>ADR 0020 Verification 7: a device with no registry and no accounts
+    /// <summary>ADR 0021 Verification 7: a device with no registry and no accounts
     /// pushes neither document — never an empty list over another device's.</summary>
     [Fact]
     public async Task A_device_that_never_saved_either_document_sends_nothing()

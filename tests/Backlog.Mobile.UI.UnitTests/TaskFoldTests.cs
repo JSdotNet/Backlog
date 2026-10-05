@@ -128,7 +128,7 @@ public sealed class TaskFoldTests
         Assert.Empty(rows);
     }
 
-    /// <summary>ADR 0020 Verification 10: the phone ignores the repository registry
+    /// <summary>ADR 0021 Verification 10: the phone ignores the repository registry
     /// and the GitHub accounts, so its view store keeps no row for either.</summary>
     [Theory]
     [InlineData("repository-registry")]

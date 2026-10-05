@@ -4,7 +4,7 @@ namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
 /// A whole document that is not a task, written as a task-shaped change on the task
-/// feed (local ADR 0018, Decision §1; local ADR 0020 reuses it): its constant id, its
+/// feed (local ADR 0018, Decision §1; local ADR 0021 reuses it): its constant id, its
 /// stamp, its kind token, the stored text verbatim as <c>ContentMd</c>, the Tasks
 /// defaults for status and priority so no field but the type is unusual, and nothing
 /// else. Never a tombstone — a cleared document is an empty one, sent like any other.

@@ -11,7 +11,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 
 /// <summary>
 /// The repository registry and the account identities as two whole documents that
-/// travel between paired devices (local ADR 0020).
+/// travel between paired devices (local ADR 0021).
 /// <para>
 /// A device is a per-user <c>github.json</c> over its own workspace root — never a
 /// shared one, because the point of the decision is that the root is on a local disk

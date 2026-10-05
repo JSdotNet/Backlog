@@ -174,7 +174,7 @@ public sealed class SettingsAccountsTests
         });
     }
 
-    /// <summary>Local ADR 0020: the identities travel to paired devices and the
+    /// <summary>Local ADR 0021: the identities travel to paired devices and the
     /// credential does not, and the panel says exactly that rather than the old
     /// "never synced".</summary>
     [Fact]
@@ -192,7 +192,7 @@ public sealed class SettingsAccountsTests
         Assert.DoesNotContain("never synced", note, StringComparison.Ordinal);
     }
 
-    /// <summary>Local ADR 0020 Verification 4: a registry pulled from another device
+    /// <summary>Local ADR 0021 Verification 4: a registry pulled from another device
     /// can bind a repository to a login this machine has no account for yet. The open
     /// panel reloads and lists the binding as unsatisfied — it never reads as the
     /// default.</summary>

@@ -23,6 +23,10 @@ namespace Backlog.Infrastructure.Mcp;
 /// all (<c>+backlog-mcp-server</c>), or null for an entry typed by hand.</param>
 /// <param name="StartedOn">The day work first moved to in progress, or null
 /// when it never has.</param>
+/// <param name="BlockedSince">The day a person marked the entry blocked by hand,
+/// or null when it is not marked. Not a status and not the derived "blocked" of an
+/// unfinished <c>after:</c> chain, which is never stored: a marked entry keeps its
+/// status and still counts as ready to the entries waiting on it.</param>
 public sealed record EntryPayload(
     Guid Id,
     string Title,
@@ -38,6 +42,7 @@ public sealed record EntryPayload(
     DateOnly? DueOn,
     DateOnly? StartedOn,
     DateOnly? CompletedOn,
+    DateOnly? BlockedSince,
     int? Effort,
     IReadOnlyList<string> Repositories,
     IReadOnlyList<string> DependsOn,
@@ -129,6 +134,25 @@ public sealed record TransitionPayload(
     bool Changed,
     string? Refusal,
     IReadOnlyList<string> NextStatuses);
+
+/// <summary>
+/// Whether an entry is marked blocked after a <c>set_blocked</c> call, and
+/// whether the call changed anything.
+/// </summary>
+/// <param name="Status">The lifecycle status, unchanged by the call and reported
+/// so a session can see that it was: marking an entry blocked is not a status
+/// move.</param>
+/// <param name="BlockedSince">The day the entry was marked blocked, or null when
+/// it is not marked. An entry that was already marked keeps its original
+/// day.</param>
+/// <param name="Changed">False when the entry was already where the call asked —
+/// the call was then a read, and nothing was saved.</param>
+public sealed record BlockedPayload(
+    Guid Id,
+    string Title,
+    string Status,
+    DateOnly? BlockedSince,
+    bool Changed);
 
 /// <summary>
 /// A note left on an entry, and the sub-items that survived it.

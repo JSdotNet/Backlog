@@ -3,7 +3,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 namespace Backlog.Modules.Sync.Abstractions.Services;
 
 /// <summary>The two GitHub settings documents that travel between a person's
-/// devices (local ADR 0020): the repository registry, and the account identities.
+/// devices (local ADR 0021): the repository registry, and the account identities.
 /// Two rather than one, so an account added on one PC and a binding changed on
 /// another both survive.</summary>
 public enum GitHubReplicaDocument
@@ -38,7 +38,7 @@ public enum GitHubReplicaOutcome
 
 /// <summary>
 /// The port the sync client hands the replicated GitHub settings documents to, and
-/// reads them from (local ADR 0020).
+/// reads them from (local ADR 0021).
 /// <para>
 /// The client routes by kind and nothing else: it carries a document's text and its
 /// stamp and never looks inside. Which copy wins, what a copy may change on this

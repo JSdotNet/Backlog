@@ -558,6 +558,183 @@ public sealed class TaskListTests
         Assert.Contains("Tasks", meta, StringComparison.Ordinal);
     }
 
+    /// <summary>A task a person marked blocked says so with a chip of its own and
+    /// a modifier on the row, and is still a task that can be ticked off: the mark
+    /// is a note to the reader, not a lock on the circle. The modifier is not the
+    /// derived <c>task-item--blocked</c> a waiting row wears — that one dashes the
+    /// circle and takes the control away.</summary>
+    [Fact]
+    public void A_row_marked_blocked_wears_its_chip_and_can_still_be_ticked()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        string? toggled = null;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Wait for the vendor", Group: "Tasks", MarkedBlocked: true))
+            .Add(t => t.OnToggle, id => toggled = id)
+            .Add(t => t.TestId, "row"));
+
+        var classes = view.Find(".task-item").ClassList;
+        Assert.Contains("task-item--blocked-flag", classes);
+        Assert.DoesNotContain("task-item--blocked", classes);
+
+        var chip = view.Find(".task-item__detail--markedblocked");
+        Assert.Equal("⛔", chip.QuerySelector(".task-item__glyph")!.TextContent);
+
+        // The visible word once, and a screen reader does not hear it twice: the
+        // hidden prefix says what kind of fact this is, not the fact again.
+        var prefix = chip.QuerySelector(".sr-only")!.TextContent;
+        Assert.NotEqual("Blocked", prefix);
+        Assert.DoesNotContain("Blocked", prefix, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Blocked", chip.TextContent, StringComparison.Ordinal);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(chip.TextContent, "Blocked"));
+
+        var check = view.Find("[data-testid='row-check']");
+        Assert.Equal("checkbox", check.GetAttribute("role"));
+
+        check.Click();
+        Assert.Equal("a", toggled);
+    }
+
+    /// <summary>The hand-set chip and the chain's wait are two marks, so a reader
+    /// can tell "somebody said this is blocked" from "this waits for another
+    /// row" without opening it.</summary>
+    [Fact]
+    public void The_hand_set_chip_does_not_wear_the_waiting_glyph()
+    {
+        Assert.NotEqual(
+            new TaskDetail(TaskDetailKind.Blocked, "x").Glyph,
+            new TaskDetail(TaskDetailKind.MarkedBlocked, "x").Glyph);
+    }
+
+    [Fact]
+    public void A_row_that_is_not_marked_has_neither_the_chip_nor_the_modifier()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "T", Group: "Tasks")));
+
+        Assert.DoesNotContain("task-item--blocked-flag", view.Find(".task-item").ClassList);
+        Assert.Empty(view.FindAll(".task-item__detail--markedblocked"));
+    }
+
+    /// <summary>A row marked blocked keeps its copy button where it was — so the
+    /// row does not shift — but disabled, with the reason on the pointer's route
+    /// and the screen reader's. Pressing it copies nothing.</summary>
+    [Fact]
+    public void A_row_marked_blocked_offers_its_copy_disabled_with_the_reason()
+    {
+        using var context = new BunitContext();
+        var copy = context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true);
+        copy.SetResult(true);
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Wait for the vendor", Group: "Tasks", MarkedBlocked: true))
+            .Add(t => t.TestId, "row"));
+
+        var button = view.Find("[data-testid='row-copy']");
+        Assert.True(button.HasAttribute("disabled"));
+        Assert.Equal("true", button.GetAttribute("aria-disabled"));
+
+        var wrapper = view.Find(".task-item__copy");
+        Assert.Equal("Blocked — unblock to copy", wrapper.GetAttribute("title"));
+        Assert.Contains(
+            "Blocked — unblock to copy",
+            view.Find($"#{button.GetAttribute("aria-describedby")}").TextContent,
+            StringComparison.Ordinal);
+
+        button.Click();
+        Assert.Empty(copy.Invocations);
+    }
+
+    /// <summary>
+    /// A refused copy says so with the cursor on the row and on the open entry's
+    /// heading alike. The rules are scoped under their wrappers on purpose:
+    /// <c>.btn:disabled</c> sets <c>cursor: default</c> with the same specificity
+    /// as a bare <c>.task-item__copy-button:disabled</c> and comes later in the
+    /// file, so an unscoped rule lost and the two surfaces disagreed.
+    /// </summary>
+    [Theory]
+    [InlineData(".task-item__copy .task-item__copy-button:disabled")]
+    [InlineData(".task-panel__copy .task-panel__copy-button:disabled")]
+    public void A_refused_copy_wears_the_not_allowed_cursor_on_both_surfaces(string selector)
+    {
+        var css = File.ReadAllText(ComponentsCss());
+        var start = css.IndexOf(selector, StringComparison.Ordinal);
+
+        Assert.True(start >= 0, $"{selector} should be styled.");
+
+        var rule = css[start..css.IndexOf('}', start)];
+        Assert.Contains("cursor: not-allowed;", rule, StringComparison.Ordinal);
+    }
+
+    /// <summary>The chain's wait is not the hand-set mark: a row waiting for
+    /// another row copies the way it always has.</summary>
+    [Fact]
+    public void A_row_waiting_on_another_keeps_its_copy()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyList<TaskRow> rows =
+        [
+            new("a", "First"),
+            new("b", "Second", DependsOn: ["a"])
+        ];
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, rows)
+            .Add(l => l.OnToggle, _ => { }));
+
+        var waiting = view.Find("[data-task-id='b']");
+        Assert.Contains("task-item--blocked", waiting.ClassList);
+
+        var button = waiting.QuerySelector(".task-item__copy-button")!;
+        Assert.False(button.HasAttribute("disabled"));
+        Assert.Null(button.GetAttribute("aria-disabled"));
+    }
+
+    /// <summary>The hand-set mark is the person's fact and the derived Blocked is
+    /// the chain's: a marked row still counts as ready to the rows after it, and a
+    /// marked row nothing is waiting on is itself ready. Marking never changes what
+    /// TaskChain derives.</summary>
+    [Fact]
+    public void Marking_a_row_blocked_changes_nothing_the_chain_derives()
+    {
+        IReadOnlyList<TaskRow> rows =
+        [
+            new("a", "First", MarkedBlocked: true),
+            new("b", "Second", DependsOn: ["a"])
+        ];
+
+        IReadOnlyList<TaskRow> unmarked =
+        [
+            new("a", "First"),
+            new("b", "Second", DependsOn: ["a"])
+        ];
+
+        var marked = TaskChain.Resolve(rows);
+        var plain = TaskChain.Resolve(unmarked);
+
+        Assert.Equal(plain.Select(status => status.Readiness), marked.Select(status => status.Readiness));
+        Assert.Equal(TaskReadiness.Ready, marked.Single(status => status.Id == "a").Readiness);
+        Assert.Contains(TaskChain.Ready(rows), row => row.Id == "a");
+    }
+
+    /// <summary>The mark's paint comes from the palette the product already has,
+    /// never a colour of its own.</summary>
+    [Fact]
+    public void The_hand_set_blocked_chip_is_painted_with_existing_tokens()
+    {
+        var css = File.ReadAllText(ComponentsCss());
+        var rule = Rule(css, ".task-item__detail--markedblocked {");
+
+        Assert.Contains("var(--color-", rule, StringComparison.Ordinal);
+        Assert.DoesNotMatch("#[0-9a-fA-F]{3,8}\\b", rule);
+    }
+
     [Fact]
     public void Toggling_and_opening_report_the_row_they_happened_on()
     {

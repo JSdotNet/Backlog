@@ -32,6 +32,7 @@ internal static class Projections
         entry.DueOn,
         entry.StartedOn,
         entry.CompletedOn,
+        entry.BlockedSince,
         entry.Effort,
         entry.RepoIds ?? [],
         entry.DependsOn ?? [],

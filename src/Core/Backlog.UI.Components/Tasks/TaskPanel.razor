@@ -189,6 +189,8 @@
         {
             <CopyButton Text="@(CopyValue ?? string.Empty)"
                         Label="@(CopyLabel ?? $"Copy {Title}")"
+                        Disabled="@(CopyDisabledReason is not null)"
+                        DisabledReason="@CopyDisabledReason"
                         CssClass="task-panel__copy"
                         ButtonCssClass="task-panel__copy-button"
                         StatusCssClass="task-panel__copy-status"
@@ -325,6 +327,22 @@
     /// button, not the switch that supplies it.</summary>
     [Parameter]
     public bool AllowCopy { get; set; } = true;
+
+    /// <summary>
+    /// Why the copy is refused for now, or null while it is offered. Set, the
+    /// button stays on the heading line where it always is — the line does not
+    /// shift — but disabled, with this sentence as its tooltip and its
+    /// described-by.
+    /// <para>
+    /// One parameter rather than a flag and a reason, unlike
+    /// <see cref="AllowCopy"/>'s pairing with <see cref="CopyValue"/>: a refusal
+    /// with no reason is the state this exists to rule out, so the reason is the
+    /// switch. What it says is the host's — the panel knows nothing about why a
+    /// task may not be copied.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public string? CopyDisabledReason { get; set; }
 
     /// <summary>
     /// What the copy button hands over, verbatim.

@@ -195,7 +195,7 @@ public sealed class TaskSyncWorker : IDisposable
     /// task write is (local ADR 0018). Null on a head without a roadmap.</param>
     /// <param name="github">The GitHub settings replication port, for its
     /// local-change notice only: a binding set or an account added here is pushed
-    /// after the same settle delay (local ADR 0020). Null on a head that keeps no
+    /// after the same settle delay (local ADR 0021). Null on a head that keeps no
     /// GitHub settings.</param>
     public TaskSyncWorker(
         IServiceProvider services,

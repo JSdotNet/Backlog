@@ -76,7 +76,7 @@ public sealed class TaskSyncSession
     /// from for the push (local ADR 0018), or null on a head without a roadmap.
     /// Optional for the reason <paramref name="outbox"/> is.</param>
     /// <param name="github">Where the repository registry and the GitHub accounts are
-    /// read from for the push (local ADR 0020), or null on a head that keeps no GitHub
+    /// read from for the push (local ADR 0021), or null on a head that keeps no GitHub
     /// settings. Optional for the same reason.</param>
     public TaskSyncSession(
         TaskSyncClient client,
@@ -380,7 +380,7 @@ public sealed class TaskSyncSession
     /// <summary>
     /// Sends the repository registry and the GitHub accounts, each as one whole
     /// document, when its stamp is later than the one this device last had accepted
-    /// for it (local ADR 0020, Decision §4) — on the terms
+    /// for it (local ADR 0021, Decision §4) — on the terms
     /// <see cref="PushRoadmapAsync"/> gives for the roadmap's, mark and all. A
     /// document the port answers nothing for was never saved here and is not sent, so
     /// a newly paired machine takes the other machine's registry and accounts rather

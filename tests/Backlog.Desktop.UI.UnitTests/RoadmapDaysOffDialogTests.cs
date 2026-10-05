@@ -6,6 +6,7 @@ using Backlog.UI.Components.Roadmap;
 
 using Bunit;
 
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -13,9 +14,10 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The Days off dialog through the band (local ADR 0019, §4; requirements "Setting days
 /// off in a list"): a Days off button on the toolbar opens it; it lists every date set off
-/// the pattern, the ones to come first; it adds a range of days off and a single worked
-/// day, and removes an entry; every change is written through the same port as a head
-/// press, at once, and the bars move while the dialog stays open.
+/// the pattern, the ones to come first; a calendar flips a date with a press and takes a
+/// run of days off with a Shift press, and the list removes an entry; every change is
+/// written through the same port as a head press, at once, and the bars move while the
+/// dialog stays open.
 /// </summary>
 public sealed class RoadmapDaysOffDialogTests : RoadmapBandHarness
 {
@@ -40,23 +42,21 @@ public sealed class RoadmapDaysOffDialogTests : RoadmapBandHarness
         Assert.NotNull(band.Find("[data-testid='roadmap-days-off-none']"));
     }
 
-    /// <summary>ADR 0019 Verification 35: on the default week, Mon 12 to Sun 18 October
-    /// adds five blocked dates, Monday to Friday, and none for the weekend — one write,
-    /// one change heard by the band — and the dialog lists them.</summary>
+    /// <summary>ADR 0019 Verification 35, through the calendar: Mon 12 pressed and Sun 18
+    /// pressed with Shift blocks Monday to Friday and none of the weekend, and the dialog
+    /// lists them.</summary>
     [Fact]
-    public async Task A_range_blocks_only_the_worked_dates_in_one_change()
+    public async Task A_shift_press_blocks_the_worked_dates_of_the_run()
     {
         Configure("JSdotNet/Backlog");
         await ImportedAsync("plan-a");
         using var context = GatheringContext(14);
         var band = Drawn(context);
-        var heard = 0;
-        PaceFile.Changed += () => heard++;
         Open(band, "roadmap-band-days-off", "roadmap-days-off");
 
-        AddDaysOff(band, Monday12October, Sunday18October);
+        Press(band, Monday12October);
+        Press(band, Sunday18October, shift: true);
 
-        Assert.Equal(1, heard);
         Assert.Equal(
             [.. Enumerable.Range(0, 5).Select(offset => new DayOverride(Monday12October.AddDays(offset), false))],
             PaceFile.WorkingWeek.Overrides);
@@ -64,13 +64,13 @@ public sealed class RoadmapDaysOffDialogTests : RoadmapBandHarness
             ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16"],
             ListedDates(band)));
         Assert.All(band.FindAll(".roadmap-days-off__kind"), kind => Assert.Equal("Blocked", kind.TextContent.Trim()));
-        Assert.Null(Find(band, "[data-testid='roadmap-days-off-from'] .field__error"));
+        Assert.Equal("true", Day(band, Sunday18October).GetAttribute("aria-pressed"));
     }
 
     /// <summary>Scenario "A range over an unblocked Saturday": a worked Saturday inside
-    /// the range loses its override, so it reads its pattern — a day off — again.</summary>
+    /// a Shift run loses its override, so it reads its pattern — a day off — again.</summary>
     [Fact]
-    public async Task A_range_removes_an_unblocked_saturday_inside_it()
+    public async Task A_shift_run_removes_an_unblocked_saturday_inside_it()
     {
         Configure("JSdotNet/Backlog");
         await ImportedAsync("plan-a");
@@ -80,17 +80,19 @@ public sealed class RoadmapDaysOffDialogTests : RoadmapBandHarness
         Open(band, "roadmap-band-days-off", "roadmap-days-off");
         Assert.Equal(["2026-10-17"], ListedDates(band));
 
-        AddDaysOff(band, Monday12October, Sunday18October);
+        Press(band, Monday12October);
+        Press(band, Sunday18October, shift: true);
 
         Assert.Null(PaceFile.WorkingWeek.OverrideOn(Saturday17October));
         Assert.False(PaceFile.WorkingWeek.IsWorked(Saturday17October));
         band.WaitForAssertion(() => Assert.DoesNotContain("2026-10-17", ListedDates(band)));
     }
 
-    /// <summary>ADR 0019 Verification 36: a worked Saturday is one unblocked override,
-    /// listed with its weekday.</summary>
+    /// <summary>ADR 0019 Verification 36, through the calendar: pressing a Saturday the
+    /// pattern leaves off unblocks it — one override, listed with its weekday, and the
+    /// date no longer pressed.</summary>
     [Fact]
-    public async Task Adding_a_worked_saturday_unblocks_it()
+    public async Task Pressing_a_saturday_unblocks_it()
     {
         await WithCulture("en-US", async () =>
         {
@@ -99,9 +101,9 @@ public sealed class RoadmapDaysOffDialogTests : RoadmapBandHarness
             using var context = GatheringContext(14);
             var band = Drawn(context);
             Open(band, "roadmap-band-days-off", "roadmap-days-off");
+            Assert.Equal("true", Day(band, Saturday17October).GetAttribute("aria-pressed"));
 
-            Input(band, "roadmap-days-off-worked-date", Saturday17October);
-            band.Find("[data-testid='roadmap-days-off-add-worked']").Click();
+            Press(band, Saturday17October);
 
             Assert.Equal([new DayOverride(Saturday17October, true)], PaceFile.WorkingWeek.Overrides);
             band.WaitForAssertion(() =>
@@ -109,30 +111,34 @@ public sealed class RoadmapDaysOffDialogTests : RoadmapBandHarness
                 var entry = band.Find("[data-testid='roadmap-days-off-entry-2026-10-17']");
                 Assert.Equal("Sat 17 Oct", entry.QuerySelector(".roadmap-days-off__date")!.TextContent.Trim());
                 Assert.Equal("Unblocked", entry.QuerySelector(".roadmap-days-off__kind")!.TextContent.Trim());
+                Assert.Equal("false", Day(band, Saturday17October).GetAttribute("aria-pressed"));
+                Assert.Contains("day-calendar__day--marked", Day(band, Saturday17October).ClassName);
             });
         });
     }
 
-    /// <summary>Scenario "A date the pattern already works": adding a weekday as worked
-    /// adds no override, and the dialog says why.</summary>
+    /// <summary>A press selects a worked date as a day off, and a second press deselects
+    /// it, returning it to its pattern with nothing stored.</summary>
     [Fact]
-    public async Task Adding_a_weekday_as_worked_adds_nothing_and_says_why()
+    public async Task A_second_press_deselects_the_day_off()
     {
-        await WithCulture("en-US", async () =>
+        Configure("JSdotNet/Backlog");
+        await ImportedAsync("plan-a");
+        using var context = GatheringContext(14);
+        var band = Drawn(context);
+        Open(band, "roadmap-band-days-off", "roadmap-days-off");
+
+        Press(band, Friday9October);
+        Assert.Equal([new DayOverride(Friday9October, false)], PaceFile.WorkingWeek.Overrides);
+        band.WaitForAssertion(() => Assert.Equal("true", Day(band, Friday9October).GetAttribute("aria-pressed")));
+
+        Press(band, Friday9October);
+
+        Assert.Empty(PaceFile.WorkingWeek.Overrides);
+        band.WaitForAssertion(() =>
         {
-            Configure("JSdotNet/Backlog");
-            await ImportedAsync("plan-a");
-            using var context = GatheringContext(14);
-            var band = Drawn(context);
-            Open(band, "roadmap-band-days-off", "roadmap-days-off");
-
-            Input(band, "roadmap-days-off-worked-date", new DateOnly(2026, 10, 8));
-            band.Find("[data-testid='roadmap-days-off-add-worked']").Click();
-
-            Assert.Empty(PaceFile.WorkingWeek.Overrides);
-            band.WaitForAssertion(() => Assert.Equal(
-                "Thu 8 Oct is already a working day in your week, so nothing was added.",
-                band.Find("[data-testid='roadmap-days-off-note']").TextContent.Trim()));
+            Assert.Equal("false", Day(band, Friday9October).GetAttribute("aria-pressed"));
+            Assert.Empty(ListedDates(band));
         });
     }
 
@@ -208,7 +214,7 @@ public sealed class RoadmapDaysOffDialogTests : RoadmapBandHarness
         Open(band, "roadmap-band-days-off", "roadmap-days-off");
 
         var monday28 = new DateOnly(2026, 9, 28);
-        AddDaysOff(band, monday28, monday28);
+        Press(band, monday28);
 
         band.WaitForAssertion(() => Assert.Equal((plan.Start, 15), DrawnWindow(band, plan.Id)));
         Assert.NotNull(band.Find("[data-testid='roadmap-days-off']"));
@@ -216,31 +222,10 @@ public sealed class RoadmapDaysOffDialogTests : RoadmapBandHarness
         Assert.Contains("roadmap-timeline__quarter--override", DayHead(band, monday28).ClassName);
     }
 
-    /// <summary>A range that ends before it starts is refused beside the field, and
-    /// nothing is written.</summary>
+    /// <summary>A Shift run longer than a year is refused with the cap in its message,
+    /// and nothing but the first press is written.</summary>
     [Fact]
-    public async Task A_range_ending_before_it_starts_is_refused()
-    {
-        Configure("JSdotNet/Backlog");
-        await ImportedAsync("plan-a");
-        using var context = GatheringContext(14);
-        var band = Drawn(context);
-        var heard = 0;
-        PaceFile.Changed += () => heard++;
-        Open(band, "roadmap-band-days-off", "roadmap-days-off");
-
-        AddDaysOff(band, Sunday18October, Monday12October);
-
-        band.WaitForAssertion(() => Assert.Equal(
-            "End the days off on or after the day they start.",
-            band.Find("[data-testid='roadmap-days-off-from'] .field__error").TextContent.Trim()));
-        Assert.Equal(0, heard);
-        Assert.Empty(PaceFile.WorkingWeek.Overrides);
-    }
-
-    /// <summary>A range longer than a year is refused with the cap in its message.</summary>
-    [Fact]
-    public async Task A_range_longer_than_a_year_is_refused()
+    public async Task A_shift_run_longer_than_a_year_is_refused()
     {
         Configure("JSdotNet/Backlog");
         await ImportedAsync("plan-a");
@@ -248,23 +233,37 @@ public sealed class RoadmapDaysOffDialogTests : RoadmapBandHarness
         var band = Drawn(context);
         Open(band, "roadmap-band-days-off", "roadmap-days-off");
 
-        AddDaysOff(band, Monday12October, Monday12October.AddDays(400));
+        Press(band, Monday12October);
+        Press(band, Monday12October.AddDays(400), shift: true);
 
         band.WaitForAssertion(() => Assert.Equal(
-            "Add at most 366 days off at a time.",
-            band.Find("[data-testid='roadmap-days-off-from'] .field__error").TextContent.Trim()));
-        Assert.Empty(PaceFile.WorkingWeek.Overrides);
+            "Take at most 366 days off at a time.",
+            band.Find("[data-testid='roadmap-days-off-calendar-error']").TextContent.Trim()));
+        Assert.Equal([new DayOverride(Monday12October, false)], PaceFile.WorkingWeek.Overrides);
     }
 
-    private static void AddDaysOff(IRenderedComponent<RoadmapBand> band, DateOnly from, DateOnly through)
+    /// <summary>Presses <paramref name="date"/> on the calendar, paging to its month first.</summary>
+    private static void Press(IRenderedComponent<RoadmapBand> band, DateOnly date, bool shift = false) =>
+        Day(band, date).Click(new MouseEventArgs { ShiftKey = shift });
+
+    /// <summary>The calendar's button for <paramref name="date"/>, paging to its month.</summary>
+    private static AngleSharp.Dom.IElement Day(IRenderedComponent<RoadmapBand> band, DateOnly date)
     {
-        Input(band, "roadmap-days-off-from", from);
-        Input(band, "roadmap-days-off-to", through);
-        band.Find("[data-testid='roadmap-days-off-add']").Click();
-    }
+        const string prefix = "roadmap-days-off-calendar-";
 
-    private static void Input(IRenderedComponent<RoadmapBand> band, string testId, DateOnly date) =>
-        band.Find($"[data-testid='{testId}'] input").Input(date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        for (var page = 0; page < 36; page++)
+        {
+            if (Find(band, $"[data-testid='{prefix}{date:yyyy-MM-dd}']") is { } day) return day;
+
+            var shown = DateOnly.ParseExact(
+                band.Find($"[data-testid^='{prefix}2']").GetAttribute("data-testid")![prefix.Length..],
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture);
+            band.Find($"[data-testid='{prefix}{(date < shown ? "previous" : "next")}']").Click();
+        }
+
+        throw new InvalidOperationException($"The calendar never showed {date:yyyy-MM-dd}.");
+    }
 
     /// <summary>The ISO dates the dialog lists, top to bottom.</summary>
     private static List<string> ListedDates(IRenderedComponent<RoadmapBand> band) =>

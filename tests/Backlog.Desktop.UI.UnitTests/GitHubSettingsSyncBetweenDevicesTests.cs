@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// Two paired desktops sharing their repository registry and GitHub accounts through
-/// the task feed (local ADR 0020, Verification 1, 2, 5, 7 and 8 end to end).
+/// the task feed (local ADR 0021, Verification 1, 2, 5, 7 and 8 end to end).
 /// <para>
 /// Each device is composed the way a host composes itself — its own per-user
 /// <c>github.json</c> over its own workspace root, the port <c>AddGitHub</c>

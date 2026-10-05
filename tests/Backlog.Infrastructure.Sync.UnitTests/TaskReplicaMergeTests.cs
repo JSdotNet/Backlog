@@ -452,6 +452,7 @@ public sealed class TaskReplicaMergeTests
         original.SetInMyDayOn(new DateOnly(2026, 9, 7));
         original.SetCompletedOn(new DateOnly(2026, 9, 22));
         original.SetStartedOn(new DateOnly(2026, 9, 2));
+        original.SetBlockedSince(new DateOnly(2026, 10, 5));
         original.SetView(EntryView.Steps);
         original.SetTags(["release"]);
         original.SetRepoIds(["JSdotNet/Backlog"]);
@@ -481,6 +482,7 @@ public sealed class TaskReplicaMergeTests
         Assert.Equal(original.InMyDayOn, restored.InMyDayOn);
         Assert.Equal(original.CompletedOn, restored.CompletedOn);
         Assert.Equal(new DateOnly(2026, 9, 2), restored.StartedOn);
+        Assert.Equal(new DateOnly(2026, 10, 5), restored.BlockedSince);
         Assert.Equal(original.View, restored.View);
         Assert.Equal(original.Tags, restored.Tags);
         Assert.Equal(original.RepoIds, restored.RepoIds);
@@ -498,6 +500,32 @@ public sealed class TaskReplicaMergeTests
 
         var projection = Assert.Single(restored.ProjectionRefs);
         Assert.Equal("42", projection.ExternalId);
+    }
+
+    /// <summary>
+    /// The hand-set block rides as a field of its own, because the metadata line
+    /// its token lives on is not in <c>ContentMd</c> — re-parsing the body would
+    /// find nothing. Last and defaulted like <c>StartedOn</c>: a task that is not
+    /// marked writes null, and a document from a build that never heard of the
+    /// mark reads as not marked — while the pulled task's stamp stays the one the
+    /// exchange carried.
+    /// </summary>
+    [Fact]
+    public void A_hand_set_block_crosses_the_wire_and_an_older_document_reads_as_unmarked()
+    {
+        var marked = TaskChanges.Task("Wait for the vendor", Noon);
+        marked.SetBlockedSince(new DateOnly(2026, 10, 5));
+        marked.LoadStamps(Noon, null);
+
+        var payload = TaskReplicaMerge.ToPayload(marked);
+        Assert.Equal(new DateOnly(2026, 10, 5), payload.BlockedSince);
+
+        var restored = TaskReplicaMerge.ToTaskItem(TaskReplicaMerge.ToChange(marked));
+        Assert.Equal(new DateOnly(2026, 10, 5), restored.BlockedSince);
+        Assert.Equal(Noon, restored.UpdatedAt);
+
+        var older = TaskReplicaMerge.ToTaskItem(new TaskChange(marked.Id, Noon, null, payload with { BlockedSince = null }));
+        Assert.Null(older.BlockedSince);
     }
 
     /// <summary>

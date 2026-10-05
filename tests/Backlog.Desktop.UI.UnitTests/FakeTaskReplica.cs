@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// were written, the cursor being the position in it.
 /// <para>
 /// Shared by the tests that pair two desktops through it — the roadmap's documents
-/// (local ADR 0018) and the GitHub settings' (local ADR 0020) — so both are held to
+/// (local ADR 0018) and the GitHub settings' (local ADR 0021) — so both are held to
 /// the same replica.
 /// </para>
 /// </summary>

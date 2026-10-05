@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.GitHub;
 /// <summary>
 /// The replica half of the store: the repository registry and the account
 /// identities as two whole documents, each last-write-wins on its own stamp (local
-/// ADR 0020, after ADR 0018).
+/// ADR 0021, after ADR 0018).
 /// <para>
 /// <b>The registry document</b> is <c>repos.json</c> itself — rows, rename record,
 /// removal record and its <c>updatedAt</c>. It never held a token or a path, so it

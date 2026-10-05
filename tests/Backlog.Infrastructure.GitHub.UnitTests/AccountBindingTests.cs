@@ -196,7 +196,7 @@ public sealed class AccountBindingTests : IDisposable
     /// writes, with no account key in them. An install that never opens the
     /// Accounts panel produces no diff in its rows — which is the property that
     /// makes this change safe to ship. The one key beside them is the document's
-    /// <c>updatedAt</c> stamp (local ADR 0020), which every change writes.
+    /// <c>updatedAt</c> stamp (local ADR 0021), which every change writes.
     /// </summary>
     [Fact]
     public void An_unbound_workspace_writes_no_account_key_at_all()
