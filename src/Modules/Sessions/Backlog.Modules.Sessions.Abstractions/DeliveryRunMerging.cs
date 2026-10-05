@@ -18,13 +18,24 @@ namespace Backlog.Modules.Sessions.Abstractions;
 /// holds one run where the folders hold two.
 /// </para>
 /// <para>
-/// <b>What makes two files one run.</b> All of: the same worktree key, compared
-/// case-blind as <see cref="SessionRows"/> compares it; the same skill; different
+/// <b>What makes two files one run.</b> All of: the same skill; different
 /// dashboards — two files from one surface are two runs, whatever else they share;
-/// both dated, and started within <see cref="Window"/> of each other; and session ids
-/// that do not contradict — they share one, or neither names any. A pair naming
-/// different sessions stays two runs. That is the conservative answer, and the one
-/// such pair found on a real profile was two runs.
+/// both dated, and started within <see cref="Window"/> of each other; and either the
+/// same worktree key, compared case-blind as <see cref="SessionRows"/> compares it,
+/// with session ids that do not contradict — they share one, or neither names any —
+/// or, in two different folders, a session id both name. A pair naming different
+/// sessions stays two runs. That is the conservative answer, and the one such pair
+/// found on a real profile was two runs.
+/// </para>
+/// <para>
+/// <b>Why a session crosses folders.</b> The dashboard server keys its folder by its
+/// own working directory, which is the repository's main checkout whichever worktree
+/// the flow ran in, while the backlog surface keys by the worktree the flow named — so
+/// on a real profile nearly every pair sits in two folders. A session id is identity
+/// and a folder key is not, which is why a shared session is enough across folders
+/// and two files naming none are not. Where both kinds of partner qualify, the one in
+/// the primary's own folder is taken. The merged run keeps the backlog file's folder,
+/// the one the flow named, so it stays in its worktree's list and under its name.
 /// </para>
 /// <para>
 /// <b>Why five minutes.</b> A surface reattaches a run of the same skill in the same
@@ -54,7 +65,12 @@ public static class DeliveryRunMerging
 
     /// <summary>The dashboards in the order one is preferred as the record. A dashboard
     /// not listed ranks after every one that is, and alphabetically among its kind.</summary>
-    private static readonly string[] Preference = ["delivery-surface-dashboard", "orch-dashboard", "backlog"];
+    private static readonly string[] Preference = ["delivery-surface-dashboard", "orch-dashboard", NamedFolder];
+
+    /// <summary>The dashboard whose folder is the one the flow named — this product's
+    /// own, which <c>start_run</c> hands the worktree — and so the folder a merged run
+    /// keeps when its files sit in two.</summary>
+    private const string NamedFolder = "backlog";
 
     /// <summary>The runs with every pair of surfaces' reports folded into one, in the
     /// order given — a merged run sits where its record did.</summary>
@@ -67,12 +83,12 @@ public static class DeliveryRunMerging
         var taken = new HashSet<DeliveryRun>(ReferenceEqualityComparer.Instance);
         var merged = new Dictionary<DeliveryRun, DeliveryRun>(ReferenceEqualityComparer.Instance);
 
-        // Same worktree and same skill is the outer condition; the rest is decided
-        // inside the group. Preference first, then the start, so the primary of a pair
-        // is always the preferred surface's file, and one surface's own runs are
-        // walked oldest first.
+        // Same skill is the outer condition; the folder and the rest are decided inside
+        // the group. Preference first, then the start, so the primary of a pair is
+        // always the preferred surface's file, and one surface's own runs are walked
+        // oldest first.
         var groups = runs
-            .GroupBy(run => (Worktree: run.Worktree.ToUpperInvariant(), run.SkillId))
+            .GroupBy(run => run.SkillId)
             .Select(group => group
                 .OrderBy(run => Rank(run.Dashboard))
                 .ThenBy(run => run.Dashboard, StringComparer.OrdinalIgnoreCase)
@@ -85,12 +101,15 @@ public static class DeliveryRunMerging
             {
                 if (!taken.Add(primary)) continue;
 
-                // At most one partner per other dashboard: the one whose start is
-                // nearest the primary's.
+                // At most one partner per other dashboard: one in the primary's own
+                // folder before one in another, then the one whose start is nearest.
                 var partners = group
                     .Where(candidate => !taken.Contains(candidate) && Pairs(primary, candidate))
                     .GroupBy(candidate => candidate.Dashboard, StringComparer.OrdinalIgnoreCase)
-                    .Select(dashboard => dashboard.OrderBy(candidate => Gap(primary, candidate)).First())
+                    .Select(dashboard => dashboard
+                        .OrderBy(candidate => SameFolder(primary, candidate) ? 0 : 1)
+                        .ThenBy(candidate => Gap(primary, candidate))
+                        .First())
                     .OrderBy(candidate => Rank(candidate.Dashboard))
                     .ThenBy(candidate => candidate.Dashboard, StringComparer.OrdinalIgnoreCase)
                     .ToList();
@@ -109,11 +128,16 @@ public static class DeliveryRunMerging
         && a.StartedAt is { } first
         && b.StartedAt is { } second
         && (first - second).Duration() <= Window
-        && SessionsAgree(a, b);
+        && (SameFolder(a, b) ? SessionsAgree(a, b) : ShareASession(a, b));
+
+    private static bool SameFolder(DeliveryRun a, DeliveryRun b) =>
+        string.Equals(a.Worktree, b.Worktree, StringComparison.OrdinalIgnoreCase);
 
     private static bool SessionsAgree(DeliveryRun a, DeliveryRun b) =>
-        (a.SessionIds.Count == 0 && b.SessionIds.Count == 0)
-        || a.SessionIds.Intersect(b.SessionIds, StringComparer.Ordinal).Any();
+        (a.SessionIds.Count == 0 && b.SessionIds.Count == 0) || ShareASession(a, b);
+
+    private static bool ShareASession(DeliveryRun a, DeliveryRun b) =>
+        a.SessionIds.Intersect(b.SessionIds, StringComparer.Ordinal).Any();
 
     private static TimeSpan Gap(DeliveryRun a, DeliveryRun b) =>
         ((a.StartedAt ?? a.UpdatedAt) - (b.StartedAt ?? b.UpdatedAt)).Duration();
@@ -125,9 +149,17 @@ public static class DeliveryRunMerging
         return index < 0 ? Preference.Length : index;
     }
 
-    private static DeliveryRun Fold(DeliveryRun primary, IReadOnlyList<DeliveryRun> others) =>
-        primary with
+    private static DeliveryRun Fold(DeliveryRun primary, IReadOnlyList<DeliveryRun> others)
+    {
+        // The folder the caller named, where the pair disagree about it: the backlog
+        // surface is handed the worktree by the flow, the dashboard server keys by its
+        // own working directory, which is the main checkout whichever worktree ran.
+        var folder = others.Prepend(primary).FirstOrDefault(run => string.Equals(run.Dashboard, NamedFolder, StringComparison.OrdinalIgnoreCase)) ?? primary;
+
+        return primary with
         {
+            Worktree = folder.Worktree,
+            WorktreeName = folder.WorktreeName,
             ChangeKind = string.IsNullOrWhiteSpace(primary.ChangeKind)
                 ? others.Select(other => other.ChangeKind).FirstOrDefault(kind => !string.IsNullOrWhiteSpace(kind))
                 : primary.ChangeKind,
@@ -144,8 +176,10 @@ public static class DeliveryRunMerging
             Schedule = primary.Schedule ?? others.Select(other => other.Schedule).FirstOrDefault(schedule => schedule is not null),
             Repository = primary.Repository ?? others.Select(other => other.Repository).FirstOrDefault(repository => repository is not null),
             Verdicts = primary.Verdicts.Count > 0 ? primary.Verdicts : First(others, other => other.Verdicts),
-            Surfaces = [primary.Dashboard, .. others.Select(other => other.Dashboard)]
+            Surfaces = [primary.Dashboard, .. others.Select(other => other.Dashboard)],
+            RunIds = [primary.Id, .. others.Select(other => other.Id)]
         };
+    }
 
     private static IReadOnlyList<T> First<T>(IEnumerable<DeliveryRun> others, Func<DeliveryRun, IReadOnlyList<T>> of) =>
         others.Select(of).FirstOrDefault(list => list.Count > 0) ?? [];

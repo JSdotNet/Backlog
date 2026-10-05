@@ -97,6 +97,21 @@ public sealed class CosmosOptions
     [Range(86_400, 63_072_000)]
     public int TaskTombstoneTtlSeconds { get; set; } = 15_552_000;
 
+    /// <summary>
+    /// How long a request waits, in seconds, for an account that has not
+    /// answered yet before it is told 503 <c>sync.replica_unavailable</c> — two
+    /// by default. See <c>CosmosAccountGate</c>.
+    /// <para>
+    /// Short on purpose: the desktop gives up on an attempt after ten seconds,
+    /// and a 503 it receives is one it can branch on where a timeout is not.
+    /// The account read carries on past the budget, so a store that is merely
+    /// slow to answer the first time is ready for the next request rather than
+    /// refused again.
+    /// </para>
+    /// </summary>
+    [Range(1, 30)]
+    public int ReadinessTimeoutSeconds { get; set; } = 2;
+
     /// <summary>How long an annotation tombstone is kept, in seconds — the same
     /// 180 days as a task's and for the same offline-convergence bound. Its own
     /// setting so the two retentions can be provisioned apart without a code

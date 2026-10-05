@@ -24,9 +24,50 @@ concurrency:
 # cost 154s of the run before this split. No test project references either head
 # -- they are the outermost layer -- so the heads no longer sit in front of the
 # suite. They build in their own job, beside it.
+#
+# A pull request that changes only .devbook/ chapters builds nothing here: the
+# devbook-meta and devbook-metadata workflows check those, and the .NET tests that
+# read .devbook/ catch up on the next pull request that touches code. The skip is
+# a job-level `if`, not a `paths-ignore` on the workflow, because these jobs are
+# required checks: a skipped job reports success to the ruleset and to
+# auto-merge.yml, while a workflow that never starts leaves them Expected forever.
 jobs:
+  changes:
+    name: Detect code changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      pull-requests: read
+    outputs:
+      code: ${{ steps.detect.outputs.code }}
+    steps:
+      # 'false' only when every changed file is under .devbook/. A manual run, an
+      # empty file list, or anything else answers 'true'.
+      - name: List the changed files
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files?per_page=100" --jq '.[].filename')
+          outside=$(printf '%s\n' "$files" | grep -v '^\.devbook/' | grep -c . || true)
+          if [ -n "$files" ] && [ "$outside" -eq 0 ]; then
+            echo "Only .devbook/ changed; the build jobs are skipped."
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Each build job runs unless detection answered 'false', so a failed or
+  # cancelled detection still builds rather than skipping into a green check.
   dotnet:
     name: Build and test .NET
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -212,6 +253,8 @@ jobs:
 
   app-heads:
     name: Build the app heads
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -278,6 +321,8 @@ jobs:
 
   vscode-extension:
     name: Compile VS Code extension
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

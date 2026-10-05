@@ -72,7 +72,7 @@ internal sealed class CosmosSessionReplica : ISessionReplica
             return 0;
         }
 
-        var container = Container();
+        var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
         var partition = new PartitionKey(ReplicaDocumentSerialization.Key(scope.OwnerId.Value));
         var accepted = 0;
 
@@ -143,7 +143,8 @@ internal sealed class CosmosSessionReplica : ISessionReplica
         // ResponseMessage, whose 304 is the documented "nothing since your
         // cursor" signal — and on this feed that is the ordinary answer, because
         // a fleet nobody is working on writes nothing for hours.
-        using var iterator = Container().GetChangeFeedStreamIterator(
+        var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+        using var iterator = container.GetChangeFeedStreamIterator(
             startFrom,
             ChangeFeedMode.Incremental,
             new ChangeFeedRequestOptions { PageSizeHint = maxItems });
@@ -297,6 +298,9 @@ internal sealed class CosmosSessionReplica : ISessionReplica
     /// that the activity the client is constructed under can be asserted without
     /// a call that would then try to reach Cosmos.</summary>
     internal Container Container() => _container.Container();
+
+    private ValueTask<Container> ContainerAsync(CancellationToken cancellationToken) =>
+        _container.ContainerAsync(cancellationToken);
 
     /// <summary>The envelope a change feed page arrives in. Only the documents
     /// are read; the <c>_rid</c> and <c>_count</c> beside them say nothing this

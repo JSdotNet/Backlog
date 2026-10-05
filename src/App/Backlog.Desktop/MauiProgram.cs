@@ -98,7 +98,9 @@ public static class MauiProgram
             FeatureSettings = _ => new AppFeatureSettingsStore(AppFeatures.All),
             WorkingHoursSettings = _ => new WorkingHoursSettingsStore(),
             UsageResetSettings = _ => new UsageResetSettingsStore(),
-            PlanningVelocitySettings = _ => new PlanningVelocitySettingsStore(),
+            // The pace document carries the device's working week (local ADR 0019), and
+            // the Roadmap's Days off presses block a day in it.
+            PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(sp.GetRequiredService<WorkingHoursSettingsStore>()),
             ShellNavigation = _ => new ShellNavigationStore(),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(),
             CaptureRunLog = _ => new CaptureRunLogStore(),

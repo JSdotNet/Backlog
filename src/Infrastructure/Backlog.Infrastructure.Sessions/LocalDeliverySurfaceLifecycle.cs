@@ -566,7 +566,10 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     {
         var runs = await ListRunsAsync(worktree, cancellationToken).ConfigureAwait(false);
 
-        return runs.FirstOrDefault(run => string.Equals(run.Id, runId, StringComparison.Ordinal));
+        // By any id the run was filed under: once the reader folds this surface's file
+        // into a dashboard's, the record carries the dashboard's id, and the caller
+        // still holds the one this surface handed it.
+        return runs.FirstOrDefault(run => run.RunIds.Contains(runId, StringComparer.Ordinal));
     }
 
     /// <summary>The run still under way for one skill in one worktree, or null. Where

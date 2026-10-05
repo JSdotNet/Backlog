@@ -14,15 +14,16 @@ namespace Backlog.Infrastructure.FileSystem.Dashboard;
 /// <para>
 /// The stretches are <see cref="WorkingStretches"/>' — the ones
 /// <see cref="RoadmapActualHours"/> sums — read from the same merged
-/// <see cref="IAgentActivitySource"/>, over the same lookback, and cut at local midnight
-/// the same way. So a date's inside plus outside is always the figure on that date's
+/// <see cref="IAgentActivitySource"/>, over the same lookback, and cut into working days
+/// starting at 04:00 local the same way. So a date's inside plus outside is always the figure on that date's
 /// roadmap head. A cross-context join, and here for
 /// <see cref="AgentActivityAssistantActivitySource"/>'s reason.
 /// </para>
 /// <para>
-/// Office hours on a date run from its weekday's stored start to its stored end when
-/// the date is worked — the override first, then the pattern — and do not exist when it
-/// is not. A blocked date therefore counts all its work outside, and an unblocked
+/// Office hours on a date run from its weekday's stored start to its stored end, on the
+/// calendar date, when the date is worked — the override first, then the pattern — and
+/// do not exist when it is not. The part of a working day after midnight therefore lies
+/// outside them. A blocked date therefore counts all its work outside, and an unblocked
 /// Saturday counts the Saturday times the pattern keeps. The split is to the minute;
 /// the hour grids' rule of outlining an hour that office hours only touch does not
 /// apply. The week is the kernel's value read per call through

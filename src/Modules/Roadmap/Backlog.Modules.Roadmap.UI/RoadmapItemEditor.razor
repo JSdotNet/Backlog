@@ -65,7 +65,7 @@
                             Options="@RepositoryOptions"
                             SelectedValues="@_repositories"
                             SelectedValuesChanged="values => _repositories = values"
-                            Placeholder="@(RepositoryOptions.Count == 0 ? "No repositories configured" : "Pick one")"
+                            Placeholder="@(RepositoryOptions.Count == 0 ? "No repositories configured" : null)"
                             Disabled="@(RepositoryOptions.Count == 0)"
                             TestId="roadmap-editor-repositories" />
 
@@ -542,16 +542,6 @@
         }
 
         if (_titleError is not null || _windowError is not null) return;
-
-        // The roadmap draws only work filed under a configured repository, so work saved
-        // under none would leave the dialog and appear nowhere.
-        if (_repositories.Count == 0)
-        {
-            _error = RepositoryOptions.Count == 0
-                ? "Add a repository in Settings first. The roadmap draws work by repository."
-                : "Pick a repository. The roadmap draws work by repository.";
-            return;
-        }
 
         await OnSave.InvokeAsync(new RoadmapEditorSubmission(
             Item?.Id,

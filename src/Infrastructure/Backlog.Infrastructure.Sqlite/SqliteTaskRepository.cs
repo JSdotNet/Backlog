@@ -37,7 +37,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         "source_inbox_id, recurrence_source_id, due_on, remind_at, recurrence, in_my_day_on, " +
         "view, tags, repo_ids, depends_on, sub_items, usage_events, projections, effort, " +
         "import_plan_id, import_item_id, updated_at, deleted_at, attachment_path, completed_on, started_on, " +
-        "devbook_refs, source_ref";
+        "devbook_refs, blocked_since, source_ref";
 
     private readonly string _databasePath;
 
@@ -76,7 +76,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 $source_inbox_id, $recurrence_source_id, $due_on, $remind_at, $recurrence, $in_my_day_on,
                 $view, $tags, $repo_ids, $depends_on, $sub_items, $usage_events, $projections, $effort,
                 $import_plan_id, $import_item_id, $updated_at, $deleted_at, $attachment_path,
-                $completed_on, $started_on, $devbook_refs, $source_ref)
+                $completed_on, $started_on, $devbook_refs, $blocked_since, $source_ref)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 content_md = excluded.content_md,
@@ -108,6 +108,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 completed_on = excluded.completed_on,
                 started_on = excluded.started_on,
                 devbook_refs = excluded.devbook_refs,
+                blocked_since = excluded.blocked_since,
                 source_ref = excluded.source_ref;
             """;
 
@@ -130,6 +131,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         command.Parameters.AddWithValue("$in_my_day_on", Nullable(WriteDate(task.InMyDayOn)));
         command.Parameters.AddWithValue("$completed_on", Nullable(WriteDate(task.CompletedOn)));
         command.Parameters.AddWithValue("$started_on", Nullable(WriteDate(task.StartedOn)));
+        command.Parameters.AddWithValue("$blocked_since", Nullable(WriteDate(task.BlockedSince)));
         command.Parameters.AddWithValue(
             "$view",
             Nullable(task.View is { } view ? EntryTextParser.ViewToken(view) : null));
@@ -311,6 +313,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 completed_on         TEXT NULL,
                 started_on           TEXT NULL,
                 devbook_refs         TEXT NOT NULL DEFAULT '[]',
+                blocked_since        TEXT NULL,
                 source_ref           TEXT NULL
             );
 
@@ -342,6 +345,12 @@ public sealed class SqliteTaskRepository : ITaskRepository
         // before the column reads as pointing at no Devbook chapter — which it
         // did not. SQLite accepts NOT NULL on an added column with a default.
         await EnsureColumnAsync(connection, "devbook_refs", "TEXT NOT NULL DEFAULT '[]'", cancellationToken).ConfigureAwait(false);
+
+        // A date like completed_on, and nullable for the same reason: a row from
+        // before the column was never marked blocked by hand, and null is exactly
+        // that. (Only the hand-set mark has a column: the Blocked readiness a
+        // dependency chain derives is never stored.)
+        await EnsureColumnAsync(connection, "blocked_since", "TEXT NULL", cancellationToken).ConfigureAwait(false);
 
         // One JSON object rather than a list, and null rather than '{}' on a row
         // with none: null is what "local work" is, so a row from before the column
@@ -511,7 +520,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
         public const int ImportPlanId = 23, ImportItemId = 24;
         public const int UpdatedAt = 25, DeletedAt = 26;
         public const int AttachmentPath = 27, CompletedOn = 28, StartedOn = 29, DevbookReferences = 30;
-        public const int SourceRef = 31;
+        public const int BlockedSince = 31;
+        public const int SourceRef = 32;
     }
 
     private static TaskItem Read(IDataRecord row)
@@ -537,6 +547,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         task.SetInMyDayOn(ParseDate(Text(row, Col.InMyDayOn)));
         task.SetCompletedOn(ParseDate(Text(row, Col.CompletedOn)));
         task.SetStartedOn(ParseDate(Text(row, Col.StartedOn)));
+        task.SetBlockedSince(ParseDate(Text(row, Col.BlockedSince)));
         task.SetView(EntryTextParser.ParseView(Text(row, Col.View)));
         task.SetDependsOn(TaskPayloads.Read<string>(Text(row, Col.DependsOn)));
         // Filtered rather than handed over whole: the aggregate refuses a value that

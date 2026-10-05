@@ -39,6 +39,7 @@ public sealed class DeliveryRunMergingTests
 
         Assert.Same(run, merged);
         Assert.Equal(["backlog"], merged.Surfaces);
+        Assert.Equal(["run-1"], merged.RunIds);
     }
 
     [Fact]
@@ -133,7 +134,7 @@ public sealed class DeliveryRunMergingTests
     public void A_different_worktree_is_a_different_run_and_letter_case_is_not_a_difference()
     {
         var here = Run("run-1", "delivery-surface-dashboard", Noon);
-        var elsewhere = Run("run-2", "backlog", Noon, worktree: "task-list-scrollbar-8da0a4-a27c6f32");
+        var elsewhere = Run("run-2", "backlog", Noon, worktree: "task-list-scrollbar-8da0a4-a27c6f32", sessions: ["78bbbe21-eadf-4bbb-9835-6ac01fcb924d"]);
         var hereAgain = Run("run-3", "backlog", Noon, worktree: Worktree.ToUpperInvariant());
 
         var merged = DeliveryRunMerging.Merge([here, elsewhere, hereAgain]);
@@ -142,6 +143,65 @@ public sealed class DeliveryRunMergingTests
         Assert.Equal("run-1", merged[0].Id);
         Assert.Equal(["delivery-surface-dashboard", "backlog"], merged[0].Surfaces);
         Assert.Same(elsewhere, merged[1]);
+    }
+
+    [Fact]
+    public void A_dashboard_copy_filed_under_the_main_checkout_folds_into_the_worktrees_run()
+    {
+        // The real pair: the dashboard server keys its folder by its own working
+        // directory, the repository's main checkout, whichever worktree the flow ran
+        // in; the backlog surface keys by the worktree the caller named. Same skill,
+        // same session, 471 ms apart — one run, filed under two folders.
+        const string session = "65f4db2d-bc5c-4376-950f-9dfb04717cb5";
+        var backlog = Run("run-muvhm1f3-5a1pu1", "backlog", Noon, worktree: "scheduled-runs-sweep-verdicts-cee60c-30bd77cc", sessions: [session]);
+        var dashboard = Run("run-muvhm1s7-ymsz33", "delivery-surface-dashboard", Noon.AddMilliseconds(471), worktree: "Backlog-43b9057e", sessions: [session]);
+
+        var merged = Assert.Single(DeliveryRunMerging.Merge([backlog, dashboard]));
+
+        // The dashboard is still the record, as for any pair.
+        Assert.Equal("run-muvhm1s7-ymsz33", merged.Id);
+        Assert.Equal(["delivery-surface-dashboard", "backlog"], merged.Surfaces);
+
+        // But the folder is the worktree's, the one the caller named: filed under the
+        // main checkout, the run would leave its worktree's list_runs and be shown
+        // under the repository's name instead of the worktree's.
+        Assert.Equal("scheduled-runs-sweep-verdicts-cee60c-30bd77cc", merged.Worktree);
+        Assert.Equal("scheduled-runs-sweep-verdicts-cee60c", merged.WorktreeName);
+
+        // And either surface's id still finds it.
+        Assert.Equal(["run-muvhm1s7-ymsz33", "run-muvhm1f3-5a1pu1"], merged.RunIds);
+    }
+
+    [Fact]
+    public void Different_folders_pair_only_on_a_shared_session()
+    {
+        var dashboard = Run("run-1", "delivery-surface-dashboard", Noon, worktree: "Backlog-43b9057e");
+        var stranger = Run("run-2", "backlog", Noon, sessions: ["78bbbe21-eadf-4bbb-9835-6ac01fcb924d"]);
+
+        Assert.Equal(2, DeliveryRunMerging.Merge([dashboard, stranger]).Count);
+
+        // Two files naming no session agree on the same folder, where the folder and
+        // the window are the evidence; across two folders nothing would be left of it.
+        var olderDashboard = Run("run-3", "orch-dashboard", Noon, worktree: "Backlog-43b9057e", sessions: []);
+        var olderBacklog = Run("run-4", "backlog", Noon, sessions: []);
+
+        Assert.Equal(2, DeliveryRunMerging.Merge([olderDashboard, olderBacklog]).Count);
+    }
+
+    [Fact]
+    public void A_partner_in_the_same_folder_is_taken_before_one_in_another()
+    {
+        // Nearer in time is not nearer in fact: a file in the run's own folder is the
+        // better evidence, whatever a millisecond says.
+        var dashboard = Run("run-d", "delivery-surface-dashboard", Noon);
+        var sameFolder = Run("run-same", "backlog", Noon.AddSeconds(20));
+        var otherFolder = Run("run-other", "backlog", Noon.AddSeconds(1), worktree: "Backlog-43b9057e");
+
+        var merged = DeliveryRunMerging.Merge([dashboard, sameFolder, otherFolder]);
+
+        Assert.Equal(2, merged.Count);
+        Assert.Equal(["run-d", "run-same"], Assert.Single(merged, run => run.Surfaces.Count == 2).RunIds);
+        Assert.Same(otherFolder, Assert.Single(merged, run => run.Surfaces.Count == 1));
     }
 
     [Fact]

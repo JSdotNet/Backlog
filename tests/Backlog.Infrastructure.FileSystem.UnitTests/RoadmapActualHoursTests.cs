@@ -7,8 +7,8 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
 /// The actual hours a roadmap head shows: the person's working stretches, built per
-/// session from their own turns, merged across sessions, cut at local midnight and
-/// summed per date (ADR 0019 §6, verification 19 to 30).
+/// session from their own turns, merged across sessions, cut where a working day starts
+/// at 04:00 local and summed per date (ADR 0019 §6, verification 19 to 30).
 /// <para>
 /// Every test runs on a named zone rather than whatever zone CI is in, for the reason
 /// the dashboard's local-hour grid takes its zone as a parameter: a split at midnight
@@ -147,14 +147,39 @@ public sealed class RoadmapActualHoursTests
     }
 
     [Fact]
-    public async Task A_stretch_across_midnight_counts_toward_each_date_for_its_own_part()
+    public async Task An_evening_past_midnight_counts_on_the_day_it_began()
     {
         var source = new StubActivity(Log(
-            Session("late", turns: [At(2026, 9, 30, 23)], Run(At(2026, 9, 30, 23), At(2026, 10, 1, 1)))));
+            Session("late", turns: [At(2026, 9, 30, 23)], Run(At(2026, 9, 30, 23), At(2026, 10, 1, 2)))));
+
+        var hours = await Read(source, Monday, Today);
+
+        Assert.Equal(TimeSpan.FromHours(3), Assert.Single(hours).Value);
+        Assert.Equal(new DateOnly(2026, 9, 30), Assert.Single(hours).Key);
+    }
+
+    [Fact]
+    public async Task A_stretch_across_four_in_the_morning_counts_toward_each_date_for_its_own_part()
+    {
+        var source = new StubActivity(Log(
+            Session("all-night", turns: [At(2026, 10, 1, 3)], Run(At(2026, 10, 1, 3), At(2026, 10, 1, 5)))));
 
         var hours = await Read(source, Monday, Today);
 
         Assert.Equal(TimeSpan.FromHours(1), hours[new DateOnly(2026, 9, 30)]);
+        Assert.Equal(TimeSpan.FromHours(1), hours[Thursday]);
+    }
+
+    [Fact]
+    public async Task Moving_between_sessions_within_half_an_hour_counts_the_time_between()
+    {
+        // 10:00 to 10:20 in one session, 10:40 to 11:00 in another.
+        var source = new StubActivity(Log(
+            Session("one", turns: [On(Thursday, 10)], Run(On(Thursday, 10), On(Thursday, 10, 20))),
+            Session("two", turns: [On(Thursday, 10, 40)], Run(On(Thursday, 10, 40), On(Thursday, 11)))));
+
+        var hours = await Read(source, Monday, Today);
+
         Assert.Equal(TimeSpan.FromHours(1), hours[Thursday]);
     }
 
@@ -277,21 +302,21 @@ public sealed class RoadmapActualHoursTests
 
         await Read(source, Monday, Today);
 
-        Assert.Equal(At(2026, 9, 27, 0), Assert.Single(source.Asked));
+        Assert.Equal(At(2026, 9, 27, 4), Assert.Single(source.Asked));
     }
 
     [Fact]
     public async Task Time_before_the_first_date_is_not_counted_and_a_stretch_begun_then_still_joins()
     {
-        // Prompted at 23:50 on Sunday and again at 00:10 on Monday: one stretch, of which
-        // only Monday's part is asked for. Without the 23:50 turn the Monday part would
-        // start at 00:10.
+        // Prompted at 03:50 on Monday — still Sunday's working day — and again at 04:10:
+        // one stretch, of which only Monday's part is asked for. Without the 03:50 turn
+        // the Monday part would start at 04:10.
         var source = new StubActivity(Log(
             Session(
                 "early",
-                turns: [At(2026, 9, 27, 23).AddMinutes(50), At(2026, 9, 28, 0).AddMinutes(10)],
-                Run(At(2026, 9, 27, 23).AddMinutes(50), At(2026, 9, 27, 23).AddMinutes(55)),
-                Run(At(2026, 9, 28, 0).AddMinutes(10), At(2026, 9, 28, 0).AddMinutes(30)))));
+                turns: [At(2026, 9, 28, 3).AddMinutes(50), At(2026, 9, 28, 4).AddMinutes(10)],
+                Run(At(2026, 9, 28, 3).AddMinutes(50), At(2026, 9, 28, 3).AddMinutes(55)),
+                Run(At(2026, 9, 28, 4).AddMinutes(10), At(2026, 9, 28, 4).AddMinutes(30)))));
 
         var hours = await Read(source, Monday, Today);
 
@@ -301,13 +326,14 @@ public sealed class RoadmapActualHoursTests
     [Fact]
     public async Task The_day_the_clocks_go_back_has_twenty_five_hours()
     {
-        // 25 October 2026: Amsterdam leaves summer time at 03:00 and repeats an hour.
+        // 25 October 2026: Amsterdam leaves summer time at 03:00 and repeats an hour, inside
+        // the working day of the 24th, which runs to 04:00 on the 25th.
         var time = Clock(At(2026, 10, 27, 12));
         var source = new StubActivity(Log(
-            Session("all-day", turns: [At(2026, 10, 25, 0)], Run(At(2026, 10, 25, 0), At(2026, 10, 26, 0)))));
+            Session("all-day", turns: [At(2026, 10, 24, 4)], Run(At(2026, 10, 24, 4), At(2026, 10, 25, 4)))));
 
         var hours = await new RoadmapActualHours(source, time)
-            .ReadAsync(new DateOnly(2026, 10, 25), new DateOnly(2026, 10, 26), TestContext.Current.CancellationToken);
+            .ReadAsync(new DateOnly(2026, 10, 24), new DateOnly(2026, 10, 25), TestContext.Current.CancellationToken);
 
         Assert.Equal(TimeSpan.FromHours(25), Assert.Single(hours!).Value);
     }
@@ -350,6 +376,81 @@ public sealed class RoadmapActualHoursTests
         var source = new StubActivity(Log()) { Failure = new IOException("transcript locked") };
 
         await Assert.ThrowsAsync<IOException>(() => Read(source, Monday, Today));
+    }
+
+    [Fact]
+    public async Task The_report_lists_every_begun_day_and_each_day_sums_to_its_head()
+    {
+        var log = Log(
+            Session("one", turns: [On(Thursday, 10)], Run(On(Thursday, 10), On(Thursday, 10, 20))),
+            Session("two", turns: [On(Thursday, 10, 40)], Run(On(Thursday, 10, 40), On(Thursday, 11))),
+            Session("late", turns: [At(2026, 9, 30, 23)], Run(At(2026, 9, 30, 23), At(2026, 10, 1, 2))));
+        var adapter = new RoadmapActualHours(new StubActivity(log), Clock(Now));
+
+        var days = await adapter.ReadDaysAsync(Monday, new DateOnly(2026, 10, 11), TestContext.Current.CancellationToken);
+        var heads = await adapter.ReadAsync(Monday, new DateOnly(2026, 10, 11), TestContext.Current.CancellationToken);
+
+        Assert.NotNull(days);
+        Assert.Equal(Enumerable.Range(0, 6).Select(Monday.AddDays), days.Select(day => day.Date));
+        Assert.All(days, day => Assert.Equal(heads!.GetValueOrDefault(day.Date), day.Worked));
+        Assert.Empty(days.Single(day => day.Date == Monday).Stretches);
+    }
+
+    [Fact]
+    public async Task A_stretch_in_the_report_names_its_sessions_and_counts_its_turns()
+    {
+        // 10:00 to 10:20 in one session, 10:40 to 11:00 in another: one stretch, two
+        // sessions, two turns.
+        var log = Log(
+            Session("one", turns: [On(Thursday, 10)], Run(On(Thursday, 10), On(Thursday, 10, 20))),
+            Session("two", turns: [On(Thursday, 10, 40)], Run(On(Thursday, 10, 40), On(Thursday, 11))));
+        var names = new StubSessions(
+            Named("one", "Roadmap heads", "JSdotNet/Backlog"),
+            Named("two", "Hours report", null));
+
+        var days = await new RoadmapActualHours(new StubActivity(log), Clock(Now), sessions: names)
+            .ReadDaysAsync(Thursday, Thursday, TestContext.Current.CancellationToken);
+
+        var stretch = Assert.Single(Assert.Single(days!).Stretches);
+        Assert.Equal(On(Thursday, 10), stretch.Start);
+        Assert.Equal(On(Thursday, 11), stretch.End);
+        Assert.Equal(TimeSpan.FromHours(2), stretch.Start.Offset);
+        Assert.Equal(2, stretch.Turns);
+        Assert.Equal(
+            [new("Roadmap heads", "JSdotNet/Backlog", "DEV-TOWER"), new("Hours report", null, "DEV-TOWER")],
+            stretch.Sessions);
+    }
+
+    [Fact]
+    public async Task A_session_with_no_known_title_is_named_by_its_id()
+    {
+        var log = Log(Session("abc123", turns: [On(Thursday, 9)], Run(On(Thursday, 9), On(Thursday, 10))));
+
+        var days = await new RoadmapActualHours(new StubActivity(log), Clock(Now))
+            .ReadDaysAsync(Thursday, Thursday, TestContext.Current.CancellationToken);
+
+        Assert.Equal("abc123", Assert.Single(Assert.Single(Assert.Single(days!).Stretches).Sessions).Title);
+    }
+
+    [Fact]
+    public async Task The_report_is_not_stated_where_the_hours_are_not()
+    {
+        var days = await new RoadmapActualHours(null, Clock(Now))
+            .ReadDaysAsync(Monday, Today, TestContext.Current.CancellationToken);
+
+        Assert.Null(days);
+    }
+
+    private static AgentSession Named(string id, string title, string? repository) =>
+        new(id, AgentSessionKind.Claude, "tower", "DEV-TOWER", title, "D:/Repos", repository, null, null, Now, AgentSessionState.Finished, null, AgentSessionOrigin.Local);
+
+    private sealed class StubSessions(params AgentSession[] sessions) : IAgentSessionSource
+    {
+        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Length));
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
+            GetSessionsAsync(cancellationToken);
     }
 
     private static async Task<IReadOnlyDictionary<DateOnly, TimeSpan>> Read(

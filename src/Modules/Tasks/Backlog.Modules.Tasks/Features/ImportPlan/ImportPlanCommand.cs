@@ -327,7 +327,17 @@ public sealed class ImportPlanCommandHandler(
             }
             else
             {
-                TaskEntryFields.ApplyToExisting(entry, outcome.Parsed with { DependsOn = resolvedDependsOn });
+                // A block somebody set by hand is kept unless the plan itself writes
+                // a `blocked:` token. ApplyToExisting reads an absent token as
+                // "unblock", which is right for the editor and wrong here: a plan
+                // never knew the step was blocked, so a re-import of it is not a
+                // person saying the obstacle is gone. The same rule the Devbook
+                // references follow below, applied before the shared helper runs.
+                TaskEntryFields.ApplyToExisting(entry, outcome.Parsed with
+                {
+                    DependsOn = resolvedDependsOn,
+                    BlockedSince = outcome.Parsed.BlockedSince ?? entry.BlockedSince
+                });
                 if (outcome.Parsed.Status is { } status) entry.SetStatus(status, TaskEntryFields.LocalToday);
 
                 // The plan says what the step is about when it writes a `devbook:`

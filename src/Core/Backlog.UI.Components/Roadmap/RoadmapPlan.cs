@@ -31,12 +31,16 @@ namespace Backlog.UI.Components.Roadmap;
 /// content. Rows rather than a
 /// height, because the chart is laid out in rows and the sidebar and the track must
 /// stay the same height row for row.</param>
+/// <param name="Unnamed">The band shows no label of its own — for a band that is
+/// told apart by where it sits rather than by a name. <paramref name="Title"/> still
+/// names it to assistive technology.</param>
 public sealed record RoadmapGroup(
     string Id,
     string Title,
     IReadOnlyList<RoadmapRow> Rows,
     string? Color = null,
-    int ContentRows = 0)
+    int ContentRows = 0,
+    bool Unnamed = false)
 {
     public IReadOnlyList<RoadmapRow> RowList => Rows ?? [];
 }

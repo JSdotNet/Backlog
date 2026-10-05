@@ -97,6 +97,23 @@ namespace Backlog.UI.Components.Tasks;
 /// Null leaves it off. A checklist of steps has no kinds, and a row that marked
 /// every step as a task would be a line about nothing.
 /// </para></param>
+/// <param name="MarkedBlocked">Whether a person marked the task blocked by hand.
+/// <para>
+/// Two things on a row are called blocked, and this is the one the host stores
+/// and hands in. The other is the <see cref="TaskReadiness.Blocked"/> state
+/// <see cref="TaskChain"/> works out from <paramref name="DependsOn"/> — derived
+/// from the other rows, drawn as <see cref="TaskDetailKind.Blocked"/> ("Waiting
+/// for") and never written down. This one is somebody saying that something
+/// outside the list is in the way, which no chain can know. The name says
+/// "marked" so the two cannot be mistaken for each other in code.
+/// </para>
+/// <para>
+/// It changes what the row says, and one thing it offers: the circle stays a
+/// control — a marked task can still be finished, because the obstacle may have
+/// gone with the work — and the chain still counts it as ready, but the copy
+/// button is refused, since handing a blocked task's text to somebody is handing
+/// them work they cannot start.
+/// </para></param>
 public sealed record TaskRow(
     string Id,
     string Title,
@@ -114,7 +131,8 @@ public sealed record TaskRow(
     string? Body = null,
     IReadOnlyList<string>? DependsOn = null,
     string? Status = null,
-    TaskKind? Kind = null)
+    TaskKind? Kind = null,
+    bool MarkedBlocked = false)
 {
     public bool HasSteps => StepCount > 0;
 
@@ -166,6 +184,12 @@ public sealed record TaskRow(
     /// keeps the line honest: to a reader those are the same fact, and two
     /// glyphs for it would read as two.
     /// </para>
+    /// <para>
+    /// A hand-set block goes ahead of where the task came from and when it is due,
+    /// for the reason a wait opens the line: until somebody unblocks it, the dates
+    /// after it are not what the reader acts on. It never goes ahead of the kind
+    /// mark — the mark holds the line's left edge on every row.
+    /// </para>
     /// </summary>
     public IReadOnlyList<TaskDetail> Details
     {
@@ -173,6 +197,7 @@ public sealed record TaskRow(
         {
             var steps = HasSteps ? new TaskDetail(TaskDetailKind.Steps, $"{StepsDone} of {StepCount}") { LedByKind = Kind is not null } : null;
             var note = Note || HasBody ? new TaskDetail(TaskDetailKind.Note, "Note") { LedByKind = Kind is not null } : null;
+            var marked = MarkedBlocked ? new TaskDetail(TaskDetailKind.MarkedBlocked, "Blocked") : null;
 
             // With a kind, the mark and the facts about what is under the title
             // are one statement and open the line together; without one, the
@@ -183,6 +208,7 @@ public sealed record TaskRow(
                     new TaskDetail(TaskDetailKind.Kind, Kind.Name) { KindGlyph = Kind.Glyph },
                     steps,
                     note,
+                    marked,
                     Group is null ? null : new TaskDetail(TaskDetailKind.Group, Group),
                     InMyDay ? new TaskDetail(TaskDetailKind.MyDay, "My Day") : null,
                     Due is null ? null : new TaskDetail(TaskDetailKind.Due, Due),
@@ -191,6 +217,7 @@ public sealed record TaskRow(
                 ]
                 :
                 [
+                    marked,
                     Group is null ? null : new TaskDetail(TaskDetailKind.Group, Group),
                     InMyDay ? new TaskDetail(TaskDetailKind.MyDay, "My Day") : null,
                     steps,
@@ -239,7 +266,15 @@ public enum TaskDetailKind
     /// <summary>The row is in a dependency cycle, so nothing will ever unblock
     /// it. Said out loud rather than left to be worked out from a chain that
     /// never advances.</summary>
-    Cycle
+    Cycle,
+
+    /// <summary>A person marked the task blocked by hand. A second kind beside
+    /// <see cref="Blocked"/> rather than a reuse of it, because the two are
+    /// different facts: that one is derived from the list and names what the row
+    /// waits for, this one is set on the row by the host and names nothing —
+    /// nothing derives it, and nothing about the chain reads it. See
+    /// <see cref="TaskRow.MarkedBlocked"/>.</summary>
+    MarkedBlocked
 }
 
 /// <summary>One part of a row's metadata line.</summary>
@@ -269,6 +304,12 @@ public sealed record TaskDetail(TaskDetailKind Kind, string Text)
         // recurs are opposite facts, and one mark for both would say a broken
         // chain is a schedule.
         TaskDetailKind.Cycle => "↻",
+        // A no-entry sign rather than the hourglass the wait wears. Waiting is
+        // the chain saying another row is not finished; this is a person saying
+        // something outside the list is in the way — two reasons a task is not
+        // moving, and one mark for both would make the reader open the row to
+        // learn which.
+        TaskDetailKind.MarkedBlocked => "⛔",
         _ => string.Empty
     };
 
@@ -286,6 +327,11 @@ public sealed record TaskDetail(TaskDetailKind Kind, string Text)
         TaskDetailKind.Repeat => "Repeats",
         TaskDetailKind.Blocked => "Waiting for",
         TaskDetailKind.Cycle => "Cycle",
+        // Not "Blocked" again: the word drawn beside the glyph already says that,
+        // and a screen reader would hear it twice. What the hidden prefix adds is
+        // the one thing the word does not say — that a person set it, which is
+        // what tells it apart from the chain's "Waiting for".
+        TaskDetailKind.MarkedBlocked => "Marked by hand",
         _ => "Note"
     };
 

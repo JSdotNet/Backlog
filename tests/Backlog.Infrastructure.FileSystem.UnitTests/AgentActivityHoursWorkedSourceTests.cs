@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// date's planned hours (local ADR 0019, §7; verification 40 and 41).
 /// <para>
 /// Every test runs on a named zone, for <see cref="RoadmapActualHoursTests"/>' reason:
-/// a split at midnight or at the end of the day asserted against an unknown zone is
+/// a split at 04:00 or at the end of the day asserted against an unknown zone is
 /// asserted against nothing.
 /// </para>
 /// </summary>
@@ -116,14 +116,27 @@ public sealed class AgentActivityHoursWorkedSourceTests
     }
 
     [Fact]
-    public async Task A_stretch_across_midnight_splits_onto_both_dates()
+    public async Task An_evening_past_midnight_counts_outside_on_the_day_it_began()
     {
-        // 23:00 Wednesday to 01:00 Thursday: an hour on each date, both outside.
+        // 23:00 Wednesday to 01:00 Thursday: two hours on Wednesday, outside.
         var source = Source(Log(Session("night", turns: [On(Wednesday, 23)], Run(On(Wednesday, 23), On(Thursday, 1)))));
 
         var days = await Read(source, Wednesday, Thursday);
 
         Assert.Equal([Wednesday, Thursday], days.Select(day => day.Date));
+        Assert.Equal(TimeSpan.Zero, days[0].Inside);
+        Assert.Equal(TimeSpan.FromHours(2), days[0].Outside);
+        Assert.Equal(TimeSpan.Zero, days[1].Actual);
+    }
+
+    [Fact]
+    public async Task A_stretch_across_four_in_the_morning_splits_onto_both_dates()
+    {
+        // 03:00 to 05:00 Thursday: an hour on each date, both outside.
+        var source = Source(Log(Session("dawn", turns: [On(Thursday, 3)], Run(On(Thursday, 3), On(Thursday, 5)))));
+
+        var days = await Read(source, Wednesday, Thursday);
+
         Assert.All(days, day =>
         {
             Assert.Equal(TimeSpan.Zero, day.Inside);
@@ -252,7 +265,7 @@ public sealed class AgentActivityHoursWorkedSourceTests
 
         await Read(activity, Monday, Sunday);
 
-        Assert.Equal(At(2026, 10, 4, 0), Assert.Single(activity.Asked));
+        Assert.Equal(At(2026, 10, 4, 4), Assert.Single(activity.Asked));
     }
 
     [Fact]

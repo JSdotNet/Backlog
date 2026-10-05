@@ -1,8 +1,10 @@
 @*
-    The Days off dialog (local ADR 0019, §4): every date that differs from the weekly
-    pattern, in one list, and the two ways to add one that a day head cannot — a whole
-    range of days off, which reaches the dates inside week columns that have no toggle
-    of their own, and a single worked date.
+    The Days off dialog (local ADR 0019, §4): a month calendar to press dates on, and
+    every date that differs from the weekly pattern, in one list. A press flips a date
+    as a day head does — a worked date becomes a day off, a day off is worked — and
+    reaches the dates inside week columns that have no head of their own. A press with
+    Shift held makes every date from the one pressed before it a day off, one change
+    for the whole run.
 
     Every action applies at once. There is no Save: the dialog writes the same day
     overrides a head press writes, through the same port, and the band lays its bars out
@@ -23,53 +25,20 @@
     <ChildContent>
         <div class="roadmap-editor__fields">
             <p class="roadmap-days-off__intro">
-                A day off counts no hours, and a worked day counts its weekday's hours. Each change moves the bars at once.
+                Press a date to take it off, press it again to work it. Shift and press takes every date since the last one off. Each change moves the bars at once.
             </p>
 
-            <section class="roadmap-days-off__part" aria-labelledby="roadmap-days-off-range-title">
-                <h3 id="roadmap-days-off-range-title" class="roadmap-days-off__heading">Add days off</h3>
-                <div class="roadmap-editor__row">
-                    <TextField Label="From"
-                               Type="date"
-                               Value="@_from"
-                               ValueChanged="value => _from = value"
-                               ErrorMessage="@_rangeError"
-                               TestId="roadmap-days-off-from" />
-                    <TextField Label="To"
-                               Type="date"
-                               Value="@_through"
-                               ValueChanged="value => _through = value"
-                               TestId="roadmap-days-off-to" />
-                </div>
-                <div class="roadmap-days-off__actions">
-                    <AppButton Variant="ButtonVariant.Secondary"
-                               Size="ButtonSize.Small"
-                               OnClick="AddDaysOff"
-                               TestId="roadmap-days-off-add">
-                        Add days off
-                    </AppButton>
-                </div>
-            </section>
-
-            <section class="roadmap-days-off__part" aria-labelledby="roadmap-days-off-worked-title">
-                <h3 id="roadmap-days-off-worked-title" class="roadmap-days-off__heading">Add a worked day</h3>
-                <div class="roadmap-editor__row">
-                    <TextField Label="Date"
-                               Type="date"
-                               Value="@_worked"
-                               ValueChanged="value => _worked = value"
-                               ErrorMessage="@_workedError"
-                               TestId="roadmap-days-off-worked-date" />
-                </div>
-                <div class="roadmap-days-off__actions">
-                    <AppButton Variant="ButtonVariant.Secondary"
-                               Size="ButtonSize.Small"
-                               OnClick="AddWorkedDay"
-                               TestId="roadmap-days-off-add-worked">
-                        Add worked day
-                    </AppButton>
-                </div>
-                <Alert Message="@_workedNote" Role="status" Inline="true" TestId="roadmap-days-off-note" />
+            <section class="roadmap-days-off__part" aria-labelledby="roadmap-days-off-calendar-title">
+                <h3 id="roadmap-days-off-calendar-title" class="roadmap-days-off__heading">Pick the days</h3>
+                <DayCalendar Month="@Today"
+                             Today="@Today"
+                             IsSelected="date => !Week.IsWorked(date)"
+                             IsMarked="date => Week.OverrideOn(date) is not null"
+                             DayDescription="Described"
+                             OnDayPressed="Press"
+                             AriaLabel="Days off"
+                             TestId="roadmap-days-off-calendar" />
+                <Alert Message="@_calendarError" Role="status" Inline="true" TestId="roadmap-days-off-calendar-error" />
             </section>
 
             <section class="roadmap-days-off__part" aria-labelledby="roadmap-days-off-list-title">
@@ -123,15 +92,12 @@
 </Modal>
 
 @code {
-    private string _from = string.Empty;
-    private string _through = string.Empty;
-    private string _worked = string.Empty;
-
-    private string? _rangeError;
-    private string? _workedError;
-    private string? _workedNote;
+    private string? _calendarError;
     private string? _listError;
     private bool _showPast;
+
+    /// <summary>The date pressed last, where a Shift press starts its run.</summary>
+    private DateOnly? _anchor;
 
     [Parameter]
     public bool Open { get; set; }
@@ -167,56 +133,38 @@
 
     protected override void OnParametersSet()
     {
-        // A dialog opened afresh starts with nothing typed and nothing said.
+        // A dialog opened afresh starts with nothing said and no run begun.
         if (!Open)
         {
-            _from = _through = _worked = string.Empty;
-            _rangeError = _workedError = _workedNote = _listError = null;
+            _calendarError = _listError = null;
+            _anchor = null;
             _showPast = false;
         }
     }
 
-    private void AddDaysOff()
+    private void Press(DayCalendarPress press)
     {
-        _rangeError = null;
-
-        if (Parse(_from) is not { } from || Parse(_through) is not { } through)
+        if (press.Extend && _anchor is { } anchor && anchor != press.Date)
         {
-            _rangeError = "Pick the first and the last day off.";
-            return;
+            var (from, through) = anchor < press.Date ? (anchor, press.Date) : (press.Date, anchor);
+            _calendarError = through.DayNumber - from.DayNumber + 1 > WorkingHours.MaxDaysOffRange
+                ? $"Take at most {WorkingHours.MaxDaysOffRange} days off at a time."
+                : Paces.BlockDays(from, through);
+        }
+        else
+        {
+            _calendarError = Paces.ToggleWorkedDay(press.Date);
         }
 
-        if (through < from)
-        {
-            _rangeError = "End the days off on or after the day they start.";
-            return;
-        }
-
-        if (through.DayNumber - from.DayNumber + 1 > WorkingHours.MaxDaysOffRange)
-        {
-            _rangeError = $"Add at most {WorkingHours.MaxDaysOffRange} days off at a time.";
-            return;
-        }
-
-        _rangeError = Paces.BlockDays(from, through);
-        if (_rangeError is null) _from = _through = string.Empty;
+        _anchor = press.Date;
     }
 
-    private void AddWorkedDay()
-    {
-        _workedError = null;
-        _workedNote = null;
-
-        if (Parse(_worked) is not { } date)
-        {
-            _workedError = "Pick the date you work.";
-            return;
-        }
-
-        // A note, not a refusal: the date the pattern already works needs nothing added.
-        _workedNote = Paces.AddWorkedDay(date);
-        if (_workedNote is null) _worked = string.Empty;
-    }
+    /// <summary>What a date is, in the list's words, when it is anything but an ordinary
+    /// worked day.</summary>
+    private string? Described(DateOnly date) =>
+        Week.OverrideOn(date) is { } entry
+            ? entry.Worked ? "unblocked" : "blocked"
+            : Week.IsWorked(date) ? null : "day off";
 
     private void Remove(DateOnly date) => _listError = Paces.RemoveDayOverride(date);
 
@@ -226,11 +174,4 @@
         date.ToString(date.Year == Today.Year ? "ddd d MMM" : "ddd d MMM yyyy", CultureInfo.CurrentCulture);
 
     private static string Iso(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-
-    /// <summary>The date a <c>date</c> input hands back, which is always ISO whatever the
-    /// reader's culture, or null for nothing picked.</summary>
-    private static DateOnly? Parse(string? value) =>
-        DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
-            ? date
-            : null;
 }

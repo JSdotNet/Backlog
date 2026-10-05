@@ -59,6 +59,19 @@ public sealed record RoadmapTimelineModel(
 public static class RoadmapPlanView
 {
     /// <summary>
+    /// The band for work filed under no configured repository — a project not started
+    /// yet, or one whose repository is no longer configured.
+    /// <para>
+    /// Not an error state and not a bin: it is the place to plan what has no repository
+    /// yet, so it is drawn on every chart, last and colourless, with an empty lane to
+    /// place new work in when nothing is filed there.
+    /// </para>
+    /// </summary>
+    public const string NoRepositoryGroupId = "no-repository";
+
+    public const string NoRepositoryGroupTitle = "No repository";
+
+    /// <summary>
     /// The band every milestone sits on, at the top of the chart.
     /// <para>
     /// One shared band rather than a milestones row inside each repository's band. A
@@ -106,7 +119,7 @@ public static class RoadmapPlanView
         // Each item is read under the configured aliases its repositories resolve to
         // first, so the band it is drawn in and the pace it is forecast at are asked of
         // the same repositories — a full name finds its repository's pace, and a name
-        // matching none neither draws a bar nor slows the others down.
+        // matching none files the work under no repository, at the default pace.
         var items = plan.Items
             .Select(item => item with { RepositoryAliases = FiledUnder(item.RepositoryAliases, configured) })
             .Select(item => AsDrawn(item, rollups, forecast, drawnFromWork))
@@ -141,7 +154,7 @@ public static class RoadmapPlanView
             .ToList();
 
         var markers = milestones
-            .Select(milestone => Marker(milestone, MilestoneRowId, contradicting))
+            .Select(milestone => Marker(milestone, MilestoneRowId, contradicting, configured))
             .Where(marker => drawn.Contains(marker.RowId))
             .ToList();
 
@@ -184,15 +197,14 @@ public static class RoadmapPlanView
     }
 
     /// <summary>
-    /// One item, as the bars it is drawn as: one per band its repositories land in, and
-    /// none when they land in no band at all.
+    /// One item, as the bars it is drawn as: one per band its repositories land in, or
+    /// one in the no-repository band when they land in none.
     /// <para>
     /// A repository lands in a band when it names a configured repository, by alias or
     /// by full name — an imported plan may carry either. Work naming no configured
-    /// repository is not drawn: the roadmap shows the repositories somebody chose to
-    /// plan, not a bin for what matches none of them. Nothing is discarded — the stored
-    /// item keeps every name it carries, so configuring that repository again puts the
-    /// work back where it was.
+    /// repository is drawn under <see cref="NoRepositoryGroupTitle"/>. Nothing is
+    /// discarded — the stored item keeps every name it carries, so configuring that
+    /// repository again puts the work back in its band.
     /// </para>
     /// <para>
     /// A plan filed in two repositories is two pieces of work to the people doing it —
@@ -219,7 +231,7 @@ public static class RoadmapPlanView
             .Select(group => (GroupId: group.Key, Aliases: group.Select(entry => entry.Alias).ToList()))
             .ToList();
 
-        if (bands.Count == 0) yield break;
+        if (bands.Count == 0) bands.Add((NoRepositoryGroupId, []));
 
         var links = rollups is not null && rollups.TryGetValue(item.Id, out var rollup)
             ? RoadmapRollup.InDependencyOrder(rollup.BacklogEntries)
@@ -632,7 +644,8 @@ public static class RoadmapPlanView
         bool hasMilestones,
         List<PlannedRepository> configured)
     {
-        // Configured order, so the bands read the way Settings lists them.
+        // Configured order, so the bands read the way Settings lists them, then the
+        // no-repository band last — it holds what is not any repository's yet.
         //
         // The band is labelled with the repository's alias rather than its full name,
         // and that is a layout decision as much as a naming one. The label is written
@@ -643,7 +656,8 @@ public static class RoadmapPlanView
         // chose and the one the plan stores; the full name is still what the
         // Repository filter offers, where there is room for it.
         var order = configured
-            .Select(repository => (Id: repository.Alias, Title: repository.Alias, repository.Colour));
+            .Select(repository => (Id: repository.Alias, Title: repository.Alias, repository.Colour))
+            .Append((Id: NoRepositoryGroupId, Title: NoRepositoryGroupTitle, Colour: (int?)null));
 
         var bands = new List<RoadmapGroup>();
 
@@ -665,7 +679,15 @@ public static class RoadmapPlanView
                 .Distinct(StringComparer.CurrentCulture)
                 .ToList();
 
-            if (lanes.Count == 0) continue;
+            if (lanes.Count == 0)
+            {
+                if (id != NoRepositoryGroupId) continue;
+
+                // The no-repository band stands even when empty: its one lane is where
+                // the next project is planned before it has a repository.
+                lanes.Add(DefaultLane);
+                stackedRows[(id, DefaultLane)] = 1;
+            }
 
             // Every row of a stacked lane carries the lane's name, not a blank: the name is
             // how a bar on it describes where it sits to anyone who cannot see the chart.
@@ -677,9 +699,13 @@ public static class RoadmapPlanView
                     .Select(stack => new RoadmapRow(LaneRowId(id, lane, stack), lane == DefaultLane ? string.Empty : lane)))
             ];
 
-            // The hue the repository wears, as Settings resolved it. Every band here
-            // makes room under its name for the pace its repository's plans are placed at.
-            bands.Add(new RoadmapGroup(id, title, rows, BandColour(hue), PaceRows));
+            // The hue the repository wears, as Settings resolved it; the no-repository
+            // band has none and stays neutral. Every band here makes room under its name
+            // for the pace its plans are placed at — its repository's own, or, under no
+            // repository, the default pace.
+            // The no-repository band is told apart by being last and colourless, so it
+            // shows no name; its title still names it to a screen reader.
+            bands.Add(new RoadmapGroup(id, title, rows, BandColour(hue), PaceRows, Unnamed: id == NoRepositoryGroupId));
         }
 
         return bands;
@@ -698,8 +724,8 @@ public static class RoadmapPlanView
     /// It says which repository and nothing else — no status, no severity, no priority
     /// — and it is never the only thing saying it: the band is labelled with its alias
     /// down its own side and every bar names its band in its accessible name. Null is
-    /// a neutral band, which is what the milestone band gets: a hue here means "which
-    /// repository", and that band is not one.
+    /// a neutral band, which is what the milestone and no-repository bands get: a hue
+    /// here means "which repository", and neither of those is one.
     /// </para>
     /// </summary>
     private static string? BandColour(int? hue) =>
@@ -1036,7 +1062,8 @@ public static class RoadmapPlanView
     private static RoadmapMilestone Marker(
         RoadmapMilestoneDto milestone,
         string rowId,
-        HashSet<Guid> contradicting) =>
+        HashSet<Guid> contradicting,
+        List<PlannedRepository> configured) =>
         new(
             milestone.Id.ToString(),
             rowId,
@@ -1044,7 +1071,10 @@ public static class RoadmapPlanView
             milestone.On,
             Marker(milestone.Kind),
             Detail(milestone, contradicting),
-            milestone.IsPlanWide);
+            milestone.IsPlanWide,
+            // The marker stays in the dates band; the bands of the repositories it is
+            // filed under are ruled at its date, so their work reads against it there.
+            FiledUnder(milestone.RepositoryAliases, configured));
 
     private static string Detail(RoadmapMilestoneDto milestone, HashSet<Guid> contradicting)
     {

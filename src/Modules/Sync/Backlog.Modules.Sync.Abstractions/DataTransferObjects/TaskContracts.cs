@@ -70,6 +70,14 @@ public sealed record TaskPayload(
     // and null rather than empty on a task that points at none, so its document
     // serialises exactly as it did before; the service never reads one.
     IReadOnlyList<string>? DevbookReferences = null,
+    // The day a person marked the task blocked by hand — not the Blocked
+    // readiness a dependency chain derives, which is never stored or sent. Its
+    // own member rather than left to ContentMd, because ContentMd is the body
+    // alone and the `blocked:` token lives on the metadata line, which never
+    // crosses the wire as text. Defaulted for the reason StartedOn is:
+    // an older document carries none and reads as not marked, and a service
+    // built before it passes it through in Unrecognised rather than dropping it.
+    DateOnly? BlockedSince = null,
     // Where a linked task came from (local ADR 0020, §2). Last and defaulted for
     // the same reason: an older document carries none and reads as local work,
     // and null on every local task, so its document serialises as it did before.

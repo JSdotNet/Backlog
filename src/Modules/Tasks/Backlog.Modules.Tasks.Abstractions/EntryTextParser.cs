@@ -215,7 +215,8 @@ public static class EntryTextParser
         DateOnly? CompletedOn = null,
         EntryKind Kind = EntryKind.Task,
         DateOnly? StartedOn = null,
-        IReadOnlyList<string>? DevbookReferences = null);
+        IReadOnlyList<string>? DevbookReferences = null,
+        DateOnly? BlockedSince = null);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -237,7 +238,8 @@ public static class EntryTextParser
         DateOnly? CompletedOn = null,
         EntryKind Kind = EntryKind.Task,
         DateOnly? StartedOn = null,
-        IReadOnlyList<string>? DevbookReferences = null)
+        IReadOnlyList<string>? DevbookReferences = null,
+        DateOnly? BlockedSince = null)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -393,7 +395,8 @@ public static class EntryTextParser
             metadata.CompletedOn,
             metadata.Kind,
             metadata.StartedOn,
-            metadata.DevbookReferences ?? []);
+            metadata.DevbookReferences ?? [],
+            metadata.BlockedSince);
     }
 
     private static Metadata ParseMetadataLine(string line)
@@ -410,6 +413,7 @@ public static class EntryTextParser
         DateOnly? inMyDayOn = null;
         DateOnly? completedOn = null;
         DateOnly? startedOn = null;
+        DateOnly? blockedSince = null;
         EntryView? view = null;
         Attachment? attachment = null;
         int? effort = null;
@@ -473,6 +477,20 @@ public static class EntryTextParser
                         // they have. Absent means unticked.
                         if (TryParseDateToken(value, out var completed)) completedOn = completed;
                         else unreadable.Add(new UnreadableToken("completed", value));
+                        break;
+
+                    case "blocked":
+                        // The day a person marked the entry blocked by hand. A
+                        // date rather than a bare flag for the reason the tick is
+                        // one: the record says since when, and absent means not
+                        // marked. Deliberately not a status, and not the Blocked
+                        // readiness a chain of `after:` tokens derives — that one
+                        // is worked out from the other entries and never stored
+                        // (.devbook/domain/tasks/domain.md#readiness), where this
+                        // is a person's own statement that something outside the
+                        // backlog is in the way, so it is written down.
+                        if (TryParseDateToken(value, out var blockedOn)) blockedSince = blockedOn;
+                        else unreadable.Add(new UnreadableToken("blocked", value));
                         break;
 
                     case "effort":
@@ -651,7 +669,8 @@ public static class EntryTextParser
             completedOn,
             kind,
             startedOn,
-            devbookReferences);
+            devbookReferences,
+            blockedSince);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
@@ -1459,6 +1478,11 @@ public static class EntryTextParser
         if (entry.InMyDayOn is { } inMyDayOn) meta += $" `myday:{DateToken(inMyDayOn)}`";
         if (entry.StartedOn is { } startedOn) meta += $" `started:{DateToken(startedOn)}`";
         if (entry.CompletedOn is { } completedOn) meta += $" `completed:{DateToken(completedOn)}`";
+        // Beside the two dates that span the work, and after them: started and
+        // completed say where the work has got to, and the block says the person
+        // has found something in the way of it — the newest fact about it, so it
+        // reads last of the three.
+        if (entry.BlockedSince is { } blockedSince) meta += $" `blocked:{DateToken(blockedSince)}`";
         foreach (var id in (entry.DependsOn ?? []).Where(id => !string.IsNullOrWhiteSpace(id)))
         {
             meta += $" `after:{id.Trim()}`";
@@ -1702,6 +1726,14 @@ public static class EntryTextParser
     public static string WithCompletedOn(string raw, DateOnly? completedOn) =>
         RewriteMetaLine(raw, completedOn: completedOn, updateCompletedOn: true);
 
+    /// <summary>Marks the entry blocked as of a day, or unblocks it by clearing
+    /// the token. Writes nothing else: the mark is neither a status nor the tick,
+    /// so an entry comes unblocked exactly as it was before — and it is not the
+    /// Blocked readiness a dependency chain derives either, which is never written
+    /// down at all (<c>.devbook/domain/tasks/domain.md#readiness</c>).</summary>
+    public static string WithBlocked(string raw, DateOnly? blockedSince) =>
+        RewriteMetaLine(raw, blockedSince: blockedSince, updateBlocked: true);
+
     /// <summary>Rewrites the whole set of <c>after:</c> tokens. An empty list
     /// clears them: the ids are the dependency, so there is nothing left to say
     /// once they are gone.</summary>
@@ -1939,6 +1971,8 @@ public static class EntryTextParser
         bool updateMyDay = false,
         DateOnly? completedOn = null,
         bool updateCompletedOn = false,
+        DateOnly? blockedSince = null,
+        bool updateBlocked = false,
         IReadOnlyList<string>? dependsOn = null,
         bool updateDependsOn = false,
         IReadOnlyList<string>? repoIds = null,
@@ -2044,6 +2078,12 @@ public static class EntryTextParser
             if (completedOn is { } completed) tokens.Add($"completed:{DateToken(completed)}");
         }
 
+        if (updateBlocked)
+        {
+            RemoveNamedToken(tokens, "blocked");
+            if (blockedSince is { } blockedOn) tokens.Add($"blocked:{DateToken(blockedOn)}");
+        }
+
         if (updateDependsOn)
         {
             RemoveNamedToken(tokens, "after");
@@ -2128,6 +2168,7 @@ public static class EntryTextParser
         if (parsed.InMyDayOn is { } inMyDayOn) tokens.Add($"myday:{DateToken(inMyDayOn)}");
         if (parsed.StartedOn is { } startedOn) tokens.Add($"started:{DateToken(startedOn)}");
         if (parsed.CompletedOn is { } completedOn) tokens.Add($"completed:{DateToken(completedOn)}");
+        if (parsed.BlockedSince is { } blockedSince) tokens.Add($"blocked:{DateToken(blockedSince)}");
         tokens.AddRange((parsed.DependsOn ?? []).Select(id => $"after:{id}"));
         if (!string.IsNullOrWhiteSpace(parsed.ImportItemId)) tokens.Add($"id:{parsed.ImportItemId}");
         tokens.AddRange((parsed.RepoIds ?? []).Select(repo => $"repo:{repo}"));

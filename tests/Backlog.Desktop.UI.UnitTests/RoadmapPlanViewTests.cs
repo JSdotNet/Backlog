@@ -69,6 +69,11 @@ public class RoadmapPlanViewTests
         IReadOnlyDictionary<string, int>? bands = null) =>
         new([.. items ?? []], [.. milestones ?? []], [.. contradictions ?? []], bands);
 
+    /// <summary>The bands drawn for configured repositories, without the no-repository
+    /// band every chart ends with.</summary>
+    private static IEnumerable<RoadmapGroup> RepositoryBands(RoadmapTimelineModel view) =>
+        view.Groups.Where(band => band.Id != RoadmapPlanView.NoRepositoryGroupId);
+
     [Fact]
     public void AnEmptyPlanHasNothingToDraw()
     {
@@ -86,40 +91,67 @@ public class RoadmapPlanViewTests
             Plan([Item("In Fincent", repositories: ["fincent"]), Item("In Backlog", repositories: ["backlog"])]),
             Configured);
 
-        Assert.Equal(["backlog", "fincent"], view.Groups.Select(group => group.Id));
+        Assert.Equal(["backlog", "fincent", RoadmapPlanView.NoRepositoryGroupId], view.Groups.Select(group => group.Id));
         // Labelled by alias, not full name: the label is written down the side of the
         // band, so its length is a floor on how short the band can be. The full name
         // is still what the Repository filter offers.
-        Assert.Equal(["backlog", "fincent"], view.Groups.Select(group => group.Title));
+        Assert.Equal(["backlog", "fincent", RoadmapPlanView.NoRepositoryGroupTitle], view.Groups.Select(group => group.Title));
     }
 
     [Fact]
-    public void ABandWithNothingInItIsNotDrawn()
+    public void ARepositoryBandWithNothingInItIsNotDrawn()
     {
         var view = RoadmapPlanView.From(Plan([Item("Only in Backlog", repositories: ["backlog"])]), Configured);
 
-        Assert.Single(view.Groups);
-        Assert.Equal("backlog", view.Groups[0].Id);
+        // Fincent has nothing planned, so it draws no band; the no-repository band is
+        // drawn whatever is in it.
+        Assert.Equal(["backlog", RoadmapPlanView.NoRepositoryGroupId], view.Groups.Select(group => group.Id));
     }
 
     [Fact]
-    public void WorkWithNoRepositoryIsNotDrawn()
+    public void WorkWithNoRepositoryLandsInTheNoRepositoryBand_Last()
     {
         var view = RoadmapPlanView.From(
             Plan([Item("Filed", repositories: ["backlog"]), Item("Not filed")]),
             Configured);
 
-        Assert.Equal(["backlog"], view.Groups.Select(group => group.Id));
-        Assert.Equal(["Filed"], view.Bars.Select(bar => bar.Title));
+        Assert.Equal(["backlog", RoadmapPlanView.NoRepositoryGroupId], view.Groups.Select(group => group.Id));
+        var notFiled = view.Bars.Single(bar => bar.Title == "Not filed");
+        Assert.StartsWith($"{RoadmapPlanView.NoRepositoryGroupId}::", notFiled.RowId, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AnAliasThatIsNoLongerConfigured_IsNotDrawnRatherThanMakingABandOfItsOwn()
+    public void TheNoRepositoryBandIsDrawnWithOneEmptyPlannedRow_WhenNothingIsFiledThere()
+    {
+        var view = RoadmapPlanView.From(Plan([Item("Filed", repositories: ["backlog"])]), Configured);
+
+        var band = view.Groups[^1];
+        Assert.Equal(RoadmapPlanView.NoRepositoryGroupId, band.Id);
+        Assert.Equal(RoadmapPlanView.NoRepositoryGroupTitle, band.Title);
+
+        // Last and colourless is enough to tell it apart: it shows no name, while each
+        // repository's band does.
+        Assert.True(band.Unnamed);
+        Assert.All(view.Groups.SkipLast(1), group => Assert.False(group.Unnamed));
+
+        // One lane to place the next project in before it has a repository, with room
+        // under the band's name for the default pace it would be placed at.
+        var row = Assert.Single(band.RowList);
+        Assert.Equal($"{RoadmapPlanView.NoRepositoryGroupId}::Planned", row.Id);
+        Assert.Equal(string.Empty, row.Title);
+        Assert.Equal(RoadmapRowKind.Bars, row.Kind);
+        Assert.Equal(RoadmapPlanView.PaceRows, band.ContentRows);
+        Assert.DoesNotContain(view.Bars, bar => bar.RowId == row.Id);
+    }
+
+    [Fact]
+    public void AnAliasThatIsNoLongerConfigured_LandsInTheNoRepositoryBandRatherThanMakingABandOfItsOwn()
     {
         var view = RoadmapPlanView.From(Plan([Item("Old work", repositories: ["retired"])]), Configured);
 
-        Assert.False(view.HasAnythingToDraw);
-        Assert.Empty(view.Bars);
+        var band = Assert.Single(view.Groups);
+        Assert.Equal(RoadmapPlanView.NoRepositoryGroupId, band.Id);
+        Assert.Contains(Assert.Single(view.Bars).RowId, band.RowList.Select(row => row.Id));
     }
 
     [Fact]
@@ -129,8 +161,8 @@ public class RoadmapPlanViewTests
 
         var view = RoadmapPlanView.From(plan, [.. Configured, new("retired", "JSdotNet/Retired", 3)]);
 
-        Assert.Equal("retired", Assert.Single(view.Groups).Id);
-        Assert.Single(view.Bars);
+        Assert.Equal(["retired", RoadmapPlanView.NoRepositoryGroupId], view.Groups.Select(group => group.Id));
+        Assert.StartsWith("retired::", Assert.Single(view.Bars).RowId, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -142,7 +174,7 @@ public class RoadmapPlanViewTests
 
         var view = RoadmapPlanView.From(Plan([item]), Configured);
 
-        Assert.Equal(["backlog", "fincent"], view.Groups.Select(group => group.Id));
+        Assert.Equal(["backlog", "fincent"], RepositoryBands(view).Select(group => group.Id));
         Assert.Equal(2, view.Bars.Count);
         Assert.All(view.Bars, bar => Assert.Contains(bar.FacetList, facet => facet.Name == "Repository"
             && (facet.Value == "JSdotNet/Backlog" || facet.Value == "JSdotNet/Fincent")));
@@ -155,8 +187,10 @@ public class RoadmapPlanViewTests
             Plan([Item("Half known", repositories: ["backlog", "retired"])]),
             Configured);
 
-        Assert.Equal("backlog", Assert.Single(view.Groups).Id);
-        Assert.Single(view.Bars);
+        Assert.Equal("backlog", Assert.Single(RepositoryBands(view)).Id);
+
+        // Not also drawn under no repository: one configured name is enough to file it.
+        Assert.StartsWith("backlog::", Assert.Single(view.Bars).RowId, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -246,7 +280,7 @@ public class RoadmapPlanViewTests
             ]),
             Configured);
 
-        var band = Assert.Single(view.Groups);
+        var band = Assert.Single(RepositoryBands(view));
         Assert.Equal(["platform", "migration"], band.RowList.Select(row => row.Title));
         Assert.All(band.RowList, row => Assert.Equal(RoadmapRowKind.Bars, row.Kind));
     }
@@ -275,7 +309,7 @@ public class RoadmapPlanViewTests
             ]),
             Configured);
 
-        var rows = Assert.Single(view.Groups).RowList;
+        var rows = Assert.Single(RepositoryBands(view)).RowList;
         Assert.All(rows, row => Assert.Equal(string.Empty, row.Title));
         Assert.Equal(3, rows.Select(row => row.Id).Distinct().Count());
 
@@ -303,7 +337,7 @@ public class RoadmapPlanViewTests
             ]),
             Configured);
 
-        var row = Assert.Single(Assert.Single(view.Groups).RowList);
+        var row = Assert.Single(Assert.Single(RepositoryBands(view)).RowList);
         Assert.All(view.Bars, bar => Assert.Equal(row.Id, bar.RowId));
     }
 
@@ -319,7 +353,7 @@ public class RoadmapPlanViewTests
             ]),
             Configured);
 
-        Assert.Equal(2, Assert.Single(view.Groups).RowList.Count);
+        Assert.Equal(2, Assert.Single(RepositoryBands(view)).RowList.Count);
         Assert.Equal(
             view.Bars.Single(bar => bar.Title == "Short").RowId,
             view.Bars.Single(bar => bar.Title == "After short").RowId);
@@ -336,7 +370,7 @@ public class RoadmapPlanViewTests
             ]),
             Configured);
 
-        var rows = Assert.Single(view.Groups).RowList;
+        var rows = Assert.Single(RepositoryBands(view)).RowList;
         Assert.Equal(2, rows.Count);
         Assert.All(rows, row => Assert.Equal("platform", RoadmapPlanView.LaneOf(row.Id)));
         Assert.Null(RoadmapPlanView.LaneOf("no-separator"));
@@ -384,8 +418,10 @@ public class RoadmapPlanViewTests
     {
         var view = RoadmapPlanView.From(Plan(milestones: [Milestone("1.0")]), Configured);
 
-        var band = Assert.Single(view.Groups);
-        Assert.Equal(RoadmapPlanView.MilestoneGroupId, band.Id);
+        // The dates band, and the no-repository band every chart ends with.
+        Assert.Equal(
+            [RoadmapPlanView.MilestoneGroupId, RoadmapPlanView.NoRepositoryGroupId],
+            view.Groups.Select(band => band.Id));
         Assert.Empty(view.Bars);
         Assert.Single(view.Milestones);
     }
@@ -438,7 +474,7 @@ public class RoadmapPlanViewTests
 
         // Not a hue picked here to fill the gap: this type declines to choose, so
         // "nobody said" draws as nothing rather than as one more project.
-        Assert.Null(Assert.Single(view.Groups).Color);
+        Assert.Null(Assert.Single(RepositoryBands(view)).Color);
     }
 
     [Theory]
@@ -464,7 +500,21 @@ public class RoadmapPlanViewTests
 
         Assert.Equal(
             ["var(--color-band-1)", "var(--color-band-2)"],
-            view.Groups.Select(band => band.Color));
+            RepositoryBands(view).Select(band => band.Color));
+    }
+
+    [Fact]
+    public void TheNoRepositoryBandTakesNoColour_BecauseItIsNotAProject()
+    {
+        var view = RoadmapPlanView.From(
+            Plan([Item("Filed", repositories: ["backlog"]), Item("Not filed")]),
+            Configured);
+
+        var noRepository = view.Groups.Single(band => band.Id == RoadmapPlanView.NoRepositoryGroupId);
+
+        // A neutral band reads as "nobody said" rather than as one more project.
+        Assert.Null(noRepository.Color);
+        Assert.Equal("var(--color-band-1)", view.Groups[0].Color);
     }
 
     [Fact]
@@ -480,7 +530,7 @@ public class RoadmapPlanViewTests
         // colours on two screens.
         var view = RoadmapPlanView.From(Plan([Item("Only Fincent", repositories: ["fincent"])]), Configured);
 
-        Assert.Equal("var(--color-band-2)", Assert.Single(view.Groups).Color);
+        Assert.Equal("var(--color-band-2)", Assert.Single(RepositoryBands(view)).Color);
     }
 
     [Fact]
@@ -503,7 +553,7 @@ public class RoadmapPlanViewTests
                 "var(--color-band-1)", "var(--color-band-2)", "var(--color-band-3)",
                 "var(--color-band-4)", "var(--color-band-5)", "var(--color-band-1)"
             ],
-            view.Groups.Select(band => band.Color));
+            RepositoryBands(view).Select(band => band.Color));
     }
 
     [Fact]
@@ -621,12 +671,13 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
-    public void WithNoRepositoriesConfiguredAtAll_NoWorkIsDrawn()
+    public void WithNoRepositoriesConfiguredAtAll_TheWholePlanLandsInTheNoRepositoryBand()
     {
         var view = RoadmapPlanView.From(Plan([Item("Work", repositories: ["backlog"])]), []);
 
-        Assert.False(view.HasAnythingToDraw);
-        Assert.Empty(view.Bars);
+        var band = Assert.Single(view.Groups);
+        Assert.Equal(RoadmapPlanView.NoRepositoryGroupId, band.Id);
+        Assert.Single(view.Bars);
     }
 
     [Fact]
@@ -974,6 +1025,18 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
+    public void AnEffortPlacedItemNobodyStarted_WithNoRepository_IsDrawnAtTheGlobalPace()
+    {
+        // 14 points at the global 14 a week: a week, the 5th to the 11th.
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 31, placedBy: ImportPlacement.Effort),
+            Sized("a", 14, RoadmapProgress.Planned));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 11), bar.End);
+    }
+
+    [Fact]
     public void AnEffortPlacedItemNobodyStarted_IsDrawnAsTheImportsOwnPlacementWouldStoreIt()
     {
         var item = Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort);
@@ -1049,6 +1112,22 @@ public class RoadmapPlanViewTests
             Sized("b", 4, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 8)));
 
         Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 11), bar.End);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("retired")]
+    public void AnItemInFlight_UnderNoConfiguredRepository_IsForecastAtTheGlobalPace(string? filedAs)
+    {
+        // Filed under none, or under a name no repository answers to, it is drawn under
+        // no repository at the default pace. Two points a day globally: 4 points left is
+        // 2 days, the 10th and 11th.
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 31, repositories: filedAs is null ? [] : [filedAs]),
+            Sized("b", 4, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 8)));
+
+        Assert.StartsWith($"{RoadmapPlanView.NoRepositoryGroupId}::", bar.RowId, StringComparison.Ordinal);
         Assert.Equal(new DateOnly(2026, 1, 11), bar.End);
     }
 

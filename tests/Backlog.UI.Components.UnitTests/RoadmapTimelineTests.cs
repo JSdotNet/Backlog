@@ -49,7 +49,8 @@ public sealed class RoadmapTimelineTests
     private static IRenderedComponent<RoadmapTimeline> Chart(
         BunitContext context,
         IReadOnlyList<RoadmapBar>? bars = null,
-        Action<ComponentParameterCollectionBuilder<RoadmapTimeline>>? extra = null)
+        Action<ComponentParameterCollectionBuilder<RoadmapTimeline>>? extra = null,
+        IReadOnlyList<RoadmapMilestone>? milestones = null)
     {
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
@@ -58,7 +59,7 @@ public sealed class RoadmapTimelineTests
             parameters
                 .Add(timeline => timeline.Groups, Plan)
                 .Add(timeline => timeline.Bars, bars ?? Work)
-                .Add(timeline => timeline.Milestones, Moments)
+                .Add(timeline => timeline.Milestones, milestones ?? Moments)
                 .Add(timeline => timeline.Window, Q1)
                 .Add(timeline => timeline.TestId, "rm");
 
@@ -76,6 +77,30 @@ public sealed class RoadmapTimelineTests
 
     private static string Announcement(IRenderedComponent<RoadmapTimeline> view) =>
         view.Find("[data-testid='rm-announcement']").TextContent;
+
+    // --- Band names ----------------------------------------------------------
+
+    [Fact]
+    public void An_unnamed_band_shows_no_name_but_still_names_its_rows_to_a_reader()
+    {
+        using var context = new BunitContext();
+        IReadOnlyList<RoadmapGroup> plan = [Plan[0] with { Unnamed = true }, Plan[1]];
+
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var view = context.Render<RoadmapTimeline>(parameters => parameters
+            .Add(timeline => timeline.Groups, plan)
+            .Add(timeline => timeline.Bars, Work)
+            .Add(timeline => timeline.Milestones, Moments)
+            .Add(timeline => timeline.Window, Q1)
+            .Add(timeline => timeline.TestId, "rm"));
+
+        var names = view.FindAll(".roadmap-timeline__group-name").Select(name => name.TextContent.Trim()).ToList();
+        Assert.DoesNotContain("Delivery", names);
+        Assert.Contains("Dates", names);
+        Assert.Contains(
+            view.FindAll(".roadmap-timeline__group-rows p"),
+            row => row.GetAttribute("title")?.StartsWith("Delivery", StringComparison.Ordinal) == true);
+    }
 
     // --- Where a date lands ---------------------------------------------------
 
@@ -1176,6 +1201,35 @@ public sealed class RoadmapTimelineTests
 
         Assert.Equal("Nothing planned.", view.Find("[data-testid='rm-empty']").TextContent);
         Assert.Empty(view.FindAll(".roadmap-timeline__track"));
+    }
+
+    [Fact]
+    public void A_milestone_filed_under_a_band_rules_that_band_alone_from_its_first_row_to_its_last()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, milestones: [new RoadmapMilestone("target", "moments", "Target", On(1, 26), Bands: ["delivery"])]);
+
+        // Delivery is rows 0 and 1, so the rule starts at the top and is two rows tall;
+        // the dates band below it is not crossed.
+        var style = view.Find("[data-testid='rm-milestone-rule-target-delivery']").GetAttribute("style")!;
+        Assert.Contains("top: 0rem", style, StringComparison.Ordinal);
+        Assert.Contains("height: 5.5rem", style, StringComparison.Ordinal);
+        Assert.Empty(view.FindAll("[data-testid='rm-milestone-rule-target-dates']"));
+        Assert.Empty(view.FindAll("[data-testid='rm-milestone-rule-target']"));
+
+        // Its marker is drawn in the colour of its line.
+        Assert.NotNull(view.Find(".roadmap-milestone--banded [data-testid='rm-milestone-target']"));
+    }
+
+    [Fact]
+    public void A_milestone_filed_under_a_band_that_is_not_drawn_rules_nothing()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, milestones: [new RoadmapMilestone("target", "moments", "Target", On(1, 26), Bands: ["elsewhere"])]);
+
+        Assert.Empty(view.FindAll(".roadmap-timeline__milestone-rule"));
     }
 
     [Fact]

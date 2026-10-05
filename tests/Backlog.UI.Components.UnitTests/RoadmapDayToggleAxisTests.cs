@@ -475,6 +475,76 @@ public sealed class RoadmapDayToggleAxisTests
         });
     }
 
+    /// <summary>
+    /// A begun head's actual hours open the report behind them where the host listens: a
+    /// button of its own beside the day head's button, never inside it, named for what it
+    /// opens, and pressing it raises the column's date without toggling the day.
+    /// </summary>
+    [Fact]
+    public void A_begun_heads_hours_are_a_button_that_opens_the_report()
+    {
+        WithCulture("en-US", () =>
+        {
+            using var context = Loose();
+            var opened = new List<DateOnly>();
+            var toggled = new List<DateOnly>();
+            var actual = new Dictionary<DateOnly, double> { [Thursday8] = 6.2 };
+
+            var view = Render(context, new Week(), Monday12October, actual: actual, toggled: toggled.Add, opened: opened.Add);
+
+            var hours = view.Find("#roadmap-hours-2026-10-08");
+            Assert.Equal("BUTTON", hours.TagName);
+            Assert.Equal("6.2h", hours.TextContent.Trim());
+            Assert.Equal("Hours worked on Thu 8 Oct, 6.2h, show the stretches", hours.GetAttribute("aria-label"));
+            Assert.Null(hours.Closest("button.roadmap-timeline__quarter--toggle"));
+
+            hours.Click();
+
+            Assert.Equal([Thursday8], opened);
+            Assert.Empty(toggled);
+        });
+    }
+
+    /// <summary>A wide head that would say its hours beside its name keeps them on their
+    /// own line once they can be pressed, and the head's own line is not read twice.</summary>
+    [Fact]
+    public void An_openable_head_says_its_hours_on_their_own_line_once()
+    {
+        WithCulture("en-US", () =>
+        {
+            using var context = Loose();
+            var actual = new Dictionary<DateOnly, double> { [Thursday8] = 6.2 };
+
+            var view = Render(context, new Week(), Monday12October, actual: actual, quarterWidth: WideQuarter, opened: _ => { });
+
+            var head = ColumnOf(view, Thursday8);
+            Assert.Equal("Thu 8", LabelOf(head));
+            Assert.Equal("true", head.QuerySelector(".roadmap-timeline__quarter-hours")!.GetAttribute("aria-hidden"));
+            Assert.Equal("6.2h", view.Find("#roadmap-hours-2026-10-08").TextContent.Trim());
+        });
+    }
+
+    /// <summary>A head still to come, and every head while the actual hours are unread
+    /// or the host does not listen, has no hours button.</summary>
+    [Fact]
+    public void Only_a_begun_head_with_read_hours_offers_the_report()
+    {
+        WithCulture("en-US", () =>
+        {
+            using var context = Loose();
+            var actual = new Dictionary<DateOnly, double> { [Thursday8] = 6.2 };
+
+            var listening = Render(context, new Week(), Monday12October, actual: actual, opened: _ => { });
+            Assert.Empty(listening.FindAll("#roadmap-hours-2026-10-13"));
+
+            var unread = Render(context, new Week(), Monday12October, opened: _ => { });
+            Assert.Empty(unread.FindAll(".roadmap-timeline__hours-open"));
+
+            var deaf = Render(context, new Week(), Monday12October, actual: actual);
+            Assert.Empty(deaf.FindAll(".roadmap-timeline__hours-open"));
+        });
+    }
+
     /// <summary>Monday 5 October 2026: the week of 5 to 11 October is this week, every
     /// date in it from Tuesday still to come.</summary>
     private static readonly DateOnly Monday12OctoberMinusAWeek = Monday12October.AddDays(-7);
@@ -519,7 +589,8 @@ public sealed class RoadmapDayToggleAxisTests
         IReadOnlyDictionary<DateOnly, double>? actual = null,
         Action<DateOnly>? toggled = null,
         double quarterWidth = 16,
-        bool showHours = true) =>
+        bool showHours = true,
+        Action<DateOnly>? opened = null) =>
         context.Render<RoadmapTimeline>(parameters =>
         {
             parameters
@@ -534,6 +605,7 @@ public sealed class RoadmapDayToggleAxisTests
                 .Add(timeline => timeline.ShowHours, showHours);
 
             if (toggled is not null) parameters.Add(timeline => timeline.OnDayToggled, toggled);
+            if (opened is not null) parameters.Add(timeline => timeline.OnHoursOpened, opened);
         });
 
     /// <summary>A day column found by its tooltip's long date, whatever element it is.</summary>
