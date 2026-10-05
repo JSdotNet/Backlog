@@ -21,12 +21,28 @@
     // everywhere else. Optional and off unless asked for, because the other
     // callers here focus buttons — select is something an input has and a button
     // does not, which is why it is called for rather than assumed.
-    window.backlogFocus = (id, select) => {
-        const element = document.getElementById(id);
-        if (!element) return;
+    //
+    // An element that is not there yet is waited for, a few frames and no more.
+    // Callers ask from OnAfterRenderAsync for an element that render created, and
+    // Blazor Server applies the render before the call arrives — but the desktop
+    // head's WebView does not promise that order, so "+ New entry" opened its
+    // title field and the call to focus it found nothing. Bounded, because a field
+    // closed again before it arrived must not leave a frame loop running.
+    const focusFrames = 10;
 
-        element.focus();
-        if (select) element.select?.();
+    window.backlogFocus = (id, select) => {
+        const attempt = framesLeft => {
+            const element = document.getElementById(id);
+            if (!element) {
+                if (framesLeft > 0) requestAnimationFrame(() => attempt(framesLeft - 1));
+                return;
+            }
+
+            element.focus();
+            if (select) element.select?.();
+        };
+
+        attempt(focusFrames);
     };
 
     // Tab inside a quick edit belongs to the list, not to the browser: it commits

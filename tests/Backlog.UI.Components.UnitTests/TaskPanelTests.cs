@@ -896,6 +896,37 @@ public sealed class TaskPanelTests
         Assert.Empty(view.FindAll("[data-testid='panel-title']"));
     }
 
+    /// <summary>
+    /// Asked again while the field is already open — the caret left it without a
+    /// blur reaching the panel, and the reader pressed "+ New entry" again — the
+    /// panel still takes the caret. It used to do nothing, which left the field
+    /// open and every later press with nowhere to put the caret. What was typed
+    /// stays: asking for the caret is not asking for the draft to start over.
+    /// </summary>
+    [Fact]
+    public async Task Asking_for_the_title_field_while_it_is_open_takes_the_caret_again()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Untitled")
+            .Add(t => t.OnRename, (string _) => { })
+            .Add(t => t.TestId, "panel"));
+
+        await view.Instance.EditTitleAsync();
+        view.Find("[data-testid='panel-rename']").Input("Provision");
+        var before = context.JSInterop.Invocations["backlogFocus"].Count;
+
+        await view.Instance.EditTitleAsync();
+
+        var field = view.Find("[data-testid='panel-rename']");
+        view.WaitForAssertion(() =>
+            Assert.Equal(before + 1, context.JSInterop.Invocations["backlogFocus"].Count));
+        Assert.Equal(field.Id, context.JSInterop.Invocations["backlogFocus"].Last().Arguments[0]);
+        Assert.Equal("Provision", field.GetAttribute("value"));
+    }
+
     [Fact]
     public async Task Opening_the_title_field_settles_like_any_other_rename()
     {
