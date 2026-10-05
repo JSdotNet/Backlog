@@ -204,6 +204,18 @@ public sealed class TaskItem
     /// same terms as <see cref="CompletedOn"/>, so the pair spans the work.</summary>
     public DateOnly? StartedOn { get; private set; }
 
+    /// <summary>The local day a person marked this entry blocked by hand, or null
+    /// while it is not marked. Two things in this product are called blocked, and
+    /// this is the stored one: the other is the <c>Blocked</c> readiness a
+    /// dependency chain derives, which is worked out from the other entries and
+    /// never written down (<c>.devbook/domain/tasks/domain.md#readiness</c>). This
+    /// one is somebody saying that something outside the backlog — a person, a
+    /// vendor, an environment — is in the way, which no chain can know. A date
+    /// rather than a flag on the same terms as <see cref="CompletedOn"/>, so the
+    /// record says since when. No lifecycle rule reads it: a marked entry keeps its
+    /// status, still counts as ready to a chain, and can still be ticked off.</summary>
+    public DateOnly? BlockedSince { get; private set; }
+
     /// <summary>Which reading of the body the person last asked for, or null when
     /// they have never said. Held on the aggregate and not in a view-model because
     /// the entry's markdown is canonical: the preference is written on the metadata
@@ -450,6 +462,20 @@ public sealed class TaskItem
         StartedOn = startedOn;
         Touch();
     }
+
+    /// <summary>Marks the entry blocked as of a day, or unblocks it with null.
+    /// Touches nothing else on purpose — see <see cref="BlockedSince"/>.</summary>
+    public void SetBlockedSince(DateOnly? blockedSince)
+    {
+        BlockedSince = blockedSince;
+        Touch();
+    }
+
+    /// <summary>Whether a person has marked this entry blocked. A reading of
+    /// <see cref="BlockedSince"/> for code holding the aggregate; no lifecycle
+    /// rule reads it, and the screens do not either — they read the
+    /// <c>blocked:</c> token off the entry's text, the way they read the tick.</summary>
+    public bool IsBlocked => BlockedSince is not null;
 
     /// <summary>
     /// Attaches a place, or detaches whatever was attached.

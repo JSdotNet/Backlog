@@ -366,6 +366,89 @@ public class TrackerToolsTests
         Assert.All(parsed.SubItems, subItem => Assert.Equal(EntryStatus.Ready, subItem.Status));
     }
 
+    // --- set_blocked --------------------------------------------------------
+
+    /// <summary>Marking an entry blocked writes the <c>blocked:</c> token with the
+    /// day the clock says, through the same text save a transition uses, and
+    /// leaves the status where it was — the mark is not a lifecycle move.</summary>
+    [Fact]
+    public async Task Marking_an_entry_blocked_writes_today_and_keeps_the_status()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Wait for the vendor", id: id, order: 4, status: EntryStatus.InProgress));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
+
+        var answer = await tools.SetBlockedAsync(id, blocked: true, TestContext.Current.CancellationToken);
+
+        Assert.True(answer.Changed);
+        Assert.Equal(new DateOnly(2026, 9, 23), answer.BlockedSince);
+        Assert.Equal("in_progress", answer.Status);
+
+        var save = Assert.Single(entries.Saves);
+        Assert.Equal(id, save.Id);
+        Assert.Equal(4, save.Order);
+        Assert.Contains("`blocked:2026-09-23`", save.RawText, StringComparison.Ordinal);
+        Assert.Equal(EntryStatus.InProgress, EntryTextParser.Parse(save.RawText).Status);
+    }
+
+    [Fact]
+    public async Task Unblocking_an_entry_clears_the_token()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Wait for the vendor", id: id, blockedSince: new DateOnly(2026, 9, 1)));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
+
+        var answer = await tools.SetBlockedAsync(id, blocked: false, TestContext.Current.CancellationToken);
+
+        Assert.True(answer.Changed);
+        Assert.Null(answer.BlockedSince);
+        Assert.DoesNotContain("blocked:", Assert.Single(entries.Saves).RawText, StringComparison.Ordinal);
+    }
+
+    /// <summary>Asking for what is already so is an answer, not a write — and an
+    /// entry already marked keeps the day it was marked rather than being re-dated
+    /// to today, the same idempotence <c>transition</c> keeps.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Asking_for_the_block_the_entry_already_has_writes_nothing(bool blocked)
+    {
+        var id = Guid.NewGuid();
+        DateOnly? since = blocked ? new DateOnly(2026, 9, 1) : null;
+        var entries = new FakeTaskItems(Entries.Entry("Wait for the vendor", id: id, blockedSince: since));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
+
+        var answer = await tools.SetBlockedAsync(id, blocked, TestContext.Current.CancellationToken);
+
+        Assert.False(answer.Changed);
+        Assert.Equal(since, answer.BlockedSince);
+        Assert.Empty(entries.Saves);
+    }
+
+    [Fact]
+    public async Task Blocking_an_entry_that_does_not_exist_is_refused_by_name()
+    {
+        var tools = Tools(Entries.Entry("Something else"));
+
+        var failure = await Assert.ThrowsAsync<McpException>(() =>
+            tools.SetBlockedAsync(Guid.NewGuid(), blocked: true, TestContext.Current.CancellationToken));
+
+        Assert.Contains("item.not_found", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A session reading the entry sees the mark, beside the dates.</summary>
+    [Fact]
+    public async Task A_read_entry_says_since_when_it_is_marked_blocked()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Wait for the vendor", id: id, blockedSince: new DateOnly(2026, 9, 1)));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]), new FakeDevbookReferenceResolver(), Clock());
+
+        var read = await tools.ReadItemAsync(id, TestContext.Current.CancellationToken);
+
+        Assert.Contains("`blocked:2026-09-01`", read.Markdown, StringComparison.Ordinal);
+    }
+
     // --- comment ------------------------------------------------------------
 
     /// <summary>

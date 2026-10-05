@@ -961,6 +961,66 @@ public class EntryTextParserTests
         Assert.Equal(new DateOnly(2026, 9, 22), reparsed.CompletedOn);
     }
 
+    // --- Marked blocked ------------------------------------------------------
+
+    /// <summary>The hand-set block is a date like the tick: the day somebody
+    /// marked the task blocked. Absent means not marked, and nothing about it
+    /// touches the status — a marked task is still whatever its lifecycle says it
+    /// is.</summary>
+    [Fact]
+    public void The_blocked_token_is_read_as_a_date_beside_the_status()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`task` `!ready` `blocked:2026-10-05`\n");
+
+        Assert.Equal(new DateOnly(2026, 10, 5), parsed.BlockedSince);
+        Assert.Equal(EntryStatus.Ready, parsed.Status);
+        Assert.Empty(parsed.Unreadable!);
+
+        Assert.Null(EntryTextParser.Parse("# Title\n`task` `!ready`\n").BlockedSince);
+    }
+
+    [Fact]
+    public void An_unreadable_blocked_token_is_refused_and_named()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`task` `blocked:until-friday`\n");
+
+        Assert.Null(parsed.BlockedSince);
+        Assert.Contains(parsed.Unreadable!, token => token.Name == "blocked" && token.Value == "until-friday");
+    }
+
+    [Fact]
+    public void Marking_blocked_writes_the_token_and_unblocking_clears_it()
+    {
+        const string raw = "# Title\n`task` `!in-progress` `due:2026-08-21`\n";
+
+        var marked = EntryTextParser.WithBlocked(raw, new DateOnly(2026, 10, 5));
+        Assert.Equal("# Title\n`task` `!in-progress` `due:2026-08-21` `blocked:2026-10-05`\n", marked);
+
+        // Unblocking removes the token and touches nothing else, the way
+        // unticking does: the entry goes back to being exactly what it was.
+        Assert.Equal(raw, EntryTextParser.WithBlocked(marked, null));
+    }
+
+    /// <summary>The canonical line writes it after the tick, and a
+    /// parse-write-parse round trip lands the same line twice.</summary>
+    [Fact]
+    public void The_blocked_token_survives_the_canonical_rewrite_after_completed()
+    {
+        var entry = new TaskItem("Title", string.Empty, EntryType.Task, Priority.Medium);
+        entry.SetStartedOn(new DateOnly(2026, 9, 2));
+        entry.SetCompletedOn(new DateOnly(2026, 9, 22));
+        entry.SetBlockedSince(new DateOnly(2026, 10, 5));
+
+        var rewritten = EntryTextParser.ToRawText(entry.ToDto());
+
+        Assert.Contains("`started:2026-09-02` `completed:2026-09-22` `blocked:2026-10-05`", rewritten, StringComparison.Ordinal);
+        Assert.Equal(new DateOnly(2026, 10, 5), EntryTextParser.Parse(rewritten).BlockedSince);
+
+        var reparsedEntry = new TaskItem("Title", string.Empty, EntryType.Task, Priority.Medium);
+        TaskEntryFields.ApplyToExisting(reparsedEntry, EntryTextParser.Parse(rewritten));
+        Assert.Equal(rewritten, EntryTextParser.ToRawText(reparsedEntry.ToDto()));
+    }
+
     [Fact]
     public void Each_scheduling_field_can_be_written_on_its_own()
     {

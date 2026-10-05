@@ -8,6 +8,113 @@ namespace Backlog.UI.Components.UnitTests;
 /// </summary>
 public sealed class CopyButtonTests
 {
+    /// <summary>
+    /// A disabled copy keeps its place and its shape and says why it refuses: the
+    /// reason is the wrapper's title — a disabled button raises no pointer events
+    /// of its own, so a tooltip on it is one nobody can open — and a described-by
+    /// for a screen reader, the pairing <c>TaskAction</c> already makes. The
+    /// button is <c>disabled</c> and <c>aria-disabled</c>, and a press that reaches
+    /// it anyway copies nothing.
+    /// </summary>
+    [Fact]
+    public void A_disabled_copy_says_why_and_copies_nothing()
+    {
+        using var context = new BunitContext();
+        var clipboard = context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true);
+        clipboard.SetResult(true);
+
+        var button = context.Render<CopyButton>(parameters => parameters
+            .Add(c => c.Text, "Something worth keeping.")
+            .Add(c => c.Disabled, true)
+            .Add(c => c.DisabledReason, "Not yet")
+            .Add(c => c.ButtonTestId, "copy")
+            .Add(c => c.StatusTestId, "status"));
+
+        var control = button.Find("[data-testid='copy']");
+        Assert.True(control.HasAttribute("disabled"));
+        Assert.Equal("true", control.GetAttribute("aria-disabled"));
+        Assert.Equal("Not yet", button.Find(".copy-button").GetAttribute("title"));
+        Assert.Equal("Not yet", button.Find($"#{control.GetAttribute("aria-describedby")}").TextContent);
+
+        // The glyph is still drawn, so the row it sits on does not shift.
+        Assert.NotNull(button.Find(".copy-button__glyphs"));
+
+        control.Click();
+
+        Assert.Empty(clipboard.Invocations);
+        Assert.Equal(string.Empty, button.Find("[data-testid='status']").TextContent);
+    }
+
+    /// <summary>The pointer is told the reason, not the act. The button's own
+    /// title used to stay "Copy …" over the wrapper's reason, and the innermost
+    /// title is the one a browser shows — so hovering a refused copy offered to
+    /// copy. The accessible name stays the act; the reason is the description.</summary>
+    [Fact]
+    public void A_disabled_copy_shows_the_reason_and_not_the_act_on_hover()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var button = context.Render<CopyButton>(parameters => parameters
+            .Add(c => c.Text, "Something worth keeping.")
+            .Add(c => c.Label, "Copy Wait for the vendor")
+            .Add(c => c.Disabled, true)
+            .Add(c => c.DisabledReason, "Blocked — unblock to copy")
+            .Add(c => c.ButtonTestId, "copy"));
+
+        var control = button.Find("[data-testid='copy']");
+        Assert.Equal("Blocked — unblock to copy", control.GetAttribute("title"));
+        Assert.Equal("Copy Wait for the vendor", control.GetAttribute("aria-label"));
+    }
+
+    /// <summary>
+    /// A confirmation does not outlive the copy becoming refused. A row copied and
+    /// then marked blocked inside the confirmation's minute kept the check and the
+    /// "Copied" line on a button that now says it cannot copy — two answers at
+    /// once. Becoming disabled clears both.
+    /// </summary>
+    [Fact]
+    public void Becoming_disabled_clears_a_standing_confirmation()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+
+        var button = context.Render<CopyButton>(parameters => parameters
+            .Add(c => c.Text, "Something worth keeping.")
+            .Add(c => c.ConfirmationDuration, TimeSpan.FromMinutes(1))
+            .Add(c => c.DisabledReason, "Blocked — unblock to copy")
+            .Add(c => c.ButtonTestId, "copy")
+            .Add(c => c.StatusTestId, "status"));
+
+        button.Find("[data-testid='copy']").Click();
+        Assert.Equal("Copied", button.Find("[data-testid='status']").TextContent);
+
+        button.Render(parameters => parameters.Add(c => c.Disabled, true));
+
+        Assert.Equal(string.Empty, button.Find("[data-testid='status']").TextContent);
+        Assert.Equal("false", button.Find(".copy-button__glyphs").GetAttribute("data-copied"));
+        Assert.Equal("false", button.Find(".copy-button").GetAttribute("data-copied"));
+    }
+
+    /// <summary>Enabled is the default, and an enabled copy carries no refusal at
+    /// all — no title on the wrapper, no aria-disabled on the button.</summary>
+    [Fact]
+    public void An_enabled_copy_carries_no_refusal()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var button = context.Render<CopyButton>(parameters => parameters
+            .Add(c => c.Text, "Something worth keeping.")
+            .Add(c => c.DisabledReason, "Not yet")
+            .Add(c => c.ButtonTestId, "copy"));
+
+        var control = button.Find("[data-testid='copy']");
+        Assert.False(control.HasAttribute("disabled"));
+        Assert.Null(control.GetAttribute("aria-disabled"));
+        Assert.Null(button.Find(".copy-button").GetAttribute("title"));
+    }
+
     [Fact]
     public void Nothing_is_confirmed_before_anything_is_copied()
     {

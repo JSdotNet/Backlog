@@ -373,6 +373,30 @@ public sealed class ImportPlanTests
         Assert.Equal(EntryStatus.InProgress, store.Entries[firstId].Status);
     }
 
+    /// <summary>A block somebody set by hand survives a re-import whose plan says
+    /// nothing about it: the plan never knew the step was blocked, so restating
+    /// the step is not a person saying the obstacle is gone. A plan that does
+    /// write a <c>blocked:</c> token is the plan's to say, and is applied.</summary>
+    [Fact]
+    public async Task Reimporting_keeps_a_block_set_by_hand_unless_the_plan_writes_one()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var first = await Import(store, "# Step one\n`prompt` `!ready` `#myplan` `id:step-one`\n");
+        var firstId = Assert.Single(first.Entries).Id;
+        store.Entries[firstId].SetStatus(EntryStatus.InProgress, new DateOnly(2026, 1, 1));
+        store.Entries[firstId].SetBlockedSince(new DateOnly(2026, 10, 1));
+
+        var second = await Import(store, "# Step one\n`prompt` `#myplan` `id:step-one`\n\nRevised body.\n");
+
+        Assert.Equal(1, second.Updated);
+        Assert.Equal(new DateOnly(2026, 10, 1), store.Entries[firstId].BlockedSince);
+
+        await Import(store, "# Step one\n`prompt` `#myplan` `id:step-one` `blocked:2026-10-04`\n");
+
+        Assert.Equal(new DateOnly(2026, 10, 4), store.Entries[firstId].BlockedSince);
+    }
+
     /// <summary>A status a later plan version states cannot reopen finished
     /// work: the match is settled, so the whole entry is skipped and the status
     /// it already holds is the one that stays. The companion to

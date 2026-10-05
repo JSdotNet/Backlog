@@ -132,6 +132,7 @@ public class McpToolCreationTests
                 SurfaceTools.OpenDashboard,
                 SurfaceTools.RecordPrompt,
                 DevbookTools.ResolveAnnotation,
+                TrackerTools.SetBlocked,
                 TrackerTools.SetDevbookReferences,
                 SurfaceTools.SetRunContext,
                 SurfaceTools.StartRun,
@@ -165,6 +166,7 @@ public class McpToolCreationTests
             schemas["find_item"]);
         Assert.Equal(["id"], schemas["read_item"]);
         Assert.Equal(["id", "status"], schemas["transition"]);
+        Assert.Equal(["id", "blocked"], schemas["set_blocked"]);
         Assert.Equal(["id", "text"], schemas["comment"]);
         Assert.Equal(["id", "repository", "externalId"], schemas["link_change"]);
         Assert.Equal(["id", "repository", "sessionId"], schemas["link_session"]);

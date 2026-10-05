@@ -12,9 +12,9 @@ namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
 /// The operations a session performs on the tracker: find the entry it is about
-/// to work on, read it, move it along the lifecycle, leave a note on it, record
-/// the pull request its work produced, file a new one, and say which Devbook
-/// pages and chapters it is about.
+/// to work on, read it, move it along the lifecycle, mark it blocked or unblock
+/// it, leave a note on it, record the pull request its work produced, file a new
+/// one, and say which Devbook pages and chapters it is about.
 /// <para>
 /// <b>A second class rather than six more methods on <see cref="WorkTools"/>.</b>
 /// That class's own doc says what it is: "one read: the entries, narrowed two
@@ -87,6 +87,7 @@ public sealed class TrackerTools(
     internal const string FindItem = "find_item";
     internal const string ReadItem = "read_item";
     internal const string Transition = "transition";
+    internal const string SetBlocked = "set_blocked";
     internal const string Comment = "comment";
     internal const string LinkChange = "link_change";
     internal const string LinkSession = "link_session";
@@ -299,6 +300,65 @@ public sealed class TrackerTools(
         var result = saved.ValueOrThrow();
 
         return Standing(result.Entry.Id, result.Entry.Status, changed: true, refusal: null);
+    }
+
+    /// <summary>
+    /// Marks an entry blocked by hand, or unblocks it.
+    /// <para>
+    /// <b>This is the stored block, not the derived one.</b> The lifecycle is left
+    /// exactly where it was, and so is the Blocked readiness a chain of
+    /// <c>after:</c> tokens derives — that one is worked out from the other entries
+    /// and never stored (<c>.devbook/domain/tasks/domain.md#readiness</c>), where
+    /// this is a person or a session saying something outside the backlog is in
+    /// the way. So there is no graph to consult and no refusal to make: any entry
+    /// can be marked and any marked entry unblocked.
+    /// </para>
+    /// <para>
+    /// <b>Written through the grammar, like every other write here.</b> The mark is
+    /// a <c>blocked:</c> token on the metadata line, so the tool rewrites the text
+    /// and saves it through the same port <see cref="TransitionAsync"/> uses. The
+    /// day is the local date off the injected clock, the way a comment is dated.
+    /// </para>
+    /// <para>
+    /// <b>Idempotent in the sense the hint claims.</b> Asking for the state an
+    /// entry already has is a read: nothing is saved, and an entry already marked
+    /// keeps the day it was marked rather than being re-dated — "since when" would
+    /// otherwise mean "since a session last asked".
+    /// </para>
+    /// </summary>
+    [McpServerTool(Name = SetBlocked, Title = "Mark a backlog entry blocked, or unblock it", ReadOnly = false, Idempotent = true, Destructive = false, OpenWorld = false)]
+    [Description(
+        "Marks one backlog entry blocked as of today, or unblocks it. Use it when something outside the backlog is "
+        + "in the way; waiting on another entry is said with that entry's id instead. The status, the sub-items and "
+        + "the dependencies are left alone. Asking for the state the entry already has changes nothing, and an "
+        + "entry already marked keeps its day.")]
+    public async Task<BlockedPayload> SetBlockedAsync(
+        [Description("The entry's id, as a GUID.")]
+        Guid id,
+        [Description("True to mark the entry blocked, false to unblock it.")]
+        bool blocked,
+        CancellationToken cancellationToken = default)
+    {
+        var entry = await RequireAsync(id, cancellationToken).ConfigureAwait(false);
+
+        // Already where the call asked. Saving anyway would restamp the entry and
+        // push an edit nobody made to every other device - and on the marking side
+        // it would re-date a block that already had its day.
+        if ((entry.BlockedSince is not null) == blocked)
+        {
+            return new BlockedPayload(entry.Id, entry.Title, EnumMap.ToWire(entry.Status), entry.BlockedSince, Changed: false);
+        }
+
+        var today = DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
+        var rewritten = EntryTextParser.WithBlocked(EntryTextParser.ToRawText(entry), blocked ? today : null);
+
+        var saved = await entries
+            .SaveFromTextAsync(entry.Id, rewritten, entry.Order, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        var result = saved.ValueOrThrow().Entry;
+
+        return new BlockedPayload(result.Id, result.Title, EnumMap.ToWire(result.Status), result.BlockedSince, Changed: true);
     }
 
     /// <summary>

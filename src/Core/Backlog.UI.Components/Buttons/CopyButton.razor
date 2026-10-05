@@ -22,9 +22,23 @@
     and a failure has a sentence for it.
 *@
 
-<span class="@ClassValue" data-testid="@TestId" data-copied="@(IsCopied ? "true" : "false")">
+@* The refusal's title goes on the wrapper, for the reason TaskAction gives: a
+   disabled button raises no pointer events of its own in some engines, so a
+   tooltip hung on it alone is one nobody can open. It goes on the button too,
+   replacing the button's own "Copy …" title, because where an engine does show
+   the innermost title that one wins — and a refused copy whose tooltip still
+   offered to copy was the defect. The accessible name stays the act; the reason
+   is the described-by. *@
+<span class="@ClassValue"
+      data-testid="@TestId"
+      data-copied="@(IsCopied ? "true" : "false")"
+      title="@(HasReason ? DisabledReason : null)">
     <IconButton CssClass="@ButtonCssClass"
                 AriaLabel="@Label"
+                Title="@(HasReason ? DisabledReason : null)"
+                Disabled="@Disabled"
+                aria-disabled="@(Disabled ? "true" : null)"
+                aria-describedby="@(HasReason ? _reasonId : null)"
                 OnClick="CopyAsync"
                 TestId="@ButtonTestId">
         @if (ChildContent is not null)
@@ -60,6 +74,14 @@
             </span>
         }
     </IconButton>
+
+    @if (HasReason)
+    {
+        @* The same sentence for the reader who never hovers anything. It takes no
+           line on screen, so the host's layout is the same whether the copy is
+           offered or refused. *@
+        <span id="@_reasonId" class="sr-only">@DisabledReason</span>
+    }
 
     <span class="@StatusCssClass" role="status" data-testid="@StatusTestId">@_status</span>
 </span>
@@ -118,6 +140,50 @@
     [Parameter]
     public string? StatusTestId { get; set; }
 
+    /// <summary>
+    /// Whether the copy is refused for now. The button stays where it is and
+    /// keeps its glyph — a host's row or heading does not move because one of its
+    /// controls cannot be used — and is <c>disabled</c> and <c>aria-disabled</c>.
+    /// <para>
+    /// Refused in the handler as well as in the markup: the handler is what
+    /// decides, and the attribute is what says so. A press that reaches the button
+    /// anyway — a test, an engine that delivers it — copies nothing and reports
+    /// nothing, because there is nothing to confirm.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>Why the copy is refused, in words fit to read. Only read while
+    /// <see cref="Disabled"/> is true, the same bargain <c>TaskAction</c>'s
+    /// <c>DisabledReason</c> makes: a host may leave a standing reason bound and let
+    /// the flag decide.</summary>
+    [Parameter]
+    public string? DisabledReason { get; set; }
+
+    /// <summary>Unique per instance: a list of rows holds one of these each, and
+    /// two elements with one id would send aria-describedby to the first.</summary>
+    private readonly string _reasonId = $"copy-button-reason-{Guid.NewGuid():N}";
+
+    private bool HasReason => Disabled && !string.IsNullOrWhiteSpace(DisabledReason);
+
+    /// <summary>
+    /// Becoming disabled ends a standing confirmation. A task row holds its check
+    /// for a minute, and a row copied and then refused inside that minute would
+    /// otherwise show "Copied" and a check beside a button that says it cannot
+    /// copy — two answers at once, the later of which is the true one. The timer is
+    /// cancelled with it, so nothing brings the old sentence back.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        if (!Disabled || _status is null) return;
+
+        _statusDelay?.Cancel();
+        _statusDelay?.Dispose();
+        _statusDelay = null;
+        _status = null;
+    }
+
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
 
     /// <summary>
@@ -134,6 +200,8 @@
     /// </summary>
     private async Task CopyAsync()
     {
+        if (Disabled) return;
+
         try
         {
             ShowStatus(await Js.InvokeAsync<bool>("backlogClipboard.copy", Text) ? Copied : Failed);

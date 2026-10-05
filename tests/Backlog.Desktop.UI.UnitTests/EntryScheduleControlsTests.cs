@@ -46,7 +46,8 @@ public sealed class EntryScheduleControlsTests
                      "entry-action-remind",
                      "entry-action-repeat",
                      "entry-action-depends",
-                     "entry-action-followup"
+                     "entry-action-followup",
+                     "entry-action-blocked"
                  })
         {
             Assert.Single(pane.FindAll($"[data-testid='{testId}']"));
@@ -118,6 +119,112 @@ public sealed class EntryScheduleControlsTests
 
         Assert.Null(row.PreviewInMyDayOn);
         Assert.DoesNotContain("myday:", row.RawText, StringComparison.Ordinal);
+    }
+
+    // --- Marked blocked ------------------------------------------------------
+
+    /// <summary>The detail pane's hand-set block is a toggle like My Day:
+    /// pressing it marks the entry blocked as of today and says since when,
+    /// pressing again unblocks it, and there is no ✕. Nothing else on the line
+    /// moves either way.</summary>
+    [Fact]
+    public async Task Mark_as_blocked_stamps_today_and_pressing_again_unblocks()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(ExpandedEntry);
+
+        var pane = host.Render();
+        Assert.Contains("Mark as blocked", pane.Find("[data-testid='entry-action-blocked']").TextContent, StringComparison.Ordinal);
+
+        await pane.Find("[data-testid='entry-action-blocked-set']").ClickAsync(new());
+
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        Assert.Equal(today, row.PreviewBlockedSince);
+        Assert.Contains($"`blocked:{TodayToken}`", row.RawText, StringComparison.Ordinal);
+        var label = pane.Find("[data-testid='entry-action-blocked']").TextContent;
+        Assert.Contains("Blocked since", label, StringComparison.Ordinal);
+        Assert.Contains(today.ToString("d", CultureInfo.CurrentCulture), label, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='entry-action-blocked-clear']"));
+
+        await pane.Find("[data-testid='entry-action-blocked-set']").ClickAsync(new());
+
+        Assert.Null(row.PreviewBlockedSince);
+        Assert.DoesNotContain("blocked:", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("`task` `*high` `!ready` `@backlog`", row.RawText, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Both places a task can be copied from refuse while a person has it marked
+    /// blocked — the list row's copy and the open entry's heading copy — each
+    /// staying in its slot, disabled, with the reason. Unblocking gives both back.
+    /// </summary>
+    [Fact]
+    public async Task A_task_marked_blocked_cannot_be_copied_from_the_row_or_the_open_entry()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(ExpandedEntry);
+        await host.State.ChangeBlockedAsync(row, blocked: true, new DateOnly(2026, 10, 5));
+
+        var pane = host.Render();
+
+        var rowCopy = pane.Find($"[data-testid='entry-list-{row.TaskId}-copy']");
+        var panelCopy = pane.Find("[data-testid='entry-panel-copy']");
+
+        Assert.True(rowCopy.HasAttribute("disabled"));
+        Assert.True(panelCopy.HasAttribute("disabled"));
+        Assert.Equal("true", panelCopy.GetAttribute("aria-disabled"));
+        Assert.Equal("Blocked — unblock to copy", pane.Find(".task-panel__copy").GetAttribute("title"));
+
+        await host.State.ChangeBlockedAsync(row, blocked: false, new DateOnly(2026, 10, 5));
+        pane.Render();
+
+        Assert.False(pane.Find($"[data-testid='entry-list-{row.TaskId}-copy']").HasAttribute("disabled"));
+        Assert.False(pane.Find("[data-testid='entry-panel-copy']").HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// A row copied and then marked blocked inside the minute its confirmation
+    /// stands does not go on saying "Copied" with a check beside a refusal: the
+    /// moment the copy is refused, the confirmation is gone.
+    /// </summary>
+    [Fact]
+    public async Task Marking_a_just_copied_row_blocked_clears_its_confirmation()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        host.Context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+        var row = await host.WriteEntryAsync(ExpandedEntry);
+
+        var pane = host.Render();
+        await pane.Find($"[data-testid='entry-list-{row.TaskId}-copy']").ClickAsync(new());
+
+        Assert.Equal("Copied", pane.Find($"[data-testid='entry-list-{row.TaskId}-copy-status']").TextContent);
+
+        await host.State.ChangeBlockedAsync(row, blocked: true, new DateOnly(2026, 10, 5));
+        pane.Render();
+
+        Assert.True(pane.Find($"[data-testid='entry-list-{row.TaskId}-copy']").HasAttribute("disabled"));
+        Assert.Equal(string.Empty, pane.Find($"[data-testid='entry-list-{row.TaskId}-copy-status']").TextContent);
+        Assert.Equal(
+            "false",
+            pane.Find($"[data-task-id='{row.TaskId}'] .task-item__copy").GetAttribute("data-copied"));
+    }
+
+    /// <summary>The chain's Blocked is not the hand-set mark: an entry waiting on
+    /// another entry still copies from both places.</summary>
+    [Fact]
+    public async Task A_task_waiting_on_another_can_still_be_copied()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        // An id that names nothing still blocks — dropping it would let the chain
+        // claim to be ready — which makes it the shortest way to a waiting row.
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `after:a1b2c3`\n");
+
+        var pane = host.Render();
+
+        Assert.Contains("task-item--blocked", pane.Find($"[data-task-id='{row.TaskId}']").ClassList);
+        Assert.False(pane.Find($"[data-testid='entry-list-{row.TaskId}-copy']").HasAttribute("disabled"));
+        Assert.False(pane.Find("[data-testid='entry-panel-copy']").HasAttribute("disabled"));
     }
 
     /// <summary>A stamp from another day is not "in My Day": the decision expires

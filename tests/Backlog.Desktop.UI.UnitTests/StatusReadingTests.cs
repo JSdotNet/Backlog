@@ -88,6 +88,17 @@ public class StatusReadingTests
         Assert.Equal("a1b2c3", readings["after"]);
     }
 
+    /// <summary>The hand-set block reads back beside My Day, and like it only when
+    /// it was written down.</summary>
+    [Fact]
+    public void The_hand_set_block_is_read_back_when_written_and_says_nothing_when_not()
+    {
+        var marked = RowWith("`!ready` `blocked:2026-10-05`").MetaReadings.ToDictionary(reading => reading.Kind, reading => reading.Value);
+        Assert.Equal("2026-10-05", marked["blocked"]);
+
+        Assert.DoesNotContain("blocked", RowWith("`!ready`").MetaReadings.Select(reading => reading.Kind));
+    }
+
     /// <summary>Absent means absent. An unset scheduling field contributes no
     /// reading rather than one saying "none": there is no default due date for a
     /// reader to mistake for something they asked for.</summary>
@@ -132,6 +143,7 @@ public class StatusReadingTests
     [InlineData("`remind:09:00`", "reminder", "09:00")]
     [InlineData("`repeat:fortnightly`", "repeat", "fortnightly")]
     [InlineData("`myday:tomorrow`", "my day", "tomorrow")]
+    [InlineData("`blocked:until-friday`", "blocked", "until-friday")]
     public void A_value_the_parser_refuses_reads_as_refused(string metadata, string kind, string value)
     {
         var reading = Assert.Single(RowWith(metadata).MetaReadings, r => r.Kind == kind);

@@ -277,7 +277,8 @@ public sealed class TaskReplicaMerge(
             [.. task.ProjectionRefs.Select(p => new ProjectionPayload(p.RepoId, p.ExternalId, p.TargetType))],
             task.CompletedOn,
             StartedOn: task.StartedOn,
-            DevbookReferences: task.DevbookReferences.Count == 0 ? null : [.. task.DevbookReferences]);
+            DevbookReferences: task.DevbookReferences.Count == 0 ? null : [.. task.DevbookReferences],
+            BlockedSince: task.BlockedSince);
     }
 
     /// <summary>
@@ -320,6 +321,7 @@ public sealed class TaskReplicaMerge(
         task.SetInMyDayOn(payload.InMyDayOn);
         task.SetCompletedOn(payload.CompletedOn);
         task.SetStartedOn(payload.StartedOn);
+        task.SetBlockedSince(payload.BlockedSince);
         task.SetView(EntryTextParser.ParseView(payload.View));
         task.SetDependsOn(payload.DependsOn);
         // Filtered for the reason the local store filters them: one value the
