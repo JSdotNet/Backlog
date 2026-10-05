@@ -264,9 +264,24 @@ related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sy
 
 Introduced with local ADR 0005. The artifacts exist — `infra/sync/main.bicep`,
 `azure.yaml`, and `.github/workflows/deploy-sync.yml` — and the Cosmos emulator
-runs locally. **Nothing has been provisioned in Azure yet:** the resource group,
-the OIDC federated credential and the budget alert are deliberate manual
-prerequisites, and `docs/deployment/sync.md` is where they are written down.
+runs locally.
+
+**Provisioned and running, by hand.** The whole `infra/sync/` template sits in
+resource group `JS-AI`, beside `backlog-foundry`: the Cosmos DB account, the
+Key Vault, the Storage account, the Container Apps environment and the sync
+container app, the Container Registry, the user-assigned managed identity, and
+the Log Analytics workspace with Application Insights over it. A local run of
+`build/Deploy-Azure.ps1` provisioned it on 2026-09-14; the service image came
+later, from a manual `azd deploy`. Read from Azure on 2026-10-05, the container
+app has one active revision, created 2026-10-01, healthy with one replica. The
+2026-09-14 revisions that failed activation for want of a signing key are gone.
+
+**Still unproven.** `deploy-sync.yml` has never completed a run: its `Verify
+deployment target` preflight fails because the `backlog-sync` GitHub environment
+has no variables set. So the workflow path has never run, the OIDC federated
+credential it authenticates with is not verified, the budget alert is not
+verified, and no second device has synced against the deployed service in real
+use. `docs/deployment/sync.md` writes those manual prerequisites down.
 
 | Concern | Approach |
 |---|---|
