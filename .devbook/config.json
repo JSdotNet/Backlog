@@ -92,6 +92,16 @@
   "policy": {
     "qa.ceiling": "full"
   },
+  "gates": [
+    {
+      "at": "create-pr",
+      "when": "before",
+      "purpose": "approval",
+      "prompt": "Nothing here is pushed or opened as a pull request until asked. Push and open one now?",
+      "show": "summary",
+      "unattended": "block"
+    }
+  ],
   "components": {
     "delivery": {
       "pluginVersion": "1.18.0"
