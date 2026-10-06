@@ -38,6 +38,7 @@ public sealed class ConnectedTargetsSettingsStoreTests : IDisposable
             TitleFollowsSource = false,
             SyncInterval = TimeSpan.FromMinutes(30),
             PromoteArchivesOriginal = false,
+            CompleteAtSource = true,
             LastSyncedAt = Synced,
             IgnoreUntouchedBefore = Synced.AddDays(-90),
         };
@@ -140,6 +141,20 @@ public sealed class ConnectedTargetsSettingsStoreTests : IDisposable
         Assert.True(target.Enabled);
         Assert.True(target.TitleFollowsSource);
         Assert.Equal(ConnectedTarget.DefaultSyncInterval, target.SyncInterval);
+    }
+
+    /// <summary>A file written before targets could complete at the source has no
+    /// such key, and reads as the setting's default: off.</summary>
+    [Fact]
+    public void A_file_written_before_complete_at_source_existed_completes_nothing_at_the_source()
+    {
+        File.WriteAllText(SettingsFile, """
+            { "targets": [
+                { "connectorId": "github", "target": "JSdotNet/Backlog", "enabled": true, "titleFollowsSource": true }
+            ] }
+            """);
+
+        Assert.False(Assert.Single(Store().List()).CompleteAtSource);
     }
 
     [Fact]

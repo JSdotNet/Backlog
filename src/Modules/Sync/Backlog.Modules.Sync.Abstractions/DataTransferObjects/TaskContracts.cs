@@ -149,8 +149,11 @@ public sealed record ProjectionPayload(string RepoId, string ExternalId, string 
 /// from a stale title; last and defaulted for the same reason. <c>Blocked</c> and
 /// <c>BlockedReason</c> are the source's own word that the item cannot be worked
 /// on now, defaulted after those for the same reason. <c>WaitsOn</c> is the
-/// external ids of the items the source says this one waits on, defaulted last
-/// for the same reason: an older document waits on nothing.</summary>
+/// external ids of the items the source says this one waits on, defaulted after
+/// those for the same reason: an older document waits on nothing.
+/// <c>WriteBackRefusal</c> is why the source refused to finish the item when the
+/// person finished its task — Backlog's, not the source's — last and defaulted for
+/// the same reason.</summary>
 public sealed record SourceRefPayload(
     string ConnectorId,
     string Target,
@@ -165,7 +168,8 @@ public sealed record SourceRefPayload(
     string? SourceTitle = null,
     bool? Blocked = null,
     string? BlockedReason = null,
-    IReadOnlyList<string>? WaitsOn = null)
+    IReadOnlyList<string>? WaitsOn = null,
+    string? WriteBackRefusal = null)
 {
     /// <summary>What this build has no member for, carried through as it
     /// arrived — see <see cref="TaskPayload.Unrecognised"/>.</summary>

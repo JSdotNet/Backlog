@@ -23,11 +23,7 @@ internal static class SqliteSchema
         var directory = Path.GetDirectoryName(databasePath);
         if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
 
-        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = databasePath,
-            Mode = SqliteOpenMode.ReadWriteCreate
-        }.ToString());
+        var connection = new SqliteConnection(ConnectionString(databasePath));
 
         try
         {
@@ -44,6 +40,17 @@ internal static class SqliteSchema
             throw;
         }
     }
+
+    /// <summary>The connection string every repository opens
+    /// <paramref name="databasePath"/> with. Microsoft.Data.Sqlite keys its
+    /// pools by the exact string, so whoever clears this database's pool has to
+    /// ask with this one — see <see cref="SqliteDatabaseFile.ReleasePool"/>.</summary>
+    internal static string ConnectionString(string databasePath) =>
+        new SqliteConnectionStringBuilder
+        {
+            DataSource = databasePath,
+            Mode = SqliteOpenMode.ReadWriteCreate
+        }.ToString();
 
     /// <summary>Runs one batch of idempotent DDL against an open connection.</summary>
     internal static async Task EnsureAsync(SqliteConnection connection, string ddl, CancellationToken cancellationToken)

@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
@@ -25,7 +26,13 @@ namespace Backlog.Modules.Tasks.Features.SaveTaskFromText;
 /// stored value stands.</param>
 public sealed record SaveTaskFromTextCommand(Guid? Id, string RawText, int Order, string? SourceInboxId = null);
 
-public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRepositoryDirectory repositories)
+/// <param name="writeBack">Where a save that finishes a linked task asks for its item
+/// to be finished at the source too, or null in a composition that registers no
+/// linked-task sync, where the save asks nobody.</param>
+public sealed class SaveTaskFromTextCommandHandler(
+    ITaskRepository entries,
+    IRepositoryDirectory repositories,
+    ILinkedTaskWriteBack? writeBack = null)
     : ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>>
 {
     /// <summary>An entry needs a title before it can exist. Somebody halfway
@@ -142,11 +149,35 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRep
         // spawn a second successor, and the one after that a third.
         var wasCompleted = entry.IsCompleted;
 
+        // The status, not the tick, for the write-back: Done is what the source is
+        // told, and it is the step into Done this save made that asks — a save of a
+        // task already Done says nothing new to the source.
+        var previousStatus = entry.Status;
+
         TaskEntryFields.ApplyToExisting(entry, parsed);
 
         if (parsed.Status is { } targetStatus) entry.SetStatus(targetStatus, TaskEntryFields.LocalToday);
 
+        // Reopening a task takes back the refusal it carried: the person is no longer
+        // asking the source to finish anything, and a task finished again is asked
+        // afresh.
+        if (previousStatus == EntryStatus.Done
+            && entry.Status != EntryStatus.Done
+            && entry.SourceRef is { WriteBackRefusal: not null } refused)
+        {
+            entry.SetSourceRef(refused with { WriteBackRefusal = null });
+        }
+
         await entries.SaveAsync(entry, cancellationToken);
+
+        // After the save, so the write-back reads the task as finished; and only ever
+        // asked, never awaited — the source is on the network and this is a keystroke.
+        // The sync walks a task to Done through the aggregate, never through here, so a
+        // Done the source brought asks nothing.
+        if (previousStatus != EntryStatus.Done && entry.Status == EntryStatus.Done && entry.SourceRef is not null)
+        {
+            writeBack?.Request(entry.Id);
+        }
 
         if (!wasCompleted && entry.IsCompleted && entry.Recurrence is not null)
         {

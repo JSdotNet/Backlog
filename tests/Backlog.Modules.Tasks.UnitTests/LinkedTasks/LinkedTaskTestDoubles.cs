@@ -1,3 +1,4 @@
+using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.SharedKernel.Handlers;
@@ -35,6 +36,60 @@ internal sealed class StubTaskConnector(string id = StubTaskConnector.Id) : ITas
         if (Failure is not null) throw Failure;
         return Task.FromResult<IReadOnlyList<SourceItem>>([.. Items]);
     }
+}
+
+/// <summary>A connector that can finish an item at the source, answering whatever
+/// the test set, and remembering every item it was asked to finish.</summary>
+internal sealed class CompletingConnector(string id = CompletingConnector.Id, bool canComplete = true) : ITaskConnector
+{
+    public const string Id = "completing";
+
+    public List<SourceRef> Completed { get; } = [];
+
+    /// <summary>The refusal the next completion answers; null completes.</summary>
+    public string? Refusal { get; set; }
+
+    /// <summary>Thrown by the next completion instead of answering, when set.</summary>
+    public Exception? Failure { get; set; }
+
+    /// <summary>Run inside the completion, for a test that changes the task while
+    /// the source is being asked.</summary>
+    public Action? DuringCompletion { get; set; }
+
+    public TaskConnectorDescriptor Descriptor { get; } = new(id, "Completing", "completing", "--color-stub");
+
+    public TaskConnectorCapabilities Capabilities { get; } = new(CanComplete: canComplete);
+
+    public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<SourceItem>>([]);
+
+    public Task<string?> CompleteAsync(SourceRef item, CancellationToken cancellationToken)
+    {
+        Completed.Add(item);
+        DuringCompletion?.Invoke();
+        if (Failure is not null) throw Failure;
+        return Task.FromResult(Refusal);
+    }
+}
+
+/// <summary>The sync trigger, counting the runs it was asked for.</summary>
+internal sealed class RecordingLinkedTaskSync : ILinkedTaskSync
+{
+    public int Requests { get; private set; }
+
+    public Task RequestSync()
+    {
+        Requests++;
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>The write-back port, recording the tasks it was asked for.</summary>
+internal sealed class RecordingWriteBack : ILinkedTaskWriteBack
+{
+    public List<Guid> Requested { get; } = [];
+
+    public void Request(Guid taskId) => Requested.Add(taskId);
 }
 
 /// <summary>The connected targets, held in a list.</summary>

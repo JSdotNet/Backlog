@@ -2,6 +2,7 @@ using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using static Backlog.Desktop.UI.UnitTests.LinkedTaskPaneTests;
+using static Backlog.Desktop.UI.UnitTests.LinkedTaskSourcesTests;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -88,6 +89,31 @@ public sealed class TaskConnectorSettingsTests
         var stored = Assert.Single(targets.List());
         Assert.False(stored.TitleFollowsSource);
         Assert.Equal(TimeSpan.FromHours(1), stored.SyncInterval);
+    }
+
+    /// <summary>"Complete at the source" is drawn only for a connector whose
+    /// capabilities say it can, and what is switched is stored on the target.</summary>
+    [Fact]
+    public async Task Complete_at_the_source_is_offered_for_a_connector_that_can_and_stored_on_the_target()
+    {
+        var context = new BunitContext();
+        using var _context = context;
+        var targets = new InMemoryTargets(
+            new ConnectedTarget(FakeConnector.Id, "owner/plain"),
+            new ConnectedTarget(CompletingConnector.Id, "owner/repo"));
+        context.Services.AddSingleton(new LinkedTaskSources([new FakeConnector(), new CompletingConnector()], targets));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        var toggle = Assert.Single(page.FindAll("[data-testid='task-connector-target-card-complete-at-source']"));
+        Assert.Contains("owner/repo", toggle.Closest(".connected-target")!.TextContent);
+
+        await page.Find("[data-testid='task-connector-target-card-complete-at-source'] button[role='switch']").ClickAsync(new());
+
+        Assert.True(targets.Get(CompletingConnector.Id, "owner/repo")!.CompleteAtSource);
+        Assert.False(targets.Get(FakeConnector.Id, "owner/plain")!.CompleteAtSource);
+        Assert.Equal("true", page.Find("[data-testid='task-connector-target-card-complete-at-source'] button[role='switch']").GetAttribute("aria-checked"));
     }
 
     [Fact]

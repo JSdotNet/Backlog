@@ -126,6 +126,22 @@ public interface IGitHubClient
         Task.FromException<GitHubIssueSearchRead>(new GitHubException("This GitHub client cannot search issues."));
 
     /// <summary>
+    /// Closes issue <paramref name="number"/> as completed — what finishing a linked
+    /// task at its source is on GitHub. Through <c>repos/{owner}/{name}/issues</c>, so
+    /// the call goes out as the repository's account. Not harmless on an issue that is
+    /// already closed: the reason is overwritten, so one closed as not planned would
+    /// read as completed. A caller that may meet a closed issue reads it first.
+    /// <para>
+    /// A default body for the reason <see cref="SearchIssuesAsync"/> has one.
+    /// </para>
+    /// </summary>
+    Task CloseIssueAsync(
+        GitHubRepositoryRef repository,
+        int number,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException(new GitHubException("This GitHub client cannot close an issue."));
+
+    /// <summary>
     /// The repository's open issues carrying <paramref name="label"/>, through the same
     /// issue search as <see cref="SearchIssuesAsync"/> with the label as a qualifier, so
     /// a repository with a thousand open issues answers with the handful that matter.
@@ -733,6 +749,29 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         string pullRequestId,
         CancellationToken cancellationToken = default) =>
         MutateAsync(repository, ReadyForReviewMutation, pullRequestId, method: null, cancellationToken);
+
+    /// <summary>
+    /// <c>state_reason: completed</c> beside the state, so the issue says the work was
+    /// done — the person's word — rather than leaving GitHub's page and the next
+    /// fetch to guess from a bare close.
+    /// </summary>
+    public async Task CloseIssueAsync(
+        GitHubRepositoryRef repository,
+        int number,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        await transport.SendAsync(
+            HttpMethod.Patch,
+            $"repos/{repository.Owner}/{repository.Name}/issues/{number}",
+            new Dictionary<string, object?>
+            {
+                ["state"] = "closed",
+                ["state_reason"] = "completed",
+            },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>
     /// REST rather than GraphQL, because GraphQL's <c>updatePullRequestBranch</c> takes

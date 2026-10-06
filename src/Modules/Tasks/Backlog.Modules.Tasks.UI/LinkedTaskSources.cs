@@ -72,6 +72,15 @@ public sealed class LinkedTaskSources
             SeveralPlanLabels = reference.HasFlag(LinkedTaskFlags.MultiplePlanTags),
             DoneHereOpenAtSource = reference.HasFlag(LinkedTaskFlags.DoneLocally),
             RemovedAtSource = reference.HasFlag(LinkedTaskFlags.Vanished),
+            WriteBackRefusal = reference.WriteBackRefusal,
         };
     }
+
+    /// <summary>Whether the installed connector by <paramref name="connectorId"/> can
+    /// finish an item at its source, so the settings page offers "Complete at the
+    /// source" for its targets. False for a connector this build does not
+    /// have.</summary>
+    public bool CanComplete(string? connectorId) =>
+        _connectors.FirstOrDefault(connector => string.Equals(connector.Descriptor.Id, connectorId, StringComparison.Ordinal))
+            ?.Capabilities.CanComplete == true;
 }

@@ -43,7 +43,7 @@ public sealed class RoadmapHoursReportTests
         Assert.Equal("22:30–02:00", stretch.QuerySelector(".roadmap-hours__when")!.TextContent.Trim());
         Assert.Equal("3:30", stretch.QuerySelector(".roadmap-hours__length")!.TextContent.Trim());
         Assert.Equal("4 prompts", stretch.QuerySelector(".roadmap-hours__turns")!.TextContent.Trim());
-        Assert.Equal("Roadmap heads (JSdotNet/Backlog), Hours report", stretch.QuerySelector(".roadmap-hours__sessions")!.TextContent.Trim());
+        Assert.DoesNotContain("Roadmap heads", stretch.TextContent, StringComparison.Ordinal);
 
         Assert.Equal("No stretches.", dialog.Find("[data-testid='roadmap-hours-day-2026-09-28'] .roadmap-hours__none").TextContent.Trim());
     }

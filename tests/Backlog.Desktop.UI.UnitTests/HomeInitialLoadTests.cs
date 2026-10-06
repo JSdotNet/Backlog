@@ -280,6 +280,7 @@ public sealed class HomeInitialLoadTests
         public void Dispose()
         {
             Context.Dispose();
+            TestDatabases.Release(Root);
 
             try
             {

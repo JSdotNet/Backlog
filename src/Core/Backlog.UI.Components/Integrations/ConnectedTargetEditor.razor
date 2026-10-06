@@ -9,7 +9,9 @@
     The same options for every connector, because they are the sync's rather than
     the source's — ADR 0020 §9 — so the card needs nothing from a connector beyond
     its descriptor's name and icon. A connector added later is edited here with no
-    change to this file.
+    change to this file. The one exception is "Complete at the source", drawn only
+    when the host says the connector can, because a switch for something the source
+    cannot do would do nothing.
 
     Every change is reported at once as the whole options record, and nothing is
     held as a draft: the host saves it and hands the saved record back, so what
@@ -45,6 +47,14 @@
                 Checked="@Options.PromoteArchivesOriginal"
                 CheckedChanged="value => ChangeAsync(Options with { PromoteArchivesOriginal = value })"
                 TestId="@Suffix("promote-archives")" />
+        @if (Options.CanCompleteAtSource)
+        {
+            <Toggle Label="Complete at the source"
+                    Description="Finishing a task here finishes its item at the source."
+                    Checked="@Options.CompleteAtSource"
+                    CheckedChanged="value => ChangeAsync(Options with { CompleteAtSource = value })"
+                    TestId="@Suffix("complete-at-source")" />
+        }
         <SelectField Form="true"
                      Label="Sync every"
                      Id="@Suffix("interval")"

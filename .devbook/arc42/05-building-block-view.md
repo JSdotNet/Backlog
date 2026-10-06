@@ -281,6 +281,16 @@ references `Backlog.Infrastructure.Devbook`, whose database lives in app storage
 (local ADR 0015). `ModuleBoundaryTests` permits a module UI to take an adapter and
 forbids it another module's implementation.
 
+**Devbook database** is `Backlog.Infrastructure.Devbook`: the builder that indexes
+a repository's devbook folders in C#, and the read-only reader over the result.
+It indexes the chapters, the reference graph, the outline, the Archify artifacts
+and the click demos. Since schema 5 the `demo` and `demo_link` tables pair each
+`*.demo.html` with its page by name and with every chapter whose `demo` field
+names it. The pairing rule itself lives in `DevbookReadingConvention`, in the
+Devbook module's Abstractions, so the builder, the MCP chapter read and the
+Domain devbook pane apply one rule. `tools/devbook/build-database.mjs` writes the
+same tables, and `DevbookBuilderParityTests` compares the two writers.
+
 **Inbox Service** is `Backlog.Modules.Inbox` since 2026-09-15 — a module with its
 own `Abstractions` project and its own tables in `backlog.db` (`inbox_items`,
 `inbox_lists`, `inbox_groups`), no longer a projection over draft tasks. It holds

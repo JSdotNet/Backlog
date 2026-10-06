@@ -548,6 +548,109 @@ public sealed class SyncLinkedTasksTests
         Assert.Empty(task.SourceRef!.Flags);
     }
 
+    // --- Write-back refusals ------------------------------------------------------
+
+    /// <summary>A refusal is Backlog's, so the reference the sync builds from the item
+    /// carries none; it is carried over while the task is done here and the item
+    /// open there, which is the one state it explains.</summary>
+    [Fact]
+    public async Task A_write_back_refusal_is_kept_while_the_task_is_done_here_and_open_at_the_source()
+    {
+        var task = await RefusedTaskAsync();
+
+        _connector.Items[0] = _connector.Items[0] with { Assignee = "Job", UpdatedAt = Now };
+        await SyncAsync();
+
+        Assert.Equal("Refused at the source", task.SourceRef!.WriteBackRefusal);
+        Assert.True(task.SourceRef.HasFlag(LinkedTaskFlags.DoneLocally));
+        Assert.Equal("Job", task.SourceRef.Assignee);
+    }
+
+    [Fact]
+    public async Task A_write_back_refusal_is_dropped_once_the_source_finishes_the_item()
+    {
+        var task = await RefusedTaskAsync();
+
+        _connector.Items[0] = Item("I_1", NormalisedSourceState.Done);
+        await SyncAsync();
+
+        Assert.Equal(EntryStatus.Done, task.Status);
+        Assert.Null(task.SourceRef!.WriteBackRefusal);
+    }
+
+    [Fact]
+    public async Task A_write_back_refusal_is_dropped_once_the_task_is_no_longer_done()
+    {
+        var task = await RefusedTaskAsync();
+
+        task.SetStatus(EntryStatus.Ready, Today);
+        await SyncAsync();
+
+        Assert.Equal(EntryStatus.Ready, task.Status);
+        Assert.Null(task.SourceRef!.WriteBackRefusal);
+    }
+
+    [Fact]
+    public async Task A_vanished_task_loses_its_write_back_refusal_with_its_done()
+    {
+        var task = await RefusedTaskAsync();
+
+        _connector.Items.Clear();
+        await SyncAsync();
+
+        Assert.Equal(EntryStatus.Archived, task.Status);
+        Assert.Null(task.SourceRef!.WriteBackRefusal);
+    }
+
+    /// <summary>
+    /// A write-back closed the item, and the sync it asked for ran before the
+    /// source's search caught up, so the item still read as open. The next fetch
+    /// reaches back over the close (the GitHub connector's closed-query overlap) and
+    /// returns it closed: the task ends Done by the source's word, not archived as
+    /// vanished, and seeing the closed item again after that changes nothing.
+    /// </summary>
+    [Fact]
+    public async Task An_item_completed_by_write_back_that_reads_open_once_more_ends_done_not_vanished()
+    {
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        task.ChangeStatus(EntryStatus.InProgress, Today);
+        task.ChangeStatus(EntryStatus.Done, Today);
+
+        // The sync the write-back asked for: the search has not seen the close yet.
+        await SyncAsync();
+        Assert.True(task.SourceRef!.HasFlag(LinkedTaskFlags.DoneLocally));
+
+        _connector.Items[0] = Item("I_1", NormalisedSourceState.Done) with { UpdatedAt = Now };
+        var summary = await SyncAsync();
+
+        Assert.Equal(0, summary.Vanished);
+        Assert.Equal(EntryStatus.Done, task.Status);
+        Assert.Equal(NormalisedSourceState.Done, task.SourceRef!.NormalisedState);
+        Assert.Empty(task.SourceRef.Flags);
+
+        var writes = _tasks.Writes;
+        var again = await SyncAsync();
+
+        Assert.Equal(1, again.Unchanged);
+        Assert.Equal(writes, _tasks.Writes);
+    }
+
+    /// <summary>A linked task the person finished while its item is open, synced
+    /// once since, and refused by the source when the write-back asked.</summary>
+    private async Task<TaskItem> RefusedTaskAsync()
+    {
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        task.ChangeStatus(EntryStatus.InProgress, Today);
+        task.ChangeStatus(EntryStatus.Done, Today);
+        await SyncAsync();
+        task.SetSourceRef(task.SourceRef! with { WriteBackRefusal = "Refused at the source" });
+        return task;
+    }
+
     // --- Vanishing ---------------------------------------------------------------
 
     [Fact]

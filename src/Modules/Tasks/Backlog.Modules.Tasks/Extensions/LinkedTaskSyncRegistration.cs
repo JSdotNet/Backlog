@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Tasks.Features.CompleteLinkedTask;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -10,7 +11,8 @@ namespace Backlog.Modules.Tasks.Extensions;
 
 /// <summary>
 /// How a host brings in linked tasks (ADR 0020): the connectors it ships, the sync
-/// that runs them, and the timer.
+/// that runs them, the timer, and the write-back that finishes their items at the
+/// source.
 /// <para>
 /// Here rather than beside <see cref="ITaskConnector"/> in the abstractions,
 /// because that project references nothing but the shared kernel and a container
@@ -38,7 +40,8 @@ public static class LinkedTaskSyncRegistration
     }
 
     /// <summary>
-    /// Registers the sync and its timer. The host registers the
+    /// Registers the sync and its timer, and the write-back a save asks for when it
+    /// finishes a linked task. The host registers the
     /// <see cref="IConnectedTargets"/> store, and resolves
     /// <see cref="LinkedTaskSyncWorker"/> once after building, or the timer never
     /// starts.
@@ -57,6 +60,12 @@ public static class LinkedTaskSyncRegistration
         // The same worker behind the port the settings screen's "Sync now" asks, so
         // a request and the timer share one run at a time rather than racing.
         services.TryAddSingleton<ILinkedTaskSync>(provider => provider.GetRequiredService<LinkedTaskSyncWorker>());
+
+        // Write-back rides on the same registration: it needs the same connectors and
+        // the same connected targets, so a head that syncs linked tasks can finish
+        // them at the source, and one that does not leaves the save asking nobody.
+        services.AddScoped<ICommandHandler<CompleteLinkedTaskCommand, Result<LinkedTaskWriteBackOutcome>>, CompleteLinkedTaskCommandHandler>();
+        services.TryAddSingleton<ILinkedTaskWriteBack, LinkedTaskWriteBack>();
 
         return services;
     }

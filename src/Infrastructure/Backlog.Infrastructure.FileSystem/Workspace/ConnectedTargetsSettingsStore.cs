@@ -233,6 +233,10 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
 
         public bool PromoteArchivesOriginal { get; init; } = true;
 
+        /// <summary>False when the key is missing, so a file written before the
+        /// setting existed completes nothing at the source.</summary>
+        public bool CompleteAtSource { get; init; }
+
         public DateTimeOffset? LastSyncedAt { get; init; }
 
         public DateTimeOffset? IgnoreUntouchedBefore { get; init; }
@@ -246,6 +250,7 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
             TitleFollowsSource = target.TitleFollowsSource,
             SyncInterval = target.SyncInterval,
             PromoteArchivesOriginal = target.PromoteArchivesOriginal,
+            CompleteAtSource = target.CompleteAtSource,
             LastSyncedAt = target.LastSyncedAt,
             IgnoreUntouchedBefore = target.IgnoreUntouchedBefore,
         };
@@ -262,6 +267,7 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
                     TitleFollowsSource = TitleFollowsSource,
                     SyncInterval = SyncInterval is { Ticks: > 0 } interval ? interval : ConnectedTarget.DefaultSyncInterval,
                     PromoteArchivesOriginal = PromoteArchivesOriginal,
+                    CompleteAtSource = CompleteAtSource,
                     LastSyncedAt = LastSyncedAt,
                     IgnoreUntouchedBefore = IgnoreUntouchedBefore,
                 };

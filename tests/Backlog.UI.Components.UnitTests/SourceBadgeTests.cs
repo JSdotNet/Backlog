@@ -128,12 +128,39 @@ public sealed class SourceBadgeTests
     [Fact]
     public void The_flags_read_in_the_order_a_reader_acts_on_them()
     {
-        var source = GitHub with { Blocked = true, RemovedAtSource = true, DoneHereOpenAtSource = true, SeveralPlanLabels = true };
+        var source = GitHub with { Blocked = true, RemovedAtSource = true, WriteBackRefusal = "Refused", DoneHereOpenAtSource = true, SeveralPlanLabels = true };
 
         Assert.Equal(
-            [TaskDetailKind.SourceBlocked, TaskDetailKind.SourceRemoved, TaskDetailKind.SourceOpen, TaskDetailKind.SourcePlanLabels],
+            [TaskDetailKind.SourceBlocked, TaskDetailKind.SourceRemoved, TaskDetailKind.SourceWriteBackRefused, TaskDetailKind.SourceOpen, TaskDetailKind.SourcePlanLabels],
             source.Flags.Select(flag => flag.Kind));
         Assert.Equal("Blocked", Assert.Single((GitHub with { Blocked = true }).Flags).Text);
+    }
+
+    /// <summary>A source that refused to finish the item says so with its reason,
+    /// on the row's metadata line and under the panel's heading.</summary>
+    [Fact]
+    public void A_refusal_to_complete_at_the_source_is_shown_with_its_reason()
+    {
+        using var context = new BunitContext();
+        var source = GitHub with { DoneHereOpenAtSource = true, WriteBackRefusal = "GitHub refused (403): Resource not accessible by personal access token" };
+
+        var flag = Assert.Single(source.Flags, detail => detail.Kind == TaskDetailKind.SourceWriteBackRefused);
+        Assert.Equal("Not completed at the source: GitHub refused (403): Resource not accessible by personal access token", flag.Text);
+        Assert.NotEmpty(flag.Glyph);
+
+        var item = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("t1", "Ship the installer", Done: true, Source: source))
+            .Add(t => t.TestId, "row"));
+        var detail = item.Find("[data-testid='row-open'] .task-item__detail--sourcewritebackrefused");
+        Assert.Contains("Resource not accessible by personal access token", detail.TextContent);
+
+        var panel = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Ship the installer")
+            .Add(t => t.Source, source)
+            .Add(t => t.TestId, "panel"));
+        Assert.Contains("Not completed at the source", panel.Find("[data-testid='panel-source-flags']").TextContent);
+
+        Assert.Empty((GitHub with { WriteBackRefusal = null }).Flags);
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 
 using Backlog.Infrastructure.SpecManager.Api;
 using Backlog.Infrastructure.SpecManager.OAuth;
+using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 
 using Microsoft.Extensions.Logging;
@@ -86,9 +87,9 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
     /// </summary>
     public TaskConnectorDescriptor Descriptor { get; } = new(ConnectorId, "spec-manager", ConnectorId, "color-band-2");
 
-    /// <summary>Items carry storypoints and say what they wait on. Nothing is
-    /// written back yet.</summary>
-    public TaskConnectorCapabilities Capabilities { get; } = new(HasEffort: true, HasDependencies: true);
+    /// <summary>Items carry storypoints and say what they wait on, and an item is
+    /// completed by moving it to the product's first end status.</summary>
+    public TaskConnectorCapabilities Capabilities { get; } = new(HasEffort: true, HasDependencies: true, CanComplete: true);
 
     public TaskConnectorAccount? Account => _signIn.Account;
 
@@ -137,6 +138,62 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
 
         return items;
     }
+
+    /// <summary>
+    /// Moves the item to the product's first end status, by the product's order —
+    /// "Klaar" on a board that ends there. Every refusal is answered in words: nobody
+    /// is signed in, the product has no end status, or spec-manager said no, with
+    /// the status it said it with and its own reason when it gave one. A product
+    /// whose agent switch is off refuses an agent's token this way.
+    /// <para>
+    /// The item's status at the source is not read first: the REST interface has no
+    /// read of one item, and the backlog read is the whole list. What guards against
+    /// moving an item that is already finished — or one closed another way, which
+    /// this would move to the end status — is the held state alone: the handler asks
+    /// only while the last sync saw the item open. An item finished at the source
+    /// since that sync is moved to the first end status, which may not be the one it
+    /// was finished in.
+    /// </para>
+    /// </summary>
+    public async Task<string?> CompleteAsync(SourceRef item, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        if (_signIn.Account is null) return SignInToComplete;
+
+        try
+        {
+            var catalog = await CatalogAsync(item.Target, [], cancellationToken).ConfigureAwait(false);
+            if (catalog.FirstEndStatus is not { } end)
+            {
+                return $"{item.Target} has no end status in spec-manager, so {item.DisplayKey} could not be completed.";
+            }
+
+            await _client.SetStatusAsync(item.Target, item.ExternalId, end.Id, cancellationToken).ConfigureAwait(false);
+            return null;
+        }
+        catch (SpecManagerSignInRequiredException)
+        {
+            return SignInToComplete;
+        }
+        catch (SpecManagerRefusedException ex)
+        {
+            return ex.Reason is null
+                ? $"spec-manager refused ({(int)ex.Status})."
+                : $"spec-manager refused ({(int)ex.Status}): {ex.Reason}";
+        }
+        catch (HttpRequestException ex)
+        {
+            // The catalog read is a GET that fails by status, or the network that
+            // fails outright; either is a refusal the person can read.
+            return ex.StatusCode is { } status
+                ? $"spec-manager refused ({(int)status})."
+                : $"spec-manager could not be reached: {ex.Message}";
+        }
+    }
+
+    /// <summary>The refusal a write-back with nobody signed in answers.</summary>
+    internal const string SignInToComplete = "Sign in to spec-manager to complete items there.";
 
     public async Task<string?> SignInAsync(CancellationToken cancellationToken)
     {

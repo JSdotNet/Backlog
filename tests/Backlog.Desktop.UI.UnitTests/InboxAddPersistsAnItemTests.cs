@@ -449,6 +449,7 @@ public sealed class InboxAddPersistsAnItemTests
         public void Dispose()
         {
             Context.Dispose();
+            TestDatabases.Release(Root);
 
             try
             {

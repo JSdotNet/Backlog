@@ -48,6 +48,10 @@ public sealed record TaskSource(
     /// <summary>The item is no longer at the source, so the task was archived.</summary>
     public bool RemovedAtSource { get; init; }
 
+    /// <summary>Why the source refused to finish the item when the task was finished
+    /// here, or null when nothing was refused.</summary>
+    public string? WriteBackRefusal { get; init; }
+
     /// <summary>The flags, in the order a reader acts on them: what stops the work
     /// first, then what disagrees with the source, then what was tidied.</summary>
     public IReadOnlyList<TaskDetail> Flags =>
@@ -56,6 +60,7 @@ public sealed record TaskSource(
         {
             Blocked ? new TaskDetail(TaskDetailKind.SourceBlocked, BlockedReason ?? "Blocked") : null,
             RemovedAtSource ? new TaskDetail(TaskDetailKind.SourceRemoved, "Removed at source") : null,
+            WriteBackRefusal is { } refusal ? new TaskDetail(TaskDetailKind.SourceWriteBackRefused, $"Not completed at the source: {refusal}") : null,
             DoneHereOpenAtSource ? new TaskDetail(TaskDetailKind.SourceOpen, "Open at source") : null,
             SeveralPlanLabels ? new TaskDetail(TaskDetailKind.SourcePlanLabels, "Several plan labels") : null,
         }.Where(flag => flag is not null).Select(flag => flag!)

@@ -381,6 +381,7 @@ public sealed class HomeInboxWiringTests
         public void Dispose()
         {
             Context.Dispose();
+            TestDatabases.Release(Root);
 
             try
             {

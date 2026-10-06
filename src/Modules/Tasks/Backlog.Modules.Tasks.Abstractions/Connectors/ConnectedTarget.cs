@@ -6,8 +6,8 @@ namespace Backlog.Modules.Tasks.Abstractions.Connectors;
 /// <para>
 /// Each question the design left open is a setting here, so two targets may answer
 /// it differently (ADR 0020, §9). The defaults are the record's: nothing skipped,
-/// the title following the source, a fifteen-minute interval, and Promote to plan
-/// archiving the original.
+/// the title following the source, a fifteen-minute interval, Promote to plan
+/// archiving the original, and nothing completed at the source.
 /// </para>
 /// <para>
 /// <b>No credentials.</b> A target names what to fetch, never how to sign in: the
@@ -40,6 +40,14 @@ public sealed record ConnectedTarget(string ConnectorId, string Target, bool Ena
     /// <summary>Whether Promote to plan archives the task it promoted, rather than
     /// keeping it as an umbrella step.</summary>
     public bool PromoteArchivesOriginal { get; init; } = true;
+
+    /// <summary>
+    /// Whether finishing one of this target's tasks here finishes its item at the
+    /// source too. Off by default: closing something in another system is a step a
+    /// person opts into per target, and only a connector whose
+    /// <see cref="TaskConnectorCapabilities.CanComplete"/> is set is asked.
+    /// </summary>
+    public bool CompleteAtSource { get; init; }
 
     /// <summary>When the last successful sync started fetching, or null before the
     /// first. The next fetch asks for what closed since then.</summary>

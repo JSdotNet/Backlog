@@ -123,6 +123,7 @@ public sealed class PaneInitialLoadTests : IDisposable
     {
         foreach (var root in _roots)
         {
+            TestDatabases.Release(root);
             try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); } catch (IOException) { }
         }
     }

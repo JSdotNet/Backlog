@@ -56,6 +56,26 @@ public interface ITaskConnector
     /// </para>
     /// </summary>
     Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Finishes <paramref name="item"/> at the source — GitHub closes the issue as
+    /// completed, spec-manager moves the item to the product's first end status.
+    /// Answers null when the source took it, and otherwise a sentence for the person
+    /// saying why not, which the task then shows.
+    /// <para>
+    /// Asked only of a connector whose <see cref="TaskConnectorCapabilities.CanComplete"/>
+    /// is set, and only for a target the person turned
+    /// <see cref="ConnectedTarget.CompleteAtSource"/> on for. A refusal is an answer,
+    /// not a failure, the way <see cref="ITaskConnectorSignIn.SignInAsync"/> answers;
+    /// a throw is read as a refusal with the exception's message.
+    /// </para>
+    /// <para>
+    /// A default body, refusing, so a connector that cannot write back need not say
+    /// so twice.
+    /// </para>
+    /// </summary>
+    Task<string?> CompleteAsync(SourceRef item, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>("This source cannot complete items.");
 }
 
 /// <summary>
@@ -76,11 +96,15 @@ public sealed record TaskConnectorDescriptor(string Id, string DisplayName, stri
 /// <param name="CanSetStatus">The source accepts a status change — what write-back
 /// will need.</param>
 /// <param name="CanComment">The source accepts a comment on an item.</param>
+/// <param name="CanComplete">The source can finish an item through
+/// <see cref="ITaskConnector.CompleteAsync"/>, so the settings page offers
+/// "Complete at the source" for its targets.</param>
 public sealed record TaskConnectorCapabilities(
     bool HasEffort = false,
     bool HasDependencies = false,
     bool CanSetStatus = false,
-    bool CanComment = false);
+    bool CanComment = false,
+    bool CanComplete = false);
 
 /// <summary>
 /// The four states every source's statuses are normalised to. One map turns each

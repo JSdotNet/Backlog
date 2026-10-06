@@ -308,7 +308,8 @@ public sealed class TaskReplicaMerge(
                     source.SourceTitle,
                     source.Blocked ? true : null,
                     source.BlockedReason,
-                    source.WaitsOn.Count == 0 ? null : [.. source.WaitsOn])
+                    source.WaitsOn.Count == 0 ? null : [.. source.WaitsOn],
+                    source.WriteBackRefusal)
                 : null);
     }
 
@@ -337,6 +338,7 @@ public sealed class TaskReplicaMerge(
                 Blocked = payload.Blocked == true,
                 BlockedReason = payload.BlockedReason,
                 WaitsOn = payload.WaitsOn ?? [],
+                WriteBackRefusal = payload.WriteBackRefusal,
             };
 
     /// <summary>
