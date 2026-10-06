@@ -8,7 +8,7 @@
 @inject AppLifecycle Lifecycle
 @inject TimeProvider Clock
 @inject ISpeechTranscriber Speech
-@inject ISharedContentReceiver SharedContentReceiver
+@inject SharedContentCapture SharedCapture
 @inject IJSRuntime Js
 @implements IAsyncDisposable
 
@@ -53,12 +53,12 @@
                OnClick="CaptureAsync" TestId="capture-submit">Capture</AppButton>
 </div>
 
-@if (_shareStatus is not null)
+@if (SharedCapture.Status is { } shareStatus)
 {
-    @* A share fills the field and says so, and stops there. Capture is still the
-       one thing that syncs, so nothing reaches the cloud that the person has not
-       read first. *@
-    <Alert Message="@_shareStatus" Role="status" BaseClass="capture__notice" TestId="share-status" />
+    @* A share is captured the moment it arrives, wherever the app was; this line
+       is what says where the new row at the top came from. The field is left as
+       it was — a draft being typed is not the share's to touch. *@
+    <Alert Message="@shareStatus" Role="status" BaseClass="capture__notice" TestId="share-status" />
 }
 
 @if (_speechSupported == false)
@@ -229,9 +229,6 @@
     private string? _speechStatus;
     private string? _speechError;
 
-    private string? _shareStatus;
-    private IDisposable? _shareSubscription;
-
     private ElementReference _listElement;
     private IJSObjectReference? _pullModule;
     private IJSObjectReference? _pullGesture;
@@ -283,15 +280,9 @@
     }
 
     /// <summary>
-    /// The share source is subscribed to before the first await, because on
-    /// Android the share is what launched the app: the intent was read while this
-    /// component was still being built, and the payload is sitting in the
-    /// receiver's buffer waiting for the first subscriber.
-    /// <para>
     /// The cached list is drawn before the service is asked anything. A replica
     /// still warming up, or no signal at all, then costs a status line rather than
     /// a blank screen.
-    /// </para>
     /// <para>
     /// The device is paired by the time this runs: the layout draws the pairing
     /// gate instead of any page until it is.
@@ -299,8 +290,7 @@
     /// </summary>
     protected override Task OnInitializedAsync()
     {
-        _shareSubscription = SharedContentReceiver.Subscribe(OnContentShared);
-
+        SharedCapture.Changed += OnShareStatusChanged;
         Outbox.Changed += OnOutboxChanged;
         Outbox.Delivered += OnDelivered;
         Lifecycle.Resumed += OnResumed;
@@ -316,7 +306,7 @@
 
     public async ValueTask DisposeAsync()
     {
-        _shareSubscription?.Dispose();
+        SharedCapture.Changed -= OnShareStatusChanged;
         Outbox.Changed -= OnOutboxChanged;
         Outbox.Delivered -= OnDelivered;
         Lifecycle.Resumed -= OnResumed;
@@ -338,25 +328,10 @@
         _self?.Dispose();
     }
 
-    /// <summary>
-    /// A share is a draft, never a capture. It lands in the field where it can
-    /// still be read and edited, with a line saying where it came from, and
-    /// nothing leaves the device until Capture is pressed.
-    /// </summary>
-    private void OnContentShared(SharedContent content)
-    {
-        var draft = content.Draft;
-        if (draft.Length == 0) return;
-
-        Draft.Text = Append(Draft.Text, draft);
-        _shareStatus = "Shared from another app. Edit it if you like, then press Capture.";
-
-        // Not awaited, and not a plain StateHasChanged: an Android share is
-        // published from the platform's main thread, and a replay arrives while
-        // this component is still initialising. InvokeAsync is the one call that
-        // is right in both cases.
-        _ = InvokeAsync(StateHasChanged);
-    }
+    /// <summary>The share itself is already in the outbox, and its row arrives
+    /// through <see cref="OnOutboxChanged"/>; this only redraws the line that
+    /// explains it.</summary>
+    private void OnShareStatusChanged() => _ = InvokeAsync(StateHasChanged);
 
     /// <summary>
     /// The support question is asked after the first render, not before it: in
@@ -462,9 +437,9 @@
     }
 
     /// <summary>
-    /// Dictation and shares extend what is in the field rather than replacing it
-    /// — a second sentence, or a link added to a half-written note, is the
-    /// ordinary case, and overwriting would lose the first one with no way back.
+    /// Dictation extends what is in the field rather than replacing it — a second
+    /// sentence added to a half-written note is the ordinary case, and
+    /// overwriting would lose the first one with no way back.
     /// </summary>
     private static string Append(string draft, string addition)
     {
@@ -569,7 +544,7 @@
 
         Draft.Text = string.Empty;
         _speechStatus = null;
-        _shareStatus = null;
+        SharedCapture.ClearStatus();
     }
 
     private Task RetryAsync(Guid id)

@@ -23,9 +23,11 @@ namespace Backlog.Mobile.UI.Services;
 /// </para>
 /// <para>
 /// The current address is read on construction rather than on subscribe, so the
-/// payload is already buffered by the time the Inbox component asks for it — the
-/// same ordering the Android head has for a real intent, and the reason a screen
-/// needs no harness-specific code.
+/// payload is already buffered by the time <see cref="SharedContentCapture"/>
+/// asks for it — the same ordering the Android head has for a real intent, and
+/// the reason the shell needs no harness-specific code. Once captured, the
+/// capture replaces the address with the Inbox's, so a reload does not share the
+/// same thing twice; that navigation carries no parameters and publishes nothing.
 /// </para>
 /// </remarks>
 public sealed class QuerySharedContentReceiver : BufferedSharedContentReceiver, IDisposable
@@ -63,7 +65,7 @@ public sealed class QuerySharedContentReceiver : BufferedSharedContentReceiver, 
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
 
         // No parameters at all is the ordinary case — someone opening the harness
-        // to look at the inbox — and it has to leave the screen untouched.
+        // to look at the inbox — and it has to capture nothing.
         Publish(SharedContent.From(query[TextParameter], query[SubjectParameter]));
     }
 }

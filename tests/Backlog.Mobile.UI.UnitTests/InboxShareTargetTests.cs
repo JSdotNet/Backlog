@@ -1,205 +1,222 @@
-using System.Net;
-using System.Text;
-
-using Backlog.Infrastructure.Sync;
-
-using Microsoft.Extensions.DependencyInjection;
+using Backlog.Mobile.UI.Outbox;
 
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// Sharing into the Inbox screen.
+/// Sharing into the app from another one.
 ///
-/// <para>A share is a draft, not a capture: the payload lands in the
-/// quick-capture field where it can still be read and edited, the screen says
-/// where it came from, and nothing leaves the device until Capture is pressed.
-/// These tests drive the screen through the same abstraction both hosts
-/// register, so they hold for the Android share target and the browser harness
-/// alike.</para>
+/// <para>A share is a capture, made the moment it arrives: it goes into the
+/// device outbox exactly as a pressed Capture does, the app lands on the Inbox
+/// whichever tab it was on, and a line there says where the new row came from.
+/// Whatever the person was typing in the quick-capture field is left alone.
+/// These tests drive the whole shell — Router, layout, page — through the same
+/// abstraction both hosts register, so they hold for the Android share target
+/// and the browser harness alike.</para>
 /// </summary>
 public sealed class InboxShareTargetTests
 {
     [Fact]
-    public void A_share_that_arrived_before_the_screen_existed_is_prefilled_and_explained()
+    public void A_share_that_arrived_before_the_app_was_drawn_is_captured_once_and_explained()
     {
-        using var host = InboxHost.Create();
+        using var host = ShellHost.Paired();
 
         // The order a real Android share happens in: the intent is handled while
-        // the WebView is still starting, so the payload predates the component.
+        // the WebView is still starting, so the payload predates every component.
         host.Share.Share("https://example.test/article");
 
-        var page = host.Render();
+        var app = host.Open();
 
-        page.WaitForAssertion(() =>
+        app.WaitForAssertion(() =>
         {
-            Assert.Equal("https://example.test/article", CaptureFieldValue(page));
-            Assert.Contains("shared", page.Find("[data-testid='share-status']").TextContent, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(1, host.Inbox.Created);
+            Assert.Contains("captured", app.Find("[data-testid='share-status']").TextContent, StringComparison.OrdinalIgnoreCase);
         });
+
+        Assert.Equal("https://example.test/article", Assert.Single(host.Inbox.Received).Title);
+        app.WaitForAssertion(() => Assert.Contains(
+            app.FindAll("[data-testid='inbox-row'] .inbox__title"),
+            title => title.TextContent == "https://example.test/article"));
     }
 
     [Fact]
-    public void A_share_that_arrives_after_the_first_render_still_reaches_the_field()
+    public void A_share_into_the_running_app_is_captured()
     {
-        using var host = InboxHost.Create();
-        var page = host.Render();
+        using var host = ShellHost.Paired();
+        var app = host.Open();
+        app.WaitForAssertion(() => Assert.Equal(1, host.Inbox.Pulls));
 
         // Sharing into an app that is already running: OnNewIntent on Android, a
         // second navigation in the harness.
         host.Share.Share("https://example.test/second");
 
-        page.WaitForAssertion(() =>
+        app.WaitForAssertion(() =>
         {
-            Assert.Equal("https://example.test/second", CaptureFieldValue(page));
-            Assert.NotNull(page.Find("[data-testid='share-status']"));
+            Assert.Equal(1, host.Inbox.Created);
+            Assert.NotNull(app.Find("[data-testid='share-status']"));
         });
+
+        Assert.Equal("https://example.test/second", Assert.Single(host.Inbox.Received).Title);
     }
 
     [Fact]
-    public void A_shared_video_reads_as_its_title_followed_by_its_link()
+    public void A_shared_video_is_captured_as_its_title_followed_by_its_link()
     {
-        using var host = InboxHost.Create();
-        var page = host.Render();
+        using var host = ShellHost.Paired();
+        var app = host.Open();
 
         host.Share.Share("https://youtu.be/abc123", "How to fold a fitted sheet");
 
-        page.WaitForAssertion(() => Assert.Equal(
-            "How to fold a fitted sheet https://youtu.be/abc123", CaptureFieldValue(page)));
+        app.WaitForAssertion(() => Assert.Equal(1, host.Inbox.Created));
+        Assert.Equal("How to fold a fitted sheet https://youtu.be/abc123", Assert.Single(host.Inbox.Received).Title);
     }
 
     [Fact]
-    public void With_nothing_shared_the_screen_is_the_screen_it_always_was()
+    public void A_share_made_while_on_another_tab_is_captured_and_lands_on_the_inbox()
     {
-        using var host = InboxHost.Create();
+        using var host = ShellHost.Paired();
+        var app = host.Open("tasks");
+        app.WaitForAssertion(() => Assert.Equal(1, host.Tasks.Pulls));
 
-        var page = host.Render();
+        host.Share.Share("https://youtu.be/abc123", "How to fold a fitted sheet");
 
-        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-testid='capture-field'] input")));
+        app.WaitForAssertion(() =>
+        {
+            Assert.Equal(1, host.Inbox.Created);
+            Assert.Equal(string.Empty, host.Navigation.ToBaseRelativePath(host.Navigation.Uri));
+            Assert.NotNull(app.Find("[data-testid='share-status']"));
+        });
 
-        Assert.Empty(page.FindAll("[data-testid='share-status']"));
-        Assert.True(string.IsNullOrEmpty(CaptureFieldValue(page)));
+        Assert.Equal("How to fold a fitted sheet https://youtu.be/abc123", Assert.Single(host.Inbox.Received).Title);
     }
 
     [Fact]
-    public void A_share_extends_a_draft_that_is_already_being_written()
+    public void A_draft_being_typed_is_left_as_it_was()
     {
-        using var host = InboxHost.Create();
-        var page = host.Render();
+        using var host = ShellHost.Paired();
+        var app = host.Open();
 
-        page.Find("[data-testid='capture-field'] input").Input("watch later");
+        app.Find("[data-testid='capture-field'] input").Input("watch later");
 
         host.Share.Share("https://youtu.be/abc123");
 
-        page.WaitForAssertion(() =>
-            Assert.Equal("watch later https://youtu.be/abc123", CaptureFieldValue(page)));
+        app.WaitForAssertion(() => Assert.Equal(1, host.Inbox.Created));
+
+        Assert.Equal("https://youtu.be/abc123", Assert.Single(host.Inbox.Received).Title);
+        Assert.Equal("watch later", host.Service<CaptureDraft>().Text);
+        Assert.Equal("watch later", app.Find("[data-testid='capture-field'] input").GetAttribute("value"));
     }
 
     [Fact]
-    public void Nothing_is_sent_to_the_cloud_until_capture_is_pressed()
+    public void An_empty_share_captures_nothing()
     {
-        using var host = InboxHost.Create();
-        var page = host.Render();
+        using var host = ShellHost.Paired();
+        var app = host.Open();
+        app.WaitForAssertion(() => Assert.Equal(1, host.Inbox.Pulls));
 
-        host.Share.Share("https://example.test/article");
-        page.WaitForAssertion(() => Assert.Equal("https://example.test/article", CaptureFieldValue(page)));
+        host.Share.Share("   ", "  ");
 
-        // The share alone: the point of the whole feature is that this is still
-        // a draft the person has not agreed to yet.
-        Assert.Equal(0, host.Sync.CaptureCount);
+        Assert.Empty(host.Outbox.Entries);
+        Assert.Empty(host.Inbox.Received);
+        Assert.Empty(app.FindAll("[data-testid='share-status']"));
+    }
 
-        page.Find("[data-testid='capture-submit']").Click();
+    [Fact]
+    public void With_nothing_shared_the_inbox_is_the_screen_it_always_was()
+    {
+        using var host = ShellHost.Paired();
 
-        page.WaitForAssertion(() => Assert.Equal(1, host.Sync.CaptureCount));
+        var app = host.Open();
+        app.WaitForAssertion(() => Assert.Equal(1, host.Inbox.Pulls));
+
+        Assert.Empty(app.FindAll("[data-testid='share-status']"));
+        Assert.Empty(host.Outbox.Entries);
+        Assert.True(string.IsNullOrEmpty(app.Find("[data-testid='capture-field'] input").GetAttribute("value")));
     }
 
     [Fact]
     public void The_status_line_is_a_status_rather_than_an_interruption()
     {
-        using var host = InboxHost.Create();
-        var page = host.Render();
+        using var host = ShellHost.Paired();
+        var app = host.Open();
 
         host.Share.Share("https://example.test/article");
 
-        page.WaitForAssertion(() =>
-            Assert.Equal("status", page.Find("[data-testid='share-status']").GetAttribute("role")));
+        app.WaitForAssertion(() =>
+            Assert.Equal("status", app.Find("[data-testid='share-status']").GetAttribute("role")));
     }
 
-    private static string? CaptureFieldValue(IRenderedComponent<Inbox> page) =>
-        page.Find("[data-testid='capture-field'] input").GetAttribute("value");
-
-    /// <summary>
-    /// The screen plus the three things it is injected with: a share source the
-    /// test triggers by hand, a recogniser that reports no speech support (this
-    /// feature has nothing to do with dictation, and an idle mic keeps the
-    /// markup these tests read predictable), and a sync client that counts what
-    /// it was asked to send.
-    /// </summary>
-    private sealed class InboxHost : IDisposable
+    [Fact]
+    public void The_status_line_goes_once_the_person_captures_something_of_their_own()
     {
-        private readonly BunitContext _context = new();
+        using var host = ShellHost.Paired();
+        var app = host.Open();
 
-        private InboxHost()
+        host.Share.Share("https://example.test/article");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='share-status']")));
+
+        app.Find("[data-testid='capture-field'] input").Input("Call the plumber");
+        app.Find("[data-testid='capture-submit']").Click();
+
+        app.WaitForAssertion(() =>
         {
-            Share = new TestSharedContentReceiver();
-            Sync = new CountingSyncHandler();
-
-            _context.JSInterop.Mode = JSRuntimeMode.Loose;
-            _context.Services.AddSingleton<ISharedContentReceiver>(Share);
-            _context.Services.AddSingleton<ISpeechTranscriber>(new SilentSpeechTranscriber());
-            _context.Services.AddSingleton(new CloudSyncClient(
-                new HttpClient(Sync) { BaseAddress = new Uri("https://sync.test") }));
-
-            // Already paired: sharing has nothing to do with pairing, and the
-            // status tracker the screen reports to reads the credential store.
-            // PairingGateTests owns the unpaired half.
-            _context.Services.AddSingleton<IDeviceCredentialStore>(TestDevices.Paired());
-            _context.Services.AddSingleton(new DevicePairingClient(
-                new HttpClient(Sync) { BaseAddress = new Uri("https://sync.test") },
-                new InMemoryDeviceCredentialStore()));
-            _context.Services.AddMobileShell();
-            _context.Services.AddTestDeviceOutbox();
-        }
-
-        public TestSharedContentReceiver Share { get; }
-
-        public CountingSyncHandler Sync { get; }
-
-        public static InboxHost Create() => new();
-
-        public IRenderedComponent<Inbox> Render() => _context.Render<Inbox>();
-
-        public void Dispose() => _context.Dispose();
+            Assert.Equal(2, host.Inbox.Created);
+            Assert.Empty(app.FindAll("[data-testid='share-status']"));
+        });
     }
 
-    /// <summary>A device with no recogniser: the mic stays disabled and the
-    /// screen never waits on a listening turn.</summary>
-    private sealed class SilentSpeechTranscriber : ISpeechTranscriber
+    [Fact]
+    public void A_share_the_device_could_not_keep_says_so()
     {
-        public ValueTask<bool> IsSupportedAsync(CancellationToken cancellationToken = default) =>
-            ValueTask.FromResult(false);
+        using var host = ShellHost.Paired(store: new FullDeviceStore());
+        var app = host.Open();
 
-        public Task<SpeechTranscript> ListenAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(SpeechTranscript.Failed("No recogniser."));
+        host.Share.Share("https://example.test/article");
 
-        public ValueTask StopAsync() => ValueTask.CompletedTask;
+        app.WaitForAssertion(() => Assert.Contains(
+            "Couldn't capture what was shared",
+            app.Find("[data-testid='share-status']").TextContent));
 
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        Assert.Empty(host.Inbox.Received);
     }
 
-    /// <summary>An empty inbox that also remembers whether a capture was ever
-    /// posted, which is how "nothing syncs until Capture" is observed.</summary>
-    private sealed class CountingSyncHandler : HttpMessageHandler
+    [Fact]
+    public void A_share_made_before_pairing_waits_in_the_outbox()
     {
-        public int CaptureCount { get; private set; }
+        // Out of reach as well as unpaired, so the capture stays on the phone —
+        // the scripted service would otherwise take it without asking for a
+        // credential.
+        using var host = ShellHost.Unpaired(inbox: new ScriptedInboxService { State = InboxServiceState.Unreachable });
 
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            if (request.Method == HttpMethod.Post) CaptureCount++;
+        host.Share.Share("https://example.test/article");
 
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("[]", Encoding.UTF8, "application/json")
-            });
-        }
+        var app = host.Open();
+
+        app.WaitForAssertion(() => Assert.Contains(
+            "1 item is waiting",
+            app.Find("[data-testid='pairing-waiting']").TextContent));
+        Assert.Single(host.Outbox.Entries);
+    }
+
+    /// <summary>A device with no room left: every write to the outbox fails, the
+    /// way a full disk or a locked database would.</summary>
+    private sealed class FullDeviceStore : IDeviceStore
+    {
+        private readonly InMemoryDeviceStore _inner = new();
+
+        public IReadOnlyList<OutboxEntry> ReadOutbox() => _inner.ReadOutbox();
+
+        public Task AddAsync(OutboxEntry entry, CancellationToken cancellationToken = default) =>
+            throw new IOException("There is not enough space on the device.");
+
+        public Task UpdateAsync(OutboxEntry entry, CancellationToken cancellationToken = default) =>
+            _inner.UpdateAsync(entry, cancellationToken);
+
+        public Task RemoveAsync(Guid id, CancellationToken cancellationToken = default) =>
+            _inner.RemoveAsync(id, cancellationToken);
+
+        public CachedInbox? ReadInbox() => _inner.ReadInbox();
+
+        public Task SaveInboxAsync(CachedInbox inbox, CancellationToken cancellationToken = default) =>
+            _inner.SaveInboxAsync(inbox, cancellationToken);
     }
 }

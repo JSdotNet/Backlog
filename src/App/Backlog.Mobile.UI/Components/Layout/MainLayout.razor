@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @using Backlog.Infrastructure.Sync
 @inject IDeviceCredentialStore Credentials
+@inject SharedContentCapture SharedCapture
 @implements IDisposable
 
 @*
@@ -12,6 +13,10 @@
     device, so every tab is gated once, the same way, and the pairing box is
     what the app opens on whichever route it opens on. The tabs are withheld
     until then: every one of them would lead back to the same box.
+
+    Shares from other apps are taken here too, for the same reason: a share can
+    arrive on any tab, and this is the one component every tab sits inside. A
+    share made before pairing waits in the outbox with the rest.
 *@
 
 <div class="page">
@@ -55,5 +60,22 @@
     // wherever it was saved; InvokeAsync is right in both cases.
     private void OnCredentialsChanged() => _ = InvokeAsync(StateHasChanged);
 
-    public void Dispose() => Credentials.Changed -= OnCredentialsChanged;
+    /// <summary>
+    /// Started after the first render rather than on initialisation: the browser
+    /// harness prerenders on the server, and a share captured there would be
+    /// captured again by the interactive render that follows.
+    /// </summary>
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender) SharedCapture.Start(work => InvokeAsync(work));
+    }
+
+    public void Dispose()
+    {
+        Credentials.Changed -= OnCredentialsChanged;
+
+        // The capture is the scope's and may outlive this layout; it must not
+        // dispatch through a component the renderer has let go.
+        SharedCapture.Stop();
+    }
 }

@@ -17,8 +17,8 @@ namespace Backlog.Mobile.Services;
 /// <para>
 /// It is registered as a singleton, not a scoped service. The activity is what
 /// receives an intent, and it does so both before the <c>BlazorWebView</c> exists
-/// and again — through <c>OnNewIntent</c> — while a component from an earlier
-/// scope is on screen. A scoped receiver would give the activity nothing to hand
+/// and again — through <c>OnNewIntent</c> — while the app is already on
+/// screen. A scoped receiver would give the activity nothing to hand
 /// the payload to on the first share and the wrong instance on the next one, so
 /// the buffer has to outlive the WebView.
 /// </para>
@@ -45,8 +45,7 @@ public sealed class AndroidShareTargetReceiver : BufferedSharedContentReceiver
 
         // The extras are cleared once read. Android hands the same launch intent
         // back to a recreated activity — a restored process, for instance — and
-        // prefilling the field a second time would undo whatever the person had
-        // since typed over it.
+        // reading it again would put the same capture in the inbox twice.
         intent.RemoveExtra(Intent.ExtraText);
         intent.RemoveExtra(Intent.ExtraSubject);
 
