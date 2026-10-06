@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.Devbook;
+namespace Backlog.SharedKernel.Devbook;
 
 /// <summary>
 /// The devbook metadata contract the product reads and writes against — contract
@@ -10,7 +10,7 @@ namespace Backlog.UI.Components.Devbook;
 /// <c>active</c> by leaving <c>status</c> out, which fields are decision and review
 /// <em>state</em> rather than chapter content, and which keys belong to an
 /// extension rather than to the schema. The folders' own classes —
-/// <see cref="DevbookStatus"/>, <see cref="DevbookTypeMarkers"/> — draw from here
+/// <c>DevbookStatus</c>, <c>DevbookTypeMarkers</c> — draw from here
 /// rather than keeping copies, and <c>DevbookRuleTextContractTests</c> pins every
 /// list against the rule text itself, so a contract bump that changes a word fails
 /// a test instead of quietly disagreeing with CI.</para>

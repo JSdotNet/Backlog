@@ -1,5 +1,5 @@
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.UI.Components.Devbook;
+using Backlog.SharedKernel.Devbook;
 
 namespace Backlog.Desktop.UI.Devbook;
 

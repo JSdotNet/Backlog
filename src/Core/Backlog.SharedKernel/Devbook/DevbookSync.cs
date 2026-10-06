@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.Devbook;
+namespace Backlog.SharedKernel.Devbook;
 
 /// <summary>
 /// The <c>sync</c> field of devbook contract 25 — which way changes flow between a

@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-using Backlog.UI.Components.Markdown;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Desktop.UI.Devbook;
 

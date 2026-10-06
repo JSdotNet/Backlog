@@ -9,7 +9,7 @@ using System.Globalization;
 
 using Backlog.UI.Components.Badges;
 using Backlog.UI.Components.Feedback;
-using Backlog.UI.Components.Markdown;
+using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Tasks;
 
 namespace Backlog.Desktop.UI.Tasks;

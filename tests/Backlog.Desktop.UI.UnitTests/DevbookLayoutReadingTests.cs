@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.UI.Components.Devbook;
+using Backlog.SharedKernel.Devbook;
 using Backlog.UI.Components.Diagrams.C4;
 
 using Microsoft.Data.Sqlite;

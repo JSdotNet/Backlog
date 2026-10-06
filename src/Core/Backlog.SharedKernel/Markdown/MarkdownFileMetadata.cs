@@ -1,6 +1,6 @@
-using Backlog.UI.Components.Metadata;
+using Backlog.SharedKernel.Metadata;
 
-namespace Backlog.UI.Components.Markdown;
+namespace Backlog.SharedKernel.Markdown;
 
 /// <summary>
 /// Whether a document opens with a title that carries a metadata block, and what

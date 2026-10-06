@@ -1,6 +1,6 @@
-using Backlog.UI.Components.Metadata;
+using Backlog.SharedKernel.Metadata;
 
-namespace Backlog.UI.Components.Markdown;
+namespace Backlog.SharedKernel.Markdown;
 
 /// <summary>
 /// The YAML frontmatter a markdown file may open with, and the body underneath

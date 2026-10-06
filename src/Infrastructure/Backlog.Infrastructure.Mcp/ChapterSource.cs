@@ -1,6 +1,6 @@
 using System.Text;
 
-using Backlog.UI.Components.Markdown;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Infrastructure.Mcp;
 

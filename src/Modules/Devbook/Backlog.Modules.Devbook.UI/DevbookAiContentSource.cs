@@ -1,8 +1,9 @@
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel.Ai;
+using Backlog.SharedKernel.Devbook;
 using Backlog.UI.Components.Devbook;
-using Backlog.UI.Components.Markdown;
-using Backlog.UI.Components.Metadata;
+using Backlog.SharedKernel.Markdown;
+using Backlog.SharedKernel.Metadata;
 
 namespace Backlog.Desktop.UI.Devbook;
 

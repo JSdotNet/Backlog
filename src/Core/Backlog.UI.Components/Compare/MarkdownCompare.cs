@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 
+using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Markdown;
 
 namespace Backlog.UI.Components.Compare;
