@@ -227,11 +227,14 @@
             }
             else
             {
+                @* A stack stays in the one list as a tree, bottom first, because the
+                   order to handle its pull requests in is the order they merge in:
+                   each sits one level under the one it waits on. *@
                 <DataTable TItem="GitHubOpenPullRequest"
                            Columns="Columns"
-                           Items="Visible"
+                           Items="Ordered"
                            RowKey="@(pull => (object)Key(pull))"
-                           RowAttributes="@(pull => RowAttributes(pull.RepositoryFullName, pull.Number))"
+                           RowAttributes="@OpenRowAttributes"
                            RowNoun="pull request"
                            AriaLabel="Open pull requests in the registered repositories"
                            EmptyMessage="@EmptyMessage"
@@ -241,11 +244,24 @@
                         @RepositoryCell(pull.RepositoryFullName)
 
                         <td class="pull-requests-table__pull-request">
-                            <IntegrationLink Link="@Link(pull)"
-                                             StateAsInk="true"
-                                             CssClass="pull-requests-table__link"
-                                             TestId="pull-request-link"
-                                             StateTestId="pull-request-state" />
+                            <span class="pull-requests-table__chain" style="@ChainIndent(pull)">
+                                @if (Stacks.ParentOf(pull) is { } parent)
+                                {
+                                    @* The tree's elbow, and the one place the row says
+                                       what it waits on: a reader sees it hang under its
+                                       parent, a screen reader hears the words. *@
+                                    <span class="pull-requests-table__elbow"
+                                          role="img"
+                                          aria-label="@($"Waits on #{parent.Number}")"
+                                          title="@($"Waits on #{parent.Number}: it targets {parent.HeadRefName}, so merge that one first.")"
+                                          data-testid="pull-request-waits-on">↳</span>
+                                }
+                                <IntegrationLink Link="@Link(pull)"
+                                                 StateAsInk="true"
+                                                 CssClass="pull-requests-table__link"
+                                                 TestId="pull-request-link"
+                                                 StateTestId="pull-request-state" />
+                            </span>
                         </td>
 
                         @BranchCell(pull.HeadRefName, pull.BaseRefName)
@@ -299,7 +315,7 @@
                                     Ready for review
                                 </AppButton>
                             }
-                            @if (MergeActFor(pull) is { } act)
+                            @if (OfferedMergeFor(pull) is { } act)
                             {
                                 <AppButton Size="ButtonSize.Small"
                                            Variant="@(act is PullRequestMerge.Now ? ButtonVariant.Primary : ButtonVariant.Secondary)"
@@ -622,7 +638,7 @@
     /// <summary>The merge act, re-derived at the click from the row as it stands —
     /// the same answer as when the button was drawn unless a read landed in between,
     /// and then the newer one is the one to act on.</summary>
-    private Task MergeAsync(GitHubOpenPullRequest pull) => MergeActFor(pull) switch
+    private Task MergeAsync(GitHubOpenPullRequest pull) => OfferedMergeFor(pull) switch
     {
         PullRequestMerge.Now => ActAsync(pull, gitHub => gitHub.MergePullRequestAsync(pull.ToStatus()), $"Merged {Subject(pull)}."),
         PullRequestMerge.WhenChecksPass => ActAsync(pull, gitHub => gitHub.EnableAutoMergeAsync(pull.ToStatus()), $"{Subject(pull)} will merge when its checks pass."),
@@ -701,6 +717,16 @@
         : pull.MergeReady ? PullRequestMerge.Now
         : PullRequestMerge.WhenChecksPass;
 
+    /// <summary>The merge act this row offers: <see cref="MergeActFor"/>, less a merge
+    /// on a pull request that waits on another in its stack — merged now, it would land
+    /// on its parent's branch rather than where the stack is going, and "Waits on" says
+    /// so instead. Withdrawing auto-merge stays, because that undoes a request rather
+    /// than making one.</summary>
+    private PullRequestMerge? OfferedMergeFor(GitHubOpenPullRequest pull) =>
+        MergeActFor(pull) is { } act && (act is PullRequestMerge.CancelAutoMerge || Stacks.ParentOf(pull) is null)
+            ? act
+            : null;
+
     private static string MergeLabel(PullRequestMerge act) => act switch
     {
         PullRequestMerge.Now => "Merge now",
@@ -736,6 +762,67 @@
 
     private IReadOnlyList<GitHubOpenPullRequest> Visible =>
         _mine ? [.. InScopeRows.Where(pull => pull.ViewerDidAuthor)] : InScopeRows;
+
+    private PullRequestStacks? _stacks;
+    private (GitHubPullRequestListing Listing, string Scope) _stacksOf;
+
+    /// <summary>The stacks among the in-scope rows of every author, derived once per
+    /// read and scope rather than once per cell that asks.</summary>
+    private PullRequestStacks Stacks
+    {
+        get
+        {
+            var of = (_listing, ScopeLabel);
+            if (_stacks is null || _stacksOf != of)
+            {
+                _stacks = PullRequestStacks.Of(InScopeRows);
+                _stacksOf = of;
+            }
+
+            return _stacks;
+        }
+    }
+
+    /// <summary>The visible rows with each stack gathered into one tree, bottom first,
+    /// placed where the latest update among its shown rows puts it; every other row
+    /// keeps the newest-update-first order it was read in.</summary>
+    private IReadOnlyList<GitHubOpenPullRequest> Ordered
+    {
+        get
+        {
+            var stacks = Stacks;
+            var visible = Visible;
+            if (stacks.Stacks.Count == 0) return visible;
+
+            var shown = visible.ToHashSet();
+            var trees = stacks.Stacks
+                .Select(stack => (IReadOnlyList<GitHubOpenPullRequest>)[.. stack.Members.Where(shown.Contains)])
+                .Where(rows => rows.Count > 0);
+            var singles = visible
+                .Where(pull => stacks.StackOf(pull) is null)
+                .Select(pull => (IReadOnlyList<GitHubOpenPullRequest>)[pull]);
+
+            return [.. singles.Concat(trees)
+                .OrderByDescending(rows => rows.Max(pull => pull.UpdatedAt))
+                .SelectMany(rows => rows)];
+        }
+    }
+
+    /// <summary>A stacked row's depth rides on the row for a driver to read; the
+    /// shared attributes otherwise.</summary>
+    private IReadOnlyDictionary<string, object>? OpenRowAttributes(GitHubOpenPullRequest pull)
+    {
+        var attributes = new Dictionary<string, object>(RowAttributes(pull.RepositoryFullName, pull.Number)!);
+        if (Stacks.DepthOf(pull) is { } depth) attributes["data-stack-depth"] = depth.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return attributes;
+    }
+
+    /// <summary>How far the tree indents a stacked row: one step per level under the
+    /// bottom.</summary>
+    private string? ChainIndent(GitHubOpenPullRequest pull) =>
+        Stacks.DepthOf(pull) is > 0 and var depth
+            ? $"--chain-depth: {depth.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+            : null;
 
     /// <summary>The merged view's rows, narrowed the same two ways. Newest merge
     /// first, as the adapter ordered them.</summary>

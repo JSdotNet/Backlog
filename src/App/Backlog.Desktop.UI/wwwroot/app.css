@@ -6256,6 +6256,25 @@ h1, h2, h3 {
     max-width: 18rem;
 }
 
+/* A stack is a tree in this column: each pull request indents one step per level
+   under the bottom and hangs off an elbow, so reading down the stack reads the
+   order to handle it in. On a span inside the cell, for the reason the facts below
+   give. The first level's indent is the elbow itself. */
+.pull-requests-table__chain {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    max-width: 100%;
+    padding-left: calc((var(--chain-depth, 1) - 1) * 1.25rem);
+}
+
+.pull-requests-table__elbow {
+    flex: none;
+    width: 1rem;
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+
 /* The link is the clamp: its title span already ellipsizes, but an inline-flex
    link grows to whatever its content asks, so one long title set the whole
    table's width and pushed Task and Session off the right edge. The full title
