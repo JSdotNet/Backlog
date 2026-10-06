@@ -49,7 +49,7 @@ the source of the gate and `.agents/rules/context-loading.md` as the detail.
 
 This repository ships no repo-native `flow-*` skill; every flow comes from the `delivery`
 plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devbook`.
-`.devbook/config.json` holds the bindings, extensions, and policy the flows read.
+`.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
 auto-enabled — see `plugins/backlog-tools/README.md`. None of its five skills changes the
@@ -82,8 +82,8 @@ without explicit user approval.
 
 The runtime facts a flow needs are the procedures': the `run` skill
 (`.claude/skills/run-backlog/SKILL.md`) runs the Aspire AppHost, says what healthy startup
-looks like and which harness answers which question; `show.md` picks the harness for a
-branch's change; `debug.md` queries logs and traces. QA depth is the engine's per change
+looks like and which harness answers which question; `.agents/skills/diagnose.md` finds a
+cause from logs and traces. QA depth is the engine's per change
 kind, capped by `policy` in `.devbook/config.json`.
 
 This repository configures no model overrides.
@@ -158,7 +158,7 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   story; the rules it satisfies are in `.devbook/design/README.md#living-reference-the-ui-storybook`.
 - `.agents/rules/mcp-usage.md` — guidance authority order and which MCP servers remain in use.
 - `.claude/skills/run-backlog/SKILL.md` — the `run` procedure; `.agents/skills/` holds the
-  `show`, `capture`, `debug` and `estimate` procedures.
+  `capture`, `diagnose` and `estimate` procedures.
 - `plugins/backlog-tools/skills/import-plan/SKILL.md` — generates a Backlog import
   plan (ADR 0007) from an agreed specification; user-invoked only.
 - `plugins/backlog-tools/skills/run-plan-item/SKILL.md` — runs one item of such a

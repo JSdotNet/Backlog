@@ -55,9 +55,8 @@ call a run complete without the person's explicit approval.
   implementation. Product and security are deliberately unbound.
 - **Procedures** — `.claude/skills/run-backlog/SKILL.md` (the `run` skill) starts the
   Aspire AppHost and says what healthy looks like and which harness answers which question;
-  under `.agents/skills/`, `show.md` walks a branch's change in the harness that serves it;
-  `capture.md` places evidence; `debug.md` finds a cause from logs and traces; `estimate.md`
-  sizes work. A flow calls `run` at `app.start` rather than guessing a command.
+  under `.agents/skills/`, `capture.md` places evidence; `diagnose.md` finds a cause from
+  logs and traces; `estimate.md` sizes work. A flow's `phase-verify` calls `run` rather than guessing a command.
 - **QA depth** — the engine picks it from the change kind: full Playwright QA with capture
   for new behaviour, targeted checks for a fix, startup-only for a dependency move, and
   skipped when nothing runs. `policy` in the config caps it at `full`.

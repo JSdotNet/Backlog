@@ -9,7 +9,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { add, reply, resolve, sweep, list } from "./annotations.mjs";
-import { validateDocument } from "./metadata.mjs";
+import { parseDocument, validateDocument } from "./metadata.mjs";
 
 const FENCE = "```";
 const REL = ".devbook/arc42/05-building-block-view.md";
@@ -502,6 +502,64 @@ await run(
         check(threads[0]?.chapter === "übersicht-der-teile", "list: the note carries that same slug", threads[0]?.chapter);
     },
     ACCENTED
+);
+
+// A `#` line inside a fence is content. Read as a heading, it ended the
+// chapter early, so `add --after` could not reach the prose beneath it.
+const FENCED_HEADING = [
+    "# Building Block View",
+    "",
+    FENCE + "meta",
+    "status: draft",
+    FENCE,
+    "",
+    "## Devbook Meta",
+    "",
+    FENCE + "meta",
+    "status: draft",
+    FENCE,
+    "",
+    "A chapter shows its own Markdown:",
+    "",
+    FENCE + "markdown",
+    "# Not a heading",
+    FENCE,
+    "",
+    "~~~~mermaid",
+    "## Nor this",
+    "~~~",
+    "~~~~",
+    "",
+    "Prose after the samples.",
+    "",
+    "## Next Chapter",
+    "",
+    FENCE + "meta",
+    "status: draft",
+    FENCE,
+    "",
+].join("\n");
+
+await run(
+    "add --after past a fenced heading",
+    async (root) => {
+        await add(root, ADDRESS, { after: "Prose after the samples.", author: "jobsc", date: "2026-10-03", body: "Found it." });
+        const threads = await list(root, ADDRESS);
+        check(threads.length === 1, "add --after: prose below a fenced `#` line is still in the chapter", String(threads.length));
+        const markdown = await readFile(path.join(root, REL), "utf8");
+        check(
+            markdown.indexOf("Found it.") < markdown.indexOf("## Next Chapter"),
+            "add --after: the note lands in the addressed chapter, not past the next one"
+        );
+    },
+    FENCED_HEADING
+);
+
+const fencedSlugs = parseDocument(FENCED_HEADING).chapters.map((chapter) => chapter.slug).join(",");
+check(
+    fencedSlugs === "building-block-view,devbook-meta,next-chapter",
+    "parseDocument: a fenced `#` line is not a chapter",
+    fencedSlugs
 );
 
 console.log(failed ? `\n${failed} case(s) failed.` : "\nAll cases passed.");

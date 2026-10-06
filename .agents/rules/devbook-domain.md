@@ -266,7 +266,10 @@ The file is one HTML document built on the repository's demo template,
 nothing fetched, the template's managed region kept byte for byte, and no
 `<script>` outside it except `demo-model` and `demo-meta`. It aims at 500 KB and may exceed it.
 Only `/prototype` writes one, and it reaches `domain/` only as a delta of a
-change, per `devbook-changes.md`; it is never edited in place.
+change, per `devbook-changes.md`; it is never edited in place. The one exception
+is the managed region: `demo-template.mjs --refresh` rewrites it in every demo
+from the template, and touches nothing else in the file. The region stands outside
+the page's fingerprint, so a refresh lifts no approval.
 
 Reading order comes from this convention, not from a metadata field and not from
 filenames. `context-map.md` is `domain/`'s root document and is read first,

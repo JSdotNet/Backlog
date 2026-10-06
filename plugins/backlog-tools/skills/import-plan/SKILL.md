@@ -199,7 +199,7 @@ Size every step in one pass once all of them are drafted, never one at a time as
 written — a point only means something beside the others.
 
 - **An `estimate` skill, when the session has one.** It is the repository's own sizing
-  procedure (devbook-procedures seeds it), held to reference work that already landed, so
+  procedure (devbook seeds it), held to reference work that already landed, so
   a point means the same in every plan. Invoke it with each step's title, kind and
   instructions and write the points it returns unchanged.
 - **Otherwise, this fallback**, which is relative within this plan only. Anchor on the most

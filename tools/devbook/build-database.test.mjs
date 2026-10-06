@@ -58,6 +58,10 @@ function annotation(fields) {
 /** A one-heading document. */
 const page = (title, fields = {}) => `# ${title}\n\n${meta(fields)}\n`;
 
+/** A click demo: a title and the `demo-model` its addresses resolve against. */
+const demo = (title, model) =>
+    `<!doctype html><title>${title}</title>\n<script type="application/json" id="demo-model">${JSON.stringify(model)}</script>\n`;
+
 /** The fixture corpus, as repo-relative path to file content. */
 const FIXTURE = {
     // Stray reading-order files, each declaring an order the convention does
@@ -104,18 +108,21 @@ const FIXTURE = {
         '```',
         '',
     ].join('\n'),
-    // A `#` line inside a fence, which `parseDocument` reads as a heading
-    // because it does not track fences. The chapter it invents is the case the
-    // whole-document fence mask exists for.
+    // A `#` line inside a fence, which `parseDocument` skips since devbook
+    // 1.19: it is the command's comment, not a chapter, so the prose on both
+    // sides of the fence stays in one.
     '.devbook/domain/inbox/features.md': [
         '# Inbox Features',
         '',
-        // Three places in demos: a screen, an anchor whose `flags` names two
-        // keys — split by the metadata parse on its comma and joined back — and
-        // a demo that is not there. Named by field, not by name.
+        // Three places in demos: a screen, written `./`-relative, whose `flags`
+        // names two keys unquoted — split by the metadata parse on its comma and
+        // joined back here, though the generator reports the stray half; an
+        // anchor whose `flags` names two keys, quoted as the rule says, so the
+        // parse keeps its comma; and a demo that is not there. Named by field,
+        // not by name.
         meta({
             status: 'draft',
-            demo: '[.devbook/domain/inbox/features.demo.html#capture, "./.devbook/domain/inbox/triage.demo.html#queue/row?role=owner&flags=bulk,undo", .devbook/domain/inbox/missing.demo.html]',
+            demo: '[./.devbook/domain/inbox/features.demo.html#capture?flags=starred,pinned, ".devbook/domain/inbox/triage.demo.html#queue/row?role=owner&flags=bulk,undo", .devbook/domain/inbox/missing.demo.html]',
         }),
         '',
         'Routing moves a triaged item onward.',
@@ -172,11 +179,20 @@ const FIXTURE = {
 
     // Demos: one the context owns by name, one a page owns by name, one only a
     // field names, and one nothing pairs with — a problem. Not chapters: none of
-    // them reaches the outline or the chapter rows.
-    '.devbook/domain/inbox/demo.html': '<!doctype html><title>Inbox</title>',
-    '.devbook/domain/inbox/features.demo.html': '<!doctype html><title>Inbox features</title>',
-    '.devbook/domain/inbox/triage.demo.html': '<!doctype html><title>Triage</title>',
-    '.devbook/domain/billing/refunds.demo.html': '<!doctype html><title>Refunds</title>',
+    // them reaches the outline or the chapter rows. Each lists in `demo-model`
+    // what the fields address, so the generator's own demo lint has nothing to
+    // say about them but the one that pairs with nothing.
+    '.devbook/domain/inbox/demo.html': demo('Inbox', {}),
+    '.devbook/domain/inbox/features.demo.html': demo('Inbox features', {
+        screens: [{ id: 'capture' }],
+        flags: [{ key: 'starred' }, { key: 'pinned' }],
+    }),
+    '.devbook/domain/inbox/triage.demo.html': demo('Triage', {
+        screens: [{ id: 'queue', anchors: ['row'] }],
+        roles: [{ key: 'owner' }],
+        flags: [{ key: 'bulk' }, { key: 'undo' }],
+    }),
+    '.devbook/domain/billing/refunds.demo.html': demo('Refunds', {}),
 
     '.devbook/domain/inbox/_archify/index.json': JSON.stringify({
         schemaVersion: 1,
@@ -403,18 +419,21 @@ test('an excerpt reads as prose rather than as fence debris', async () => {
     });
 });
 
-test('a heading inside a fence cannot swallow the prose around it', async () => {
+test('a heading line inside a fence is no chapter, and the prose around it stays in one', async () => {
     await withFixture(({ all }) => {
-        // `parseDocument` finds `# Regenerate the index` inside the bash fence and
-        // starts a chapter there. The fence mask is computed over the whole
-        // document rather than per slice precisely so that this chapter's prose
-        // survives and its fence lines still do not.
+        // `# Regenerate the index` sits inside the bash fence. Since devbook 1.19
+        // `parseDocument` skips fenced blocks when it looks for headings, so it
+        // starts no chapter: the prose on both sides of the fence is the one
+        // chapter's, and the fence lines are still not prose.
         const rows = all("SELECT * FROM chapter WHERE path = '.devbook/domain/inbox/features.md' ORDER BY line");
-        assert.equal(rows.length, 2);
+        assert.equal(rows.length, 1);
 
-        assert.equal(rows[0].search_text, 'Inbox Features\n\nRouting moves a triaged item onward.');
-        assert.equal(rows[1].search_text, 'More prose after the fence.');
-        assert.match(rows[1].text, /Update-KnowledgeIndex/, 'the verbatim slice keeps the command');
+        const [file] = rows;
+        assert.equal(
+            file.search_text,
+            'Inbox Features\n\nRouting moves a triaged item onward.\n\nMore prose after the fence.');
+        assert.match(file.text, /Update-KnowledgeIndex/, 'the verbatim slice keeps the command');
+        assert.equal(all("SELECT 1 FROM chapter WHERE slug = 'regenerate-the-index'").length, 0);
         assert.equal(all("SELECT rowid FROM chapter_fts WHERE chapter_fts MATCH 'ps1'").length, 0);
     });
 });
@@ -603,11 +622,11 @@ test('every demo is a row, paired with the page its name says when that page is 
     });
 });
 
-test("a chapter's demo field is one link per place, a split address joined back", async () => {
+test("a chapter's demo field is one link per place, a quoted address kept whole and a split one joined back", async () => {
     await withFixture(({ all, counts }) => {
         const rows = all('SELECT chapter_path, slug, line, ordinal, demo_path, address FROM demo_link ORDER BY ordinal');
         assert.deepEqual(rows.map((row) => [row.ordinal, row.demo_path, row.address]), [
-            [0, '.devbook/domain/inbox/features.demo.html', 'capture'],
+            [0, '.devbook/domain/inbox/features.demo.html', 'capture?flags=starred,pinned'],
             [1, '.devbook/domain/inbox/triage.demo.html', 'queue/row?role=owner&flags=bulk,undo'],
             [2, '.devbook/domain/inbox/missing.demo.html', null],
         ]);
@@ -618,9 +637,12 @@ test("a chapter's demo field is one link per place, a split address joined back"
 
 test('a demo nothing pairs with is a problem; one only a field names is not', async () => {
     await withFixture(({ all }) => {
-        const problems = all("SELECT path, message FROM problem WHERE path LIKE '%.demo.html'");
+        // Reported once, by the generator's own demo lint: the database build
+        // adds no second row for a generator that checks demos itself.
+        const problems = all("SELECT scope, severity, path, message FROM problem WHERE path LIKE '%.demo.html'");
         assert.deepEqual(problems.map((row) => row.path), ['.devbook/domain/billing/refunds.demo.html']);
-        assert.match(problems[0].message, /refunds\.md/);
+        assert.equal(problems[0].severity, 'error');
+        assert.match(problems[0].message, /no page beside it and no chapter's `demo` field names it/);
     });
 });
 

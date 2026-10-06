@@ -22,6 +22,11 @@
 // result, so a delta that would leave its target invalid is reported before
 // anything is written. The graph build imports `checkDelta` and runs the same
 // check on every delta it indexes.
+//
+// A `*.demo.html` directly in a `domain/<context>/` folder is the one other
+// file a delta folder holds: no header, no sections, checked with demo.mjs's
+// rules and landed by replacing its target whole. The graph does not index it
+// as a delta, but the change's fingerprint covers it. Any other file is an error.
 
 import { readFile, writeFile, readdir, mkdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
@@ -34,7 +39,8 @@ import {
     DECISION_STATUSES,
     changeHash,
     changePathParts,
-    chapterHash,
+    chapterFingerprint,
+    isDemoPath,
     parseAnnotations,
     parseDocument,
     resolveAnnotation,
@@ -44,6 +50,7 @@ import {
     validateDocument,
 } from "./metadata.mjs";
 import { loadStatusLadder } from "./statuses.mjs";
+import { demoFileIssues } from "./demo.mjs";
 
 const FENCE = /^\s*(`{3,}|~{3,})/;
 const HEADING = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
@@ -206,7 +213,7 @@ export function parseDelta(markdown) {
  * `null` when the delta removes the whole file — and the problems that stop
  * it. `original` is `null` when the target file does not exist.
  */
-export function mergeDelta(parsed, original, change) {
+export function mergeDelta(parsed, original, change, { target = null, demoText = null } = {}) {
     const issues = [];
     const kind = parsed.header?.meta?.delta;
     const { level, targets } = parsed;
@@ -310,7 +317,7 @@ export function mergeDelta(parsed, original, change) {
         lines = [...lines.slice(0, hit.index), ...trimBlank(chapter), ...(rest.length ? ["", ...rest] : [])];
     }
 
-    lines = liftLapsedDecisions(original, trimBlank(lines), change, issues);
+    lines = liftLapsedDecisions(original, trimBlank(lines), change, issues, target, demoText);
     return { merged: `${lines.join(eol)}${eol}`, issues };
 }
 
@@ -327,7 +334,7 @@ const DECISION_RECORD = ["approved-by", "approved-at", "approved-hash", "accepte
  * where none was recorded, the merge stamped the chapter. A rung the delta set
  * itself is left for the lint to judge.
  */
-function liftLapsedDecisions(original, lines, change, issues) {
+function liftLapsedDecisions(original, lines, change, issues, target = null, demoText = null) {
     if (original === null) return lines;
     const rung = (c) => `${c.level}:${c.slug}:${c.meta?.status}`;
     const before = new Set(
@@ -338,7 +345,9 @@ function liftLapsedDecisions(original, lines, change, issues) {
     const lapsed = parseDocument(text).chapters.filter((c) => {
         if (!before.has(rung(c))) return false;
         const recorded = c.meta["accepted-hash"] ?? c.meta["approved-hash"];
-        return recorded != null ? String(recorded).trim() !== chapterHash(text, c.line) : c.meta.change === change;
+        return recorded != null
+            ? String(recorded).trim() !== chapterFingerprint(target ?? "", text, c.line, target ? demoText : null)
+            : c.meta.change === change;
     });
     const out = [...lines];
     for (const chapter of lapsed.reverse()) {
@@ -364,7 +373,7 @@ const unlined = (message) => message.replace(/\(line \d+\)/g, "").replace(/line 
  * resolves in its target, and that the merged target still passes the lint.
  * The graph build calls this for every delta it indexes.
  */
-export async function checkDelta(repoRoot, relPath, markdown, { ladder = null } = {}) {
+export async function checkDelta(repoRoot, relPath, markdown, { ladder = null, demoText = null } = {}) {
     const where = changePathParts(relPath);
     const issues = [...deltaHeaderIssues(relPath, markdown)];
     const parsed = parseDelta(markdown);
@@ -377,18 +386,35 @@ export async function checkDelta(repoRoot, relPath, markdown, { ladder = null } 
     } catch {
         original = null;
     }
-    const result = mergeDelta(parsed, original, where.name);
+    const result = mergeDelta(parsed, original, where.name, { target: where.target, demoText });
     issues.push(...result.issues);
     if (result.placeholder) {
         issues.push({ severity: "info", message: `names no chapter, so it merges nothing — a placeholder.` });
     } else if (!issues.some((i) => i.severity === "error") && result.merged !== null) {
-        const before = new Set(original === null ? [] : validateDocument(where.target, original, { ladder }).map((i) => unlined(i.message)));
-        for (const issue of validateDocument(where.target, result.merged, { ladder })) {
+        const before = new Set(original === null ? [] : validateDocument(where.target, original, { ladder, demoText }).map((i) => unlined(i.message)));
+        for (const issue of validateDocument(where.target, result.merged, { ladder, demoText })) {
             if (issue.severity !== "error" || before.has(unlined(issue.message))) continue;
             issues.push({ severity: "error", message: `would leave ${where.target} invalid: ${issue.message}` });
         }
     }
     return { issues, target: where.target, merged: result.merged, placeholder: !!result.placeholder, removesFile: result.merged === null && !result.issues.length };
+}
+
+// Where a demo lands: `demo.html` or `<page>.demo.html` directly in a context folder.
+const DEMO_LANDING = /^\.devbook\/domain\/[^/]+\/(?:[^/]+\.)?demo\.html$/;
+
+/**
+ * Check one demo delta: where it lands and the demo rules over the file. Its
+ * merge is the file itself, which replaces the target whole.
+ */
+export function checkDemoDelta(relPath, html) {
+    const { target } = changePathParts(relPath);
+    const issues = [];
+    if (!DEMO_LANDING.test(target)) {
+        issues.push({ severity: "error", message: `lands as ${target}, which is not where a demo lives — \`demo.html\` or \`<page>.demo.html\` directly in a \`domain/<context>/\` folder.` });
+    }
+    issues.push(...demoFileIssues(relPath, html));
+    return { issues, target, merged: html, demo: true, placeholder: false, removesFile: false };
 }
 
 /** Every file a change folder indexes: its proposal and each delta. */
@@ -409,7 +435,7 @@ export async function changeFiles(repoRoot) {
     return found.sort();
 }
 
-async function markdownUnder(repoRoot, rel) {
+async function markdownUnder(repoRoot, rel, wanted = (name) => name.endsWith(".md")) {
     const out = [];
     let entries;
     try {
@@ -419,8 +445,8 @@ async function markdownUnder(repoRoot, rel) {
     }
     for (const entry of entries) {
         const child = `${rel}/${entry.name}`;
-        if (entry.isDirectory()) out.push(...(await markdownUnder(repoRoot, child)));
-        else if (entry.isFile() && entry.name.endsWith(".md")) out.push(child);
+        if (entry.isDirectory()) out.push(...(await markdownUnder(repoRoot, child, wanted)));
+        else if (entry.isFile() && wanted(entry.name)) out.push(child);
     }
     return out;
 }
@@ -447,10 +473,19 @@ export async function checkChange(repoRoot, name) {
         report.problems.push({ severity: "error", message: `${base}/ has no proposal.md.` });
     }
     const deltas = await markdownUnder(repoRoot, `${base}/${DELTA_FOLDER}`);
+    const demos = await markdownUnder(repoRoot, `${base}/${DELTA_FOLDER}`, isDemoPath);
+    const other = await markdownUnder(repoRoot, `${base}/${DELTA_FOLDER}`, (name) => !name.endsWith(".md") && !isDemoPath(name));
     if (!deltas.length) report.problems.push({ severity: "error", message: `${base}/ has no delta under ${DELTA_FOLDER}/ — a change with nothing to merge carries a placeholder.` });
+    for (const relPath of other.sort()) {
+        report.problems.push({ severity: "error", message: `${relPath} is neither a Markdown delta nor a \`*.demo.html\` — a demo is the one other file ${DELTA_FOLDER}/ holds.` });
+    }
     for (const relPath of deltas.sort()) {
         const markdown = await readFile(path.join(repoRoot, relPath), "utf8");
         report.deltas.push({ path: relPath, markdown, ...(await checkDelta(repoRoot, relPath, markdown, { ladder })) });
+    }
+    for (const relPath of demos.sort()) {
+        const markdown = await readFile(path.join(repoRoot, relPath), "utf8");
+        report.deltas.push({ path: relPath, markdown, ...checkDemoDelta(relPath, markdown) });
     }
     return report;
 }
@@ -464,8 +499,12 @@ export async function readChange(repoRoot, name) {
     } catch {
         return null;
     }
+    // A demo delta is HTML and merges whole, but the change is decided as one,
+    // so it is fingerprinted with the rest: editing a proposed demo lifts the
+    // change's rungs as editing a Markdown delta does.
     const deltas = [];
-    for (const relPath of (await markdownUnder(repoRoot, `${base}/${DELTA_FOLDER}`)).sort()) {
+    const files = [...(await markdownUnder(repoRoot, `${base}/${DELTA_FOLDER}`)), ...(await markdownUnder(repoRoot, `${base}/${DELTA_FOLDER}`, isDemoPath))];
+    for (const relPath of files.sort()) {
         deltas.push({ path: relPath, target: changePathParts(relPath).target, markdown: await readFile(path.join(repoRoot, relPath), "utf8") });
     }
     return { name, proposal, deltas };
@@ -562,7 +601,7 @@ export async function applyChange(repoRoot, name, { date = new Date().toISOStrin
         } else {
             await mkdir(path.dirname(target), { recursive: true });
             await writeFile(target, delta.merged, "utf8");
-            written.push(`merged  ${delta.target}`);
+            written.push(`${delta.demo ? "replaced" : "merged  "} ${delta.target}`);
         }
     }
     if (!move) return { report, applied: true, written };

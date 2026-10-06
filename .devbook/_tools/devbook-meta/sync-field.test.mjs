@@ -63,6 +63,9 @@ const CONTEXT = ".devbook/domain/ordering";
         [`${CONTEXT}/features.md`, "chapter", { type: "feature" }, "unit"],
         [`${CONTEXT}/context.md`, "chapter", { type: "feature-flag" }, "unit"],
         [`${CONTEXT}/context.md`, "chapter", { type: "setting" }, "unit"],
+        [`${CONTEXT}/actors.md`, "chapter", { type: "user" }, "unit"],
+        [`${CONTEXT}/actors.md`, "chapter", { type: "technical" }, "unit"],
+        [`${CONTEXT}/context.md`, "chapter", { type: "user" }, "unit"],
         [".devbook/arc42/05-building-block-view.md", "file", {}, "folder"],
         [".devbook/arc42/building-blocks/ordering.md", "file", {}, "unit"],
         [".devbook/design/component-libraries.md", "file", {}, "folder"],
@@ -108,6 +111,7 @@ const CONTEXT = ".devbook/domain/ordering";
 
     const elsewhere = [
         [`${CONTEXT}/model.md`, `# Model\n\n${fence("type: model\nsync: pull\n")}`],
+        [`${CONTEXT}/actors.md`, `# Actors\n\n${fence("type: actors\n")}\n## Card Issuer\n\n${fence("type: organisation\nsync: pull\n")}\nProse.\n`],
         [".devbook/arc42/01-introduction-and-goals.md", `# Introduction\n\n${fence("sync: pull\n")}`],
         [".devbook/arc42/building-blocks/README.md", `# Building Blocks\n\n${fence("index: root\nsync: pull\n")}`],
         [".devbook/design/color-scheme.md", `# Colors\n\n${fence("sync: pull\n")}`],
@@ -200,11 +204,25 @@ const domainMd = (orderSync = "", eventRelated = `related: [${CONTEXT}/domain.md
         [".devbook/domain"]
     );
     check(
-        problems.some((p) => p.severity === "warning" && p.message.includes(`${CONTEXT}/actors.md has \`sync: pull\`, which no unit inherits`)),
-        "`actors.md` is allowed, and inherited by nothing",
+        !problems.some((p) => p.message.includes("which no unit inherits")),
+        "`actors.md`'s direction is inherited by the user actor on it",
         dump(problems)
     );
     check(!problems.some((p) => p.severity === "error"), "`actors.md` carrying `sync` is not an error", dump(problems));
+}
+
+{
+    const { problems } = await graphOf(
+        {
+            [`${CONTEXT}/actors.md`]: `# Actors\n\n${fence("type: actors\nsync: pull\n")}\n## Card Issuer\n\n${fence("type: organisation\n")}\nProse.\n`,
+        },
+        [".devbook/domain"]
+    );
+    check(
+        problems.some((p) => p.severity === "warning" && p.message.includes(`${CONTEXT}/actors.md has \`sync: pull\`, which no unit inherits`)),
+        "an `actors.md` of organisations only is allowed, and inherited by nothing",
+        dump(problems)
+    );
 }
 
 {

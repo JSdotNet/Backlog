@@ -8,10 +8,12 @@
 // Dependency-free ESM against node built-ins, like everything else here.
 
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { CHANGES_ROOT, changePathParts, chapterHash, parseDocument, slugify } from "./metadata.mjs";
+import { CHANGES_ROOT, changePathParts, chapterFingerprint, parseDocument, slugify } from "./metadata.mjs";
 import { changeFingerprint } from "./delta.mjs";
+import { demoReader } from "./demo.mjs";
 
 const USAGE = `chapter-hash.mjs — the content fingerprint of an addressed chapter
 
@@ -26,7 +28,11 @@ const USAGE = `chapter-hash.mjs — the content fingerprint of an addressed chap
 
 Prints \`sha256:\` followed by eight lowercase hex characters. The \`meta\`
 blocks and \`annotation\` fences are excluded and whitespace is normalised, so
-a note or a reflowed paragraph does not change the value.`;
+a note or a reflowed paragraph does not change the value. Every demo the block
+belongs to is folded in: the file block of <page>.md takes <page>.demo.html, of
+context.md the context's demo.html, and any block the demos its \`demo\` field
+names — so editing a demo changes the value. A demo's managed region is left
+out, so a template refresh does not. Run it from the repository root.`;
 
 export async function main(argv) {
     const address = argv[0];
@@ -61,10 +67,14 @@ export async function main(argv) {
         return 1;
     }
 
+    // Demo paths are repository-relative, so the address is read from the
+    // working directory, which is the repository root.
+    const relPath = path.relative(process.cwd(), path.resolve(filePath)).split(path.sep).join("/");
+    const demoText = demoReader(process.cwd());
     const { chapters } = parseDocument(markdown);
     if (slug === null) {
         const file = chapters.find((entry) => entry.level === 1);
-        console.log(chapterHash(markdown, file ? file.line : 1));
+        console.log(chapterFingerprint(relPath, markdown, file ? file.line : 1, demoText));
         return 0;
     }
 
@@ -75,7 +85,7 @@ export async function main(argv) {
         return 1;
     }
 
-    console.log(chapterHash(markdown, chapter.line));
+    console.log(chapterFingerprint(relPath, markdown, chapter.line, demoText));
     return 0;
 }
 
