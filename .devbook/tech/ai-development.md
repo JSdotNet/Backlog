@@ -56,12 +56,13 @@ repository uses.
   [`backlog-tools`](#backlog-tools-plugin). `.claude/settings.json` declares the
   `jsdotnet-devbook` marketplace and enables `delivery`, `delivery-schedule`,
   and `devbook` for everyone who opens the repository; the surfaces,
-  `devbook-config`, `devbook-procedures`, and the `JSdotNet/ai-plugins` agents
-  are installed per machine.
+  `devbook-config`, and the `JSdotNet/ai-plugins` agents are installed per
+  machine.
 - **Not used** — `devbook-derived` from the same marketplace: local ADR 0004
   keeps the derived layer a build output, so nothing under `_meta/` is
   committed. The earlier `knowledge-base` and `claude-desktop` plugins are gone
-  from the repository and from every instruction file.
+  from the repository and from every instruction file. `devbook-procedures` is
+  gone too: devbook 1.19.0 folded it into the `devbook` plugin.
 - **Known gap** — `.tools/ai-tools.json` still records the retired
   `JSdotNet/Copilot` marketplace and its plugin set, not the three above. It is
   the stale inventory, not a description of what runs.
@@ -81,7 +82,7 @@ related: [".devbook/tech/ai-development.md#repository-instruction-files"]
 
 - **Used for** — the plugin-provided `flow-*`, `phase-*`, and `schedule-*`
   skills; the repository-owned procedures (the `run` recipe at
-  `.claude/skills/run-backlog/SKILL.md`, and `show`, `capture`, `debug`,
+  `.claude/skills/run-backlog/SKILL.md`, and `capture`, `diagnose`, and
   `estimate` under `.agents/skills/`) with their wrappers; the five Aspire
   skills beside them; and the `update-devbook-index` command.
 - **Why** — a skill is loaded only when its name is invoked, so a large body of
@@ -112,18 +113,21 @@ status: adopted
 type: tool
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins"]
 related: [".devbook/tech/ai-development.md#delivery-surfaces", ".devbook/tech/ai-development.md#subagents"]
-version: "1.13.0"
-date: 2026-09-30
+version: "1.18.0"
+date: 2026-10-06
 ```
 
-The `delivery` plugin: the `flow-*` skills, the shared phases they close
+The `delivery` plugin: the `flow-*` skills, the shared phases they run
 through, and the stack config they read.
 
-- **Used for** — `flow-code`, `flow-spec`, `flow-update-packages`, and
-  `flow-project`; the phases `phase-build-test`, `phase-validation`, and
-  `phase-personal-validation`; and the pull-request skills beside them. Its
-  release is stamped under `components.delivery` in `.devbook/config.json`,
-  which also holds the bindings, extensions, and policy it reads.
+- **Used for** — `flow-code` and `flow-spec`; the `phase-*` skills each flow
+  runs in order, from `phase-scope` through `phase-verify` and
+  `phase-personal-validation` to `phase-create-pr`; and the pull-request skills
+  beside them. Its release is stamped under `components.delivery` in
+  `.devbook/config.json`. The same file holds the tracker binding, the policy,
+  and one `phases` map per flow, which names the agent, skill, MCP servers, or
+  app each phase uses. Delivery 1.18.0 wrote those maps from the earlier
+  `extensions`, `delivery.roles`, and `delivery.mcp` keys.
 - **Why** — one engine for every change, configured by the repository rather
   than rewritten in it.
 
@@ -133,8 +137,8 @@ through, and the stack config they read.
 status: trial
 type: tool
 depends-on: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/ai-development.md#claude-code"]
-version: "1.13.0"
-date: 2026-09-30
+version: "1.18.0"
+date: 2026-10-06
 ```
 
 The `delivery-schedule` plugin: a catalog of `schedule-*` entry points and the
@@ -152,8 +156,8 @@ skills that register them with the host's scheduler.
 status: adopted
 type: tool
 depends-on: [".devbook/tech/ai-development.md#model-context-protocol-servers", ".devbook/tech/ai-development.md#delivery-engine"]
-version: "1.13.0"
-date: 2026-09-30
+version: "1.18.0"
+date: 2026-10-06
 ```
 
 The `delivery-surface-backlog` and `delivery-surface-dashboard` plugins: the
@@ -203,7 +207,7 @@ it pulls in per task.
 - **Used for** — `AGENTS.md`, imported by `CLAUDE.md`; the rules under
   `.agents/rules/` with their wrappers in `.claude/rules/`; and the runtime
   facts in the `run` recipe at `.claude/skills/run-backlog/SKILL.md` and the
-  `debug` procedure under `.agents/skills/`.
+  `diagnose` procedure under `.agents/skills/`.
 - **Why** — the standing brief has to stay short enough to be read every time,
   so it points at the detail rather than containing it. How the rules are
   authored once and wrapped is the adoption record's:
@@ -250,16 +254,16 @@ This repository's own plugin, `plugins/backlog-tools`, with a Claude Code manife
 ```meta
 status: adopted
 type: tool
-depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/shared.md#nodejs"]
-related: [".devbook/tech/tooling.md#devbook-meta-generator", ".devbook/tech/tooling.md#devbook-tech-inventory-scripts", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
-version: "1.16.0"
-date: 2026-10-02
+depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/shared.md#nodejs"]
+related: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/shared.md#net-aspire", ".devbook/tech/tooling.md#devbook-meta-generator", ".devbook/tech/tooling.md#devbook-tech-inventory-scripts", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
+version: "1.19.0"
+date: 2026-10-06
 ```
 
 The `devbook` plugin from `JSdotNet/devbook`, which owns the devbook folder
-convention this repository follows.
+convention this repository follows and the repository procedures.
 
-- **Used for** — all five folders under `.devbook/` at contract 25; the folder
+- **Used for** — all five folders under `.devbook/` at contract 29; the folder
   rules installed as `.agents/rules/devbook-*.md` with a wrapper per host; the
   checker at `.devbook/_tools/devbook-meta/` and the inventory scripts at
   `.devbook/_tools/devbook-tech/`; and the chapter skills (`validate`,
@@ -267,18 +271,29 @@ convention this repository follows.
   `tech-update`). Its release, contract, adopted folders, materialized files,
   and migration ledger are stamped under `components.devbook` in
   `.devbook/config.json`.
+- **Procedures** — `run`, `capture`, `diagnose`, and `estimate`, listed under
+  `components.devbook.procedures`. Each one has a body this repository wrote from
+  what it actually does, and a managed wrapper per host that the plugin
+  refreshes. `run` is a Claude Code recipe at `.claude/skills/run-backlog/SKILL.md`
+  with a Copilot twin at `.github/skills/run/SKILL.md`. The other bodies live
+  under `.agents/skills/`. The delivery engine reaches `run` through
+  `phases.flow-code.phase-verify.app`, which names the `repo:run` provider on the
+  `aspire` host. The plugin also ships `prototype`, which this repository has
+  not adopted.
 - **Why** — the convention is reusable across repositories, so it lives in one
-  versioned plugin instead of being duplicated per repository.
+  versioned plugin instead of being duplicated per repository. The procedures
+  are the seam that lets the engine start and capture the application without
+  knowing how this repository does it.
 
 ## Devbook Config
 
 ```meta
 status: adopted
 type: tool
-version: "1.13.0"
+version: "1.18.0"
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/shared.md#json"]
 related: [".devbook/tech/ai-development.md#devbook-plugin", ".devbook/tech/ai-development.md#delivery-engine"]
-date: 2026-09-30
+date: 2026-10-06
 ```
 
 The `devbook-config` plugin: the owner of `.devbook/config.json` as a whole and
@@ -294,24 +309,24 @@ of the personal overlay beside it.
 ## Devbook Procedures
 
 ```meta
-status: adopted
+status: retired
 type: tool
 version: "1.13.0"
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills"]
-related: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/shared.md#net-aspire"]
-date: 2026-09-30
+related: [".devbook/tech/ai-development.md#devbook-plugin"]
+date: 2026-10-06
 ```
 
-The `devbook-procedures` plugin: the fixed goal of each repository procedure,
-seeded once and then owned by the repository.
+The `devbook-procedures` plugin, which owned the repository procedures until
+devbook 1.19.0 folded it into the [`devbook` plugin](#devbook-plugin).
 
-- **Used for** — `run`, `show`, `capture`, `debug`, and `estimate`: a body
-  this repository wrote from what it actually does, and a managed wrapper per
-  host that the plugin refreshes. `run` is a Claude Code recipe at
-  `.claude/skills/run-backlog/SKILL.md` with a Copilot twin at
-  `.github/skills/run/SKILL.md`; the other bodies live under `.agents/skills/`.
-  `extensions.app.start` points the delivery engine at `repo:run`. Stamped under
-  `components.devbook-procedures`.
-- **Why** — the engine needs to start, show, and capture the application
-  without knowing how this repository does it; the procedure is the seam.
+- **Used for** — nothing now. The procedures are the `devbook` plugin's, and
+  that chapter lists them. Devbook migration `027-procedures-in-devbook` moved
+  the `components.devbook-procedures` stamp to `components.devbook.procedures`
+  and moved no file. In the same update, migration `002-debug-is-diagnose`
+  renamed `debug` to `diagnose`, because Claude Code ships its own `/debug`
+  command that the project skill shadowed. Migration `003-show-removed` removed
+  `show`.
+- **Why `retired`** — the plugin no longer exists on its own. This chapter
+  stays as the record of what it was.
 

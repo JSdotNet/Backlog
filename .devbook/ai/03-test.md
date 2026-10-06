@@ -18,8 +18,8 @@ related: [".devbook/ai/concepts.md#evidence-over-assertion"]
 date: 2026-09-25
 ```
 
-After build and tests pass, a code-modifying flow's Validation phase hands the change to the
-`qa` agent. It starts the application through Aspire, drives the Blazor harnesses with
+After build and tests pass, `flow-code`'s `phase-verify` hands the change to the `qa:qa`
+agent. It starts the application on Aspire through the `run` procedure, drives the Blazor harnesses with
 Playwright, and keeps a monitor on Aspire's logs and traces for the whole run, returning an
 evidence path for every scenario it reports.
 
@@ -37,24 +37,28 @@ evidence path for every scenario it reports.
 status: trial
 type: skill
 stage: [code, test]
-depends-on: [".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-development.md#devbook-procedures"]
+depends-on: [".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-development.md#devbook-plugin"]
 date: 2026-09-25
 ```
 
-How to `run` the application, `show` a branch's change, `capture` evidence, `debug` an
-observed issue, and `estimate` work are this repository's own skills, each reached through a
-wrapper per host that fixes its goal. `run` is a Claude Code recipe at
-`.claude/skills/run-backlog/SKILL.md` with a Copilot twin; the other bodies live under
-`.agents/skills/`. A flow calls `run` at its `app.start` extension instead of guessing a
+How to `run` the application, `capture` evidence, `diagnose` an observed issue, and
+`estimate` work are this repository's own skills. Each is reached through a wrapper per host
+that fixes its goal. `run` is a Claude Code recipe at `.claude/skills/run-backlog/SKILL.md`
+with a Copilot twin at `.github/skills/run/SKILL.md`. The other bodies live under
+`.agents/skills/`. The devbook stamp lists the four under `components.devbook.procedures`.
+`flow-code`'s `phase-verify` starts the application through `run` instead of guessing a
 command.
 
-- **Used for** — starting the AppHost the way `run` says, walking a
-  change for a reviewer, and finding a cause from logs and traces without handing the person
-  a debugger.
+- **Used for** — starting the AppHost the way `run` says, taking evidence of a change, and
+  finding a cause from logs and traces without handing the person a debugger.
 - **Adopted by** — the flows, since the procedures were seeded on 2026-09-25. The `start`
-  procedure became the `run` recipe on 2026-09-30.
+  procedure became the `run` recipe on 2026-09-30. With devbook 1.19 the `debug` procedure
+  became `diagnose`, because a `debug` project skill shadowed Claude Code's own `/debug`.
+  The `show` procedure was removed in the same change: a flow walks a change through `run`
+  and `capture`, and a person on Claude Code who wants to see it working uses `/verify`.
 - **Evidence** — none yet beyond the flows that started the application this way.
-- **Limits** — the body is the repository's to edit; the goal in the wrapper is not.
+- **Limits** — the body is the repository's to edit; the goal in the wrapper is not. Devbook
+  also ships a `prototype` procedure, which this repository deliberately has not adopted.
 
 ## Devbook checks around a flow
 
@@ -67,9 +71,10 @@ related: [".devbook/ai/05-unattended-runs.md#scheduled-devbook-upkeep"]
 date: 2026-09-25
 ```
 
-The stack config hangs the devbook skills on the flows' extension points: `devbook:validate`
-when a session starts, `devbook:verify-change` as the flow's `verify` step — does the chapter
-still say what the code does — and `devbook:update` when a flow ends.
+The flows' `phases` maps in `.devbook/config.json` hang the devbook skills on three phases.
+`devbook:validate` runs as a chore before `phase-update-base`. `devbook:verify-change` is
+`flow-code`'s `phase-spec-check` and asks whether the chapter still says what the code does.
+`devbook:update` runs as a chore after `phase-summary`.
 
 - **Used for** — catching a chapter the change left behind before the person reviews it.
 - **Adopted by** — every flow run since 2026-09-25.

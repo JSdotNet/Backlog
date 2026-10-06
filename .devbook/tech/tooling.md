@@ -283,7 +283,7 @@ Automated dependency and security updates.
 ```meta
 status: adopted
 type: tool
-version: "1.16.0"
+version: "1.19.0"
 depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#json", ".devbook/tech/ai-development.md#devbook-plugin"]
 related: [".devbook/tech/tooling.md#github-actions", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
 ```
@@ -298,7 +298,14 @@ references between chapters.
   modules. Not hand-written here: `devbook:init` materialized it under
   `.devbook/_tools/devbook-meta/` and `devbook:update` refreshes it. Beside it,
   `units.mjs --groups` lists the sync units, their effective `sync` direction,
-  and the orphans and set-aside groups the sync sweeps would skip.
+  and the orphans and set-aside groups the sync sweeps would skip. Since 1.19.0
+  the check also lints every click demo (`*.demo.html`) and resolves each `demo`
+  address against it.
+- **Parse** — 1.19.0 changed how a chapter is read. A `#` line inside a code
+  fence no longer starts a chapter, and a comma inside a quoted list entry stays
+  part of that entry. Pull request #1021 ported both rules to the
+  [Devbook Database Writer](#devbook-database-writer), so its two writers still
+  parse the way the generator does.
 - **Why** — it is what turns the metadata convention into something checkable,
   and it is where a broken reference is caught.
 - **How** — `.github/workflows/devbook-meta.yml`, installed beside it, runs the
