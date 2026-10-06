@@ -23,7 +23,7 @@ Before the first write under `src/` or `tests/`, a session routes the work throu
 delivery engine's `flow-code`, whatever the size of the request and whether or not it has a
 specification. The flow derives the kind — feature, fix, refactor, config — in its first
 stage, implements, runs build, tests and validation, and stops at Personal Validation.
-Dependency moves go to `flow-update-packages` instead.
+Dependency moves go through `flow-code` too: delivery 1.18.0 ships no separate packages flow.
 
 - **Used for** — every feature, fix, refactor, and tooling change.
 - **Adopted by** — every agent session in this repository.
@@ -165,8 +165,8 @@ depends-on: [".devbook/tech/ai-development.md#delivery-surfaces"]
 date: 2026-09-25
 ```
 
-Every flow run opens on each bound delivery surface — the Backlog app's Sessions pane and a
-local run dashboard — and records its stages, their output, the QA scenarios with their
+Every flow run opens on each bound delivery surface — the Backlog app's Sessions pane, with
+`delivery-run-view` drawing the same run inside Claude Code — and records its stages, their output, the QA scenarios with their
 evidence, and the Personal Validation decision there as it goes.
 
 - **Used for** — watching a run, and reattaching a resumed session to the run it left.
