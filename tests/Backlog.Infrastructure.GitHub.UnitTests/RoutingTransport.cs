@@ -30,6 +30,9 @@ internal sealed class RoutingTransport : IGitHubTransport
     /// <summary>Every path asked for, in order.</summary>
     public List<string> Paths { get; } = [];
 
+    /// <summary>The method of each call, in the order of <see cref="Paths"/>.</summary>
+    public List<HttpMethod> Methods { get; } = [];
+
     /// <summary>Every body sent, serialised, in the order of <see cref="Paths"/>;
     /// null where a call sent none. For the cases where what was sent is the point.</summary>
     public List<string?> Bodies { get; } = [];
@@ -92,6 +95,7 @@ internal sealed class RoutingTransport : IGitHubTransport
         CancellationToken cancellationToken = default)
     {
         Paths.Add(path);
+        Methods.Add(method);
         ApiVersions.Add(apiVersion);
         Bodies.Add(body is null ? null : JsonSerializer.Serialize(body));
 

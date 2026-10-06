@@ -203,7 +203,7 @@ A finished task stays readable rather than hidden; how it is set is the rule lin
     <Story Name="A linked task, and what the source said"
            Description="A task that came in from another system carries its `Source`, and the row draws the source badge from it at the head of its badge slot, outside the row's open button so the link can be followed without opening the row.
 
-What the sync noticed and left in place goes on the metadata line, after a hand-set block: the source's own word that the item is blocked, with its reason as the text; removed at the source; done here while the source holds it open; and several plan labels. Each has a glyph of its own, because each is a different reason the task and its source disagree.
+What the sync noticed and left in place goes on the metadata line, after a hand-set block: the source's own word that the item is blocked, with its reason as the text; removed at the source; that the source refused to complete the item when the task was finished here, with the source's reason; done here while the source holds it open; and several plan labels. Each has a glyph of its own, because each is a different reason the task and its source disagree.
 
 A connector this build does not know draws its key under the neutral badge, and a task with no source draws none."
            Code="@LinkedCode">
@@ -464,7 +464,7 @@ It exists for the row that was projected from a document the task itself does no
         new("t5", "Ship the installer @bob #deploy", Group: "Tasks", Tags: ["@bob", "deploy"])
     ];
 
-    /// <summary>Linked tasks: one per flag the sync can leave, one from a connector
+    /// <summary>Linked tasks: one per flag the sync or the write-back can leave, one from a connector
     /// this build does not know, and one local task for contrast.</summary>
     private static readonly IReadOnlyList<TaskRow> Linked =
     [
@@ -476,6 +476,12 @@ It exists for the row that was projected from a document the task itself does no
             Source: new("SPEC-87", "https://example.com/backlog/87", "Spec manager", null, "color-secondary") { RemovedAtSource = true }),
         new("l4", "Write the release notes", Done: true, Group: "Tasks",
             Source: new("#420", "https://example.com/issues/420", "GitHub", "github", "color-primary-light") { DoneHereOpenAtSource = true }),
+        new("l8", "Close the onboarding issue", Done: true, Group: "Tasks",
+            Source: new("#421", "https://example.com/issues/421", "GitHub", "github", "color-primary-light")
+            {
+                DoneHereOpenAtSource = true,
+                WriteBackRefusal = "GitHub refused (403): Resource not accessible by personal access token"
+            }),
         new("l5", "Plan the beta", Group: "Tasks", Tags: ["+beta"],
             Source: new("SPEC-90", "https://example.com/backlog/90", "Spec manager", null, "color-secondary") { SeveralPlanLabels = true }),
         new("l6", "Triage the import bug", Group: "Tasks", Source: new("JIRA-301", "https://example.com/browse/JIRA-301")),

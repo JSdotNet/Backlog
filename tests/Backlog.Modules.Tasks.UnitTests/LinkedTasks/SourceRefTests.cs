@@ -36,6 +36,7 @@ public sealed class SourceRefTests
         Assert.NotEqual(reference, reference with { Blocked = true });
         Assert.NotEqual(reference with { Blocked = true }, reference with { Blocked = true, BlockedReason = "Waits on #3" });
         Assert.NotEqual(reference, reference.WithFlag(LinkedTaskFlags.Vanished, set: true));
+        Assert.NotEqual(reference, reference with { WriteBackRefusal = "GitHub refused (403)" });
         Assert.NotEqual(reference, reference with { WaitsOn = ["I_2"] });
     }
 
@@ -49,6 +50,19 @@ public sealed class SourceRefTests
         Assert.Equal(first.GetHashCode(), second.GetHashCode());
         Assert.Equal(["I_2", "I_3"], first.WaitsOn);
         Assert.Empty(Reference().WaitsOn);
+    }
+
+    [Fact]
+    public void A_blank_write_back_refusal_is_no_refusal_and_two_equal_refusals_are_equal()
+    {
+        Assert.Null((Reference() with { WriteBackRefusal = "  " }).WriteBackRefusal);
+
+        var first = Reference() with { WriteBackRefusal = " GitHub refused (403) " };
+        var second = Reference() with { WriteBackRefusal = "GitHub refused (403)" };
+
+        Assert.Equal("GitHub refused (403)", first.WriteBackRefusal);
+        Assert.Equal(first, second);
+        Assert.Equal(first.GetHashCode(), second.GetHashCode());
     }
 
     [Fact]

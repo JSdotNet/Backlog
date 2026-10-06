@@ -309,6 +309,42 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Equal(read, TaskPayloads.ReadSourceRef(written));
     }
 
+    /// <summary>Why the source refused to finish the item comes back with the
+    /// reference, so a task shows it after a restart.</summary>
+    [Fact]
+    public async Task A_write_back_refusal_round_trips_with_the_reference()
+    {
+        var task = new TaskItem("Refused at the source", string.Empty, EntryType.Task);
+        task.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_4", "u", "#4", null, "open", Noon)
+        {
+            WriteBackRefusal = "GitHub refused (403): Resource not accessible by personal access token",
+        });
+
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = (await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.SourceRef!;
+
+        Assert.Equal("GitHub refused (403): Resource not accessible by personal access token", loaded.WriteBackRefusal);
+        Assert.Equal(task.SourceRef, loaded);
+    }
+
+    /// <summary>A <c>source_ref</c> written before refusals were kept reads with
+    /// none, and one with no refusal writes no member, so its JSON is what it was
+    /// before.</summary>
+    [Fact]
+    public void A_source_reference_written_before_refusals_were_kept_reads_with_none()
+    {
+        const string older = """
+            {"ConnectorId":"github","Target":"JSdotNet/Backlog","ExternalId":"I_1","Url":"u","DisplayKey":"#1",
+             "SourceState":"open","SourceUpdatedAt":"2026-10-01T08:00:00+00:00","NormalisedState":"open","SourceTitle":"T"}
+            """;
+
+        var read = TaskPayloads.ReadSourceRef(older);
+
+        Assert.NotNull(read);
+        Assert.Null(read.WriteBackRefusal);
+        Assert.DoesNotContain("WriteBackRefusal", TaskPayloads.WriteSourceRef(read), StringComparison.Ordinal);
+    }
+
     /// <summary>Status is rehydrated through the constructor, so loading an
     /// in-progress row written before <c>started_on</c> existed does not invent a
     /// start date of today — there is no backfill.</summary>

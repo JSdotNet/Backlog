@@ -228,9 +228,11 @@ else
             target.TitleFollowsSource,
             target.PromoteArchivesOriginal,
             (int)Math.Max(1, Math.Round(target.SyncInterval.TotalMinutes)),
-            target.SkipUntouchedOlderThan is { } skip ? (int)Math.Round(skip.TotalDays) : null)
+            target.SkipUntouchedOlderThan is { } skip ? (int)Math.Round(skip.TotalDays) : null,
+            target.CompleteAtSource)
         {
             Icon = Sources.Find(target.ConnectorId)?.Icon,
+            CanCompleteAtSource = Sources.CanComplete(target.ConnectorId),
             LastSynced = target.LastSyncedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
         };
 
@@ -260,6 +262,7 @@ else
             AssignedToMeByDefault = options.AssignedToMeByDefault,
             TitleFollowsSource = options.TitleFollowsSource,
             PromoteArchivesOriginal = options.PromoteArchivesOriginal,
+            CompleteAtSource = options.CompleteAtSource,
             SyncInterval = TimeSpan.FromMinutes(options.SyncIntervalMinutes),
             SkipUntouchedOlderThan = options.SkipUntouchedOlderThanDays is { } days ? TimeSpan.FromDays(days) : null,
         });

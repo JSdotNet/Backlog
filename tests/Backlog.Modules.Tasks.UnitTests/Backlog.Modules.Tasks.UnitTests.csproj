@@ -6,6 +6,12 @@
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The write-back's grace and its debounced follow-up sync are driven by a
+         clock whose timers fire when the test advances it. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
   <!-- The shared test doubles this project uses. Linked per project rather than
        from tests/Directory.Build.props: a double that implements a product
        interface only compiles in a project that references it. -->

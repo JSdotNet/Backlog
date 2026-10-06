@@ -103,6 +103,7 @@ public sealed class SubItemTypedIntoEntryEditorTests : IDisposable
 
         foreach (var dir in _tempDirs.Where(Directory.Exists))
         {
+            TestDatabases.Release(dir);
             try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
         }
     }

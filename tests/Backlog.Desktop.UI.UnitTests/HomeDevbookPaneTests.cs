@@ -255,6 +255,7 @@ public sealed class HomeDevbookPaneTests
         public async ValueTask DisposeAsync()
         {
             await Context.DisposeAsync();
+            TestDatabases.Release(Root);
 
             try
             {

@@ -46,6 +46,7 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
     {
         if (Directory.Exists(_tempDir))
         {
+            TestDatabases.Release(_tempDir);
             try { Directory.Delete(_tempDir, recursive: true); } catch (IOException) { }
         }
     }

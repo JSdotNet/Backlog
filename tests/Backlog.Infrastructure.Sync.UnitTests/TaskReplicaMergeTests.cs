@@ -675,6 +675,33 @@ public sealed class TaskReplicaMergeTests
         Assert.Null(TaskReplicaMerge.ToPayload(free).SourceRef!.WaitsOn);
     }
 
+    /// <summary>Why the source refused to finish the item crosses the wire, so the
+    /// person's other machine shows it too; a document from an older build carries
+    /// none and reads with none, and a reference with none sends no member.</summary>
+    [Fact]
+    public void A_write_back_refusal_round_trips_through_the_wire_shape()
+    {
+        var task = TaskChanges.Task("Refused", Noon);
+        task.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_10", "u", "#10", null, "open", Noon)
+        {
+            WriteBackRefusal = "GitHub refused (403): Resource not accessible by personal access token",
+        });
+        task.LoadStamps(Noon, null);
+
+        var change = TaskReplicaMerge.ToChange(task);
+        Assert.Equal("GitHub refused (403): Resource not accessible by personal access token", change.Task.SourceRef!.WriteBackRefusal);
+        Assert.Equal(task.SourceRef, TaskReplicaMerge.ToTaskItem(change).SourceRef);
+
+        var older = change with { Task = change.Task with { SourceRef = change.Task.SourceRef with { WriteBackRefusal = null } } };
+        Assert.Null(TaskReplicaMerge.ToTaskItem(older).SourceRef!.WriteBackRefusal);
+
+        var options = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)
+        {
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        };
+        Assert.DoesNotContain("writeBackRefusal", System.Text.Json.JsonSerializer.Serialize(older.Task.SourceRef, options), StringComparison.Ordinal);
+    }
+
     /// <summary>A local task writes no source reference — its document serialises
     /// as it did before — and a document from a build that never heard of one reads
     /// as local work.</summary>

@@ -67,6 +67,7 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         _provider.Dispose();
         if (Directory.Exists(_tempDir))
         {
+            TestDatabases.Release(_tempDir);
             try { Directory.Delete(_tempDir, recursive: true); } catch (IOException) { }
         }
     }
