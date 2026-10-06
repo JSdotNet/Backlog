@@ -5381,7 +5381,7 @@ h1, h2, h3 {
 
 .roadmap-hours__stretch {
     display: grid;
-    grid-template-columns: auto auto auto minmax(0, 1fr);
+    grid-template-columns: auto auto minmax(0, 1fr);
     align-items: baseline;
     gap: var(--spacing-sm);
     font-size: var(--font-size-sm);
@@ -5389,21 +5389,6 @@ h1, h2, h3 {
 
 .roadmap-hours__turns {
     color: var(--color-text-secondary);
-}
-
-.roadmap-hours__sessions {
-    color: var(--color-text-secondary);
-    overflow-wrap: anywhere;
-}
-
-@media (max-width: 40rem) {
-    .roadmap-hours__stretch {
-        grid-template-columns: auto auto minmax(0, 1fr);
-    }
-
-    .roadmap-hours__sessions {
-        grid-column: 1 / -1;
-    }
 }
 
 /* The waves a roadmap item's gathered entries fall into — the plan review's Order

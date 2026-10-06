@@ -313,7 +313,7 @@ The system SHALL let the person open, from the hours on a begun day or week head
 
 - **Given** today is Monday 5 October and Thursday 1 October's head reads "4.0h"
 - **When** the person presses "4.0h"
-- **Then** the report opens on 28 September to 4 October, Thursday's total reads 4.0h, and its stretches each show when they ran, how long they count, their prompts and their sessions
+- **Then** the report opens on 28 September to 4 October, Thursday's total reads 4.0h, and its stretches each show when they ran, how long they count and their prompts
 
 #### Scenario: The day head still toggles
 

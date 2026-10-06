@@ -774,4 +774,4 @@ The implementing `flow-code` run turns these into tests:
     after a worked Wednesday counts 2 hours outside on that Wednesday.
 45. **A head's hours open the week's report.** Pressing "4.0h" on Thu 1 Oct
     opens the report of 28 Sep to 4 Oct. Thursday's total reads 4.0h, its
-    stretches add up to it, and each names its sessions. The day stays unblocked.
+    stretches add up to it, and each counts its prompts. The day stays unblocked.
