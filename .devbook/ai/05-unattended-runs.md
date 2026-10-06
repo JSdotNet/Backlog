@@ -166,7 +166,7 @@ tests.
 - **Used for** — keeping dependencies current without a person starting the work.
 - **Adopted by** — the schedule, since 2026-09-26; Dependabot still runs beside it.
 - **Evidence** — it has fired once; no pull request yet.
-- **Limits** — no major versions; a major move is an attended `flow-update-packages` run.
+- **Limits** — no major versions; a major move is an attended `flow-code` run.
 
 ## Scheduled reports
 

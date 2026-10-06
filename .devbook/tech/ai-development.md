@@ -160,12 +160,14 @@ version: "1.18.0"
 date: 2026-10-06
 ```
 
-The `delivery-surface-backlog` and `delivery-surface-dashboard` plugins: the
-MCP servers a flow run reports its stages to, released together with the engine.
+The `delivery-surface-backlog` plugin: the MCP server a flow run reports its
+stages to, released together with the engine, and `delivery-run-view`, which
+draws the same run files inside Claude Code.
 
 - **Used for** — `delivery-surface-backlog`, which records the run in the
-  Backlog desktop app's Sessions pane, and `delivery-surface-dashboard`, a local
-  web page with the run, its diagrams, and its documents.
+  Backlog desktop app's Sessions pane, and `delivery-run-view`, a `/flows` pane
+  with one row per phase. `delivery-surface-dashboard`, the local web page with
+  the run, its diagrams, and its documents, is no longer installed.
 - **Why** — a run is otherwise invisible, and the surface's run record is what a
   resumed session reattaches to.
 
