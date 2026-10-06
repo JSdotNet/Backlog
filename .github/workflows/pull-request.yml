@@ -5,8 +5,11 @@ on:
   # again: the required checks on its head commit already count.
   pull_request:
     types: [opened, synchronize, reopened]
+    # plan/** is execute-plan's integration branch: it merges each entry there once
+    # these checks are green, so they must run there too.
     branches:
       - main
+      - plan/**
   workflow_dispatch:
 
 permissions:

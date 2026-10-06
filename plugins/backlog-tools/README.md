@@ -55,13 +55,20 @@ for the remarks a person leaves while reading.
   tokens draw, and changes nothing itself: each `prompt` entry whose prerequisites are done
   goes to its own sub-agent, briefed by `skills/execute-plan/assets/item-brief.md`,
   which makes its own worktree and runs the entry through `run-plan-item` — so every
-  entry passes the repository's gate and its own Personal Validation, which the orchestrator
-  relays to the person. Entries that wait on nothing run in parallel. An entry is done when
-  its pull request merges; the orchestrator then moves it to Done and starts what waited on
-  it. It stops at `task` and `test` entries, listing what they hold up, and resumes from the
-  plan's state when invoked again. In branch mode the entry pull requests target one
-  `plan/<tag>` branch, the orchestrator merges each approved one into it, and the plan ends in
-  a single pull request to the base branch. User-invoked only. The `UserPromptSubmit` hook
+  entry passes the repository's gate and its own Personal Validation. Entries that wait on
+  nothing run in parallel. An entry is done when its pull request merges; the orchestrator
+  then moves it to Done and starts what waited on it. It stops at `task` and `test` entries,
+  listing what they hold up, and resumes from the plan's state when invoked again. Three
+  landing modes, defined in `skills/execute-plan/assets/landing-modes.md`: *per item*, each
+  pull request to the base branch; *branch*, each into one `plan/<tag without its +>` branch that the
+  orchestrator merges into, ending in a single pull request to the base branch; and
+  *stacked*, each cut from and targeting its predecessor's branch, so a chain runs before
+  anything merges and the person merges bottom-up. *Attended*, the orchestrator relays each
+  Personal Validation to the person; *unattended* (branch or stacked), each entry parks at
+  its gate and lands as a draft pull request whose body is the review handoff, so the whole
+  plan runs without anyone present and Personal Validation happens on the drafts — in branch
+  mode on the closing draft to the base branch. A failed entry blocks only what depends on
+  it. User-invoked only. The `UserPromptSubmit` hook
   stays quiet on a prompt that names this skill, so a pasted plan is not mistaken for one item.
 - **`import-inbox`** — turns an export from another to-do tool into an inbox import
   manifest (ADR 0017:
