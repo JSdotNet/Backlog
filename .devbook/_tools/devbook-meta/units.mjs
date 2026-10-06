@@ -2,8 +2,8 @@
 //
 // A sync unit is what one verify pass covers and one pull request changes: an
 // aggregate with everything it owns and every rule that names it, a domain
-// service the same way, a feature, a switch, a building block, a design
-// component, and one shared-types unit per context. A group is the units a
+// service the same way, a feature, a switch, a user or technical actor, a
+// building block, a design component, and one shared-types unit per context. A group is the units a
 // requirement naming two aggregates and no feature ties together. Each unit
 // carries its effective `sync` direction and the block it came from; a group's
 // direction is the roll-up of its units'. The rules are "Sync direction" in
@@ -27,8 +27,10 @@ export const DEFAULT_MAX_GROUP_CHAPTERS = 40;
 /** The version of the JSON this tool prints. */
 export const UNITS_SCHEMA_VERSION = 1;
 
-// The unit kinds, by the `type` of their root chapter in `domain/`.
-const DOMAIN_ROOT_KINDS = ["aggregate", "domain-service", "feature", "feature-flag", "setting"];
+// The unit kinds, by the `type` of their root chapter in `domain/`. A `user`
+// and a `technical` chapter run as the `actor` converter kind; an
+// `organisation` roots no unit and stays context.
+const DOMAIN_ROOT_KINDS = ["aggregate", "domain-service", "feature", "feature-flag", "setting", "user", "technical"];
 
 // The roots a requirement or an event can name to belong to — or, two of them
 // with no feature, to join.
@@ -276,8 +278,8 @@ export function collectUnits(graph) {
     orphans.sort(byId);
     ties.sort((a, b) => (a.requirement < b.requirement ? -1 : 1));
 
-    // A stated direction no unit resolved to: `actors.md` today, or a level
-    // every unit under states its own.
+    // A stated direction no unit resolved to: an `actors.md` of organisations
+    // only, or a level every unit under states its own.
     const used = new Set(list.map((unit) => unit.syncFrom).filter(Boolean));
     const unused = [...nodes.values()]
         .filter((node) => SYNC_DIRECTIONS.includes(node.sync) && !used.has(node.id) && !units.has(node.id))

@@ -50,12 +50,24 @@ function normalize(text) {
 /**
  * The line range `[start, end)` of one chapter — its heading through to the
  * next heading at the same or a higher level. Without a slug, the whole file.
+ * A `#` line inside a fenced block — a Markdown sample, a diagram — is content,
+ * not a heading.
  */
 function chapterRange(lines, slug) {
     if (!slug) return [0, lines.length];
     let start = -1;
     let level = 0;
+    let fence = null;
     for (let i = 0; i < lines.length; i++) {
+        const marker = /^\s*(`{3,}|~{3,})/.exec(lines[i]);
+        if (fence) {
+            if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+            continue;
+        }
+        if (marker) {
+            fence = marker[1];
+            continue;
+        }
         const heading = /^(#{1,6})\s+(.*)$/.exec(lines[i]);
         if (!heading) continue;
         if (start === -1) {

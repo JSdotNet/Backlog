@@ -26,18 +26,18 @@ below stays as written. A later contract, procedure, or schedule change is a
 stack update recorded in `.devbook/config.json`, not a new decision (see
 Consequences).
 
-| Part of the decision | Where it stands on 2026-09-30 |
+| Part of the decision | Where it stands on 2026-10-06 |
 |---|---|
-| Five folders under `.devbook/`, contract 17 | Built (#645). The contract has since moved with the plugin, as the Consequences allow: 18 in #674 (1.9.0), 19 in #781 (1.10.0), 24 in #854 (1.13.0), and **25** with the `sync` field and `units.mjs` (1.16.0) |
+| Five folders under `.devbook/`, contract 17 | Built (#645). The contract has since moved with the plugin, as the Consequences allow: 18 in #674 (1.9.0), 19 in #781 (1.10.0), 24 in #854 (1.13.0), 25 with the `sync` field and `units.mjs` (1.16.0), and **29** in #1021 (1.19.0) |
 | `ai/` created | Built: scaffolded in #645 and filled by the plan's `write-ai-adoption-record` |
 | Derived layer stays a local build output | Built (ADR 0004; in app storage since ADR 0015) |
-| Writer imports the installed generator | Built for the `.devbook/` layout (`tools/devbook/generator.mjs`) |
-| Four procedures | Built, and grown to **five**. #645 adopted `start`, `show`, `capture`, and `debug`; `estimate` joined on 2026-09-26 (#667); 1.13.0 moved `start` to the `run` recipe in `.claude/skills/run-backlog/` (#854). `components.devbook-procedures` adopts `run`, `show`, `capture`, `debug`, and `estimate` |
+| Writer imports the installed generator | Built for the `.devbook/` layout (`tools/devbook/generator.mjs`). The 1.19.0 parse change is ported to `build-database.mjs` and the C# builder (#1021) |
+| Four procedures | Built, and **four** again after two changes. #645 adopted `start`, `show`, `capture`, and `debug`. `estimate` joined on 2026-09-26 (#667), and 1.13.0 moved `start` to the `run` recipe in `.claude/skills/run-backlog/` (#854). In #1021 devbook 1.19.0 folded `devbook-procedures` into `devbook`, renamed `debug` to `diagnose`, and removed `show`. `components.devbook.procedures` adopts `run`, `capture`, `diagnose`, and `estimate` |
 | Schedule catalog enabled as it shipped | Built with two exceptions. **Eleven of the thirteen** catalog schedules are enabled under `components.schedule`. `security-review` stays unselected at the owner's decision, because CodeQL and Dependabot run in CI instead. `devbook-update`, which 1.10.0 added, was not taken (#781). The schedules run on the local scheduler since #781 |
 | `devbook-collaboration` enabled (asked by `decide-adoption-scope`) | Dropped at the owner's decision, recorded in the plan's `unblock-routines` item on 2026-09-28. It is not installed or stamped here |
 | `.backlog/` retired | Built (`move-and-install`): the folder is gone; `DevbookFolder.Backlog` stays |
 | `_reading-order.json` retired, all six | Built (`move-and-install`): all six are gone and ignored in any repository; both writers take the order from the generator's convention, `reading-order.mjs` is gone, and `01-introduction-and-goals.md` and the `adr/` READMEs carry `index: root` |
-| Delivery engine replaces the orch-* gate | Built: `bindings["delivery.roles"]` and `extensions` are written (#674), and `CLAUDE.md` routes the gate through the four `delivery:flow-*` flows (#730) |
+| Delivery engine replaces the orch-* gate | Built: `bindings["delivery.roles"]` and `extensions` were written (#674), and `CLAUDE.md` routes the gate through the `delivery:flow-*` flows (#730). In #1021 delivery 1.18.0 rewrote those keys and `bindings["delivery.mcp"]` into one `phases` map per flow in `.devbook/config.json`. Each phase there names its agent, so the role table in the Decision now lands as phase agents, such as `architecture:architect` for `phase-scope` |
 
 ## Context
 
@@ -188,7 +188,10 @@ revisit that decision.
   `CLAUDE.md`, the instruction files, and the two orch-context copies must stop
   describing the old layout and the old gate
   (`sweep-instruction-and-doc-references`, `reroute-orchestration-gate`).
-  `bindings.delivery.roles` must be written as the table above.
+  `bindings.delivery.roles` must be written as the table above. Amended in
+  #1021: delivery 1.18.0's `001-phase-maps` migration replaced that key with
+  the `phases` maps, so each role in the table is now the agent of the phases
+  it ran — see the status table.
 - A root-level spelling (`.arc42/…`) is legitimate in only two places: the
   product's layout fallback, and records that describe the history, such as
   this one or ADR 0008's amendment. Anywhere else it is stale.

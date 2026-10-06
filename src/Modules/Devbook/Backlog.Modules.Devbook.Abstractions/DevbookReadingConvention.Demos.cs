@@ -15,7 +15,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// <c>demo: [&lt;path&gt;#&lt;id&gt;, …]</c> (<c>devbook-chapter-metadata.md</c>).</para>
 ///
 /// <para><c>tools/devbook/build-database.mjs</c> states the same two rules for the
-/// Node writer — the installed generator knows nothing of demos — and
+/// Node writer — it may run an older generator that knows nothing of demos — and
 /// <c>DevbookBuilderParityTests</c> holds the two to each other.</para>
 /// </summary>
 public static partial class DevbookReadingConvention
@@ -85,9 +85,9 @@ public static partial class DevbookReadingConvention
     /// A <c>demo</c> field's entries, as the metadata parse leaves them, as the
     /// places they name.
     ///
-    /// <para>The parse splits a list on every comma, and an address whose
-    /// <c>flags</c> names two keys holds one: the rule says to quote it, and the
-    /// parse splits it anyway. So an entry whose path is not a demo's continues the
+    /// <para>The parse splits a list on every comma outside quotes, and an address
+    /// whose <c>flags</c> names two keys holds one: the rule says to quote it, and
+    /// an unquoted one is split there. So an entry whose path is not a demo's continues the
     /// one before it, and is joined back on with the comma it lost. An entry that
     /// starts no address and follows none is not one and is dropped.</para>
     /// </summary>

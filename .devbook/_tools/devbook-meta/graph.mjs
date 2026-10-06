@@ -36,6 +36,7 @@ import {
 } from "./metadata.mjs";
 import { loadStatusLadder } from "./statuses.mjs";
 import { changeDecisionIssues, changeFiles, checkDelta, readChange } from "./delta.mjs";
+import { demoProblems, demoReader, requirementScenarios } from "./demo.mjs";
 
 /**
  * Every devbook folder this convention recognizes, as the repository path it
@@ -183,7 +184,40 @@ export { DEVBOOK_FOLDER_NAMES, DEVBOOK_ROOT, CHANGES_ROOT };
 // `related` names no aggregate or domain service raising it. Absent means
 // `report`, today's behaviour, so nothing written under 24 stops validating
 // and no migration is owed.
-export const CONTRACT_VERSION = 25;
+//
+// Version 26 learns the click demos: the optional `demo` field on any chapter
+// and on a change's `proposal.md` and `solution.md`, each address resolved
+// against the demo's `demo-model`, and a requirement's walkthrough held to one
+// of its own scenarios. Every `*.demo.html` keeps the HTML contract — its
+// screens and anchors listed in `demo-model` once, no script outside the
+// template's managed region but `demo-model` and `demo-meta`, nothing fetched,
+// one variant under domain/, and 500 KB as a warning — and a page-named demo
+// sits beside its page. A demo is folded into the fingerprint of the blocks it
+// belongs to, so editing one lifts their approval. A corpus with no demo and no
+// `demo` field validates and fingerprints exactly as under 25, and no
+// migration is owed.
+//
+// Version 27 changes no chapter: the procedures fold into devbook, so their
+// stamp entry moves from `components.devbook-procedures` to
+// `components.devbook` — `procedures.adopted` beside the folders' `adopted`,
+// and every procedure file in devbook's `materialized`, hashes kept. It ships
+// as `migrations/027-procedures-in-devbook/`, with the procedures' own
+// `001`–`004` carried over under their shipped ids.
+//
+// Version 28 makes a `user` and a `technical` actor chapter a sync unit's
+// root, for the `actor` converter kind: `sync` is legal on them, and a value
+// on `actors.md` is inherited by its users and technical actors. An
+// `organisation` roots no unit, so `sync` on one is still refused and an
+// `actors.md` of organisations only is still warned. Additive: a corpus
+// written under 27 validates unchanged, and no migration is owed.
+//
+// Version 29 leaves a demo's managed region out of every fingerprint, so
+// `demo-template.mjs --refresh` lifts no approval, and reads `demo-model` only
+// in the shape the template's authoring reference states. A corpus with no
+// demo fingerprints as under 28. A page approved over a demo under 28 reads as
+// changed once and is approved again; demos are days old and no migration is
+// owed for a value the approval gate rewrites.
+export const CONTRACT_VERSION = 29;
 
 // The oldest contract a reconcile still carries forward. A migration lives
 // for the major version it ships in: a major release raises this to the
@@ -313,7 +347,10 @@ const ATTRIBUTE_FIELDS = [
 // names something in a test project, not a chapter, so it produces no edge — the
 // same reason `role`, `roadmap`, and `.ai`'s `stage` stay attributes — a `role`
 // names something in the authorization configuration.
-const LIST_ATTRIBUTE_FIELDS = ["role", "roadmap", "stage", "tests"];
+//
+// `demo` is here for the same reason: it names a place in a click demo, which
+// is HTML and no node. demo.mjs resolves each address against the demo itself.
+const LIST_ATTRIBUTE_FIELDS = ["role", "roadmap", "stage", "tests", "demo"];
 
 // Fields authored as an integer scalar. The parser hands back the raw string,
 // so they are coerced here and a viewer can sum or threshold them directly.
@@ -461,6 +498,10 @@ export async function buildGraph(repoRoot, folders = null) {
     // carries — resolved once the whole corpus is read.
     const anchors = new Map();
     const links = [];
+    // Every block carrying a `demo` field, resolved against the demos once the
+    // corpus is read; and the reader both that and the fingerprints share.
+    const demoHolders = [];
+    const demoText = demoReader(repoRoot);
 
     const layout = folders ? null : await discoverLayout(repoRoot);
     const scanned = folders ?? layout.folders;
@@ -555,19 +596,27 @@ export async function buildGraph(repoRoot, folders = null) {
         // open questions are read across the proposal and every delta.
         const proposalOf = changePathParts(relPath)?.part === "proposal" ? await readChange(repoRoot, changePathParts(relPath).name) : null;
         const fileIssues = delta
-            ? (await checkDelta(repoRoot, relPath, raw, { ladder })).issues
+            ? (await checkDelta(repoRoot, relPath, raw, { ladder, demoText })).issues
             : proposalOf
               ? [
                     ...validateDocument(relPath, raw, { ladder, changeHash: changeHash(proposalOf.proposal, proposalOf.deltas) }),
                     ...changeDecisionIssues(proposalOf),
                 ]
-              : validateDocument(relPath, raw, { ladder });
+              : validateDocument(relPath, raw, { ladder, demoText });
         for (const issue of fileIssues) {
             problems.push({
                 severity: issue.severity,
                 path: relPath,
                 message: `${relPath} ${issue.message}`,
             });
+        }
+
+        const scenarios = requirementScenarios(relPath, raw);
+        for (const chapter of chapters) {
+            if (chapter.meta?.demo == null) continue;
+            const id = chapter.level === 1 ? relPath : `${relPath}#${chapter.slug}`;
+            const refs = Array.isArray(chapter.meta.demo) ? chapter.meta.demo : [chapter.meta.demo];
+            demoHolders.push({ id, path: relPath, refs, scenarios: scenarios.get(id) ?? null });
         }
 
         // Track the nearest enclosing addressable heading per level so
@@ -789,8 +838,8 @@ export async function buildGraph(repoRoot, folders = null) {
     }
 
     // A stated direction no unit inherits does nothing: every unit below it
-    // states its own, or the level holds no unit at all (`actors.md`, until an
-    // actor kind exists). Each unit resolves nearest-wins through
+    // states its own, or the level holds no unit at all (an `actors.md` of
+    // organisations only). Each unit resolves nearest-wins through
     // `syncSources`; whatever no unit resolved to is reported.
     const inherited = new Set();
     for (const [id, level] of syncLevels) {
@@ -809,6 +858,7 @@ export async function buildGraph(repoRoot, folders = null) {
     }
 
     problems.push(...(await brokenLinkIssues(repoRoot, links, anchors)));
+    problems.push(...(await demoProblems(repoRoot, scanned, demoHolders)));
 
     return { nodes: [...nodes.values()], edges, problems, ledes, syncLevels };
 }

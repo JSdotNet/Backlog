@@ -33,8 +33,13 @@ const files = {
     [`${CTX}/context.md`]: [
         `# Ordering\n\n${fence("type: context\nsync: pull\n")}`,
         `## Express Checkout\n\n${fence("type: feature-flag\nstatus: draft\n")}\nA switch.\n`,
+        `## Payment Callback\n\n${fence("type: technical\nstatus: draft\n")}\nConfirms a payment.\n`,
     ].join("\n"),
-    [`${CTX}/actors.md`]: `# Actors\n\n${fence("type: actors\nsync: push\n")}\n## Buyer\n\n${fence("type: user\nstatus: draft\n")}\nBuys.\n`,
+    [`${CTX}/actors.md`]: [
+        `# Actors\n\n${fence("type: actors\nsync: push\n")}`,
+        `## Buyer\n\n${fence("type: user\nstatus: draft\nrole: Buyer\n")}\nBuys.\n`,
+        `## Card Issuer\n\n${fence("type: organisation\nstatus: draft\n")}\nIssues the card.\n`,
+    ].join("\n"),
     [D]: [
         `# Domain\n\n${fence("type: domain\nsync: sync\n")}`,
         `## Order\n\n${fence(`type: aggregate\nstatus: draft\nsync: push\naliases: [PurchaseOrder]\nrelated: [${I}#order]\n`)}\nAn order.\n`,
@@ -106,7 +111,9 @@ try {
                 ["building-block", ".devbook/arc42/building-blocks/billing.md"],
                 ["design-component", ".devbook/design/component-libraries.md#button"],
                 ["shared-types", `${CTX}#shared-types`],
+                ["user", `${CTX}/actors.md#buyer`],
                 ["feature-flag", `${CTX}/context.md#express-checkout`],
+                ["technical", `${CTX}/context.md#payment-callback`],
                 ["aggregate", `${D}#customer`],
                 ["aggregate", `${D}#order`],
                 ["domain-service", `${D}#pricing`],
@@ -151,7 +158,12 @@ try {
     const owners = new Map();
     for (const u of collected.units) for (const c of u.chapters) owners.set(c, (owners.get(c) ?? 0) + 1);
     check([...owners.values()].every((n) => n === 1), "every chapter belongs to exactly one unit", dump([...owners].filter(([, n]) => n > 1)));
-    check(!owners.has(`${D}#basket`) && !owners.has(`${CTX}/actors.md#buyer`), "a term with no home and an actor stay context, in no unit");
+    check(!owners.has(`${D}#basket`) && !owners.has(`${CTX}/actors.md#card-issuer`), "a term with no home and an organisation stay context, in no unit");
+    check(
+        JSON.stringify(unit(`${CTX}/actors.md#buyer`)?.chapters) === JSON.stringify([`${CTX}/actors.md#buyer`]),
+        "a user actor is a unit of its one chapter",
+        dump(unit(`${CTX}/actors.md#buyer`))
+    );
 
     // --- Orphans and unused directions ----------------------------------------
 
@@ -160,8 +172,8 @@ try {
     check(orphan(`${D}#account`)?.reason.includes("2 units"), "a term whose aliases resolve into two units is an orphan", dump(collected.orphans));
     check(collected.orphans.length === 2, "nothing else is an orphan", dump(collected.orphans));
     check(
-        collected.unused.some((u) => u.id === `${CTX}/actors.md`) && collected.unused.some((u) => u.id === ".devbook/arc42/05-building-block-view.md"),
-        "a direction no unit inherits is listed: actors.md, and a folder whose only block states its own",
+        !collected.unused.some((u) => u.id === `${CTX}/actors.md`) && collected.unused.some((u) => u.id === ".devbook/arc42/05-building-block-view.md"),
+        "a direction no unit inherits is listed — a folder whose only block states its own — and actors.md, read by its user, is not",
         dump(collected.unused)
     );
 
@@ -173,6 +185,11 @@ try {
     check(JSON.stringify(dir(`${CTX}#shared-types`)) === JSON.stringify(["sync", "page", D]), "the shared-types unit reads its page");
     check(JSON.stringify(dir(feature)) === JSON.stringify(["pull", "context", `${CTX}/context.md`]), "then the context", dump(dir(feature)));
     check(JSON.stringify(dir(`${CTX}/context.md#express-checkout`)) === JSON.stringify(["pull", "context", `${CTX}/context.md`]), "a switch's page is its context");
+    check(JSON.stringify(dir(`${CTX}/actors.md#buyer`)) === JSON.stringify(["push", "page", `${CTX}/actors.md`]), "a user actor reads actors.md as its page");
+    check(
+        JSON.stringify(dir(`${CTX}/context.md#payment-callback`)) === JSON.stringify(["pull", "context", `${CTX}/context.md`]),
+        "an actor still in context.md reads it as page and context"
+    );
     check(
         JSON.stringify(dir(".devbook/design/component-libraries.md#button")) === JSON.stringify(["report", "default", null]),
         "report, from nowhere, when nothing states one"
@@ -209,13 +226,20 @@ try {
     const pull = await listUnits(root, { direction: "pull" });
     check(
         JSON.stringify(pull.units.map((u) => u.id)) ===
-            JSON.stringify([`${CTX}#shared-types`, `${CTX}/context.md#express-checkout`, `${D}#customer`, `${D}#pricing`, feature]),
+            JSON.stringify([
+                `${CTX}#shared-types`,
+                `${CTX}/context.md#express-checkout`,
+                `${CTX}/context.md#payment-callback`,
+                `${D}#customer`,
+                `${D}#pricing`,
+                feature,
+            ]),
         "--direction pull lists pull and sync units",
         dump(pull.units.map((u) => u.id))
     );
     const push = await listUnits(root, { direction: "push", groups: true });
     check(
-        JSON.stringify(push.groups.map((g) => g.id)) === JSON.stringify([`${CTX}#shared-types`, `${D}#customer`, `${D}#pricing`]),
+        JSON.stringify(push.groups.map((g) => g.id)) === JSON.stringify([`${CTX}#shared-types`, `${CTX}/actors.md#buyer`, `${D}#customer`, `${D}#pricing`]),
         "--direction push --groups lists the push and sync groups",
         dump(push.groups.map((g) => g.id))
     );
@@ -226,7 +250,7 @@ try {
         dump(report.groups.map((g) => g.id))
     );
     check(
-        summaryLine(push) === "3 groups of 4 units picked up by push; 0 set aside; 2 orphans.",
+        summaryLine(push) === "4 groups of 5 units picked up by push; 0 set aside; 2 orphans.",
         "the summary line counts groups, units, set-asides, and orphans",
         summaryLine(push)
     );

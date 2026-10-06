@@ -17,7 +17,11 @@ here. The agreed screens of a bounded context are its demos, in
 The one HTML file `design/` holds is `demo-template.html`: the template every
 demo is built on, beside the tokens and guidelines it is built from. It changes
 through the same flow as any other `design/` file, carries no `meta` block, and
-has no reading position.
+has no reading position. The change that edits it runs
+`node .devbook/_tools/devbook-meta/demo-template.mjs --refresh`, which re-stamps
+its begin marker and rewrites every demo's managed region from it; the check
+reports a demo left on an earlier version, and fails on a region edited by hand.
+The region is outside every fingerprint, so the refresh lifts no approval.
 
 ## Authoritative source
 

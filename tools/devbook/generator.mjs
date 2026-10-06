@@ -127,5 +127,8 @@ export async function loadGenerator(repoRoot, { generatorDir = null } = {}) {
         buildOutlineDocument: outline.buildOutlineDocument,
         collectAnnotations: annotations.collectAnnotations,
         openCountsByAddress: annotations.openCountsByAddress,
+        // Devbook 1.19 and later lint every demo inside `buildGraph`; an older
+        // generator knows nothing of them and leaves that to the database build.
+        checksDemos: typeof metadata.isDemoPath === 'function',
     };
 }

@@ -144,9 +144,11 @@ const DEMO_SUFFIX = '.demo.html';
 /**
  * The page a demo pairs with by its name, or null when the name is not a
  * demo's: `demo.html` is the context's own and counts with `context.md`, and
- * `<page>.demo.html` is `<page>.md`'s (devbook's `devbook-domain.md`). The
- * installed generator knows nothing of demos, so the rule is stated here and in
- * `DevbookReadingConvention.Demos.cs`, and the parity test holds the two together.
+ * `<page>.demo.html` is `<page>.md`'s (devbook's `devbook-domain.md`). Devbook
+ * 1.19's generator states the same pairing as `demoPagePath`, but a repository
+ * built with `--root` may carry an older one that knows nothing of demos, so the
+ * rule is stated here and in `DevbookReadingConvention.Demos.cs`, and the parity
+ * test holds the two together.
  */
 function demoPage(name) {
     const segment = name.slice(name.replace(/\\/g, '/').lastIndexOf('/') + 1);
@@ -170,9 +172,10 @@ function startsDemoAddress(entry) {
 
 /**
  * A chapter's `demo` field, as the generator's metadata parse leaves it — a
- * string or a list — as `{ path, address }` places. The parse splits a list on
- * every comma, including the one inside an address whose `flags` names two keys,
- * so an entry that starts no demo address is joined back onto the one before it.
+ * string or a list — as `{ path, address }` places. The parse keeps a comma
+ * inside a quoted entry, as the rule says to write an address whose `flags`
+ * names two keys, but splits an unquoted one there anyway, so an entry that
+ * starts no demo address is joined back onto the one before it.
  */
 function demoReferences(value) {
     if (value === null || value === undefined) return [];
@@ -210,13 +213,13 @@ const HEADING_MARKER = /^ {0,3}#{1,6}\s+/;
  * One flag per line of `markdown`: whether that line is inside a fenced block,
  * counting the opening and closing fences themselves.
  *
- * Computed over the whole document rather than per chapter, and that is not an
- * optimisation. `parseDocument` finds headings by regular expression and does
- * not track fences, so a `#` line inside a mermaid diagram starts a chapter
- * there; a slice cut at that heading then begins inside a fence and ends with a
- * marker that closes one it never saw open. Scanning the file once means such a
- * slice is recognised as fenced throughout instead of having its prose swallowed
- * by a phantom fence — or, worse, its diagram source let through.
+ * Computed over the whole document rather than per chapter, so a slice never
+ * has to guess whether it begins inside a fence. Since devbook 1.19
+ * `parseDocument` skips fenced blocks when it looks for headings, so a `#` line
+ * inside a mermaid diagram no longer starts a chapter; the whole-document scan
+ * stays because it costs nothing and does not depend on that. The rule here is
+ * CommonMark's, stricter than the generator's own fence test: it decides which
+ * lines are prose, not where a chapter starts.
  */
 function fenceMask(lines) {
     const fenced = new Array(lines.length).fill(false);
@@ -544,8 +547,12 @@ async function insertArchify(db, repoRoot, folders, problems) {
  * its name says when that page is there. A demo that pairs with no page and that
  * no chapter's `demo` field names belongs to nothing, which is worth a warning:
  * the rule says a page-named demo exists only beside its page.
+ *
+ * Only for a generator that does not check demos itself. From devbook 1.19
+ * `buildGraph` reports that demo — as an error, with every other demo rule — and
+ * a second row here would say the same thing twice.
  */
-async function insertDemos(db, repoRoot, folders, { folderKindForPath }, problems) {
+async function insertDemos(db, repoRoot, folders, { folderKindForPath, checksDemos }, problems) {
     const insert = db.prepare('INSERT INTO demo (path, folder, page_path, size, mtime) VALUES (?, ?, ?, ?, ?)');
     const linked = new Set(db.prepare('SELECT DISTINCT demo_path FROM demo_link').all().map((row) => row.demo_path));
 
@@ -566,7 +573,7 @@ async function insertDemos(db, repoRoot, folders, { folderKindForPath }, problem
             insert.run(relPath, folderKindForPath(candidate), page, stats.size, Math.round(stats.mtimeMs));
             count++;
 
-            if (page === null && !linked.has(relPath)) {
+            if (!checksDemos && page === null && !linked.has(relPath)) {
                 problems.push({
                     scope: folder,
                     severity: 'warning',

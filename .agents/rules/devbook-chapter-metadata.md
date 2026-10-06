@@ -448,7 +448,9 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   Available on any chapter in any folder, and on the file-level blocks of a
   change's `proposal.md` and `solution.md`, per `devbook-changes.md`. A
   requirement names one walkthrough per scenario, beside its `tests`: the
-  walkthrough shows the scenario, the test proves it. Links run from Markdown to
+  walkthrough shows the scenario, the test proves it, and its id is that
+  scenario's slug. Quote an address whose `flags` lists more than one key, since
+  a comma otherwise ends the entry. Links run from Markdown to
   the demo only. A demo names no chapter, and its own metadata script,
   `<script type="application/json" id="demo-meta">`, holds `question` — the one
   question it was prototyped to answer — and nothing else: no stage, status,
@@ -542,7 +544,8 @@ A direction governs a **sync unit**: an aggregate with the entities, value
 objects, and enums it owns, the domain events it raises, its invariants, and the
 requirements and terms that name it; a domain service the same way; a feature
 with its sub-features and requirements; one `feature-flag` or `setting`
-chapter; one `arc42/building-blocks/<name>.md` file; one `##` component chapter
+chapter; one `user` or `technical` actor chapter; one
+`arc42/building-blocks/<name>.md` file; one `##` component chapter
 of `design/component-libraries.md`.
 
 Set it at one of four levels, widest first. Each sets the default for everything
@@ -553,7 +556,7 @@ under it that states nothing:
 | Folder | the file-level block of `domain/context-map.md`, `arc42/05-building-block-view.md`, or `design/component-libraries.md` |
 | Context | the file-level block of `domain/<context>/context.md` |
 | Page | the file-level block of a context page: `domain.md` and its splits, `features.md`, `skills.md`, and theirs, `actors.md` |
-| Unit | the unit's root chapter: an `aggregate`, `domain-service`, `feature`, `feature-flag`, or `setting` chapter, a building block file, a component chapter |
+| Unit | the unit's root chapter: an `aggregate`, `domain-service`, `feature`, `feature-flag`, `setting`, `user`, or `technical` chapter, a building block file, a component chapter |
 
 A unit resolves **nearest wins**: its own chapter, then its page, its context,
 its folder, and `report` when none of them states one. A switch chapter's page
@@ -565,8 +568,8 @@ on a page that holds only such chapters, `requirements.md` and its splits and
 every `*.invariants.md`: each follows its unit and cannot go another way. It
 refuses it on every other block, and in `tech/` and `ai/`, as no level. A value
 no unit inherits — every unit under it states its own, or none sits under it —
-is reported as a warning. `actors.md` is the standing case: a value there is
-allowed and inherited by nothing until an actor kind exists.
+is reported as a warning — an `actors.md` holding only `organisation` chapters,
+which root no unit, among them.
 
 A `domain-event` chapter names the `aggregate` or `domain-service` that raises
 it in `related`. That entry is what places the event in its unit; an event

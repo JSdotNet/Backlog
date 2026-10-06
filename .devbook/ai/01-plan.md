@@ -20,7 +20,8 @@ date: 2026-09-26
 
 A change to an arc42 chapter, a decision record, a bounded context, the technology graph,
 a design guideline, or this record runs through the delivery engine's `flow-spec`. It loads
-the folder's own rule, drafts through the role the folder maps to, runs the devbook check,
+the folder's own rule, drafts through the agent its `phase-drafting` entry binds for the
+folder, runs the devbook check,
 and stops at Personal Validation before a pull request.
 
 - **Used for** — decision records, domain model changes, technology ratings, and the

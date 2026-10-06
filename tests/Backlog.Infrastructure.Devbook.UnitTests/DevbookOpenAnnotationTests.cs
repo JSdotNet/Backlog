@@ -95,10 +95,10 @@ public sealed class DevbookOpenAnnotationTests : IDisposable
 
         var counts = DevbookAnnotations.OpenCounts(Markdown, chapters);
 
-        // The parse finds the fenced `# Not a heading` as a chapter, as the
-        // generator's does; the note after the diagram still belongs to Fenced.
+        // The parse skips the fenced `# Not a heading`, as the generator's does
+        // from devbook 1.19; the note after the diagram belongs to Fenced.
         Assert.Equal(
-            [("inbox", 1), ("capture", 2), ("capture", 0), ("fenced", 1), ("not-a-heading", 0)],
+            [("inbox", 1), ("capture", 2), ("capture", 0), ("fenced", 1)],
             chapters.Select((chapter, index) => (chapter.Slug, counts[index])));
     }
 
@@ -131,7 +131,7 @@ public sealed class DevbookOpenAnnotationTests : IDisposable
         using var database = DevbookDatabase.TryOpen(target);
         Assert.NotNull(database);
         Assert.Equal(
-            [("inbox", 1), ("capture", 2), ("capture", 0), ("fenced", 1), ("not-a-heading", 0)],
+            [("inbox", 1), ("capture", 2), ("capture", 0), ("fenced", 1)],
             database.Chapters(Path).Select(chapter => (chapter.Slug, chapter.OpenAnnotations)));
     }
 

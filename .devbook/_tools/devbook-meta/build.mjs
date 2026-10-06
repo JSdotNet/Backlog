@@ -2,7 +2,8 @@
 // build.mjs — devbook's checker; a layered plugin's refresh runs it with --write.
 //
 //   node .devbook/_tools/devbook-meta/build.mjs           # check every adopted scope, write nothing
-//   node .devbook/_tools/devbook-meta/build.mjs --check   # the same, spelled out; CI runs this
+//   node .devbook/_tools/devbook-meta/build.mjs --check   # the same, spelled out; CI runs this,
+//                                                         # demo-template.mjs --check included
 //   node .devbook/_tools/devbook-meta/build.mjs --print   # check, and emit the documents as JSON on stdout
 //   node .devbook/_tools/devbook-meta/build.mjs --write   # check, and write the derived _meta/ artifacts
 //   node .devbook/_tools/devbook-meta/build.mjs --scope tech     # .tech and .devbook/tech spell the same scope
@@ -49,6 +50,7 @@ import {
     collectAnnotations,
 } from "./annotations-index.mjs";
 import { buildNamingDocument, namingPathFor } from "./naming.mjs";
+import { templateProblems } from "./demo-template.mjs";
 
 const args = process.argv.slice(2);
 const printMode = args.includes("--print");
@@ -169,6 +171,13 @@ for (const scope of scopes) {
         annotations: annotationsDocument,
         naming: namingDocument,
     };
+}
+
+// Every demo's managed region against the repository's template: written to no
+// artifact, since it is a property of the HTML files and not of the graph.
+for (const problem of await templateProblems(REPO_ROOT, folders)) {
+    log(`  [${problem.severity}] ${problem.message}`);
+    if (problem.severity === "error") errorCount++;
 }
 
 if (printMode) process.stdout.write(`${JSON.stringify(printed, null, 2)}\n`);

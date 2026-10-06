@@ -17,9 +17,11 @@ namespace Backlog.Infrastructure.Devbook.Building;
 /// on what "whitespace" or "trim" means, it takes JavaScript's answer, because
 /// that is the side the rows are compared against.</para>
 ///
-/// <para>It does not track fences when it looks for headings — neither does the
-/// generator — so a <c>#</c> line inside a diagram starts a chapter here exactly
-/// as it does there.</para>
+/// <para>It tracks fences when it looks for headings, as the generator does from
+/// devbook 1.19, so a <c>#</c> line inside a diagram or a Markdown sample is
+/// content and starts no chapter. The fence rule is the generator's, which is
+/// looser than CommonMark's: any indentation, and a closing marker may carry
+/// text after it.</para>
 /// </summary>
 internal static partial class DevbookMarkdown
 {
@@ -33,6 +35,9 @@ internal static partial class DevbookMarkdown
 
     [GeneratedRegex("^(#{1,6})[" + JsWhitespaceClass + "]+(.*)$")]
     private static partial Regex Heading();
+
+    [GeneratedRegex("^[" + JsWhitespaceClass + "]*(`{3,}|~{3,})")]
+    private static partial Regex FenceMarker();
 
     [GeneratedRegex("^```meta[" + JsWhitespaceClass + "]*$")]
     private static partial Regex MetaFence();
@@ -58,9 +63,24 @@ internal static partial class DevbookMarkdown
         string? fileTitle = null;
         IReadOnlyDictionary<string, object?>? fileMeta = null;
         var fileTitleSeen = false;
+        string? fence = null;
 
         for (var i = 0; i < lines.Length; i++)
         {
+            var marker = FenceMarker().Match(lines[i]);
+            if (fence is not null)
+            {
+                var closer = marker.Groups[1].Value;
+                if (marker.Success && closer[0] == fence[0] && closer.Length >= fence.Length) fence = null;
+                continue;
+            }
+
+            if (marker.Success)
+            {
+                fence = marker.Groups[1].Value;
+                continue;
+            }
+
             var heading = Heading().Match(lines[i]);
             if (!heading.Success) continue;
 
@@ -128,14 +148,48 @@ internal static partial class DevbookMarkdown
             var inner = JsTrim(value[1..^1]);
             if (inner.Length == 0) return Array.Empty<string>();
 
-            return inner
-                .Split(',')
+            return SplitListEntries(inner)
                 .Select(entry => StripQuotes(JsTrim(entry)))
                 .Where(entry => entry.Length > 0)
                 .ToArray();
         }
 
         return StripQuotes(value);
+    }
+
+    /// <summary>
+    /// <c>splitListEntries</c>: a list split on its commas, except a comma inside
+    /// a quoted entry, which is part of it — a demo address carries
+    /// <c>flags=a,b</c>. A quote opens only at an entry's start, past whitespace.
+    /// </summary>
+    private static List<string> SplitListEntries(string inner)
+    {
+        var entries = new List<string>();
+        var current = new StringBuilder();
+        char? quote = null;
+
+        foreach (var character in inner)
+        {
+            if (quote is { } open)
+            {
+                if (character == open) quote = null;
+            }
+            else if (character is '"' or '\'')
+            {
+                if (JsTrim(current.ToString()).Length == 0) quote = character;
+            }
+            else if (character == ',')
+            {
+                entries.Add(current.ToString());
+                current.Clear();
+                continue;
+            }
+
+            current.Append(character);
+        }
+
+        entries.Add(current.ToString());
+        return entries;
     }
 
     private static string StripQuotes(string value) =>

@@ -64,16 +64,26 @@ depends-on: [".devbook/tech/ai-development.md#subagents", ".devbook/tech/ai-deve
 date: 2026-09-25
 ```
 
-A flow hands a stage to a role, and `bindings["delivery.roles"]` in `.devbook/config.json`
-says which agent fills it: `architecture` for arc42 and tech chapters, `domain-design` for
-the domain model, `ux-design` for design, `documentation` for this folder, and `qa` for
-validation. The `implement` extension hands code to `csharp-coding:coding`.
+Each flow has a `phases` map in `.devbook/config.json`. A phase entry that names an agent
+hands that phase to it, and a phase with no entry runs inline in the session.
 
-- **Used for** — drafting in the folder's own discipline, and implementation.
-- **Adopted by** — every flow run; a role with no agent is drafted inline by the session.
+| Flow | Phase | Agent |
+| --- | --- | --- |
+| `flow-code`, `flow-spec` | `phase-scope` | `architecture:architect` |
+| `flow-code` | `phase-plan` | `architecture:architect` |
+| `flow-code` | `phase-implement` | `csharp-coding:coding` |
+| `flow-code` | `phase-verify` | `qa:qa` |
+| `flow-spec` | `phase-drafting` for `arc42` and `tech` | `architecture:architect` |
+| `flow-spec` | `phase-drafting` for `domain` | `domain-design:domain-architect` |
+| `flow-spec` | `phase-drafting` for `design` | `ux-design:ux-designer` |
+| `flow-spec` | `phase-drafting` for `ai` | `documentation:documentation` |
+
+- **Used for** — scoping and planning, drafting in the folder's own discipline,
+  implementation, and validation.
+- **Adopted by** — every flow run; a phase with no agent runs inline in the session.
 - **Evidence** — the agents named on each run's stages on the delivery surfaces.
-- **Limits** — `product` and `security` are deliberately unbound: the marketplace these
-  agents come from has no agent for either, and an unbound role is the honest answer.
+- **Limits** — `product` and `security` have no phase bound: the marketplace these agents
+  come from has no agent for either, and an unbound phase is the honest answer.
 
 ## Worktree session per change
 
