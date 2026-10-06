@@ -19,15 +19,13 @@ write, not the first action. Never go straight from exploration to implementatio
 
 | Change | Flow |
 | --- | --- |
-| Code: a feature, a bug fix, a refactor, a new module or service; and tooling, CI, scripting, documentation outside `.devbook/`, and housekeeping | `delivery:flow-code` |
+| Code: a feature, a bug fix, a refactor, a new module or service; tooling, CI, scripting, documentation outside `.devbook/`, and housekeeping; a dependency, package or framework move; creating, governing or scaffolding a repository | `delivery:flow-code` |
 | A devbook chapter, decision record or debt record under `.devbook/` | `delivery:flow-spec` |
-| A dependency, package or framework move | `delivery:flow-update-packages` |
-| Creating, governing or scaffolding a repository | `delivery:flow-project` |
 
 Changes under `plugins/`, `tools/`, `build/`, `.github/` and `.claude/` are the first
 row's tooling, CI and scripting, so they route through `delivery:flow-code` as well.
 
-This repository ships no repo-native `flow-*` skill; all four come from the `delivery`
+This repository ships no repo-native `flow-*` skill; both come from the `delivery`
 plugin. The repository owner authorizes running any of them, and the agents they hand
 stages to, without per-session confirmation.
 

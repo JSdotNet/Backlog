@@ -16,10 +16,8 @@ matching flow:**
 
 | Change | Flow |
 | --- | --- |
-| Code, and tooling, CI, scripting, documentation outside `.devbook/`, housekeeping | `delivery:flow-code` |
+| Code, and tooling, CI, scripting, documentation outside `.devbook/`, housekeeping; a dependency, package or framework move; creating, governing or scaffolding a repository | `delivery:flow-code` |
 | A devbook chapter, decision record or debt record under `.devbook/` | `delivery:flow-spec` |
-| A dependency, package or framework move | `delivery:flow-update-packages` |
-| Creating, governing or scaffolding a repository | `delivery:flow-project` |
 
 Changes under `plugins/`, `tools/`, `build/`, `.github/` and `.claude/` are the first
 row's tooling, CI and scripting, so they route through `delivery:flow-code` as well.
