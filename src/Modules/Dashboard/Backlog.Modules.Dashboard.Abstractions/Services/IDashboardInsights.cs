@@ -110,6 +110,27 @@ public interface IHoursWorkedInsights
 }
 
 /// <summary>
+/// What the Drift at a glance part of the dashboard asks for: the devbook sync units by
+/// direction, each with its last verdict, and the drift issues still open.
+/// <para>
+/// The repository scope narrows the answer; the window and the machine cannot. A verdict
+/// is the latest a sweep left, however long ago, and an open issue is open now — neither
+/// is a count over a period, and a unit verified five weeks ago has not stopped drifting
+/// because the window is four. The part says so.
+/// </para>
+/// <para>
+/// No invalidation: the verdicts are read from their file on every call, and the issues
+/// from GitHub, so a refresh is a second call.
+/// </para>
+/// </summary>
+public interface IDriftInsights
+{
+    Task<InsightResult<DriftInsight>> GetDriftAsync(
+        DashboardScope scope,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// What the cost half of the dashboard asks for.
 /// <para>
 /// No <see cref="DashboardScope"/> anywhere, on purpose. Neither provider reports

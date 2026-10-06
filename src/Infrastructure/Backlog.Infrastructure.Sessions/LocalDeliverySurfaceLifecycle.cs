@@ -539,7 +539,9 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
                     unit.Action,
                     unit.Link,
                     recordedAt,
-                    runId));
+                    runId,
+                    unit.Sync,
+                    unit.SyncFrom));
             }
         }
 

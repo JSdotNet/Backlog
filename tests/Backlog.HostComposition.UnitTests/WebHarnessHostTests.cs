@@ -275,6 +275,12 @@ public class WebHarnessHostTests
         AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IHoursWorkedSource>(harness.Services);
         Assert.IsType<Backlog.Infrastructure.FileSystem.Dashboard.AgentActivityHoursWorkedSource>(
             harness.Services.GetRequiredService<Backlog.Modules.Dashboard.Abstractions.Services.IHoursWorkedSource>());
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IDriftIssueSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IDriftUnitSource>(harness.Services);
+
+        // The verdict store is composed here, so the drift part reads the sweeps' verdicts
+        // rather than answering that this host keeps none.
+        Assert.True(harness.Services.GetRequiredService<Backlog.Modules.Dashboard.Abstractions.Services.IDriftUnitSource>().IsAvailable);
 
         using var first = harness.Services.CreateScope();
         using var second = harness.Services.CreateScope();

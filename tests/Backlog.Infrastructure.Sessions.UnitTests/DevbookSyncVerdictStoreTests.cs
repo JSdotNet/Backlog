@@ -57,6 +57,29 @@ public sealed class DevbookSyncVerdictStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task A_repository_answers_every_chapter_recorded_in_it_and_no_other_repositorys()
+    {
+        var store = new DevbookSyncVerdictStore(_home);
+
+        await store.RecordAsync(
+            [
+                Verdict(".domain/tasks/domain.md", "task", "spec-ahead", "run-1") with { Sync = "push", SyncFrom = ".domain/tasks/context.md" },
+                Verdict(".arc42/building-blocks/delivery.md", "run-start", "aligned", "run-1"),
+                Verdict(".domain/tasks/domain.md", "task", "aligned", "run-2") with { Repository = "JSdotNet/devbook" }
+            ],
+            TestContext.Current.CancellationToken);
+
+        var recorded = new DevbookSyncVerdictStore(_home).ForRepository("jsdotnet/backlog");
+
+        Assert.Equal(2, recorded.Count);
+        var task = Assert.Single(recorded, verdict => verdict.Anchor == "task");
+        Assert.Equal("push", task.Sync);
+        Assert.Equal(".domain/tasks/context.md", task.SyncFrom);
+        Assert.Null(Assert.Single(recorded, verdict => verdict.Anchor == "run-start").Sync);
+        Assert.Empty(store.ForRepository(" "));
+    }
+
+    [Fact]
     public async Task Recording_raises_changed_and_a_second_store_reads_what_the_first_wrote()
     {
         var store = new DevbookSyncVerdictStore(_home);

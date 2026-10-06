@@ -6,7 +6,8 @@ namespace Backlog.Infrastructure.GitHub;
 
 /// <summary>
 /// Wires the adapters that answer the Dashboard module's ports from GitHub: the
-/// repository directory, the activity and its baseline, and the Copilot spend.
+/// repository directory, the activity and its baseline, the Copilot spend, and the
+/// devbook drift issues.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -17,7 +18,7 @@ namespace Backlog.Infrastructure.GitHub;
 /// <para>
 /// Both hosts must call this after registering <c>IGitHubActivityClient</c>,
 /// <c>IGitHubActivityBaselineClient</c>, <c>IGitHubIdentityClient</c>,
-/// <c>IGitHubBillingClient</c> and <c>GitHubSettingsStore</c>; the adapters only
+/// <c>IGitHubBillingClient</c>, <c>IGitHubClient</c> and <c>GitHubSettingsStore</c>; the adapters only
 /// hold those and do not construct them.
 /// </para>
 /// <para>
@@ -37,6 +38,7 @@ public static class GitHubDashboardAdapterRegistration
         services.AddSingleton<IActivitySource, GitHubActivitySource>();
         services.AddSingleton<IActivityBaselineSource, GitHubActivityBaselineSource>();
         services.AddSingleton<ICopilotSpendSource, CopilotSpendSource>();
+        services.AddSingleton<IDriftIssueSource, GitHubDriftIssueSource>();
 
         return services;
     }

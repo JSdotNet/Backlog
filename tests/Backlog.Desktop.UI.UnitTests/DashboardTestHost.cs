@@ -39,6 +39,7 @@ internal static class DashboardTestHost
         services.AddSingleton<ICostInsights, UnavailableCostInsights>();
         services.AddSingleton<ITaskInsights, UnavailableTaskInsights>();
         services.AddSingleton<IHoursWorkedInsights, UnavailableHoursWorkedInsights>();
+        services.AddSingleton<IDriftInsights, UnavailableDriftInsights>();
 
         // The default week, not this machine's. A grid asserted against whatever hours
         // the person running the tests happens to keep is a grid asserted against
@@ -131,6 +132,14 @@ internal static class DashboardTestHost
             DashboardScope scope,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<PlanInsight>.Unavailable(UnavailableReason));
+    }
+
+    private sealed class UnavailableDriftInsights : IDriftInsights
+    {
+        public Task<InsightResult<DriftInsight>> GetDriftAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<DriftInsight>.Unavailable(UnavailableReason));
     }
 
     private sealed class UnavailableHoursWorkedInsights : IHoursWorkedInsights

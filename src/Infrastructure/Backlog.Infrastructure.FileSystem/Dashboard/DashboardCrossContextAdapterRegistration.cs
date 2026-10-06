@@ -1,4 +1,5 @@
 using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +59,12 @@ public static class DashboardCrossContextAdapterRegistration
                 sp.GetService<IWorkingHoursSettings>(),
                 sp.GetService<TimeProvider>(),
                 sp.GetService<IAppFeatureSettings>()));
+
+        // The devbook sync verdicts, by unit, for the Drift at a glance part. A singleton
+        // over the verdict store, itself a singleton; optional, so a host that composed no
+        // Sessions surface still resolves the port and it answers that it keeps none.
+        services.AddSingleton<IDriftUnitSource>(sp =>
+            new SyncVerdictDriftUnitSource(sp.GetService<IDevbookSyncVerdicts>()));
 
         return services;
     }

@@ -25,6 +25,7 @@ public sealed class DashboardAdapterPlacementTests
         { "GitHubActivityBaselineSource", "IActivityBaselineSource", "Backlog.Infrastructure.GitHub" },
         { "CopilotSpendSource", "ICopilotSpendSource", "Backlog.Infrastructure.GitHub" },
         { "SettingsRepositoryDirectory", "IRepositoryDirectory", "Backlog.Infrastructure.GitHub" },
+        { "GitHubDriftIssueSource", "IDriftIssueSource", "Backlog.Infrastructure.GitHub" },
         { "ClaudeSpendSource", "IClaudeSpendSource", "Backlog.Infrastructure.Claude" },
         { "AzureFoundrySpendSource", "IAzureFoundrySpendSource", "Backlog.Infrastructure.AzureFoundry" },
     };
