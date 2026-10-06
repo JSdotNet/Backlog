@@ -1420,6 +1420,50 @@ public sealed class InboxPaneTests
         Assert.Equal("2 items archived.", toast.Message);
     }
 
+    /// <summary>Delete across a selection asks first, as the detail's Delete
+    /// does — nothing is kept — and then goes through one batch.</summary>
+    [Fact]
+    public async Task Delete_across_the_selection_asks_first_then_deletes_through_one_batch()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two", "Three");
+
+        var pane = await harness.RenderAsync();
+        await pane.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
+        await PickAsync(pane, items[0].Id);
+        await PickAsync(pane, items[1].Id);
+        await pane.Find("[data-testid='inbox-bulk-delete']").ClickAsync(new());
+
+        Assert.Empty(harness.Inbox.Batches);
+        Assert.Contains("2 items will be removed for good", pane.Find("[data-testid='inbox-bulk-delete-dialog']").TextContent);
+
+        await pane.Find("[data-testid='inbox-bulk-delete-confirm']").ClickAsync(new());
+
+        var batch = Assert.Single(harness.Inbox.Batches);
+        Assert.Equal("delete", batch.Act);
+        Assert.Equal([items[0].Id, items[1].Id], batch.Ids);
+        Assert.Equal(["Three"], Titles(pane));
+        Assert.Equal(0, harness.State.SelectionCount);
+        Assert.Equal("2 items deleted.", Assert.Single(harness.Toasts.Visible, toast => toast.TestId == InboxDesktopState.BulkResultTestId).Message);
+    }
+
+    [Fact]
+    public async Task Cancelling_delete_across_the_selection_keeps_every_item()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two");
+
+        var pane = await harness.RenderAsync();
+        await pane.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
+        await PickAsync(pane, items[0].Id);
+        await pane.Find("[data-testid='inbox-bulk-delete']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-bulk-delete-cancel']").ClickAsync(new());
+
+        Assert.Empty(harness.Inbox.Batches);
+        Assert.Equal(["One", "Two"], Titles(pane));
+        Assert.Equal([items[0].Id], harness.State.SelectedIds);
+    }
+
     [Fact]
     public async Task A_partial_failure_names_the_item_it_could_not_change_rather_than_reporting_success()
     {

@@ -132,6 +132,7 @@ public static class DesktopCompositionRegistration
         // and the delivery come further down, after the Inbox they deliver into.
         services.AddSingleton(options.CaptureSourceSettings);
         services.AddSingleton(options.CaptureRunLog);
+        services.AddSingleton(options.CaptureTargetLedger);
         services.AddCaptureModule();
 
         // The two cross-context joins the plan takes part in, answered by adapters

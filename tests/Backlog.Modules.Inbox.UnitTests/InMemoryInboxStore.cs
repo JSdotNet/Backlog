@@ -67,8 +67,15 @@ internal sealed class InMemoryInboxStore : IInboxItemRepository, IInboxOrganizer
             DeletedCaptures[item.Id] = new InboxDeletedCapture(item.Id, item.Title, item.CapturedAt, item.UpdatedAt);
         }
 
+        if (!item.ReplicaBacked) Dismissed.Add(item.Id);
+
         return Task.CompletedTask;
     }
+
+    public HashSet<Guid> Dismissed { get; } = [];
+
+    public Task<bool> WasDismissedAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Dismissed.Contains(id));
 
     public Task<IReadOnlyList<InboxDeletedCapture>> ListDeletedCapturesAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<InboxDeletedCapture>>([.. DeletedCaptures.Values.OrderBy(capture => capture.DeletedAt)]);

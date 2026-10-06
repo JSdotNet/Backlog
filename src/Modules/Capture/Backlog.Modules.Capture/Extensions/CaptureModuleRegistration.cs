@@ -13,11 +13,11 @@ namespace Backlog.Modules.Capture.Extensions;
 /// The module's composition root. A host calls this once and gets the run;
 /// it never registers the handler itself.
 /// <para>
-/// Four things are deliberately not registered here, because all four are
+/// Five things are deliberately not registered here, because all five are
 /// ports and which adapter answers each is the host's decision, the same as
-/// <c>IRoadmapPlanRepository</c>. <see cref="ICaptureSourceSettings"/> and
-/// <see cref="ICaptureRunLog"/> — today two JSON files beside the app's other
-/// per-user choices. The <c>ICaptureSourceAdapter</c>s — the feed readers
+/// <c>IRoadmapPlanRepository</c>. <see cref="ICaptureSourceSettings"/>,
+/// <see cref="ICaptureRunLog"/> and <see cref="ICaptureTargetLedger"/> — today
+/// three JSON files beside the app's other per-user choices. The <c>ICaptureSourceAdapter</c>s — the feed readers
 /// under <c>Backlog.Infrastructure.Capture</c>, one per kind, and a kind
 /// without one is reported per source rather than needed. And
 /// <c>ICaptureDelivery</c> — the Inbox's intake, behind an adapter in the same

@@ -100,6 +100,7 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     ShellNavigation = _ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath),
     CaptureSourceSettings = _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath),
     CaptureRunLog = _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath),
+    CaptureTargetLedger = _ => CreateLocalDevelopmentCaptureTargetLedgerStore(builder.Environment.ContentRootPath),
     ConnectedTargets = _ => CreateLocalDevelopmentConnectedTargetsSettingsStore(builder.Environment.ContentRootPath),
     // Per worktree, like the device credential: a sign-in here is not the installed
     // app's, and DPAPI still keeps the refresh token out of the clear.
@@ -469,6 +470,17 @@ static CaptureRunLogStore CreateLocalDevelopmentCaptureRunLogStore(string conten
     }
 
     return new CaptureRunLogStore(logPath);
+}
+
+static CaptureTargetLedgerStore CreateLocalDevelopmentCaptureTargetLedgerStore(string contentRootPath)
+{
+    var ledgerPath = Environment.GetEnvironmentVariable("BACKLOG_CAPTURE_TARGETS_PATH");
+    if (string.IsNullOrWhiteSpace(ledgerPath))
+    {
+        ledgerPath = Path.Combine(contentRootPath, "obj", "local-development", "capture-targets.json");
+    }
+
+    return new CaptureTargetLedgerStore(ledgerPath);
 }
 
 static DeviceIdentityStore CreateLocalDevelopmentDeviceIdentityStore(string contentRootPath)

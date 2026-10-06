@@ -150,6 +150,9 @@ internal sealed class InboxItems(
     public Task<InboxBatchResultDto> ArchiveAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) =>
         EachAsync(ids, id => archive.Handle(new ArchiveItemCommand(id), cancellationToken));
 
+    public Task<InboxBatchResultDto> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) =>
+        EachAsync(ids, id => delete.Handle(new DeleteItemCommand(id), cancellationToken));
+
     public Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default) =>
         routeToBacklog.Handle(new RouteToBacklogCommand(id), cancellationToken);
 

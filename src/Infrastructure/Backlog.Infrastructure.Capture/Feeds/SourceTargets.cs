@@ -37,7 +37,7 @@ internal static class SourceTargets
             {
                 var reading = await readTarget(trimmed, cancellationToken).ConfigureAwait(false);
 
-                entries.AddRange(reading.Entries);
+                entries.AddRange(reading.Entries.Select(entry => entry with { Target = trimmed }));
                 if (reading.Note is { } note) notes.Add($"{trimmed}: {note}");
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -82,8 +82,8 @@ internal static class SourceTargets
 }
 
 /// <summary>What one target gave: its entries, and a remark when there is
-/// one — a page with no feed, a channel with no id. A remark and entries do
-/// not go together; a target that produced entries has nothing to add.</summary>
+/// one — a page with no feed, a channel with no id, or a feed that broke off
+/// after the entries it did give.</summary>
 internal sealed record TargetReading(IReadOnlyList<CapturedEntry> Entries, string? Note = null)
 {
     public static TargetReading Remark(string note) => new([], note);

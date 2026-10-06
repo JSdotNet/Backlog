@@ -36,6 +36,35 @@ public sealed class WebsiteFeedAdapterTests
         Assert.Equal(["https://example.org/feed.xml"], wire.Requested);
     }
 
+    /// <summary>A feed that breaks off after some entries — the byte cap cut
+    /// it, or it is broken past them — gives those entries, and the line says
+    /// the read was short rather than passing it off as the whole feed.</summary>
+    [Fact]
+    public async Task A_feed_that_breaks_off_gives_its_entries_and_says_so()
+    {
+        const string cut = """<rss version="2.0"><channel><item><title>Kept</title><guid>a</guid></item><item><title>Lo""";
+        var wire = new StubHttpMessageHandler().Xml("https://example.org/feed.xml", cut);
+
+        var findings = await Run(wire, "https://example.org/feed.xml");
+
+        Assert.Equal("Kept", Assert.Single(findings.Entries).Title);
+        Assert.Equal(
+            "https://example.org/feed.xml: the feed broke off after 1 entry — cut short or not well-formed past them",
+            Assert.Single(findings.Notes));
+    }
+
+    /// <summary>Each entry names the target it was read from, as the reader
+    /// typed it — what the run's first look and its per-run limit count by.</summary>
+    [Fact]
+    public async Task Each_entry_names_the_target_it_was_read_from()
+    {
+        var wire = new StubHttpMessageHandler().Xml("https://example.org/feed.xml", Rss);
+
+        var findings = await Run(wire, "  https://example.org/feed.xml ");
+
+        Assert.Equal("https://example.org/feed.xml", Assert.Single(findings.Entries).Target);
+    }
+
     /// <summary>Some servers send a feed as text/html or text/plain. The body
     /// says what it is; the header only gets a vote.</summary>
     [Fact]

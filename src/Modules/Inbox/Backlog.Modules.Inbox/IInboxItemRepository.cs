@@ -31,8 +31,15 @@ public interface IInboxItemRepository
 
     /// <summary>Removes an item <see cref="InboxItem.Delete"/> has run on, with
     /// its file rows. When it still owes the replica an acknowledgement, an
-    /// <see cref="InboxDeletedCapture"/> is kept in the same write.</summary>
+    /// <see cref="InboxDeletedCapture"/> is kept in the same write; when it has
+    /// no replica behind it, its id is kept for <see cref="WasDismissedAsync"/>.</summary>
     Task DeleteAsync(InboxItem item, CancellationToken cancellationToken = default);
+
+    /// <summary>Whether an item with no replica behind it was deleted here
+    /// under this id. A feed offers every entry on every run, so this is what
+    /// keeps a deleted one from being captured again. Never read by the outbox:
+    /// nothing is owed to anyone for it.</summary>
+    Task<bool> WasDismissedAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>The other half of the outbox read: deleted captures the replica
     /// has not yet heard about, oldest deletion first.</summary>

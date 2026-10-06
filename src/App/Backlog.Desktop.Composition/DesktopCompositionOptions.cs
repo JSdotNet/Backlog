@@ -90,6 +90,10 @@ public sealed class DesktopCompositionOptions
     /// <summary>Where what past capture runs said is kept.</summary>
     public required Func<IServiceProvider, ICaptureRunLog> CaptureRunLog { get; init; }
 
+    /// <summary>Where the capture run keeps which targets it has looked at and
+    /// what it passed over there.</summary>
+    public required Func<IServiceProvider, ICaptureTargetLedger> CaptureTargetLedger { get; init; }
+
     /// <summary>The repositories and products connected for linked tasks, with their
     /// settings and sync progress (local ADR 0020, §9).</summary>
     public required Func<IServiceProvider, IConnectedTargets> ConnectedTargets { get; init; }

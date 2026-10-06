@@ -2,6 +2,7 @@ using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.DomainModels;
 using Backlog.Modules.Inbox.Features.ArchiveItem;
 using Backlog.Modules.Inbox.Features.AssignRepositories;
+using Backlog.Modules.Inbox.Features.DeleteItem;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.SetTags;
 using Backlog.Modules.Inbox.Services;
@@ -41,6 +42,27 @@ public sealed class BatchTests
         Assert.Equal(InboxStatus.Archived, store.Items[first.Id].Status);
         Assert.Equal(InboxStatus.Archived, store.Items[last.Id].Status);
         Assert.Equal(InboxStatus.Triaged, store.Items[routed.Id].Status);
+    }
+
+    /// <summary>The cleanup a whole-site feed calls for: every picked item is
+    /// deleted through the single-item command, so each leaves what that
+    /// command leaves behind — here, the id a feed would otherwise bring back.</summary>
+    [Fact]
+    public async Task Deleting_several_deletes_each_and_names_the_one_that_has_gone()
+    {
+        var store = new InMemoryInboxStore();
+        var first = Items.Manual("First");
+        var last = Items.Manual("Last");
+        store.Seed(first);
+        store.Seed(last);
+        var gone = Guid.CreateVersion7();
+
+        var result = await Port(store).DeleteAsync([first.Id, gone, last.Id], TestContext.Current.CancellationToken);
+
+        Assert.Equal([first.Id, last.Id], result.Changed);
+        Assert.Equal(InboxErrors.ItemNotFound, Assert.Single(result.Failed).Error);
+        Assert.Empty(store.Items);
+        Assert.Equal(new[] { first.Id, last.Id }.Order(), store.Dismissed.Order());
     }
 
     [Fact]
@@ -141,7 +163,7 @@ public sealed class BatchTests
             renameRepository: null!,
             moveToList: new MoveToListCommandHandler(store, store),
             archive: new ArchiveItemCommandHandler(store, Clock),
-            delete: null!,
+            delete: new DeleteItemCommandHandler(store, Clock),
             defer: null!,
             resurface: null!,
             resurfaceDue: null!,

@@ -280,6 +280,27 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         Assert.Empty(await _repository.ListDeletedCapturesAsync(TestContext.Current.CancellationToken));
     }
 
+    /// <summary>An item with no replica behind it — a feed's, an import's —
+    /// leaves its id behind when deleted, so the source offering it again is
+    /// not a new capture. In a table of its own: the outbox never reads it.</summary>
+    [Fact]
+    public async Task A_deleted_local_item_is_remembered_as_dismissed_outside_the_outbox()
+    {
+        var local = Manual("Read off a feed");
+        var owed = FromPhone("Still on the phone");
+
+        foreach (var item in new[] { local, owed })
+        {
+            await _repository.SaveAsync(item, TestContext.Current.CancellationToken);
+            item.Delete(Noon.AddHours(2));
+            await _repository.DeleteAsync(item, TestContext.Current.CancellationToken);
+        }
+
+        Assert.True(await _repository.WasDismissedAsync(local.Id, TestContext.Current.CancellationToken));
+        Assert.False(await _repository.WasDismissedAsync(owed.Id, TestContext.Current.CancellationToken));
+        Assert.Equal(owed.Id, Assert.Single(await _repository.ListDeletedCapturesAsync(TestContext.Current.CancellationToken)).Id);
+    }
+
     [Fact]
     public async Task Only_an_item_delete_has_run_on_can_be_removed()
     {

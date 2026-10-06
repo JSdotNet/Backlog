@@ -105,6 +105,7 @@ public static class MauiProgram
             ShellNavigation = _ => new ShellNavigationStore(),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(),
             CaptureRunLog = _ => new CaptureRunLogStore(),
+            CaptureTargetLedger = _ => new CaptureTargetLedgerStore(),
             ConnectedTargets = _ => new ConnectedTargetsSettingsStore(),
             // A refresh token is a secret, so DPAPI, beside github.json under the
             // per-user Backlog folder; the connected targets above stay plain text.

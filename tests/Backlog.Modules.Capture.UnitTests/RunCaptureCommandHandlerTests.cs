@@ -363,11 +363,128 @@ public sealed class RunCaptureCommandHandlerTests
         Assert.Equal(CaptureIds.For(CaptureSourceKind.Import, "a"), item.Id);
     }
 
+    /// <summary>A feed is not news on the day it is added: a site whose feed
+    /// lists every page it has would fill the Inbox in one press. The first
+    /// look at a target hands over its newest few and passes over the rest for
+    /// good.</summary>
+    [Fact]
+    public async Task The_first_look_at_a_target_delivers_its_newest_entries_and_passes_over_the_rest()
+    {
+        var delivery = new FakeDelivery();
+        var ledger = new FakeLedger();
+        var website = new RecordingAdapter(CaptureSourceKind.Website, Feed(Site, 8));
+
+        var result = await Run(Website(Site), delivery, ledger, website);
+
+        Assert.Equal(["Entry 0", "Entry 1", "Entry 2", "Entry 3", "Entry 4"], delivery.Delivered.Select(item => item.Title).ToArray());
+        Assert.Equal(3, ledger.PassedOverAt(CaptureSourceKind.Website, Site)!.Count);
+        var line = Assert.Single(result.Value.Sources);
+        Assert.Equal(5, line.NewItems);
+        Assert.Equal(
+            $"Website: 5 new items · {Site}: first look, so only the newest 5 of its 8 entries — the rest were already there.",
+            line.Message);
+    }
+
+    /// <summary>After the first look only what arrived since counts: what was
+    /// delivered is already known, and what was passed over stays passed over.</summary>
+    [Fact]
+    public async Task A_later_run_delivers_only_what_the_target_added_since()
+    {
+        var delivery = new FakeDelivery();
+        var ledger = new FakeLedger();
+        await Run(Website(Site), delivery, ledger, new RecordingAdapter(CaptureSourceKind.Website, Feed(Site, 8)));
+
+        var fresh = Entry("fresh") with { Target = Site, PublishedAt = Now };
+        var result = await Run(Website(Site), delivery, ledger, new RecordingAdapter(CaptureSourceKind.Website, [fresh, .. Feed(Site, 8)]));
+
+        Assert.Equal("Entry fresh", delivery.Delivered[^1].Title);
+        Assert.Equal(6, delivery.Delivered.Count);
+        Assert.Equal("Website: 1 new item.", Assert.Single(result.Value.Sources).Message);
+    }
+
+    /// <summary>A site that publishes its whole archive at once after the first
+    /// look — a rebuild, a feed that changed its ids — still lands a bounded
+    /// number per run, the newest, and the line says what was passed over.</summary>
+    [Fact]
+    public async Task A_run_takes_at_most_twenty_new_entries_from_one_target()
+    {
+        var delivery = new FakeDelivery();
+        var ledger = new FakeLedger();
+        ledger.Record(CaptureSourceKind.Website, Site, []);
+        var website = new RecordingAdapter(CaptureSourceKind.Website, Feed(Site, 30));
+
+        var result = await Run(Website(Site), delivery, ledger, website);
+        var again = await Run(Website(Site), delivery, ledger, website);
+
+        Assert.Equal(20, delivery.Delivered.Count);
+        Assert.Equal("Entry 0", delivery.Delivered[0].Title);
+        Assert.Equal("Entry 19", delivery.Delivered[^1].Title);
+        Assert.Equal(
+            $"Website: 20 new items · {Site}: more than 20 new entries at once, so the older ones were passed over.",
+            Assert.Single(result.Value.Sources).Message);
+        Assert.Equal("Website: 0 new items.", Assert.Single(again.Value.Sources).Message);
+    }
+
+    [Fact]
+    public async Task Each_target_gets_its_own_first_look()
+    {
+        var delivery = new FakeDelivery();
+        var other = "https://other.example.org";
+        var website = new RecordingAdapter(CaptureSourceKind.Website, [.. Feed(Site, 8), .. Feed(other, 8, prefix: "o")]);
+
+        await Run(Website(Site, other), delivery, new FakeLedger(), website);
+
+        Assert.Equal(10, delivery.Delivered.Count);
+    }
+
+    /// <summary>A page with no feed today may grow one; the day it does is
+    /// still its first look, not a reason to take everything.</summary>
+    [Fact]
+    public async Task A_target_that_gave_no_entries_has_not_had_its_first_look()
+    {
+        var delivery = new FakeDelivery();
+        var ledger = new FakeLedger();
+        await Run(Website(Site), delivery, ledger, new RecordingAdapter(CaptureSourceKind.Website, new CaptureSourceFindings([], [$"{Site}: no feed found"])));
+        Assert.Null(ledger.PassedOverAt(CaptureSourceKind.Website, Site));
+
+        await Run(Website(Site), delivery, ledger, new RecordingAdapter(CaptureSourceKind.Website, Feed(Site, 8)));
+
+        Assert.Equal(5, delivery.Delivered.Count);
+    }
+
+    private const string Site = "https://www.example.org";
+
+    private static MonitoredSource Website(params string[] targets) => new(CaptureSourceKind.Website, true, targets);
+
+    /// <summary><paramref name="count"/> entries at one target, newest first by
+    /// an hour each, the way a feed lists them.</summary>
+    private static CapturedEntry[] Feed(string target, int count, string prefix = "") =>
+        [.. Enumerable.Range(0, count).Select(index =>
+            Entry($"{prefix}{index}") with { Target = target, PublishedAt = Now.AddHours(-1 - index) })];
+
+    private static Task<Backlog.SharedKernel.Results.Result<CaptureRunResultDto>> Run(
+        MonitoredSource source, ICaptureDelivery delivery, ICaptureTargetLedger ledger, params ICaptureSourceAdapter[] adapters) =>
+        new RunCaptureCommandHandler(new FakeSettings(), adapters, delivery, new FakeLog(), ledger, new FakeTimeProvider(Now))
+            .Handle(new RunCaptureCommand(source), TestContext.Current.CancellationToken);
+
     private static RunCaptureCommandHandler Handler(ICaptureSourceSettings settings, ICaptureDelivery delivery, params ICaptureSourceAdapter[] adapters) =>
         Handler(settings, delivery, new FakeLog(), adapters);
 
     private static RunCaptureCommandHandler Handler(ICaptureSourceSettings settings, ICaptureDelivery delivery, ICaptureRunLog log, params ICaptureSourceAdapter[] adapters) =>
-        new(settings, adapters, delivery, log, new FakeTimeProvider(Now));
+        new(settings, adapters, delivery, log, new FakeLedger(), new FakeTimeProvider(Now));
+
+    /// <summary>The ledger as a dictionary. Keeping it across a restart is the
+    /// store's business and is tested with the store.</summary>
+    private sealed class FakeLedger : ICaptureTargetLedger
+    {
+        private readonly Dictionary<(CaptureSourceKind, string), HashSet<Guid>> _targets = [];
+
+        public IReadOnlySet<Guid>? PassedOverAt(CaptureSourceKind kind, string target) =>
+            _targets.GetValueOrDefault((kind, target));
+
+        public void Record(CaptureSourceKind kind, string target, IReadOnlyCollection<Guid> passedOver) =>
+            _targets[(kind, target)] = [.. passedOver];
+    }
 
     /// <summary>The log as a list of what was handed to it. Reading it back
     /// per source is the store's business and is tested with the store.</summary>

@@ -77,7 +77,8 @@ public interface IInboxItems
 
     /// <summary>Deletes the item for good, from any state. Unlike archiving
     /// nothing is kept, except — for an item from the replica the phone may
-    /// still be offering — the acknowledgement that tells it to stop.</summary>
+    /// still be offering — the acknowledgement that tells it to stop, and for
+    /// any other item its id, so a feed or an import cannot bring it back.</summary>
     Task<Result> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>Puts the item aside until <paramref name="until"/>, or with no
@@ -119,6 +120,12 @@ public interface IInboxItems
         CancellationToken cancellationToken = default);
 
     Task<InboxBatchResultDto> ArchiveAsync(
+        IReadOnlyList<Guid> ids,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes each item for good, as <see cref="DeleteAsync(Guid, CancellationToken)"/>
+    /// does one — what that leaves behind, each item here leaves too.</summary>
+    Task<InboxBatchResultDto> DeleteAsync(
         IReadOnlyList<Guid> ids,
         CancellationToken cancellationToken = default);
 

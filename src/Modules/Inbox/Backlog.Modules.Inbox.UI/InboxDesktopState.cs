@@ -1213,6 +1213,15 @@ public sealed class InboxDesktopState
             alreadyThere: item => item.Status == InboxStatus.Archived,
             apply: items => _inbox.ArchiveAsync(Ids(items)));
 
+    /// <summary>Deletes every picked item for good — the bar asks first. Nothing
+    /// is already there: an item on screen has not been deleted.</summary>
+    public Task<InboxBulkOutcome> BulkDeleteAsync() =>
+        RunBulkAsync(
+            "deleted",
+            refuse: _ => null,
+            alreadyThere: _ => false,
+            apply: items => _inbox.DeleteAsync(Ids(items)));
+
     /// <summary>Files every picked item in one list, or back in the unfiled
     /// inbox with null. They leave the slice, and the selection with it.</summary>
     public Task<InboxBulkOutcome> BulkMoveToListAsync(Guid? listId)
