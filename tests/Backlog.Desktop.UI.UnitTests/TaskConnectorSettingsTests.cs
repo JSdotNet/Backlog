@@ -82,11 +82,11 @@ public sealed class TaskConnectorSettingsTests
         using var _context = context;
 
         var page = context.Render<TaskConnectorSettings>();
-        await page.Find("[data-testid='task-connector-target-card-assigned'] button[role='switch']").ClickAsync(new());
+        await page.Find("[data-testid='task-connector-target-card-title-follows'] button[role='switch']").ClickAsync(new());
         await page.Find("select#task-connector-target-card-interval").ChangeAsync(new() { Value = "60" });
 
         var stored = Assert.Single(targets.List());
-        Assert.True(stored.AssignedToMeByDefault);
+        Assert.False(stored.TitleFollowsSource);
         Assert.Equal(TimeSpan.FromHours(1), stored.SyncInterval);
     }
 
@@ -229,20 +229,6 @@ public sealed class TaskConnectorSettingsTests
         page.WaitForAssertion(() => Assert.Equal("Signed in as Sam", page.Find(Part("account")).TextContent.Trim()));
     }
 
-    [Fact]
-    public async Task Who_me_is_at_a_source_is_asked_again_after_its_account_changes()
-    {
-        var connector = new SigningConnector();
-        var sources = new LinkedTaskSources([connector]);
-
-        Assert.Null(await sources.WhoAmIAsync(SigningConnector.Id));
-
-        connector.Account = new TaskConnectorAccount("Sam", DateTimeOffset.UnixEpoch);
-        connector.RaiseAccountChanged();
-
-        Assert.Equal("Sam", await sources.WhoAmIAsync(SigningConnector.Id));
-    }
-
     private static string Part(string part) => $"[data-testid='task-connector-sign-in-{SigningConnector.Id}-{part}']";
 
     /// <summary>A connector a person signs in to, whose sign-in waits for the test
@@ -272,8 +258,6 @@ public sealed class TaskConnectorSettingsTests
 
         public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<SourceItem>>([]);
-
-        public Task<string?> WhoAmIAsync(CancellationToken cancellationToken) => Task.FromResult(Account?.DisplayName);
 
         public Task<string?> SignInAsync(CancellationToken cancellationToken)
         {

@@ -45,9 +45,9 @@ public sealed class ConnectedTargetEditorTests
             .Add(c => c.OnChange, options => changed = options)
             .Add(c => c.TestId, "t"));
 
-        await card.Find("[data-testid='t-assigned'] button[role='switch']").ClickAsync(new());
+        await card.Find("[data-testid='t-title-follows'] button[role='switch']").ClickAsync(new());
 
-        Assert.Equal(Target with { AssignedToMeByDefault = true }, changed);
+        Assert.Equal(Target with { TitleFollowsSource = false }, changed);
     }
 
     [Fact]

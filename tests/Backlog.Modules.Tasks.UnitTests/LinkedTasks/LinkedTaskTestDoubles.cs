@@ -35,8 +35,6 @@ internal sealed class StubTaskConnector(string id = StubTaskConnector.Id) : ITas
         if (Failure is not null) throw Failure;
         return Task.FromResult<IReadOnlyList<SourceItem>>([.. Items]);
     }
-
-    public Task<string?> WhoAmIAsync(CancellationToken cancellationToken) => Task.FromResult<string?>("me");
 }
 
 /// <summary>The connected targets, held in a list.</summary>

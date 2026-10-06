@@ -224,7 +224,6 @@ else
             Sources.NameOf(target.ConnectorId),
             target.Target,
             target.Enabled,
-            target.AssignedToMeByDefault,
             target.TitleFollowsSource,
             target.PromoteArchivesOriginal,
             (int)Math.Max(1, Math.Round(target.SyncInterval.TotalMinutes)),
@@ -257,7 +256,6 @@ else
         _message = Targets?.Update(target.ConnectorId, target.Target, stored => stored with
         {
             Enabled = options.Enabled,
-            AssignedToMeByDefault = options.AssignedToMeByDefault,
             TitleFollowsSource = options.TitleFollowsSource,
             PromoteArchivesOriginal = options.PromoteArchivesOriginal,
             SyncInterval = TimeSpan.FromMinutes(options.SyncIntervalMinutes),

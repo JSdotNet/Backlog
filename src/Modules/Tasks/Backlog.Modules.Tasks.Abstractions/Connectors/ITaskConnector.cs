@@ -56,10 +56,6 @@ public interface ITaskConnector
     /// </para>
     /// </summary>
     Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken);
-
-    /// <summary>The connected account's name at the source, so "Assigned to me" knows
-    /// who "me" is; null when no account is connected.</summary>
-    Task<string?> WhoAmIAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>

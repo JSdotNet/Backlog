@@ -35,7 +35,6 @@ public sealed class ConnectedTargetsSettingsStoreTests : IDisposable
         var target = new ConnectedTarget("github", "JSdotNet/Backlog")
         {
             SkipUntouchedOlderThan = TimeSpan.FromDays(90),
-            AssignedToMeByDefault = true,
             TitleFollowsSource = false,
             SyncInterval = TimeSpan.FromMinutes(30),
             PromoteArchivesOriginal = false,

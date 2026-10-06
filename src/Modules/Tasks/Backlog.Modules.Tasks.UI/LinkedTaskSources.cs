@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.UI.Components.Tasks;
@@ -7,7 +6,7 @@ namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
 /// What the Tasks screens know about where linked tasks come from: the installed
-/// connectors' descriptors, the connected targets, and who "me" is at each source.
+/// connectors' descriptors and the connected targets.
 /// <para>
 /// Every screen reads a connector through its descriptor and nothing else (ADR
 /// 0020 §3) — the badge, the Source filter, the settings page — so this is the one
@@ -18,23 +17,11 @@ namespace Backlog.Desktop.UI.Tasks;
 public sealed class LinkedTaskSources
 {
     private readonly IReadOnlyList<ITaskConnector> _connectors;
-    private readonly ConcurrentDictionary<string, Task<string?>> _me = new(StringComparer.Ordinal);
 
     public LinkedTaskSources(IEnumerable<ITaskConnector> connectors, IConnectedTargets? targets = null)
     {
         _connectors = [.. connectors.DistinctBy(connector => connector.Descriptor.Id, StringComparer.Ordinal)];
         Targets = targets;
-
-        // Who "me" is changes with the account: a sign-in after "me" was asked would
-        // otherwise leave "Assigned to me" judging by nobody until the app restarts.
-        // Both live for the app's lifetime, so the handler is never taken off.
-        foreach (var connector in _connectors)
-        {
-            if (connector is not ITaskConnectorSignIn signIn) continue;
-
-            var id = connector.Descriptor.Id;
-            signIn.AccountChanged += () => _me.TryRemove(id, out _);
-        }
     }
 
     /// <summary>A host with no connector and nowhere to keep targets.</summary>
@@ -86,39 +73,5 @@ public sealed class LinkedTaskSources
             DoneHereOpenAtSource = reference.HasFlag(LinkedTaskFlags.DoneLocally),
             RemovedAtSource = reference.HasFlag(LinkedTaskFlags.Vanished),
         };
-    }
-
-    /// <summary>Whether the Tasks pane's "Assigned to me" starts on: some target
-    /// that is synced asks for it (ADR 0020 §9).</summary>
-    public bool AssignedToMeByDefault =>
-        Targets?.List().Any(target => target.Enabled && target.AssignedToMeByDefault) ?? false;
-
-    /// <summary>
-    /// Who "me" is at <paramref name="connectorId"/>, asked once and kept for the
-    /// session. Null when no account is connected, the connector is not installed,
-    /// or the source could not be asked — and "Assigned to me" then keeps that
-    /// source's tasks rather than hiding work it cannot judge.
-    /// </summary>
-    public Task<string?> WhoAmIAsync(string connectorId) =>
-        _me.GetOrAdd(connectorId, id => AskAsync(_connectors.FirstOrDefault(connector => connector.Descriptor.Id == id)));
-
-    /// <summary>"Me" at <paramref name="connectorId"/> when it is already known,
-    /// without asking.</summary>
-    public string? KnownMe(string connectorId) =>
-        _me.TryGetValue(connectorId, out var asked) && asked.IsCompletedSuccessfully ? asked.Result : null;
-
-    private static async Task<string?> AskAsync(ITaskConnector? connector)
-    {
-        if (connector is null) return null;
-
-        try
-        {
-            var me = await connector.WhoAmIAsync(CancellationToken.None).ConfigureAwait(false);
-            return string.IsNullOrWhiteSpace(me) ? null : me.Trim();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
     }
 }

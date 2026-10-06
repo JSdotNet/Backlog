@@ -227,12 +227,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (_taskWrites is not null) _taskWrites.Changed += OnTaskWritten;
 
         LinkedSources = linkedSources ?? LinkedTaskSources.None;
-        AssignedToMeOnly = LinkedSources.AssignedToMeByDefault;
-        if (LinkedSources.Targets is { } targets) targets.Changed += OnConnectedTargetsChanged;
     }
 
-    /// <summary>The installed connectors and connected targets the source badge,
-    /// the Source filter and "Assigned to me" are drawn from.</summary>
+    /// <summary>The installed connectors and connected targets the source badge
+    /// and the Source filter are drawn from.</summary>
     public LinkedTaskSources LinkedSources { get; }
 
     /// <summary>The Source filter's value for local work: tasks that came from no
@@ -247,20 +245,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </summary>
     public string? SelectedSource { get; private set; }
 
-    /// <summary>
-    /// True while linked tasks are narrowed to the ones assigned to the connected
-    /// account. Local tasks are never hidden by it, since they have no assignee at a
-    /// source to compare. A linked task whose source has not said who "me" is stays
-    /// in view, because a filter that cannot judge must not hide work.
-    /// <para>
-    /// Starts on when a synced target asks for it (ADR 0020 §9), and follows that
-    /// setting until the reader presses the chip — after which it is theirs.
-    /// </para>
-    /// </summary>
-    public bool AssignedToMeOnly { get; private set; }
-
-    private bool _assignedToMeChosen;
-
     /// <summary>The Source filter's chips: local work, then one per connector — every
     /// installed one, and any connector id a task carries that this build does not
     /// know. Empty while no connector is installed and no task is linked, so a
@@ -274,57 +258,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ApplyFilter();
     }
 
-    /// <summary>Turns "Assigned to me" on or off. Once pressed it stops following
-    /// the targets' default.</summary>
-    public void SetAssignedToMeFilter(bool only)
-    {
-        _assignedToMeChosen = true;
-        AssignedToMeOnly = only;
-        ApplyFilter();
-    }
-
     /// <summary>Whether a row is in the source <paramref name="source"/> names.</summary>
     public static bool IsFromSource(EntryRow row, string source) =>
         source == LocalSource
             ? row.SourceRef is null
             : string.Equals(row.SourceRef?.ConnectorId, source, StringComparison.Ordinal);
-
-    /// <summary>Whether a row stays in view under "Assigned to me".</summary>
-    public bool IsAssignedToMe(EntryRow row) =>
-        row.SourceRef is not { } source
-        || LinkedSources.KnownMe(source.ConnectorId) is not { } me
-        || string.Equals(source.Assignee, me, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>Asks each source with a linked task in the list who "me" is, then
-    /// filters again, so "Assigned to me" narrows as soon as it can judge.</summary>
-    private async Task LearnWhoIAmAsync()
-    {
-        var connectorIds = Rows
-            .Select(row => row.SourceRef?.ConnectorId)
-            .OfType<string>()
-            .Distinct(StringComparer.Ordinal)
-            .Where(id => LinkedSources.KnownMe(id) is null)
-            .ToList();
-        if (connectorIds.Count == 0) return;
-
-        await Task.WhenAll(connectorIds.Select(LinkedSources.WhoAmIAsync));
-        if (_disposed) return;
-
-        ApplyFilter();
-        Changed?.Invoke();
-    }
-
-    private void OnConnectedTargetsChanged()
-    {
-        if (_assignedToMeChosen || _disposed) return;
-
-        var byDefault = LinkedSources.AssignedToMeByDefault;
-        if (byDefault == AssignedToMeOnly) return;
-
-        AssignedToMeOnly = byDefault;
-        ApplyFilter();
-        Changed?.Invoke();
-    }
 
     private void RebuildSourceFilters()
     {
@@ -1186,13 +1124,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (SelectedSource is { } source && !IsFromSource(row, source))
         {
             SelectedSource = null;
-            widened = true;
-        }
-
-        if (AssignedToMeOnly && !IsAssignedToMe(row))
-        {
-            _assignedToMeChosen = true;
-            AssignedToMeOnly = false;
             widened = true;
         }
 
@@ -2845,7 +2776,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         _store.RootChanged -= OnRootChanged;
         if (_taskWrites is not null) _taskWrites.Changed -= OnTaskWritten;
-        if (LinkedSources.Targets is { } targets) targets.Changed -= OnConnectedTargetsChanged;
 
         _lifetime.Cancel();
 
@@ -4608,10 +4538,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _persistedOrder = [.. rows.Select(row => row.Id!.Value)];
 
         ApplyFilter();
-
-        // Who "me" is at each source arrives after the list, never ahead of it: the
-        // rows are on screen at once and "Assigned to me" narrows when it can judge.
-        _ = LearnWhoIAmAsync();
     }
 
     /// <summary>
@@ -4679,16 +4605,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             rows = rows.Where(IsReadyInPlan);
         }
 
-        // And where a task came from, and whose it is there: the same terms again.
+        // And where a task came from: the same terms again.
         RebuildSourceFilters();
         if (SelectedSource is { } source)
         {
             rows = rows.Where(row => IsFromSource(row, source));
-        }
-
-        if (AssignedToMeOnly)
-        {
-            rows = rows.Where(IsAssignedToMe);
         }
 
         // The tag bar is built from what every scope left in view, not the

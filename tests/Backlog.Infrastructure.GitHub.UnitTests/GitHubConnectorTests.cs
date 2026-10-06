@@ -167,46 +167,15 @@ public sealed class GitHubConnectorTests
         Assert.Equal(["JSdotNet/Backlog", "octo/cat"], targets);
     }
 
-    [Fact]
-    public async Task Who_am_i_is_the_login_every_repository_is_bound_to()
-    {
-        var settings = new GitHubSettings
-        {
-            Repositories = [Repository with { Account = "work" }, new GitHubRepositoryRef("other", "octo", "cat") { Account = "Work" }],
-        };
-
-        var me = await Connector(new StubClient(), settings: settings, defaultLogin: "personal").WhoAmIAsync(TestContext.Current.CancellationToken);
-
-        Assert.Equal("work", me);
-    }
-
-    [Fact]
-    public async Task Who_am_i_is_the_signed_in_login_when_no_repository_names_an_account()
-    {
-        var me = await Connector(new StubClient(), defaultLogin: "personal").WhoAmIAsync(TestContext.Current.CancellationToken);
-
-        Assert.Equal("personal", me);
-    }
-
-    [Fact]
-    public async Task Who_am_i_is_nobody_when_github_cannot_say()
-    {
-        var me = await Connector(new StubClient(), defaultLogin: null).WhoAmIAsync(TestContext.Current.CancellationToken);
-
-        Assert.Null(me);
-    }
-
     private static GitHubConnector Connector(
         StubClient client,
         IReadOnlyList<EntryProjectionDto>? projections = null,
-        GitHubSettings? settings = null,
-        string? defaultLogin = "me")
+        GitHubSettings? settings = null)
     {
         settings ??= new GitHubSettings { Repositories = [Repository] };
         return new GitHubConnector(
             client,
             () => settings,
-            new StubIdentity(defaultLogin),
             _ => Task.FromResult(projections ?? []));
     }
 
@@ -259,10 +228,5 @@ public sealed class GitHubConnectorTests
 
         public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
-    }
-
-    private sealed class StubIdentity(string? login) : IGitHubIdentityClient
-    {
-        public Task<string?> GetLoginAsync(CancellationToken cancellationToken = default) => Task.FromResult(login);
     }
 }

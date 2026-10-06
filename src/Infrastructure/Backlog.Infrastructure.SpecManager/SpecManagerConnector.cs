@@ -138,19 +138,6 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
         return items;
     }
 
-    /// <summary>
-    /// The signed-in member's id in the first enabled spec-manager target — the
-    /// same id an item's assignee is — or null when nobody is signed in, nothing is
-    /// connected, or the installation does not answer who that is.
-    /// </summary>
-    public async Task<string?> WhoAmIAsync(CancellationToken cancellationToken)
-    {
-        if (_signIn.Account is null || FirstTarget() is not { } target) return null;
-
-        var members = await _client.GetMembersAsync(target.Target, cancellationToken).ConfigureAwait(false);
-        return members?.FirstOrDefault(member => member.IsJij)?.GebruikerId;
-    }
-
     public async Task<string?> SignInAsync(CancellationToken cancellationToken)
     {
         var error = await _signIn.SignInAsync(cancellationToken).ConfigureAwait(false);

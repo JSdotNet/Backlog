@@ -187,7 +187,7 @@
                        the pressed one widens again — so with nothing pressed the
                        list is already every source and there is no "All" chip.
                        Pressing another source lets go of the first, because a task
-                       comes from exactly one. "Assigned to me" composes with it. *@
+                       comes from exactly one. *@
                     @if (State.SourceFilters.Count > 0)
                     {
                         <div class="filter-group filter-group--source" role="group" aria-label="Filter by source">
@@ -203,14 +203,6 @@
                                     @source.Label<span class="chip__count">@source.Count</span>
                                 </ToggleButton>
                             }
-                            <ToggleButton BaseClass="chip chip--filter"
-                                          PressedCssClass="chip--active"
-                                          Pressed="@State.AssignedToMeOnly"
-                                          TestId="assigned-to-me-filter"
-                                          Title="@(State.AssignedToMeOnly ? "Show linked tasks assigned to anyone" : "Show only the linked tasks assigned to you")"
-                                          PressedChanged="State.SetAssignedToMeFilter">
-                                Assigned to me
-                            </ToggleButton>
                         </div>
                     }
 
