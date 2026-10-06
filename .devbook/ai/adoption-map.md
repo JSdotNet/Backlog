@@ -44,7 +44,7 @@ flowchart LR
 ## What the loop shows
 
 - **The dev half is where adoption is real.** Every change is gated into a flow, written in
-  its own worktree by the agent its role binds, proven by the QA agent, and approved by a
+  its own worktree by the agent its phase binds, proven by the QA agent, and approved by a
   person. Those are `adopted`; the procedure skills and devbook checks bolted onto the flows
   on 2026-09-25 are still `trial`.
 - **The ops half is almost all `trial`, and all of it unattended.** Everything at `operate`

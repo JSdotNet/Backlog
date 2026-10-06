@@ -173,7 +173,7 @@ flowchart LR
         Hooks["Claude Code Hooks"]:::adopted
         DevbookPlugin["Devbook Plugin"]:::adopted
         DevbookConfig["Devbook Config"]:::adopted
-        DevbookProcedures["Devbook Procedures"]:::adopted
+        DevbookProcedures["Devbook Procedures"]:::retired
     end
 
     subgraph Tooling["Build and governance tooling"]
@@ -301,6 +301,7 @@ flowchart LR
     InstructionFiles --> Markdown
     Hooks --> ClaudeCode
     DevbookPlugin --> Plugins
+    DevbookPlugin --> Skills
     DevbookPlugin --> NodeJS
     DevbookConfig --> Plugins
     DevbookConfig --> JSON
@@ -339,6 +340,7 @@ flowchart LR
     classDef candidate fill:#2b3245,stroke:#8aa4ff,color:#fff,stroke-width:1.5px
     classDef trial fill:#2b4a45,stroke:#8ae0d4,color:#fff,stroke-width:1.5px
     classDef hold fill:#4a2b2b,stroke:#ffa8a8,color:#fff,stroke-width:1.5px
+    classDef retired fill:#2e2e2e,stroke:#9a9a9a,color:#ccc,stroke-width:1px,stroke-dasharray:4 3
     classDef foundation fill:#3a2f14,stroke:#ffd166,color:#fff,stroke-width:1.5px
 ```
 
