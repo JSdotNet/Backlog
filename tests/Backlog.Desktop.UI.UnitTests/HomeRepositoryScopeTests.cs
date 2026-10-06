@@ -753,6 +753,7 @@ public sealed class HomeRepositoryScopeTests
         public void Dispose()
         {
             Context.Dispose();
+            TestDatabases.Release(Root);
 
             try
             {

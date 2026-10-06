@@ -2217,6 +2217,7 @@ public sealed class HomeWorkspaceSurfaceTests
         public void Dispose()
         {
             Context.Dispose();
+            TestDatabases.Release(Root);
 
             try
             {

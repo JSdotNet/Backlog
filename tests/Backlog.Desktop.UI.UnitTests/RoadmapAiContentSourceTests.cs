@@ -123,6 +123,7 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
 
     public void Dispose()
     {
+        TestDatabases.Release(_root);
         try { if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true); } catch (IOException) { }
     }
 }

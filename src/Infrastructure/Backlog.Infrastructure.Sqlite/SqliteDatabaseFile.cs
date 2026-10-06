@@ -110,6 +110,19 @@ public static class SqliteDatabaseFile
         }
     }
 
+    /// <summary>Closes the connections the repositories keep pooled on the
+    /// database at <paramref name="path"/>, and only those: every other
+    /// database's pool is left alone. A pooled handle is an open file, and
+    /// whatever is left in a pool when the process ends is closed by
+    /// Microsoft.Data.Sqlite's exit handler one by one, each close checkpointing
+    /// its WAL — so a caller done with a database it opened lets go of it here
+    /// rather than leaving the cost to the exit.</summary>
+    public static void ReleasePool(string path)
+    {
+        using var connection = new SqliteConnection(SqliteSchema.ConnectionString(path));
+        SqliteConnection.ClearPool(connection);
+    }
+
     /// <summary>Removes the database at <paramref name="path"/> and the
     /// journal files SQLite keeps beside it, after letting go of every pooled
     /// connection to it — a pooled handle is an open file, and an open file

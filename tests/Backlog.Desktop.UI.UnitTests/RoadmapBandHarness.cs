@@ -190,7 +190,10 @@ public abstract class RoadmapBandHarness : IDisposable
         await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
             DataSource = SqliteTaskRepository.DatabasePathFor(Settings.RootDirectory),
-            Mode = SqliteOpenMode.ReadWrite
+            Mode = SqliteOpenMode.ReadWrite,
+            // A string of the test's own is a pool of its own, which the release in
+            // Dispose would not find; unpooled, the handle closes with the connection.
+            Pooling = false
         }.ToString());
         await connection.OpenAsync();
 
@@ -227,6 +230,8 @@ public abstract class RoadmapBandHarness : IDisposable
 
     public void Dispose()
     {
+        TestDatabases.Release(_root);
+
         try
         {
             if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);

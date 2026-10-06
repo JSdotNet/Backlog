@@ -154,6 +154,8 @@ public sealed class RoadmapPlanTagSourceTests : IDisposable
 
     public void Dispose()
     {
+        TestDatabases.Release(_root);
+
         try
         {
             if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
