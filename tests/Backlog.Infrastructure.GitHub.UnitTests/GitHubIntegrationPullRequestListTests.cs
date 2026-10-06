@@ -288,6 +288,68 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
           "autoMergeRequest": null, "updatedAt": "{{updatedAt}}", "commits": { "nodes": [] } }
         """;
 
+    // --- Pinned ---------------------------------------------------------------
+
+    /// <summary>Pins are read one query per repository, every repository side by side,
+    /// whether or not that repository is configured — a pin outlives the scope it was
+    /// made in.</summary>
+    [Fact]
+    public async Task Pins_are_read_per_repository_and_come_back_together()
+    {
+        var transport = new RoutingTransport()
+            .Returns("graphql#JSdotNet/Backlog", Pinned(("p1", PinnedNode(1, "OPEN", "2026-10-01T08:00:00Z")), ("p3", PinnedNode(3, "MERGED", "2026-10-01T11:00:00Z"))))
+            .Returns("graphql#JSdotNet/Archify", Pinned(("p2", PinnedNode(2, "CLOSED", "2026-10-01T10:00:00Z"))));
+
+        var listing = await Integration(transport).ListPinnedPullRequestsAsync(
+            [new PullRequestPin("JSdotNet/Backlog", 1), new PullRequestPin("JSdotNet/Archify", 2), new PullRequestPin("jsdotnet/backlog", 3)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, transport.Paths.Count);
+        Assert.Equal([3, 2, 1], listing.PullRequests.Select(pull => pull.Number));
+        Assert.Equal([GitHubItemState.Merged, GitHubItemState.Closed, GitHubItemState.Open], listing.PullRequests.Select(pull => pull.State));
+        Assert.Empty(listing.Failures);
+    }
+
+    [Fact]
+    public async Task A_repository_whose_pins_cannot_be_read_is_reported_and_the_others_still_come_back()
+    {
+        var transport = new RoutingTransport()
+            .Returns("graphql#JSdotNet/Backlog", Pinned(("p1", PinnedNode(1, "OPEN", "2026-10-01T08:00:00Z"))))
+            .Refuses("graphql#octo/broken", "gh: Could not resolve to a Repository with the name 'octo/broken'.");
+
+        var listing = await Integration(transport).ListPinnedPullRequestsAsync(
+            [new PullRequestPin("JSdotNet/Backlog", 1), new PullRequestPin("octo/broken", 9)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, Assert.Single(listing.PullRequests).Number);
+        var failure = Assert.Single(listing.Failures);
+        Assert.Equal("octo/broken", failure.RepositoryFullName);
+    }
+
+    [Fact]
+    public async Task No_pins_read_nothing()
+    {
+        var transport = new RoutingTransport();
+
+        var listing = await Integration(transport).ListPinnedPullRequestsAsync([], TestContext.Current.CancellationToken);
+
+        Assert.Empty(listing.PullRequests);
+        Assert.Empty(transport.Paths);
+    }
+
+    private static string Pinned(params (string Alias, string Node)[] pulls) => $$"""
+        { "data": { "repository": {
+            "mergeCommitAllowed": true, "squashMergeAllowed": true, "rebaseMergeAllowed": true,
+            {{string.Join(",", pulls.Select(pull => $"\"{pull.Alias}\": {pull.Node}"))}} } } }
+        """;
+
+    private static string PinnedNode(int number, string state, string updatedAt) => $$"""
+        { "id": "PR_{{number}}", "number": {{number}}, "title": "#{{number}}", "url": "https://github.com/x/y/pull/{{number}}",
+          "state": "{{state}}", "isDraft": false, "headRefName": "branch-{{number}}", "headRefOid": "sha{{number}}", "baseRefName": "main",
+          "mergeStateStatus": "UNKNOWN", "mergeable": "UNKNOWN", "viewerDidAuthor": false, "author": { "login": "someone" },
+          "autoMergeRequest": null, "updatedAt": "{{updatedAt}}", "commits": { "nodes": [] } }
+        """;
+
     /// <summary>The clock every listing here is read at.</summary>
     private static readonly DateTimeOffset Now = new(2026, 10, 1, 12, 0, 0, TimeSpan.Zero);
 

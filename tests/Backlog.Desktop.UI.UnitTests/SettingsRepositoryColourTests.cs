@@ -145,10 +145,10 @@ public sealed class SettingsRepositoryColourTests
             Assert.Contains("Colour 4", settings.Component.Find("[data-testid='repo-colour-status']").TextContent));
     }
 
-    private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
+    internal static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
         component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Repositories").Click();
 
-    private static SettingsRenderContext RenderSettings()
+    internal static SettingsRenderContext RenderSettings()
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-colour-tests", Guid.NewGuid().ToString("n"));
 
@@ -223,7 +223,7 @@ public sealed class SettingsRepositoryColourTests
         }
     }
 
-    private sealed record SettingsRenderContext(
+    internal sealed record SettingsRenderContext(
         string Root,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,

@@ -162,6 +162,7 @@ public static class DesktopCompositionRegistration
             return store;
         });
         services.AddGitHub();
+        services.AddSingleton(options.PullRequestPins);
         services.AddWorkspaceCaches();
         services.AddSingleton(options.FeatureSettings);
 

@@ -246,6 +246,56 @@ public sealed partial class GitHubIntegration(
     }
 
     /// <summary>
+    /// The pinned pull requests, whatever state each is in, most recently updated
+    /// first — one query per repository that has pins, read side by side, each
+    /// repository's refusal kept as its failure, exactly as
+    /// <see cref="ListOpenPullRequestsAsync"/> reads.
+    /// <para>
+    /// A pin names its repository by <c>owner/name</c> and is read through it whether
+    /// or not that repository is still configured or in scope: a pin is somebody
+    /// saying "keep this one in front of me", and that outlives the filter it was
+    /// made under. Pins differing only in the case of their repository are one
+    /// repository's.
+    /// </para>
+    /// </summary>
+    public async Task<GitHubPullRequestListing> ListPinnedPullRequestsAsync(
+        IEnumerable<PullRequestPin> pins,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pins);
+
+        var reads = pins
+            .Where(pin => pin.Number > 0 && !string.IsNullOrWhiteSpace(pin.RepositoryFullName))
+            .GroupBy(pin => pin.RepositoryFullName.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => ReadPinnedAsync(group.Key, [.. group.Select(pin => pin.Number).Distinct()], cancellationToken))
+            .ToList();
+
+        if (reads.Count == 0) return GitHubPullRequestListing.Empty;
+
+        var answers = await Task.WhenAll(reads).ConfigureAwait(false);
+
+        return new GitHubPullRequestListing(
+            [.. answers.SelectMany(answer => answer.PullRequests).OrderByDescending(pull => pull.UpdatedAt)],
+            [.. answers.Where(answer => answer.Failure is not null).Select(answer => answer.Failure!)]);
+    }
+
+    private async Task<(IReadOnlyList<GitHubOpenPullRequest> PullRequests, GitHubRepositoryFailure? Failure)> ReadPinnedAsync(
+        string repositoryFullName,
+        IReadOnlyCollection<int> numbers,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var repository = RepositoryForFullName(repositoryFullName);
+            return (await client.ListPullRequestsAsync(repository, numbers, cancellationToken).ConfigureAwait(false), null);
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
+        {
+            return ([], new GitHubRepositoryFailure(repositoryFullName, ex.Message));
+        }
+    }
+
+    /// <summary>
     /// The pull requests merged within <see cref="RecentlyMergedWindow"/> in every
     /// repository given, newest merge first across all of them — read side by side,
     /// each repository's refusal kept as its failure, exactly as

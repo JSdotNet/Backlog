@@ -112,6 +112,7 @@ public static class MauiProgram
             SpecManagerTokenStore = _ => new DpapiSpecManagerTokenStore(),
             InboxRoutingRules = _ => new InboxRoutingRulesStore(),
             GitHubSettings = root => new GitHubSettingsStore(GitHubSettingsStore.DefaultLocalPath, root),
+            PullRequestPins = _ => new PullRequestPinsStore(),
             ClaudeSettings = _ => new ClaudeSettingsStore(),
             AzureFoundrySettings = _ => new AzureFoundrySettingsStore(),
             // The desktop head's tools adapter runs the CLIs, and reads this head's

@@ -2,6 +2,7 @@
 @using Backlog.UI.Components.Data
 @using Backlog.UI.Components.Integrations
 @inject IServiceProvider Services
+@implements IDisposable
 
 @*
     The pull requests pane: the open pull requests of every registered repository, in
@@ -42,6 +43,13 @@
     still leads back to the work.
 
     The ✕ only reports that it was pressed; what that closes is the shell's business.
+
+    Three things narrow the rows beside the header's chips: Mine (the reader's own
+    pull requests and those related to one of their tasks), and a repository's label
+    filter, set in Settings, which lets through only pull requests carrying one of its
+    labels. A pinned pull request ignores all of them: a pin is somebody saying "keep
+    this one in front of me". It is read by number beside the open list, so it stays —
+    merged or closed, with no act and no place in a stack — until it is unpinned.
 *@
 
 <section @key=@("pull-requests-pane") class="pull-requests-panel" id="pull-requests-pane" aria-labelledby="pull-requests-title" data-testid="pull-requests-panel">
@@ -193,11 +201,14 @@
                         @RepositoryCell(pull.RepositoryFullName)
 
                         <td class="pull-requests-table__pull-request">
-                            <IntegrationLink Link="@MergedLink(pull)"
-                                             StateAsInk="true"
-                                             CssClass="pull-requests-table__link"
-                                             TestId="pull-request-link"
-                                             StateTestId="pull-request-state" />
+                            <span class="pull-requests-table__chain">
+                                <IntegrationLink Link="@MergedLink(pull)"
+                                                 StateAsInk="true"
+                                                 CssClass="pull-requests-table__link"
+                                                 TestId="pull-request-link"
+                                                 StateTestId="pull-request-state" />
+                                @PinToggle(pull.RepositoryFullName, pull.Number)
+                            </span>
                         </td>
 
                         @BranchCell(pull.HeadRefName, pull.BaseRefName)
@@ -219,7 +230,7 @@
                             </span>
                         </td>
 
-                        @TaskCell(pull.RepositoryFullName, pull.Number)
+                        @TaskCell(TaskSubject(pull))
 
                         @SessionCell(pull.Url, pull.HeadRefName, pull.RepositoryFullName)
                     </Row>
@@ -261,6 +272,7 @@
                                                  CssClass="pull-requests-table__link"
                                                  TestId="pull-request-link"
                                                  StateTestId="pull-request-state" />
+                                @PinToggle(pull.RepositoryFullName, pull.Number)
                             </span>
                         </td>
 
@@ -270,34 +282,69 @@
                            here: the link is the one GitHub button and wears it as its
                            colour, with the words in its title. Every other fact a reader
                            acts on is its own badge, so none is carried by colour alone.
-                           GitHub's raw merge state is in the title. *@
+                           GitHub's raw merge state is in the title. A pinned pull
+                           request that merged or closed has one fact left, said in
+                           words beside the link's colour. *@
                         <td title="@StatusTitle(pull)">
                             <span class="pull-requests-table__facts">
-                                @if (ChecksLabel(pull.Checks) is { } checks)
+                                @if (!pull.IsOpen)
                                 {
-                                    <Badge Kind="@ChecksKind(pull.Checks)" Slug="@ChecksSlug(pull.Checks)" TestId="pull-request-checks">@checks</Badge>
+                                    <Badge Kind="kind" Title="@ClosedTitle(pull)" TestId="pull-request-closed">@(pull.IsMerged ? "Merged" : "Closed")</Badge>
                                 }
-                                @if (pull.IsBehind)
+                                else
                                 {
-                                    <Badge Kind="finding" Slug="warning" TestId="pull-request-behind">Behind</Badge>
-                                }
-                                @if (pull.HasConflicts)
-                                {
-                                    <Badge Kind="finding" Slug="error" TestId="pull-request-conflicts">Conflicts</Badge>
-                                }
-                                @if (pull.AutoMergeEnabled)
-                                {
-                                    <Badge Kind="kind" TestId="pull-request-auto-merge">Auto-merge on</Badge>
+                                    @if (pull.CheckCounts is { Total: > 0 } counts)
+                                    {
+                                        @* GitHub's "8/9": how many of the head commit's checks
+                                           passed, then what holds the rest, each in words. The
+                                           tone is the roll-up's, the state GitHub gates the
+                                           merge on. *@
+                                        <Badge Kind="@ChecksKind(pull.Checks)" Slug="@ChecksSlug(pull.Checks)" Title="@ChecksTitle(counts)" TestId="pull-request-checks">@($"{counts.Passed}/{counts.Total} checks")</Badge>
+                                        @if (counts.Failed > 0)
+                                        {
+                                            <Badge Kind="finding" Slug="error" TestId="pull-request-checks-failing">@($"{counts.Failed} failing")</Badge>
+                                        }
+                                        @if (counts.Pending > 0)
+                                        {
+                                            <Badge Kind="finding" Slug="warning" TestId="pull-request-checks-pending">@($"{counts.Pending} pending")</Badge>
+                                        }
+                                    }
+                                    else if (ChecksLabel(pull.Checks) is { } checks)
+                                    {
+                                        <Badge Kind="@ChecksKind(pull.Checks)" Slug="@ChecksSlug(pull.Checks)" TestId="pull-request-checks">@checks</Badge>
+                                    }
+                                    @if (pull.Reviews.Approvals > 0)
+                                    {
+                                        <Badge Kind="kind" TestId="pull-request-approvals">@(pull.Reviews.Approvals == 1 ? "1 approval" : $"{pull.Reviews.Approvals} approvals")</Badge>
+                                    }
+                                    @if (ReviewLabel(pull.Reviews) is { } review)
+                                    {
+                                        <Badge Kind="@ReviewKind(pull.Reviews)" Slug="@ReviewSlug(pull.Reviews)" TestId="pull-request-review">@review</Badge>
+                                    }
+                                    @if (pull.IsBehind)
+                                    {
+                                        <Badge Kind="finding" Slug="warning" TestId="pull-request-behind">Behind</Badge>
+                                    }
+                                    @if (pull.HasConflicts)
+                                    {
+                                        <Badge Kind="finding" Slug="error" TestId="pull-request-conflicts">Conflicts</Badge>
+                                    }
+                                    @if (pull.AutoMergeEnabled)
+                                    {
+                                        <Badge Kind="kind" TestId="pull-request-auto-merge">Auto-merge on</Badge>
+                                    }
                                 }
                             </span>
                         </td>
 
-                        @TaskCell(pull.RepositoryFullName, pull.Number)
+                        @TaskCell(TaskSubject(pull))
 
                         @SessionCell(pull.Url, pull.HeadRefName, pull.RepositoryFullName)
 
+                        @* No act on a pinned pull request that merged or closed: there
+                           is nothing left on GitHub to do to it from a list. *@
                         <td class="pull-requests-table__actions">
-                            @if (pull.IsBehind)
+                            @if (pull.IsOpen && pull.IsBehind)
                             {
                                 <AppButton Size="ButtonSize.Small"
                                            Disabled="@Busy(pull)"
@@ -306,7 +353,7 @@
                                     Update branch
                                 </AppButton>
                             }
-                            @if (pull.IsDraft)
+                            @if (pull.IsOpen && pull.IsDraft)
                             {
                                 <AppButton Size="ButtonSize.Small"
                                            Disabled="@Busy(pull)"
@@ -374,9 +421,19 @@
     private GitHubIntegration? _gitHub;
     private IAgentSessionSource? _sessionSource;
     private IToastChannel? _toasts;
+    private PullRequestPinsStore? _pins;
     private TimeProvider _clock = TimeProvider.System;
 
     private GitHubPullRequestListing _listing = GitHubPullRequestListing.Empty;
+
+    /// <summary>The pinned pull requests, read by number whatever state they are in.
+    /// Only the ones still pinned and not in <see cref="_listing"/> are drawn from
+    /// here: for an open one the open list's row is the same pull request.</summary>
+    private GitHubPullRequestListing _pinned = GitHubPullRequestListing.Empty;
+
+    /// <summary>Bumped on every pin and unpin, so what is derived from the pins is
+    /// derived again.</summary>
+    private int _pinsVersion;
     private IReadOnlyList<AgentSession> _sessions = [];
     private bool _sessionsUnreadable;
 
@@ -454,12 +511,13 @@
     public Func<string?, int?>? RepositoryColour { get; set; }
 
     /// <summary>
-    /// The Backlog entry that recorded a pull request, by the pull request's
-    /// <c>owner/name</c> and number, or null. Asked of the shell because the record
-    /// is on the entry, and entries belong to Tasks.
+    /// The Backlog entry a pull request belongs to, or null. With the flag set, only
+    /// among the reader's own tasks — what Mine adds to the pull requests they opened.
+    /// Asked of the shell because the relations are on the entries, and entries
+    /// belong to Tasks.
     /// </summary>
     [Parameter]
-    public Func<string, int, DeliveryRunReference?>? PullRequestTask { get; set; }
+    public Func<PullRequestTaskSubject, bool, DeliveryRunReference?>? PullRequestTask { get; set; }
 
     /// <summary>How the shell opens that entry. Without it the task renders as inert
     /// text rather than as a control that would have to refuse the click.</summary>
@@ -482,9 +540,96 @@
         _gitHub = Services.GetService<GitHubIntegration>();
         _sessionSource = Services.GetService<IAgentSessionSource>();
         _toasts = Services.GetService<IToastChannel>();
+        _pins = Services.GetService<PullRequestPinsStore>();
         _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
 
+        // A pin or a label filter changed — here or in Settings — redraws the rows
+        // from what was read; only a pin nothing read yet costs a read.
+        if (_pins is not null) _pins.Changed += OnPinsChanged;
+        if (_gitHub is not null) _gitHub.Settings.Changed += OnSettingsChanged;
+
         await ReadOpenAsync();
+    }
+
+    public void Dispose()
+    {
+        if (_pins is not null) _pins.Changed -= OnPinsChanged;
+        if (_gitHub is not null) _gitHub.Settings.Changed -= OnSettingsChanged;
+    }
+
+    private void OnSettingsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnPinsChanged() => _ = InvokeAsync(async () =>
+    {
+        _pinsVersion++;
+        StateHasChanged();
+
+        if (PinsUnread())
+        {
+            await ReadPinnedAndRenderAsync();
+        }
+    });
+
+    private async Task ReadPinnedAndRenderAsync()
+    {
+        _reads++;
+        try
+        {
+            await ReadPinnedAsync();
+        }
+        finally
+        {
+            _reads--;
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>Whether a pin names a pull request neither read has brought in — one
+    /// pinned from the merged view, or on another window.</summary>
+    private bool PinsUnread()
+    {
+        if (_pins is null) return false;
+
+        var read = _listing.PullRequests.Concat(_pinned.PullRequests).Select(Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return _pins.Pins.Any(pin => !read.Contains(Key(pin.RepositoryFullName, pin.Number)));
+    }
+
+    /// <summary>Which pinned read may still land. Bumped by every pinned read, so two
+    /// out at once — a pin made while another pin's read is out, or beside the open
+    /// read — cannot land in network order and leave the older answer, which lacks
+    /// the newer pin, as the last word.</summary>
+    private int _pinnedGeneration;
+
+    /// <summary>One pinned read, kept only if no newer one started while it was out.</summary>
+    private async Task ReadPinnedAsync()
+    {
+        var generation = ++_pinnedGeneration;
+        var listing = await ReadPinsAsync();
+
+        if (generation == _pinnedGeneration) _pinned = listing;
+    }
+
+    /// <summary>Every pin, read by number. No pins, no request.</summary>
+    private async Task<GitHubPullRequestListing> ReadPinsAsync()
+    {
+        if (_gitHub is not { } gitHub || _pins is not { Pins.Count: > 0 } pins) return GitHubPullRequestListing.Empty;
+
+        return await gitHub.ListPinnedPullRequestsAsync(pins.Pins);
+    }
+
+    private bool IsPinned(string repositoryFullName, int number) => _pins?.IsPinned(repositoryFullName, number) == true;
+
+    private bool IsPinned(GitHubOpenPullRequest pull) => IsPinned(pull.RepositoryFullName, pull.Number);
+
+    /// <summary>Pins or unpins one pull request. The store announces it, and
+    /// <see cref="OnPinsChanged"/> does the rest.</summary>
+    private void TogglePin(string repositoryFullName, int number)
+    {
+        if (_pins is null) return;
+
+        if (_pins.IsPinned(repositoryFullName, number)) _pins.Unpin(repositoryFullName, number);
+        else _pins.Pin(repositoryFullName, number);
     }
 
     /// <summary>Shows a view, reading the merged one the first time it is shown.</summary>
@@ -536,9 +681,11 @@
             // Both in flight together: GitHub and the session folders are two
             // readers that need nothing from each other until both are in.
             var listing = gitHub.ListOpenPullRequestsAsync(gitHub.Repositories);
+            var pinned = ReadPinnedAsync();
             var sessions = ReadSessionsAsync();
 
             _listing = await listing;
+            await pinned;
             _sessions = await sessions;
             _read = true;
         }
@@ -612,7 +759,13 @@
 
         if (repository is null) return;
 
+        // A pin in this repository is read again beside it: a pinned pull request the
+        // act merged leaves the open list, and only the pinned read says it merged.
+        var hasPins = _pins?.Pins.Any(pin => string.Equals(pin.RepositoryFullName, repositoryFullName, StringComparison.OrdinalIgnoreCase)) == true;
+        var rereadPins = hasPins ? ReadPinnedAsync() : null;
+
         var reread = await gitHub.ListOpenPullRequestsAsync([repository]);
+        if (rereadPins is not null) await rereadPins;
 
         bool Other(string fullName) => !string.Equals(fullName, repositoryFullName, StringComparison.OrdinalIgnoreCase);
 
@@ -723,7 +876,9 @@
     /// so instead. Withdrawing auto-merge stays, because that undoes a request rather
     /// than making one.</summary>
     private PullRequestMerge? OfferedMergeFor(GitHubOpenPullRequest pull) =>
-        MergeActFor(pull) is { } act && (act is PullRequestMerge.CancelAutoMerge || Stacks.ParentOf(pull) is null)
+        pull.IsOpen
+        && MergeActFor(pull) is { } act
+        && (act is PullRequestMerge.CancelAutoMerge || Stacks.ParentOf(pull) is null)
             ? act
             : null;
 
@@ -756,26 +911,81 @@
         !Scoped
         || (AliasOf(repositoryFullName) is { } alias && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase));
 
-    /// <summary>The scope, then whose: the scope decides which repositories exist
-    /// here at all, and Mine narrows what is left. Newest update first, as read.</summary>
-    private IReadOnlyList<GitHubOpenPullRequest> InScopeRows => [.. _listing.PullRequests.Where(pull => InScope(pull.RepositoryFullName))];
+    /// <summary>A repository's label filter, empty for none — read from the registry on
+    /// every render, so a filter changed in Settings narrows the rows already read.</summary>
+    private IReadOnlyList<string> LabelFilterOf(string repositoryFullName) =>
+        _gitHub?.Repositories.FirstOrDefault(candidate =>
+            string.Equals(candidate.FullName, repositoryFullName, StringComparison.OrdinalIgnoreCase))?.PullRequestLabels ?? [];
 
+    private bool PassesLabels(string repositoryFullName, IReadOnlyList<string> labels) =>
+        PullRequestLabelFilter.Passes(labels, LabelFilterOf(repositoryFullName), pinned: false);
+
+    /// <summary>The in-scope repositories with a label filter, by alias, each with the
+    /// labels it lets through.</summary>
+    private IReadOnlyList<(string Repository, IReadOnlyList<string> Labels)> LabelFiltered =>
+        _gitHub is null
+            ? []
+            : [.. _gitHub.Repositories
+                .Where(repository => repository.PullRequestLabels.Count > 0 && InScope(repository.FullName))
+                .Select(repository => (RepositoryLabel(repository.FullName), repository.PullRequestLabels))];
+
+    private string LabelFilterSentence =>
+        string.Join(" ", LabelFiltered.Select(filter => $"Label filter on {filter.Repository}: {string.Join(" or ", filter.Labels)}."));
+
+    /// <summary>The pull request as the shell's task relation asks about it, with the
+    /// session this pane matched it to.</summary>
+    private PullRequestTaskSubject TaskSubject(GitHubOpenPullRequest pull) =>
+        PullRequestTaskSubject.From(pull, SessionFor(pull.Url, pull.HeadRefName, pull.RepositoryFullName)?.Id);
+
+    private PullRequestTaskSubject TaskSubject(GitHubMergedPullRequest pull) =>
+        PullRequestTaskSubject.From(pull, SessionFor(pull.Url, pull.HeadRefName, pull.RepositoryFullName)?.Id);
+
+    /// <summary>Mine: the reader opened it, or it is related to one of their tasks.</summary>
+    private bool IsMine(bool viewerDidAuthor, Func<PullRequestTaskSubject> subject) =>
+        viewerDidAuthor || PullRequestTask?.Invoke(subject(), true) is not null;
+
+    /// <summary>Everything the open view can draw: the open list, plus each pinned pull
+    /// request it does not hold — merged, closed, or past its fifty — while it is
+    /// still pinned. Newest update first, as read.</summary>
+    private IReadOnlyList<GitHubOpenPullRequest> OpenRows
+    {
+        get
+        {
+            if (_pinned.PullRequests.Count == 0) return _listing.PullRequests;
+
+            var listed = _listing.PullRequests.Select(Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            return [.. _listing.PullRequests, .. _pinned.PullRequests.Where(pull => !listed.Contains(Key(pull)) && IsPinned(pull))];
+        }
+    }
+
+    /// <summary>The scope decides which repositories exist here at all.</summary>
+    private IReadOnlyList<GitHubOpenPullRequest> InScopeRows => [.. OpenRows.Where(pull => InScope(pull.RepositoryFullName))];
+
+    /// <summary>What the label filters leave of the scope.</summary>
+    private IReadOnlyList<GitHubOpenPullRequest> LabelledRows => [.. InScopeRows.Where(pull => PassesLabels(pull.RepositoryFullName, pull.Labels))];
+
+    /// <summary>The scope, the label filters, then whose — and every pinned pull
+    /// request whatever they say.</summary>
     private IReadOnlyList<GitHubOpenPullRequest> Visible =>
-        _mine ? [.. InScopeRows.Where(pull => pull.ViewerDidAuthor)] : InScopeRows;
+        [.. OpenRows.Where(pull => IsPinned(pull)
+            || (InScope(pull.RepositoryFullName)
+                && PassesLabels(pull.RepositoryFullName, pull.Labels)
+                && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskSubject(pull)))))];
 
     private PullRequestStacks? _stacks;
-    private (GitHubPullRequestListing Listing, string Scope) _stacksOf;
+    private (GitHubPullRequestListing Listing, GitHubPullRequestListing Pinned, string Scope, int Pins) _stacksOf;
 
-    /// <summary>The stacks among the in-scope rows of every author, derived once per
-    /// read and scope rather than once per cell that asks.</summary>
+    /// <summary>The stacks among the open rows of every author in scope, and the pinned
+    /// open ones, derived once per read, scope and pin rather than once per cell that
+    /// asks. A merged or closed pinned pull request is in no stack.</summary>
     private PullRequestStacks Stacks
     {
         get
         {
-            var of = (_listing, ScopeLabel);
+            var of = (_listing, _pinned, ScopeLabel, _pinsVersion);
             if (_stacks is null || _stacksOf != of)
             {
-                _stacks = PullRequestStacks.Of(InScopeRows);
+                _stacks = PullRequestStacks.Of(OpenRows.Where(pull => pull.IsOpen && (IsPinned(pull) || InScope(pull.RepositoryFullName))));
                 _stacksOf = of;
             }
 
@@ -783,26 +993,30 @@
         }
     }
 
-    /// <summary>The visible rows with each stack gathered into one tree, bottom first,
-    /// placed where the latest update among its shown rows puts it; every other row
-    /// keeps the newest-update-first order it was read in.</summary>
+    /// <summary>The pinned rows first, newest update first; then the rest, with each
+    /// stack gathered into one tree, bottom first, placed where the latest update
+    /// among its shown rows puts it, and every other row in the newest-update-first
+    /// order it was read in. A pinned row in a stack sits with the pins.</summary>
     private IReadOnlyList<GitHubOpenPullRequest> Ordered
     {
         get
         {
             var stacks = Stacks;
             var visible = Visible;
-            if (stacks.Stacks.Count == 0) return visible;
+            var pinned = visible.Where(IsPinned).OrderByDescending(pull => pull.UpdatedAt).ToList();
+            var rest = visible.Where(pull => !IsPinned(pull)).ToList();
 
-            var shown = visible.ToHashSet();
+            if (stacks.Stacks.Count == 0) return [.. pinned, .. rest];
+
+            var shown = rest.ToHashSet();
             var trees = stacks.Stacks
                 .Select(stack => (IReadOnlyList<GitHubOpenPullRequest>)[.. stack.Members.Where(shown.Contains)])
                 .Where(rows => rows.Count > 0);
-            var singles = visible
+            var singles = rest
                 .Where(pull => stacks.StackOf(pull) is null)
                 .Select(pull => (IReadOnlyList<GitHubOpenPullRequest>)[pull]);
 
-            return [.. singles.Concat(trees)
+            return [.. pinned, .. singles.Concat(trees)
                 .OrderByDescending(rows => rows.Max(pull => pull.UpdatedAt))
                 .SelectMany(rows => rows)];
         }
@@ -813,34 +1027,60 @@
     private IReadOnlyDictionary<string, object>? OpenRowAttributes(GitHubOpenPullRequest pull)
     {
         var attributes = new Dictionary<string, object>(RowAttributes(pull.RepositoryFullName, pull.Number)!);
-        if (Stacks.DepthOf(pull) is { } depth) attributes["data-stack-depth"] = depth.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (!IsPinned(pull) && Stacks.DepthOf(pull) is { } depth) attributes["data-stack-depth"] = depth.ToString(System.Globalization.CultureInfo.InvariantCulture);
         return attributes;
     }
 
     /// <summary>How far the tree indents a stacked row: one step per level under the
-    /// bottom.</summary>
+    /// bottom. None for a pinned row, which sits with the pins rather than in its
+    /// tree.</summary>
     private string? ChainIndent(GitHubOpenPullRequest pull) =>
-        Stacks.DepthOf(pull) is > 0 and var depth
+        !IsPinned(pull) && Stacks.DepthOf(pull) is > 0 and var depth
             ? $"--chain-depth: {depth.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
             : null;
 
-    /// <summary>The merged view's rows, narrowed the same two ways. Newest merge
-    /// first, as the adapter ordered them.</summary>
+    private IReadOnlyList<GitHubMergedPullRequest> MergedRows => (_merged ?? GitHubMergedPullRequestListing.Empty).PullRequests;
+
+    /// <summary>The merged view's rows, narrowed the same ways. Newest merge first, as
+    /// the adapter ordered them.</summary>
     private IReadOnlyList<GitHubMergedPullRequest> MergedInScopeRows =>
-        [.. (_merged ?? GitHubMergedPullRequestListing.Empty).PullRequests.Where(pull => InScope(pull.RepositoryFullName))];
+        [.. MergedRows.Where(pull => InScope(pull.RepositoryFullName))];
+
+    private IReadOnlyList<GitHubMergedPullRequest> MergedLabelledRows =>
+        [.. MergedInScopeRows.Where(pull => PassesLabels(pull.RepositoryFullName, pull.Labels))];
 
     private IReadOnlyList<GitHubMergedPullRequest> MergedVisible =>
-        _mine ? [.. MergedInScopeRows.Where(pull => pull.ViewerDidAuthor)] : MergedInScopeRows;
+        [.. MergedRows.Where(pull => IsPinned(pull.RepositoryFullName, pull.Number)
+            || (InScope(pull.RepositoryFullName)
+                && PassesLabels(pull.RepositoryFullName, pull.Labels)
+                && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskSubject(pull)))))];
 
-    /// <summary>The view's three counts: everything read, what the scope leaves, and
-    /// what Mine leaves of that — what the badge and the empty state are worded from.</summary>
-    private (int Read, int InScope, int Shown) Counts =>
+    /// <summary>
+    /// The view's counts: everything read, what the scope leaves, what the label
+    /// filters leave of that, what Mine leaves of that, and the total the badge
+    /// counts against — the scope's rows plus the pinned ones outside it, so a pin
+    /// never makes the badge say more shown than there are.
+    /// </summary>
+    private (int Read, int InScope, int Labelled, int Shown, int Total) Counts =>
         Merged
-            ? ((_merged ?? GitHubMergedPullRequestListing.Empty).PullRequests.Count, MergedInScopeRows.Count, MergedVisible.Count)
-            : (_listing.PullRequests.Count, InScopeRows.Count, Visible.Count);
+            ? (MergedRows.Count,
+               MergedInScopeRows.Count,
+               MergedLabelledRows.Count,
+               MergedVisible.Count,
+               MergedRows.Count(pull => InScope(pull.RepositoryFullName) || IsPinned(pull.RepositoryFullName, pull.Number)))
+            : (OpenRows.Count,
+               InScopeRows.Count,
+               LabelledRows.Count,
+               Visible.Count,
+               OpenRows.Count(pull => InScope(pull.RepositoryFullName) || IsPinned(pull)));
 
+    /// <summary>Every repository a read of this view could not complete — the pinned
+    /// read's too on the open view — each named once.</summary>
     private IReadOnlyList<GitHubRepositoryFailure> Failures =>
-        Merged ? (_merged ?? GitHubMergedPullRequestListing.Empty).Failures : _listing.Failures;
+        Merged
+            ? (_merged ?? GitHubMergedPullRequestListing.Empty).Failures
+            : [.. _listing.Failures.Concat(_pinned.Failures)
+                .DistinctBy(failure => (failure.RepositoryFullName.ToUpperInvariant(), failure.Message))];
 
     /// <summary>The window in words, from the adapter's own constant so the sentence
     /// cannot drift from what was read.</summary>
@@ -850,7 +1090,7 @@
     {
         get
         {
-            var (_, total, shown) = Counts;
+            var (_, _, _, shown, total) = Counts;
             var noun = total == 1 ? "pull request" : "pull requests";
             if (Merged) noun = $"merged {noun}";
 
@@ -868,7 +1108,10 @@
                 ? $"The pull requests merged in {Window} in every registered repository, most recent merge first."
                 : "The open pull requests of every registered repository, most recently updated first — up to fifty per repository.";
 
-            return Scoped ? $"{reading} Narrowed to {ScopeLabel}." : reading;
+            var scoped = Scoped ? $"{reading} Narrowed to {ScopeLabel}." : reading;
+            var labels = LabelFilterSentence;
+
+            return labels.Length == 0 ? scoped : $"{scoped} {labels}";
         }
     }
 
@@ -876,19 +1119,23 @@
     {
         get
         {
-            var (read, inScope, _) = Counts;
+            var (read, inScope, labelled, _, _) = Counts;
 
             return Merged
                 ? read == 0
                     ? $"No pull requests merged in {Window}."
                     : Scoped && inScope == 0
                         ? $"No pull requests merged in {ScopeLabel} in {Window}."
-                        : "None of the recently merged pull requests is yours."
+                        : labelled == 0
+                            ? "None of the recently merged pull requests carries a label the filter asks for."
+                            : "None of the recently merged pull requests is yours."
                 : read == 0
                     ? "No open pull requests."
                     : Scoped && inScope == 0
                         ? $"No open pull requests in {ScopeLabel}."
-                        : "None of the open pull requests is yours.";
+                        : labelled == 0
+                            ? "None of the open pull requests carries a label the filter asks for."
+                            : "None of the open pull requests is yours.";
         }
     }
 
@@ -896,7 +1143,7 @@
     {
         get
         {
-            var (read, inScope, _) = Counts;
+            var (read, inScope, labelled, _, _) = Counts;
 
             return read == 0
                 ? Merged
@@ -904,9 +1151,11 @@
                     : "Nothing is open in the repositories that could be read."
                 : Scoped && inScope == 0
                     ? "Clear the repository scope in the header to see every repository's."
-                    : Merged
-                        ? $"Choose Everyone's to see the {inScope} that others opened."
-                        : $"Choose Everyone's to see the {inScope} opened by somebody else.";
+                    : labelled == 0
+                        ? $"{LabelFilterSentence} Change it on the repository's card in Settings."
+                        : Merged
+                            ? $"Choose Everyone's to see the {labelled} that others opened."
+                            : $"Choose Everyone's to see the {labelled} opened by somebody else.";
         }
     }
 
@@ -918,12 +1167,17 @@
         $"Only the {GitHubClient.MergedPageSize * GitHubClient.MergedPageCap} most recently updated merged pull requests "
         + $"of {string.Join(", ", repositories)} were read, so some of what merged there in {Window} is missing.";
 
-    private static IReadOnlyDictionary<string, object>? RowAttributes(string repositoryFullName, int number) =>
-        new Dictionary<string, object>
+    private IReadOnlyDictionary<string, object>? RowAttributes(string repositoryFullName, int number)
+    {
+        var attributes = new Dictionary<string, object>
         {
             ["data-testid"] = "pull-request-row",
             ["data-pull-request"] = Key(repositoryFullName, number)
         };
+
+        if (IsPinned(repositoryFullName, number)) attributes["data-pinned"] = "true";
+        return attributes;
+    }
 
     private string RepositoryLabel(string repositoryFullName) => AliasOf(repositoryFullName) ?? repositoryFullName;
 
@@ -956,9 +1210,9 @@
     /// <summary>Inert text where the shell wired no way to open one, as the
     /// Integrations family draws every reference nobody can follow; an em dash where
     /// nothing links the two.</summary>
-    private RenderFragment TaskCell(string repositoryFullName, int number) =>
+    private RenderFragment TaskCell(PullRequestTaskSubject pull) =>
         @<td class="pull-requests-table__reference">
-            @if (TaskFor(repositoryFullName, number) is { } task)
+            @if (TaskFor(pull) is { } task)
             {
                 <IntegrationLink Link="@TaskLink(task)"
                                  ShowTitle="false"
@@ -1011,7 +1265,13 @@
         IntegrationLinkRef.PullRequest(
             pull.Url,
             $"#{pull.Number}",
-            pull.IsDraft ? IntegrationArtifactState.Draft : IntegrationArtifactState.Open,
+            pull.State switch
+            {
+                GitHubItemState.Merged => IntegrationArtifactState.Merged,
+                GitHubItemState.Closed => IntegrationArtifactState.Closed,
+                GitHubItemState.Draft => IntegrationArtifactState.Draft,
+                _ => IntegrationArtifactState.Open
+            },
             pull.Title,
             pull.Url);
 
@@ -1044,8 +1304,65 @@
         return pull.AuthorLogin is { } author ? $"Opened by {author}. {state}" : state;
     }
 
-    private DeliveryRunReference? TaskFor(string repositoryFullName, int number) =>
-        PullRequestTask?.Invoke(repositoryFullName, number);
+    /// <summary>The task the pull request is related to, among every task — not only
+    /// mine, so Everyone's rows lead back to their task too.</summary>
+    private DeliveryRunReference? TaskFor(PullRequestTaskSubject pull) =>
+        PullRequestTask?.Invoke(pull, false);
+
+    /// <summary>
+    /// The pin, on every row of both views where the host composed a pins store. A
+    /// toggle whose name stays "Pin #n" while <c>aria-pressed</c> carries whether it is
+    /// pinned — the button pattern's way, so a screen reader says the state once
+    /// rather than in the name and the state both. The visible word is the name's, so
+    /// a reader who speaks the label reaches it.
+    /// </summary>
+    private RenderFragment PinToggle(string repositoryFullName, int number) => __builder =>
+    {
+        if (_pins is null) return;
+
+        var pinned = IsPinned(repositoryFullName, number);
+        <ToggleButton Pressed="@pinned"
+                      PressedChanged="_ => TogglePin(repositoryFullName, number)"
+                      AriaLabel="@($"Pin #{number}")"
+                      Title="@(pinned ? "Pinned: listed whatever the filters say, until you unpin it." : "Pin: keep it listed whatever the filters say, and after it merges or closes.")"
+                      CssClass="btn--small pull-requests-table__pin"
+                      TestId="pull-request-pin">
+            Pin
+        </ToggleButton>
+    };
+
+    /// <summary>When a pinned pull request merged or closed, in local time.</summary>
+    private static string? ClosedTitle(GitHubOpenPullRequest pull) =>
+        (pull.IsMerged ? pull.MergedAt ?? pull.ClosedAt : pull.ClosedAt) is { } at
+            ? $"{(pull.IsMerged ? "Merged" : "Closed")} {at.ToLocalTime():ddd d MMM yyyy HH:mm}."
+            : null;
+
+    private static string ChecksTitle(GitHubCheckCounts counts) =>
+        $"{counts.Passed} of the head commit's {counts.Total} checks passed, {counts.Failed} failed, {counts.Pending} still running or waiting.";
+
+    /// <summary>GitHub's review decision in words; changes asked for by a reviewer
+    /// are said even where the repository asks for no decision.</summary>
+    private static string? ReviewLabel(GitHubReviewSummary reviews) => reviews.Decision switch
+    {
+        GitHubReviewDecision.Approved => "Approved",
+        GitHubReviewDecision.ChangesRequested => "Changes requested",
+        GitHubReviewDecision.ReviewRequired => "Review required",
+        _ => reviews.ChangesRequested > 0 ? "Changes requested" : null
+    };
+
+    /// <summary>Changes requested and a review still required stand between the
+    /// pull request and a merge, so they wear the finding tones; approved is a plain
+    /// fact.</summary>
+    private static string ReviewKind(GitHubReviewSummary reviews) =>
+        ReviewSlug(reviews) is null ? "kind" : "finding";
+
+    private static string? ReviewSlug(GitHubReviewSummary reviews) => reviews.Decision switch
+    {
+        GitHubReviewDecision.ChangesRequested => "error",
+        GitHubReviewDecision.ReviewRequired => "warning",
+        GitHubReviewDecision.Approved => null,
+        _ => reviews.ChangesRequested > 0 ? "error" : null
+    };
 
     private static IntegrationLinkRef TaskLink(DeliveryRunReference task) =>
         new(task.EntryId?.ToString() ?? task.Label, IntegrationProvider.None, IntegrationLinkKind.Other, task.Label, Title: $"Open {task.Label} in the task list");

@@ -1141,6 +1141,45 @@ public sealed partial class GitHubSettingsStore
         });
     }
 
+    /// <summary>
+    /// Narrows a repository's pull requests list to the ones carrying any of
+    /// <paramref name="labels"/>, or clears the filter with none. Follows the house
+    /// rule of no save button: the choice is persisted as it is made.
+    /// <para>
+    /// A shared write, like <see cref="SetRepositoryColour"/>: the filter is in the
+    /// registry row and travels with it, so it is refused while the registry is
+    /// unreadable. Labels are trimmed, blanks dropped, and a second spelling of a
+    /// label already given — GitHub compares label names without regard to case — is
+    /// dropped too, the first spelling kept.
+    /// </para>
+    /// </summary>
+    /// <param name="alias">The repository's alias or its <c>owner/name</c>.</param>
+    public string? SetPullRequestLabels(string alias, IEnumerable<string>? labels)
+    {
+        if (_registryState is RegistryState.Unreadable) return RegistryUnreadable;
+        if (Find(alias) is not { } target) return NotConfigured;
+
+        var cleaned = CleanLabels(labels);
+
+        return Save(new GitHubSettings
+        {
+            Repositories = [.. Current.Repositories.Select(r => IsSame(r, target) ? r with { PullRequestLabels = cleaned } : r)],
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts]
+        });
+    }
+
+    /// <summary>Labels as they are stored: trimmed, blanks dropped, one per name
+    /// without regard to case, in the order given.</summary>
+    private static List<string> CleanLabels(IEnumerable<string?>? labels) =>
+    [
+        .. (labels ?? [])
+            .Where(label => !string.IsNullOrWhiteSpace(label))
+            .Select(label => label!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+    ];
+
     private const string NotConfigured = "That repository is no longer configured.";
 
     /// <summary>The refusal a login that names no account gets. The same shape as
@@ -1293,7 +1332,8 @@ public sealed partial class GitHubSettingsStore
             Alias = r.Alias,
             Colour = r.Colour,
             Account = r.Account,
-            DevbookBranch = r.DevbookBranch
+            DevbookBranch = r.DevbookBranch,
+            PullRequestLabels = r.PullRequestLabels.Count == 0 ? null : [.. r.PullRequestLabels]
         })
     ];
 
@@ -1521,7 +1561,8 @@ public sealed partial class GitHubSettingsStore
             Alias = row.Alias,
             Colour = row.Colour,
             Account = row.Account,
-            DevbookBranch = row.DevbookBranch
+            DevbookBranch = row.DevbookBranch,
+            PullRequestLabels = row.PullRequestLabels is { Count: > 0 } labels ? [.. labels] : null
         })
     ];
 
@@ -1616,6 +1657,10 @@ public sealed partial class GitHubSettingsStore
                         // branch a repository's knowledge is read from is true of
                         // the repository, not of this machine.
                         DevbookBranch = identity.DevbookBranch,
+
+                        // Shared too: the registry row is where a repository's pull
+                        // request label filter lives, so it travels with the row.
+                        PullRequestLabels = identity.PullRequestLabels ?? [],
 
                         // Machine-local, and absent stays absent rather than
                         // becoming false. Null is what lets DevbookSource read an
@@ -1876,7 +1921,8 @@ public sealed partial class GitHubSettingsStore
                 Colour = CleanColour(repository.Colour),
                 Account = GitHubAccount.NormalizeLogin(repository.Account),
                 DevbookBranch = CleanBranch(repository.DevbookBranch),
-                DevbookFolders = DevbookFolderSetting.Normalize(repository.DevbookFolders)
+                DevbookFolders = DevbookFolderSetting.Normalize(repository.DevbookFolders),
+                PullRequestLabels = CleanLabels(repository.PullRequestLabels)
             };
         }
 
@@ -1894,7 +1940,13 @@ public sealed partial class GitHubSettingsStore
             // read-only on the next keystroke in the repositories box.
             DevbookBranch = CleanBranch(repository.DevbookBranch) ?? existing.DevbookBranch,
             UseLocalDevbookFolder = repository.UseLocalDevbookFolder ?? existing.UseLocalDevbookFolder,
-            DevbookFolders = DevbookFolderSetting.Normalize(existing.DevbookFolders)
+            DevbookFolders = DevbookFolderSetting.Normalize(existing.DevbookFolders),
+
+            // Carried for the same reason: the grammar has no labels in it, and a
+            // re-typed list would otherwise clear every repository's filter.
+            PullRequestLabels = repository.PullRequestLabels.Count > 0
+                ? CleanLabels(repository.PullRequestLabels)
+                : existing.PullRequestLabels
         };
     }
 
@@ -1907,7 +1959,8 @@ public sealed partial class GitHubSettingsStore
             Colour = CleanColour(r.Colour),
             Account = GitHubAccount.NormalizeLogin(r.Account),
             DevbookBranch = CleanBranch(r.DevbookBranch),
-            DevbookFolders = DevbookFolderSetting.Normalize(r.DevbookFolders)
+            DevbookFolders = DevbookFolderSetting.Normalize(r.DevbookFolders),
+            PullRequestLabels = CleanLabels(r.PullRequestLabels)
         })
     ];
 
@@ -2014,10 +2067,13 @@ public sealed partial class GitHubSettingsStore
         string Name,
         int? Colour,
         string? Account,
-        string? DevbookBranch = null)
+        string? DevbookBranch = null,
+        IReadOnlyList<string>? PullRequestLabels = null)
     {
         public static RegistryRow? From(RegistryRepositoryDto dto) =>
-            From(dto.Id, dto.Alias, CleanColour(dto.Colour), dto.Account, dto.DevbookBranch ?? dto.KnowledgeBranch);
+            From(dto.Id, dto.Alias, CleanColour(dto.Colour), dto.Account, dto.DevbookBranch ?? dto.KnowledgeBranch) is { } row
+                ? row with { PullRequestLabels = CleanLabels(dto.PullRequestLabels) }
+                : null;
 
         /// <summary>
         /// A stored row read as an identity, or null when its <c>id</c> is not a
@@ -2152,6 +2208,14 @@ public sealed partial class GitHubSettingsStore
         /// upgraded; accepted, because it regains the value on its next save.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? KnowledgeBranch { get; set; }
+
+        /// <summary>The labels this repository's pull requests list is narrowed to.
+        /// Omitted while empty, for the reason <see cref="Account"/> is: a workspace
+        /// nobody has filtered writes the file it always wrote. A build from before
+        /// the filter drops it on its next write (local ADR 0021 accepts that of every
+        /// field a newer build adds).</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string>? PullRequestLabels { get; set; }
     }
 
     private sealed class SettingsDto

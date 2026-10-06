@@ -363,10 +363,10 @@ public sealed class PullRequestsPaneTests : IDisposable
             Pull("JSdotNet/Backlog", 2, updated: Noon.AddHours(-5))));
 
         var pane = context.Render<PullRequestsPane>(parameters => parameters
-            .Add(p => p.PullRequestTask, (repository, number) =>
+            .Add(p => p.PullRequestTask, (pull, mineOnly) =>
             {
-                asked.Add((repository, number));
-                return number == 1 ? task : null;
+                asked.Add((pull.RepositoryFullName, pull.Number));
+                return pull.Number == 1 ? task : null;
             })
             .Add(p => p.OnOpenTask, (DeliveryRunReference reference) => opened = reference));
 
@@ -705,7 +705,7 @@ public sealed class PullRequestsPaneTests : IDisposable
             sessions: [onBranch]);
 
         var pane = OnMergedView(context, parameters => parameters
-            .Add(p => p.PullRequestTask, (repository, number) => number == 10 ? task : null));
+            .Add(p => p.PullRequestTask, (pull, mineOnly) => pull.Number == 10 ? task : null));
 
         pane.WaitForAssertion(() =>
         {
@@ -977,6 +977,347 @@ public sealed class PullRequestsPaneTests : IDisposable
 
     // --- Helpers --------------------------------------------------------------
 
+    /// <summary>GitHub's "8/9", what holds the rest, and what the reviewers decided —
+    /// each a word in a badge, never a colour alone.</summary>
+    [Fact]
+    public void Check_progress_and_reviews_are_badges_in_words()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 1) with
+            {
+                Checks = GitHubCheckState.Failing,
+                CheckCounts = new GitHubCheckCounts(Passed: 7, Failed: 1, Pending: 2),
+                Reviews = new GitHubReviewSummary(GitHubReviewDecision.ReviewRequired, Approvals: 1, ChangesRequested: 0)
+            },
+            Pull("JSdotNet/Backlog", 2) with
+            {
+                CheckCounts = new GitHubCheckCounts(Passed: 9, Failed: 0, Pending: 0),
+                Reviews = new GitHubReviewSummary(GitHubReviewDecision.Approved, Approvals: 2, ChangesRequested: 0)
+            },
+            Pull("JSdotNet/Backlog", 3) with
+            {
+                Reviews = new GitHubReviewSummary(GitHubReviewDecision.ChangesRequested, Approvals: 0, ChangesRequested: 1)
+            });
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var first = Row(pane, "JSdotNet/Backlog#1");
+            Assert.Equal("7/10 checks", Text(first, "pull-request-checks"));
+            Assert.Equal("1 failing", Text(first, "pull-request-checks-failing"));
+            Assert.Equal("2 pending", Text(first, "pull-request-checks-pending"));
+            Assert.Equal("1 approval", Text(first, "pull-request-approvals"));
+            Assert.Equal("Review required", Text(first, "pull-request-review"));
+
+            var second = Row(pane, "JSdotNet/Backlog#2");
+            Assert.Equal("9/9 checks", Text(second, "pull-request-checks"));
+            Assert.Null(second.QuerySelector("[data-testid='pull-request-checks-failing']"));
+            Assert.Null(second.QuerySelector("[data-testid='pull-request-checks-pending']"));
+            Assert.Equal("2 approvals", Text(second, "pull-request-approvals"));
+            Assert.Equal("Approved", Text(second, "pull-request-review"));
+
+            // No counts read: the roll-up's word, as before; no approvals, no badge.
+            var third = Row(pane, "JSdotNet/Backlog#3");
+            Assert.Equal("Checks passing", Text(third, "pull-request-checks"));
+            Assert.Null(third.QuerySelector("[data-testid='pull-request-approvals']"));
+            Assert.Equal("Changes requested", Text(third, "pull-request-review"));
+        });
+    }
+
+    /// <summary>A repository with a label filter lists only the pull requests carrying
+    /// one of its labels, in either case; the others are untouched. The badge counts
+    /// what the filter left against what was read, the subtitle names the filter, and
+    /// a filter changed in Settings narrows the rows already read.</summary>
+    [Fact]
+    public void A_label_filter_narrows_its_repository_and_says_so()
+    {
+        var client = new StubClient()
+            .Lists(
+                "JSdotNet/Backlog",
+                Pull("JSdotNet/Backlog", 1) with { Labels = ["Frontend"] },
+                Pull("JSdotNet/Backlog", 2) with { Labels = ["backend"] })
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 3));
+        using var context = Context(client);
+        Assert.Null(SettingsOf(context).SetPullRequestLabels("backlog", ["frontend", "design"]));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Archify#3"], RowKeys(pane));
+            Assert.Equal("2 of 3 pull requests", pane.Find("[data-testid='pull-requests-count']").TextContent.Trim());
+            Assert.Contains("Label filter on backlog: frontend or design.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
+        });
+
+        Assert.Null(SettingsOf(context).SetPullRequestLabels("backlog", []));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Backlog#2", "JSdotNet/Archify#3"], RowKeys(pane));
+            Assert.DoesNotContain("Label filter", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_label_filter_that_leaves_nothing_names_itself_in_the_empty_state()
+    {
+        var client = new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 2) with { Labels = ["backend"] });
+        using var context = Context(client, repositories: "JSdotNet/Backlog");
+        Assert.Null(SettingsOf(context).SetPullRequestLabels("backlog", ["frontend"]));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-row']"));
+            Assert.Contains("None of the open pull requests carries a label the filter asks for.", pane.Markup, StringComparison.Ordinal);
+            Assert.Contains("Label filter on backlog: frontend.", pane.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void The_label_filter_narrows_the_merged_view_too()
+    {
+        var client = new StubClient().Merged(
+            "JSdotNet/Backlog",
+            MergedPull("JSdotNet/Backlog", 10) with { Labels = ["frontend"] },
+            MergedPull("JSdotNet/Backlog", 11));
+        using var context = Context(client);
+        Assert.Null(SettingsOf(context).SetPullRequestLabels("backlog", ["FRONTEND"]));
+
+        var pane = OnMergedView(context);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#10"], RowKeys(pane));
+            Assert.Equal("1 of 2 merged pull requests", pane.Find("[data-testid='pull-requests-count']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>The pin is a toggle whose name stays "Pin #n" while aria-pressed says
+    /// whether it is pinned, and the store keeps it.</summary>
+    [Fact]
+    public void A_row_is_pinned_and_unpinned_with_its_toggle()
+    {
+        var pins = Pins();
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1)), pins: pins);
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() =>
+        {
+            var pin = Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-pin']")!;
+            Assert.Equal("Pin #1", pin.GetAttribute("aria-label"));
+            Assert.Equal("false", pin.GetAttribute("aria-pressed"));
+        });
+
+        pane.Find("[data-testid='pull-request-pin']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var pin = pane.Find("[data-testid='pull-request-pin']");
+            Assert.Equal("Pin #1", pin.GetAttribute("aria-label"));
+            Assert.Equal("true", pin.GetAttribute("aria-pressed"));
+            Assert.Equal("true", Row(pane, "JSdotNet/Backlog#1").GetAttribute("data-pinned"));
+        });
+        Assert.True(pins.IsPinned("JSdotNet/Backlog", 1));
+
+        pane.Find("[data-testid='pull-request-pin']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var pin = pane.Find("[data-testid='pull-request-pin']");
+            Assert.Equal("Pin #1", pin.GetAttribute("aria-label"));
+            Assert.Equal("false", pin.GetAttribute("aria-pressed"));
+        });
+        Assert.False(pins.IsPinned("JSdotNet/Backlog", 1));
+    }
+
+    /// <summary>A pin ignores every filter — somebody else's, outside the header scope,
+    /// without the repository's label — and sorts first.</summary>
+    [Fact]
+    public void A_pinned_row_ignores_every_filter_and_sorts_first()
+    {
+        var client = new StubClient()
+            .Lists(
+                "JSdotNet/Backlog",
+                Pull("JSdotNet/Backlog", 1, mine: true, updated: Noon) with { Labels = ["frontend"] },
+                Pull("JSdotNet/Backlog", 2, mine: false, updated: Noon.AddHours(-5)) with { Labels = ["backend"] })
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 3, updated: Noon.AddMinutes(-1)));
+        client.Finds(Pull("JSdotNet/Backlog", 2, mine: false, updated: Noon.AddHours(-5)) with { Labels = ["backend"] });
+        using var context = Context(client, pins: Pins(("JSdotNet/Backlog", 2)));
+        Assert.Null(SettingsOf(context).SetPullRequestLabels("backlog", ["frontend"]));
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters.Add(p => p.RepositoryScope, ["archify"]));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#2", "JSdotNet/Archify#3"], RowKeys(pane));
+            Assert.Equal("true", Row(pane, "JSdotNet/Backlog#2").GetAttribute("data-pinned"));
+        });
+    }
+
+    /// <summary>A pinned pull request that merged stays on the open view, saying so,
+    /// with no act — until it is unpinned, when it leaves.</summary>
+    [Fact]
+    public void A_pinned_merged_pull_request_stays_until_it_is_unpinned()
+    {
+        var client = new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1));
+        client.Finds(Pull("JSdotNet/Backlog", 5, behind: true, mergeReady: true) with { IsMerged = true, MergedAt = Noon.AddHours(-1) });
+        var pins = Pins(("JSdotNet/Backlog", 5));
+        using var context = Context(client, pins: pins);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#5", "JSdotNet/Backlog#1"], RowKeys(pane));
+            var merged = Row(pane, "JSdotNet/Backlog#5");
+            Assert.Equal("Merged", Text(merged, "pull-request-closed"));
+            Assert.Null(merged.QuerySelector("[data-testid='pull-request-behind']"));
+            Assert.Null(merged.QuerySelector("[data-testid='pull-request-merge']"));
+            Assert.Null(merged.QuerySelector("[data-testid='pull-request-update-branch']"));
+            Assert.Equal(["pull-request-pin"], merged.QuerySelectorAll("button").Select(button => button.GetAttribute("data-testid")));
+        });
+        Assert.Contains("JSdotNet/Backlog 5", client.PinnedListed);
+
+        Row(pane, "JSdotNet/Backlog#5").QuerySelector("[data-testid='pull-request-pin']")!.Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#1"], RowKeys(pane)));
+        Assert.False(pins.IsPinned("JSdotNet/Backlog", 5));
+    }
+
+    /// <summary>A pull request pinned from the merged view is read by number, so the
+    /// open view has it next time it is shown.</summary>
+    [Fact]
+    public void A_pull_request_pinned_from_the_merged_view_is_read_onto_the_open_view()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
+            .Merged("JSdotNet/Backlog", MergedPull("JSdotNet/Backlog", 10));
+        client.Finds(Pull("JSdotNet/Backlog", 10) with { IsMerged = true, MergedAt = Noon.AddHours(-10) });
+        var pins = Pins();
+        using var context = Context(client, pins: pins);
+
+        var pane = OnMergedView(context);
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#10"], RowKeys(pane)));
+        Assert.Empty(client.PinnedListed);
+
+        pane.Find("[data-testid='pull-request-pin']").Click();
+
+        pane.WaitForAssertion(() => Assert.Contains("JSdotNet/Backlog 10", client.PinnedListed));
+        pane.Find("[data-testid='pull-requests-view-open']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#10", "JSdotNet/Backlog#1"], RowKeys(pane));
+            Assert.Equal("Merged", Text(Row(pane, "JSdotNet/Backlog#10"), "pull-request-closed"));
+        });
+    }
+
+    /// <summary>Mine is the reader's own pull requests and those related to one of
+    /// their tasks, whoever opened them; the Task column names the related task on
+    /// every row, Everyone's included.</summary>
+    [Fact]
+    public void Mine_includes_pull_requests_related_to_my_tasks_and_every_row_names_its_task()
+    {
+        var mineTask = new DeliveryRunReference(DeliveryRunReferenceKind.Task, "My task", null, null, null, EntryId: Guid.NewGuid());
+        var otherTask = new DeliveryRunReference(DeliveryRunReferenceKind.Task, "Their task", null, null, null, EntryId: Guid.NewGuid());
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 1, mine: true),
+            Pull("JSdotNet/Backlog", 2, mine: false),
+            Pull("JSdotNet/Backlog", 3, mine: false));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters
+            .Add(p => p.PullRequestTask, (pull, mineOnly) => pull.Number switch
+            {
+                2 => mineTask,
+                3 when !mineOnly => otherTask,
+                _ => null
+            }));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Backlog#2"], RowKeys(pane));
+            Assert.Equal("My task", Text(Row(pane, "JSdotNet/Backlog#2"), "pull-request-task"));
+        });
+
+        pane.Find("[data-testid='pull-requests-filter-everyone']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Backlog#2", "JSdotNet/Backlog#3"], RowKeys(pane));
+            Assert.Equal("Their task", Text(Row(pane, "JSdotNet/Backlog#3"), "pull-request-task"));
+        });
+    }
+
+    /// <summary>Two pins made while the first one's read is still out send two reads.
+    /// The newer, which has both pins, lands first; the older, which has only the first,
+    /// lands after it and must not become the last word, or the second pin never reaches
+    /// the open view.</summary>
+    [Fact]
+    public void An_older_pinned_read_landing_last_does_not_overwrite_a_newer_one()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1))
+            .Merged("JSdotNet/Backlog", MergedPull("JSdotNet/Backlog", 10), MergedPull("JSdotNet/Backlog", 11));
+        client.Finds(
+            Pull("JSdotNet/Backlog", 10) with { IsMerged = true, MergedAt = Noon.AddHours(-10) },
+            Pull("JSdotNet/Backlog", 11) with { IsMerged = true, MergedAt = Noon.AddHours(-11) });
+        var older = new TaskCompletionSource();
+        var newer = new TaskCompletionSource();
+        client.PinnedGate = numbers => numbers.Count == 1 ? older.Task : newer.Task;
+        using var context = Context(client, pins: Pins());
+
+        var pane = OnMergedView(context);
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#10", "JSdotNet/Backlog#11"], RowKeys(pane)));
+
+        Row(pane, "JSdotNet/Backlog#10").QuerySelector("[data-testid='pull-request-pin']")!.Click();
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog 10"], client.PinnedListed));
+        Row(pane, "JSdotNet/Backlog#11").QuerySelector("[data-testid='pull-request-pin']")!.Click();
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog 10", "JSdotNet/Backlog 10,11"], client.PinnedListed));
+
+        pane.InvokeAsync(newer.SetResult);
+        pane.InvokeAsync(older.SetResult);
+        pane.Find("[data-testid='pull-requests-view-open']").Click();
+
+        pane.WaitForAssertion(() =>
+            Assert.Equal(["JSdotNet/Backlog#10", "JSdotNet/Backlog#11", "JSdotNet/Backlog#1"], RowKeys(pane)));
+    }
+
+    /// <summary>A label filter set in Settings after the pane has read narrows the
+    /// rows already in front of the reader, with no read of its own.</summary>
+    [Fact]
+    public void A_label_filter_set_after_the_pane_has_read_narrows_it_without_a_read()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 1) with { Labels = ["frontend"] },
+            Pull("JSdotNet/Backlog", 2) with { Labels = ["backend"] });
+        using var context = Context(client, repositories: "JSdotNet/Backlog");
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Backlog#2"], RowKeys(pane)));
+        var reads = client.ListCalls;
+
+        Assert.Null(SettingsOf(context).SetPullRequestLabels("backlog", ["Frontend"]));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#1"], RowKeys(pane));
+            Assert.Equal("1 of 2 pull requests", pane.Find("[data-testid='pull-requests-count']").TextContent.Trim());
+            Assert.Contains("Label filter on backlog: Frontend.", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
+        });
+        Assert.Equal(reads, client.ListCalls);
+    }
+
+    private static string? Text(AngleSharp.Dom.IElement row, string testId) =>
+        row.QuerySelector($"[data-testid='{testId}']")?.TextContent.Trim();
+
     /// <summary>What the tree mark in front of a stacked row says it waits on, as a
     /// screen reader announces it.</summary>
     private static string? WaitsOn(AngleSharp.Dom.IElement row) =>
@@ -1012,7 +1353,8 @@ public sealed class PullRequestsPaneTests : IDisposable
         StubClient client,
         string repositories = "JSdotNet/Backlog\nJSdotNet/Archify\nocto/broken",
         IReadOnlyList<AgentSession>? sessions = null,
-        bool toasts = true)
+        bool toasts = true,
+        PullRequestPinsStore? pins = null)
     {
         var settings = new GitHubSettingsStore(Path.Combine(_root, Guid.NewGuid().ToString("n"), "github.json"));
         var (parsed, errors) = GitHubSettings.ParseText(repositories);
@@ -1033,9 +1375,21 @@ public sealed class PullRequestsPaneTests : IDisposable
         context.Services.AddSingleton(new GitHubIntegration(settings, client, new Backlog.Tests.StubProbe(new GitHubConnection(true, "Connected.")), time: clock));
         context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource(sessions ?? []));
         if (toasts) TasksTestHost.AddToastChannel(context.Services);
+        if (pins is not null) context.Services.AddSingleton(pins);
 
         return context;
     }
+
+    /// <summary>A pins store of the test's own, in its temp folder.</summary>
+    private PullRequestPinsStore Pins(params (string Repository, int Number)[] pinned)
+    {
+        var store = new PullRequestPinsStore(Path.Combine(_root, Guid.NewGuid().ToString("n"), "pull-request-pins.json"));
+        foreach (var (repository, number) in pinned) store.Pin(repository, number);
+        return store;
+    }
+
+    private static GitHubSettingsStore SettingsOf(BunitContext context) =>
+        context.Services.GetRequiredService<GitHubIntegration>().Settings;
 
     private static GitHubOpenPullRequest Pull(
         string repository,
@@ -1143,6 +1497,41 @@ public sealed class PullRequestsPaneTests : IDisposable
         {
             _lists[fullName] = () => pulls;
             return this;
+        }
+
+        private readonly Dictionary<string, List<GitHubOpenPullRequest>> _byNumber = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Every pinned read, by repository and the numbers it asked for.</summary>
+        public List<string> PinnedListed { get; } = [];
+
+        /// <summary>What a read by number finds — merged and closed ones included, as
+        /// the pinned read asks for any state.</summary>
+        public StubClient Finds(params GitHubOpenPullRequest[] pulls)
+        {
+            foreach (var pull in pulls)
+            {
+                if (!_byNumber.TryGetValue(pull.RepositoryFullName, out var list)) _byNumber[pull.RepositoryFullName] = list = [];
+                list.RemoveAll(known => known.Number == pull.Number);
+                list.Add(pull);
+            }
+
+            return this;
+        }
+
+        /// <summary>When set, each pinned read waits on what it returns for the numbers
+        /// asked — how a test lands two reads out of order.</summary>
+        public Func<IReadOnlyCollection<int>, Task>? PinnedGate { get; set; }
+
+        public async Task<IReadOnlyList<GitHubOpenPullRequest>> ListPullRequestsAsync(GitHubRepositoryRef repository, IReadOnlyCollection<int> numbers, CancellationToken cancellationToken = default)
+        {
+            lock (PinnedListed) PinnedListed.Add($"{repository.FullName} {string.Join(",", numbers.Order())}");
+
+            var found = _byNumber.TryGetValue(repository.FullName, out var list) ? list : [];
+            IReadOnlyList<GitHubOpenPullRequest> answer = [.. found.Where(pull => numbers.Contains(pull.Number))];
+
+            if (PinnedGate is { } gate) await gate(numbers);
+
+            return answer;
         }
 
         public StubClient Refuses(string fullName, string message)

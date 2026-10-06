@@ -111,6 +111,11 @@ public sealed class DesktopCompositionOptions
     /// them follows. The composition reloads the store when that root moves.</summary>
     public required Func<Func<string>, GitHubSettingsStore> GitHubSettings { get; init; }
 
+    /// <summary>The pull requests pinned on this device. The per-user file in the
+    /// installed app; one under the content root in the harness, so a pin made there
+    /// is not the installed app's.</summary>
+    public required Func<IServiceProvider, PullRequestPinsStore> PullRequestPins { get; init; }
+
     /// <summary>The Claude Admin API settings.</summary>
     public required Func<IServiceProvider, ClaudeSettingsStore> ClaudeSettings { get; init; }
 

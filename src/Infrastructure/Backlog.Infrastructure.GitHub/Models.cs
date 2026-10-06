@@ -144,9 +144,46 @@ public sealed record GitHubOpenPullRequest(
     GitHubMergeMethod PreferredMergeMethod,
     DateTimeOffset? UpdatedAt)
 {
-    /// <summary>Draft or open: the list asks for open pull requests only, so these
-    /// are the two states one can be in.</summary>
-    public GitHubItemState State => IsDraft ? GitHubItemState.Draft : GitHubItemState.Open;
+    /// <summary>
+    /// Draft or open for anything the open list read. A pinned read
+    /// (<see cref="IGitHubClient.ListPullRequestsAsync"/>) asks for named pull requests
+    /// whatever state they are in, so merged and closed are possible there and only
+    /// there.
+    /// </summary>
+    public GitHubItemState State =>
+        IsMerged ? GitHubItemState.Merged
+        : IsClosed ? GitHubItemState.Closed
+        : IsDraft ? GitHubItemState.Draft
+        : GitHubItemState.Open;
+
+    /// <summary>Neither merged nor closed — the only state any act on the list may be
+    /// offered in.</summary>
+    public bool IsOpen => !IsMerged && !IsClosed;
+
+    /// <summary>Merged; set only by a pinned read.</summary>
+    public bool IsMerged { get; init; }
+
+    /// <summary>Closed without merging; set only by a pinned read.</summary>
+    public bool IsClosed { get; init; }
+
+    /// <summary>When it merged, for a merged pinned pull request.</summary>
+    public DateTimeOffset? MergedAt { get; init; }
+
+    /// <summary>When it closed, for a merged or closed pinned pull request.</summary>
+    public DateTimeOffset? ClosedAt { get; init; }
+
+    /// <summary>The label names, as GitHub spells them.</summary>
+    public IReadOnlyList<string> Labels { get; init; } = [];
+
+    /// <summary>How far the head commit's checks have got, or null where it has none
+    /// or the token was refused them.</summary>
+    public GitHubCheckCounts? CheckCounts { get; init; }
+
+    /// <summary>What the reviewers decided.</summary>
+    public GitHubReviewSummary Reviews { get; init; } = GitHubReviewSummary.None;
+
+    /// <summary>The issues this pull request closes when it merges.</summary>
+    public IReadOnlyList<GitHubIssueReference> ClosingIssues { get; init; } = [];
 
     /// <summary>The same pull request as the merge acts take it, so
     /// <see cref="GitHubIntegration.MergePullRequestAsync"/> and its two siblings act
@@ -200,7 +237,63 @@ public sealed record GitHubMergedPullRequest(
     string? AuthorLogin,
     bool ViewerDidAuthor,
     DateTimeOffset MergedAt,
-    string? MergedByLogin);
+    string? MergedByLogin)
+{
+    /// <summary>The label names, as GitHub spells them.</summary>
+    public IReadOnlyList<string> Labels { get; init; } = [];
+
+    /// <summary>The issues this pull request closed.</summary>
+    public IReadOnlyList<GitHubIssueReference> ClosingIssues { get; init; } = [];
+}
+
+/// <summary>An issue named by its repository's <c>owner/name</c> and its number — what
+/// a pull request's <c>closingIssuesReferences</c> answers with.</summary>
+public sealed record GitHubIssueReference(string RepositoryFullName, int Number);
+
+/// <summary>
+/// How far a head commit's checks have got, check runs and commit statuses together —
+/// GitHub's own "8/9".
+/// <para>
+/// Beside <see cref="GitHubCheckState"/> rather than instead of it: the roll-up's
+/// state is the one GitHub gates the merge on, and these counts are what the row
+/// shows of it.
+/// </para>
+/// </summary>
+public sealed record GitHubCheckCounts(int Passed, int Failed, int Pending)
+{
+    public int Total => Passed + Failed + Pending;
+}
+
+/// <summary>GitHub's <c>reviewDecision</c>: what the reviewers' latest reviews add up
+/// to against the base branch's rules.</summary>
+public enum GitHubReviewDecision
+{
+    Approved,
+    ChangesRequested,
+    ReviewRequired
+}
+
+/// <summary>
+/// What a pull request's reviewers decided: GitHub's decision, when the repository
+/// asks for one, and how many of the latest opinionated reviews approve or ask for
+/// changes. No "of N required": the number required needs rights to read the branch's
+/// protection that most accounts do not have, and <see cref="GitHubReviewDecision.ReviewRequired"/>
+/// already says approvals are still missing.
+/// </summary>
+public sealed record GitHubReviewSummary(GitHubReviewDecision? Decision, int Approvals, int ChangesRequested)
+{
+    public static GitHubReviewSummary None { get; } = new(null, 0, 0);
+}
+
+/// <summary>One pull request somebody pinned on this device, by <c>owner/name</c> and
+/// number.</summary>
+public sealed record PullRequestPin(string RepositoryFullName, int Number)
+{
+    /// <summary>Two pins name the same pull request: the repository compared without
+    /// regard to case, the way GitHub compares it.</summary>
+    public bool Names(string repositoryFullName, int number) =>
+        Number == number && string.Equals(RepositoryFullName, repositoryFullName, StringComparison.OrdinalIgnoreCase);
+}
 
 /// <summary>One repository's pull requests merged since a moment, as
 /// <see cref="IGitHubClient.ListMergedPullRequestsAsync"/> read them.</summary>
