@@ -7,7 +7,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.AzureFoundry.Dashboard;
 using Microsoft.Extensions.Time.Testing;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Infrastructure.AzureFoundry.UnitTests;
 
 /// <summary>
 /// The Cost Management client: the query it sends, the rows it reads back, and

@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.AzureFoundry;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Infrastructure.AzureFoundry.UnitTests;
 
 /// <summary>
 /// How much of an Azure answer the chat, embeddings and cost clients quote when

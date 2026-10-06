@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <!-- FakeTimeProvider: the clock the developer sign-in token cache is tested against. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
+    <!-- The local Azure Foundry stand-in, whose canned plan these tests hold to the
+         plan prompt's contract. Referencing a harness from a test project is
+         allowed; only shipping projects under src/ may not
+         (HarnessIsNotDeployedTests). -->
+    <ProjectReference Include="..\..\src\Harness\Backlog.AzureFoundry.TestService\Backlog.AzureFoundry.TestService.csproj" />
+    <!-- Tasks' entry parser, which reads that canned plan the way the import does. -->
+    <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+  </ItemGroup>
+
+  <!-- The shared test doubles this project uses. Linked per project rather than
+       from tests/Directory.Build.props: a double that implements a product
+       interface only compiles in a project that references it. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\RecordingHandler.cs" Link="Shared\TestDoubles\RecordingHandler.cs" />
+  </ItemGroup>
+
+</Project>

@@ -1,7 +1,8 @@
 using Backlog.AzureFoundry.TestService;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Modules.Tasks.Abstractions;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Infrastructure.AzureFoundry.UnitTests;
 
 /// <summary>
 /// The local test service's plan mode: what "Create plan" gets back in the
