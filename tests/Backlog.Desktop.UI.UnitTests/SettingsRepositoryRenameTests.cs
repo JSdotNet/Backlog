@@ -177,6 +177,54 @@ public sealed class SettingsRepositoryRenameTests
         Assert.Equal(tab.GetAttribute("aria-controls"), card.GetAttribute("id"));
     }
 
+    /// <summary>
+    /// The same, with the first repository removed the other way: by saving the
+    /// repositories text without its line. What is left on screen is the second
+    /// repository's own panel, carrying its own alias and its own clone directory
+    /// rather than the removed one's, so nothing the first card held leaks into the
+    /// card that survives it.
+    /// </summary>
+    [Fact]
+    public void Removing_the_first_repository_from_the_text_keeps_the_second_panel_bound_to_its_own_settings()
+    {
+        using var settings = RenderSettings();
+        OpenRepositoriesTab(settings.Component);
+        var backlogClone = Path.Combine(settings.Root, "clones", "backlog");
+        var docsClone = Path.Combine(settings.Root, "clones", "docs");
+
+        SetCloneDirectory(settings.Component, backlogClone);
+        OpenRepositoryPage(settings.Component, "JSdotNet/Docs");
+        SetCloneDirectory(settings.Component, docsClone);
+        var docsPanel = RepositoryPanel(settings.Component, "docs");
+
+        Retype(settings.Component, "docs = JSdotNet/Docs");
+
+        Assert.Equal("JSdotNet/Docs", Assert.Single(settings.GitHub.Current.Repositories).FullName);
+        var remaining = Assert.Single(
+            settings.Component.FindComponents<TabPanel>(),
+            panel => panel.Instance.Id is "backlog" or "docs");
+        Assert.Same(docsPanel, remaining.Instance);
+
+        var card = settings.Component.Find("[data-testid='github-repo-card']");
+        Assert.Equal("JSdotNet/Docs repository settings", card.GetAttribute("aria-label"));
+        Assert.Equal("JSdotNet/Docs", card.QuerySelector(".repo-card__title")!.TextContent.Trim());
+        Assert.Contains("@docs", card.QuerySelector(".repo-card__meta")!.TextContent, StringComparison.Ordinal);
+
+        var clone = card.QuerySelector("[data-testid='repo-clone-directory-input']")!;
+        Assert.Equal("clone-docs", clone.GetAttribute("id"));
+        Assert.Equal(docsClone, clone.GetAttribute("value"));
+        Assert.DoesNotContain(backlogClone, card.TextContent, StringComparison.Ordinal);
+    }
+
+    private static void SetCloneDirectory(IRenderedComponent<Settings> component, string directory)
+    {
+        component.Find("[data-testid='repo-clone-directory-input']").Input(directory);
+        component.Find("[data-testid='repo-clone-directory-input']").Change(directory);
+    }
+
+    private static void OpenRepositoryPage(IRenderedComponent<Settings> component, string fullName) =>
+        component.FindAll("[data-testid='repo-subpage-tab']").Single(tab => tab.TextContent.Trim() == fullName).Click();
+
     private static TabPanel RepositoryPanel(IRenderedComponent<Settings> component, string alias) =>
         component.FindComponents<TabPanel>().Single(panel => panel.Instance.Id == alias).Instance;
 

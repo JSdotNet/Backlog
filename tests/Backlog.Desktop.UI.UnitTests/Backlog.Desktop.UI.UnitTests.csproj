@@ -117,6 +117,7 @@
     <ProjectReference Include="..\..\src\Modules\Capture\Backlog.Modules.Capture\Backlog.Modules.Capture.csproj" />
     <ProjectReference Include="..\..\src\Modules\Capture\Backlog.Modules.Capture.Abstractions\Backlog.Modules.Capture.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Capture\Backlog.Modules.Capture.UI\Backlog.Modules.Capture.UI.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Sync\Backlog.Modules.Sync.UI\Backlog.Modules.Sync.UI.csproj" />
     <ProjectReference Include="..\..\src\App\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
   </ItemGroup>
 

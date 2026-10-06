@@ -50,6 +50,9 @@
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.UI\Backlog.Modules.Dashboard.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.UI\Backlog.Modules.Capture.UI.csproj" />
+    <!-- Sync has no pane, only the Devices page on the settings screen, which the
+         settings screen draws as the section AddSyncSettings() registers. -->
+    <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.UI\Backlog.Modules.Sync.UI.csproj" />
     <!-- Four published surfaces, for the feature catalog and nothing else. The
          catalog gathers keys that belong to the contexts they are features of,
          so the shell that renders the list of switches names them where they are
@@ -64,10 +67,7 @@
          answered with; the sources panel on the Inbox pane is Capture.UI's. The
          implementation stays with the hosts, which compose it. -->
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.Abstractions\Backlog.Modules.Capture.Abstractions.csproj" />
-    <!-- Sync's published surface, for the same reason as the four above and one
-         more: the Devices panel shows a pairing code, and the alphabet and the
-         two-groups-of-four display it is written in are the service's, shared
-         rather than restated. -->
+    <!-- Sync's published surface, for the same reason as the four above. -->
     <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
     <!-- Inbox's published surface, for one record: the shell hears that an item
          was routed and reloads the Tasks pane on it. It reads nothing else. -->
@@ -86,9 +86,10 @@
          port and this screen takes the adapter, as it already does for GitHub,
          Claude and Azure Foundry. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
-    <!-- The Devices panel registers this device, issues and redeems pairing
-         codes, and shows where the credential is kept — the same arrangement the
-         screen already has with the GitHub, Claude and Azure Foundry adapters. -->
+    <!-- The footer and the home page read the sync loops directly - whether one
+         is running, and what it last did - the same arrangement the shell already
+         has with the GitHub, Claude and Azure Foundry adapters. The Devices page
+         that drives them went to Backlog.Modules.Sync.UI. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
     <!-- The read-only MCP tool classes and the table saying which feature key
          each group answers to. Referenced for the registration under Extensions/

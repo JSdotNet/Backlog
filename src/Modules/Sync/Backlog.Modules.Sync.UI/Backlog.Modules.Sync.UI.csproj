@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Sync context's UI: the Devices page on the settings screen - registering
+    this device, pairing it with another, where the sync service is, and the task
+    and session loops a paired device runs. It was a tab of the desktop shell's
+    own; it lives here so that a change to how a device is set up touches the Sync
+    module and not the shell, which draws it only as the SettingsSection
+    AddSyncSettings() registers.
+
+    It sees its own module's published surface and the shared control library,
+    and takes the adapters it drives the way the shell did: the sync clients in
+    Backlog.Infrastructure.Sync, and the log location in
+    Backlog.Infrastructure.FileSystem. Never the module implementation - the
+    device aggregate and its handlers live behind the sync service, not here.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Sync.UI</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <!-- For AddSyncSettings(), the composition root a host calls to put the page
+         on its settings screen. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- For the optional logger an unexpected failure is written to. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- The module's published surface only: the feature key the page is offered
+         behind, the error code that says a device is no longer registered, and
+         the pairing-code alphabet and display, shared rather than restated. -->
+    <ProjectReference Include="..\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
+    <!-- The pairing client, the credential store, the service address and the two
+         loops the page drives. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
+    <!-- AppLogLocation, so the Sync tasks card can say where an unplanned failure
+         was written out in full. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+  </ItemGroup>
+
+</Project>

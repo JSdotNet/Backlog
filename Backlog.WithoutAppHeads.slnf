@@ -49,6 +49,7 @@
       "src\\Modules\\Sync\\Backlog.Modules.Sync.Abstractions\\Backlog.Modules.Sync.Abstractions.csproj",
       "src\\Modules\\Sync\\Backlog.Modules.Sync.Api\\Backlog.Modules.Sync.Api.csproj",
       "src\\Modules\\Sync\\Backlog.Modules.Sync\\Backlog.Modules.Sync.csproj",
+      "src\\Modules\\Sync\\Backlog.Modules.Sync.UI\\Backlog.Modules.Sync.UI.csproj",
       "src\\Modules\\Tasks\\Backlog.Modules.Tasks.Abstractions\\Backlog.Modules.Tasks.Abstractions.csproj",
       "src\\Modules\\Tasks\\Backlog.Modules.Tasks.UI\\Backlog.Modules.Tasks.UI.csproj",
       "src\\Modules\\Tasks\\Backlog.Modules.Tasks\\Backlog.Modules.Tasks.csproj",

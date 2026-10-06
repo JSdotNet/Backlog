@@ -16,8 +16,8 @@ namespace Backlog.SharedKernel;
 /// </summary>
 /// <param name="Id">The page's id in the settings tab strip. Stable and
 /// lower-case, and distinct from the shell's own page ids — <c>features</c>,
-/// <c>ai</c>, <c>storage</c>, <c>accounts</c>, <c>repositories</c> and
-/// <c>devices</c> — which win a collision.</param>
+/// <c>ai</c>, <c>storage</c>, <c>accounts</c> and <c>repositories</c> — which
+/// win a collision.</param>
 /// <param name="Title">The tab's label and the page's heading.</param>
 /// <param name="Order">Where the page sits among the registered sections, lowest
 /// first. Registered sections always follow the shell's own pages.</param>

@@ -11,6 +11,7 @@ using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.UI;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Capture.Abstractions.Services;
@@ -42,6 +43,34 @@ public sealed class SettingsDevicesTests
         using var context = RenderSettings(syncEnabled: false);
 
         Assert.DoesNotContain("Devices", SettingsTabs(context.Component));
+    }
+
+    /// <summary>
+    /// The page is the Sync module's, not the shell's: the shell draws it only
+    /// because a host registered the section, and holds no copy of its own to fall
+    /// back on when none did.
+    /// </summary>
+    [Fact]
+    public void The_devices_tab_is_offered_only_when_the_sync_section_is_registered()
+    {
+        using var context = RenderSettings(syncEnabled: true, registerSection: false);
+
+        Assert.DoesNotContain("Devices", SettingsTabs(context.Component));
+        Assert.Empty(context.Component.FindComponents<DevicesSettings>());
+    }
+
+    [Fact]
+    public void The_devices_tab_renders_the_sync_modules_component()
+    {
+        using var context = RenderSettings(syncEnabled: true);
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var page = Assert.Single(context.Component.FindComponents<DevicesSettings>());
+            Assert.Single(page.FindAll("[data-testid='devices-status']"));
+        });
     }
 
     [Fact]
@@ -908,7 +937,8 @@ public sealed class SettingsDevicesTests
         bool sessionMissingItsStore = false,
         Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
         bool withTokenPipeline = false,
-        Dictionary<string, string>? environment = null)
+        Dictionary<string, string>? environment = null,
+        bool registerSection = true)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devices-tests", Guid.NewGuid().ToString("n"));
 
@@ -1059,6 +1089,10 @@ public sealed class SettingsDevicesTests
                 sessionSyncState,
                 new FakeTimeProvider()));
         }
+
+        // The page itself, the way the shared desktop composition registers it:
+        // the shell draws the Devices tab only because this section is here.
+        if (registerSection) testContext.Services.AddSyncSettings();
 
         var component = testContext.Render<Settings>();
         return new SettingsRenderContext(
