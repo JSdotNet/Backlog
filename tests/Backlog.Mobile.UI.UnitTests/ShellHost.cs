@@ -36,7 +36,7 @@ internal sealed class ShellHost : IDisposable
 
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
         if (clock is not null) _context.Services.AddSingleton(clock);
-        _context.Services.AddSingleton<ISharedContentReceiver>(new TestSharedContentReceiver());
+        _context.Services.AddSingleton<ISharedContentReceiver>(Share);
         _context.Services.AddSingleton<ISpeechTranscriber>(new SilentSpeechTranscriber());
         _context.Services.AddSingleton<IAttachmentPicker>(Picker);
         _context.Services.AddSingleton(credentials);
@@ -48,6 +48,9 @@ internal sealed class ShellHost : IDisposable
         _context.Services.AddMobileShell();
         _context.Services.AddTestDeviceOutbox(store, taskView);
     }
+
+    /// <summary>Another app sharing into this one, triggered by hand.</summary>
+    public TestSharedContentReceiver Share { get; } = new();
 
     /// <summary>What the Note page's attach buttons hand back.</summary>
     public TestAttachmentPicker Picker { get; } = new();
@@ -69,8 +72,10 @@ internal sealed class ShellHost : IDisposable
 
     public T Service<T>() where T : notnull => _context.Services.GetRequiredService<T>();
 
-    public static ShellHost Unpaired(Func<HttpRequestMessage, int, HttpResponseMessage>? pair = null) =>
-        new(TestDevices.Unpaired(), pair, inbox: null, store: null, clock: null);
+    public static ShellHost Unpaired(
+        Func<HttpRequestMessage, int, HttpResponseMessage>? pair = null,
+        ScriptedInboxService? inbox = null) =>
+        new(TestDevices.Unpaired(), pair, inbox, store: null, clock: null);
 
     public static ShellHost Paired(
         ScriptedInboxService? inbox = null,

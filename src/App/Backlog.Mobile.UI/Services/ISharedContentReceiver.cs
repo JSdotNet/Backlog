@@ -20,12 +20,13 @@ public sealed record SharedContent(string Text, string? Subject)
         new((text ?? string.Empty).Trim(), string.IsNullOrWhiteSpace(subject) ? null : subject.Trim());
 
     /// <summary>
-    /// What the quick-capture field should read.
+    /// The title of the capture this share becomes.
     /// </summary>
     /// <remarks>
-    /// The two halves are joined with a space rather than a newline because the
-    /// field is a single-line <c>input</c>: a newline in its value is dropped by
-    /// the browser, which would silently lose the title or the link.
+    /// The two halves are joined with a space rather than a newline because a
+    /// capture title is one line — the inbox row and the quick-capture field
+    /// both show it as one — and a newline in it would hide the link or the
+    /// title behind it.
     /// </remarks>
     public string Draft
     {
@@ -52,14 +53,15 @@ public sealed record SharedContent(string Text, string? Subject)
 /// There are two implementations behind this and they are not interchangeable at
 /// runtime: an Android <c>ACTION_SEND</c> intent cannot be delivered to a
 /// browser, and the browser harness has no intents to receive. Each host
-/// registers the one it can honour, so the Inbox screen is the same code in the
-/// emulator, on a device, and under Playwright.
+/// registers the one it can honour, so <see cref="SharedContentCapture"/> — the
+/// one subscriber, which turns each share into a capture — is the same code in
+/// the emulator, on a device, and under Playwright.
 /// </para>
 /// <para>
 /// Delivery is push-based <em>and</em> buffered, and the buffer is the reason
 /// this is not a plain event. A share <em>launches</em> the Android activity: the
 /// intent is read in <c>OnCreate</c>, long before the <c>BlazorWebView</c> has
-/// built the scoped component that wants it. An event with no subscriber yet
+/// built the layout that starts the subscriber. An event with no subscriber yet
 /// would drop precisely the payload the person just shared, so
 /// <see cref="Subscribe"/> replays the last unconsumed one instead.
 /// </para>
@@ -71,8 +73,8 @@ public interface ISharedContentReceiver
     /// </summary>
     /// <remarks>
     /// The callback runs on whichever thread published — the Android main thread,
-    /// or the caller's own thread during the replay — so a component marshals to
-    /// its renderer before touching state.
+    /// or the caller's own thread during the replay — so a subscriber marshals to
+    /// the renderer before touching state.
     /// </remarks>
     /// <param name="onShared">Called once per share, and once immediately when a
     /// payload was buffered before this subscription existed.</param>

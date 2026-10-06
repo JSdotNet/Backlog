@@ -4,7 +4,7 @@ namespace Backlog.Mobile.UI.UnitTests;
 /// The buffering half of <see cref="ISharedContentReceiver"/>.
 ///
 /// <para>An Android share launches the activity, so the intent is handled before
-/// the <c>BlazorWebView</c> has built the Inbox component that wants it. A purely
+/// the <c>BlazorWebView</c> has built the layout that captures it. A purely
 /// push-based receiver would drop that first — and only — payload, which is
 /// exactly the share the person just made.</para>
 /// </summary>

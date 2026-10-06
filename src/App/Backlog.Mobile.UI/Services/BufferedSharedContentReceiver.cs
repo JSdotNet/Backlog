@@ -16,8 +16,8 @@ namespace Backlog.Mobile.UI.Services;
 /// </para>
 /// <para>
 /// A published payload is either delivered or kept, never both: keeping one that
-/// a screen has already shown would prefill the field a second time on the next
-/// navigation.
+/// has already been captured would capture it a second time the next time
+/// anything subscribed.
 /// </para>
 /// </remarks>
 public abstract class BufferedSharedContentReceiver : ISharedContentReceiver
@@ -42,8 +42,8 @@ public abstract class BufferedSharedContentReceiver : ISharedContentReceiver
             _unconsumed = null;
         }
 
-        // Outside the lock: the callback renders a component, which is neither
-        // quick nor something to hold a lock across.
+        // Outside the lock: the callback writes to the outbox and renders, which
+        // is neither quick nor something to hold a lock across.
         if (waiting is not null) onShared(waiting);
 
         return new Subscription(this, onShared);
@@ -54,8 +54,7 @@ public abstract class BufferedSharedContentReceiver : ISharedContentReceiver
     /// </summary>
     /// <remarks>
     /// A share carrying nothing is dropped rather than buffered: the Android
-    /// share sheet can produce one, and replaying it later would show the "shared
-    /// from another app" line over an empty field.
+    /// share sheet can produce one, and there is no capture to make of it.
     /// </remarks>
     protected void Publish(SharedContent content)
     {
@@ -69,8 +68,9 @@ public abstract class BufferedSharedContentReceiver : ISharedContentReceiver
         {
             listeners = [.. _subscribers];
 
-            // Only the most recent share is worth keeping. An older one is a
-            // draft the person has moved on from.
+            // Only the most recent share is kept. Shares made before anything
+            // listens are a launch and, at most, a quick second one before the
+            // WebView is up — not a queue worth holding.
             if (listeners.Length == 0) _unconsumed = content;
         }
 
@@ -82,9 +82,9 @@ public abstract class BufferedSharedContentReceiver : ISharedContentReceiver
         lock (_gate) _subscribers.Remove(onShared);
     }
 
-    /// <summary>The token a screen disposes on teardown. A component that has
-    /// gone away must not be called into again, and in the MAUI head this
-    /// receiver outlives every component it ever served.</summary>
+    /// <summary>The token a subscriber disposes on teardown. A subscriber that
+    /// has gone away must not be called into again, and in the MAUI head this
+    /// receiver outlives every scope it ever served.</summary>
     private sealed class Subscription(BufferedSharedContentReceiver receiver, Action<SharedContent> onShared)
         : IDisposable
     {

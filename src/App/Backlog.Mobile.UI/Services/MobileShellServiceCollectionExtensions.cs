@@ -28,6 +28,10 @@ public static class MobileShellServiceCollectionExtensions
         // and the status line reads the same object through the abstraction.
         services.AddScoped<ISyncStatusSource>(provider => provider.GetRequiredService<SyncStatusTracker>());
 
+        // Scoped, like the NavigationManager it lands the app on the Inbox with;
+        // the layout starts it and the Inbox shows what it says.
+        services.AddScoped<SharedContentCapture>();
+
         // Scoped unless the host already registered it: the MAUI head makes it a
         // singleton, because its window events arrive from outside any scope.
         services.TryAddScoped<AppLifecycle>();

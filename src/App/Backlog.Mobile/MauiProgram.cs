@@ -70,8 +70,8 @@ public static class MauiProgram
 		// ACTION_SEND intent cannot reach a browser and a WebView URL is not how a
 		// share reaches a MAUI app, which is why there are two registrations rather
 		// than one. Singleton, and registered twice on purpose: MainActivity resolves
-		// the concrete type to hand it an intent, the Inbox screen takes the
-		// abstraction, and both have to be the same instance or the buffered share is
+		// the concrete type to hand it an intent, the shell's SharedContentCapture
+		// takes the abstraction, and both have to be the same instance or the buffered share is
 		// left in an object nothing is listening to.
 		builder.Services.AddSingleton<AndroidShareTargetReceiver>();
 		builder.Services.AddSingleton<ISharedContentReceiver>(

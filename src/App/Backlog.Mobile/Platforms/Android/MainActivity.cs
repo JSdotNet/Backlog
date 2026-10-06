@@ -9,13 +9,16 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Mobile;
 
-// SingleTop is what makes a second share work. Without it Android answers the
-// share sheet by stacking another MainActivity — a second app instance, its own
-// WebView, the first one still behind it — instead of delivering the intent to
-// the running one through OnNewIntent. The IntentFilter is what puts Backlog in
-// the share sheet at all: ACTION_SEND with text/plain, which is what a browser
-// or YouTube sends when it shares a link.
-[Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, LaunchMode = LaunchMode.SingleTop, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+// SingleTask is what makes a share reach the app the person sees. A share sheet
+// starts the target activity inside the *sending* app's task, and SingleTop only
+// reuses an instance that is on top of that same task — so a share from YouTube
+// built a second MainActivity in YouTube's task, with its own WebView, while the
+// singleton share receiver kept handing the payload to the first instance hidden
+// behind it. SingleTask keeps one instance in Backlog's own task and brings it
+// forward with the intent through OnNewIntent, whichever app shared. The
+// IntentFilter is what puts Backlog in the share sheet at all: ACTION_SEND with
+// text/plain, which is what a browser or YouTube sends when it shares a link.
+[Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, LaunchMode = LaunchMode.SingleTask, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
 [IntentFilter(new[] { Intent.ActionSend }, Categories = new[] { Intent.CategoryDefault }, DataMimeType = "text/plain")]
 public class MainActivity : MauiAppCompatActivity
 {
@@ -24,13 +27,13 @@ public class MainActivity : MauiAppCompatActivity
         base.OnCreate(savedInstanceState);
 
         // The share that launched the app. This runs before the BlazorWebView has
-        // built the Inbox component, which is why the receiver buffers rather than
-        // just raising an event.
+        // built the layout that captures it, which is why the receiver buffers
+        // rather than just raising an event.
         Forward(Intent);
     }
 
     /// <summary>A share into an app that is already running, thanks to
-    /// <see cref="LaunchMode.SingleTop"/>.</summary>
+    /// <see cref="LaunchMode.SingleTask"/>.</summary>
     protected override void OnNewIntent(Intent? intent)
     {
         base.OnNewIntent(intent);
