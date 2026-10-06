@@ -6,9 +6,8 @@ namespace Backlog.Modules.Tasks.Abstractions.Connectors;
 /// <para>
 /// Each question the design left open is a setting here, so two targets may answer
 /// it differently (ADR 0020, §9). The defaults are the record's: nothing skipped,
-/// "Assigned to me" off, the title following the source, a fifteen-minute
-/// interval, Promote to plan archiving the original, and nothing completed at the
-/// source.
+/// the title following the source, a fifteen-minute interval, Promote to plan
+/// archiving the original, and nothing completed at the source.
 /// </para>
 /// <para>
 /// <b>No credentials.</b> A target names what to fetch, never how to sign in: the
@@ -30,10 +29,6 @@ public sealed record ConnectedTarget(string ConnectorId, string Target, bool Ena
     /// brought in; null brings everything. Read once, to set
     /// <see cref="IgnoreUntouchedBefore"/>.</summary>
     public TimeSpan? SkipUntouchedOlderThan { get; init; }
-
-    /// <summary>Whether the Tasks pane opens with "Assigned to me" on for this
-    /// target's tasks.</summary>
-    public bool AssignedToMeByDefault { get; init; }
 
     /// <summary>Whether each sync overwrites the title with the source's. Off means
     /// the task keeps whatever title it has.</summary>

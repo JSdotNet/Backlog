@@ -36,8 +36,6 @@ internal sealed class StubTaskConnector(string id = StubTaskConnector.Id) : ITas
         if (Failure is not null) throw Failure;
         return Task.FromResult<IReadOnlyList<SourceItem>>([.. Items]);
     }
-
-    public Task<string?> WhoAmIAsync(CancellationToken cancellationToken) => Task.FromResult<string?>("me");
 }
 
 /// <summary>A connector that can finish an item at the source, answering whatever
@@ -64,8 +62,6 @@ internal sealed class CompletingConnector(string id = CompletingConnector.Id, bo
 
     public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<SourceItem>>([]);
-
-    public Task<string?> WhoAmIAsync(CancellationToken cancellationToken) => Task.FromResult<string?>("me");
 
     public Task<string?> CompleteAsync(SourceRef item, CancellationToken cancellationToken)
     {

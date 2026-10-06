@@ -37,11 +37,6 @@
                 Checked="@Options.Enabled"
                 CheckedChanged="value => ChangeAsync(Options with { Enabled = value })"
                 TestId="@Suffix("enabled")" />
-        <Toggle Label="Assigned to me by default"
-                Description="The Tasks pane starts with only your items from here."
-                Checked="@Options.AssignedToMeByDefault"
-                CheckedChanged="value => ChangeAsync(Options with { AssignedToMeByDefault = value })"
-                TestId="@Suffix("assigned")" />
         <Toggle Label="Titles follow the source"
                 Description="A title you rename stops following until you reset it."
                 Checked="@Options.TitleFollowsSource"

@@ -5,40 +5,36 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// Linked tasks in the Tasks pane (ADR 0020 §2, §3 and §9): the source badge on the
-/// row and in the detail panel, and the Source and "Assigned to me" filters. All of
-/// it is drawn from the installed connectors' descriptors, so these use a fake
+/// row and in the detail panel, and the Source filter. All of it is drawn from the installed connectors' descriptors, so these use a fake
 /// connector and never name a real one.
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class LinkedTaskPaneTests
 {
     private const string SourceChip = "[data-testid='source-filter-option']";
-    private const string AssignedChip = "[data-testid='assigned-to-me-filter']";
 
     private static string RowTestId(EntryRow row) => $"entry-list-{row.TaskId}";
 
-    /// <summary>A host with the fake connector installed, three linked tasks — one
-    /// assigned to "me", one to somebody else, one from a connector this build does
-    /// not know — and one local task.</summary>
-    private static async Task<(TasksPaneHost Host, EntryRow Mine, EntryRow Theirs, EntryRow Unknown, EntryRow Local)> FourAsync(
-        params ConnectedTarget[] targets)
+    /// <summary>A host with the fake connector installed, three linked tasks — two
+    /// through it, the second blocked at the source, and one from a connector this
+    /// build does not know — and one local task.</summary>
+    private static async Task<(TasksPaneHost Host, EntryRow Linked, EntryRow Blocked, EntryRow Unknown, EntryRow Local)> FourAsync()
     {
-        var sources = new LinkedTaskSources([new FakeConnector()], new InMemoryTargets(targets));
+        var sources = new LinkedTaskSources([new FakeConnector()], new InMemoryTargets());
         var host = await TasksPaneHost.CreateAsync(roadmapTags: null, [], linkedSources: sources);
 
-        var mine = await host.WriteEntryAsync("# Ship the installer\n`task` `!ready`\n");
-        var theirs = await host.WriteEntryAsync("# Review the tokens\n`task` `!ready`\n");
+        var linked = await host.WriteEntryAsync("# Ship the installer\n`task` `!ready`\n");
+        var blocked = await host.WriteEntryAsync("# Review the tokens\n`task` `!ready`\n");
         var unknown = await host.WriteEntryAsync("# Triage the import bug\n`task` `!ready`\n");
         var local = await host.WriteEntryAsync("# Water the plants\n`task` `!ready`\n");
         await host.State.SelectAsync(null);
 
-        await LinkAsync(host, mine, Reference(FakeConnector.Id, "#1", FakeConnector.Me));
-        await LinkAsync(host, theirs, Reference(FakeConnector.Id, "#2", "someone-else") with { Blocked = true, BlockedReason = "Waiting on review" });
+        await LinkAsync(host, linked, Reference(FakeConnector.Id, "#1", "someone"));
+        await LinkAsync(host, blocked, Reference(FakeConnector.Id, "#2", "someone-else") with { Blocked = true, BlockedReason = "Waiting on review" });
         await LinkAsync(host, unknown, Reference("jira", "JIRA-301", "someone-else"));
         await host.State.ReloadFromStoreAsync();
-        await TasksTestHost.UntilAsync(host.State, () => host.State.LinkedSources.KnownMe(FakeConnector.Id) is not null);
 
-        return (host, Find(host, mine), Find(host, theirs), Find(host, unknown), Find(host, local));
+        return (host, Find(host, linked), Find(host, blocked), Find(host, unknown), Find(host, local));
     }
 
     private static EntryRow Find(TasksPaneHost host, EntryRow before) => host.State.Rows.Single(row => row.Id == before.Id);
@@ -60,16 +56,16 @@ public sealed class LinkedTaskPaneTests
     [Fact]
     public async Task A_linked_row_wears_its_connectors_badge_and_a_local_row_none()
     {
-        var (host, mine, theirs, _, local) = await FourAsync();
+        var (host, linked, blocked, _, local) = await FourAsync();
         using var _host = host;
 
         var pane = host.Render();
 
-        var badge = pane.Find($"[data-testid='{RowTestId(mine)}'] .badge--linked");
+        var badge = pane.Find($"[data-testid='{RowTestId(linked)}'] .badge--linked");
         Assert.Equal("Fake #1", badge.TextContent.Trim());
         Assert.Equal("https://example.com/fake/%231", badge.GetAttribute("href"));
 
-        Assert.Contains("Waiting on review", pane.Find($"[data-testid='{RowTestId(theirs)}'] .task-item__detail--sourceblocked").TextContent);
+        Assert.Contains("Waiting on review", pane.Find($"[data-testid='{RowTestId(blocked)}'] .task-item__detail--sourceblocked").TextContent);
         Assert.Empty(pane.FindAll($"[data-testid='{RowTestId(local)}'] .badge--linked"));
     }
 
@@ -88,11 +84,11 @@ public sealed class LinkedTaskPaneTests
     [Fact]
     public async Task The_detail_panel_shows_the_badge_on_its_heading_line()
     {
-        var (host, _, theirs, _, _) = await FourAsync();
+        var (host, _, blocked, _, _) = await FourAsync();
         using var _host = host;
 
         var pane = host.Render();
-        await host.OpenAsync(theirs);
+        await host.OpenAsync(blocked);
         pane.Render();
 
         Assert.Equal("Fake #2", pane.Find("[data-testid='entry-panel-source']").TextContent.Trim());
@@ -114,57 +110,19 @@ public sealed class LinkedTaskPaneTests
     [Fact]
     public async Task Pressing_a_source_keeps_only_its_tasks_and_pressing_it_again_widens()
     {
-        var (host, mine, theirs, _, local) = await FourAsync();
+        var (host, linked, blocked, _, local) = await FourAsync();
         using var _host = host;
 
         var pane = host.Render();
         await pane.Find($"{SourceChip}[data-source='{FakeConnector.Id}']").ClickAsync(new());
 
-        Assert.Equal([mine, theirs], host.State.FilteredRows);
+        Assert.Equal([linked, blocked], host.State.FilteredRows);
 
         await pane.Find($"{SourceChip}[data-source='local']").ClickAsync(new());
         Assert.Equal([local], host.State.FilteredRows);
 
         await pane.Find($"{SourceChip}[data-source='local']").ClickAsync(new());
         Assert.Equal(4, host.State.FilteredRows.Count);
-    }
-
-    [Fact]
-    public async Task Assigned_to_me_hides_linked_tasks_assigned_to_somebody_else_and_never_local_work()
-    {
-        var (host, mine, _, _, local) = await FourAsync();
-        using var _host = host;
-
-        var pane = host.Render();
-        Assert.Equal("false", pane.Find(AssignedChip).GetAttribute("aria-pressed"));
-
-        await pane.Find(AssignedChip).ClickAsync(new());
-
-        // The unknown connector cannot say who "me" is there, and a filter that
-        // cannot judge must not hide work — so its task stays too.
-        Assert.Contains(mine, host.State.FilteredRows);
-        Assert.Contains(local, host.State.FilteredRows);
-        Assert.Equal(3, host.State.FilteredRows.Count);
-        Assert.Equal("true", pane.Find(AssignedChip).GetAttribute("aria-pressed"));
-    }
-
-    [Fact]
-    public async Task Assigned_to_me_starts_on_when_a_synced_target_asks_for_it()
-    {
-        var (host, _, theirs, _, _) = await FourAsync(new ConnectedTarget(FakeConnector.Id, "owner/repo") { AssignedToMeByDefault = true });
-        using var _host = host;
-
-        Assert.True(host.State.AssignedToMeOnly);
-        Assert.DoesNotContain(theirs, host.State.FilteredRows);
-    }
-
-    [Fact]
-    public async Task A_target_that_is_switched_off_does_not_turn_it_on()
-    {
-        var (host, _, _, _, _) = await FourAsync(new ConnectedTarget(FakeConnector.Id, "owner/repo", Enabled: false) { AssignedToMeByDefault = true });
-        using var _host = host;
-
-        Assert.False(host.State.AssignedToMeOnly);
     }
 
     [Fact]
@@ -179,12 +137,11 @@ public sealed class LinkedTaskPaneTests
         Assert.Empty(host.State.SourceFilters);
     }
 
-    /// <summary>A connector that answers nothing; only its descriptor and who "me"
-    /// is matter to the screens.</summary>
+    /// <summary>A connector that answers nothing; only its descriptor matters to
+    /// the screens.</summary>
     internal sealed class FakeConnector : ITaskConnector
     {
         public const string Id = "fake";
-        public const string Me = "me-at-fake";
 
         public TaskConnectorDescriptor Descriptor { get; } = new(Id, "Fake", "fake", "color-primary-light");
 
@@ -192,8 +149,6 @@ public sealed class LinkedTaskPaneTests
 
         public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<SourceItem>>([]);
-
-        public Task<string?> WhoAmIAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(Me);
     }
 
     /// <summary>The connected targets, held in a list.</summary>

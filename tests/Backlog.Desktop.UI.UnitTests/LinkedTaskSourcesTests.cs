@@ -47,7 +47,5 @@ public sealed class LinkedTaskSourcesTests
 
         public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<SourceItem>>([]);
-
-        public Task<string?> WhoAmIAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(null);
     }
 }
