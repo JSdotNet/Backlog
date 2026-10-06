@@ -110,6 +110,19 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     public bool? UseLocalDevbookFolder { get; init; }
 
     /// <summary>
+    /// The labels this repository's pull requests list is narrowed to: a pull request
+    /// is listed when it carries any of them. Empty is no filter.
+    /// <para>
+    /// Shared, and so it travels in the registry beside <see cref="Alias"/> and
+    /// <see cref="Colour"/> (local ADR 0021): "this repository's pull requests that
+    /// matter are the ones labelled <c>frontend</c>" is true on every device of a
+    /// workspace. Not part of the <c>alias = owner/repo</c> grammar, for the reason
+    /// the hue is not.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string> PullRequestLabels { get; init; } = [];
+
+    /// <summary>
     /// Where this repository's knowledge actually comes from, once the
     /// configuration meets this machine.
     /// <para>

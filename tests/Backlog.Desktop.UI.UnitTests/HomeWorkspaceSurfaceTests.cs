@@ -1746,15 +1746,18 @@ public sealed class HomeWorkspaceSurfaceTests
 
         Assert.NotNull(pane.PullRequestTask);
 
-        var task = pane.PullRequestTask!("jsdotnet/backlog", 712);
+        var task = pane.PullRequestTask!(PullRequestSubject("jsdotnet/backlog", 712), false);
 
         Assert.NotNull(task);
         Assert.Equal(DeliveryRunReferenceKind.Task, task!.Kind);
         Assert.Equal(row.Id, task.EntryId);
         Assert.Equal("Read delivery run files", task.Label);
 
-        Assert.Null(pane.PullRequestTask("JSdotNet/Backlog", 713));
-        Assert.Null(pane.PullRequestTask("JSdotNet/Archify", 712));
+        Assert.Null(pane.PullRequestTask(PullRequestSubject("JSdotNet/Backlog", 713), false));
+        Assert.Null(pane.PullRequestTask(PullRequestSubject("JSdotNet/Archify", 712), false));
+
+        // An open local entry is one of mine, so Mine asks of it too.
+        Assert.Equal(row.Id, pane.PullRequestTask(PullRequestSubject("JSdotNet/Backlog", 712), true)?.EntryId);
 
         // And opening it is the shell's ordinary way to an entry.
         component.InvokeAsync(() => pane.OnOpenTask.InvokeAsync(task));
@@ -1765,6 +1768,52 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Contains("Read delivery run files", Assert.Single(component.FindAll(".task-item--selected")).TextContent);
         });
     }
+
+    /// <summary>
+    /// A linked task's external key — the Jira key in spec-manager's display key —
+    /// relates a pull request that names it in its title or branch, and a task that
+    /// is done still leads there but no longer counts toward Mine.
+    /// </summary>
+    [Fact]
+    public void A_linked_tasks_external_key_in_a_pull_request_relates_it_and_a_done_task_is_not_mine()
+    {
+        using var harness = CreateHarness(seed: PlanEntryText);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForState(() => state.Rows.FirstOrDefault()?.Id is not null);
+
+        var row = state.Rows[0];
+        row.SourceRef = new SourceRef(
+            "spec-manager", "finance", "item-123", "https://example.test/items/123", "#123 · FIN-8428",
+            assignee: null, sourceState: "open", sourceUpdatedAt: DateTimeOffset.UnixEpoch);
+
+        OpenPullRequests(component);
+
+        var pane = component.FindComponent<PullRequestsPane>().Instance;
+        var named = PullRequestSubject("JSdotNet/Backlog", 900, title: "FIN-8428: reconcile the ledger");
+        var branch = PullRequestSubject("JSdotNet/Backlog", 901, head: "feature/fin-8428-ledger");
+        var longer = PullRequestSubject("JSdotNet/Backlog", 902, title: "FIN-84281 something else");
+
+        Assert.Equal(row.Id, pane.PullRequestTask!(named, false)?.EntryId);
+        Assert.Equal(row.Id, pane.PullRequestTask(branch, true)?.EntryId);
+        Assert.Null(pane.PullRequestTask(longer, false));
+
+        // Done in the entry's own text, then any change the shell hears of — which is
+        // what rebuilds its matcher, since a row changes in place.
+        row.RawText = row.RawText.Replace("`!ready`", "`!done`", StringComparison.Ordinal);
+        Assert.Equal(EntryStatus.Done, row.PreviewStatus);
+        component.InvokeAsync(() => state.SetSelectionMode(true));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(row.Id, pane.PullRequestTask(named, false)?.EntryId);
+            Assert.Null(pane.PullRequestTask(named, true));
+        });
+    }
+
+    private static PullRequestTaskSubject PullRequestSubject(string repository, int number, string title = "A pull request", string head = "feature") =>
+        new(repository, number, title, head, [], SessionId: null);
 
     /// <summary>A session opened from the pull requests list is the session list on
     /// that session, as it is from a task.</summary>

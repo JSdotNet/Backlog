@@ -6268,6 +6268,11 @@ h1, h2, h3 {
     max-width: 26rem;
 }
 
+/* The pin trails the title and never shrinks into it; the title is the clamp. */
+.pull-requests-table__pin {
+    flex: none;
+}
+
 /* A task title or a worktree-named session runs as long as a pull request title
    and is worth less of the row, so it is cut sooner. */
 .pull-requests-table__reference .integration-link {

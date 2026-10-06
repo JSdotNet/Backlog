@@ -263,6 +263,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             SpecManagerTokenStore = _ => new DpapiSpecManagerTokenStore(Path.Combine(_appData, "spec-manager-credentials.json")),
             InboxRoutingRules = _ => new InboxRoutingRulesStore(Path.Combine(_appData, "inbox-routing-rules.json")),
             GitHubSettings = root => new GitHubSettingsStore(Path.Combine(_appData, "github.settings.json"), root),
+            PullRequestPins = _ => new PullRequestPinsStore(Path.Combine(_appData, "pull-request-pins.json")),
             ClaudeSettings = _ => new ClaudeSettingsStore(Path.Combine(_appData, "claude.settings.json")),
             AzureFoundrySettings = _ => new Backlog.Infrastructure.AzureFoundry.AzureFoundrySettingsStore(Path.Combine(_appData, "azure-foundry.json")),
             FolderEditorLauncher = _ => new VsCodeFolderEditorLauncher(),

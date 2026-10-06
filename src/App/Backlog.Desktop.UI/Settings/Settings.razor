@@ -1563,6 +1563,30 @@
                                     </AppButton>
                                 </div>
 
+                                @* The pull requests pane's label filter. Stored on the
+                                   repository's registry row, so it travels with the
+                                   workspace to a paired device; saved when the field is
+                                   left, the way the clone directory is, and only on
+                                   change — Enter in a text field raises change, so a
+                                   keydown handler beside it would save twice. *@
+                                <div class="repo-card__section" data-testid="repo-pull-request-labels">
+                                    <h4 class="devbook-folders__title">Pull requests</h4>
+                                    <TextField Bare="true"
+                                               LabelCssClass="setting__label"
+                                               InputCssClass="@SettingInputClass(PullRequestLabelsError(activeRepo))"
+                                               Label="Pull request labels"
+                                               Id="@($"pull-request-labels-{activeRepo.Alias}")"
+                                               data-testid="repo-pull-request-labels-input"
+                                               spellcheck="false"
+                                               autocomplete="off"
+                                               Placeholder="frontend, design"
+                                               HelpText="@($"Comma-separated. When set, the pull requests pane lists only {activeRepo.FullName}'s pull requests carrying any of these labels. Pinned pull requests are always listed.")"
+                                               ErrorMessage="@PullRequestLabelsError(activeRepo)"
+                                               Value="@PullRequestLabelsDraft(activeRepo)"
+                                               ValueChanged="value => _draftPullRequestLabels[activeRepo.Alias] = value"
+                                               @onchange="() => ApplyPullRequestLabels(activeRepo.Alias)" />
+                                </div>
+
                                 @* Where this repository's knowledge is read from.
                                    One control for what is stored as two settings:
                                    the branch travels with the workspace, the
@@ -2227,6 +2251,8 @@
     private readonly Dictionary<string, string> _draftClaudeApiKeys = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftAccountEndpoints = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftPullRequestLabels = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _pullRequestLabelsErrors = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftDevbookPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _cloningRepositories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftTokens = new(StringComparer.Ordinal);
@@ -3269,6 +3295,42 @@
         SyncRepositoryDrafts();
     }
 
+    /// <summary>The label filter as the field shows it: what is being typed, else
+    /// the stored labels joined the way they are typed.</summary>
+    private string PullRequestLabelsDraft(GitHubRepositoryRef repo)
+    {
+        if (!_draftPullRequestLabels.TryGetValue(repo.Alias, out var draft))
+        {
+            draft = string.Join(", ", repo.PullRequestLabels);
+            _draftPullRequestLabels[repo.Alias] = draft;
+        }
+
+        return draft;
+    }
+
+    private string? PullRequestLabelsError(GitHubRepositoryRef repo) =>
+        _pullRequestLabelsErrors.TryGetValue(repo.Alias, out var error) ? error : null;
+
+    /// <summary>Saves the label filter as the field was left. The store trims,
+    /// de-duplicates and drops empty parts, so the field is redrawn from what it
+    /// kept rather than from what was typed.</summary>
+    private void ApplyPullRequestLabels(string alias)
+    {
+        _draftPullRequestLabels.TryGetValue(alias, out var value);
+        var labels = (value ?? string.Empty).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        var error = GitHub.Settings.SetPullRequestLabels(alias, labels);
+        if (error is null)
+        {
+            _pullRequestLabelsErrors.Remove(alias);
+            _draftPullRequestLabels.Remove(alias);
+        }
+        else
+        {
+            _pullRequestLabelsErrors[alias] = error;
+        }
+    }
+
     /// <summary>
     /// The devbook-source control is <see cref="DevbookSourceSelection"/>'s,
     /// not this screen's. The pane offers the same choice, and two copies of the
@@ -3441,9 +3503,15 @@
 
     private void SyncRepositoryDrafts()
     {
+        _pullRequestLabelsErrors.Clear();
+
         foreach (var repo in GitHub.Repositories)
         {
             _draftCloneDirectories[repo.Alias] = repo.CloneDirectory ?? string.Empty;
+
+            // Reset with the others: an alias can come back naming another
+            // repository, and a draft kept from the old one would be saved onto it.
+            _draftPullRequestLabels[repo.Alias] = string.Join(", ", repo.PullRequestLabels);
 
             foreach (var folder in repo.DevbookFolders)
             {

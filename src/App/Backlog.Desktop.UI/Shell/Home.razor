@@ -1378,22 +1378,59 @@
     }
 
     /// <summary>
-    /// The entry that recorded a pull request, as the pull requests list asks for it:
-    /// the entry's own <c>pull-request</c> projection, written by the Backlog server's
-    /// <c>link_change</c>, naming the same <c>owner/name</c> and number. Answered here
+    /// The entry a pull request belongs to, as the pull requests list asks for it,
+    /// found by <see cref="PullRequestTaskMatcher"/> in order of how sure each
+    /// relation is: the entry's own <c>pull-request</c> projection, a GitHub issue a
+    /// linked task follows that the pull request closes, a linked task's external key
+    /// in its title or branch, and the entry that linked its session. Answered here
     /// for the reason <see cref="SessionTaskFor"/> is — the record is on the entry and
     /// the pull request is in another pane — and by stored id, so opening it is the
     /// surest match <see cref="OpenPlanEntryAsync"/> makes.
+    /// <para>
+    /// With <paramref name="mineOnly"/> only my tasks are asked — open ones, and a
+    /// linked task only where the Tasks pane would count it as mine — which is what the
+    /// pane's "Mine" adds to the pull requests I opened myself.
+    /// </para>
     /// </summary>
-    private DeliveryRunReference? PullRequestTaskFor(string repositoryFullName, int number)
+    private DeliveryRunReference? PullRequestTaskFor(PullRequestTaskSubject pull, bool mineOnly)
     {
-        var row = State.Rows.FirstOrDefault(candidate =>
-            candidate.Id is not null
-            && candidate.PullRequestLinks.Any(link =>
-                link.Number == number
-                && string.Equals(link.Repository, repositoryFullName, StringComparison.OrdinalIgnoreCase)));
+        var (matcher, rows) = PullRequestMatcher;
+        return matcher.Match(pull, mineOnly) is { } match && rows.TryGetValue(match.Candidate.EntryId, out var row)
+            ? TaskReference(row)
+            : null;
+    }
 
-        return TaskReference(row);
+    private (PullRequestTaskMatcher Matcher, Dictionary<Guid, EntryRow> Rows)? _pullRequestMatcher;
+    private List<EntryRow>? _pullRequestMatcherRows;
+
+    /// <summary>One matcher over every entry, built on first ask and again whenever
+    /// the task list changed — not per row the pane draws, which asks once per cell.</summary>
+    private (PullRequestTaskMatcher Matcher, Dictionary<Guid, EntryRow> Rows) PullRequestMatcher
+    {
+        get
+        {
+            if (_pullRequestMatcher is { } built && ReferenceEquals(_pullRequestMatcherRows, State.Rows)) return built;
+
+            var rows = new Dictionary<Guid, EntryRow>();
+            var candidates = new List<PullRequestTaskCandidate>();
+            foreach (var row in State.Rows)
+            {
+                if (row.Id is not { } id || !rows.TryAdd(id, row)) continue;
+
+                var source = row.SourceRef;
+                candidates.Add(new PullRequestTaskCandidate(
+                    id,
+                    [.. row.PullRequestLinks.Select(link => new RecordedPullRequest(link.Repository, link.Number))],
+                    source is null ? null : PullRequestTaskMatcher.GitHubIssueOf(source.ConnectorId, source.Target, source.DisplayKey, source.Url),
+                    PullRequestTaskMatcher.ExternalKeysOf(source?.DisplayKey),
+                    [.. row.SessionLinks.Select(link => link.SessionId)],
+                    IsMine: row.PreviewStatus is not (EntryStatus.Done or EntryStatus.Archived) && State.IsAssignedToMe(row)));
+            }
+
+            _pullRequestMatcherRows = State.Rows;
+            _pullRequestMatcher = (new PullRequestTaskMatcher(candidates), rows);
+            return _pullRequestMatcher.Value;
+        }
     }
 
     /// <summary>An entry as a task reference another pane can hand back: its title, or
@@ -1568,6 +1605,9 @@
 
     private void HandleStateChanged() => _ = InvokeAsync(() =>
     {
+        // A row's links, status or assignee can change in place, which the list's
+        // identity would not show, so any change rebuilds the pull request matcher.
+        _pullRequestMatcher = null;
         SynchronizePaneAvailability();
         StateHasChanged();
     });

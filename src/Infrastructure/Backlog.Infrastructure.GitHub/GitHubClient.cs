@@ -97,6 +97,19 @@ public interface IGitHubClient
         Task.FromException<IReadOnlyList<GitHubOpenPullRequest>>(new GitHubException("This GitHub client cannot list pull requests."));
 
     /// <summary>
+    /// The named pull requests of one repository, whatever state each is in — open,
+    /// draft, merged or closed — with what the list shows about each. What a pin asks
+    /// for: a pinned pull request is read by number, so neither the fifty-row window
+    /// nor its merging takes it off the list. A number GitHub cannot find is left out.
+    /// A default body for the reason <see cref="ListOpenPullRequestsAsync"/> has one.
+    /// </summary>
+    Task<IReadOnlyList<GitHubOpenPullRequest>> ListPullRequestsAsync(
+        GitHubRepositoryRef repository,
+        IReadOnlyCollection<int> numbers,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<IReadOnlyList<GitHubOpenPullRequest>>(new GitHubException("This GitHub client cannot read pinned pull requests."));
+
+    /// <summary>
     /// The repository's pull requests merged at or after <paramref name="mergedSince"/>,
     /// with when and by whom each was merged, in the order GitHub lists them — most
     /// recently updated first, because GitHub cannot order by merge time. Paged until the
@@ -364,7 +377,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     /// the top are the ones that moved; a second page would be cost with no reader.
     /// </para>
     /// </summary>
-    private const string OpenPullRequestsQuery = """
+    private const string OpenPullRequestsQuery = $$"""
         query($owner: String!, $name: String!) {
           repository(owner: $owner, name: $name) {
             mergeCommitAllowed
@@ -372,7 +385,33 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             rebaseMergeAllowed
             pullRequests(states: OPEN, first: 50, orderBy: { field: UPDATED_AT, direction: DESC }) {
               nodes {
-                id
+                {{ListedPullRequestFields}}
+              }
+            }
+          }
+        }
+        """;
+
+    /// <summary>
+    /// What the list reads of each pull request, the open list and the pinned read
+    /// alike, so a pinned row and a listed one carry the same facts.
+    /// <para>
+    /// The check counts are read under their own alias, <c>checkCounts</c>, rather
+    /// than beside <c>state</c> in the one roll-up selection: GitHub answers a
+    /// <c>state</c> selected together with <c>contexts</c> pessimistically, counting
+    /// runs a later run superseded, and the state is what the merge acts trust. A token
+    /// refused the contexts is refused them under that alias, which
+    /// <see cref="OnlyTheListsExtraFactsWereRefused"/> reads around.
+    /// </para>
+    /// <para>
+    /// Twenty labels, twenty reviews and ten closing issues per pull request: a
+    /// list row shows a handful of each, and fifty rows of these stay well inside
+    /// GitHub's node limit. <c>writersOnly</c> keeps the reviews to people whose
+    /// review counts towards the merge.
+    /// </para>
+    /// </summary>
+    private const string ListedPullRequestFields = """
+        id
                 number
                 title
                 url
@@ -386,12 +425,59 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 author { login }
                 autoMergeRequest { enabledAt }
                 updatedAt
-                commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+                labels(first: 20) { nodes { name } }
+                reviewDecision
+                latestOpinionatedReviews(first: 20, writersOnly: true) { nodes { state } }
+                closingIssuesReferences(first: 10) { nodes { number repository { nameWithOwner } } }
+                commits(last: 1) {
+                  nodes {
+                    commit {
+                      statusCheckRollup { state }
+                      checkCounts: statusCheckRollup {
+                        contexts(first: 1) {
+                          totalCount
+                          checkRunCountsByState { state count }
+                          statusContextCountsByState { state count }
+                        }
+                      }
+                    }
+                  }
+                }
+        """;
+
+    /// <summary>
+    /// The pinned read's query for <paramref name="numbers"/>: one aliased
+    /// <c>pullRequest(number:)</c> per number, <c>p</c> and the number, each with the
+    /// list's fields and the state and times only a pull request read by number can
+    /// have. The numbers are integers the caller holds, so writing them into the text
+    /// rather than as variables cannot inject anything.
+    /// </summary>
+    internal static string PinnedPullRequestsQuery(IEnumerable<int> numbers)
+    {
+        var fields = string.Join(
+            Environment.NewLine,
+            numbers.Select(number => $$"""
+                    {{PinnedAlias(number)}}: pullRequest(number: {{number.ToString(System.Globalization.CultureInfo.InvariantCulture)}}) {
+                      state
+                      mergedAt
+                      closedAt
+                      {{ListedPullRequestFields}}
+                    }
+                """));
+
+        return $$"""
+            query($owner: String!, $name: String!) {
+              repository(owner: $owner, name: $name) {
+                mergeCommitAllowed
+                squashMergeAllowed
+                rebaseMergeAllowed
+            {{fields}}
               }
             }
-          }
-        }
-        """;
+            """;
+    }
+
+    private static string PinnedAlias(int number) => "p" + number.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>How many merged pull requests one page of the merged query asks for —
     /// GitHub's maximum for a connection. Sent as the query's <c>$first</c>, so the
@@ -427,6 +513,8 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 viewerDidAuthor
                 mergedAt
                 mergedBy { login }
+                labels(first: 20) { nodes { name } }
+                closingIssuesReferences(first: 10) { nodes { number repository { nameWithOwner } } }
               }
             }
           }
@@ -508,9 +596,41 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 ["name"] = repository.Name
             },
             cancellationToken,
-            tolerate: OnlyTheListsCheckRollupsWereRefused).ConfigureAwait(false);
+            tolerate: OnlyTheListsExtraFactsWereRefused).ConfigureAwait(false);
 
         return ReadOpenPullRequests(data, repository.FullName);
+    }
+
+    /// <summary>
+    /// The named pull requests of one repository, whatever state each is in — what a
+    /// pin asks for. One GraphQL query with an aliased field per number, sent through
+    /// the repository's own path like the open list. A number GitHub cannot find is
+    /// left out; the rest come back in the order asked.
+    /// </summary>
+    public async Task<IReadOnlyList<GitHubOpenPullRequest>> ListPullRequestsAsync(
+        GitHubRepositoryRef repository,
+        IReadOnlyCollection<int> numbers,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(numbers);
+
+        int[] wanted = [.. numbers.Where(number => number > 0).Distinct()];
+        if (wanted.Length == 0) return [];
+
+        var data = await GitHubGraphQl.SendAsync(
+            transport,
+            repository,
+            PinnedPullRequestsQuery(wanted),
+            new Dictionary<string, object?>
+            {
+                ["owner"] = repository.Owner,
+                ["name"] = repository.Name
+            },
+            cancellationToken,
+            tolerate: (errors, answer) => OnlyPinnedFactsOrMissingPinsWereRefused(errors, answer, wanted)).ConfigureAwait(false);
+
+        return ReadPinnedPullRequests(data, repository.FullName, wanted);
     }
 
     /// <summary>
@@ -545,7 +665,8 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                     ["first"] = MergedPageSize,
                     ["after"] = after
                 },
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                tolerate: OnlyTheMergedListsExtraFactsWereRefused).ConfigureAwait(false);
 
             var read = ReadMergedPullRequests(data, repository.FullName);
             // A pull request updated between two pages moves up the order and can come
@@ -736,13 +857,60 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             .Where(name => name.Length > 0)];
     }
 
-    /// <summary>The list's version of <see cref="OnlyTheCheckRollupWasRefused"/>: the
-    /// same refusal, once per pull request, and the same reason to read around it —
-    /// a token that cannot see checks can still see which pull requests are open.</summary>
-    private static bool OnlyTheListsCheckRollupsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data) =>
-        errors.All(error => GitHubGraphQl.PathPassesThrough(error, "statusCheckRollup"))
+    /// <summary>
+    /// The list's version of <see cref="OnlyTheCheckRollupWasRefused"/>: the same
+    /// refusal, once per pull request, and the same reason to read around it — a
+    /// token that cannot see checks can still see which pull requests are open.
+    /// Widened to the other facts a narrower token is refused one by one: the check
+    /// counts, the reviews and the closing references. Each comes back null and reads
+    /// as that fact missing, never as the row missing.
+    /// </summary>
+    private static bool OnlyTheListsExtraFactsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data) =>
+        errors.All(IsARefusedExtraFact)
         && data.TryGetProperty("repository", out var repository)
         && repository.ValueKind == JsonValueKind.Object;
+
+    /// <summary>The fields a refusal may sit under and still leave the row a row —
+    /// each one a reader takes null as "none" for. <c>checkCounts</c> is the alias the
+    /// counts are read under; a GraphQL error's path names the alias, not the
+    /// field.</summary>
+    private static readonly string[] RefusableFacts =
+    [
+        "statusCheckRollup", "checkCounts", "contexts", "latestOpinionatedReviews", "closingIssuesReferences",
+        "reviewDecision", "labels"
+    ];
+
+    private static bool IsARefusedExtraFact(JsonElement error) =>
+        RefusableFacts.Any(field => GitHubGraphQl.PathPassesThrough(error, field));
+
+    /// <summary>The merged list reads the closing references too, and is read around a
+    /// refusal of them the way the open list is.</summary>
+    private static bool OnlyTheMergedListsExtraFactsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data) =>
+        errors.All(error => GitHubGraphQl.PathPassesThrough(error, "closingIssuesReferences"))
+        && data.TryGetProperty("repository", out var repository)
+        && repository.ValueKind == JsonValueKind.Object;
+
+    /// <summary>The pinned read's tolerance: the list's refused facts, plus a pin
+    /// GitHub cannot find — <c>NOT_FOUND</c> on the alias of a number that was asked
+    /// for, directly under the repository — which is that pin skipped rather than every
+    /// pin lost.</summary>
+    private static bool OnlyPinnedFactsOrMissingPinsWereRefused(IReadOnlyList<JsonElement> errors, JsonElement data, IReadOnlyCollection<int> asked) =>
+        errors.All(error => IsARefusedExtraFact(error) || IsAMissingPin(error, asked))
+        && data.TryGetProperty("repository", out var repository)
+        && repository.ValueKind == JsonValueKind.Object;
+
+    private static bool IsAMissingPin(JsonElement error, IReadOnlyCollection<int> asked)
+    {
+        if (error.ValueKind != JsonValueKind.Object) return false;
+        if (!string.Equals(String(error, "type"), "NOT_FOUND", StringComparison.Ordinal)) return false;
+        if (!error.TryGetProperty("path", out var path) || path.ValueKind != JsonValueKind.Array) return false;
+
+        var segments = path.EnumerateArray().ToList();
+        return segments.Count == 2
+            && segments[0].ValueKind == JsonValueKind.String && segments[0].GetString() == "repository"
+            && segments[1].ValueKind == JsonValueKind.String && segments[1].GetString() is { } alias
+            && asked.Any(number => string.Equals(alias, PinnedAlias(number), StringComparison.Ordinal));
+    }
 
     public Task MarkReadyForReviewAsync(
         GitHubRepositoryRef repository,
@@ -894,41 +1062,210 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
 
         foreach (var pull in nodes.EnumerateArray())
         {
-            if (pull.ValueKind != JsonValueKind.Object) continue;
-
-            var nodeId = String(pull, "id");
-            var number = pull.TryGetProperty("number", out var n) && n.TryGetInt32(out var value) ? value : 0;
-            if (string.IsNullOrWhiteSpace(nodeId) || number == 0) continue;
-
-            var mergeState = String(pull, "mergeStateStatus");
-            var author = pull.TryGetProperty("author", out var who) && who.ValueKind == JsonValueKind.Object
-                ? String(who, "login")
-                : null;
-
-            pulls.Add(new GitHubOpenPullRequest(
-                number,
-                String(pull, "url") ?? $"https://github.com/{repositoryFullName}/pull/{number}",
-                String(pull, "title") ?? string.Empty,
-                repositoryFullName,
-                nodeId,
-                IsDraft: pull.TryGetProperty("isDraft", out var draft) && draft.ValueKind == JsonValueKind.True,
-                HeadRefName: String(pull, "headRefName") ?? string.Empty,
-                HeadSha: String(pull, "headRefOid"),
-                BaseRefName: String(pull, "baseRefName") ?? string.Empty,
-                AuthorLogin: author,
-                ViewerDidAuthor: pull.TryGetProperty("viewerDidAuthor", out var mine) && mine.ValueKind == JsonValueKind.True,
-                Checks: ReadChecks(pull),
-                AutoMergeEnabled: pull.TryGetProperty("autoMergeRequest", out var autoMerge) && autoMerge.ValueKind == JsonValueKind.Object,
-                MergeReady: mergeState is not null && MergeableNow.Contains(mergeState),
-                IsBehind: string.Equals(mergeState, "BEHIND", StringComparison.Ordinal),
-                HasConflicts: string.Equals(mergeState, "DIRTY", StringComparison.Ordinal)
-                    || string.Equals(String(pull, "mergeable"), "CONFLICTING", StringComparison.Ordinal),
-                MergeStateStatus: mergeState,
-                PreferredMergeMethod: method,
-                UpdatedAt: Timestamp(pull, "updatedAt")));
+            if (ReadListedPullRequest(pull, repositoryFullName, method) is { } read) pulls.Add(read);
         }
 
         return pulls;
+    }
+
+    /// <summary>
+    /// The pinned read's <c>data</c>: one aliased pull request per number, in the order
+    /// asked. An alias that came back null — a number GitHub cannot find — is left
+    /// out, as is a node without an id or a number. A missing repository is a
+    /// not-found, as for the open list.
+    /// </summary>
+    internal static IReadOnlyList<GitHubOpenPullRequest> ReadPinnedPullRequests(
+        JsonElement data,
+        string repositoryFullName,
+        IEnumerable<int> numbers)
+    {
+        if (!data.TryGetProperty("repository", out var repository) || repository.ValueKind != JsonValueKind.Object)
+        {
+            throw new GitHubException($"GitHub couldn't find {repositoryFullName}.")
+            {
+                Status = System.Net.HttpStatusCode.NotFound
+            };
+        }
+
+        var method = PreferredMergeMethod(repository);
+        var pulls = new List<GitHubOpenPullRequest>();
+
+        foreach (var number in numbers)
+        {
+            if (!repository.TryGetProperty(PinnedAlias(number), out var pull)) continue;
+            if (ReadListedPullRequest(pull, repositoryFullName, method) is not { } read) continue;
+
+            var state = String(pull, "state");
+            pulls.Add(read with
+            {
+                IsMerged = string.Equals(state, "MERGED", StringComparison.Ordinal),
+                IsClosed = string.Equals(state, "CLOSED", StringComparison.Ordinal),
+                MergedAt = Timestamp(pull, "mergedAt"),
+                ClosedAt = Timestamp(pull, "closedAt")
+            });
+        }
+
+        return pulls;
+    }
+
+    /// <summary>One node of <see cref="ListedPullRequestFields"/>, or null for a node
+    /// without an id or a number, which no act could name.</summary>
+    private static GitHubOpenPullRequest? ReadListedPullRequest(JsonElement pull, string repositoryFullName, GitHubMergeMethod method)
+    {
+        if (pull.ValueKind != JsonValueKind.Object) return null;
+
+        var nodeId = String(pull, "id");
+        var number = pull.TryGetProperty("number", out var n) && n.TryGetInt32(out var value) ? value : 0;
+        if (string.IsNullOrWhiteSpace(nodeId) || number == 0) return null;
+
+        var mergeState = String(pull, "mergeStateStatus");
+
+        return new GitHubOpenPullRequest(
+            number,
+            String(pull, "url") ?? $"https://github.com/{repositoryFullName}/pull/{number}",
+            String(pull, "title") ?? string.Empty,
+            repositoryFullName,
+            nodeId,
+            IsDraft: pull.TryGetProperty("isDraft", out var draft) && draft.ValueKind == JsonValueKind.True,
+            HeadRefName: String(pull, "headRefName") ?? string.Empty,
+            HeadSha: String(pull, "headRefOid"),
+            BaseRefName: String(pull, "baseRefName") ?? string.Empty,
+            AuthorLogin: Login(pull, "author"),
+            ViewerDidAuthor: pull.TryGetProperty("viewerDidAuthor", out var mine) && mine.ValueKind == JsonValueKind.True,
+            Checks: ReadChecks(pull),
+            AutoMergeEnabled: pull.TryGetProperty("autoMergeRequest", out var autoMerge) && autoMerge.ValueKind == JsonValueKind.Object,
+            MergeReady: mergeState is not null && MergeableNow.Contains(mergeState),
+            IsBehind: string.Equals(mergeState, "BEHIND", StringComparison.Ordinal),
+            HasConflicts: string.Equals(mergeState, "DIRTY", StringComparison.Ordinal)
+                || string.Equals(String(pull, "mergeable"), "CONFLICTING", StringComparison.Ordinal),
+            MergeStateStatus: mergeState,
+            PreferredMergeMethod: method,
+            UpdatedAt: Timestamp(pull, "updatedAt"))
+        {
+            Labels = ReadConnectionLabelNames(pull),
+            CheckCounts = ReadCheckCounts(pull),
+            Reviews = ReadReviews(pull),
+            ClosingIssues = ReadClosingIssues(pull)
+        };
+    }
+
+    /// <summary>A GraphQL <c>labels { nodes { name } }</c>, as names; absent or
+    /// refused is none.</summary>
+    private static IReadOnlyList<string> ReadConnectionLabelNames(JsonElement pull) =>
+        [.. Nodes(pull, "labels")
+            .Select(label => String(label, "name"))
+            .OfType<string>()
+            .Where(name => name.Length > 0)];
+
+    /// <summary>The issues a pull request closes; a node without a number or a
+    /// repository is left out.</summary>
+    private static IReadOnlyList<GitHubIssueReference> ReadClosingIssues(JsonElement pull) =>
+        [.. Nodes(pull, "closingIssuesReferences")
+            .Select(issue =>
+            {
+                var number = issue.TryGetProperty("number", out var n) && n.TryGetInt32(out var value) ? value : 0;
+                var repository = issue.TryGetProperty("repository", out var repo) && repo.ValueKind == JsonValueKind.Object
+                    ? String(repo, "nameWithOwner")
+                    : null;
+
+                return number > 0 && !string.IsNullOrWhiteSpace(repository)
+                    ? new GitHubIssueReference(repository, number)
+                    : null;
+            })
+            .OfType<GitHubIssueReference>()];
+
+    /// <summary>GitHub's review decision, and the approvals and change requests among
+    /// the latest opinionated reviews. A decision GitHub did not give — a repository
+    /// that asks for no review — is null.</summary>
+    private static GitHubReviewSummary ReadReviews(JsonElement pull)
+    {
+        GitHubReviewDecision? decision = String(pull, "reviewDecision") switch
+        {
+            "APPROVED" => GitHubReviewDecision.Approved,
+            "CHANGES_REQUESTED" => GitHubReviewDecision.ChangesRequested,
+            "REVIEW_REQUIRED" => GitHubReviewDecision.ReviewRequired,
+            _ => null
+        };
+
+        var states = Nodes(pull, "latestOpinionatedReviews").Select(review => String(review, "state")).ToList();
+
+        return new GitHubReviewSummary(
+            decision,
+            states.Count(state => state == "APPROVED"),
+            states.Count(state => state == "CHANGES_REQUESTED"));
+    }
+
+    /// <summary>The check run states and commit status states that have passed, and
+    /// the ones that have failed — that cannot go green without somebody acting. Every
+    /// other state is still to come.</summary>
+    private static readonly HashSet<string> PassedCheckStates = new(StringComparer.Ordinal) { "SUCCESS", "NEUTRAL", "SKIPPED" };
+
+    private static readonly HashSet<string> FailedCheckStates = new(StringComparer.Ordinal)
+    {
+        "FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE"
+    };
+
+    /// <summary>
+    /// The head commit's check progress from the <c>checkCounts</c> alias: the run
+    /// counts and the status counts by state, added up. A total GitHub reports above
+    /// what the states add up to is counted as still to come. Null where the commit
+    /// has no roll-up, or the contexts were refused or not asked for.
+    /// </summary>
+    private static GitHubCheckCounts? ReadCheckCounts(JsonElement pull)
+    {
+        if (HeadCommit(pull) is not { } commit
+            || !commit.TryGetProperty("checkCounts", out var rollup) || rollup.ValueKind != JsonValueKind.Object
+            || !rollup.TryGetProperty("contexts", out var contexts) || contexts.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        int passed = 0, failed = 0, pending = 0;
+
+        foreach (var list in new[] { "checkRunCountsByState", "statusContextCountsByState" })
+        {
+            if (!contexts.TryGetProperty(list, out var counts) || counts.ValueKind != JsonValueKind.Array) continue;
+
+            foreach (var entry in counts.EnumerateArray())
+            {
+                if (entry.ValueKind != JsonValueKind.Object) continue;
+
+                var count = entry.TryGetProperty("count", out var c) && c.TryGetInt32(out var value) ? value : 0;
+                var state = String(entry, "state") ?? string.Empty;
+
+                if (PassedCheckStates.Contains(state)) passed += count;
+                else if (FailedCheckStates.Contains(state)) failed += count;
+                else pending += count;
+            }
+        }
+
+        if (contexts.TryGetProperty("totalCount", out var total) && total.TryGetInt32(out var totalCount))
+        {
+            pending += Math.Max(0, totalCount - (passed + failed + pending));
+        }
+
+        return new GitHubCheckCounts(passed, failed, pending);
+    }
+
+    /// <summary>The last of a pull request's <c>commits(last: 1)</c>, or null.</summary>
+    private static JsonElement? HeadCommit(JsonElement pull)
+    {
+        var head = Nodes(pull, "commits").LastOrDefault();
+
+        return head.ValueKind == JsonValueKind.Object
+            && head.TryGetProperty("commit", out var commit) && commit.ValueKind == JsonValueKind.Object
+                ? commit
+                : null;
+    }
+
+    /// <summary>The object nodes of a GraphQL connection field, or none where the
+    /// field is absent, null or refused.</summary>
+    private static IEnumerable<JsonElement> Nodes(JsonElement element, string field)
+    {
+        if (!element.TryGetProperty(field, out var connection) || connection.ValueKind != JsonValueKind.Object) return [];
+        if (!connection.TryGetProperty("nodes", out var nodes) || nodes.ValueKind != JsonValueKind.Array) return [];
+
+        return nodes.EnumerateArray().Where(node => node.ValueKind == JsonValueKind.Object);
     }
 
     /// <summary>
@@ -984,7 +1321,11 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 AuthorLogin: Login(pull, "author"),
                 ViewerDidAuthor: pull.TryGetProperty("viewerDidAuthor", out var mine) && mine.ValueKind == JsonValueKind.True,
                 MergedAt: mergedAt,
-                MergedByLogin: Login(pull, "mergedBy")));
+                MergedByLogin: Login(pull, "mergedBy"))
+            {
+                Labels = ReadConnectionLabelNames(pull),
+                ClosingIssues = ReadClosingIssues(pull)
+            });
         }
 
         return new MergedPage(pulls, oldestUpdate, hasNextPage, endCursor);

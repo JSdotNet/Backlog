@@ -106,6 +106,7 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     SpecManagerTokenStore = _ => CreateLocalDevelopmentSpecManagerTokenStore(builder.Environment.ContentRootPath),
     InboxRoutingRules = _ => CreateLocalDevelopmentInboxRoutingRulesStore(builder.Environment.ContentRootPath),
     GitHubSettings = root => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath, root),
+    PullRequestPins = _ => CreateLocalDevelopmentPullRequestPinsStore(builder.Environment.ContentRootPath),
     ClaudeSettings = _ => CreateLocalDevelopmentClaudeSettingsStore(builder.Environment.ContentRootPath),
     AzureFoundrySettings = _ => azureFoundrySettings,
     // The desktop head's own tools adapter, configured to read the catalog and run
@@ -480,6 +481,19 @@ static DeviceIdentityStore CreateLocalDevelopmentDeviceIdentityStore(string cont
     }
 
     return new DeviceIdentityStore(settingsPath);
+}
+
+// Per worktree, beside the harness's GitHub settings, so a pin made in a development
+// session is neither the installed app's nor another worktree's.
+static PullRequestPinsStore CreateLocalDevelopmentPullRequestPinsStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_PULL_REQUEST_PINS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "pull-request-pins.json");
+    }
+
+    return new PullRequestPinsStore(settingsPath);
 }
 
 static ShellNavigationStore CreateLocalDevelopmentShellNavigationStore(string contentRootPath)
