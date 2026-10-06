@@ -1424,7 +1424,7 @@
                     source is null ? null : PullRequestTaskMatcher.GitHubIssueOf(source.ConnectorId, source.Target, source.DisplayKey, source.Url),
                     PullRequestTaskMatcher.ExternalKeysOf(source?.DisplayKey),
                     [.. row.SessionLinks.Select(link => link.SessionId)],
-                    IsMine: row.PreviewStatus is not (EntryStatus.Done or EntryStatus.Archived) && State.IsAssignedToMe(row)));
+                    IsMine: row.PreviewStatus is not (EntryStatus.Done or EntryStatus.Archived)));
             }
 
             _pullRequestMatcherRows = State.Rows;
