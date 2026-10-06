@@ -479,6 +479,11 @@
       const open = /\bTBD\b|\bto be decided\b|\b(confirm|check|agree) with (the )?(user|owner|team|design|product|stakeholders?)\b|\bdecide (whether|which|on|if)\b|\bask (whether|which|if)\b/i.exec(txt);
       return open && { level: 'warn', text: `"${open[0]}" — ask it while writing the plan and write the answer in` };
     });
+    onPrompts('No prompt tells the session to create a pull request', e => {
+      const txt = [...e.instructions, ...e.subs.flatMap(s => [s.title, ...s.lines])].join('\n');
+      const pr = /\b(create|open|raise|submit|push|file)\b[^.;,\n]{0,25}\b(pull request|PR)s?\b|\bgh pr create\b/i.exec(txt);
+      return pr && { text: `"${pr[0]}" — when a pull request opens is the target repository's process, never the plan's` };
+    });
 
     // Tasks and tests — the user's own work
     const onTasks = (label, fn) => over(manual, label, fn);

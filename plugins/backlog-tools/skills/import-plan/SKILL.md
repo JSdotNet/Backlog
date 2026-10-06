@@ -37,8 +37,9 @@ question a step would raise answered while the plan is written, not when a step 
 `prompt` is the default kind. A step is a `task` or `test` only when it is the closing
 sign-off, or when the interview offered to hand it to an AI session and the user kept it.
 A prompt runs to the end without asking anything the plan could have settled; the only
-stops left in it are the gates the target repository's own process sets, such as its
-approval before a pull request.
+stops left in it are the gates the target repository's own process sets. A prompt never
+tells the session to create, open or push a pull request: when one opens is that process's
+decision, not the plan's.
 
 ## Workflow
 
@@ -231,6 +232,7 @@ under the same tag. Steps 5–8 apply unchanged.
 - No prompt contains a manual step in any form — no `Manual:` sub-item, no "ask the user
   to…" instruction — or an open decision: no "confirm with", "decide whether", `TBD`, or
   choice left between options. No task or test contains instructions for an AI.
+- No prompt tells the session to create, open or push a pull request.
 - Every task or test other than the sign-off is one the user was asked about and kept
   manual, and says why on its `Kept manual:` line; the rest became prompts.
 - `after:` correctly expresses the plan's dependency order, including cross-repository
