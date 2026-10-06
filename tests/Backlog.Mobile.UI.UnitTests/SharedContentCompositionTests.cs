@@ -1,11 +1,11 @@
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// How a share becomes a draft.
+/// How a share becomes a capture title.
 ///
 /// <para>The interesting case is YouTube, which sends the video title as the
 /// subject and the link as the text. Two separate values are no use to a
-/// quick-capture field, so <see cref="SharedContent"/> decides what one line of
+/// one-line capture title, so <see cref="SharedContent"/> decides what one line of
 /// text a share is worth — and that decision is worth pinning down here rather
 /// than only through the screen.</para>
 /// </summary>

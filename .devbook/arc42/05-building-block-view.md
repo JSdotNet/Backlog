@@ -417,7 +417,8 @@ graph TB
   NoteTab --> Picker
   NoteTab --> Speech
   InboxTab --> Speech
-  Share -->|prefills quick capture| InboxTab
+  Share -->|captured on arrival| Shell
+  Shell -->|shared capture| Outbox
   TasksTab --> TaskView
   TasksTab --> Outbox
   Files -->|"PUT /api/sync/attachments/{id}"| API
