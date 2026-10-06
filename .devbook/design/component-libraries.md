@@ -272,6 +272,23 @@ retired Mermaid-beside-Archify comparison page put the two renderers side by sid
 in a frame of its own; these stories exercise the component the app actually
 ships.
 
+**A click demo is framed the same way, by `DemoView`.** Like an artifact, a demo
+goes into the frame as `srcdoc`, and the stage around the frame goes full screen
+with the way out inside it. Three rules differ, because a demo shows the product
+rather than a diagram, and devbook's demo address contract
+(`devbook.demo.address@1`) governs the frame.
+
+| Rule | Guidance |
+|---|---|
+| The demo keeps its own look | The document goes in unchanged. The app pins no theme and lays no stylesheet over it, so a demo is the one framed document the dark-mode default does not reach. |
+| The sandbox allows scripts and nothing else | The frame carries `sandbox="allow-scripts"` without `allow-same-origin`, as the contract requires of every host. The demo talks to the pane only through its messages. |
+| The places a chapter names are chips | Every address the page's or its chapters' `demo` fields name is a chip above the frame, in the badge style of the renderer switch. The first is sent as `demo:goto` once the demo reports `demo:ready`, and the chip that is open reads as pressed. A demo shown for its page alone has no chip row. |
+
+The frame reloads only when the document's text changes, so a save of the
+chapter beside it keeps the place the reader clicked to. The review surface is
+Storybook → *Diagrams* → **A click demo**, which frames a copy of devbook's
+sample demo.
+
 ## Risks and Gaps
 
 ```meta

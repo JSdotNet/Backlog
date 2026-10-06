@@ -166,6 +166,22 @@ checks reject:
   written, and state another tool keeps on the chapter under its own name is
   carried through untouched.
 
+A bounded context's click demo is shown with the page it belongs to. A demo is
+the one HTML file a context holds: a clickable picture of what a person sees. It
+pairs with a page in two ways. By name, `demo.html` belongs to the context's
+boundary document and `<page>.demo.html` to the page beside it. By field, a
+chapter's `demo` metadata names a demo and the places in it that show the
+chapter. The context view shows the context's own demo, and every other page
+shows the demos paired with it.
+
+Each demo runs in a frame of its own, isolated from the app, and can go full
+screen. It keeps its own look, so the pane never forces its dark theme onto it.
+Every place a chapter names in the demo is offered as a chip above the frame.
+The first place opens as soon as the demo says it is ready, and picking another
+chip moves the demo there. Notes on a demo are placed in spec-manager, the
+specification review tool, so the pane neither pins notes nor follows where the
+reader clicks inside the demo.
+
 ### Remarks on a chapter
 
 ```meta
@@ -451,3 +467,11 @@ offer, because answering a question by reading every chapter each time is not a
 slower answer but no answer. Where browsing quietly falls back to the folder,
 search says plainly that it has nothing to search yet, and what would make it
 available.
+
+Click demos are indexed beside the chapters, each with the page it pairs with by
+name and every chapter `demo` field that points into it. A demo is not a
+chapter, so it has no place in the reading order and is not searched. An
+assistant that reads a page is told which demos the page has, by path and by the
+place each field names, but never receives a demo's HTML. A demo runs to
+hundreds of kilobytes, and the assistant can open the file from its own checkout
+when it needs one.
