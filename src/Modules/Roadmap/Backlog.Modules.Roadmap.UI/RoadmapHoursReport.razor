@@ -79,7 +79,6 @@
                                             <span class="roadmap-hours__when">@Clock(stretch.Start)–@Clock(stretch.End)</span>
                                             <span class="roadmap-hours__length">@Length(stretch.Length)</span>
                                             <span class="roadmap-hours__turns">@Turns(stretch.Turns)</span>
-                                            <span class="roadmap-hours__sessions">@Sessions(stretch)</span>
                                         </li>
                                     }
                                 </ul>
@@ -184,10 +183,6 @@
             if (_shownFrom == from) _error = "The hours could not be read. Try again in a moment.";
         }
     }
-
-    private static string Sessions(RoadmapWorkedStretchDto stretch) =>
-        string.Join(", ", stretch.Sessions.Select(session =>
-            session.Repository is { Length: > 0 } repository ? $"{session.Title} ({repository})" : session.Title));
 
     private static string Clock(DateTimeOffset instant) => instant.ToString("HH:mm", CultureInfo.InvariantCulture);
 
