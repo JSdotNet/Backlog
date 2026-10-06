@@ -1,7 +1,7 @@
 # ADR 0013: An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it
 
 ```meta
-related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering", ".devbook/domain/roadmap/features.md#laying-out-imported-plans", ".devbook/domain/roadmap/features.md#sequencing-work-into-tracks", ".devbook/domain/roadmap/dependencies.md", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#re-importing-an-updated-plan", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
+related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering", ".devbook/domain/roadmap/features.md#laying-out-imported-plans", ".devbook/domain/roadmap/features.md#placing-a-plan-in-time", ".devbook/domain/roadmap/features.md#sequencing-work-into-tracks", ".devbook/domain/roadmap/dependencies.md", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#re-importing-an-updated-plan", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
 ```
 
 ## Status
@@ -71,7 +71,12 @@ For the `confirm-rulings` entry, in one screen. The reasoning is in
    effort **not yet done**, from today, whenever the plan is read on a new day or
    a task changes — see [ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch).
    Amended 2026-10-01 by local ADR 0019: the length counts the person's working
-   week in hours, and a window never starts on a day they do not work.*
+   week in hours, and a window never starts on a day they do not work.
+   Amended 2026-10-07, replacing "the lowest of their paces": an item under
+   several repositories is laid out as one part per repository. Each part counts
+   the full effort of the tasks filed there and runs at its own repository's
+   pace. The item's window ends at the latest part end — see
+   [ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch).*
 5. **[Provenance and re-import](#5-placed_by_import-and-what-a-re-import-may-touch).**
    An import-created item carries `placed_by_import`, cleared the moment a person
    reschedules it by hand. A roadmap-level re-import, matched by tag, replaces
@@ -83,7 +88,9 @@ For the `confirm-rulings` entry, in one screen. The reasoning is in
    with its work by itself — its remaining effort, at the pace in use, laid out
    from today; its start kept once its work has begun, moved to today when it has
    not and its start has passed — and an unstarted `effort`-placed item that
-   waits on it follows it. `due-date` and hand-placed items never move.*
+   waits on it follows it. `due-date` and hand-placed items never move.
+   Amended 2026-10-07: under several repositories the projection runs per
+   repository part, and the item keeps the latest part end.*
 6. **[Steps inside the item](#6-drawing-the-plans-steps-inside-its-item).** On the
    timeline an item expands into the tasks it gathers, ordered by the tasks' own
    `after:` (topological, ties by creation order), each step's width proportional
@@ -471,7 +478,7 @@ end       = max(today, start) + days − 1
 ```
 
 The pace in use is the one ruling 4 names for the item's repositories — typed or
-measured, as the person chose — so a measured pace that moved with finished work
+measured, as the person chose, and per part since 2026-10-07, below — so a measured pace that moved with finished work
 now moves the bars at the next projection. A pace change is simply one more
 reason to project, by the same rule, so the "re-lengthen, keeping the start"
 rule above no longer exists on its own. A **finished** item is not touched: its
@@ -479,6 +486,53 @@ window stays as stored, and it is drawn over the stretch its work actually ran.
 The value stays `effort` — the window is still the importer's rule applied, not a
 hand move — and an item a person moves stops keeping up, exactly as it stops
 being re-placed by an import.
+
+**An item under several repositories is projected per part** — *amended
+2026-10-07, on the owner's request; until then the whole item was projected at
+the lowest pace among its repositories, and every band drew that one window.* A
+part is the item's work filed in one repository. The owner's case: "Devbook 1.19
+rollout" holds 52 points over seven repositories, and fincent's band drew the
+whole plan, 2026-10-06 to 2027-06-04. Fincent's own part is about 16 points at
+40 a week, which is about two working days.
+
+```
+part effort = remaining registered effort of the tasks filed in that repository
+              (a task filed in two repositories counts in full in both;
+               a task filed in none goes to the first part)
+part pace   = that repository's pace in use, alone
+part start  = kept, from its earliest task start   — when its work has begun
+part start  = max(today,
+                  day after the latest predecessor-item end,
+                  day after the latest end of the parts it waits on)
+              moved to the first worked day       — when not begun
+part end    = counted from part start at part pace through the working week
+item end    = the latest part end
+item start  = the earliest part start
+```
+
+Parts are derived each time the plan is projected or drawn, and never stored.
+The item's window is what is stored, so contradictions, milestones and the
+items that wait on it all read the latest part end. Two kinds of wait order the
+parts:
+
+- An item-level Dependency is a floor for every part of the waiting item. No
+  part starts before the day after its predecessor item ends.
+- A task's own `after:` orders parts within one item, across repositories. A
+  part waits on every part that holds a task one of its tasks waits on. A wait
+  on a task the item did not gather is dropped, as the gathering already does.
+
+Work that is handed back between repositories, from A to B and back to A, is
+drawn as one segment per repository per hand-over phase. Each segment is placed
+at its own repository's pace after the segments it waits on. This replaces the
+proportional share-out of the item's window between phases. A cycle among parts
+is released at the earliest waiter, as a cycle among gathered tasks is. A
+repository the item names but that holds none of its tasks draws an empty part
+over the item's window. A part with only unestimated tasks takes one working
+week. The rule applies to `effort`-placed items alone. A `due-date` or
+hand-placed item draws every part over its one stored window. Dragging a part
+moves the item, which then stops being `effort`-placed, so its parts collapse
+onto the stored window. The chapter that states the rule in full is
+[Placing a plan in time](../../domain/roadmap/features.md#placing-a-plan-in-time).
 
 **What waits on it follows it, when nothing has started there.** Items are
 projected in dependency order, so an unstarted `effort`-placed item that waits
@@ -615,7 +669,9 @@ Changed on the owner's request, on 2026-09-26:
   for it writes its entry and copies the half not being changed from what it
   read. An item filed under one configured repository is placed at that
   repository's pace in use; under several, at the **lowest** among them, which is
-  the longest bar; under none, or under an alias no configured repository
+  the longest bar (*amended 2026-10-07: under several, each repository's part is
+  placed at that repository's own pace, and the item ends at the latest part
+  end — see the 2026-10-07 entry below*); under none, or under an alias no configured repository
   answers to, at the global pace. **Measured paces are per repository**: a
   repository's count only the finished tasks whose repositories, mapped from
   their ids to aliases the way the shelf maps them, include it — a task under two
@@ -662,7 +718,30 @@ Changed on the owner's request, when the roadmap became a full-screen surface:
   item's one Planned Window, so moving any of them reschedules the item; a part's
   bar id is `<item id>@<band>`, and `RoadmapPlanView.NodeIdOf` reads the item
   back out of it. The shelf of plans not yet placed lists each repository's
-  share the same way.
+  share the same way. *Amended 2026-10-07: an `effort`-placed item's parts no
+  longer share its window. Each part is drawn over its own derived window, at
+  its own repository's pace, per the 2026-10-07 entry below. Moving any part
+  still reschedules the item.*
+
+Changed on the owner's request, on 2026-10-07:
+
+- **[Ruling 4](#4-the-importer-places-the-window-velocity-is-the-readers) and
+  [ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch): an item under
+  several repositories is laid out as one part per repository**, as amended in
+  ruling 5. It replaces placing the whole item at the lowest of its
+  repositories' paces, and drawing that one window in every band. The owner's
+  case: a 52-point plan over seven repositories drew its whole span in a band
+  whose own part was about two working days. Each part counts the full effort
+  of the tasks filed there and runs at that repository's pace, after the parts
+  and the predecessor items it waits on. The item's stored window ends at the
+  latest part end. Parts are derived on every projection and draw, and nothing
+  new is stored. A hand-over segment is placed at its own pace after what it
+  waits on, replacing the proportional share-out between phases. A `due-date`
+  or hand-placed item still draws every part over its stored window. Dragging a
+  part moves the item and ends its effort placement, so its parts then collapse
+  onto that window; the owner accepted that collapse. The code is not built yet:
+  `PlanningPacesDto.For` still returns the lowest pace among several
+  repositories, and its five callers change with it.
 
 ## Consequences
 

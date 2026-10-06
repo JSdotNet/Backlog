@@ -277,11 +277,15 @@ and still be read one project at a time.
 ```meta
 type: sub-feature
 status: draft
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
 ```
 
 Group the plan into per-repository bands, with the person's own lanes inside each.
-Work that names several repositories is shown once, under the first of them, and
-stays findable under any of them.
+Work that names several repositories is drawn in the band of each of them. Each
+band draws only that repository's part of the work, placed at that repository's
+own pace, so the bars can carry different dates
+([Placing a plan in time](#placing-a-plan-in-time)). The work stays findable under
+any of its repositories.
 
 Work that names no repository, or names only repositories that are not configured,
 sits in a last band of its own rather than being hidden. That band takes no colour
@@ -453,7 +457,7 @@ plan still being worked on is drawn from its work too, to a forecast end
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#effort, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/tasks/domain.md#started, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#effort, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/features.md#looking-back-at-finished-plans, .devbook/domain/roadmap/features.md#reading-the-near-term-closely, .devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/tasks/domain.md#started, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 ```
 
 See where a plan that is under way will really land, rather than where it was hoped
@@ -461,14 +465,18 @@ to. A plan is in flight when some of its tasks are in progress or done and some 
 still open. A planned window that stretches finished work over months, or ends
 before the work left could, is the hope again rather than the reading.
 
-A plan in flight is drawn from the day its work began, when that was earlier than
-planned. That day is the earliest start of its begun tasks: a task's own started
+A plan in flight is forecast one repository part at a time, the same parts
+[Placing a plan in time](#placing-a-plan-in-time) lays out. A part whose work has
+begun is drawn from the day that work began, when that was earlier than planned.
+That day is the earliest start of the part's begun tasks: a task's own started
 date, else the start of the session linked to it, else the day the task was
-created. Its end is a forecast of when the open work will be done. The open points,
-with an unestimated task counted as one, are spent at the band's pace in use from
-the first worked day on or after the later of today and the start. The hours are
-counted through the person's [working week](domain.md#working-week), the same way
-every other window is counted
+created. The part's end is a forecast of when its open work will be done. Its open
+points, with an unestimated task counted as one, are spent at its own repository's
+pace in use. The count starts on the first worked day on or after the later of
+today and the part's start. A part whose work has not begun is placed as any part
+is, after the parts it waits on. The plan's forecast end is the latest part end. The
+hours are counted through the person's [working week](domain.md#working-week), the
+same way every other window is counted
 ([ADR 0019](../../arc42/adr/0019-roadmap-counts-the-working-week.md)).
 
 The bar is locked like a finished one: its dates are read off the work, so a drag
@@ -477,11 +485,11 @@ outranks the forecast, but it never ends the bar before the first day open work 
 be drawn on. The forecast still shows in the bar's detail, with the pace it was
 read at, so pinning does not hide what the pace says.
 
-When the plan hands work over between repositories, each segment whose tasks are
-all done is drawn where that work ran, and only the open phases share out the time
-from the first day open work can be drawn on to the bar's end. A done segment
-stretched over a slice of the future would draw finished work that has not happened
-yet.
+When the plan hands work over between repositories, a part whose tasks are all
+done is drawn where that work ran. Every open part is placed after the parts it
+waits on, at its own repository's pace, so no open part is given a share of the
+window by its size. A done part stretched over a slice of the future would draw
+finished work that has not happened yet.
 
 Nothing is stored. The plan keeps its [planned window](domain.md#planned-window),
 and the forecast is read off the work at every draw, like the totals it comes from.
@@ -610,8 +618,9 @@ chapter says what the feature does, not why the rulings fell the way they did.
 
 ```meta
 type: sub-feature
+status: draft
 setting: [.devbook/domain/roadmap/context.md#story-points-a-week]
-related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#plan-sequencing, .devbook/domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/requirements.md#placing-a-plan-in-time]
+related: [.devbook/domain/roadmap/domain.md#roadmap-item, .devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/roadmap/domain.md#dependency, .devbook/domain/roadmap/features.md#reading-the-plan-by-repository, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#plan-sequencing, .devbook/domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md, .devbook/domain/roadmap/domain.md#working-week, .devbook/domain/roadmap/requirements.md#placing-a-plan-in-time]
 ```
 
 Give an imported plan a window nobody had to guess. The **end** is the day the
@@ -648,25 +657,81 @@ estimated is not offered, and when none did there is nothing to choose between
 and only the points are shown. When the stretch a band chose has since emptied,
 a line under the choices says the typed pace is used instead. A repository's measured paces
 count only the work finished in it. The band for work under no repository carries
-the **default** points a week, measured over all finished work. A plan filed under one repository is placed at
-that repository's pace; one filed under several, at the slowest of theirs, so
-its bar is the longest they would make; one filed under none, or under a
-repository that is not configured, at the default pace. A repository nobody has
-set a pace for uses the default typed pace and choice, over its own work, until
-somebody does.
+the **default** points a week, measured over all finished work. Work filed under
+a repository is placed at that repository's pace. Work filed under none, or under a
+repository that is not configured, is placed at the default pace. A repository
+nobody has set a pace for uses the default typed pace and choice, over its own
+work, until somebody does.
+
+**A plan filed under several repositories is laid out one part per repository.**
+A plan's **part** in a repository is the work it gathered that is filed there.
+Each repository's band draws only its own part, placed at its own pace, so no band
+draws the whole plan's window. In the example below, a plan holds one 8-point task
+in `app` and one 8-point task in `site` that waits on it. `app` gets through 8
+points a week and `site` 4.
+
+```mermaid
+gantt
+    dateFormat YYYY-MM-DD
+    excludes weekends
+    section app at 8 a week
+    8 points               :a1, 2026-10-12, 5d
+    section site at 4 a week
+    8 points, after app    :s1, after a1, 10d
+    section The plan
+    Ends on the latest part end :w1, 2026-10-12, 15d
+```
+
+- **Each part counts the full points of every task filed in its repository.** A
+  task filed under two repositories counts in full in both parts, because each
+  repository does that work at its own pace. A task filed under none goes to the
+  first part.
+- **A part waits on what its work waits on.** Every part waits on the plans this
+  plan [depends on](domain.md#dependency). A part also waits on every other part
+  that holds a task one of its own tasks waits on: these are the waits
+  [the gathering](domain.md#roadmap-item-gathering) carries. A wait on work the
+  plan did not gather is not counted. A circle of waits between parts is broken at
+  the earliest part still waiting, the way the gathering breaks one between tasks.
+- **A part starts on the later of today and the day after the latest end among
+  what it waits on.** A start on a day the person does not work moves to their next
+  working day. From there the part's points are counted through the working week at
+  its own repository's pace.
+- **Work that hands over and back gets a part per phase.** When work passes from
+  one repository to another and returns, the first repository has one part before
+  the hand-over and one after it. Each is placed after the parts it waits on.
+- **A part with nothing sized takes one working week**, as a plan does. A repository
+  the plan names that holds none of its tasks draws its part over the plan's own
+  window, so the plan still shows that it is filed there.
+
+**The plan's own window ends on the latest part end** and starts on the earliest
+part start. The importer stores that window. Contradictions, milestones and the
+plans that wait on this one all read it, so work that waits on a plan starts after
+its last part ends. **Parts are worked out every time the roadmap is drawn, and are
+never stored.** Only the plan's window is.
+
+Parts are placed this way only while the plan's window is still sized by its
+effort, or while its work is
+[in flight](#forecasting-work-in-flight). A plan moved by hand, or ending on its
+due date, draws every part over its one stored window. Dragging any part moves the
+whole plan, which is a hand move like any other. The plan is then no longer sized
+by its effort, so all its parts draw over the moved window
+([ADR 0013, ruling 4](../../arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers),
+as amended on 2026-10-07).
 
 A plan whose window is still sized by its effort **keeps up with its work**.
 Every time the roadmap opens, and every time a task changes, the plan is laid out
-again from what is **not done yet**, at its repository's pace, from today. A plan
-whose work has begun keeps its start and moves its end. A plan nobody has started
-whose start has passed starts today, or on the next working day when the person
-does not work today. Finished tasks no longer count toward its
+again from what is **not done yet**, part by part, each part at its own
+repository's pace, from today. A part whose work has begun is drawn from the day
+that work began, as [Forecasting work in flight](#forecasting-work-in-flight)
+says, and the plan keeps the earliest part start as its own. A plan nobody has
+started whose start has passed starts today, or on the next working day when the
+person does not work today. Finished tasks no longer count toward its
 length. A plan that ran late therefore shows the day the rest of its work will
 actually land, and one that ran ahead pulls its end in. Changing a pace, or a
 measured pace moving as work is finished, re-draws the same way. A finished plan
 keeps its window and is drawn over the stretch its work actually ran. A plan
 moved by hand, or ending on its due date, keeps its dates (ADR 0013, ruling 5 as
-amended on 2026-09-27).
+amended on 2026-09-27 and on 2026-10-07).
 
 An item the import placed remembers that it did. The first time a person moves
 it by hand, that memory is cleared and the importer never touches its dates

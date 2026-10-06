@@ -94,13 +94,18 @@ flowchart LR
 - Resolution happens on the **read** path only. Nothing in the plan is rewritten
   when the registry changes, so a repository removed today and configured again
   tomorrow leaves the plan exactly as it was.
-- An item naming several repositories is drawn **once**, under the first of its
-  repositories that is configured, and stays findable under any of them because
-  the filter is built from what it names rather than from where it was drawn.
-  Drawing it in every band it belongs to was the first intention and is the wrong
-  one: one piece of work with one set of dates would appear as several bars, and
-  dragging one of them would move work the reader was not looking at — a plan that
-  seems to disagree with itself because of how it was drawn.
+- An item naming several repositories is drawn in the band of each configured
+  repository it names. Each band draws only that repository's **part** of the
+  item: the work filed there, placed at that repository's own pace, so the parts
+  can carry different dates
+  ([Placing a plan in time](features.md#placing-a-plan-in-time)). The parts are
+  worked out on every draw and never stored. Only the item's one window is stored,
+  and it ends on the latest part end.
+- Dragging any part moves the whole item, because a part has no dates of its own to
+  keep. The move is a hand move, so the item is no longer placed by its effort, and
+  every part then draws over its one moved window. The filter is built from what an
+  item names rather than from where it was drawn, so it stays findable under any of
+  its repositories.
 
 ## Gathering an item's work and totalling its effort
 

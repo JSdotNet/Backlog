@@ -573,9 +573,51 @@ status: draft
 related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
 ```
 
-> The requirements of counting hours for a plan and for a measured pace. The
-> feature chapter says how a plan is placed; this says how the day overrides
-> count.
+> The requirements of placing a plan in time. The feature chapter says how a plan
+> is placed; this says how a plan filed under several repositories is laid out per
+> repository, and how the day overrides count, for a plan and for a measured pace.
+
+### Requirement: Each repository draws its own part at its own pace
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL lay out a plan sized by its effort as one part per repository, each counting the full points of the tasks filed there at that repository's pace from the day after what it waits on ends, and SHALL end the plan's window on the latest part end.
+
+The scenarios start on Monday 12 October. Each plan waits on nothing unless the
+scenario says so, and its window is still sized by its effort.
+
+#### Scenario: A task filed under two repositories counts in both
+
+- **Given** a plan whose one task of 8 points is filed under `app` and `site`, `app` placed at 8 points a week and `site` at 4
+- **When** the roadmap lays the plan out
+- **Then** `app`'s band draws it from Monday 12 to Friday 16 October and `site`'s band from Monday 12 to Friday 23 October
+
+#### Scenario: A part waits on another repository's part
+
+- **Given** a plan with a 4-point task in `app` and a 4-point task in `site` that waits on it, both repositories at 4 points a week
+- **When** the roadmap lays the plan out
+- **Then** `app`'s band draws it from Monday 12 to Friday 16 October and `site`'s band from Monday 19 to Friday 23 October
+
+#### Scenario: The plan ends on its latest part end
+
+- **Given** the plan of the previous scenario, and a second plan of 4 points in `app` that depends on it
+- **When** the roadmap lays both plans out
+- **Then** the first plan's window is Monday 12 to Friday 23 October, and the second plan starts on Monday 26 October
+
+#### Scenario: One repository's part of a large plan
+
+- **Given** a plan of 52 points filed under seven repositories, of which 16 open points are filed in `fincent` and wait on no other repository's tasks, `fincent` placed at 40 points a week
+- **When** the roadmap lays the plan out
+- **Then** `fincent`'s band draws the plan from Monday 12 to Tuesday 13 October, and not over the whole plan's window
+
+#### Scenario: Dragging a part moves the whole plan
+
+- **Given** the plan of the second scenario, drawn from Monday 12 to Friday 16 October in `app` and from Monday 19 to Friday 23 October in `site`
+- **When** the person drags the `site` part to a new date
+- **Then** the plan is moved by hand, and both bands draw it over its one moved window
 
 ### Requirement: An effort window counts the overrides
 
