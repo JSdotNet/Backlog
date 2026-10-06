@@ -37,7 +37,13 @@ public class InfrastructureGraphTests
         ("Backlog.Infrastructure.Sync", 6,
             "The sync client carries every synchronised context's records — Tasks, Inbox, Roadmap, Devbook "
             + "and Sessions — over the Sync module's own contract, so it sees each context's published "
-            + "surface by design.")
+            + "surface by design."),
+        ("Backlog.Infrastructure.GitHub", 5,
+            "The one GitHub client and the repository settings with their per-account credentials answer "
+            + "each module's GitHub port — the Dashboard's activity, the Sessions repository lookup, the "
+            + "Devbook repository references, the Tasks issue connector — and the settings replicate over "
+            + "Sync's contract. Moving the connector and the dashboard sources into adapters of their own "
+            + "over a shared client is what brings it under the cap.")
     ];
 
     /// <summary>
