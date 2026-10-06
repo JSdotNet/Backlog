@@ -167,8 +167,8 @@ public static class NormalisedSourceStates
 /// created, and the person owns them after that (ADR 0020, §4).
 /// </para>
 /// <para>
-/// <see cref="WaitsOn"/> is carried but not read by the sync yet: turning it into
-/// the task's dependencies is later work.
+/// <see cref="WaitsOn"/> becomes the task's <c>after:</c> dependencies where the
+/// waited-on item is a linked task too, and follows the source on every sync.
 /// </para>
 /// </summary>
 /// <param name="ExternalId">The source's stable id for the item.</param>

@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.UI.Components.Diagrams;
+using Backlog.SharedKernel.Devbook;
 using Backlog.UI.Components.Devbook;
 
 namespace Backlog.Desktop.UI.UnitTests;

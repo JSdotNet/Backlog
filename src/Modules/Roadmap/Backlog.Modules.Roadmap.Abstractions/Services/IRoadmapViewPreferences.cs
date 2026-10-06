@@ -19,4 +19,12 @@ public interface IRoadmapViewPreferences
     /// <summary>Remembers the Hours switch on this device. A choice the host cannot keep
     /// for next time still holds for this run.</summary>
     void SetHoursShown(bool shown);
+
+    /// <summary>The bands, by group id, the reader folded to one lane on this device —
+    /// drawn folded when the roadmap opens again. Empty until one is folded.</summary>
+    IReadOnlyCollection<string> CollapsedGroups { get; }
+
+    /// <summary>Remembers which bands are folded on this device, replacing what was kept.
+    /// A choice the host cannot keep for next time still holds for this run.</summary>
+    void SetCollapsedGroups(IReadOnlyCollection<string> collapsed);
 }

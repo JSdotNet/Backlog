@@ -1,7 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 
 using Backlog.Infrastructure.Devbook;
-using Backlog.UI.Components.Markdown;
+using Backlog.SharedKernel.Markdown;
 
 using Backlog.Modules.Devbook.Abstractions;
 
@@ -13,7 +13,7 @@ using Backlog.Modules.Devbook.Abstractions;
 // and `MetadataReader` collide with nothing, so the aliases the collision needed
 // are gone. This is still the first of the three readers to read a block
 // through the library; moving the other two is their own change.
-using Backlog.UI.Components.Metadata;
+using Backlog.SharedKernel.Metadata;
 
 namespace Backlog.Desktop.UI.Devbook;
 
@@ -155,7 +155,7 @@ public abstract class DocumentDevbookProvider : IDisposable
         if (!location.Available || location.FullPath is null) return Task.FromResult(DevbookSyncReading.None);
 
         var folderPath = location.FullPath;
-        return Task.Run(() => DevbookSyncReading.Read(folderPath, Backlog.UI.Components.Devbook.DevbookFolders.FromPath(Folder.PathPrefix), documentPath), cancellationToken);
+        return Task.Run(() => DevbookSyncReading.Read(folderPath, Backlog.SharedKernel.Devbook.DevbookFolders.FromPath(Folder.PathPrefix), documentPath), cancellationToken);
     }
 
     /// <summary>Set the item's <c>sync</c> direction, through the same address and

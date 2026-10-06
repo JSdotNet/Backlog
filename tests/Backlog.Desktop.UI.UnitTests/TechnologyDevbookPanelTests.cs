@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.GitHub;
+using Backlog.SharedKernel.Devbook;
 using Backlog.UI.Components.Devbook;
 
 using Bunit;

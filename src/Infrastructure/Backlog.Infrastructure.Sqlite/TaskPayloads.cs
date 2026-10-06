@@ -53,6 +53,7 @@ internal static class TaskPayloads
                     sourceRef.SourceTitle,
                     sourceRef.Blocked ? true : null,
                     sourceRef.BlockedReason,
+                    sourceRef.WaitsOn.Count == 0 ? null : [.. sourceRef.WaitsOn],
                     sourceRef.WriteBackRefusal),
                 Options);
 
@@ -96,6 +97,7 @@ internal static class TaskPayloads
         {
             Blocked = payload.Blocked == true,
             BlockedReason = payload.BlockedReason,
+            WaitsOn = payload.WaitsOn ?? [],
             WriteBackRefusal = payload.WriteBackRefusal,
         };
     }
@@ -121,4 +123,5 @@ internal sealed record SourceRefPayload(
     string? SourceTitle = null,
     bool? Blocked = null,
     string? BlockedReason = null,
+    List<string>? WaitsOn = null,
     string? WriteBackRefusal = null);

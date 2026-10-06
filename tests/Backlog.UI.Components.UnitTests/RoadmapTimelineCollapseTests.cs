@@ -184,4 +184,40 @@ public sealed class RoadmapTimelineCollapseTests
         Assert.NotNull(slot);
         Assert.Equal("backlog-lane", slot!.RowId);
     }
+
+    [Fact]
+    public void A_chart_opens_with_the_bands_its_host_remembered_folded()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, extra: parameters =>
+            parameters.Add(timeline => timeline.CollapsedGroups, ["backlog", "gone"]));
+
+        Assert.Equal(
+            ["rm-row-moments", "rm-row-backlog---collapsed-", "rm-row-api"],
+            TrackRows(view));
+        Assert.Equal("false", view.Find("[data-testid='rm-group-backlog-collapse']").GetAttribute("aria-expanded"));
+    }
+
+    [Fact]
+    public void Folding_and_expanding_tells_the_host_which_bands_are_folded()
+    {
+        using var context = new BunitContext();
+        var reported = new List<IReadOnlyCollection<string>>();
+
+        var view = Chart(context, extra: parameters => parameters
+            .Add(timeline => timeline.CollapsedGroups, ["gone"])
+            .Add(timeline => timeline.OnCollapsedChanged, (IReadOnlyCollection<string> folded) => reported.Add(folded)));
+
+        Fold(view, "backlog");
+        Fold(view, "docs");
+        Fold(view, "backlog");
+
+        // A remembered band this chart does not draw is kept, not dropped: it may be
+        // drawn again once its repository is back.
+        Assert.Equal(3, reported.Count);
+        Assert.Equal(["backlog", "gone"], reported[0].Order(StringComparer.Ordinal));
+        Assert.Equal(["backlog", "docs", "gone"], reported[1].Order(StringComparer.Ordinal));
+        Assert.Equal(["docs", "gone"], reported[2].Order(StringComparer.Ordinal));
+    }
 }

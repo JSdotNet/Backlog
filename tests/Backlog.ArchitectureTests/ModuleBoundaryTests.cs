@@ -61,6 +61,82 @@ public class ModuleBoundaryTests
     }
 
     /// <summary>
+    /// An adapter never takes a presentation project: not the shared component
+    /// library and not any <c>.UI</c> project. Nothing asserted this while the MCP
+    /// adapter referenced <c>Backlog.UI.Components</c> for the Markdown and metadata
+    /// parsers, which pulled the whole Razor class library into the MCP server. The
+    /// parsers live in <c>Backlog.SharedKernel</c> now, where an adapter may read them.
+    /// </summary>
+    [Fact]
+    public void Infrastructure_never_references_a_ui_project()
+    {
+        var infrastructure = Repository.ProjectsUnder("src", "Infrastructure").ToList();
+
+        Assert.NotEmpty(infrastructure);
+
+        var offenders = infrastructure
+            .SelectMany(project => Repository.ReferencedProjectNames(project)
+                .Where(reference => reference.Equals("Backlog.UI.Components", StringComparison.OrdinalIgnoreCase)
+                    || reference.EndsWith(".UI", StringComparison.OrdinalIgnoreCase))
+                .Select(reference => $"{project.Name} -> {reference}"))
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "An adapter implements a port; it never renders, so it never needs a presentation project: "
+            + string.Join(", ", offenders));
+    }
+
+    /// <summary>
+    /// The other half of <see cref="Infrastructure_never_references_a_ui_project"/>:
+    /// the parsers the MCP adapter reads a chapter with are in the kernel, free of
+    /// the component framework, and no adapter source still imports a UI namespace —
+    /// which a transitive reference would otherwise let compile.
+    /// </summary>
+    [Fact]
+    public void The_markdown_and_metadata_parsers_live_in_the_shared_kernel()
+    {
+        var kernel = Path.Combine(Repository.Root.FullName, "src", "Core", "Backlog.SharedKernel");
+
+        string[] parsers =
+        [
+            Path.Combine("Markdown", "MarkdownPreview.cs"),
+            Path.Combine("Markdown", "MarkdownFileMetadata.cs"),
+            Path.Combine("Metadata", "MetadataReader.cs"),
+            Path.Combine("Metadata", "MetadataRecord.cs"),
+            Path.Combine("Devbook", "DevbookSchema.cs"),
+            Path.Combine("Devbook", "DevbookReference.cs"),
+            Path.Combine("Devbook", "DevbookSync.cs"),
+            Path.Combine("Devbook", "DevbookFolder.cs"),
+        ];
+
+        var missing = parsers.Where(parser => !File.Exists(Path.Combine(kernel, parser))).ToList();
+
+        Assert.True(missing.Count == 0, "Not in Backlog.SharedKernel: " + string.Join(", ", missing));
+
+        var framework = Directory.EnumerateFiles(kernel, "*.cs", SearchOption.AllDirectories)
+            .Where(file => File.ReadAllText(file).Contains("Microsoft.AspNetCore", StringComparison.Ordinal))
+            .Select(file => Path.GetRelativePath(kernel, file))
+            .ToList();
+
+        Assert.True(
+            framework.Count == 0,
+            "The kernel is what everything may see, so it carries no component framework: "
+            + string.Join(", ", framework));
+
+        var infrastructure = Path.Combine(Repository.Root.FullName, "src", "Infrastructure");
+
+        var importers = Directory.EnumerateFiles(infrastructure, "*.cs", SearchOption.AllDirectories)
+            .Where(file => File.ReadLines(file).Any(line => line.StartsWith("using Backlog.UI.", StringComparison.Ordinal)))
+            .Select(file => Path.GetRelativePath(infrastructure, file))
+            .ToList();
+
+        Assert.True(
+            importers.Count == 0,
+            "An adapter imports no UI namespace: " + string.Join(", ", importers));
+    }
+
+    /// <summary>
     /// The counterpart for the presentation side. A <c>.UI</c> project is not
     /// declaring a port — it is a screen, and a screen legitimately talks to an
     /// adapter, exactly as the shell and the mobile app do. What it may not do
@@ -264,17 +340,27 @@ public class ModuleBoundaryTests
 
     /// <summary>
     /// <c>src/Core</c> holds both the shared kernel and the shared component
-    /// library. Neither may reference anything else in the solution — that is
+    /// library. Neither may reference anything outside <c>src/Core</c> — that is
     /// exactly what lets the storybook render the library on its own and lets
     /// every module depend on the kernel without pulling anything else along.
+    /// Inside it the edge runs one way: the library renders the kernel's
+    /// Markdown and metadata parsers, and the kernel references nothing at all.
     /// </summary>
     [Fact]
     public void Nothing_in_core_depends_on_the_solution()
     {
-        foreach (var project in Repository.ProjectsUnder("src", "Core"))
+        var core = Repository.ProjectsUnder("src", "Core").ToList();
+
+        Assert.NotEmpty(core);
+
+        foreach (var project in core)
         {
+            var allowed = project.Name.Equals("Backlog.UI.Components.csproj", StringComparison.OrdinalIgnoreCase)
+                ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Backlog.SharedKernel" }
+                : [];
+
             Assert.True(
-                !Repository.ReferencedProjectNames(project).Any(),
+                Repository.ReferencedProjectNames(project).All(allowed.Contains),
                 $"{project.Name} must stay dependency-free — src/Core is the one thing everything else may reference.");
         }
     }

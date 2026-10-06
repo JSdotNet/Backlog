@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.Devbook;
+namespace Backlog.SharedKernel.Devbook;
 
 /// <summary>
 /// Which knowledge folder a document belongs to. The folder is not decoration:

@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.Devbook;
+namespace Backlog.SharedKernel.Devbook;
 
 /// <summary>
 /// One entry of a <c>related</c>, <c>depends-on</c>, or <c>implements</c> field:

@@ -1,8 +1,8 @@
 using System.Text;
 
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.UI.Components.Markdown;
-using Backlog.UI.Components.Metadata;
+using Backlog.SharedKernel.Markdown;
+using Backlog.SharedKernel.Metadata;
 
 namespace Backlog.Infrastructure.Mcp;
 

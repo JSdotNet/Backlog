@@ -1,6 +1,6 @@
-using Backlog.UI.Components.Devbook;
+using Backlog.SharedKernel.Devbook;
 
-namespace Backlog.UI.Components.Metadata;
+namespace Backlog.SharedKernel.Metadata;
 
 /// <summary>
 /// The contents of one fenced <c>meta</c> block: the small, parseable record a
@@ -14,7 +14,7 @@ namespace Backlog.UI.Components.Metadata;
 public sealed record MetadataRecord
 {
     /// <summary>Lifecycle state. The allowed values are folder-specific; see
-    /// <see cref="DevbookStatus"/>.</summary>
+    /// <c>DevbookStatus</c>.</summary>
     public string? Status { get; init; }
 
     /// <summary>References this chapter or file points at for context, without a
@@ -181,7 +181,7 @@ public sealed record MetadataRecord
     /// <para>Held apart from every other field because none of it is chapter
     /// content. A reader loading the chapter for context skips it, and a view draws
     /// it beside the status rather than as rows in the body — see
-    /// <see cref="MetadataView"/>. None of the nine keys ever reaches
+    /// <c>MetadataView</c>. None of the nine keys ever reaches
     /// <see cref="Extra"/>.</para>
     /// </summary>
     public MetadataState State { get; init; } = MetadataState.Empty;
@@ -208,7 +208,7 @@ public sealed record MetadataRecord
     /// decides that a mark was drawn.</para>
     ///
     /// <para>The same instance back when there is no <c>type</c> to remove, which is
-    /// not only an allocation saved: <see cref="MetadataView"/> reseeds a reader's
+    /// not only an allocation saved: <c>MetadataView</c> reseeds a reader's
     /// unsaved status choice whenever the record it was given stops comparing equal,
     /// and this record's collections compare by reference. A caller that asks on
     /// every render must therefore be handed the same object on every render — see
@@ -237,10 +237,10 @@ public sealed record MetadataRecord
     /// <para>What is drawn and what the block states are two questions. Taking the
     /// row away answers the first; the second still has the <c>type</c> in it —
     /// a <c>bounded-context</c> chapter's <c>deployment</c> is legal because of
-    /// that type — so <see cref="Devbook.DevbookMetadataFindings"/> judges this
+    /// that type — so <c>DevbookMetadataFindings</c> judges this
     /// record rather than the one on screen.</para>
     /// </summary>
-    internal MetadataRecord? BeforeMark { get; init; }
+    public MetadataRecord? BeforeMark { get; init; }
 
     /// <summary>A block that stated nothing.</summary>
     public static MetadataRecord Empty { get; } = new();

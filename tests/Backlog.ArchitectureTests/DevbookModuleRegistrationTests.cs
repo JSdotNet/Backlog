@@ -60,37 +60,6 @@ public sealed partial class DevbookModuleRegistrationTests
         "DevbookAnnotationStore"
     ];
 
-    /// <summary>
-    /// The files in the Devbook UI project that still open a file or start a process
-    /// after the first slice of issue #738 moved the index reader and its parse cache
-    /// into <c>Backlog.Infrastructure.Devbook</c>. A ratchet: a name may leave this
-    /// list as its class moves out, and none may join it.
-    /// </summary>
-    private static readonly string[] RemainingFileIo =
-    [
-        "Arc42Devbook.cs",
-        "ArchifyDiagramArtifacts.cs",
-        "C4Devbook.cs",
-        "DevbookAtlas.cs",
-        "DevbookChapterFileReader.cs",
-        "DevbookChapterResolver.cs",
-        "DevbookChapterWriter.cs",
-        "DevbookFolderOpenService.cs",
-        "DevbookMarkdownStatusWriter.cs",
-        // Landed on main beside the status writer (#939) while the ratchet was in review.
-        "DevbookMarkdownSyncWriter.cs",
-        "DocumentDevbook.cs",
-        "DomainDevbookStore.cs",
-        "InstructionFileWalk.cs",
-        // Only by name: it has a private Directory(path) helper of its own, which
-        // the pattern cannot tell from System.IO.Directory.
-        "InstructionLoading.cs",
-        "InstructionPathTree.cs",
-        "InstructionSourceDiscovery.cs",
-        "TechnologyDevbook.cs",
-        "UserContextSources.cs"
-    ];
-
     [Fact]
     public void AddDevbookModule_is_defined_once_in_the_devbook_ui_extensions_folder()
     {
@@ -155,32 +124,18 @@ public sealed partial class DevbookModuleRegistrationTests
     /// <summary>
     /// The first slice of the file IO out of the Devbook UI project: the reader of the
     /// generated outline and the parse cache it remembers answers in now sit with the
-    /// rest of the database's read side, and the screen project does no new file IO.
-    /// Modelled on <see cref="ModuleBoundaryTests.Backlog_Modules_Sessions_UI_is_a_screen_and_Backlog_Infrastructure_Sessions_is_its_adapter"/>.
+    /// rest of the database's read side.
+    /// <para>
+    /// That the screen project does no <em>new</em> file IO is not asserted here any
+    /// more. The ratchet this test kept — the Devbook files still allowed to — is
+    /// <see cref="ModuleUiIoTests.AllowedUiIo"/> now, which holds every module's UI
+    /// project to the same rule, so there is one list to shrink rather than two to
+    /// keep in step (issue #741).
+    /// </para>
     /// </summary>
     [Fact]
-    public void Backlog_Modules_Devbook_UI_does_no_more_file_io_than_it_did()
+    public void The_devbook_index_reader_and_its_cache_live_in_the_adapter()
     {
-        var diskOrProcess = new Regex(
-            @"\b(File|Directory|FileInfo|DirectoryInfo|FileStream|Process|ProcessStartInfo)\s*[.(]|using\s+System\.Diagnostics\s*;");
-
-        var doingIo = SourceFiles(DevbookUi, "*.cs")
-            .Where(file => diskOrProcess.IsMatch(file.Text))
-            .Select(file => Path.GetFileName(file.RelativePath))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var added = doingIo.Where(name => !RemainingFileIo.Contains(name, StringComparer.OrdinalIgnoreCase)).ToList();
-        Assert.True(
-            added.Count == 0,
-            "Backlog.Modules.Devbook.UI reads the disk or starts a process in a file the ratchet does not list; "
-            + "put that in an adapter instead: " + string.Join(", ", added));
-
-        // A name that no longer does IO is an exception that has stopped being one.
-        var stale = RemainingFileIo.Where(name => !doingIo.Contains(name)).ToList();
-        Assert.True(
-            stale.Count == 0,
-            "These files no longer do file IO and should leave the ratchet: " + string.Join(", ", stale));
-
         var adapter = Path.Combine(Repository.Root.FullName, "src", "Infrastructure", "Backlog.Infrastructure.Devbook");
 
         foreach (var moved in new[] { "DevbookIndexReader.cs", "DevbookFileCache.cs" })

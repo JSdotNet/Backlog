@@ -236,6 +236,28 @@ public class EntryTextParserTests
         Assert.Equal(once.Tags, twice.Tags);
     }
 
+    /// <summary>
+    /// A tag the body's prose carries stays in the prose. The stored tag set is the
+    /// union of the metadata line, the title and the body, and writing all of it
+    /// back on to the metadata line promoted <c>#number</c> in a sentence to a chip
+    /// the tag editor offered to remove — and every removal was undone by the next
+    /// save, because the body still said it.
+    /// </summary>
+    [Fact]
+    public void Raw_text_does_not_promote_a_body_tag_on_to_the_metadata_line()
+    {
+        var entry = new TaskItem("Add the connector", "Display key: the issue #number.", EntryType.Task, Priority.Medium);
+        entry.SetTags(["+external-task-connectors", "number"]);
+
+        var raw = EntryTextParser.ToRawText(entry.ToDto());
+        var parsed = EntryTextParser.Parse(raw);
+
+        Assert.DoesNotContain("`#number`", raw, StringComparison.Ordinal);
+        Assert.Contains("`+external-task-connectors`", raw, StringComparison.Ordinal);
+        Assert.Equal(["+external-task-connectors"], parsed.MetadataTags);
+        Assert.Equal(["+external-task-connectors", "number"], parsed.Tags);
+    }
+
     [Fact]
     public void The_tag_editor_round_trips_a_person_tag()
     {

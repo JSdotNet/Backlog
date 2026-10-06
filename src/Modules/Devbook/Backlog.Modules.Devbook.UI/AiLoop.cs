@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Metadata;
+using Backlog.SharedKernel.Metadata;
 
 namespace Backlog.Desktop.UI.Devbook;
 

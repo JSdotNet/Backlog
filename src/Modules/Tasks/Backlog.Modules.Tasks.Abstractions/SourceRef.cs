@@ -36,6 +36,7 @@ namespace Backlog.Modules.Tasks.Abstractions;
 public sealed record SourceRef
 {
     private readonly IReadOnlyList<string> _flags = [];
+    private readonly IReadOnlyList<string> _waitsOn = [];
     private readonly string? _blockedReason;
     private readonly string? _writeBackRefusal;
 
@@ -142,6 +143,23 @@ public sealed record SourceRef
     }
 
     /// <summary>
+    /// The external ids of the items the source says this one waits on, as the
+    /// last sync saw them — trimmed, de-duplicated and in ordinal order, so they
+    /// compare as a set; empty on a reference written before this was kept.
+    /// <para>
+    /// The source's word, overwritten on every sync. It is also how the sync tells
+    /// the dependencies it gave the task from the ones the person added: a waits-on
+    /// recorded here that the source no longer names is taken off the task, and
+    /// nothing else is.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string> WaitsOn
+    {
+        get => _waitsOn;
+        init => _waitsOn = Normalise(value);
+    }
+
+    /// <summary>
     /// Why the source refused to finish the item when the person finished its task
     /// here, or null when nothing was refused — or nothing was asked. Backlog's, not
     /// the source's: the write-back sets it, and it is cleared by a later write-back
@@ -163,12 +181,15 @@ public sealed record SourceRef
     public IReadOnlyList<string> Flags
     {
         get => _flags;
-        init => _flags = [.. (value ?? [])
-            .Select(flag => (flag ?? string.Empty).Trim())
-            .Where(flag => flag.Length > 0)
+        init => _flags = Normalise(value);
+    }
+
+    private static IReadOnlyList<string> Normalise(IEnumerable<string>? values) =>
+        [.. (values ?? [])
+            .Select(value => (value ?? string.Empty).Trim())
+            .Where(value => value.Length > 0)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)];
-    }
 
     /// <summary>Whether the reference carries <paramref name="flag"/>.</summary>
     public bool HasFlag(string flag) => _flags.Contains(flag, StringComparer.Ordinal);
@@ -196,7 +217,8 @@ public sealed record SourceRef
         && Blocked == other.Blocked
         && string.Equals(BlockedReason, other.BlockedReason, StringComparison.Ordinal)
         && string.Equals(WriteBackRefusal, other.WriteBackRefusal, StringComparison.Ordinal)
-        && _flags.SequenceEqual(other._flags, StringComparer.Ordinal);
+        && _flags.SequenceEqual(other._flags, StringComparer.Ordinal)
+        && _waitsOn.SequenceEqual(other._waitsOn, StringComparer.Ordinal);
 
     public override int GetHashCode()
     {
@@ -210,6 +232,7 @@ public sealed record SourceRef
         hash.Add(Blocked);
         hash.Add(WriteBackRefusal, StringComparer.Ordinal);
         foreach (var flag in _flags) hash.Add(flag, StringComparer.Ordinal);
+        foreach (var id in _waitsOn) hash.Add(id, StringComparer.Ordinal);
         return hash.ToHashCode();
     }
 }

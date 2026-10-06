@@ -783,6 +783,59 @@ public sealed class SyncLinkedTasksTests
         Assert.True(task.SourceRef!.HasFlag(LinkedTaskFlags.MultiplePlanTags));
     }
 
+    /// <summary>The plan tag also files the task under that plan, which is what the
+    /// roadmap's shelf groups by — so the plan shows there with nothing done in
+    /// Roadmap, and no Roadmap Item is made (ADR 0020, §6).</summary>
+    [Fact]
+    public async Task A_plan_label_files_the_task_under_its_plan_and_a_task_without_one_under_none()
+    {
+        _connector.Items.Add(Item("I_1", labels: ["bug", "+Offline Sync", "+beta"]));
+        _connector.Items.Add(Item("I_2", labels: ["bug"]));
+
+        await SyncAsync();
+
+        Assert.Equal("+offline-sync", _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_1")].ImportPlanId);
+        Assert.Null(_tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_2")].ImportPlanId);
+    }
+
+    /// <summary>A task linked before the sync filed tasks under their plan is filed
+    /// on its next sync, once — while it still carries the plan tag its first plan
+    /// label gave it. One whose tag the person took off is left out.</summary>
+    [Fact]
+    public async Task A_task_linked_before_plans_were_filed_is_filed_once_while_it_keeps_the_plan_tag()
+    {
+        _connector.Items.Add(Item("I_1", labels: ["+alpha"]));
+        _connector.Items.Add(Item("I_2", labels: ["+alpha"]));
+        await SyncAsync();
+        var kept = _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_1")];
+        var untagged = _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_2")];
+        kept.SetImportPlanId(null);
+        untagged.SetImportPlanId(null);
+        untagged.SetTags([]);
+
+        var first = await SyncAsync();
+        var writes = _tasks.Writes;
+        var second = await SyncAsync();
+
+        Assert.Equal("+alpha", kept.ImportPlanId);
+        Assert.Null(untagged.ImportPlanId);
+        Assert.Equal(1, first.Updated);
+        Assert.Equal(2, second.Unchanged);
+        Assert.Equal(writes, _tasks.Writes);
+    }
+
+    /// <summary>The sync reaches no Roadmap port: the roadmap changes only through a
+    /// person's gesture (ADR 0013, ruling 3), so the handler is given nothing that
+    /// could create a Roadmap Item.</summary>
+    [Fact]
+    public void The_sync_is_given_nothing_that_can_create_a_roadmap_item()
+    {
+        var parameters = typeof(SyncLinkedTasksCommandHandler).GetConstructors().Single().GetParameters();
+
+        Assert.DoesNotContain(parameters, parameter =>
+            parameter.ParameterType.FullName!.Contains("Roadmap", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData("Blocked", "blocked")]
     [InlineData("good first issue", "good-first-issue")]
@@ -1110,6 +1163,90 @@ public sealed class SyncLinkedTasksTests
         Assert.Equal(1, summary.Unchanged);
         Assert.Equal(writes, _tasks.Writes);
         Assert.Equal(stamp, task.UpdatedAt);
+    }
+
+    // --- Waits-on --------------------------------------------------------------------
+
+    /// <summary>An item the source says waits on another becomes a task that comes
+    /// after that one's task — when both are linked tasks. Which came first in the
+    /// fetch does not matter; one the waited-on item has no task for adds nothing.</summary>
+    [Fact]
+    public async Task Waits_on_becomes_a_dependency_when_both_ends_are_linked()
+    {
+        _connector.Items.Add(Item("I_2") with { WaitsOn = ["I_1", "I_unknown"] });
+        _connector.Items.Add(Item("I_1"));
+
+        await SyncAsync();
+
+        var waiting = _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_2")];
+        Assert.Equal([LinkedTaskIds.For(StubTaskConnector.Id, "I_1").ToString()], waiting.DependsOn);
+        Assert.Empty(_tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_1")].DependsOn);
+        Assert.Equal(["I_1", "I_unknown"], waiting.SourceRef!.WaitsOn);
+    }
+
+    [Fact]
+    public async Task A_waited_on_item_linked_later_becomes_a_dependency_then()
+    {
+        _connector.Items.Add(Item("I_2") with { WaitsOn = ["I_1"] });
+        await SyncAsync();
+        var waiting = Assert.Single(_tasks.Entries.Values);
+        Assert.Empty(waiting.DependsOn);
+
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+
+        Assert.Equal([LinkedTaskIds.For(StubTaskConnector.Id, "I_1").ToString()], waiting.DependsOn);
+    }
+
+    [Fact]
+    public async Task A_waited_on_item_whose_task_the_person_deleted_is_not_a_dependency()
+    {
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+        _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_1")].MarkDeleted();
+
+        _connector.Items.Add(Item("I_2") with { WaitsOn = ["I_1"] });
+        await SyncAsync();
+
+        Assert.Empty(_tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_2")].DependsOn);
+    }
+
+    /// <summary>The source owns the dependencies it gave, not the person's: a
+    /// waits-on the source drops is taken off the task, and one the person added in
+    /// Backlog stays.</summary>
+    [Fact]
+    public async Task A_waits_on_the_source_drops_is_removed_and_the_persons_own_dependency_stays()
+    {
+        _connector.Items.Add(Item("I_1"));
+        _connector.Items.Add(Item("I_2") with { WaitsOn = ["I_1"] });
+        await SyncAsync();
+        var waiting = _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_2")];
+        var own = Guid.NewGuid().ToString();
+        waiting.SetDependsOn([.. waiting.DependsOn, own]);
+
+        _connector.Items[1] = _connector.Items[1] with { WaitsOn = [] };
+        var summary = await SyncAsync();
+
+        Assert.Equal([own], waiting.DependsOn);
+        Assert.Empty(waiting.SourceRef!.WaitsOn);
+        Assert.Equal(1, summary.Updated);
+    }
+
+    [Fact]
+    public async Task A_sync_whose_waits_on_the_task_already_follows_saves_nothing()
+    {
+        _connector.Items.Add(Item("I_1"));
+        _connector.Items.Add(Item("I_2") with { WaitsOn = ["I_1"] });
+        await SyncAsync();
+        var waiting = _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_2")];
+        var stamp = waiting.UpdatedAt;
+        var writes = _tasks.Writes;
+
+        var summary = await SyncAsync();
+
+        Assert.Equal(2, summary.Unchanged);
+        Assert.Equal(writes, _tasks.Writes);
+        Assert.Equal(stamp, waiting.UpdatedAt);
     }
 
     // --- Helpers -------------------------------------------------------------------

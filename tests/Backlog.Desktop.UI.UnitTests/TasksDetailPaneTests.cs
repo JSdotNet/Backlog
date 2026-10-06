@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.UI.Components.Tasks;
 using Microsoft.AspNetCore.Components.Web;
 using Bunit;
 
@@ -168,6 +169,37 @@ public sealed class TasksDetailPaneTests
         Assert.Equal(EntryView.Notes, open.EffectiveView);
         Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
     }
+
+    /// <summary>
+    /// A write from elsewhere — an agent working through the MCP server while the
+    /// person reads the entry — reloads the list, and the open entry is updated in
+    /// place rather than taken down and drawn again.
+    /// <para>
+    /// The steps list is keyed on the row's <c>Key</c>, and a reload builds a new
+    /// <c>EntryRow</c> for every entry. With a fresh key per instance every agent
+    /// write threw the list away and mounted a new one, which on screen is the open
+    /// entry closing and opening again.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_reload_updates_the_open_entry_in_place()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(WithSteps);
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+        var steps = StepsList(pane);
+
+        await host.State.ReloadFromStoreAsync();
+        pane.Render();
+
+        Assert.NotSame(row, host.State.SelectedRow);
+        Assert.Same(steps, StepsList(pane));
+    }
+
+    private static TaskListView StepsList(IRenderedComponent<TasksPane> pane) =>
+        pane.FindComponents<TaskListView>().Single(list => list.Instance.TestId == "subitem-list").Instance;
 
     /// <summary>The other reading, and back again, with a reload after every
     /// press — the quickest way to take several of them in a row.</summary>
@@ -1163,6 +1195,36 @@ public sealed class TasksDetailPaneTests
         Assert.StartsWith("# Ship it today\n", row.RawText, StringComparison.Ordinal);
         Assert.Contains("`#sync`", row.RawText, StringComparison.Ordinal);
         Assert.Empty(pane.FindAll($"[data-testid='{RowTestId(row)}'] .task-item__title-tag"));
+    }
+
+    /// <summary>
+    /// A tag the body's prose mentions is not a chip, so the picker never offers a
+    /// removal the next save would undo. It used to be one: the save wrote the
+    /// stored tag set — body tags included — back on to the metadata line, so
+    /// <c>#number</c> in a sentence turned into a <c>`#number`</c> token, and taking
+    /// the chip off was put straight back because the body still said it.
+    /// </summary>
+    [Fact]
+    public async Task A_tag_the_body_mentions_is_not_a_chip_the_save_puts_back()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(
+            "# Add the GitHub issues connector\n"
+            + "`prompt` `*medium` `+external-task-connectors` `#number`\n\n"
+            + "Built: the #number display key.\n");
+
+        var pane = host.Render();
+
+        Assert.DoesNotContain("`#number`", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("the #number display key", row.RawText, StringComparison.Ordinal);
+        Assert.Equal(
+            ["+external-task-connectors"],
+            pane.FindAll("[data-testid='entry-tags-input'] .tag-select__chip .tag-chip__label").Select(chip => chip.TextContent));
+
+        await pane.Find("[data-testid='entry-tags-input'] .tag-chip__remove").ClickAsync(new());
+
+        Assert.DoesNotContain("`+external-task-connectors`", row.RawText, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='entry-tags-input'] .tag-select__chip"));
     }
 
     /// <summary>Types a tag into the picker and commits it, which is the gesture the

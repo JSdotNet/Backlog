@@ -2,8 +2,9 @@ using System.Text.RegularExpressions;
 
 using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.SharedKernel.Devbook;
 using Backlog.UI.Components.Devbook;
-using Backlog.UI.Components.Markdown;
+using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Desktop.UI.Devbook;
 

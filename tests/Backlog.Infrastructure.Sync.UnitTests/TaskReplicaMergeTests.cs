@@ -650,6 +650,31 @@ public sealed class TaskReplicaMergeTests
         Assert.Null(restored.BlockedReason);
     }
 
+    /// <summary>What the item waits on at the source crosses the wire; a reference
+    /// that waits on nothing sends no member, and a document from an older build
+    /// reads as waiting on nothing.</summary>
+    [Fact]
+    public void What_a_source_item_waits_on_round_trips_through_the_wire_shape()
+    {
+        var task = TaskChanges.Task("Waiting", Noon);
+        task.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_9", "u", "#9", null, "open", Noon)
+        {
+            WaitsOn = ["I_1", "I_2"],
+        });
+        task.LoadStamps(Noon, null);
+
+        var change = TaskReplicaMerge.ToChange(task);
+        Assert.Equal(["I_1", "I_2"], change.Task.SourceRef!.WaitsOn);
+        Assert.Equal(task.SourceRef, TaskReplicaMerge.ToTaskItem(change).SourceRef);
+
+        var older = change with { Task = change.Task with { SourceRef = change.Task.SourceRef with { WaitsOn = null } } };
+        Assert.Empty(TaskReplicaMerge.ToTaskItem(older).SourceRef!.WaitsOn);
+
+        var free = TaskChanges.Task("Free", Noon);
+        free.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_8", "u", "#8", null, "open", Noon));
+        Assert.Null(TaskReplicaMerge.ToPayload(free).SourceRef!.WaitsOn);
+    }
+
     /// <summary>Why the source refused to finish the item crosses the wire, so the
     /// person's other machine shows it too; a document from an older build carries
     /// none and reads with none, and a reference with none sends no member.</summary>

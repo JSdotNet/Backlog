@@ -4,6 +4,7 @@
 index: root
 type: context
 deployment: module
+sync: push
 related: [.devbook/arc42/05-building-block-view.md#desktop-app]
 ```
 

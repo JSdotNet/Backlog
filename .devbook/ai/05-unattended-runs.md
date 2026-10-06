@@ -109,7 +109,7 @@ type: workflow
 stage: [code, operate]
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech/ai-development.md#devbook-plugin"]
 related: [".devbook/ai/05-unattended-runs.md#scheduled-devbook-upkeep"]
-date: 2026-10-02
+date: 2026-10-06
 ```
 
 Two catalog schedules act on the drift `devbook-verify` only reports, each on the sync units
@@ -120,11 +120,12 @@ added chapters land at `draft`. `devbook-push-sweep` runs on Wednesdays and turn
 Each group lands as a draft pull request on a `schedule/devbook-<direction>-sweep/<date>/<group>`
 branch, and a group whose verdicts conflict goes to a person.
 
-- **Used for** — nothing yet. Every unit here resolves to `report`, the default, because no
-  context, page, or unit sets `sync`. The chapters are ready for it: every domain event names
-  its raiser in `related`, and `units.mjs --groups` reports no orphan and no set-aside group.
-- **Adopted by** — nobody: neither schedule is selected. They follow once directions are set
-  and the delivery-schedule release that ships them is installed.
+- **Used for** — two contexts, set on 2026-10-06. Sessions is `push`: its chapters are
+  settled and its unit-test project covers them. Inbox is `pull`: its chapters are still
+  `draft`, but they were written from the code its tests cover. Every other unit resolves to
+  `report`, and `units.mjs --groups` reports no orphan and no set-aside group.
+- **Adopted by** — nobody: neither schedule is selected. Both follow once the
+  delivery-schedule release that ships them is installed; the one on this machine does not.
 - **Evidence** — none.
 - **Limits** — push writes no chapter and removes no code, and skips a draft or unagreed
   chapter; pull changes only chapters and never raises a status above `draft`.

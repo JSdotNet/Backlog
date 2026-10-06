@@ -317,6 +317,43 @@ public sealed class ShellNavigationStoreTests
         }
     }
 
+    /// <summary>
+    /// The roadmap bands folded to one lane survive a restart. The key is written only
+    /// while some band is folded, so a file from before folds were kept keeps its shape.
+    /// </summary>
+    [Fact]
+    public void Folded_roadmap_bands_survive_a_restart_and_none_folded_writes_no_key()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.Empty(store.RoadmapCollapsedGroups);
+
+            store.SetLastSurface("Roadmap");
+            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.False(none.RootElement.TryGetProperty("roadmapCollapsedGroups", out _));
+            }
+
+            store.SetRoadmapCollapsedGroups(["JSdotNet/Backlog", "docs"]);
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.Equal(["JSdotNet/Backlog", "docs"], restarted.RoadmapCollapsedGroups);
+            Assert.Equal("Roadmap", restarted.LastSurface);
+
+            restarted.SetRoadmapCollapsedGroups([]);
+            Assert.Empty(new ShellNavigationStore(path).RoadmapCollapsedGroups);
+            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.False(cleared.RootElement.TryGetProperty("roadmapCollapsedGroups", out _));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
     private static string NewSettingsPath() =>
         Path.Combine(Path.GetTempPath(), "backlog-shell-navigation-tests", Guid.NewGuid().ToString("n"), "shell-navigation.json");
 

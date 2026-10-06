@@ -37,6 +37,19 @@ public sealed class SourceRefTests
         Assert.NotEqual(reference with { Blocked = true }, reference with { Blocked = true, BlockedReason = "Waits on #3" });
         Assert.NotEqual(reference, reference.WithFlag(LinkedTaskFlags.Vanished, set: true));
         Assert.NotEqual(reference, reference with { WriteBackRefusal = "GitHub refused (403)" });
+        Assert.NotEqual(reference, reference with { WaitsOn = ["I_2"] });
+    }
+
+    [Fact]
+    public void Waits_on_compares_as_a_set_of_trimmed_ids()
+    {
+        var first = Reference() with { WaitsOn = ["I_3", " I_2 ", "", "I_3"] };
+        var second = Reference() with { WaitsOn = ["I_2", "I_3"] };
+
+        Assert.Equal(first, second);
+        Assert.Equal(first.GetHashCode(), second.GetHashCode());
+        Assert.Equal(["I_2", "I_3"], first.WaitsOn);
+        Assert.Empty(Reference().WaitsOn);
     }
 
     [Fact]

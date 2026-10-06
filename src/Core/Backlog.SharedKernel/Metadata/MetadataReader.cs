@@ -1,6 +1,6 @@
-using Backlog.UI.Components.Devbook;
+using Backlog.SharedKernel.Devbook;
 
-namespace Backlog.UI.Components.Metadata;
+namespace Backlog.SharedKernel.Metadata;
 
 /// <summary>
 /// Reads the fenced <c>meta</c> block a knowledge chapter or file carries under

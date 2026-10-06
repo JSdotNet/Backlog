@@ -53,17 +53,11 @@
     <!-- Result and Error, and IAppFeatureSettings for the exposure predicate the
          host's list-tools filter reads. Arrives transitively through every
          abstractions project above; named anyway, because this project uses it
-         directly and a reference nobody states is a reference somebody removes. -->
+         directly and a reference nobody states is a reference somebody removes.
+         Also MarkdownPreview.ParseDocument and MetadataReader, which are what
+         decides what block 7 of a chapter is: the same parser the panes render
+         with, because a second parser is a second answer to that question. -->
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
-    <!-- MarkdownPreview.ParseDocument and MetadataReader, which are what decides
-         what block 7 of a chapter is. The alternative was a second markdown
-         parser in this project, and a second parser is a second answer to that
-         question - the one thing read_knowledge_chapter's two modes may not
-         disagree about. The library is a Razor class library but carries no
-         framework reference of its own (Microsoft.AspNetCore.Components.Web is
-         an ordinary package), which is exactly why the net10.0-android head can
-         already compile it. -->
-    <ProjectReference Include="..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -249,6 +249,29 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.DoesNotContain("blocked", TaskPayloads.WriteSourceRef(loadedOpen)!, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>What the item waits on at the source comes back with the reference; a
+    /// reference that waits on nothing writes no member, so its JSON is what it was
+    /// before the member existed.</summary>
+    [Fact]
+    public async Task A_source_reference_round_trips_what_its_item_waits_on()
+    {
+        var waiting = new TaskItem("Waits at the source", string.Empty, EntryType.Task);
+        waiting.SetSourceRef(new SourceRef("github", "JSdotNet/Backlog", "I_4", "u", "#4", null, "open", Noon)
+        {
+            WaitsOn = ["I_1", "I_2"],
+        });
+
+        await _repository.SaveAsync(waiting, TestContext.Current.CancellationToken);
+
+        var loaded = (await _repository.GetAsync(waiting.Id, TestContext.Current.CancellationToken))!.SourceRef!;
+        Assert.Equal(["I_1", "I_2"], loaded.WaitsOn);
+        Assert.Equal(waiting.SourceRef, loaded);
+
+        var free = new SourceRef("github", "JSdotNet/Backlog", "I_5", "u", "#5", null, "open", Noon);
+        Assert.DoesNotContain("WaitsOn", TaskPayloads.WriteSourceRef(free)!, StringComparison.Ordinal);
+        Assert.Empty(TaskPayloads.ReadSourceRef(TaskPayloads.WriteSourceRef(free))!.WaitsOn);
+    }
+
     /// <summary>A reference written before the normalised state was kept reads back
     /// with none, which is what tells the sync to treat the state as changed once.</summary>
     [Fact]

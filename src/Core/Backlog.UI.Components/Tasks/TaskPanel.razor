@@ -560,12 +560,19 @@
     /// that cannot be renamed has no field to open, and opening one anyway would be
     /// a caret in a control whose result goes nowhere.
     /// </para>
+    /// <para>
+    /// Asked while the field is already open, it takes the caret again and keeps
+    /// what was typed. The field can be open with the caret elsewhere — it left
+    /// without a blur reaching the panel — and doing nothing then left every later
+    /// "+ New entry" with no caret at all.
+    /// </para>
     /// </summary>
     public Task EditTitleAsync()
     {
-        if (!CanRename || _editing) return Task.CompletedTask;
+        if (!CanRename) return Task.CompletedTask;
 
-        StartRename();
+        if (_editing) _focusRename = true;
+        else StartRename();
 
         // Asked for from outside an event handler — a host calls this from its own
         // OnAfterRender, once the panel is on screen — so nothing else is going to

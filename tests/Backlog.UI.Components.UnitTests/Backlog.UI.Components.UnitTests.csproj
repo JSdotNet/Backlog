@@ -25,10 +25,13 @@
     <Using Include="Backlog.UI.Components.Icons" />
     <Using Include="Backlog.UI.Components.Inputs" />
     <Using Include="Backlog.UI.Components.Integrations" />
+    <Using Include="Backlog.SharedKernel.Devbook" />
     <Using Include="Backlog.UI.Components.Devbook" />
     <Using Include="Backlog.UI.Components.Layout" />
+    <Using Include="Backlog.SharedKernel.Markdown" />
     <Using Include="Backlog.UI.Components.Markdown" />
     <Using Include="Backlog.UI.Components.Menus" />
+    <Using Include="Backlog.SharedKernel.Metadata" />
     <Using Include="Backlog.UI.Components.Metadata" />
     <Using Include="Backlog.UI.Components.Metrics" />
     <Using Include="Backlog.UI.Components.Overlays" />

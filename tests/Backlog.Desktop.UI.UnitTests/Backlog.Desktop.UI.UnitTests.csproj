@@ -10,6 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Include="Backlog.SharedKernel.Markdown" />
     <Using Include="Backlog.UI.Components.Markdown" />
     <!-- The library's feedback types. Two of them are contracts the app shell and
          the modules both speak — the toast channel a screen publishes on and the
