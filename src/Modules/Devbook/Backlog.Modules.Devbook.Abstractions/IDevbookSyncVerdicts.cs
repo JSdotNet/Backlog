@@ -28,6 +28,11 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// null.</param>
 /// <param name="RecordedAt">When the run that said it finished.</param>
 /// <param name="RunId">The run that said it.</param>
+/// <param name="Sync">The unit's effective sync direction as the sweep resolved it —
+/// <c>push</c>, <c>pull</c>, <c>sync</c>, <c>report</c> or <c>off</c> — or null for a
+/// verdict recorded before the direction was kept.</param>
+/// <param name="SyncFrom">The file the direction was inherited from, as the sweep
+/// wrote it, or null.</param>
 public sealed record DevbookSyncVerdict(
     string Repository,
     string ChapterPath,
@@ -40,7 +45,9 @@ public sealed record DevbookSyncVerdict(
     string? Action,
     string? Link,
     DateTimeOffset RecordedAt,
-    string? RunId)
+    string? RunId,
+    string? Sync = null,
+    string? SyncFrom = null)
 {
     /// <summary>Whether this chapter is its unit's root — the chapter the unit is
     /// named for, which carries the unit's own badge beside its chapter's.</summary>
@@ -79,6 +86,11 @@ public interface IDevbookSyncVerdicts
         string repository,
         string chapterPath,
         IReadOnlyList<DevbookFolderSetting>? folders = null);
+
+    /// <summary>Every verdict recorded for one repository, every chapter of every unit
+    /// a sweep has spoken about. Empty for a repository no sweep has.</summary>
+    /// <param name="repository"><c>owner/name</c>, matched without regard to case.</param>
+    IReadOnlyList<DevbookSyncVerdict> ForRepository(string repository);
 
     /// <summary>Records one run's verdicts, replacing whatever was recorded for the
     /// chapters they name and leaving every other chapter's.</summary>

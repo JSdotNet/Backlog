@@ -496,6 +496,11 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
         Assert.Equal("https://github.com/JSdotNet/Backlog/pull/950", root.Link);
         Assert.Equal(started.RunId, root.RunId);
 
+        // The direction the sweep resolved travels with the verdict, so the dashboard
+        // can group units by it without reading the devbook again.
+        Assert.Equal("pull", root.Sync);
+        Assert.Equal(".devbook/domain/sessions/context.md", root.SyncFrom);
+
         var member = Assert.Single(filed, verdict => verdict.Anchor == "delivery-run-recording");
         Assert.False(member.IsUnitRoot);
         Assert.Equal("aligned", member.Verdict);

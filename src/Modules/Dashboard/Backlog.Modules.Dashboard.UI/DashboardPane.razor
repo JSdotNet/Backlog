@@ -183,6 +183,20 @@
             </FoldControl>
         </div>
 
+        @* The devbook against the code: what the sync sweeps last said about each unit,
+           by the direction it goes, and the drift issues they left open. The repository
+           chips narrow it; the window and the machine do not, and the part says so. *@
+        <div class="dashboard-section" data-testid="dashboard-devbook-section">
+            <FoldControl @bind-Expanded="_devbookExpanded"
+                         Label="Devbook"
+                         HeadingLevel="3"
+                         HeadingCssClass="dashboard-section__title"
+                         BaseClass="dashboard-section__fold"
+                         TestId="dashboard-devbook-toggle">
+                <DriftPart Scope="_scope" />
+            </FoldControl>
+        </div>
+
         <div class="dashboard-section" data-testid="dashboard-cost">
             <FoldControl @bind-Expanded="_costExpanded"
                          Label="Cost"
@@ -227,6 +241,7 @@
     private bool _productivityExpanded = true;
     private bool _tasksExpanded = true;
     private bool _sessionsExpanded = true;
+    private bool _devbookExpanded = true;
     private bool _costExpanded = true;
 
     /// <summary>Which More folds are open. Every one starts closed, the opposite of the

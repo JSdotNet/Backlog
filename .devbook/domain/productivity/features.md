@@ -154,3 +154,28 @@ Saturday they unblocked has office hours from its stored times.
 It is presentation only, like the hour grids. No other dashboard figure changes
 and no work is left out. What it promises is in
 [the requirements](requirements.md#hours-worked).
+
+### Drift at a glance
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter, .devbook/domain/devbook/domain.md#sync-verdict, .devbook/ai/05-unattended-runs.md]
+```
+
+Show how far each repository's devbook has drifted from its code, without opening a
+chapter. The Drift at a glance part of the dashboard lists every sync unit a devbook
+sweep has verified, grouped by the direction the unit goes — push, pull, sync,
+report, or off — each with the last verdict the sweep reached on it, what the sweep
+did about it, and when. A verdict leads to the pull request or drift issue the sweep
+opened. Below the units it lists the `devbook-drift` issues still open, those
+labelled `sync-failed` first: a sweep tried that unit, did not finish, and will not
+try again until a person clears the label. A unit whose drift issue carries the
+label is marked in its row too.
+
+The direction is the one the sweep read when it verified the unit, so a group is
+also the sweep that owns its units. A unit no sweep has verified is not listed.
+The repository chips narrow the part; the window and the machine do not, because a
+verdict is the latest a sweep left and an issue is open now. The verdicts are this
+machine's and the issues are GitHub's, and either shows without the other: issues
+that cannot be read leave the units standing and say why.

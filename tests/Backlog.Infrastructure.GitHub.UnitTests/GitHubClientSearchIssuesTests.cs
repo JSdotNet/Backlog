@@ -39,6 +39,18 @@ public sealed class GitHubClientSearchIssuesTests
             path);
     }
 
+    /// <summary>The drift part's query: open issues carrying one label, the label quoted
+    /// so a name with a hyphen or a space stays one qualifier.</summary>
+    [Fact]
+    public void The_labelled_query_names_open_issues_carrying_the_label()
+    {
+        var path = GitHubClient.SearchIssuesPath(Repository, closedSince: null, page: 1, label: "devbook-drift");
+
+        Assert.Equal(
+            "search/issues?q=is:issue+repo:JSdotNet/Backlog+is:open+label:%22devbook-drift%22&sort=created&order=asc&per_page=100&page=1",
+            path);
+    }
+
     /// <summary>The query's <c>repo:</c> qualifier is what the settings read the
     /// account from, so it has to survive the escaping.</summary>
     [Fact]

@@ -5861,6 +5861,17 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* Drift at a glance. The repository after a unit only when the units come from more
+   than one, quieter than the unit it qualifies; a unit whose drift issue carries
+   sync-failed keeps its row and says so with the badge, the tint only draws the eye. */
+.dashboard-drift__repository {
+    color: var(--color-text-secondary);
+}
+
+.dashboard-drift__unit--failed > td {
+    background: color-mix(in srgb, var(--color-error) 12%, transparent);
+}
+
 /* The sessions takeover. The same frame as the dashboard's — a takeover is a
    takeover, and two different-looking full-screen panels would read as two
    different applications — but its own block rather than a shared one, because

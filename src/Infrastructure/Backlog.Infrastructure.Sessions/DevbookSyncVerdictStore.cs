@@ -58,6 +58,17 @@ internal sealed class DevbookSyncVerdictStore : IDevbookSyncVerdicts
         ];
     }
 
+    public IReadOnlyList<DevbookSyncVerdict> ForRepository(string repository)
+    {
+        if (string.IsNullOrWhiteSpace(repository)) return [];
+
+        return
+        [
+            .. Load().Where(verdict =>
+                string.Equals(verdict.Repository, repository.Trim(), StringComparison.OrdinalIgnoreCase))
+        ];
+    }
+
     public async Task RecordAsync(IReadOnlyList<DevbookSyncVerdict> verdicts, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(verdicts);
