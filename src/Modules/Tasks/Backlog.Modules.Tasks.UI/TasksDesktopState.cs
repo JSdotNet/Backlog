@@ -4591,9 +4591,16 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         {
             _entries[entry.Id] = entry;
 
-            var row = new EntryRow { Id = entry.Id };
+            previous.TryGetValue(entry.Id, out var before);
+
+            // The same entry keeps its Key. Everything drawn for a row is keyed on
+            // it, so a fresh one per reload made every write from elsewhere — an
+            // agent working through the MCP server, above all — take the open
+            // entry's steps down and mount them again, which on screen is the entry
+            // closing and opening under the reader.
+            var row = before is null ? new EntryRow { Id = entry.Id } : new EntryRow { Id = entry.Id, Key = before.Key };
             RefreshRowFromEntry(row, entry, rewriteText: true);
-            if (previous.TryGetValue(entry.Id, out var before)) CarryGitHubRead(before, row);
+            if (before is not null) CarryGitHubRead(before, row);
             rows.Add(row);
         }
 
@@ -5046,7 +5053,7 @@ public sealed class EntryRow
     private IReadOnlyList<MdSubItem> _subItems = [];
     private EntryTextParser.ParsedEntry? _parsed;
 
-    public Guid Key { get; } = Guid.NewGuid();
+    public Guid Key { get; init; } = Guid.NewGuid();
 
     public Guid? Id { get; set; }
 

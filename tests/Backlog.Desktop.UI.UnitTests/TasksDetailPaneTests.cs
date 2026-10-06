@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.UI.Components.Tasks;
 using Microsoft.AspNetCore.Components.Web;
 using Bunit;
 
@@ -168,6 +169,37 @@ public sealed class TasksDetailPaneTests
         Assert.Equal(EntryView.Notes, open.EffectiveView);
         Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
     }
+
+    /// <summary>
+    /// A write from elsewhere — an agent working through the MCP server while the
+    /// person reads the entry — reloads the list, and the open entry is updated in
+    /// place rather than taken down and drawn again.
+    /// <para>
+    /// The steps list is keyed on the row's <c>Key</c>, and a reload builds a new
+    /// <c>EntryRow</c> for every entry. With a fresh key per instance every agent
+    /// write threw the list away and mounted a new one, which on screen is the open
+    /// entry closing and opening again.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_reload_updates_the_open_entry_in_place()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(WithSteps);
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+        var steps = StepsList(pane);
+
+        await host.State.ReloadFromStoreAsync();
+        pane.Render();
+
+        Assert.NotSame(row, host.State.SelectedRow);
+        Assert.Same(steps, StepsList(pane));
+    }
+
+    private static TaskListView StepsList(IRenderedComponent<TasksPane> pane) =>
+        pane.FindComponents<TaskListView>().Single(list => list.Instance.TestId == "subitem-list").Instance;
 
     /// <summary>The other reading, and back again, with a reload after every
     /// press — the quickest way to take several of them in a row.</summary>
