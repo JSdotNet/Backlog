@@ -28,6 +28,14 @@ never required for correctness, and the semantic tier's one live call.
 > stays true. The names below are the current ones; the installed generator under
 > `.github/tools/knowledge-meta/` keeps its name because the plugin still ships it so.
 
+> **Amended 2026-10-06: click demos are indexed too.** Schema 5 adds two tables.
+> `demo` holds each `*.demo.html` under a devbook folder, with the page it pairs
+> with by name. `demo_link` holds every place a chapter's `demo` field names in a
+> demo. The demo files stay committed and canonical, like the chapters, and only
+> their index is derived. Both writers fill the tables, and the parity test
+> compares them. A demo is not a chapter, so it gets no outline entry and no
+> search text.
+
 > **Amended 2026-09-26: the contract v6 follow-up is settled by [local ADR
 > 0016](0016-knowledge-folders-adopt-the-devbook-convention.md).** The folders did
 > not stay on the root layout while the generator was re-synced. Instead they
@@ -212,6 +220,7 @@ order stays a committed text file.**
 | each directory's reading order and root document | the resolved outline: titles and statuses with that order applied |
 | the hand-written Archify specifications | chapter text, source hashes, and the diagram artifact index |
 | | the lexical (FTS) and semantic (embedding) retrieval indexes |
+| the `*.demo.html` click demos beside the pages | the demo index: each demo, the page it pairs with by name, and every chapter `demo` field that points into it |
 
 Separating the reading order out of `_meta/index.json` into a small committed file
 of its own is what makes the rest possible, and it is worth doing for its own

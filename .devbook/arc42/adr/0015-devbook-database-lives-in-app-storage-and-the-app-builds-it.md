@@ -102,6 +102,14 @@ generator's `outline.mjs` does instead), slices chapter text into `text` and `se
 fills the FTS5 index, and copies each `_archify/index.json` into rows — every
 table ADR 0004 names, with the same columns and the same values.
 
+Since schema 5 it also indexes the click demos. It records each `*.demo.html`
+under an adopted folder in `demo`, with the page its name pairs it with, and
+each place a chapter's `demo` field names in `demo_link`. A demo's size and
+modification time join the input fingerprint, so editing a demo triggers a
+rebuild like editing a chapter does. A demo that pairs with no page and that no
+field names is recorded in `problem` as a warning, because the builder cannot
+place it.
+
 It builds into a temporary file beside the target and renames it into place, as
 the Node writer always did, so a reader never opens a half-built database. The
 reader keeps opening read-only: the builder creates the file, the reader never

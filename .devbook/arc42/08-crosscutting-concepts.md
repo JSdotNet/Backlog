@@ -301,8 +301,8 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
 ```
 
 - **Markdown is canonical and the layer over it is generated** — the graph between
-  chapters, the resolved reading outline, the retrieval indexes and the diagram
-  artifact index are all derived. Nothing that is derived is authoritative, and
+  chapters, the resolved reading outline, the retrieval indexes, the diagram
+  artifact index and the click demo index are all derived. Nothing that is derived is authoritative, and
   nothing that is authored lives only in the derived layer.
 - **One generated SQLite database per repository path, in the app's storage** —
   `_databases/<name>-<hash>/devbook.db` under the devbook cache folder the branch
