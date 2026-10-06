@@ -34,16 +34,15 @@ public class InfrastructureGraphTests
             + "snapshots, working hours, planning velocity — each answer a different module's port from the "
             + "one folder that knows the workspace root. It is several adapters in one project; splitting "
             + "Workspace/ by module is what brings it under the cap."),
+        ("Backlog.Infrastructure.GitHub", 5,
+            "The repository registry and its GitHub client answer each context that asks about a "
+            + "repository: the Tasks issues connector, the Dashboard's activity and drift issues, the "
+            + "Devbook folders a repository keeps, the Sessions repository resolver and the Sync replica "
+            + "of the settings. Splitting it by context would mean one registry per context."),
         ("Backlog.Infrastructure.Sync", 6,
             "The sync client carries every synchronised context's records — Tasks, Inbox, Roadmap, Devbook "
             + "and Sessions — over the Sync module's own contract, so it sees each context's published "
-            + "surface by design."),
-        ("Backlog.Infrastructure.GitHub", 5,
-            "The one GitHub client and the repository settings with their per-account credentials answer "
-            + "each module's GitHub port — the Dashboard's activity, the Sessions repository lookup, the "
-            + "Devbook repository references, the Tasks issue connector — and the settings replicate over "
-            + "Sync's contract. Moving the connector and the dashboard sources into adapters of their own "
-            + "over a shared client is what brings it under the cap.")
+            + "surface by design.")
     ];
 
     /// <summary>

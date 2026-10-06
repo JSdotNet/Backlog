@@ -221,7 +221,7 @@ decision local ADR 0011 records.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/domain/sessions/features.md#what-started-a-run-and-what-it-found]
+related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/domain/sessions/features.md#what-started-a-run-and-what-it-found, .devbook/domain/productivity/features.md#drift-at-a-glance]
 ```
 
 Show beside each chapter heading the last verdict a devbook sync sweep reached on it —
@@ -233,6 +233,11 @@ chapters it checked, so a chapter last checked a month ago keeps that month-old 
 until a sweep checks it again. The words are the sweep's, verbatim; a word outside
 its vocabulary is shown as written and flagged rather than coloured like one it is
 not. A chapter no sweep has checked carries nothing.
+
+Each verdict also keeps the unit's sync direction as the sweep resolved it, and where
+it was inherited from. The dashboard's
+[Drift at a glance](../productivity/features.md#drift-at-a-glance) part reads the
+same verdicts a unit at a time and groups them by that direction.
 
 ### A devbook that stays current
 

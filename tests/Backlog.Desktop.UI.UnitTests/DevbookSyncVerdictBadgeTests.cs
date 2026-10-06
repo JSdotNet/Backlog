@@ -128,6 +128,9 @@ public sealed class DevbookSyncVerdictBadgeTests
                 string.Equals(verdict.Repository, repository, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(verdict.ChapterPath, DevbookChapterKey.Canonical(chapterPath, folders), StringComparison.OrdinalIgnoreCase))];
 
+        public IReadOnlyList<DevbookSyncVerdict> ForRepository(string repository) =>
+            [.. verdicts.Where(verdict => string.Equals(verdict.Repository, repository, StringComparison.OrdinalIgnoreCase))];
+
         public Task RecordAsync(IReadOnlyList<DevbookSyncVerdict> recorded, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
     }

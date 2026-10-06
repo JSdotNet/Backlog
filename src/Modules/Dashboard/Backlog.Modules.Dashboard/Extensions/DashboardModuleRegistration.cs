@@ -43,6 +43,7 @@ public static class DashboardModuleRegistration
         services.AddScoped<ICostInsights, CostInsights>();
         services.AddScoped<ITaskInsights, TaskInsights>();
         services.AddScoped<IHoursWorkedInsights, HoursWorkedInsights>();
+        services.AddScoped<IDriftInsights, DriftInsights>();
 
         services.TryAddTimeProvider();
 

@@ -141,6 +141,18 @@ public interface IGitHubClient
         CancellationToken cancellationToken = default) =>
         Task.FromException(new GitHubException("This GitHub client cannot close an issue."));
 
+    /// <summary>
+    /// The repository's open issues carrying <paramref name="label"/>, through the same
+    /// issue search as <see cref="SearchIssuesAsync"/> with the label as a qualifier, so
+    /// a repository with a thousand open issues answers with the handful that matter.
+    /// A default body for the reason that one has.
+    /// </summary>
+    Task<GitHubIssueSearchRead> SearchOpenIssuesWithLabelAsync(
+        GitHubRepositoryRef repository,
+        string label,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<GitHubIssueSearchRead>(new GitHubException("This GitHub client cannot search issues."));
+
     /// <summary>Takes a draft out of draft — GitHub's "Ready for review".</summary>
     /// <param name="pullRequestId">The pull request's GraphQL node id, from
     /// <see cref="ListOpenPullRequestsAsync"/>.</param>
@@ -591,13 +603,28 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         return new GitHubIssueSearchRead([.. issues.Values], truncated);
     }
 
+    public async Task<GitHubIssueSearchRead> SearchOpenIssuesWithLabelAsync(
+        GitHubRepositoryRef repository,
+        string label,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(label);
+
+        var issues = new OrderedDictionary<string, GitHubSearchedIssue>(StringComparer.Ordinal);
+        var truncated = await SearchAsync(repository, closedSince: null, issues, cancellationToken, label).ConfigureAwait(false);
+
+        return new GitHubIssueSearchRead([.. issues.Values], truncated);
+    }
+
     /// <summary>One query, every page of it, into <paramref name="issues"/> by node
     /// id. Answers whether search held anything back.</summary>
     private async Task<bool> SearchAsync(
         GitHubRepositoryRef repository,
         DateTimeOffset? closedSince,
         OrderedDictionary<string, GitHubSearchedIssue> issues,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? label = null)
     {
         var read = 0;
 
@@ -605,7 +632,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         {
             var response = await transport.SendAsync(
                 HttpMethod.Get,
-                SearchIssuesPath(repository, closedSince, page),
+                SearchIssuesPath(repository, closedSince, page, label),
                 body: null,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -628,15 +655,20 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     /// GitHub's own query strings carry a space; the closed qualifier's value is
     /// escaped because <c>&gt;=</c> and the time's colons would otherwise be read as
     /// part of the URL. Oldest first, so an issue opened while the walk runs lands on
-    /// a later page instead of pushing an unread one onto a page already read.
+    /// a later page instead of pushing an unread one onto a page already read. A label
+    /// is quoted and escaped, so one with a space or a colon stays one qualifier.
     /// </summary>
-    internal static string SearchIssuesPath(GitHubRepositoryRef repository, DateTimeOffset? closedSince, int page)
+    internal static string SearchIssuesPath(GitHubRepositoryRef repository, DateTimeOffset? closedSince, int page, string? label = null)
     {
         var state = closedSince is { } since
             ? $"is:closed+closed:{Uri.EscapeDataString($">={Rfc3339(since)}")}"
             : "is:open";
 
-        return $"search/issues?q=is:issue+repo:{repository.Owner}/{repository.Name}+{state}"
+        var labelled = string.IsNullOrWhiteSpace(label)
+            ? string.Empty
+            : $"+label:{Uri.EscapeDataString($"\"{label.Trim()}\"")}";
+
+        return $"search/issues?q=is:issue+repo:{repository.Owner}/{repository.Name}+{state}{labelled}"
             + $"&sort=created&order=asc&per_page={SearchPageSize}&page={page}";
     }
 

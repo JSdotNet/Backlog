@@ -22,7 +22,8 @@ public sealed class GitHubDashboardAdapterRegistrationTests
         AssertSingleton<IActivitySource, GitHubActivitySource>(services);
         AssertSingleton<IActivityBaselineSource, GitHubActivityBaselineSource>(services);
         AssertSingleton<ICopilotSpendSource, CopilotSpendSource>(services);
-        Assert.Equal(4, services.Count);
+        AssertSingleton<IDriftIssueSource, GitHubDriftIssueSource>(services);
+        Assert.Equal(5, services.Count);
     }
 
     [Fact]
