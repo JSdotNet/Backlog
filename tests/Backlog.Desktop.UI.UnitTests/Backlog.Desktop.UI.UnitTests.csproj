@@ -44,6 +44,9 @@
          had a folder in Backlog.Desktop.UI, so its types say
          Backlog.Modules.Devbook.Abstractions. -->
     <Using Include="Backlog.Modules.Devbook.Abstractions" />
+    <!-- And the chapter resolver, reader and writers, which left the Devbook UI
+         project for its adapter under issue #738 and say so in their namespace. -->
+    <Using Include="Backlog.Infrastructure.Devbook.Chapters" />
     <!-- Roadmap Planning now has a domain module, so its feature key and its DTOs
          come from the abstractions project like every other context's; the .UI
          namespace is still imported for the band and the view that maps a plan onto

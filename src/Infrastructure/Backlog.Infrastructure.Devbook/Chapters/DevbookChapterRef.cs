@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook.Chapters;
 
 /// <summary>
 /// Which knowledge chapter is being edited: the area it belongs to, the folder

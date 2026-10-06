@@ -41,6 +41,11 @@
          can see both that port and the devbook it answers from - the join
          ModuleBoundaryTests puts in infrastructure rather than in a screen. -->
     <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+    <!-- The devbook contract's folder rules and schema facts (DevbookFolder,
+         DevbookSchema), for the chapter writers in Chapters/ that moved here out
+         of the Devbook UI project (issue #738). The kernel is not a module, so
+         InfrastructureGraphTests' cap on module references does not count it. -->
+    <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -53,6 +58,12 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Backlog.Infrastructure.Devbook.UnitTests" />
+    <!-- The chapter reader seam, the status writer and the path helpers in
+         Chapters/ stayed internal when they left the Devbook UI project: the
+         stores and panels there still call them, and the tests that drive them,
+         and subclass the reader, are still that project's. -->
+    <InternalsVisibleTo Include="Backlog.Modules.Devbook.UI" />
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
   </ItemGroup>
 
 </Project>
