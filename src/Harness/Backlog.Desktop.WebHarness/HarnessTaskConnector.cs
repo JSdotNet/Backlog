@@ -7,8 +7,8 @@ namespace Backlog.Desktop.WebHarness;
 
 /// <summary>
 /// A connector that exists only in this harness, so the linked-task screens —
-/// the source badge, its flags, the Source and "Assigned to me" filters, the
-/// Connectors settings page — can be driven before a real connector ships.
+/// the source badge, its flags, the Source filter, the Connectors settings page —
+/// can be driven before a real connector ships.
 /// <para>
 /// Nothing arrives until a target is connected on the Connectors page; every
 /// target then answers the same five open items, chosen so each screen has
@@ -28,7 +28,7 @@ namespace Backlog.Desktop.WebHarness;
 /// </summary>
 internal sealed class HarnessTaskConnector : ITaskConnector
 {
-    /// <summary>The account "Assigned to me" compares against.</summary>
+    /// <summary>The harness account the fixture items are assigned to.</summary>
     public const string Me = "harness-user";
 
     /// <summary>The number of the item every completion of is refused.</summary>
@@ -88,6 +88,4 @@ internal sealed class HarnessTaskConnector : ITaskConnector
         _completed[item.ExternalId] = true;
         return Task.FromResult<string?>(null);
     }
-
-    public Task<string?> WhoAmIAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(Me);
 }

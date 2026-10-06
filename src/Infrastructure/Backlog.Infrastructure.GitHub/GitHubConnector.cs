@@ -54,7 +54,6 @@ public sealed class GitHubConnector : ITaskConnector
 
     private readonly IGitHubClient _client;
     private readonly Func<GitHubSettings> _settings;
-    private readonly IGitHubIdentityClient _identity;
     private readonly Func<CancellationToken, Task<IReadOnlyList<EntryProjectionDto>>> _projections;
 
     /// <summary>
@@ -64,9 +63,8 @@ public sealed class GitHubConnector : ITaskConnector
     public GitHubConnector(
         IGitHubClient client,
         GitHubSettingsStore settings,
-        IGitHubIdentityClient identity,
         IServiceScopeFactory scopes)
-        : this(client, () => settings.Current, identity, cancellationToken => ReadProjectionsAsync(scopes, cancellationToken))
+        : this(client, () => settings.Current, cancellationToken => ReadProjectionsAsync(scopes, cancellationToken))
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(scopes);
@@ -77,17 +75,14 @@ public sealed class GitHubConnector : ITaskConnector
     internal GitHubConnector(
         IGitHubClient client,
         Func<GitHubSettings> settings,
-        IGitHubIdentityClient identity,
         Func<CancellationToken, Task<IReadOnlyList<EntryProjectionDto>>> projections)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(settings);
-        ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(projections);
 
         _client = client;
         _settings = settings;
-        _identity = identity;
         _projections = projections;
     }
 
@@ -120,28 +115,6 @@ public sealed class GitHubConnector : ITaskConnector
         return [.. read.Issues
             .Where(issue => !pushed.Contains(issue.Number))
             .Select(ToItem)];
-    }
-
-    /// <summary>
-    /// The login every configured repository is bound to, when they agree on one;
-    /// otherwise whoever this machine is signed in to GitHub as.
-    /// <para>
-    /// The contract asks once rather than per target, so a workspace whose
-    /// repositories are bound to different accounts has no single answer; the
-    /// signed-in login is the one an unbound repository is reached as.
-    /// </para>
-    /// </summary>
-    public async Task<string?> WhoAmIAsync(CancellationToken cancellationToken)
-    {
-        var repositories = _settings().Repositories;
-        var bound = repositories
-            .Select(repository => repository.Account)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (repositories.Count > 0 && bound is [{ } login]) return login;
-
-        return await _identity.GetLoginAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

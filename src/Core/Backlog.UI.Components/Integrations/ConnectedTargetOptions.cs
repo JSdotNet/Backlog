@@ -14,8 +14,6 @@ namespace Backlog.UI.Components.Integrations;
 /// <param name="ConnectorName">The connector descriptor's display name.</param>
 /// <param name="Target">The repository or product, in the connector's spelling.</param>
 /// <param name="Enabled">Whether the target is synced at all.</param>
-/// <param name="AssignedToMeByDefault">Whether the Tasks pane's "Assigned to me"
-/// filter starts on for this target's tasks.</param>
 /// <param name="TitleFollowsSource">Whether a linked task's title follows the
 /// source until a person renames it.</param>
 /// <param name="PromoteArchivesOriginal">Whether promoting a linked task to a plan
@@ -30,7 +28,6 @@ public sealed record ConnectedTargetOptions(
     string ConnectorName,
     string Target,
     bool Enabled = true,
-    bool AssignedToMeByDefault = false,
     bool TitleFollowsSource = true,
     bool PromoteArchivesOriginal = true,
     int SyncIntervalMinutes = 15,

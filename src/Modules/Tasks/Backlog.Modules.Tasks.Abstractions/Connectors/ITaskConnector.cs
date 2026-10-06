@@ -57,10 +57,6 @@ public interface ITaskConnector
     /// </summary>
     Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken);
 
-    /// <summary>The connected account's name at the source, so "Assigned to me" knows
-    /// who "me" is; null when no account is connected.</summary>
-    Task<string?> WhoAmIAsync(CancellationToken cancellationToken);
-
     /// <summary>
     /// Finishes <paramref name="item"/> at the source — GitHub closes the issue as
     /// completed, spec-manager moves the item to the product's first end status.

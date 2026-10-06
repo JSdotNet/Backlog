@@ -227,8 +227,6 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
 
         public TimeSpan? SkipUntouchedOlderThan { get; init; }
 
-        public bool AssignedToMeByDefault { get; init; }
-
         public bool TitleFollowsSource { get; init; } = true;
 
         public TimeSpan? SyncInterval { get; init; }
@@ -249,7 +247,6 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
             Target = target.Target,
             Enabled = target.Enabled,
             SkipUntouchedOlderThan = target.SkipUntouchedOlderThan,
-            AssignedToMeByDefault = target.AssignedToMeByDefault,
             TitleFollowsSource = target.TitleFollowsSource,
             SyncInterval = target.SyncInterval,
             PromoteArchivesOriginal = target.PromoteArchivesOriginal,
@@ -267,7 +264,6 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
                 : new ConnectedTarget(ConnectorId.Trim(), Target.Trim(), Enabled)
                 {
                     SkipUntouchedOlderThan = SkipUntouchedOlderThan is { Ticks: > 0 } age ? age : null,
-                    AssignedToMeByDefault = AssignedToMeByDefault,
                     TitleFollowsSource = TitleFollowsSource,
                     SyncInterval = SyncInterval is { Ticks: > 0 } interval ? interval : ConnectedTarget.DefaultSyncInterval,
                     PromoteArchivesOriginal = PromoteArchivesOriginal,
