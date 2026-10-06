@@ -737,6 +737,8 @@ public sealed class HomeRepositoryScopeTests
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton<ICaptureRunLog>(
             new CaptureRunLogStore(Path.Combine(root, "capture", "capture-runs.json")));
+        context.Services.AddSingleton<ICaptureTargetLedger>(
+            new CaptureTargetLedgerStore(Path.Combine(root, "capture", "capture-targets.json")));
         context.Services.AddCaptureModule();
         InboxTestHost.AddCaptureDelivery(context.Services);
 

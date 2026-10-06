@@ -81,7 +81,11 @@ internal sealed partial class WebsiteFeedAdapter(FeedFetcher fetcher) : ICapture
     private static TargetReading Read(FetchedDocument document)
     {
         using var xml = document.OpenRead();
-        return new TargetReading(FeedReader.Read(xml, document.Url));
+        var entries = FeedReader.Read(xml, document.Url, out var cutShort);
+
+        return new TargetReading(
+            entries,
+            cutShort ? $"the feed broke off after {entries.Count} {(entries.Count == 1 ? "entry" : "entries")} — cut short or not well-formed past them" : null);
     }
 
     /// <summary>The well-known names in turn, until one parses. A probe is a

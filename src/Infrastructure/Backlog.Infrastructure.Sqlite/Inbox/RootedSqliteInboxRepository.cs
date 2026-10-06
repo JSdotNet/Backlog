@@ -58,6 +58,9 @@ public sealed class RootedSqliteInboxRepository(Func<string> currentRootDirector
     public Task DeleteAsync(InboxItem item, CancellationToken cancellationToken = default) =>
         Current.DeleteAsync(item, cancellationToken);
 
+    public Task<bool> WasDismissedAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Current.WasDismissedAsync(id, cancellationToken);
+
     public Task<IReadOnlyList<InboxDeletedCapture>> ListDeletedCapturesAsync(CancellationToken cancellationToken = default) =>
         Current.ListDeletedCapturesAsync(cancellationToken);
 

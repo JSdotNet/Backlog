@@ -41,7 +41,8 @@ internal static class FeedReader
             || start.StartsWith("<feed", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Reads every entry that has a title. Throws
+    /// <summary>Reads the first <see cref="MaxEntries"/> entries that have a
+    /// title. Throws
     /// <see cref="FormatException"/> for a document that is not XML or not a
     /// feed, with a message a person can read on the run's line. Entry links
     /// are resolved against <paramref name="baseUrl"/> — where the document
@@ -55,16 +56,23 @@ internal static class FeedReader
 
     /// <summary>The same over a stream, which lets the XML reader honour the
     /// encoding the document declares rather than the one the fetch guessed.</summary>
-    public static IReadOnlyList<CapturedEntry> Read(Stream xml, Uri? baseUrl = null)
+    public static IReadOnlyList<CapturedEntry> Read(Stream xml, Uri? baseUrl = null) =>
+        Read(xml, baseUrl, out _);
+
+    /// <summary>The same, saying whether the document broke off after the
+    /// entries it gave — cut by the fetch's byte cap, or broken part way — so
+    /// the run's line can say so rather than pass a short read off as the
+    /// whole feed.</summary>
+    public static IReadOnlyList<CapturedEntry> Read(Stream xml, Uri? baseUrl, out bool cutShort)
     {
         using var reader = XmlReader.Create(xml, Settings);
-        return Read(reader, baseUrl);
+        return Read(reader, baseUrl, out cutShort);
     }
 
     private static IReadOnlyList<CapturedEntry> Read(TextReader xml, Uri? baseUrl)
     {
         using var reader = XmlReader.Create(xml, Settings);
-        return Read(reader, baseUrl);
+        return Read(reader, baseUrl, out _);
     }
 
     /// <summary>No DTD, no external resolution: a feed is untrusted input, and
@@ -77,38 +85,124 @@ internal static class FeedReader
         IgnoreProcessingInstructions = true
     };
 
-    private static IReadOnlyList<CapturedEntry> Read(XmlReader reader, Uri? baseUrl)
+    /// <summary>How many entries a feed is read for: a run takes at most this
+    /// many new entries from a target, so the newest this many are all it
+    /// needs.</summary>
+    public const int MaxEntries = 20;
+
+    /// <summary>
+    /// Streams the document an entry at a time rather than loading it whole:
+    /// a feed that carries every post in full can outgrow the fetch's byte
+    /// cap, and arrive cut off. What was read before the cut stands; a
+    /// document cut before its first entry is still not a feed.
+    /// <para>
+    /// It stops at <see cref="MaxEntries"/> while the dates read so far run
+    /// newest first, as nearly every feed lists them — what lies beyond is
+    /// older. A feed whose dates climb is read on, and its newest
+    /// <see cref="MaxEntries"/> kept: stopping early there would hand over
+    /// the same oldest entries on every run, and nothing new would ever come.
+    /// </para>
+    /// <para>
+    /// Each entry is lifted out on its own, so it no longer sees the
+    /// <c>xml:base</c> of the feed or channel above it. Those are folded into
+    /// the base the entry is read against as the reader passes them.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<CapturedEntry> Read(XmlReader reader, Uri? baseUrl, out bool cutShort)
     {
-        XDocument document;
+        var entries = new List<CapturedEntry>();
+        var newestFirst = true;
+        DateTimeOffset? last = null;
+        cutShort = false;
 
         try
         {
-            document = XDocument.Load(reader);
+            if (reader.MoveToContent() != XmlNodeType.Element)
+            {
+                throw new FormatException("the feed is not well-formed XML (empty document)");
+            }
+
+            var root = XName.Get(reader.LocalName, reader.NamespaceURI);
+            var atom = root == Atom + "feed";
+
+            if (!atom && !string.Equals(root.LocalName, "rss", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new FormatException($"not an Atom or RSS feed (the document is <{root.LocalName}>)");
+            }
+
+            // RSS 2.0 has no namespace, but a publisher that put one on the
+            // root put it on every child too, so the children are looked up in
+            // whatever the root is in.
+            var ns = root.Namespace;
+            var itemName = atom ? Atom + "entry" : ns + "item";
+            var itemDepth = atom ? 1 : 2;
+            var @base = WithDeclaredBase(reader, baseUrl);
+
+            reader.Read();
+
+            while (!reader.EOF && !(newestFirst && entries.Count >= MaxEntries))
+            {
+                if (reader.NodeType != XmlNodeType.Element)
+                {
+                    reader.Read();
+                }
+                else if (reader.Depth == itemDepth && reader.LocalName == itemName.LocalName && reader.NamespaceURI == itemName.NamespaceName)
+                {
+                    // ReadFrom leaves the reader on the node after the entry.
+                    var element = (XElement)XNode.ReadFrom(reader);
+                    if ((atom ? AtomEntry(element, @base) : RssItem(element, ns, @base)) is not { } entry) continue;
+
+                    if (entry.PublishedAt is { } date)
+                    {
+                        if (last is { } previous && date > previous) newestFirst = false;
+                        last = date;
+                    }
+
+                    entries.Add(entry);
+                }
+                else if (!atom && reader.Depth == 1 && reader.LocalName == "channel" && reader.NamespaceURI == ns.NamespaceName)
+                {
+                    @base = WithDeclaredBase(reader, @base);
+                    reader.Read();
+                }
+                else
+                {
+                    reader.Skip();
+                }
+            }
+        }
+        catch (XmlException) when (entries.Count > 0)
+        {
+            // Cut off part way — the fetch's byte cap — or broken after
+            // entries that did read whole. They stand, and the caller says so.
+            cutShort = true;
         }
         catch (XmlException ex)
         {
             throw new FormatException($"the feed is not well-formed XML ({ex.Message.TrimEnd('.')})", ex);
         }
 
-        var root = document.Root
-            ?? throw new FormatException("the feed is not well-formed XML (empty document)");
+        // Trimmed to the newest only when there is more than a run needs; a
+        // short feed is handed over in its own order, and the run sorts it.
+        // Stable, so entries dated alike keep the feed's own order.
+        return entries.Count <= MaxEntries
+            ? entries
+            : [.. entries.OrderByDescending(entry => entry.PublishedAt ?? DateTimeOffset.MinValue).Take(MaxEntries)];
+    }
 
-        if (root.Name == Atom + "feed")
-        {
-            return [.. root.Elements(Atom + "entry").Select(entry => AtomEntry(entry, baseUrl)).OfType<CapturedEntry>()];
-        }
+    /// <summary>The base below the element the reader is on: its
+    /// <c>xml:base</c> resolved against the one above, or the one above when
+    /// it declares none or one that does not resolve.</summary>
+    private static Uri? WithDeclaredBase(XmlReader reader, Uri? above)
+    {
+        var declared = Trimmed(reader.GetAttribute("base", XNamespace.Xml.NamespaceName));
+        if (declared is null) return above;
 
-        if (string.Equals(root.Name.LocalName, "rss", StringComparison.OrdinalIgnoreCase))
-        {
-            // RSS 2.0 has no namespace, but a publisher that put one on the
-            // root put it on every child too, so the children are looked up
-            // in whatever the root is in.
-            var rss = root.Name.Namespace;
-
-            return [.. root.Elements(rss + "channel").Elements(rss + "item").Select(item => RssItem(item, rss, baseUrl)).OfType<CapturedEntry>()];
-        }
-
-        throw new FormatException($"not an Atom or RSS feed (the document is <{root.Name.LocalName}>)");
+        return (above is null
+            ? Uri.TryCreate(declared, UriKind.Absolute, out var next)
+            : Uri.TryCreate(above, declared, out next))
+            ? next
+            : above;
     }
 
     private static CapturedEntry? AtomEntry(XElement entry, Uri? baseUrl)

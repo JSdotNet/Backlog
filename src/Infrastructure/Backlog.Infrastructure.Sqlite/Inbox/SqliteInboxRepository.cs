@@ -35,7 +35,8 @@ namespace Backlog.Infrastructure.Sqlite.Inbox;
 /// (local ADR 0005) and nothing replicates the organiser. So are items: a
 /// deleted item's row and files go, and all that stays — in
 /// <c>inbox_deleted_captures</c>, and only for an item from the replica — is
-/// the acknowledgement the phone is still owed.
+/// the acknowledgement the phone is still owed; for any other item, its id in
+/// <c>inbox_dismissed_captures</c>, so a feed cannot bring it back.
 /// </para>
 /// </summary>
 public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganizerRepository
@@ -306,6 +307,22 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             await keep.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
+        if (!item.ReplicaBacked)
+        {
+            // A feed offers the entry again on its next run; the id is what
+            // keeps the deletion from being undone by it.
+            await using var dismiss = connection.CreateCommand();
+            dismiss.Transaction = transaction;
+            dismiss.CommandText = """
+                INSERT INTO inbox_dismissed_captures (id, deleted_at)
+                VALUES ($id, $deleted_at)
+                ON CONFLICT(id) DO UPDATE SET deleted_at = excluded.deleted_at;
+                """;
+            dismiss.Parameters.AddWithValue("$id", item.Id.ToString());
+            dismiss.Parameters.AddWithValue("$deleted_at", WriteInstant(item.UpdatedAt));
+            await dismiss.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -329,6 +346,16 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         command.Parameters.AddWithValue("$id", id.ToString());
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<bool> WasDismissedAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT 1 FROM inbox_dismissed_captures WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", id.ToString());
+
+        return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not null;
     }
 
     private async Task<IReadOnlyList<InboxDeletedCapture>> ReadDeletedCapturesAsync(
@@ -582,6 +609,15 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 id           TEXT PRIMARY KEY NOT NULL,
                 title        TEXT NOT NULL,
                 captured_at  TEXT NOT NULL,
+                deleted_at   TEXT NOT NULL
+            );
+
+            -- The id of a deleted item no replica stands behind — a feed's,
+            -- an import's — so the source offering it again is not a new
+            -- capture. Kept for good, and apart from the table above because
+            -- the outbox drains that one and owes nobody anything for this.
+            CREATE TABLE IF NOT EXISTS inbox_dismissed_captures (
+                id           TEXT PRIMARY KEY NOT NULL,
                 deleted_at   TEXT NOT NULL
             );
             """, cancellationToken).ConfigureAwait(false);

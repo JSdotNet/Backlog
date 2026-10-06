@@ -472,6 +472,9 @@ internal sealed class FakeInboxItems : IInboxItems
     public Task<InboxBatchResultDto> ArchiveAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) =>
         Batch("archive", ids, id => ArchiveAsync(id, cancellationToken));
 
+    public Task<InboxBatchResultDto> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) =>
+        Batch("delete", ids, id => DeleteAsync(id, cancellationToken));
+
     /// <summary>The module's batch, restated: the single-item act per id, in
     /// order, each answer sorted into changed or refused.</summary>
     private async Task<InboxBatchResultDto> Batch(string act, IReadOnlyList<Guid> ids, Func<Guid, Task<Result>> one)

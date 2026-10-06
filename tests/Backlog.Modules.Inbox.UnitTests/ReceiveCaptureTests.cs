@@ -147,6 +147,27 @@ public sealed class ReceiveCaptureTests
         Assert.False(item.ReplicaAckPending);
     }
 
+    /// <summary>A feed hands every entry over on every run, so an item deleted
+    /// here would be read off the feed again on the next. The store remembers
+    /// the id, and intake answers it as known — without a word to the replica,
+    /// which never had it.</summary>
+    [Fact]
+    public async Task A_deleted_feed_capture_arriving_again_is_already_known()
+    {
+        var store = new InMemoryInboxStore();
+        var capture = Capture("A post", channel: "website") with { ReplicaBacked = false };
+        await Receive(store, capture);
+        var item = store.Items[capture.Id];
+        item.Delete(Items.Noon.AddMinutes(20));
+        await store.DeleteAsync(item, TestContext.Current.CancellationToken);
+
+        var outcome = await Receive(store, capture);
+
+        Assert.Equal(InboxIntakeOutcome.AlreadyKnown, outcome);
+        Assert.Empty(store.Items);
+        Assert.Empty(store.DeletedCaptures);
+    }
+
     [Fact]
     public async Task A_named_source_url_wins_over_one_found_in_the_title()
     {

@@ -27,7 +27,13 @@ public sealed record CapturedEntry(
     string? Url,
     string? BodyMd,
     DateTimeOffset? PublishedAt,
-    CaptureFacts? Facts = null);
+    CaptureFacts? Facts = null)
+{
+    /// <summary>The monitored target the entry was read from, as the reader
+    /// typed it. What the run's first look and its per-run limit count by;
+    /// null for an import, which is taken whole because it was asked for.</summary>
+    public string? Target { get; init; }
+}
 
 /// <summary>
 /// The capture facts an import manifest carries beside an item's text (local

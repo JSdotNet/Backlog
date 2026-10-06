@@ -423,6 +423,8 @@ public sealed class InboxAddPersistsAnItemTests
         context.Services.AddSingleton<ICaptureSourceSettings>(captureSources);
         context.Services.AddSingleton<ICaptureRunLog>(
             new CaptureRunLogStore(Path.Combine(root, "capture", "capture-runs.json")));
+        context.Services.AddSingleton<ICaptureTargetLedger>(
+            new CaptureTargetLedgerStore(Path.Combine(root, "capture", "capture-targets.json")));
         context.Services.AddSingleton<ICaptureSourceAdapter>(adapter);
         context.Services.AddCaptureModule();
         InboxTestHost.AddCaptureDelivery(context.Services);

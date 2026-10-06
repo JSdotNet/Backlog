@@ -169,10 +169,13 @@ public sealed class FeedReaderTests
         Assert.Equal("Two lines", Assert.Single(FeedReader.Read(feed)).Title);
     }
 
+    /// <summary>A feed root the reader recognises, broken before its first
+    /// entry ends. (A root it does not recognise is named as such first — the
+    /// reader streams, so it sees the root before the break.)</summary>
     [Fact]
     public void Malformed_xml_is_a_format_error_that_says_so()
     {
-        var error = Assert.Throws<FormatException>(() => FeedReader.Read("<feed><entry>"));
+        var error = Assert.Throws<FormatException>(() => FeedReader.Read("<feed xmlns=\"http://www.w3.org/2005/Atom\"><entry>"));
 
         Assert.Contains("well-formed", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -310,6 +313,81 @@ public sealed class FeedReaderTests
             """;
 
         Assert.Equal("Rock & roll", Assert.Single(FeedReader.Read(feed)).Title);
+    }
+
+    /// <summary>A run takes at most twenty new entries from a target, so the
+    /// reader stops there: a feed carrying a site's whole archive in full text
+    /// is read as its first twenty, in the feed's own order.</summary>
+    [Fact]
+    public void A_feed_is_read_as_its_first_entries_and_no_further()
+    {
+        var items = string.Concat(Enumerable.Range(0, 30).Select(index => $"<item><title>Post {index}</title><guid>p{index}</guid></item>"));
+
+        var entries = FeedReader.Read($"<rss version=\"2.0\"><channel><title>Blog</title>{items}</channel></rss>");
+
+        Assert.Equal(FeedReader.MaxEntries, entries.Count);
+        Assert.Equal("Post 0", entries[0].Title);
+        Assert.Equal($"Post {FeedReader.MaxEntries - 1}", entries[^1].Title);
+    }
+
+    /// <summary>The early stop trusts a feed to list newest first only while
+    /// its dates say so. One that lists oldest first is read on, and its
+    /// newest twenty are kept — otherwise the same old twenty would come back
+    /// every run and nothing new would ever arrive.</summary>
+    [Fact]
+    public void A_feed_listed_oldest_first_is_read_for_its_newest_entries()
+    {
+        var items = string.Concat(Enumerable.Range(0, 30).Select(index =>
+            $"<item><title>Post {index}</title><guid>p{index}</guid><pubDate>{new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddDays(index):R}</pubDate></item>"));
+
+        var entries = FeedReader.Read($"<rss version=\"2.0\"><channel>{items}</channel></rss>");
+
+        Assert.Equal(FeedReader.MaxEntries, entries.Count);
+        Assert.Equal("Post 29", entries[0].Title);
+        Assert.Equal("Post 10", entries[^1].Title);
+    }
+
+    /// <summary>A feed larger than the fetch's byte cap arrives cut off. What
+    /// was read before the cut stands — the reader stops at the limit or at
+    /// the cut, whichever comes first.</summary>
+    [Fact]
+    public void A_feed_cut_off_part_way_still_gives_the_entries_before_the_cut()
+    {
+        const string cut = """
+            <?xml version="1.0"?>
+            <rss version="2.0"><channel>
+              <item><title>First</title><guid>a</guid></item>
+              <item><title>Second</title><guid>b</guid></item>
+              <item><title>Third</title><guid>c</guid><description><![CDATA[a long body that never
+            """;
+
+        using var xml = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(cut));
+        var entries = FeedReader.Read(xml, baseUrl: null, out var cutShort);
+
+        Assert.Equal(["First", "Second"], entries.Select(entry => entry.Title).ToArray());
+        Assert.True(cutShort);
+    }
+
+    [Fact]
+    public void A_feed_cut_off_before_its_first_entry_is_still_not_well_formed()
+    {
+        var error = Assert.Throws<FormatException>(() => FeedReader.Read("<rss version=\"2.0\"><channel><item><title>Fir"));
+
+        Assert.Contains("not well-formed", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The base an RSS channel declares still applies to the items
+    /// read one at a time beneath it.</summary>
+    [Fact]
+    public void A_channel_base_resolves_the_links_of_the_items_beneath_it()
+    {
+        const string feed = """
+            <rss version="2.0"><channel xml:base="https://example.org/blog/">
+              <item><title>Relative</title><link>post-1</link></item>
+            </channel></rss>
+            """;
+
+        Assert.Equal("https://example.org/blog/post-1", Assert.Single(FeedReader.Read(feed)).Url);
     }
 
     [Theory]

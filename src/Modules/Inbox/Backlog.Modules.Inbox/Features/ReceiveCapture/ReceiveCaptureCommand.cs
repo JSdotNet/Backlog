@@ -111,6 +111,13 @@ public sealed class ReceiveCaptureCommandHandler(
             return InboxIntakeOutcome.Withdrawn;
         }
 
+        // Deleted here after a feed or an import brought it: the source
+        // offering it again is not a new capture.
+        if (existing is null && await items.WasDismissedAsync(capture.Id, cancellationToken).ConfigureAwait(false))
+        {
+            return withdrawn ? InboxIntakeOutcome.Ignored : InboxIntakeOutcome.AlreadyKnown;
+        }
+
         if (existing is null)
         {
             // Nothing to withdraw, or nothing to keep: a title is the one

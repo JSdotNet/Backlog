@@ -33,6 +33,7 @@ public sealed class CaptureAdapterRegistrationTests
         var services = new ServiceCollection();
         services.AddSingleton<ICaptureSourceSettings>(new NoSettings());
         services.AddSingleton<ICaptureRunLog>(new NoLog());
+        services.AddSingleton<ICaptureTargetLedger>(new NoLedger());
         services.AddSingleton<IInboxIntake>(new NoIntake());
         services.AddSingleton(DispatchProxy.Create<IInboxItems, NeverCalled>());
         services.AddCaptureModule();
@@ -162,6 +163,16 @@ public sealed class CaptureAdapterRegistrationTests
         public IReadOnlyList<CaptureRunLogEntry> EntriesFor(CaptureSourceKind kind) => [];
 
         public void Record(CaptureRunResultDto run)
+        {
+        }
+    }
+
+    /// <summary>The target ledger, the run's one memory: nothing looked at.</summary>
+    private sealed class NoLedger : ICaptureTargetLedger
+    {
+        public IReadOnlySet<Guid>? PassedOverAt(CaptureSourceKind kind, string target) => null;
+
+        public void Record(CaptureSourceKind kind, string target, IReadOnlyCollection<Guid> passedOver)
         {
         }
     }

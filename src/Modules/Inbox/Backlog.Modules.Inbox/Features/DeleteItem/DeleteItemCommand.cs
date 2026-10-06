@@ -12,7 +12,8 @@ public sealed record DeleteItemCommand(Guid Id);
 /// <summary>
 /// When the item came from the replica and the phone may still be offering it,
 /// the store keeps its acknowledgement for the outbox, so the phone drops the
-/// capture exactly as it does for an archived one.
+/// capture exactly as it does for an archived one. Any other item leaves its
+/// id behind, so a feed or an import offering it again does not bring it back.
 /// <para>
 /// The item's file folder goes with it, unless the item was routed: routing
 /// handed that folder to the task as its attachment, and the task still points
