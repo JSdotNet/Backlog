@@ -845,7 +845,145 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
+    // --- Stacks ---------------------------------------------------------------
+
+    /// <summary>A stack reads as one tree, bottom first and each pull request one
+    /// level under the one it waits on, whatever order GitHub updated them in — and
+    /// it sits in the list where its latest update puts it, with no heading of its
+    /// own.</summary>
+    [Fact]
+    public void A_stack_is_one_indented_tree_where_its_latest_update_sits()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 3, updated: Noon.AddMinutes(-1)),
+            Pull("JSdotNet/Backlog", 1, updated: Noon.AddHours(-1)),
+            Pull("JSdotNet/Backlog", 12, baseRef: "feature-11", updated: Noon.AddMinutes(-5)),
+            Pull("JSdotNet/Backlog", 11, baseRef: "feature-10", updated: Noon.AddMinutes(-30)),
+            Pull("JSdotNet/Backlog", 10, updated: Noon.AddHours(-3)),
+            Pull("JSdotNet/Backlog", 2, updated: Noon.AddHours(-2)));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                ["JSdotNet/Backlog#3", "JSdotNet/Backlog#10", "JSdotNet/Backlog#11", "JSdotNet/Backlog#12", "JSdotNet/Backlog#1", "JSdotNet/Backlog#2"],
+                RowKeys(pane));
+
+            Assert.Equal(
+                [null, "0", "1", "2", null, null],
+                pane.FindAll("[data-testid='pull-request-row']").Select(row => row.GetAttribute("data-stack-depth")));
+
+            Assert.Empty(pane.FindAll(".data-table__group-name"));
+        });
+    }
+
+    /// <summary>Only the bottom of a stack is offered a merge: merging one above it
+    /// would land it on its parent's branch, not where the stack is going.</summary>
+    [Fact]
+    public void A_pull_request_above_the_bottom_waits_on_its_parent_and_offers_no_merge()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 10, mergeReady: true),
+            Pull("JSdotNet/Backlog", 11, baseRef: "feature-10", mergeReady: true),
+            Pull("JSdotNet/Backlog", 12, baseRef: "feature-11", autoMerge: true));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var bottom = Row(pane, "JSdotNet/Backlog#10");
+            Assert.Null(bottom.QuerySelector("[data-testid='pull-request-waits-on']"));
+            Assert.Equal("Merge now", bottom.QuerySelector("[data-testid='pull-request-merge']")!.TextContent.Trim());
+
+            var middle = Row(pane, "JSdotNet/Backlog#11");
+            Assert.Equal("Waits on #10", WaitsOn(middle));
+            Assert.Null(middle.QuerySelector("[data-testid='pull-request-merge']"));
+
+            // A request GitHub already holds is still the reader's to withdraw.
+            var top = Row(pane, "JSdotNet/Backlog#12");
+            Assert.Equal("Waits on #11", WaitsOn(top));
+            Assert.Equal("Cancel auto-merge", top.QuerySelector("[data-testid='pull-request-merge']")!.TextContent.Trim());
+        });
+    }
+
+    /// <summary>The stack is read from every author's pull requests, so Mine hiding
+    /// somebody else's bottom does not make the reader's own look mergeable.</summary>
+    [Fact]
+    public void Mine_keeps_the_stack_when_its_bottom_is_somebody_elses()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 10, mine: false),
+            Pull("JSdotNet/Backlog", 11, baseRef: "feature-10", mergeReady: true));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#11"], RowKeys(pane));
+            var row = Row(pane, "JSdotNet/Backlog#11");
+            Assert.Equal("1", row.GetAttribute("data-stack-depth"));
+            Assert.Equal("Waits on #10", WaitsOn(row));
+            Assert.Null(row.QuerySelector("[data-testid='pull-request-merge']"));
+        });
+    }
+
+    /// <summary>A branch name means something only in its own repository.</summary>
+    [Fact]
+    public void A_base_that_is_another_repositorys_head_is_no_stack()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 10))
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 11, baseRef: "feature-10"));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, RowKeys(pane).Count);
+            Assert.Empty(pane.FindAll(".data-table__group-name"));
+            Assert.Empty(pane.FindAll("[data-stack-depth]"));
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-waits-on']"));
+        });
+    }
+
+    /// <summary>Two pull requests targeting each other's branches have no bottom to
+    /// merge first, so neither is drawn as waiting on the other.</summary>
+    [Fact]
+    public void Pull_requests_targeting_each_others_branches_are_no_stack()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 10, baseRef: "feature-11", mergeReady: true),
+            Pull("JSdotNet/Backlog", 11, baseRef: "feature-10", mergeReady: true));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, RowKeys(pane).Count);
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-waits-on']"));
+            Assert.Equal(2, pane.FindAll("[data-testid='pull-request-merge']").Count);
+        });
+    }
+
     // --- Helpers --------------------------------------------------------------
+
+    /// <summary>What the tree mark in front of a stacked row says it waits on, as a
+    /// screen reader announces it.</summary>
+    private static string? WaitsOn(AngleSharp.Dom.IElement row) =>
+        row.QuerySelector("[data-testid='pull-request-waits-on']")?.GetAttribute("aria-label");
+
+    private static AngleSharp.Dom.IElement Row(IRenderedComponent<PullRequestsPane> pane, string key) =>
+        pane.Find($"[data-testid='pull-request-row'][data-pull-request='{key}']");
 
     /// <summary>An element's text with its markup's line breaks and indentation
     /// collapsed to single spaces, as a reader sees it.</summary>
@@ -908,7 +1046,8 @@ public sealed class PullRequestsPaneTests : IDisposable
         bool autoMerge = false,
         bool behind = false,
         bool conflicts = false,
-        DateTimeOffset? updated = null) =>
+        DateTimeOffset? updated = null,
+        string baseRef = "main") =>
         new(
             number,
             $"https://github.com/{repository}/pull/{number}",
@@ -918,7 +1057,7 @@ public sealed class PullRequestsPaneTests : IDisposable
             IsDraft: draft,
             HeadRefName: $"feature-{number}",
             HeadSha: $"sha-{number}",
-            BaseRefName: "main",
+            BaseRefName: baseRef,
             AuthorLogin: mine ? "JSdotNet" : "someone-else",
             ViewerDidAuthor: mine,
             Checks: GitHubCheckState.Passing,
