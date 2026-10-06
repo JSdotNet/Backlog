@@ -296,6 +296,10 @@ public enum TaskDetailKind
     /// <summary>Done here while the source still holds the item open.</summary>
     SourceOpen,
 
+    /// <summary>The task was finished here and the source refused to finish its item,
+    /// with the source's reason as the text.</summary>
+    SourceWriteBackRefused,
+
     /// <summary>The item carried several plan labels; the first was kept.</summary>
     SourcePlanLabels
 }
@@ -338,6 +342,9 @@ public sealed record TaskDetail(TaskDetailKind Kind, string Text)
         TaskDetailKind.SourceBlocked => "🚧",
         TaskDetailKind.SourceRemoved => "⊘",
         TaskDetailKind.SourceOpen => "↗",
+        // A warning sign: something the person asked for did not happen, which no
+        // other flag says — the others record what the sync noticed.
+        TaskDetailKind.SourceWriteBackRefused => "⚠",
         TaskDetailKind.SourcePlanLabels => "🏷",
         _ => string.Empty
     };
@@ -364,6 +371,7 @@ public sealed record TaskDetail(TaskDetailKind Kind, string Text)
         TaskDetailKind.SourceBlocked => "Blocked at the source",
         TaskDetailKind.SourceRemoved => "Linked item",
         TaskDetailKind.SourceOpen => "Done here",
+        TaskDetailKind.SourceWriteBackRefused => "Linked item",
         TaskDetailKind.SourcePlanLabels => "Linked item",
         _ => "Note"
     };

@@ -37,6 +37,7 @@ public sealed record SourceRef
 {
     private readonly IReadOnlyList<string> _flags = [];
     private readonly string? _blockedReason;
+    private readonly string? _writeBackRefusal;
 
     public SourceRef(
         string connectorId,
@@ -140,6 +141,23 @@ public sealed record SourceRef
         init => _blockedReason = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
+    /// <summary>
+    /// Why the source refused to finish the item when the person finished its task
+    /// here, or null when nothing was refused — or nothing was asked. Backlog's, not
+    /// the source's: the write-back sets it, and it is cleared by a later write-back
+    /// that succeeds, by the task reopening, and by the sync once the task is no
+    /// longer done here while the source holds the item open.
+    /// <para>
+    /// Kept beside <see cref="Flags"/> rather than as one, because a flag carries no
+    /// text and this is read for its reason.
+    /// </para>
+    /// </summary>
+    public string? WriteBackRefusal
+    {
+        get => _writeBackRefusal;
+        init => _writeBackRefusal = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
     /// <summary>The Backlog-owned sync flags, trimmed, de-duplicated and in
     /// ordinal order, so two equal sets are two equal lists.</summary>
     public IReadOnlyList<string> Flags
@@ -177,6 +195,7 @@ public sealed record SourceRef
         && string.Equals(SourceTitle, other.SourceTitle, StringComparison.Ordinal)
         && Blocked == other.Blocked
         && string.Equals(BlockedReason, other.BlockedReason, StringComparison.Ordinal)
+        && string.Equals(WriteBackRefusal, other.WriteBackRefusal, StringComparison.Ordinal)
         && _flags.SequenceEqual(other._flags, StringComparer.Ordinal);
 
     public override int GetHashCode()
@@ -189,6 +208,7 @@ public sealed record SourceRef
         hash.Add(NormalisedState);
         hash.Add(SourceTitle, StringComparer.Ordinal);
         hash.Add(Blocked);
+        hash.Add(WriteBackRefusal, StringComparer.Ordinal);
         foreach (var flag in _flags) hash.Add(flag, StringComparer.Ordinal);
         return hash.ToHashCode();
     }

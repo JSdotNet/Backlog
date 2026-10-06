@@ -50,6 +50,39 @@ public sealed class ConnectedTargetEditorTests
         Assert.Equal(Target with { AssignedToMeByDefault = true }, changed);
     }
 
+    /// <summary>The switch is offered only where the connector can complete an item
+    /// at its source; elsewhere it would do nothing.</summary>
+    [Fact]
+    public void Complete_at_the_source_is_offered_only_where_the_connector_can()
+    {
+        using var context = new BunitContext();
+
+        var cannot = context.Render<ConnectedTargetEditor>(p => p.Add(c => c.Options, Target).Add(c => c.TestId, "t"));
+        var can = context.Render<ConnectedTargetEditor>(p => p.Add(c => c.Options, Target with { CanCompleteAtSource = true }).Add(c => c.TestId, "t"));
+
+        Assert.Empty(cannot.FindAll("[data-testid='t-complete-at-source']"));
+        var toggle = can.Find("[data-testid='t-complete-at-source']");
+        Assert.Contains("Complete at the source", toggle.TextContent);
+        Assert.Equal("false", toggle.QuerySelector("button[role='switch']")!.GetAttribute("aria-checked"));
+    }
+
+    [Fact]
+    public async Task Switching_complete_at_the_source_on_reports_the_whole_record()
+    {
+        using var context = new BunitContext();
+        ConnectedTargetOptions? changed = null;
+        var options = Target with { CanCompleteAtSource = true };
+
+        var card = context.Render<ConnectedTargetEditor>(p => p
+            .Add(c => c.Options, options)
+            .Add(c => c.OnChange, value => changed = value)
+            .Add(c => c.TestId, "t"));
+
+        await card.Find("[data-testid='t-complete-at-source'] button[role='switch']").ClickAsync(new());
+
+        Assert.Equal(options with { CompleteAtSource = true }, changed);
+    }
+
     [Fact]
     public async Task The_interval_and_the_skip_age_are_reported_in_minutes_and_days()
     {

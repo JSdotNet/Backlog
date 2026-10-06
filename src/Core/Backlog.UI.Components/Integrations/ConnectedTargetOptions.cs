@@ -23,6 +23,9 @@ namespace Backlog.UI.Components.Integrations;
 /// <param name="SyncIntervalMinutes">How often the target is synced.</param>
 /// <param name="SkipUntouchedOlderThanDays">Items untouched for longer than this
 /// many days are not brought in; null brings every open item.</param>
+/// <param name="CompleteAtSource">Whether finishing a task here finishes its item at
+/// the source. Offered only where <see cref="CanCompleteAtSource"/> says the
+/// connector can.</param>
 public sealed record ConnectedTargetOptions(
     string ConnectorName,
     string Target,
@@ -31,10 +34,17 @@ public sealed record ConnectedTargetOptions(
     bool TitleFollowsSource = true,
     bool PromoteArchivesOriginal = true,
     int SyncIntervalMinutes = 15,
-    int? SkipUntouchedOlderThanDays = null)
+    int? SkipUntouchedOlderThanDays = null,
+    bool CompleteAtSource = false)
 {
     /// <summary>The descriptor's icon name, drawn when it names a provider mark.</summary>
     public string? Icon { get; init; }
+
+    /// <summary>Whether the connector can finish an item at its source, so the card
+    /// offers <see cref="CompleteAtSource"/>. The connector's capability, handed in by
+    /// the host, rather than an option a person sets: a switch for something the
+    /// source cannot do would do nothing.</summary>
+    public bool CanCompleteAtSource { get; init; }
 
     /// <summary>When the target last synced, already formatted by the host, or null
     /// when it never has.</summary>

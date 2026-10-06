@@ -90,3 +90,10 @@ internal sealed record MembersResponse(IReadOnlyList<BacklogledDto>? Leden);
 /// names a member by.</param>
 /// <param name="IsJij">Whether this is the member behind the token that asked.</param>
 internal sealed record BacklogledDto(string GebruikerId, string? Naam, bool IsJij, bool IsActief, bool IsServiceAccount);
+
+/// <summary>The body of <c>PUT /api/producten/{slug}/backlog/{id}/status</c>.</summary>
+internal sealed record SetStatusRequest(string StatusId);
+
+/// <summary>The problem details spec-manager answers an error with; only what a
+/// person is shown is read.</summary>
+internal sealed record ProblemResponse(string? Title, string? Detail);

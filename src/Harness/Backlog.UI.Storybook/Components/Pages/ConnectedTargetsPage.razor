@@ -19,6 +19,15 @@
         </div>
     </Story>
 
+    <Story Name="Complete at the source"
+           Description="Offered only where the connector can finish an item at its source — the host says so with CanCompleteAtSource, from the connector's capabilities — and off until a person turns it on. With it on, finishing a task here closes its GitHub issue as completed, or moves its spec-manager item to the product's first end status. A connector that cannot gets no switch at all rather than one that would do nothing: the second card has none."
+           Code="@CompleteCode">
+        <div class="sb-menu-wide" data-testid="connected-target-complete">
+            <ConnectedTargetEditor Options="@_completing" OnChange="options => _completing = options" TestId="connected-target-completing" />
+            <ConnectedTargetEditor Options="@CannotComplete" OnChange="_ => { }" TestId="connected-target-cannot-complete" />
+        </div>
+    </Story>
+
     <Story Name="Off, and never synced"
            Description="A target switched off keeps its tasks and stops bringing in new ones, so Sync now is refused rather than hidden. One that has never synced says so where the last sync would be. A stored interval or age that is none of the offered choices is still offered, so editing another option never rewrites it."
            Code="@OffCode">
@@ -47,6 +56,12 @@
     private int _syncs;
     private bool _removed;
 
+    private ConnectedTargetOptions _completing =
+        new("GitHub", "JSdotNet/Backlog", CompleteAtSource: true) { Icon = "github", LastSynced = "5 Oct 2026 09:15", CanCompleteAtSource = true };
+
+    private static readonly ConnectedTargetOptions CannotComplete =
+        new("Jira", "PROJ") { LastSynced = "5 Oct 2026 08:40" };
+
     private static readonly ConnectedTargetOptions Off =
         new("Spec manager", "backlog-product", Enabled: false, SyncIntervalMinutes: 45, SkipUntouchedOlderThanDays: 120);
 
@@ -58,6 +73,11 @@
                                OnChange="Save"
                                OnSyncNow="SyncNowAsync"
                                OnRemove="Disconnect" />
+        """;
+
+    private const string CompleteCode = """
+        <ConnectedTargetEditor Options="@(options with { CanCompleteAtSource = connector.Capabilities.CanComplete })"
+                               OnChange="Save" />
         """;
 
     private const string OffCode = """

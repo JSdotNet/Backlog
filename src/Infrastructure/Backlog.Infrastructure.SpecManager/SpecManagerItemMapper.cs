@@ -24,7 +24,12 @@ internal sealed class ProductCatalog
 
         _firstWorkStatus = ordered.FirstOrDefault(status => status.IsWorkStatus && !status.IsEindstatus);
         _firstStatus = ordered.FirstOrDefault(status => !status.IsEindstatus);
+        FirstEndStatus = ordered.FirstOrDefault(status => status.IsEindstatus);
     }
+
+    /// <summary>The first end status by the product's order — where an item finished
+    /// here is moved at the source — or null when the product has none.</summary>
+    public BacklogstatusDto? FirstEndStatus { get; }
 
     public IReadOnlyDictionary<string, BacklogstatusDto> Statuses { get; }
 

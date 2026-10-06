@@ -174,7 +174,8 @@ public sealed class SyncLinkedTasksCommandHandler(
             if (!HasVanished(task, connectorId, target, seen)) continue;
 
             WalkTo(task, EntryStatus.Archived, today);
-            task.SetSourceRef(task.SourceRef!.WithFlag(LinkedTaskFlags.Vanished, set: true));
+            // The refusal goes with the Done it explained: the task is archived now.
+            task.SetSourceRef(task.SourceRef!.WithFlag(LinkedTaskFlags.Vanished, set: true) with { WriteBackRefusal = null });
             await tasks.SaveAsync(task, cancellationToken);
             vanished++;
         }
@@ -358,6 +359,10 @@ public sealed class SyncLinkedTasksCommandHandler(
     /// blocked-ness and its reason on every sync.
     /// </para>
     /// <para>
+    /// A write-back refusal the reference held is kept only while the task is done
+    /// here and the item still open at the source — the one state it explains.
+    /// </para>
+    /// <para>
     /// The item's devbook references are added to the task's when it does not hold
     /// them yet, and none is ever removed: the person may have added their own, and
     /// one the source dropped still says what the task was about. A reference the
@@ -436,6 +441,16 @@ public sealed class SyncLinkedTasksCommandHandler(
             ? held.Target
             : target.Target;
         var reference = ReferenceTo(connectorId, targetSpelling, item, flags);
+
+        // A refusal to finish the item at the source is Backlog's, not the source's,
+        // so the reference built from the item has none. It is carried over while it
+        // still explains something — the task is done here and the item open there —
+        // and dropped once either side moves: the source finished or dropped the
+        // item, or the task is no longer Done.
+        if (doneLocally && held?.WriteBackRefusal is { } refusal)
+        {
+            reference = reference with { WriteBackRefusal = refusal };
+        }
 
         if (!Equals(reference, held))
         {
