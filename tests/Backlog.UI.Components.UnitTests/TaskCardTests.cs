@@ -203,6 +203,38 @@ public sealed class TaskCardTests
         Assert.Equal(["card", "card", "card"], opened);
     }
 
+    /// <summary>
+    /// Space opens the card and must not also scroll the column it sits in
+    /// (#1039). The card is an article, not a button, so the browser's own
+    /// default for Space is a page scroll; components.js refuses it at the keydown,
+    /// on the focused card only, and lets the event bubble to the card's handler.
+    /// Not a state-bound <c>:preventDefault</c>, which would apply to the key after
+    /// the one that set it — so the card's markup carries none.
+    /// </summary>
+    [Fact]
+    public void Space_on_a_focused_card_is_refused_its_scroll_in_components_js_not_by_a_bound_flag()
+    {
+        using var context = new BunitContext();
+
+        var card = Render(context, Card, p => p.Add(c => c.OnSelected, (string _) => { }));
+        card.Find("article").KeyDown(new KeyboardEventArgs { Key = " " });
+
+        Assert.Null(card.Find("article").GetAttribute("blazor:onkeydown:preventdefault"));
+
+        var script = File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.js"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        var start = script.IndexOf("// Space on a focused TaskCard.", StringComparison.Ordinal);
+        Assert.True(start >= 0, "components.js no longer refuses Space on a focused card.");
+
+        var listener = script[start..script.IndexOf("\n    });", start, StringComparison.Ordinal)];
+
+        Assert.Contains("event.key !== ' '", listener, StringComparison.Ordinal);
+        Assert.Contains("target.matches('.task-card[tabindex=\"0\"]')", listener, StringComparison.Ordinal);
+        Assert.Contains("event.preventDefault()", listener, StringComparison.Ordinal);
+        Assert.DoesNotContain("stopPropagation", listener, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Nobody_listening_leaves_the_card_out_of_the_tab_order()
     {

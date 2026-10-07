@@ -325,4 +325,33 @@ public sealed class TaskCalendarTests : IDisposable
         Assert.DoesNotContain("repo-mark", calendar.Find("[data-testid='cal-chip-plain']").ClassName);
         Assert.Contains("repo-mark--4", calendar.Find("[data-testid='cal-tray-tray']").ClassName);
     }
+
+    /// <summary>
+    /// A calendar drag reaches a day scrolled out of view (#1042): once the drag
+    /// is under way it hands itself to the task list's bounded edge-scroll loop,
+    /// rather than running a second one, and lets go of it however the gesture
+    /// ends. bUnit has no layout or pointer, so this holds the script to the
+    /// wiring; the storybook's calendar page is the same check made with a pointer.
+    /// </summary>
+    [Fact]
+    public void A_calendar_drag_borrows_the_task_lists_edge_scroll_loop()
+    {
+        var script = File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.js"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        // One loop, offered to the calendar's half of the file.
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(script, @"window\.backlogDragAutoscroll\s*="));
+        Assert.Contains("follow: dragScrollFollow", script, StringComparison.Ordinal);
+        Assert.Contains("release: dragScrollRelease", script, StringComparison.Ordinal);
+
+        var calendar = script[script.IndexOf("let calendarDrag = null;", StringComparison.Ordinal)..];
+
+        // Followed once the press becomes a drag, released when it ends.
+        Assert.Contains("window.backlogDragAutoscroll?.follow(calendarDrag)", calendar, StringComparison.Ordinal);
+        var end = calendar[calendar.IndexOf("function endCalendarDrag()", StringComparison.Ordinal)..];
+        Assert.Contains("window.backlogDragAutoscroll?.release(calendarDrag)", end[..end.IndexOf("\n    }", StringComparison.Ordinal)], StringComparison.Ordinal);
+
+        // And no frame loop of its own.
+        Assert.DoesNotContain("requestAnimationFrame", calendar, StringComparison.Ordinal);
+    }
 }

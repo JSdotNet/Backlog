@@ -57,7 +57,11 @@
             else if (rule is { Allowed: true } allowed)
             {
                 <div class="@SlotClass(column)" data-testid="board-column-slot">
-                    <strong>@allowed.Text</strong>
+                    <strong data-testid="board-column-slot-text">@allowed.Text</strong>
+                    @if (!string.IsNullOrWhiteSpace(allowed.Detail))
+                    {
+                        <span class="task-board__slot-detail" data-testid="board-column-slot-detail">@allowed.Detail</span>
+                    }
                 </div>
             }
 

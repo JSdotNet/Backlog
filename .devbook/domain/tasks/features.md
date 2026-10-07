@@ -791,7 +791,11 @@ anything.
 
 A task that moves to in progress is [Started](domain.md#started), shown as
 `started:` on its metadata line beside `completed:`. The roadmap reads the two
-together to draw a finished plan where its work actually ran.
+together to draw a finished plan where its work actually ran. The detail panel
+shows the day as a read-only **Started** badge beside the effort, only on a task
+that has one, and the Board's In progress slot says the drop will stamp it —
+"Moves to In progress and stamps Started" under "Drop to start" — only when the
+task has no stamp yet, since an earlier one is kept.
 
 ## Refresh from shared storage
 
