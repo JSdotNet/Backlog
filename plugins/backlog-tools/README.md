@@ -58,7 +58,8 @@ for the remarks a person leaves while reading.
   entry passes the repository's gate and its own Personal Validation. Entries that wait on
   nothing run in parallel. An entry is done when its pull request merges; the orchestrator
   then moves it to Done and starts what waited on it. It stops at `task` and `test` entries,
-  listing what they hold up, and resumes from the plan's state when invoked again. Three
+  listing what they hold up, starts the application in its own worktree for the first one
+  that validates landed work, and resumes from the plan's state when invoked again. Three
   landing modes, defined in `skills/execute-plan/assets/landing-modes.md`: *per item*, each
   pull request to the base branch; *branch*, each into one `plan/<tag without its +>` branch that the
   orchestrator merges into, ending in a single pull request to the base branch; and
