@@ -5688,44 +5688,76 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
-/* Productivity, sessions and cost. A section rather than three panels of tiles,
-   because the thing that separates them is not visual weight — it is that the
-   filter above drives one of them and cannot drive the others, and each folds
-   away under its own heading. */
-.dashboard-section {
+/* The sections as tabs. The wrapper takes the room the content used to take
+   directly, so the panels below the strip scroll while the strip stays put. */
+.dashboard-tabs {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+}
+
+/* The tab list and the "Read as brief" link on one line, the link pushed to the
+   end. The list keeps the library's own underline; it wraps rather than scrolling
+   where the pane is narrow. */
+.dashboard-tabs__strip {
+    display: flex;
+    flex: none;
+    gap: var(--spacing-md);
+    align-items: center;
+    min-width: 0;
+}
+
+.dashboard-tabs__strip > .tabs__list {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.dashboard-tabs__brief:not([hidden]) {
+    flex: none;
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+/* The Devbook tab's count of open drift issues, in the error tone the drift
+   part's own sync-failed badge wears: an open issue is something to act on. */
+.dashboard-tabs__badge {
+    display: inline-block;
+    min-width: 1.25rem;
+    margin-left: var(--spacing-xs);
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: var(--color-error);
+    color: var(--color-error-text);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+/* One tab's panel: the parts stacked. :not([hidden]) so a panel behind another
+   tab keeps the hidden attribute's display: none. */
+.dashboard-tab:not([hidden]) {
     display: grid;
     gap: var(--spacing-md);
     align-content: start;
     min-width: 0;
 }
 
-/* The heading is FoldControl's, wearing this name: the trigger inside it inherits
-   the heading face, so the title reads as a title with a chevron in front of it. */
+/* The heading face a dashboard section title wears where one is drawn as a fold
+   trigger - the storybook's FoldControl sample uses it. */
 .dashboard-section__title {
     margin: 0;
     font-family: var(--font-family-heading);
     font-size: var(--font-size-lg);
 }
 
-/* The fold's wrapper and its region take the stacking the section used to give
-   the parts directly. :not([hidden]) so a folded region keeps the library's
-   display: none — a bare .fold__region rule here would outrank it. */
-.dashboard-section__fold {
-    display: grid;
-    gap: var(--spacing-md);
-    min-width: 0;
-}
-
-.dashboard-section__fold .fold__region:not([hidden]) {
-    display: grid;
-    gap: var(--spacing-md);
-    min-width: 0;
-}
-
-/* A section's More fold: the same FoldControl a step in from the section, with a
-   quieter heading so it reads as the rest of the section rather than a section of its
-   own. After the rule above on purpose — the two region selectors are equally
-   specific, and a More region nested in a section region has to take this one. */
+/* A part's More fold - the sessions part keeps one: a FoldControl with a quieter
+   heading so it reads as the rest of the part rather than a section of its own. */
 .dashboard-section__more {
     display: grid;
     margin-top: var(--spacing-sm);

@@ -112,6 +112,35 @@
 </PartFrame>
 
 @code {
+    /// <summary>
+    /// Told how many devbook-drift issues are open each time that answer changes - null
+    /// while the part is loading, or when the issues could not be read, because a zero
+    /// there would say none are open. The pane's Devbook tab wears the count, so the
+    /// tab can say there is drift without a second read of the same issues.
+    /// </summary>
+    [Parameter]
+    public EventCallback<int?> OpenIssuesCounted { get; set; }
+
+    private bool _countReported;
+    private int? _reportedCount;
+
+    private int? OpenIssueCount =>
+        Value is null || IssuesUnread ? null : Value.Issues.Count;
+
+    /// <summary>After the render rather than inside the fetch, so the count told is the
+    /// one on screen; compared first, so telling the pane - which renders this part again -
+    /// ends after one round.</summary>
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        var count = OpenIssueCount;
+        if (_countReported && count == _reportedCount) return Task.CompletedTask;
+
+        _countReported = true;
+        _reportedCount = count;
+
+        return OpenIssuesCounted.InvokeAsync(count);
+    }
+
     private const string Note =
         "The devbook sync units the pull, push and verify sweeps have verified, by the direction each unit "
         + "went when it was verified, with the last verdict and what the sweep did; then the devbook-drift "

@@ -1,0 +1,24 @@
+@* One eager panel behind the panel on show, so a test can see its body rendered
+   before the panel is ever opened, and still the same component afterwards; and
+   a panel with no body at all, whose only parameters are strings. *@
+
+<Tabs ActiveId="@ActiveId"
+      ActiveIdChanged="OnActiveIdChangedAsync"
+      AriaLabel="Sections">
+    <TabPanel Id="one" Title="One">First body</TabPanel>
+    <TabPanel Id="two" Title="Two" Eager="true" TestId="eager-panel">
+        <StatefulProbe />
+    </TabPanel>
+    <TabPanel Id="three" Title="Three" TestId="empty-panel" />
+</Tabs>
+
+@code {
+    [Parameter]
+    public string ActiveId { get; set; } = "one";
+
+    private Task OnActiveIdChangedAsync(string id)
+    {
+        ActiveId = id;
+        return Task.CompletedTask;
+    }
+}

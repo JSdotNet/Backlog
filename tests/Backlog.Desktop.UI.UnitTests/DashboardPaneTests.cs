@@ -3,6 +3,7 @@ using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;
 using Bunit;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -292,141 +293,272 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// Each section is a heading with the library's fold trigger inside it — the
-    /// accordion shape, so a screen reader walking headings still finds the three — and
-    /// every one opens expanded, because a dashboard that opens folded shows nothing.
+    /// The sections are a tab strip: a tablist of six tabs in a fixed order, each
+    /// pointing at its panel, and the pane opens on Overview every time.
+    /// </summary>
+    [Fact]
+    public void The_sections_are_a_tablist_that_opens_on_overview()
+    {
+        using var context = Context();
+
+        var pane = context.Render<DashboardPane>();
+        var list = pane.Find("[data-testid='dashboard-tablist']");
+        var tabs = pane.FindAll("[data-testid='dashboard-tablist'] [role='tab']");
+
+        Assert.Equal("tablist", list.GetAttribute("role"));
+        Assert.Equal(
+            ["Overview", "Productivity", "Tasks", "Sessions", "Devbook", "Cost"],
+            tabs.Select(tab => tab.TextContent.Trim()).ToArray());
+
+        var overview = pane.Find("[data-testid='dashboard-tab-overview']");
+        Assert.Equal("true", overview.GetAttribute("aria-selected"));
+        Assert.Equal("0", overview.GetAttribute("tabindex"));
+        Assert.All(tabs.Skip(1), tab => Assert.Equal("-1", tab.GetAttribute("tabindex")));
+        Assert.False(pane.Find("[data-testid='dashboard-overview']").HasAttribute("hidden"));
+
+        foreach (var tab in tabs)
+        {
+            Assert.Equal("tabpanel", pane.Find($"#{tab.GetAttribute("aria-controls")}").GetAttribute("role"));
+        }
+    }
+
+    /// <summary>
+    /// Each part sits in its tab, the More folds' parts shown directly beside the rest,
+    /// and every panel but the one on show is hidden rather than gone.
     /// </summary>
     [Theory]
-    [InlineData("dashboard-productivity", "dashboard-productivity-toggle", "Productivity")]
-    [InlineData("dashboard-tasks-section", "dashboard-tasks-toggle", "Tasks")]
-    [InlineData("dashboard-sessions-section", "dashboard-sessions-toggle", "Sessions")]
-    [InlineData("dashboard-cost", "dashboard-cost-toggle", "Cost")]
-    public void Each_section_heading_is_a_fold_trigger_that_starts_open(string section, string toggle, string title)
+    [InlineData("dashboard-productivity", new[] { "dashboard-headline", "dashboard-trend", "dashboard-score", "dashboard-rework" })]
+    [InlineData("dashboard-tasks-section", new[] { "dashboard-tasks-completed", "dashboard-tasks-effort", "dashboard-roadmap" })]
+    [InlineData("dashboard-sessions-section", new[] { "dashboard-sessions", "dashboard-hours-worked" })]
+    [InlineData("dashboard-devbook-section", new[] { "dashboard-drift" })]
+    [InlineData("dashboard-cost", new[] { "dashboard-spend-month", "dashboard-spend-trend", "dashboard-spend-model" })]
+    public void Each_tab_holds_its_parts_with_no_fold_between_them(string panel, string[] parts)
     {
         using var context = Context();
 
         var pane = context.Render<DashboardPane>();
-        var heading = pane.Find($"[data-testid='{section}'] h3.dashboard-section__title");
-        var trigger = pane.Find($"[data-testid='{toggle}']");
+        var element = pane.Find($"[data-testid='{panel}']");
 
-        Assert.Equal("H3", trigger.ParentElement?.TagName);
-        Assert.Equal("dashboard-section__title", trigger.ParentElement?.ClassName);
-        Assert.Contains(title, heading.TextContent, StringComparison.Ordinal);
-        Assert.Equal("true", trigger.GetAttribute("aria-expanded"));
-        Assert.False(pane.Find($"[data-testid='{section}'] .fold__region").HasAttribute("hidden"));
-    }
+        Assert.Equal("tabpanel", element.GetAttribute("role"));
+        Assert.True(element.HasAttribute("hidden"));
+        Assert.Empty(element.QuerySelectorAll("[data-testid='dashboard-productivity-more'], [data-testid='dashboard-cost-more']"));
+        Assert.Empty(element.QuerySelectorAll("[data-testid$='-toggle'].fold__trigger"));
 
-    /// <summary>
-    /// Folding hides the parts and unfolding brings them back — the same ones, not a
-    /// fresh render. FoldControl keeps its region in the DOM while hidden, so a part's
-    /// figures survive the fold and nothing re-fetches on the way back.
-    /// </summary>
-    [Fact]
-    public void Folding_a_section_hides_its_parts_without_re_fetching_them()
-    {
-        var costs = new RecordingCostInsights();
-        using var context = Context(configure: services => services.AddSingleton<ICostInsights>(costs));
-
-        var pane = context.Render<DashboardPane>();
-        var afterFirstRender = costs.Calls;
-        var region = pane.Find("[data-testid='dashboard-cost'] .fold__region");
-
-        pane.Find("[data-testid='dashboard-cost-toggle']").Click();
-
-        pane.WaitForAssertion(() =>
+        foreach (var part in parts)
         {
-            Assert.True(pane.Find("[data-testid='dashboard-cost'] .fold__region").HasAttribute("hidden"));
-            Assert.Equal("false", pane.Find("[data-testid='dashboard-cost-toggle']").GetAttribute("aria-expanded"));
-        });
-        Assert.NotNull(pane.Find("[data-testid='dashboard-spend-month']"));
-
-        pane.Find("[data-testid='dashboard-cost-toggle']").Click();
-
-        pane.WaitForAssertion(() =>
-            Assert.False(pane.Find("[data-testid='dashboard-cost'] .fold__region").HasAttribute("hidden")));
-        Assert.Equal(afterFirstRender, costs.Calls);
-    }
-
-    /// <summary>One section's fold is its own: closing Cost leaves Productivity and
-    /// Sessions where they were.</summary>
-    [Fact]
-    public void Folding_one_section_leaves_the_others_open()
-    {
-        using var context = Context();
-
-        var pane = context.Render<DashboardPane>();
-
-        pane.Find("[data-testid='dashboard-cost-toggle']").Click();
-
-        pane.WaitForAssertion(() =>
-            Assert.True(pane.Find("[data-testid='dashboard-cost'] .fold__region").HasAttribute("hidden")));
-        Assert.False(pane.Find("[data-testid='dashboard-productivity'] .fold__region").HasAttribute("hidden"));
-        Assert.False(pane.Find("[data-testid='dashboard-sessions-section'] .fold__region").HasAttribute("hidden"));
+            Assert.NotNull(element.QuerySelector($"[data-testid='{part}']"));
+        }
     }
 
     /// <summary>
-    /// Each section's More fold starts closed — a face is what a reader scans — and is a
-    /// heading-level trigger of its own. What it holds is rendered and fetched with the
-    /// rest and only hidden, so opening and closing it asks no source again, and the
-    /// parts are in the DOM the whole time.
+    /// Choosing a tab shows its panel and hides the one before - the same parts, not a
+    /// fresh render. Every panel renders as the pane opens and stays rendered, so a
+    /// switch asks no source again.
     /// </summary>
     [Fact]
-    public void Each_more_fold_starts_closed_and_opens_its_parts_without_re_fetching()
+    public void Choosing_a_tab_shows_its_panel_without_re_fetching()
     {
         var productivity = new RecordingProductivityInsights();
         var costs = new RecordingCostInsights();
-        var sessions = new ReadySessionInsights(Insight());
 
         using var context = Context(configure: services =>
         {
             services.AddSingleton<IProductivityInsights>(productivity);
             services.AddSingleton<ICostInsights>(costs);
-            services.AddSingleton<ISessionInsights>(sessions);
         });
 
         var pane = context.Render<DashboardPane>();
         var productivityCalls = productivity.Scopes.Count;
         var costCalls = costs.Calls;
-        var sessionCalls = sessions.Calls;
 
-        foreach (var (more, inside) in new[]
-                 {
-                     ("dashboard-productivity-more", new[] { "dashboard-score", "dashboard-rework" }),
-                     ("dashboard-sessions-more", new[] { "dashboard-sessions-more-tiles", "dashboard-sessions-at-once" }),
-                     ("dashboard-cost-more", new[] { "dashboard-spend-model" })
-                 })
+        Assert.True(costCalls > 0);
+        Assert.True(productivityCalls > 0);
+
+        pane.Find("[data-testid='dashboard-tab-cost']").Click();
+
+        pane.WaitForAssertion(() =>
         {
-            var trigger = pane.Find($"[data-testid='{more}']");
-            var regionId = trigger.GetAttribute("aria-controls");
+            Assert.Equal("true", pane.Find("[data-testid='dashboard-tab-cost']").GetAttribute("aria-selected"));
+            Assert.False(pane.Find("[data-testid='dashboard-cost']").HasAttribute("hidden"));
+            Assert.True(pane.Find("[data-testid='dashboard-overview']").HasAttribute("hidden"));
+        });
 
-            Assert.Equal("H4", trigger.ParentElement?.TagName);
-            Assert.Equal("dashboard-section__more-title", trigger.ParentElement?.ClassName);
-            Assert.Equal("false", trigger.GetAttribute("aria-expanded"));
-            Assert.True(pane.Find($"#{regionId}").HasAttribute("hidden"));
+        pane.Find("[data-testid='dashboard-tab-productivity']").Click();
 
-            // In the DOM while folded, inside the fold.
-            foreach (var part in inside)
-            {
-                Assert.NotNull(pane.Find($"#{regionId} [data-testid='{part}']"));
-            }
-
-            trigger.Click();
-
-            pane.WaitForAssertion(() =>
-            {
-                Assert.Equal("true", pane.Find($"[data-testid='{more}']").GetAttribute("aria-expanded"));
-                Assert.False(pane.Find($"#{regionId}").HasAttribute("hidden"));
-            });
-
-            pane.Find($"[data-testid='{more}']").Click();
-
-            pane.WaitForAssertion(() =>
-                Assert.Equal("false", pane.Find($"[data-testid='{more}']").GetAttribute("aria-expanded")));
-        }
+        pane.WaitForAssertion(() =>
+        {
+            Assert.False(pane.Find("[data-testid='dashboard-productivity']").HasAttribute("hidden"));
+            Assert.True(pane.Find("[data-testid='dashboard-cost']").HasAttribute("hidden"));
+        });
 
         Assert.Equal(productivityCalls, productivity.Scopes.Count);
         Assert.Equal(costCalls, costs.Calls);
-        Assert.Equal(sessionCalls, sessions.Calls);
+    }
+
+    /// <summary>
+    /// The strip is one stop in the tab order and the arrow keys walk it, wrapping at
+    /// either end; Home and End go to the first and last tab.
+    /// </summary>
+    [Fact]
+    public void The_arrow_keys_move_between_tabs()
+    {
+        using var context = Context();
+
+        var pane = context.Render<DashboardPane>();
+
+        Press(pane, "dashboard-tab-overview", "ArrowRight", "dashboard-tab-productivity");
+        Press(pane, "dashboard-tab-productivity", "ArrowLeft", "dashboard-tab-overview");
+        Press(pane, "dashboard-tab-overview", "ArrowLeft", "dashboard-tab-cost");
+        Press(pane, "dashboard-tab-cost", "ArrowRight", "dashboard-tab-overview");
+        Press(pane, "dashboard-tab-overview", "End", "dashboard-tab-cost");
+        Press(pane, "dashboard-tab-cost", "Home", "dashboard-tab-overview");
+
+        static void Press(IRenderedComponent<DashboardPane> pane, string from, string key, string to)
+        {
+            pane.Find($"[data-testid='{from}']").KeyDown(new KeyboardEventArgs { Key = key });
+            pane.WaitForAssertion(() =>
+                Assert.Equal("true", pane.Find($"[data-testid='{to}']").GetAttribute("aria-selected")));
+        }
+    }
+
+    /// <summary>
+    /// The tab chosen is the pane's own field: a pane opened again starts on Overview,
+    /// whatever the last one was showing.
+    /// </summary>
+    [Fact]
+    public void A_pane_opened_again_starts_on_overview()
+    {
+        using var context = Context();
+
+        var first = context.Render<DashboardPane>();
+        first.Find("[data-testid='dashboard-tab-cost']").Click();
+        first.WaitForAssertion(() =>
+            Assert.Equal("true", first.Find("[data-testid='dashboard-tab-cost']").GetAttribute("aria-selected")));
+
+        var second = context.Render<DashboardPane>();
+
+        Assert.Equal("true", second.Find("[data-testid='dashboard-tab-overview']").GetAttribute("aria-selected"));
+        Assert.Equal("false", second.Find("[data-testid='dashboard-tab-cost']").GetAttribute("aria-selected"));
+    }
+
+    /// <summary>
+    /// The Devbook tab carries the count of open drift issues the drift part read -
+    /// visible as a badge, spoken as words.
+    /// </summary>
+    [Fact]
+    public void The_devbook_tab_carries_the_open_drift_issue_count()
+    {
+        var drift = new DriftInsight(
+            [],
+            [
+                new DriftIssue("backlog", 11, "Drift in domain/sync", "https://github.com/o/r/issues/11", SyncFailed: true),
+                new DriftIssue("backlog", 12, "Drift in arc42", "https://github.com/o/r/issues/12", SyncFailed: false),
+                new DriftIssue("backlog", 13, "Drift in design", "https://github.com/o/r/issues/13", SyncFailed: false)
+            ],
+            IssuesNote: null);
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<IDriftInsights>(new ReadyDriftInsights(drift)));
+
+        var pane = context.Render<DashboardPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var tab = pane.Find("[data-testid='dashboard-tab-devbook']");
+            Assert.Equal("3", pane.Find("[data-testid='dashboard-tab-devbook-badge']").TextContent.Trim());
+            Assert.Contains("3 open drift issues", tab.TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>
+    /// No badge when the issues could not be read, nor when none is open: a dash or a
+    /// zero on a tab says nothing a reader can act on.
+    /// </summary>
+    [Fact]
+    public void The_devbook_tab_has_no_badge_when_no_issue_is_open_or_none_could_be_read()
+    {
+        using (var unread = Context())
+        {
+            var pane = unread.Render<DashboardPane>();
+
+            Assert.Empty(pane.FindAll("[data-testid='dashboard-tab-devbook-badge']"));
+            Assert.Equal("Devbook", pane.Find("[data-testid='dashboard-tab-devbook']").TextContent.Trim());
+        }
+
+        var none = new DriftInsight([], [], IssuesNote: null);
+        using var context = Context(configure: services =>
+            services.AddSingleton<IDriftInsights>(new ReadyDriftInsights(none)));
+
+        var read = context.Render<DashboardPane>();
+
+        Assert.Empty(read.FindAll("[data-testid='dashboard-tab-devbook-badge']"));
+    }
+
+    /// <summary>
+    /// The "Read as brief" link closes the strip - beside the tablist, never inside it,
+    /// because a tablist's children are tabs - and stays hidden until the brief view it
+    /// opens exists.
+    /// </summary>
+    [Fact]
+    public void The_read_as_brief_link_ends_the_strip_hidden()
+    {
+        using var context = Context();
+
+        var pane = context.Render<DashboardPane>();
+        var link = pane.Find("[data-testid='dashboard-brief-link']");
+
+        Assert.True(link.HasAttribute("hidden"));
+        Assert.Contains("Read as brief", link.TextContent, StringComparison.Ordinal);
+        Assert.Null(link.Closest("[role='tablist']"));
+        Assert.Equal("dashboard-tabs__strip", link.ParentElement!.ClassName);
+        Assert.NotNull(link.ParentElement.QuerySelector("[data-testid='dashboard-tablist']"));
+        Assert.Equal("dashboard-brief-link", link.ParentElement!.LastElementChild!.GetAttribute("data-testid"));
+    }
+
+    /// <summary>
+    /// The machine select and the window toggle stay in the pane's header, above the
+    /// strip, because they scope every tab rather than one.
+    /// </summary>
+    [Fact]
+    public void The_filters_stay_above_the_tab_strip()
+    {
+        using var context = Context();
+
+        var pane = context.Render<DashboardPane>();
+        var filters = pane.Find("[data-testid='dashboard-filters']");
+
+        Assert.NotNull(filters.QuerySelector("[data-testid='dashboard-machine-filter']"));
+        Assert.NotNull(filters.QuerySelector("[data-testid='dashboard-window-filter']"));
+        Assert.Null(filters.Closest("[data-testid='dashboard-section-tabs']"));
+    }
+
+    /// <summary>
+    /// The sessions part keeps the More fold it owns - what sits behind it is that
+    /// part's - and it still starts closed with its parts rendered inside it.
+    /// </summary>
+    [Fact]
+    public void The_sessions_part_keeps_its_own_more_fold()
+    {
+        var sessions = new ReadySessionInsights(Insight());
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(sessions));
+
+        var pane = context.Render<DashboardPane>();
+        var trigger = pane.Find("[data-testid='dashboard-sessions-more']");
+        var regionId = trigger.GetAttribute("aria-controls");
+
+        Assert.Equal("false", trigger.GetAttribute("aria-expanded"));
+        Assert.True(pane.Find($"#{regionId}").HasAttribute("hidden"));
+        Assert.NotNull(pane.Find($"#{regionId} [data-testid='dashboard-sessions-more-tiles']"));
+    }
+
+    private sealed class ReadyDriftInsights(DriftInsight insight) : IDriftInsights
+    {
+        public Task<InsightResult<DriftInsight>> GetDriftAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<DriftInsight>.Ready(insight));
     }
 
     [Fact]
@@ -2441,7 +2573,7 @@ public class DashboardPaneTests
     /// The surface is deliberately not configurable — no layout editing, no adding or
     /// removing a part, nothing persisted. This is the guard against that quietly
     /// changing: the only controls on the panel are the filter, the per-part refresh
-    /// and info mark, the four section folds and their More folds, and the close button.
+    /// and info mark, the six section tabs, and the close button.
     /// </summary>
     [Fact]
     public void The_panel_offers_no_way_to_configure_itself()
@@ -2477,20 +2609,22 @@ public class DashboardPaneTests
         Assert.Single(pane.FindAll("[data-testid='dashboard-machine-filter'] select"));
         Assert.Equal(2, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
         Assert.Equal(13, pane.FindAll("[data-testid$='-refresh']").Count);
-        // The folds show and hide what is already there; they arrange nothing.
-        Assert.Equal(5, pane.FindAll("[data-testid$='-toggle'].fold__trigger").Count);
-        // The More folds too — two here, because the sessions part answers unavailable
-        // and its own More is inside the figures it would fold.
-        Assert.Equal(2, pane.FindAll("[data-testid$='-more'].fold__trigger").Count);
+        // The tabs show and hide what is already there; they arrange nothing. No fold
+        // is left on the pane itself — the More folds' parts are shown in their tabs,
+        // and the sessions part's own More is inside the figures it would fold, which
+        // answer unavailable here.
+        Assert.Equal(6, pane.FindAll("[data-testid='dashboard-tablist'] [role='tab']").Count);
+        Assert.Empty(pane.FindAll(".fold__trigger"));
         // The info marks open a caption; they change nothing.
         Assert.Equal(13, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
         Assert.Single(pane.FindAll("[aria-label='Close dashboard']"));
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, one filter select, two window buttons, thirteen refreshes, five
-        // section folds, two More folds, thirteen info marks.
-        Assert.Equal(1 + 1 + 2 + 13 + 5 + 2 + 13, controls.Count);
+        // One close, one filter select, two window buttons, thirteen refreshes, six
+        // tabs, thirteen info marks. The hidden "Read as brief" link is an anchor, not
+        // one of these, and adds nothing to configure.
+        Assert.Equal(1 + 1 + 2 + 13 + 6 + 13, controls.Count);
     }
 
     /// <summary>
