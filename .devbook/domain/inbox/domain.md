@@ -19,7 +19,7 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests]
 type: aggregate
 status: draft
 related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/capture/domain.md#capture, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.NoteTests]
 aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions]
 ```
 
@@ -72,8 +72,16 @@ desktop may each change its title, body and files. Both sides keep the edit
 with the later `updated_at`, the same last-write-wins rule the task feed uses
 (`.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`).
 A note keeps its id on every device. It is not acknowledged away from the phone
-when the desktop takes it in, as a `text` capture is. A note stops syncing only
-when the desktop archives or deletes it. The phone then drops it from its list.
+when the desktop takes it in, as a `text` capture is, nor when the desktop routes
+it. A note stops syncing only when the desktop archives or deletes it. The phone
+then drops it from its list.
+
+A note carries its own last-write-wins stamp, `edited_at`, apart from the item's
+`updated_at`. It moves when the title, body or files change and when the note is
+archived or deleted, and nowhere else. Filing, tagging and a file arriving
+restamp `updated_at` only. A note pushed for such a change would otherwise carry a
+stamp later than an edit the phone made meanwhile, and would overwrite that edit
+with the older text. A note taken in from the phone keeps the phone's stamp.
 
 Triage stays on the desktop for every kind, notes included. The phone may create
 a note and edit any note, but it never routes, defers, accepts or archives an
@@ -210,7 +218,8 @@ than breaking the queue. `article`, `link`, `youtube`, `image`, `document`,
 than a thought of the reader's own. `note` is the only kind that changes after
 it is captured: every other kind records what arrived and keeps it.
 
-`note` is specified and not built. Plan `phone-app-redesign` builds it.
+Classification never proposes `note`, and a note document never turns an item
+of another kind into one.
 
 ### Inbox Status
 

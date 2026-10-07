@@ -5,6 +5,7 @@ using Backlog.Modules.Sync.Adapters;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.Modules.Sync.Features.AcknowledgeInboxItem;
 using Backlog.Modules.Sync.Features.CaptureInboxItem;
+using Backlog.Modules.Sync.Features.PushTasks;
 using Backlog.Modules.Sync.Features.StoreAttachment;
 using Backlog.Modules.Sync.Ports;
 using Backlog.Modules.Sync.Services;
@@ -124,6 +125,36 @@ public sealed class AttachmentStoreHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Null(await _store.Find(Scope.OwnerId, capture.Attachments![0].Id, Cancellation));
     }
+
+    /// <summary>A note's tombstone, which the desktop pushes when it archives or
+    /// deletes the note, releases the files the note named, as a capture's does
+    /// (.devbook/arc42/06-runtime-view.md#mobile-note-sync). A live edit of the note
+    /// releases nothing.</summary>
+    [Fact]
+    public async Task A_notes_tombstone_releases_its_attachments_and_an_edit_does_not()
+    {
+        var bytes = Bytes(32);
+        var fileId = Guid.CreateVersion7();
+        await Upload(fileId, bytes, maxBytes: 1_000);
+        var file = new AttachmentMetadata(fileId, "slide.png", "image/png", bytes.Length, Sha256(bytes));
+        var noteId = Guid.CreateVersion7();
+        var now = _clock.GetUtcNow();
+        var push = new PushTasksCommandHandler(_replica, new CaptureAttachmentRelease(_store, new RecordingLogger()));
+
+        await push.Handle(new PushTasksCommand(Scope, [NoteChange(noteId, now, null, file)]), Cancellation);
+        await push.Handle(new PushTasksCommand(Scope, [NoteChange(noteId, now.AddMinutes(1), null, file)]), Cancellation);
+
+        Assert.NotNull(await _store.Find(Scope.OwnerId, fileId, Cancellation));
+
+        await push.Handle(new PushTasksCommand(Scope, [NoteChange(noteId, now.AddMinutes(2), now.AddMinutes(2), file)]), Cancellation);
+
+        Assert.Null(await _store.Find(Scope.OwnerId, fileId, Cancellation));
+    }
+
+    private static TaskChange NoteChange(Guid id, DateTimeOffset at, DateTimeOffset? deletedAt, AttachmentMetadata file) =>
+        new(id, at, deletedAt, new TaskPayload(
+            "Keynote", string.Empty, "note", "draft", "medium", 0, null, at, "mobile", null, null, null, null, null, null, null,
+            null, null, null, [], [], [], [], [], [], Attachments: [file]));
 
     /// <summary>The delete failing is logged and left to the lifecycle rule;
     /// the acknowledgement succeeds and the tombstone is written.</summary>

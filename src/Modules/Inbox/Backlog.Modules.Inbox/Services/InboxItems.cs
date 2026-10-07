@@ -12,6 +12,7 @@ using Backlog.Modules.Inbox.Features.DeferItem;
 using Backlog.Modules.Inbox.Features.DeleteItem;
 using Backlog.Modules.Inbox.Features.DeleteList;
 using Backlog.Modules.Inbox.Features.DismissSuggestion;
+using Backlog.Modules.Inbox.Features.EditNote;
 using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.LinkToTask;
@@ -76,6 +77,7 @@ internal sealed class InboxItems(
     ICommandHandler<DismissSuggestionCommand, Result> dismissSuggestion,
     IQueryHandler<RelatedQuery, Result<InboxRelationsDto>> related,
     ICommandHandler<LinkToTaskCommand, Result> linkToTask,
+    ICommandHandler<EditNoteCommand, Result> editNote,
     IInboxPlanDrafter? drafter = null) : IInboxItems
 {
     public Task<InboxSnapshotDto> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
@@ -99,6 +101,9 @@ internal sealed class InboxItems(
 
     public Task<Result> MoveToListAsync(Guid id, Guid? listId, CancellationToken cancellationToken = default) =>
         moveToList.Handle(new MoveToListCommand(id, listId), cancellationToken);
+
+    public Task<Result> EditNoteAsync(Guid id, string title, string? bodyMd, CancellationToken cancellationToken = default) =>
+        editNote.Handle(new EditNoteCommand(id, title, bodyMd), cancellationToken);
 
     public Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default) =>
         archive.Handle(new ArchiveItemCommand(id), cancellationToken);

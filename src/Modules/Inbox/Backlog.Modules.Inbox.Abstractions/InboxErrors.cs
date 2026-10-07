@@ -19,6 +19,12 @@ public static class InboxErrors
         "inbox.item.needs_title",
         "A capture needs some text before it can be kept.");
 
+    /// <summary>Only a note changes after it is captured
+    /// (<c>.devbook/domain/inbox/domain.md#content-kind</c>).</summary>
+    public static readonly Error NotANote = Error.Validation(
+        "inbox.item.not_a_note",
+        "Only a note can be edited; every other kind keeps what arrived.");
+
     /// <summary>The aggregate refused a lifecycle step. Carries the aggregate's
     /// own words, which name the two states involved.</summary>
     public static Error InvalidTransition(string detail) => Error.Validation(
