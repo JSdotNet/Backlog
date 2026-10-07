@@ -64,8 +64,9 @@
            going to sit comfortably in the chapter list — which is where it was, and
            why it moved.
 
-           The second tab is absent, not empty, when the feature is off or nobody has
-           written a workspace. A tab that opens onto nothing is worse than no tab. *@
+           The second tab is absent, not empty, when the feature is off or there is
+           neither a workspace nor a C4 fence in the chapters to draw one from. A tab
+           that opens onto nothing is worse than no tab. *@
         <Tabs AriaLabel="Architecture views"
               TestId="arc42-tabs"
               ActiveId="@_tab"
@@ -226,6 +227,17 @@
                                 </div>
                             }
                         </nav>
+                    }
+
+                    @* Said, because a model drawn from the fences is only as complete as
+                       the fences are, and nothing else on screen tells it apart from one
+                       somebody authored. A status rather than a warning: nothing is
+                       wrong, there is simply a fuller model to be had. *@
+                    @if (Workspace is { Derived: true })
+                    {
+                        <Alert Message="This model is drawn from the C4 diagrams in the chapters. A workspace in _c4/ gives a fuller model."
+                               TestId="arc42-c4-derived"
+                               Role="status" />
                     }
 
                     @if (Workspace is { } workspace)
@@ -598,7 +610,13 @@
     /// <see cref="RefreshAsync"/> ignores the repository-alias guard, which is
     /// exactly why it is the one to call here: nothing about the scope changed,
     /// and that is the reason the guard would skip the reload.</summary>
-    private Task OnChapterSavedAsync() => RefreshAsync(_selected?.Path);
+    private Task OnChapterSavedAsync()
+    {
+        // The C4 tab may be drawn from this chapter's own fences, and that model is
+        // cached; it has to be let go before the re-read below asks for it.
+        _c4Store?.ChapterSaved();
+        return RefreshAsync(_selected?.Path);
+    }
 
     /// <summary>A save that failed after the editor stopped being able to say so.
     /// It is shown here because this panel is still on screen when that

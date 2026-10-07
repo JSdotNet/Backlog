@@ -40,6 +40,8 @@ Read `../import-plan/assets/backlog-import-grammar.md` — `## Metadata line`,
 3. **Dispatch.** For each ready entry, `transition` it to In progress and `link_session` it
    with this session's id, then start one background sub-agent with the brief filled in.
    Entries in another repository than this checkout's are listed and left for a session there.
+   The plugin's plan-progress band and pane know each sub-agent's entry by the brief's first line, so
+   that line keeps its shape.
 4. **Gate.** *Attended*: a sub-agent returns `gate` with a review handoff. Relay it verbatim
    with the entry's `<n> - <Title>` as it arrives — several waiting are listed in plan order
    and each is decided on its own — and send the decision back to that sub-agent. *Unattended*:

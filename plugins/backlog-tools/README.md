@@ -3,7 +3,7 @@
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
 general-purpose or knowledge-folder tooling. Five skills: one for each direction of a plan,
 one for running a whole plan, one for bringing another tool's items into the Inbox, and one
-for the remarks a person leaves while reading.
+for the remarks a person leaves while reading — and a pane that follows a running plan.
 
 - **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -117,6 +117,38 @@ are matched to shell, edits, sub-agents, skills and MCP tools, the calls a run's
 read for, so a session is not paying a process spawn on every `Read` and `Grep`. The script
 needs Node, drops the tool's output before posting, gives up after two seconds and exits 0 on
 any error, so a closed app costs a session nothing but a refused connection.
+
+### The plan-progress pane
+
+`hooks/hooks.json` also names a hooks module, `hooks/register.tsx` — Claude Code's function
+hooks, beside the command hooks above. It draws an `execute-plan` run in two places:
+
+- **The band above the prompt**, while any entry is in flow: the plan's tag and done over
+  total, then one row per entry running, at a gate or blocked — its delivery flow's stages
+  (✓ done, ● in progress, ✗ blocked, – skipped, ○ pending) and the stage it stands at, tagged
+  `gate` or `blocked`. Entries done or manual fold into one `also:` line. A band another plugin
+  draws there, such as `delivery-run-view`'s flow band, stays under it.
+- **The Plan progress pane**, the band's **details** button or `/backlog-tools:plan-progress`:
+  the whole plan as a matrix — every entry a row, every stage a column under its short name
+  (`scp`, `imp`, `b&t`, `pv`, …) — with the gate's review link and each block's reason under it.
+
+The status line carries the counts, and a toast says when an entry reaches its gate or blocks.
+
+It writes nothing and calls nothing: it reads the calls the run already makes.
+
+| What it shows | Read from |
+| --- | --- |
+| The entries and their statuses | `get_plan_items` and `transition`, on any MCP server |
+| Which sub-agent runs which entry | The first line of `skills/execute-plan/assets/item-brief.md`, in the `Agent` call's prompt — change it and `parseBrief` in `hooks/parse.ts` with it |
+| Each entry's stages | `start_run`, `update_stage` and `finish_run` on any delivery surface, from the sub-agent's loop or one it spawned |
+| How the entry ended | The sub-agent's one-line return: `gate`, `pr <url>`, `blocked <stage>: …`, `done-before` |
+
+The module's state is declared in `types/index.d.ts`. `claude plugin validate plugins/backlog-tools`
+checks the module against it, and `claude plugin test plugins/backlog-tools` runs `tests/`,
+which drive the hooks against the engine and a scripted run (`tests/demo.ts`). Once Claude
+Code has loaded the plugin from this checkout it lays its declarations in the ignored
+`.claude-plugin/types/`, and `tsc -p plugins/backlog-tools` type-checks the module. Function hooks
+are early access in Claude Code: a release can change the API, and the pane is what breaks.
 
 The plugin ships one manifest, `.claude-plugin/plugin.json`, for Claude Code.
 

@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Diagrams.C4;
 
 namespace Backlog.Desktop.UI.Devbook;
@@ -15,10 +16,18 @@ namespace Backlog.Desktop.UI.Devbook;
 /// workspace; this is where that becomes a question about files.
 /// </para>
 /// <para>
-/// Nothing here is generated. A workspace is one authored <c>.dsl</c> — written in
-/// c4hero, which is a browser editor rather than anything this app runs — plus an
-/// authored <c>references.json</c> saying which chapter each view documents. The
-/// views are read out of the DSL on load and written as mermaid on the spot.
+/// Nothing here is written to the repository. A workspace is one authored
+/// <c>.dsl</c> — written in c4hero, which is a browser editor rather than anything
+/// this app runs — plus an authored <c>references.json</c> saying which chapter each
+/// view documents. The views are read out of the DSL on load and written as mermaid
+/// on the spot.
+/// </para>
+/// <para>
+/// A folder with no <c>.dsl</c> at all is given a model anyway, derived in memory
+/// from the C4 mermaid fences its chapters already carry — one view per fence, each
+/// documenting the chapter it is in. That is the one thing here that is derived
+/// rather than read, and it is held only as long as the catalog is: an authored
+/// workspace, once there is one, replaces it entirely.
 /// </para>
 /// <para>
 /// That is the whole difference from the Archify arrangement next door. An Archify
@@ -62,12 +71,27 @@ public sealed class C4DevbookStore : IDisposable
     /// none of which C4 has a vocabulary for.</summary>
     public const string FolderKey = ".arc42";
 
+    /// <summary>What the derived workspace is filed under in place of a file name.
+    /// Deliberately not a <c>.dsl</c>: <see cref="C4Catalog.Find"/> resolves only
+    /// references naming one, so nothing a chapter writes can be mistaken for a
+    /// reference to a model nobody authored.</summary>
+    public const string DerivedWorkspaceFile = "chapters";
+
+    /// <summary>The derived workspace's name, as the tab shows it.</summary>
+    public const string DerivedWorkspaceName = "From the chapters";
+
     private readonly IAppFeatureSettings _features;
     private readonly IDevbookFolderSource _folders;
     private readonly object _gate = new();
 
     private string? _cachedFor;
     private C4Catalog? _cached;
+
+    /// <summary>Bumped whenever the cache is dropped, so a read that began before the
+    /// drop does not put what it found back afterwards. Two quick saves start two reads
+    /// of the chapters, and the slower, older one finishing last would otherwise leave
+    /// the model as the first save had it.</summary>
+    private int _generation;
 
     public C4DevbookStore(IAppFeatureSettings features, IDevbookFolderSource folders)
     {
@@ -99,6 +123,7 @@ public sealed class C4DevbookStore : IDisposable
         if (!Enabled) return C4Catalog.Off;
 
         var key = repositoryAlias ?? string.Empty;
+        int generation;
 
         lock (_gate)
         {
@@ -106,6 +131,8 @@ public sealed class C4DevbookStore : IDisposable
             {
                 return _cached;
             }
+
+            generation = _generation;
         }
 
         // Only the workspace folder, not the architecture chapters beside it:
@@ -115,12 +142,29 @@ public sealed class C4DevbookStore : IDisposable
             .PrepareContentAsync(FolderKey, repositoryAlias, [WorkspaceDirectory + "/"])
             .ConfigureAwait(false);
 
-        var catalog = Read(location);
+        // With no workspace the model is drawn from the chapters' own fences, so
+        // the chapters have to be on disk too. The arc42 store fetches the same
+        // folder, and a file already current is not fetched twice. The Domain
+        // panel loads this store as well, so opening it on a branch with no
+        // workspace fetches the arc42 chapters too — accepted, since the fallback
+        // needs them for the views that panel links to.
+        if (!HasAuthoredWorkspace(location))
+        {
+            location = await _folders.PrepareContentAsync(FolderKey, repositoryAlias).ConfigureAwait(false);
+        }
+
+        // On the pool, because deriving reads every chapter in the folder and the
+        // caller's continuation is the UI thread in the desktop host.
+        var prepared = location;
+        var catalog = await Task.Run(() => Read(prepared)).ConfigureAwait(false);
 
         lock (_gate)
         {
-            _cachedFor = key;
-            _cached = catalog;
+            if (generation == _generation)
+            {
+                _cachedFor = key;
+                _cached = catalog;
+            }
         }
 
         return catalog;
@@ -131,7 +175,7 @@ public sealed class C4DevbookStore : IDisposable
         if (!location.Available || location.FullPath is null) return C4Catalog.Off;
 
         var directory = Path.Combine(location.FullPath, WorkspaceDirectory);
-        if (!Directory.Exists(directory)) return new C4Catalog(true, directory, [], [], []);
+        if (!HasAuthoredWorkspace(location)) return Derive(location, directory);
 
         var views = new List<C4ViewEntry>();
         var workspaces = new List<C4WorkspaceEntry>();
@@ -181,6 +225,130 @@ public sealed class C4DevbookStore : IDisposable
         }
 
         return new C4Catalog(true, directory, views, problems, workspaces);
+    }
+
+    /// <summary>Whether somebody wrote a workspace. Any <c>.dsl</c> at all decides
+    /// it: an authored model is the model, and drawing the chapters' fences beside it
+    /// would offer two models of one architecture and leave the reader to choose.</summary>
+    private static bool HasAuthoredWorkspace(DevbookFolderLocation location)
+    {
+        if (!location.Available || location.FullPath is null) return false;
+
+        var directory = Path.Combine(location.FullPath, WorkspaceDirectory);
+        return Directory.Exists(directory)
+            && Directory.EnumerateFiles(directory, "*.dsl", SearchOption.TopDirectoryOnly).Any();
+    }
+
+    /// <summary>
+    /// The model drawn from the chapters' own C4 fences, for a folder with no
+    /// workspace.
+    /// <para>
+    /// Every view documents the chapter its fence is in, which is the one reference
+    /// map nobody has to write: the fence is in the chapter, so the chapter is what
+    /// it documents. That map is handed over as though it had been read from
+    /// <c>references.json</c>, and both directions of the link then work with no
+    /// code of their own.
+    /// </para>
+    /// <para>
+    /// Chapters are found by the rule the chapter catalog uses — recursive, and
+    /// skipping any underscored segment — and spelled the way it spells them, so the
+    /// path a view documents is the path the chapter list holds.
+    /// </para>
+    /// </summary>
+    private static C4Catalog Derive(DevbookFolderLocation location, string directory)
+    {
+        var folder = location.FullPath!;
+        if (!Directory.Exists(folder)) return new C4Catalog(true, directory, [], [], []);
+
+        var root = Arc42DevbookReader.ResolveRoot(folder, location.RootPath);
+        var sources = new List<C4MermaidSource>();
+        var problems = new List<C4WorkspaceProblem>();
+
+        var chapters = Directory.EnumerateFiles(folder, "*.md", Arc42DevbookReader.Recursive)
+            .Where(path => !Arc42DevbookReader.IsUnderscored(Path.GetRelativePath(folder, path)))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var file in chapters)
+        {
+            var chapter = Path.GetRelativePath(root, file).Replace('\\', '/');
+
+            try
+            {
+                sources.AddRange(C4Fences(chapter, File.ReadAllText(file)));
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                problems.Add(new C4WorkspaceProblem(DerivedWorkspaceFile, new C4Problem(0, chapter, exception.Message)));
+            }
+        }
+
+        // A chapter that could not be read is kept in the catalog's problems, but
+        // with no workspace there is no tab to show it under, so it is not seen.
+        if (sources.Count == 0) return new C4Catalog(true, directory, [], problems, []);
+
+        var reading = C4MermaidReader.ReadWithOrigins(DerivedWorkspaceName, sources);
+        var workspace = reading.Workspace;
+        if (workspace.Views.Count == 0) return new C4Catalog(true, directory, [], problems, []);
+
+        var references = reading.ViewOrigins.ToDictionary(
+            pair => pair.Key,
+            pair => new[] { pair.Value },
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var problem in workspace.Problems) problems.Add(new C4WorkspaceProblem(DerivedWorkspaceFile, problem));
+
+        var views = workspace.Views
+            .Select(view => new C4ViewEntry(
+                Reference(reading.ViewOrigins[view.Key], view.Key),
+                DerivedWorkspaceFile,
+                DerivedWorkspaceName,
+                view.Key,
+                view.Kind,
+                Label(workspace, view),
+                C4MermaidWriter.Write(workspace, view),
+                references[view.Key]))
+            .ToList();
+
+        var entry = new C4WorkspaceEntry(
+            DerivedWorkspaceFile,
+            DerivedWorkspaceName,
+            workspace,
+            [.. workspace.Problems],
+            references,
+            Derived: true);
+
+        return new C4Catalog(true, directory, views, problems, [entry]);
+    }
+
+    /// <summary>
+    /// The C4 mermaid fences in one chapter.
+    /// <para>
+    /// Opened and closed by CommonMark's rule rather than by "three backticks", for
+    /// the reason the chapter reader gives: an <c>annotation</c> note quoting a fence
+    /// is opened with four so the quote can sit inside it, and a review note's
+    /// sample diagram is not part of the model.
+    /// </para>
+    /// </summary>
+    private static IEnumerable<C4MermaidSource> C4Fences(string chapter, string text)
+    {
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+
+        for (var index = 0; index < lines.Length; index++)
+        {
+            if (MarkdownFence.Open(lines[index]) is not { } fence) continue;
+
+            var body = new List<string>();
+            for (index++; index < lines.Length && !fence.IsClosedBy(lines[index]); index++)
+            {
+                body.Add(lines[index]);
+            }
+
+            var language = fence.Language.Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            if (!string.Equals(language, "mermaid", StringComparison.OrdinalIgnoreCase)) continue;
+
+            var fenceText = string.Join('\n', body);
+            if (C4MermaidReader.IsC4(fenceText)) yield return new C4MermaidSource(chapter, fenceText);
+        }
     }
 
     /// <summary>How a view is addressed: the workspace path as the repository sees it,
@@ -233,12 +401,37 @@ public sealed class C4DevbookStore : IDisposable
         return scope is null ? view.Kind.ToString() : $"{view.Kind} — {scope}";
     }
 
+    /// <summary>
+    /// A chapter was saved in the app, so a model drawn from the chapters' fences may
+    /// no longer be what they say.
+    /// <para>
+    /// The cached catalog is dropped quietly rather than through <see cref="Changed"/>:
+    /// the caller is the panel that saved, and it re-reads straight afterwards —
+    /// raising the event as well would re-read every chapter twice on each debounced
+    /// keystroke-save. A catalog read from an authored workspace is kept, because no
+    /// chapter save changes a <c>.dsl</c>. A catalog with no workspace at all is
+    /// dropped too: the save may have added the first C4 fence.
+    /// </para>
+    /// </summary>
+    public void ChapterSaved()
+    {
+        lock (_gate)
+        {
+            if (_cached is { Workspaces: var workspaces } && workspaces.Any(entry => !entry.Derived)) return;
+
+            _cached = null;
+            _cachedFor = null;
+            _generation++;
+        }
+    }
+
     private void Invalidate()
     {
         lock (_gate)
         {
             _cached = null;
             _cachedFor = null;
+            _generation++;
         }
 
         Changed?.Invoke();
@@ -258,7 +451,8 @@ public sealed class C4DevbookStore : IDisposable
 /// because there is no file: the <c>.dsl</c> is the only thing on disk and this is
 /// what it says.</param>
 /// <param name="Documents">The chapters this view documents, as
-/// <c>references.json</c> states them. The authored half of the reference; the other
+/// <c>references.json</c> states them — or, for a view drawn from a chapter's
+/// fence, that chapter. The authored half of the reference; the other
 /// direction — which views document a chapter — is this list inverted, so there is
 /// no second place for the two to disagree.</param>
 public sealed record C4ViewEntry(
@@ -314,12 +508,16 @@ public sealed record C4WorkspaceProblem(string WorkspaceFile, C4Problem Problem)
 /// model, which a list of pictures is not.
 /// </para>
 /// </summary>
+/// <param name="Derived">Whether this model was drawn from the chapters' C4 fences
+/// rather than read from an authored <c>.dsl</c>. The panel says so, because a
+/// derived model is only as complete as the fences are.</param>
 public sealed record C4WorkspaceEntry(
     string File,
     string Name,
     C4Workspace Workspace,
     IReadOnlyList<C4Problem> Problems,
-    IReadOnlyDictionary<string, string[]> References)
+    IReadOnlyDictionary<string, string[]> References,
+    bool Derived = false)
 {
     /// <summary>The chapters a view of this workspace documents, as
     /// <c>references.json</c> states them.</summary>
