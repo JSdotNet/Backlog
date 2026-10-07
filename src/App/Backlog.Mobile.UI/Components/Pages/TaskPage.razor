@@ -1,0 +1,179 @@
+@page "/tasks/{Id:guid}"
+@using System.Globalization
+@using Backlog.Mobile.UI.Tasks
+@using Backlog.Modules.Tasks.Abstractions
+@inject TaskViewProjection View
+@inject TaskEdits Edits
+@inject DeviceOutbox Outbox
+@inject NavigationManager Navigation
+@implements IDisposable
+
+@*
+    One task, opened from Today: what it is filed under, when it runs today and
+    how big it is, its steps as a checklist, and its own text read-only
+    (.devbook/domain/tasks/features.md#my-day).
+
+    The phone changes three things here and nothing else, all through TaskEdits:
+    a step ticked or unticked, the task moved to tomorrow, and the task marked
+    done. The last two finish with the task as far as today goes, so both go
+    back to Today. Each applies only to a task in today's My Day and not yet
+    ticked; anything else is shown and left alone, because the rest of a task's
+    life is the desktop's.
+
+    Focus is offered only for a task with an agenda time today, the one kind of
+    task Focus exists for.
+*@
+
+<PageTitle>@(Row?.Task.Title ?? "Task")</PageTitle>
+
+@if (Row is { } row)
+{
+    var task = row.Task;
+    var editable = IsEditable(row);
+    var timed = IsTimedToday(row) && !TodayPlan.IsTicked(row);
+
+    <DayTaskDetail Title="@task.Title"
+                BackHref="@TodayHref"
+                Area="@task.Area"
+                TimeLabel="@(timed ? TimeLabel(row.AgendaTime!) : null)"
+                Effort="@task.Effort"
+                FocusHref="@(timed ? $"tasks/{row.Id}/focus" : null)"
+                Steps="@Steps(task)"
+                OnStepToggled="@(editable ? EventCallback.Factory.Create<DayStep>(this, ToggleStepAsync) : default)"
+                Body="@Body(task)"
+                OnMoveToTomorrow="@(editable ? EventCallback.Factory.Create(this, MoveToTomorrowAsync) : default)"
+                OnMarkDone="@(editable ? EventCallback.Factory.Create(this, MarkDoneAsync) : default)"
+                Busy="_busy"
+                CssClass="task-page"
+                TestId="task-detail" />
+
+    @if (_editError is not null)
+    {
+        <Alert Message="@_editError" Role="alert" BaseClass="task-page__waiting" TestId="task-detail-error" />
+    }
+
+    @if (Edits.Pending(row.Id) is { } pending)
+    {
+        <p class="task-page__waiting" role="status" data-testid="task-detail-waiting">
+            @(pending.IsParked
+                ? "A change to this task couldn't be sent yet. It is kept on this phone; retry it from Today."
+                : "Kept on this phone until cloud sync takes it.")
+        </p>
+    }
+}
+else if (_looked)
+{
+    <a class="task-page__back" href="@TodayHref" data-testid="task-detail-missing-back">Today</a>
+    <EmptyState Title="This task isn't on this phone"
+                Description="It may have been deleted on another device, or not have reached this phone yet."
+                TestId="task-detail-missing" />
+}
+
+@code {
+    /// <summary>The address of Today, relative to the base: the root route.</summary>
+    private const string TodayHref = "";
+
+    private bool _busy;
+    private bool _looked;
+    private bool _disposed;
+    private string? _editError;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    /// <summary>The task as the phone last heard of it, or null for one it does
+    /// not hold. A deleted task is gone, as it is from Today.</summary>
+    private TaskViewRow? Row => View.Find(Id) is { DeletedAt: null } row ? row : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        View.Changed += OnChanged;
+        Outbox.Changed += OnChanged;
+
+        // Opened straight from an address, the view may not have this task yet;
+        // a pull brings it if the service answers. A failure leaves the page on
+        // what the phone already holds — Today is where it is put in words.
+        if (Row is null)
+        {
+            try
+            {
+                await View.PullAsync();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Shown below as a task this phone does not hold.
+            }
+        }
+
+        _looked = true;
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        View.Changed -= OnChanged;
+        Outbox.Changed -= OnChanged;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>Picked for today and not ticked off: the only task the phone
+    /// changes (.devbook/domain/tasks/features.md#my-day).</summary>
+    private bool IsEditable(TaskViewRow row) =>
+        row.Task.InMyDayOn == View.Today && !TodayPlan.IsTicked(row);
+
+    private bool IsTimedToday(TaskViewRow row) =>
+        row.Task.InMyDayOn == View.Today && row.AgendaTime is not null;
+
+    private Task ToggleStepAsync(DayStep step) => Edits.SetStepDoneAsync(Id, step.Id, step.Done);
+
+    private Task MoveToTomorrowAsync() => FinishAsync(() => Edits.MoveToTomorrowAsync(Id));
+
+    private Task MarkDoneAsync() => FinishAsync(() => Edits.MarkDoneAsync(Id));
+
+    /// <summary>
+    /// Makes an edit that is done with the task for today, then goes back to
+    /// Today, where the change already shows. An edit the phone could not keep
+    /// says so and stays on the task; a person who left while it ran is not
+    /// pulled back.
+    /// </summary>
+    private async Task FinishAsync(Func<Task<TaskViewRow?>> edit)
+    {
+        if (_busy) return;
+        _busy = true;
+        _editError = null;
+
+        try
+        {
+            await edit();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _editError = "This change couldn't be kept on this phone. Try again.";
+            return;
+        }
+        finally
+        {
+            _busy = false;
+        }
+
+        if (!_disposed) Navigation.NavigateTo(TodayHref);
+    }
+
+    private static string TimeLabel(AgendaTime time) =>
+        $"Today · {Clock24(time.Start)}–{Clock24(time.End)}";
+
+    private static string Clock24(TimeOnly time) => time.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    private static IReadOnlyList<DayStep> Steps(TaskPayload task) =>
+    [
+        .. (task.SubItems ?? [])
+            .OrderBy(step => step.Order)
+            .Select(step => new DayStep(step.Id, step.Title, string.Equals(step.Status, "done", StringComparison.OrdinalIgnoreCase)))
+    ];
+
+    /// <summary>The task's own prose — what sits above its steps in the text, the
+    /// steps themselves being the checklist above it.</summary>
+    private static string Body(TaskPayload task) =>
+        EntryTextParser.GetNote(TaskEntryRewrite.ToEntryText(task));
+}
