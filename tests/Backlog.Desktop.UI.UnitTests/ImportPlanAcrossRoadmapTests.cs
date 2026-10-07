@@ -177,6 +177,42 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         Assert.Equal(EffortWindow.EndFrom(b.Start, 3, 7m, WorkingHours.Default), b.End);
     }
 
+    /// <summary>The Calendar's shelf drop, through Tasks' own port and the real adapter:
+    /// the plan whose tasks arrived first is on the shelf, and dropping it on a day has the
+    /// roadmap's own import open its window there, sized from its points at the pace.</summary>
+    [Fact]
+    public async Task A_shelf_plan_started_from_the_calendar_opens_on_that_day_for_its_effort()
+    {
+        await ImportAsync(TaskDocument);
+        using var scope = _provider.CreateScope();
+        var calendar = scope.ServiceProvider.GetRequiredService<ICalendarPlans>();
+        var today = DateOnly.FromDateTime(DateTime.Now);
+
+        var before = await calendar.ReadAsync(today, TestContext.Current.CancellationToken);
+        var shelved = Assert.Single(before.Shelf);
+        Assert.Equal(("myplan", "Myplan", 2, 8), (shelved.Tag, shelved.Title, shelved.TaskCount, shelved.TotalEffort));
+        Assert.Empty(before.Windows);
+        Assert.True(before.Available);
+
+        // A Monday two weeks out, so the window is not floored to today.
+        var monday = today.AddDays(14 - (((int)today.DayOfWeek + 6) % 7));
+        Assert.Null(await calendar.StartAsync("myplan", monday, TestContext.Current.CancellationToken));
+
+        var item = await SingleItemAsync();
+        Assert.Equal(monday, item.Start);
+        Assert.Equal(EffortWindow.EndFrom(monday, 8, 7m, WorkingHours.Default), item.End); // 3 + 5 points at 7 a working week
+        Assert.Null(item.PlacedByImport); // the person's placement from now on
+
+        var after = await calendar.ReadAsync(today, TestContext.Current.CancellationToken);
+        Assert.Empty(after.Shelf);
+        var window = Assert.Single(after.Windows);
+        Assert.Equal(
+            (item.Id, monday, item.End, "myplan", 0, 8),
+            (window.Id, window.Start, window.End, window.Tag, window.DonePoints, window.TotalPoints));
+
+        Assert.Equal("+nothing is no longer waiting on the shelf.", await calendar.StartAsync("nothing", monday, TestContext.Current.CancellationToken));
+    }
+
     [Fact]
     public async Task Lay_out_on_the_roadmap_creates_the_item_a_task_document_names()
     {

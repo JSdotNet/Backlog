@@ -512,23 +512,17 @@
     /// The imported plans no item on the plan carries the tag of, in the order the
     /// backlog holds them.
     /// <para>
-    /// Compared as slugs, the way the module stores an item's tag, so a plan tag
-    /// written with a capital is still recognised as planned once its item exists.
+    /// Decided by <see cref="RoadmapShelf.Unplanned"/>, the rule the Tasks Calendar's
+    /// shelf reads too, so the two never disagree about which plans are waiting.
     /// </para>
     /// </summary>
     internal static IReadOnlyList<RoadmapShelfPlan> Unplanned(
         IReadOnlyList<ImportedPlanDto> imported,
         RoadmapPlanDto plan)
     {
-        var planned = plan.Items
-            .Where(item => !string.IsNullOrWhiteSpace(item.Tag))
-            .Select(item => RoadmapTagSlug.From(item.Tag))
-            .ToHashSet(StringComparer.Ordinal);
-
         return
         [
-            .. imported
-                .Where(candidate => !planned.Contains(RoadmapTagSlug.From(candidate.Tag)))
+            .. RoadmapShelf.Unplanned(imported, plan)
                 .Select(candidate => new RoadmapShelfPlan(
                     candidate.Tag,
                     candidate.RepositoryAliases,
@@ -592,13 +586,7 @@
     /// <summary>The item's title, read off its tag — the only name a tasks-first plan
     /// has. <c>release-q4</c> becomes <c>Release q4</c>; the editor is where a person
     /// gives it a better one.</summary>
-    internal static string TitleOf(string tag)
-    {
-        var words = tag.Replace('-', ' ').Replace('_', ' ').Trim();
-        return words.Length == 0
-            ? tag
-            : char.ToUpper(words[0], CultureInfo.InvariantCulture) + words[1..];
-    }
+    internal static string TitleOf(string tag) => RoadmapShelf.TitleOf(tag);
 
     /// <summary>
     /// Moves colours chosen before the choice lived in Settings onto the repositories

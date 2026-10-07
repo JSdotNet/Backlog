@@ -89,6 +89,7 @@ public sealed class ShellNavigationStore
         LastEnabledPanes = dto?.LastEnabledPanes ?? Empty;
         RoadmapHoursShown = dto?.RoadmapHoursShown ?? true;
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
+        CalendarPlansShown = dto?.CalendarPlansShown ?? true;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -118,6 +119,10 @@ public sealed class ShellNavigationStore
     /// <summary>The roadmap bands, by group id, the reader folded to one lane on this
     /// device. Empty until one is folded.</summary>
     public IReadOnlyList<string> RoadmapCollapsedGroups { get; private set; }
+
+    /// <summary>Whether the Tasks Calendar draws the roadmap's plans — its "Show plans"
+    /// box: on until the reader turns it off on this device.</summary>
+    public bool CalendarPlansShown { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
@@ -183,6 +188,14 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetCalendarPlansShown(bool shown)
+    {
+        if (shown == CalendarPlansShown) return;
+
+        CalendarPlansShown = shown;
+        Save();
+    }
+
     private void Save()
     {
         try
@@ -195,7 +208,9 @@ public sealed class ShellNavigationStore
                 // Left out while on, so a file from before the switch keeps its shape.
                 RoadmapHoursShown = RoadmapHoursShown ? null : false,
                 // Likewise left out while no band is folded.
-                RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups]
+                RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups],
+                // Left out while on, as the Hours switch is.
+                CalendarPlansShown = CalendarPlansShown ? null : false
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -240,5 +255,8 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RoadmapCollapsedGroups { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? CalendarPlansShown { get; init; }
     }
 }

@@ -1,6 +1,8 @@
 using System.Globalization;
 using Backlog.UI.Components.Tasks;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Bunit;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -186,5 +188,185 @@ public sealed class TasksPaneCalendarTests
 
         Assert.Contains("repo-mark--1", pane.Find($"[data-testid='{ChipTestId(dated)}']").ClassName);
         Assert.Contains("repo-mark--1", pane.Find($"[data-testid='{TrayTestId(undated)}']").ClassName);
+    }
+
+    // --- The roadmap's plans --------------------------------------------------
+
+    private static readonly Guid PlanId = Guid.Parse("6fc104a3-c9cb-47c7-96a8-64cf629121f7");
+
+    private static readonly Guid StartedId = Guid.Parse("5122f5d7-743a-4deb-a9c3-77cbf0cac5b8");
+
+    private static string PlanTestId => $"task-calendar-plan-{PlanId:N}";
+
+    [Fact]
+    public async Task Without_a_roadmap_the_calendar_offers_no_plans()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        var pane = RenderCalendar(host);
+
+        Assert.Empty(pane.FindAll("[data-testid='task-calendar-show-plans']"));
+        Assert.DoesNotContain("Plans without a window", pane.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_plans_windows_milestones_and_shelf_are_drawn_from_the_port()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var plans = new FakeCalendarPlans(Today);
+        host.Context.Services.AddSingleton<ICalendarPlans>(plans);
+
+        var pane = RenderCalendar(host);
+
+        pane.WaitForAssertion(() =>
+        {
+            var bar = pane.FindAll($"[data-testid='{PlanTestId}']")[0];
+            Assert.Equal("Calendar plans · +task-views · 3 of 8 pts", bar.GetAttribute("title"));
+            Assert.Contains("task-calendar__plan--neutral", bar.ClassName);
+            Assert.NotNull(pane.Find($"[data-calendar-day='{Iso(Today)}']").QuerySelector(".task-calendar__milestone"));
+            Assert.Equal("release-q4", pane.Find("[data-testid='task-calendar-shelf-release-q4']").GetAttribute("data-calendar-plan"));
+        });
+        Assert.Equal(1, plans.Reads);
+    }
+
+    /// <summary>The plans are read on arriving at the Calendar and whenever the port says
+    /// they changed — the plan, its work or the pace — not on every render.</summary>
+    [Fact]
+    public async Task The_plans_are_read_again_on_returning_to_the_calendar_and_on_a_change()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var plans = new FakeCalendarPlans(Today);
+        host.Context.Services.AddSingleton<ICalendarPlans>(plans);
+
+        var pane = RenderCalendar(host);
+        pane.WaitForAssertion(() => Assert.Equal(1, plans.Reads));
+        pane.Render();
+        Assert.Equal(1, plans.Reads);
+
+        pane.Render(parameters => parameters.Add(p => p.Layout, TasksLayout.List));
+        pane.Render(parameters => parameters.Add(p => p.Layout, TasksLayout.Calendar));
+        pane.WaitForAssertion(() => Assert.Equal(2, plans.Reads));
+
+        plans.RaiseChanged();
+        pane.WaitForAssertion(() => Assert.Equal(3, plans.Reads));
+    }
+
+    [Fact]
+    public async Task A_bar_wears_its_repository_colour_only_while_the_colours_are_showing()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        host.Context.Services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(Today));
+
+        var pane = RenderCalendar(host);
+        pane.WaitForAssertion(() => Assert.Contains("task-calendar__plan--neutral", pane.FindAll($"[data-testid='{PlanTestId}']")[0].ClassName));
+
+        Assert.Null(host.GitHub.Settings.SetShowRepositoryColours(true));
+        pane.Render();
+
+        Assert.Contains("task-calendar__plan--band-1", pane.FindAll($"[data-testid='{PlanTestId}']")[0].ClassName);
+    }
+
+    [Fact]
+    public async Task Unticking_show_plans_is_remembered_through_the_port_and_hides_the_plans()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var plans = new FakeCalendarPlans(Today);
+        host.Context.Services.AddSingleton<ICalendarPlans>(plans);
+
+        var pane = RenderCalendar(host);
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll($"[data-testid='{PlanTestId}']")));
+        Assert.True(pane.Find("[data-testid='task-calendar-show-plans'] input").HasAttribute("checked"));
+
+        pane.Find("[data-testid='task-calendar-show-plans'] input").Change(false);
+
+        Assert.False(plans.Shown);
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll($"[data-testid='{PlanTestId}']")));
+    }
+
+    /// <summary>The shelf drop: the pane hands the tag and the day to the port — whose
+    /// adapter has the roadmap's own import place the window — and draws what it reads
+    /// back.</summary>
+    [Fact]
+    public async Task Dropping_a_shelf_plan_on_a_day_starts_its_window_there_through_the_port()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var plans = new FakeCalendarPlans(Today);
+        host.Context.Services.AddSingleton<ICalendarPlans>(plans);
+        var day = Today.Day <= 15 ? Today.AddDays(3) : Today.AddDays(-3);
+
+        var pane = RenderCalendar(host);
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='task-calendar-shelf-release-q4']")));
+        var calendar = pane.FindComponent<TaskCalendar>();
+
+        await calendar.InvokeAsync(() => calendar.Instance.DropPlanOnDay("release-q4", Iso(day)));
+
+        Assert.Equal([("release-q4", day)], plans.Started);
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='task-calendar-shelf-release-q4']"));
+            Assert.NotEmpty(pane.FindAll($"[data-testid='task-calendar-plan-{StartedId:N}']"));
+        });
+        Assert.Empty(host.Toasts.Visible);
+    }
+
+    [Fact]
+    public async Task A_refused_shelf_drop_is_said_in_a_toast_and_the_plan_stays_on_the_shelf()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var plans = new FakeCalendarPlans(Today) { Refusal = "a cycle" };
+        host.Context.Services.AddSingleton<ICalendarPlans>(plans);
+
+        var pane = RenderCalendar(host);
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='task-calendar-shelf-release-q4']")));
+        var calendar = pane.FindComponent<TaskCalendar>();
+
+        await calendar.InvokeAsync(() => calendar.Instance.DropPlanOnDay("release-q4", Iso(Today)));
+
+        Assert.Contains(host.Toasts.Visible, toast => toast.Message.Contains("+release-q4 could not be planned: a cycle", StringComparison.Ordinal));
+        Assert.NotEmpty(pane.FindAll("[data-testid='task-calendar-shelf-release-q4']"));
+    }
+
+    /// <summary>A roadmap with one plan through today, a milestone today, and one plan on
+    /// the shelf that a start moves onto the plan.</summary>
+    private sealed class FakeCalendarPlans(DateOnly today) : ICalendarPlans
+    {
+        private bool _started;
+
+        public event Action? Changed;
+
+        public bool Shown { get; private set; } = true;
+
+        public int Reads { get; private set; }
+
+        public string? Refusal { get; init; }
+
+        public List<(string Tag, DateOnly Start)> Started { get; } = [];
+
+        public void SetShown(bool shown) => Shown = shown;
+
+        public void RaiseChanged() => Changed?.Invoke();
+
+        public Task<CalendarPlansDto> ReadAsync(DateOnly day, CancellationToken cancellationToken = default)
+        {
+            Reads++;
+            List<CalendarPlanWindowDto> windows =
+                [new(PlanId, "Calendar plans", "task-views", today.AddDays(-1), today.AddDays(1), ["backlog"], 3, 8)];
+            List<CalendarShelfPlanDto> shelf = [];
+
+            if (_started) windows.Add(new(StartedId, "Release q4", "release-q4", Started[0].Start, Started[0].Start, [], 0, 5));
+            else shelf.Add(new("release-q4", "Release q4", [], 3, 5, 0));
+
+            return Task.FromResult(new CalendarPlansDto(windows, [new(Guid.NewGuid(), "Release", today)], shelf));
+        }
+
+        public Task<string?> StartAsync(string tag, DateOnly start, CancellationToken cancellationToken = default)
+        {
+            Started.Add((tag, start));
+            if (Refusal is not null) return Task.FromResult<string?>(Refusal);
+
+            _started = true;
+            Changed?.Invoke();
+            return Task.FromResult<string?>(null);
+        }
     }
 }
