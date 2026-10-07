@@ -5033,6 +5033,164 @@ button.task-panel__check:focus-visible {
     display: none;
 }
 
+/* --- Task card ----------------------------------------------------------- */
+/*
+   One task on a board: the row's facts, stacked. See TaskCard.razor for what it
+   states and in what order. The surface and edge are the row's, raised one step
+   so a card reads as a thing sitting in its column rather than a stripe across it.
+*/
+.task-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.task-card--opens {
+    cursor: pointer;
+}
+
+.task-card:hover {
+    border-color: var(--color-border);
+}
+
+/* The card is one control, so its focus is the card's edge — a border rather than
+   a shadow, so High Contrast keeps it, and so it never fights the identity edge,
+   which is an inset shadow. */
+.task-card:focus-visible {
+    border-color: var(--color-border-focus);
+    outline: var(--border-width) solid var(--color-border-focus);
+    outline-offset: 0;
+}
+
+.task-card--selected {
+    border-color: var(--color-border-strong);
+    background: var(--color-background-raised);
+}
+
+/* Room for the identity edge, on the rule .task-item.repo-mark states: only this
+   surface knows what its leading padding was. */
+.task-card.repo-mark {
+    padding-left: calc(var(--spacing-md) + var(--border-width-4));
+}
+
+.task-card__top {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/* The top line's type, wrapping: four facts and a badge do not fit a column. */
+.task-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--spacing-md);
+    row-gap: var(--spacing-xs);
+    min-width: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.task-card__priority {
+    display: inline-flex;
+    color: var(--color-text-secondary);
+}
+
+.task-card__my-day {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+    color: var(--color-primary);
+}
+
+.task-card__title {
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.task-card--done .task-card__title {
+    color: var(--color-text-secondary);
+}
+
+/* The reason the card cannot start, on the error surface with the error ink —
+   the one pairing color-scheme.md sanctions for a bare error statement. */
+.task-card__waiting {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-error);
+    color: var(--color-error-text);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.task-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* The row's smaller tag, for the row's reason: one more fact under a title. */
+.task-card__tag {
+    font-size: var(--font-size-xs);
+    padding: 0 var(--spacing-xs);
+}
+
+.task-card__steps,
+.task-card__date {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.task-card__date--overdue {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-card__date--finished {
+    color: var(--color-success-text);
+}
+
+.task-card__badges {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex: 0 0 auto;
+}
+
+.task-card__badges:empty {
+    display: none;
+}
+
+/* On the far end of the line whatever else is on it. */
+.task-card__effort {
+    margin-left: auto;
+    font-family: var(--font-family-mono);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+}
+
+.task-card__effort--unset {
+    color: var(--color-text-secondary);
+}
+
 /* --- Task actions -------------------------------------------------------- */
 /*
    The rows in a task's detail pane. One shape for all of them, because "Remind
