@@ -196,27 +196,75 @@ public sealed class SpecManagerFetchTests
     }
 
     [Fact]
-    public async Task A_fetch_with_nobody_signed_in_throws_and_asks_nothing()
+    public async Task A_fetch_with_nobody_signed_in_fails_as_sign_in_required_and_asks_nothing()
     {
         using var scenario = new ConnectorScenario();
         scenario.Backlog();
 
-        var failure = await Assert.ThrowsAnyAsync<InvalidOperationException>(() =>
+        var failure = await Assert.ThrowsAsync<TaskConnectorFetchException>(() =>
             scenario.Connector.FetchAsync(StubSpecManager.Product, null, TestContext.Current.CancellationToken));
 
+        Assert.Equal(TaskConnectorFetchFailure.SignInRequired, failure.Kind);
         Assert.Contains("Not signed in to spec-manager", failure.Message, StringComparison.Ordinal);
         Assert.Empty(scenario.Server.To(BacklogPath));
     }
 
+    /// <summary>A target is the product's slug. The defect this answers: an
+    /// <c>owner/repository</c> typed under spec-manager came back as a 404 and read
+    /// as spec-manager being down. It says there is no such product, and where the
+    /// slug is found.</summary>
     [Fact]
-    public async Task A_backlog_the_server_refuses_fails_the_fetch()
+    public async Task A_product_spec_manager_does_not_have_says_to_use_the_slug_from_its_url()
+    {
+        using var scenario = new ConnectorScenario();
+        scenario.SignedIn();
+        scenario.Server.Route(HttpMethod.Get, BacklogPath, (_, _) => StubSpecManager.Respond(HttpStatusCode.NotFound, "{}"));
+
+        var failure = await Assert.ThrowsAsync<TaskConnectorFetchException>(() =>
+            scenario.Connector.FetchAsync(StubSpecManager.Product, null, TestContext.Current.CancellationToken));
+
+        Assert.Equal(TaskConnectorFetchFailure.NotFound, failure.Kind);
+        Assert.Contains($"no product named {StubSpecManager.Product}", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("slug", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("spec-manager URL", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_backlog_the_server_refuses_fails_the_fetch_as_no_access()
     {
         using var scenario = new ConnectorScenario();
         scenario.SignedIn();
         scenario.Server.Route(HttpMethod.Get, BacklogPath, (_, _) => StubSpecManager.Respond(HttpStatusCode.Forbidden, "{}"));
 
+        var failure = await Assert.ThrowsAsync<TaskConnectorFetchException>(() =>
+            scenario.Connector.FetchAsync(StubSpecManager.Product, null, TestContext.Current.CancellationToken));
+
+        Assert.Equal(TaskConnectorFetchFailure.NoAccess, failure.Kind);
+        Assert.Contains(StubSpecManager.Product, failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A server error is spec-manager not answering properly, which the sync
+    /// reports as not reached; it is left as it was thrown.</summary>
+    [Fact]
+    public async Task A_server_error_is_left_unclassified()
+    {
+        using var scenario = new ConnectorScenario();
+        scenario.SignedIn();
+        scenario.Server.Route(HttpMethod.Get, BacklogPath, (_, _) => StubSpecManager.Respond(HttpStatusCode.InternalServerError, "{}"));
+
         await Assert.ThrowsAsync<HttpRequestException>(() =>
             scenario.Connector.FetchAsync(StubSpecManager.Product, null, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public void Its_targets_are_products_typed_as_their_slug()
+    {
+        using var scenario = new ConnectorScenario();
+
+        Assert.Equal("Product", scenario.Connector.Descriptor.TargetLabel);
+        Assert.Equal("product-slug", scenario.Connector.Descriptor.TargetPlaceholder);
+        Assert.Contains("spec-manager URL", scenario.Connector.Descriptor.TargetHelp, StringComparison.Ordinal);
+        Assert.False(scenario.Connector.Capabilities.TargetIsRepository);
     }
 
     [Fact]
@@ -225,11 +273,75 @@ public sealed class SpecManagerFetchTests
         using var scenario = new ConnectorScenario();
         scenario.SignedIn();
 
-        await Assert.ThrowsAsync<HttpRequestException>(() =>
+        await Assert.ThrowsAsync<TaskConnectorFetchException>(() =>
             scenario.Connector.FetchAsync("a product/../x", null, TestContext.Current.CancellationToken));
 
         var request = Assert.Single(scenario.Server.Requests);
         Assert.Equal("/api/producten/a%20product%2F..%2Fx/backlog", request.Uri.AbsolutePath);
+    }
+
+    // --- The products to pick from ------------------------------------------------
+
+    private const string ProductsPath = "/api/producten";
+
+    /// <summary>The settings page picks a product rather than having its slug typed:
+    /// each one the account can see, stored as its slug and shown by its name. The
+    /// defect this answers: a product's name typed as its target 404s, because the
+    /// REST interface takes only the slug.</summary>
+    [Fact]
+    public async Task The_choices_are_the_products_the_account_can_see_stored_by_slug_and_named_by_name()
+    {
+        using var scenario = new ConnectorScenario();
+        scenario.SignedIn();
+        scenario.Server.Route(HttpMethod.Get, ProductsPath, (_, _) => StubSpecManager.Respond(HttpStatusCode.OK, """
+            [
+                { "id": "6f1c0e8e-0000-0000-0000-000000000001", "slug": "fincent", "naam": "Fincent", "repository": "x", "doelbranch": "main" },
+                { "id": "6f1c0e8e-0000-0000-0000-000000000002", "slug": "backlog-demo", "naam": "", "repository": "y", "doelbranch": "main" }
+            ]
+            """));
+
+        var choices = await scenario.Connector.ListTargetChoicesAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [new ConnectorTargetChoice("fincent", "Fincent"), new ConnectorTargetChoice("backlog-demo", "backlog-demo")],
+            choices.Choices);
+        Assert.Null(choices.CannotList);
+        Assert.Equal("sma_current", Assert.Single(scenario.Server.To(ProductsPath)).Bearer);
+    }
+
+    /// <summary>The app signs in with an agent token, which spec-manager does not
+    /// yet accept on the product list. A refusal is a list that could not be had,
+    /// said in a sentence that points at typing the slug instead, never a throw
+    /// into the page.</summary>
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task A_product_list_spec_manager_refuses_is_reported_as_cannot_list(HttpStatusCode status)
+    {
+        using var scenario = new ConnectorScenario();
+        scenario.SignedIn();
+        scenario.Server.Route(HttpMethod.Get, ProductsPath, (_, _) => StubSpecManager.Respond(status, "{}"));
+        scenario.Server.Json(HttpMethod.Post, "/oauth/token", "token.json", HttpStatusCode.BadRequest);
+
+        var choices = await scenario.Connector.ListTargetChoicesAsync(TestContext.Current.CancellationToken);
+
+        Assert.Empty(choices.Choices);
+        Assert.Contains("slug", choices.CannotList, StringComparison.Ordinal);
+        Assert.Contains("spec-manager URL", choices.CannotList, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task With_nobody_signed_in_the_products_cannot_be_listed_and_nothing_is_asked()
+    {
+        using var scenario = new ConnectorScenario();
+
+        var choices = await scenario.Connector.ListTargetChoicesAsync(TestContext.Current.CancellationToken);
+
+        Assert.Empty(choices.Choices);
+        Assert.Contains("Sign in", choices.CannotList, StringComparison.Ordinal);
+        Assert.Empty(scenario.Server.To(ProductsPath));
     }
 
     private static int Number(SourceItem item) =>

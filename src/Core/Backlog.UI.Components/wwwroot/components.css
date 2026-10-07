@@ -1216,6 +1216,11 @@ button.badge:hover {
     color: var(--color-text-secondary);
 }
 
+.connected-target__error,
+.connected-target__sync-message {
+    margin: var(--spacing-xs) 0 0;
+}
+
 .connected-target__options {
     display: grid;
     gap: var(--spacing-sm);

@@ -41,6 +41,24 @@ public interface ITaskConnector
         Task.FromResult<IReadOnlyList<string>>([]);
 
     /// <summary>
+    /// What the settings page offers to pick a target from: each target in the
+    /// spelling a <see cref="ConnectedTarget.Target"/> stores, with the name a person
+    /// knows it by — a spec-manager product's name over its slug. When the list
+    /// cannot be had, the answer says why in a sentence, and the page falls back to
+    /// typing the target.
+    /// <para>
+    /// Never throws for a refusal or an absent sign-in: those are answers. A default
+    /// body, offering <see cref="ListTargetsAsync"/>'s targets each named as itself,
+    /// so a connector whose targets need no name of their own says nothing more.
+    /// </para>
+    /// </summary>
+    async Task<ConnectorTargetChoices> ListTargetChoicesAsync(CancellationToken cancellationToken)
+    {
+        var targets = await ListTargetsAsync(cancellationToken).ConfigureAwait(false);
+        return new ConnectorTargetChoices([.. targets.Select(target => new ConnectorTargetChoice(target, target))]);
+    }
+
+    /// <summary>
     /// Every open item of <paramref name="target"/>, plus every item closed since
     /// <paramref name="since"/>, each normalised to a <see cref="SourceItem"/>.
     /// <para>
@@ -53,6 +71,12 @@ public interface ITaskConnector
     /// A failure throws. The sync then writes nothing — in particular it archives
     /// nothing as vanished, because an empty answer from a source that could not be
     /// reached is not an empty source.
+    /// </para>
+    /// <para>
+    /// A failure the connector recognises — the target is not there, the account
+    /// may not read it, nobody is signed in — throws
+    /// <see cref="TaskConnectorFetchException"/> with a sentence the person can act
+    /// on. Anything else is reported as the source not being reached.
     /// </para>
     /// </summary>
     Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken);
@@ -78,6 +102,28 @@ public interface ITaskConnector
         Task.FromResult<string?>("This source cannot complete items.");
 }
 
+/// <summary>One target a person may pick on the settings page.</summary>
+/// <param name="Target">What is stored and fetched — a repository's
+/// <c>owner/name</c>, a product's slug.</param>
+/// <param name="Name">What the person reads in the list.</param>
+public sealed record ConnectorTargetChoice(string Target, string Name);
+
+/// <summary>
+/// The targets a connector offers to pick from, or why it could not list them.
+/// </summary>
+/// <param name="Choices">The targets, in the order the connector gives them; empty
+/// when there are none or they could not be listed.</param>
+/// <param name="CannotList">Why the targets could not be listed, in a sentence for
+/// the person that says what to do instead, or null when nothing went wrong.</param>
+public sealed record ConnectorTargetChoices(IReadOnlyList<ConnectorTargetChoice> Choices, string? CannotList = null)
+{
+    /// <summary>No choices, and nothing went wrong.</summary>
+    public static ConnectorTargetChoices None { get; } = new([]);
+
+    /// <summary>No choices, for the reason given.</summary>
+    public static ConnectorTargetChoices Unavailable(string reason) => new([], reason);
+}
+
 /// <summary>
 /// How a connector presents itself.
 /// </summary>
@@ -86,7 +132,25 @@ public interface ITaskConnector
 /// <param name="DisplayName">What a person reads, such as <c>GitHub</c>.</param>
 /// <param name="Icon">The icon name the badge is drawn with.</param>
 /// <param name="ColorToken">The design token the badge is coloured with.</param>
-public sealed record TaskConnectorDescriptor(string Id, string DisplayName, string Icon, string ColorToken);
+public sealed record TaskConnectorDescriptor(string Id, string DisplayName, string Icon, string ColorToken)
+{
+    /// <summary>The <see cref="TargetLabel"/> a connector that names none gets:
+    /// neutral, because it does not know which the source connects.</summary>
+    public const string DefaultTargetLabel = "Repository or product";
+
+    /// <summary>What the settings page calls one of this source's targets — a
+    /// repository, a product — on the field it is typed into.</summary>
+    public string TargetLabel { get; init; } = DefaultTargetLabel;
+
+    /// <summary>How a target is spelled, shown in the empty field: <c>owner/repository</c>
+    /// for GitHub, a product slug for spec-manager. Null shows nothing, rather than
+    /// one source's spelling under another's name.</summary>
+    public string? TargetPlaceholder { get; init; }
+
+    /// <summary>A line under the field saying where the target's spelling is found,
+    /// or null for none.</summary>
+    public string? TargetHelp { get; init; }
+}
 
 /// <summary>
 /// What a source can do, read by the sync and the screens rather than assumed.
@@ -99,12 +163,17 @@ public sealed record TaskConnectorDescriptor(string Id, string DisplayName, stri
 /// <param name="CanComplete">The source can finish an item through
 /// <see cref="ITaskConnector.CompleteAsync"/>, so the settings page offers
 /// "Complete at the source" for its targets.</param>
+/// <param name="TargetIsRepository">A target is a code repository, spelled
+/// <c>owner/name</c>, so the sync files each of its linked tasks under that
+/// repository — the one thing the sync learns from a target's name. Off for a
+/// source whose targets are anything else, such as a product.</param>
 public sealed record TaskConnectorCapabilities(
     bool HasEffort = false,
     bool HasDependencies = false,
     bool CanSetStatus = false,
     bool CanComment = false,
-    bool CanComplete = false);
+    bool CanComplete = false,
+    bool TargetIsRepository = false);
 
 /// <summary>
 /// The four states every source's statuses are normalised to. One map turns each

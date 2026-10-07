@@ -241,6 +241,12 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
 
         public DateTimeOffset? IgnoreUntouchedBefore { get; init; }
 
+        /// <summary>Null when the key is missing, so a file written before failures
+        /// were kept reads as a target whose last sync did not fail.</summary>
+        public string? LastSyncError { get; init; }
+
+        public DateTimeOffset? LastSyncFailedAt { get; init; }
+
         public static ConnectedTargetDto From(ConnectedTarget target) => new()
         {
             ConnectorId = target.ConnectorId,
@@ -253,6 +259,8 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
             CompleteAtSource = target.CompleteAtSource,
             LastSyncedAt = target.LastSyncedAt,
             IgnoreUntouchedBefore = target.IgnoreUntouchedBefore,
+            LastSyncError = target.LastSyncError,
+            LastSyncFailedAt = target.LastSyncFailedAt,
         };
 
         /// <summary>The target a line describes, or null when it names none. An
@@ -270,6 +278,8 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
                     CompleteAtSource = CompleteAtSource,
                     LastSyncedAt = LastSyncedAt,
                     IgnoreUntouchedBefore = IgnoreUntouchedBefore,
+                    LastSyncError = string.IsNullOrWhiteSpace(LastSyncError) ? null : LastSyncError,
+                    LastSyncFailedAt = LastSyncFailedAt,
                 };
     }
 }

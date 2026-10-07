@@ -61,6 +61,28 @@ internal sealed class SpecManagerClient
         return answer?.Items ?? [];
     }
 
+    /// <summary>
+    /// The products the signed-in account is a member of — <c>GET /api/producten</c>.
+    /// <para>
+    /// Asked once, with no refresh-and-retry on a 401, unlike every other read:
+    /// spec-manager does not yet accept the app's agent token on this path, so a
+    /// 401 here is the expected answer and not a token that expired early, and
+    /// refreshing on it would rotate the person's tokens every time the settings
+    /// open. A refusal throws <see cref="HttpRequestException"/> with its status;
+    /// nobody signed in throws <see cref="SpecManagerSignInRequiredException"/>.
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyList<ProductDto>> GetProductsAsync(CancellationToken cancellationToken)
+    {
+        var token = await _signIn.GetAccessTokenAsync(cancellationToken).ConfigureAwait(false)
+            ?? throw new SpecManagerSignInRequiredException();
+
+        using var response = await SendOnceAsync(HttpMethod.Get, "/api/producten", body: null, token, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<IReadOnlyList<ProductDto>>(SpecManagerJson.Options, cancellationToken).ConfigureAwait(false)
+            ?? [];
+    }
+
     public async Task<IReadOnlyList<BacklogstatusDto>> GetStatusesAsync(string product, CancellationToken cancellationToken)
     {
         var answer = await GetAsync<StatusesResponse>(ProductPath(product, "backlogstatussen"), cancellationToken).ConfigureAwait(false);

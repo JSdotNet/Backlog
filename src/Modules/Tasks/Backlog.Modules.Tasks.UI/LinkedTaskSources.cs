@@ -76,6 +76,32 @@ public sealed class LinkedTaskSources
         };
     }
 
+    /// <summary>
+    /// The targets the installed connector by <paramref name="connectorId"/> offers
+    /// to pick from on the settings page. A connector this build does not have
+    /// offers none.
+    /// <para>
+    /// Never throws but for cancellation: a connector that fails while listing is
+    /// answered as one that could not list, so the page falls back to typing the
+    /// target rather than breaking.
+    /// </para>
+    /// </summary>
+    public async Task<ConnectorTargetChoices> ListChoicesAsync(string? connectorId, CancellationToken cancellationToken)
+    {
+        var connector = _connectors.FirstOrDefault(candidate => string.Equals(candidate.Descriptor.Id, connectorId, StringComparison.Ordinal));
+        if (connector is null) return ConnectorTargetChoices.None;
+
+        try
+        {
+            return await connector.ListTargetChoicesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            return ConnectorTargetChoices.Unavailable(
+                $"{connector.Descriptor.DisplayName} could not list what there is to connect. Type it instead.");
+        }
+    }
+
     /// <summary>Whether the installed connector by <paramref name="connectorId"/> can
     /// finish an item at its source, so the settings page offers "Complete at the
     /// source" for its targets. False for a connector this build does not

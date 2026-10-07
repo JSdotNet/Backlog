@@ -86,21 +86,63 @@ public sealed class GitHubConnector : ITaskConnector
         _projections = projections;
     }
 
-    public TaskConnectorDescriptor Descriptor { get; } = new(ConnectorId, "GitHub", "github", "--color-text-primary");
+    /// <summary>A target is a repository, typed the way Settings lists it.</summary>
+    public TaskConnectorDescriptor Descriptor { get; } = new(ConnectorId, "GitHub", "github", "--color-text-primary")
+    {
+        TargetLabel = "Repository",
+        TargetPlaceholder = "owner/repository",
+    };
 
     /// <summary>Effort, from a points label, and completing an issue by closing it.
-    /// GitHub issues name no dependencies this connector reads.</summary>
-    public TaskConnectorCapabilities Capabilities { get; } = new(HasEffort: true, CanComplete: true);
+    /// GitHub issues name no dependencies this connector reads. A target is a
+    /// repository, so its tasks are filed under it.</summary>
+    public TaskConnectorCapabilities Capabilities { get; } = new(HasEffort: true, CanComplete: true, TargetIsRepository: true);
 
     /// <summary>The configured repositories, in the order they were configured.</summary>
     public Task<IReadOnlyList<string>> ListTargetsAsync(CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<string>>([.. _settings().Repositories.Select(repository => repository.FullName)]);
 
+    /// <summary>The configured repositories to pick from, each named by its
+    /// <c>owner/name</c>. With none configured, the answer says where one is added:
+    /// a repository typed here that Settings does not configure has no account to
+    /// be reached as, and would fail its first sync.</summary>
+    public async Task<ConnectorTargetChoices> ListTargetChoicesAsync(CancellationToken cancellationToken)
+    {
+        var targets = await ListTargetsAsync(cancellationToken).ConfigureAwait(false);
+
+        return targets.Count == 0
+            ? ConnectorTargetChoices.Unavailable("No repository is configured in Settings → GitHub yet. Add one there, then pick it here.")
+            : new ConnectorTargetChoices([.. targets.Select(target => new ConnectorTargetChoice(target, target))]);
+    }
+
+    /// <summary>
+    /// The repository's open issues, and those closed since the last sync.
+    /// <para>
+    /// A refusal is said as what it means for the person, through
+    /// <see cref="TaskConnectorFetchException"/>: a repository Settings does not
+    /// configure, nobody to sign in as, and a repository the account it is worked as
+    /// cannot see — issue search answers that with a 422 rather than a 404, so a
+    /// private repository bound to the wrong account read as GitHub being down. A
+    /// failure with no status is the network, and is left as it was thrown.
+    /// </para>
+    /// </summary>
     public async Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken)
     {
         var repository = RepositoryFor(target);
 
-        var read = await _client.SearchIssuesAsync(repository, since - ClosedQueryOverlap, cancellationToken).ConfigureAwait(false);
+        GitHubIssueSearchRead read;
+        try
+        {
+            read = await _client.SearchIssuesAsync(repository, since - ClosedQueryOverlap, cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitHubNotConfiguredException ex)
+        {
+            throw new TaskConnectorFetchException(TaskConnectorFetchFailure.SignInRequired, ex.Message, ex);
+        }
+        catch (GitHubException ex) when (Classify(ex, repository) is { } recognised)
+        {
+            throw recognised;
+        }
 
         // A partial answer would read as every issue past the cut having vanished,
         // and the sync would archive their tasks. Failing writes nothing.
@@ -193,9 +235,35 @@ public sealed class GitHubConnector : ITaskConnector
         ArgumentException.ThrowIfNullOrWhiteSpace(target);
 
         return ConfiguredRepository(target)
-            ?? throw new GitHubNotConfiguredException(
-                $"{target} is not one of the repositories configured in Settings, so its issues cannot be synced.");
+            ?? throw new TaskConnectorFetchException(
+                TaskConnectorFetchFailure.NotConfigured,
+                $"{target} is not one of the repositories configured in Settings → GitHub, so its issues cannot be synced. Add it there first.");
     }
+
+    /// <summary>
+    /// What a status GitHub refused the search with means for the person, or null
+    /// for one this connector has no reading of. A 404, or the 422 search answers
+    /// for a repository it will not search, is a repository the account cannot see
+    /// or that does not exist — GitHub does not say which, so neither does this. A
+    /// 403 is an account that may not read it, and a 401 a sign-in GitHub no longer
+    /// honours.
+    /// </summary>
+    private static TaskConnectorFetchException? Classify(GitHubException failure, GitHubRepositoryRef repository) => failure.Status switch
+    {
+        System.Net.HttpStatusCode.NotFound or System.Net.HttpStatusCode.UnprocessableEntity => new(
+            TaskConnectorFetchFailure.NotFound,
+            $"GitHub cannot find {repository.FullName}: it does not exist, or the account this repository is worked as cannot see it. Pick the account in Settings → GitHub.",
+            failure),
+        System.Net.HttpStatusCode.Forbidden => new(
+            TaskConnectorFetchFailure.NoAccess,
+            $"The account {repository.FullName} is worked as may not read its issues. Pick the account in Settings → GitHub.",
+            failure),
+        System.Net.HttpStatusCode.Unauthorized => new(
+            TaskConnectorFetchFailure.SignInRequired,
+            $"GitHub no longer accepts the sign-in {repository.FullName} is worked as. Sign in again in Settings → GitHub.",
+            failure),
+        _ => null,
+    };
 
     /// <summary>The configured repository a target names, compared without regard to
     /// case, or null.</summary>

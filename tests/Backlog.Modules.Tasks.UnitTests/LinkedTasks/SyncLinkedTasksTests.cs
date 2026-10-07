@@ -1,5 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.Modules.Tasks.Services;
@@ -911,9 +912,170 @@ public sealed class SyncLinkedTasksTests
 
         Assert.True(result.IsFailure);
         Assert.Equal("linked_tasks.fetch_failed", result.Error.Code);
+        Assert.Equal($"Stub could not be reached for {Repo}.", result.Error.Message);
         Assert.Equal(writes, _tasks.Writes);
         Assert.Equal(EntryStatus.Ready, Assert.Single(_tasks.Entries.Values).Status);
-        Assert.Equal(target, _targets.Get(StubTaskConnector.Id, Repo));
+        Assert.Equal(target!.LastSyncedAt, _targets.Get(StubTaskConnector.Id, Repo)!.LastSyncedAt);
+    }
+
+    /// <summary>A failure the connector recognised reaches the person in the
+    /// connector's own words, under a code of its kind, rather than as the source
+    /// not being reached — a repository nobody can see is not a network that is
+    /// down.</summary>
+    [Theory]
+    [InlineData(TaskConnectorFetchFailure.NotFound, "linked_tasks.fetch_not_found")]
+    [InlineData(TaskConnectorFetchFailure.NoAccess, "linked_tasks.fetch_no_access")]
+    [InlineData(TaskConnectorFetchFailure.NotConfigured, "linked_tasks.fetch_not_configured")]
+    [InlineData(TaskConnectorFetchFailure.SignInRequired, "linked_tasks.fetch_sign_in_required")]
+    public async Task A_fetch_failure_the_connector_recognised_says_what_it_was_in_the_connectors_words(
+        TaskConnectorFetchFailure kind, string code)
+    {
+        _connector.Failure = new TaskConnectorFetchException(kind, "The connector's own sentence.");
+
+        var result = await Handler().Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(code, result.Error.Code);
+        Assert.Equal("The connector's own sentence.", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task A_source_that_did_not_answer_is_reported_as_not_reached()
+    {
+        _connector.Failure = new TaskConnectorFetchException(TaskConnectorFetchFailure.Unreachable, "timed out");
+
+        var result = await Handler().Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
+
+        Assert.Equal("linked_tasks.fetch_failed", result.Error.Code);
+        Assert.Equal($"Stub could not be reached for {Repo}.", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task A_recognised_fetch_failure_writes_nothing_and_archives_nothing()
+    {
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+        var writes = _tasks.Writes;
+        _connector.Items.Clear();
+
+        _connector.Failure = new TaskConnectorFetchException(TaskConnectorFetchFailure.NotFound, "Gone.");
+        await Handler().Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
+
+        Assert.Equal(writes, _tasks.Writes);
+        Assert.Equal(EntryStatus.Ready, Assert.Single(_tasks.Entries.Values).Status);
+    }
+
+    /// <summary>The failure is kept on the target, so its card can say why it is not
+    /// syncing — without moving where the next fetch asks from, or the first-sync
+    /// cut-off, which are the last success's.</summary>
+    [Fact]
+    public async Task A_failed_sync_is_recorded_on_the_target_without_moving_its_progress()
+    {
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo) { SkipUntouchedOlderThan = TimeSpan.FromDays(30) });
+        await SyncAsync();
+        var before = _targets.Get(StubTaskConnector.Id, Repo)!;
+
+        _time.Now = Now.AddMinutes(20);
+        _connector.Failure = new TaskConnectorFetchException(TaskConnectorFetchFailure.NoAccess, "Nobody here may read it.");
+        await Handler().Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
+
+        var after = _targets.Get(StubTaskConnector.Id, Repo)!;
+        Assert.Equal("Nobody here may read it.", after.LastSyncError);
+        Assert.Equal(Now.AddMinutes(20), after.LastSyncFailedAt);
+        Assert.Equal(before.LastSyncedAt, after.LastSyncedAt);
+        Assert.Equal(before.IgnoreUntouchedBefore, after.IgnoreUntouchedBefore);
+    }
+
+    [Fact]
+    public async Task A_sync_that_succeeds_after_a_failure_clears_it()
+    {
+        _connector.Failure = new HttpRequestException("offline");
+        await Handler().Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
+        Assert.NotNull(_targets.Get(StubTaskConnector.Id, Repo)!.LastSyncError);
+
+        _connector.Failure = null;
+        await SyncAsync();
+
+        var target = _targets.Get(StubTaskConnector.Id, Repo)!;
+        Assert.Null(target.LastSyncError);
+        Assert.Null(target.LastSyncFailedAt);
+        Assert.Equal(Now, target.LastSyncedAt);
+    }
+
+    // --- The repository a linked task is filed under ---------------------------------
+
+    /// <summary>A source whose targets are repositories files each new task under its
+    /// repository, spelled the way the registry spells it, so the row does not read
+    /// "No repo".</summary>
+    [Fact]
+    public async Task A_task_from_a_repository_is_filed_under_that_repository_as_the_registry_spells_it()
+    {
+        _connector.Capabilities = new(TargetIsRepository: true);
+        var targets = new InMemoryConnectedTargets(new ConnectedTarget(StubTaskConnector.Id, "jsdotnet/backlog"));
+        var registry = new FakeRepositoryDirectory([new TasksRepositoryRef("backlog", "JSdotNet", "Backlog")]);
+        _connector.Items.Add(Item("I_1"));
+
+        await Handler(targets: targets, repositories: registry)
+            .Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, "jsdotnet/backlog"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(["JSdotNet/Backlog"], Assert.Single(_tasks.Entries.Values).RepoIds);
+    }
+
+    [Fact]
+    public async Task A_repository_the_registry_does_not_know_is_filed_as_the_target_names_it()
+    {
+        _connector.Capabilities = new(TargetIsRepository: true);
+        _connector.Items.Add(Item("I_1"));
+
+        await SyncAsync(repositories: new FakeRepositoryDirectory());
+
+        Assert.Equal([Repo], Assert.Single(_tasks.Entries.Values).RepoIds);
+    }
+
+    [Fact]
+    public async Task A_linked_task_with_no_repository_is_filed_under_its_targets_once()
+    {
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+        Assert.Empty(Assert.Single(_tasks.Entries.Values).RepoIds);
+        var writes = _tasks.Writes;
+
+        _connector.Capabilities = new(TargetIsRepository: true);
+        var summary = await SyncAsync();
+
+        Assert.Equal(1, summary.Updated);
+        Assert.Equal(writes + 1, _tasks.Writes);
+        Assert.Equal([Repo], Assert.Single(_tasks.Entries.Values).RepoIds);
+    }
+
+    /// <summary>A repository list the task already has — the person's, or an
+    /// earlier sync's — is never overwritten, and a sync with nothing else to say
+    /// stays quiet.</summary>
+    [Fact]
+    public async Task A_linked_task_already_filed_under_a_repository_keeps_it_and_stays_quiet()
+    {
+        _connector.Capabilities = new(TargetIsRepository: true);
+        _connector.Items.Add(Item("I_1"));
+        await SyncAsync();
+        var task = Assert.Single(_tasks.Entries.Values);
+        task.SetRepoIds(["someone/elsewhere"]);
+        var writes = _tasks.Writes;
+
+        var summary = await SyncAsync();
+
+        Assert.Equal(1, summary.Unchanged);
+        Assert.Equal(writes, _tasks.Writes);
+        Assert.Equal(["someone/elsewhere"], task.RepoIds);
+    }
+
+    [Fact]
+    public async Task A_task_from_a_source_whose_targets_are_not_repositories_is_filed_under_none()
+    {
+        _connector.Items.Add(Item("I_1"));
+
+        await SyncAsync(repositories: new FakeRepositoryDirectory([new TasksRepositoryRef("backlog", "JSdotNet", "Backlog")]));
+
+        Assert.Empty(Assert.Single(_tasks.Entries.Values).RepoIds);
     }
 
     [Fact]
@@ -1251,12 +1413,18 @@ public sealed class SyncLinkedTasksTests
 
     // --- Helpers -------------------------------------------------------------------
 
-    private SyncLinkedTasksCommandHandler Handler(InMemoryTaskRepository? tasks = null, InMemoryConnectedTargets? targets = null) =>
-        new([_connector], tasks ?? _tasks, targets ?? _targets, _time);
+    private SyncLinkedTasksCommandHandler Handler(
+        InMemoryTaskRepository? tasks = null,
+        InMemoryConnectedTargets? targets = null,
+        FakeRepositoryDirectory? repositories = null) =>
+        new([_connector], tasks ?? _tasks, targets ?? _targets, _time, repositories);
 
-    private async Task<LinkedTaskSyncSummary> SyncAsync(InMemoryTaskRepository? tasks = null, InMemoryConnectedTargets? targets = null)
+    private async Task<LinkedTaskSyncSummary> SyncAsync(
+        InMemoryTaskRepository? tasks = null,
+        InMemoryConnectedTargets? targets = null,
+        FakeRepositoryDirectory? repositories = null)
     {
-        Result<LinkedTaskSyncSummary> result = await Handler(tasks, targets)
+        Result<LinkedTaskSyncSummary> result = await Handler(tasks, targets, repositories)
             .Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);

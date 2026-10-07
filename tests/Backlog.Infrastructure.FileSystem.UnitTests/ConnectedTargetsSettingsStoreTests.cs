@@ -157,6 +157,52 @@ public sealed class ConnectedTargetsSettingsStoreTests : IDisposable
         Assert.False(Assert.Single(Store().List()).CompleteAtSource);
     }
 
+    /// <summary>Why the last sync failed survives a restart, so the card still says
+    /// it the next time the settings open.</summary>
+    [Fact]
+    public void The_last_sync_failure_survives_a_restart()
+    {
+        var target = new ConnectedTarget("spec-manager", "backlog")
+        {
+            LastSyncedAt = Synced,
+            LastSyncError = "spec-manager has no product named backlog.",
+            LastSyncFailedAt = Synced.AddMinutes(15),
+        };
+
+        Assert.Null(Store().Save(target));
+
+        Assert.Equal(target, Assert.Single(Store().List()));
+    }
+
+    /// <summary>A file written before failures were kept has no such keys, and
+    /// reads as a target with none.</summary>
+    [Fact]
+    public void A_file_written_before_sync_failures_were_kept_reads_as_none()
+    {
+        File.WriteAllText(SettingsFile, """
+            { "targets": [
+                { "connectorId": "github", "target": "JSdotNet/Backlog", "lastSyncedAt": "2026-10-05T09:00:00+00:00" }
+            ] }
+            """);
+
+        var target = Assert.Single(Store().List());
+
+        Assert.Equal(Synced, target.LastSyncedAt);
+        Assert.Null(target.LastSyncError);
+        Assert.Null(target.LastSyncFailedAt);
+    }
+
+    [Fact]
+    public void The_last_sync_failure_is_written_under_its_own_keys()
+    {
+        Store().Save(new ConnectedTarget("github", "JSdotNet/Backlog") { LastSyncError = "Nope.", LastSyncFailedAt = Synced });
+
+        var json = File.ReadAllText(SettingsFile);
+
+        Assert.Contains("\"lastSyncError\": \"Nope.\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"lastSyncFailedAt\"", json, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_corrupt_file_opens_as_nothing_connected()
     {

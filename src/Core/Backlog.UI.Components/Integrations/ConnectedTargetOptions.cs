@@ -47,6 +47,14 @@ public sealed record ConnectedTargetOptions(
     /// when it never has.</summary>
     public string? LastSynced { get; init; }
 
+    /// <summary>Why the last sync failed, in the sentence the sync gave, or null
+    /// when it did not. Shown on the card until a sync succeeds, so a target that
+    /// has stopped syncing says why without anybody pressing Sync now.</summary>
+    public string? LastSyncError { get; init; }
+
+    /// <summary>When that sync failed, already formatted by the host, or null.</summary>
+    public string? LastSyncFailed { get; init; }
+
     /// <summary>The sync intervals the editor offers, in minutes. A stored interval
     /// that is none of these is still offered, so editing another option never
     /// rewrites it.</summary>

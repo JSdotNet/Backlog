@@ -12,6 +12,16 @@ internal static class SpecManagerJson
     public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
 }
 
+/// <summary>
+/// One product of <c>GET /api/producten</c>, which answers the products the account
+/// is a member of, archived ones left out by the server. Only the two fields the
+/// settings page shows and stores are read; the rest are ignored.
+/// </summary>
+/// <param name="Slug">What every other path names the product by, and what a
+/// connected target stores.</param>
+/// <param name="Naam">The product's name, which the person knows it by.</param>
+internal sealed record ProductDto(string? Slug, string? Naam);
+
 /// <summary><c>GET /api/producten/{slug}/backlog</c>. Not paged.</summary>
 internal sealed record BacklogResponse(IReadOnlyList<BacklogitemDto>? Items);
 

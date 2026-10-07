@@ -10,8 +10,9 @@ namespace Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 
 /// <summary>
 /// The desktop's timer for linked tasks: runs <see cref="SyncLinkedTasksCommand"/>
-/// for every enabled connected target once its interval has passed, and for all of
-/// them at once when the Tasks pane asks.
+/// for every enabled connected target once its interval has passed, for all of
+/// them at once when the Tasks pane asks, and for one when its card's "Sync now"
+/// does.
 /// <para>
 /// A plain object with a timer in it, constructed by the head after <c>Build()</c>,
 /// for the reason <c>TaskSyncWorker</c> gives at length: the MAUI head has no
@@ -105,6 +106,46 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
     /// </summary>
     public Task RequestSync() => RunAsync(onlyDue: false, waitForTurn: true);
 
+    /// <summary>
+    /// Syncs the one target named by the pair, now, and answers how it went — a
+    /// card's "Sync now". Waits for a run already in flight, then runs; counts as
+    /// the target's attempt, so the timer does not ask again straight after.
+    /// </summary>
+    public async Task<LinkedTaskSyncOutcome> RequestSync(string connectorId, string target)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectorId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(target);
+
+        lock (_gate)
+        {
+            if (_disposed) return Stopped(target);
+        }
+
+        if (!_connectorIds.Contains(connectorId))
+        {
+            return Failed(SyncLinkedTasksCommandHandler.ConnectorNotFound, target);
+        }
+
+        try
+        {
+            await _run.WaitAsync(_stopping).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (_stopping.IsCancellationRequested)
+        {
+            return Stopped(target);
+        }
+
+        try
+        {
+            _lastAttempt[(connectorId, target.ToUpperInvariant())] = _time.GetUtcNow();
+            return await SyncAsync(connectorId, target).ConfigureAwait(false);
+        }
+        finally
+        {
+            _run.Release();
+        }
+    }
+
     /// <summary>One tick: the due targets only, and nothing at all when a run is
     /// already in flight. What the timer calls; internal so a test can await
     /// it.</summary>
@@ -188,7 +229,7 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
                 if (onlyDue && !IsDue(target, _lastAttempt.TryGetValue(key, out var attempted) ? attempted : null, now)) continue;
 
                 _lastAttempt[key] = now;
-                await SyncAsync(target).ConfigureAwait(false);
+                await SyncAsync(target.ConnectorId, target.Target).ConfigureAwait(false);
             }
         }
         finally
@@ -198,8 +239,9 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
     }
 
     /// <summary>One target, with its own catch: one source being down is no reason
-    /// for the next target not to sync.</summary>
-    private async Task SyncAsync(ConnectedTarget target)
+    /// for the next target not to sync. Answers how it went, in the sentence a
+    /// card's "Sync now" shows; the timer's runs only log it.</summary>
+    private async Task<LinkedTaskSyncOutcome> SyncAsync(string connectorId, string target)
     {
         try
         {
@@ -210,30 +252,69 @@ public sealed class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
                     .GetRequiredService<ICommandHandler<SyncLinkedTasksCommand, Result<LinkedTaskSyncSummary>>>();
 
                 var result = await handler
-                    .Handle(new SyncLinkedTasksCommand(target.ConnectorId, target.Target), _stopping)
+                    .Handle(new SyncLinkedTasksCommand(connectorId, target), _stopping)
                     .ConfigureAwait(false);
 
                 if (result.IsFailure)
                 {
                     _log.LogWarning(
                         "Linked task sync for {Connector} {Target} did not complete: {Code} {Message}",
-                        target.ConnectorId, target.Target, result.Error.Code, result.Error.Message);
+                        connectorId, target, result.Error.Code, result.Error.Message);
+                    return Failed(result.Error, target);
                 }
-                else
-                {
-                    _log.LogDebug(
-                        "Linked task sync for {Connector} {Target}: {Summary}",
-                        target.ConnectorId, target.Target, result.Value);
-                }
+
+                _log.LogDebug(
+                    "Linked task sync for {Connector} {Target}: {Summary}",
+                    connectorId, target, result.Value);
+                return new LinkedTaskSyncOutcome(true, $"Synced {target}: {Describe(result.Value)}.");
             }
         }
         catch (OperationCanceledException) when (_stopping.IsCancellationRequested)
         {
             // The window closed mid-sync. Nothing failed.
+            return Stopped(target);
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Linked task sync for {Connector} {Target} threw.", target.ConnectorId, target.Target);
+            _log.LogError(ex, "Linked task sync for {Connector} {Target} threw.", connectorId, target);
+            return new LinkedTaskSyncOutcome(false, $"The sync of {target} did not finish. Try again.", "linked_tasks.sync_threw");
         }
     }
+
+    /// <summary>What a sync did, in words: the counts that moved something, or that
+    /// nothing did.</summary>
+    private static string Describe(LinkedTaskSyncSummary summary)
+    {
+        var parts = new List<string>(3);
+        if (summary.Created > 0) parts.Add($"{summary.Created} new");
+        if (summary.Updated > 0) parts.Add($"{summary.Updated} updated");
+        if (summary.Vanished > 0) parts.Add($"{summary.Vanished} archived as gone");
+
+        return parts.Count == 0 ? "nothing changed" : string.Join(", ", parts);
+    }
+
+    /// <summary>
+    /// A failed sync's outcome, in the sentence a card shows. The handler's
+    /// refusals before it fetches — the source not installed, the target not
+    /// connected or switched off — are fixed sentences that name no target, so they
+    /// are said again naming it; a fetch's failure names its target already.
+    /// </summary>
+    private static LinkedTaskSyncOutcome Failed(Error error, string target)
+    {
+        var message = error.Code switch
+        {
+            var code when code == SyncLinkedTasksCommandHandler.ConnectorNotFound.Code =>
+                $"The source {target} was connected through is not available in this app, so it was not synced.",
+            var code when code == SyncLinkedTasksCommandHandler.TargetNotFound.Code =>
+                $"{target} is not connected, so it was not synced.",
+            var code when code == SyncLinkedTasksCommandHandler.TargetDisabled.Code =>
+                $"Syncing is switched off for {target}, so it was not synced.",
+            _ => error.Message,
+        };
+
+        return new LinkedTaskSyncOutcome(false, message, error.Code);
+    }
+
+    private static LinkedTaskSyncOutcome Stopped(string target) =>
+        new(false, $"The sync has stopped, so {target} was not synced.", "linked_tasks.sync_stopped");
 }

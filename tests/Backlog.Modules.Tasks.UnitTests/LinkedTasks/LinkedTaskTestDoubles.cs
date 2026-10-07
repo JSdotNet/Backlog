@@ -27,7 +27,9 @@ internal sealed class StubTaskConnector(string id = StubTaskConnector.Id) : ITas
 
     public TaskConnectorDescriptor Descriptor { get; } = new(id, "Stub", "stub", "--color-stub");
 
-    public TaskConnectorCapabilities Capabilities { get; } = new(HasEffort: true);
+    /// <summary>Settable, for a test about a source whose targets are
+    /// repositories.</summary>
+    public TaskConnectorCapabilities Capabilities { get; set; } = new(HasEffort: true);
 
     public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken)
     {
@@ -81,6 +83,12 @@ internal sealed class RecordingLinkedTaskSync : ILinkedTaskSync
     {
         Requests++;
         return Task.CompletedTask;
+    }
+
+    public Task<LinkedTaskSyncOutcome> RequestSync(string connectorId, string target)
+    {
+        Requests++;
+        return Task.FromResult(new LinkedTaskSyncOutcome(true, $"Synced {target}."));
     }
 }
 
@@ -176,13 +184,22 @@ internal sealed class RecordingSyncHandler : ICommandHandler<SyncLinkedTasksComm
 
     public HashSet<string> Failing { get; } = [];
 
-    public Task<Result<LinkedTaskSyncSummary>> Handle(SyncLinkedTasksCommand command, CancellationToken cancellationToken = default)
+    /// <summary>Answered by the targets the test names in place of a sync, for a
+    /// test about a refusal the handler gives before it fetches.</summary>
+    public Dictionary<string, Error> Refusing { get; } = [];
+
+    /// <summary>The syncs of these targets wait for their task before answering,
+    /// for a test that needs a run to be in flight.</summary>
+    public Dictionary<string, Task> Holding { get; } = [];
+
+    public async Task<Result<LinkedTaskSyncSummary>> Handle(SyncLinkedTasksCommand command, CancellationToken cancellationToken = default)
     {
         Commands.Add(command);
-        Result<LinkedTaskSyncSummary> result = Failing.Contains(command.Target)
+        if (Holding.TryGetValue(command.Target, out var hold)) await hold;
+        if (Refusing.TryGetValue(command.Target, out var refusal)) return refusal;
+        return Failing.Contains(command.Target)
             ? Error.Unexpected("linked_tasks.fetch_failed", "down")
             : new LinkedTaskSyncSummary(0, 0, 0, 0, 0, 0);
-        return Task.FromResult(result);
     }
 }
 
