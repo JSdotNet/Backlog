@@ -218,6 +218,7 @@ public sealed record TaskRow(
                     .. source,
                     Group is null ? null : new TaskDetail(TaskDetailKind.Group, Group),
                     InMyDay ? new TaskDetail(TaskDetailKind.MyDay, "My Day") : null,
+                    Agenda is null ? null : new TaskDetail(TaskDetailKind.Agenda, Agenda),
                     Due is null ? null : new TaskDetail(TaskDetailKind.Due, Due),
                     Reminder is null ? null : new TaskDetail(TaskDetailKind.Reminder, Reminder),
                     Repeats ? new TaskDetail(TaskDetailKind.Repeat, RepeatLabel ?? "Repeats") : null
@@ -228,6 +229,7 @@ public sealed record TaskRow(
                     .. source,
                     Group is null ? null : new TaskDetail(TaskDetailKind.Group, Group),
                     InMyDay ? new TaskDetail(TaskDetailKind.MyDay, "My Day") : null,
+                    Agenda is null ? null : new TaskDetail(TaskDetailKind.Agenda, Agenda),
                     steps,
                     Due is null ? null : new TaskDetail(TaskDetailKind.Due, Due),
                     Reminder is null ? null : new TaskDetail(TaskDetailKind.Reminder, Reminder),
@@ -243,6 +245,12 @@ public sealed record TaskRow(
             ];
         }
     }
+
+    /// <summary>Where it sits in today's plan, already formatted — "10:45–11:30".
+    /// Beside My Day on the line, because it is the time within that day and
+    /// means nothing without it. Null leaves it off, which is every task without
+    /// a slot and every task outside My Day.</summary>
+    public string? Agenda { get; init; }
 
     /// <summary>How often it recurs, already said — "Weekly", "Every weekday".
     /// Null falls back to saying only that it does.</summary>
@@ -261,6 +269,12 @@ public enum TaskDetailKind
     Kind,
 
     MyDay,
+
+    /// <summary>The block of today the task is planned into, start to end. A kind
+    /// of its own rather than a reminder: a reminder is an alarm at one moment,
+    /// this is a stretch of the day.</summary>
+    Agenda,
+
     Steps,
     Due,
     Reminder,
@@ -321,6 +335,7 @@ public sealed record TaskDetail(TaskDetailKind Kind, string Text)
     {
         TaskDetailKind.Kind => KindGlyph ?? string.Empty,
         TaskDetailKind.MyDay => "☀",
+        TaskDetailKind.Agenda => "🕒",
         TaskDetailKind.Steps => "≡",
         TaskDetailKind.Due => "🗓",
         TaskDetailKind.Reminder => "⏰",
@@ -357,6 +372,7 @@ public sealed record TaskDetail(TaskDetailKind Kind, string Text)
         TaskDetailKind.Group => "List",
         TaskDetailKind.Kind => "Type",
         TaskDetailKind.MyDay => "In My Day",
+        TaskDetailKind.Agenda => "Agenda time",
         TaskDetailKind.Steps => "Steps",
         TaskDetailKind.Due => "Due",
         TaskDetailKind.Reminder => "Reminder",

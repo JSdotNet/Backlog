@@ -302,6 +302,15 @@ a start time and a duration that place it in the day, such as 10:45 for 45
 minutes. The agenda time is set and cleared on the desktop only. It means
 nothing without a My Day date, and it is dropped when the task leaves My Day.
 
+On the desktop, the agenda time sits in the task's detail pane directly under
+the My Day control, and only while the task is in today's My Day. A start is
+picked in 15-minute steps and a duration from 15, 30, 45, 60, 90 or 120
+minutes. A start picked alone means 30 minutes. Changing the start keeps the
+duration, and changing the duration keeps the start. Clearing removes the agenda
+time and leaves the task in My Day. A start or duration typed into the text off
+those steps is kept and shown as it is. The task row shows the block from start
+to end beside My Day, such as `10:45–11:30`.
+
 On the phone, My Day is the Today tab, the first of the phone's three tabs
 (Today, Inbox, Notes) and the screen the app opens on. Under the phone's own
 date it says how many of the day's tasks are ticked off, as `3 of 8 done` with

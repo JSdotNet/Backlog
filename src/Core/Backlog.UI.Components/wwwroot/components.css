@@ -4217,11 +4217,13 @@ button.task-panel__check:focus-visible {
     line-height: 1;
 }
 
-/* The two that carry a time come forward slightly. A due date and a reminder are
-   the facts that make a row urgent, and reading them at the same weight as the
-   list it came from is how a deadline gets missed. */
+/* The ones that carry a time come forward slightly. A due date, a reminder and
+   the block of today a task is planned into are the facts that make a row
+   urgent, and reading them at the same weight as the list it came from is how a
+   deadline gets missed. */
 .task-item__detail--due,
-.task-item__detail--reminder {
+.task-item__detail--reminder,
+.task-item__detail--agenda {
     color: var(--color-text-primary);
 }
 
