@@ -253,7 +253,33 @@
 
         ActiveId = id;
         StateHasChanged();
+        RedrawPanels();
         return ActiveIdChanged.InvokeAsync(id);
+    }
+
+    private string? _drawnActiveId;
+
+    /// <summary>
+    /// A host that moves <see cref="ActiveId"/> itself redraws the panels too, for the
+    /// reason <see cref="RedrawPanels"/> gives.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        if (!string.Equals(_drawnActiveId, ActiveId, StringComparison.Ordinal)) RedrawPanels();
+    }
+
+    /// <summary>
+    /// Each panel draws its own <c>hidden</c> attribute, and Blazor redraws a child only
+    /// when one of its parameters may have changed. A panel whose parameters are all
+    /// strings and flags - an empty placeholder panel, with no body fragment - would
+    /// otherwise keep the attribute it was first drawn with and stay visible beside the
+    /// panel that was just chosen.
+    /// </summary>
+    private void RedrawPanels()
+    {
+        _drawnActiveId = ActiveId;
+
+        foreach (var panel in _panels) panel.Redraw();
     }
 
     private Task OnKeyDownAsync(KeyboardEventArgs e, string id)

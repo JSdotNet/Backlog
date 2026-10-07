@@ -211,8 +211,9 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The Dashboard is its overview alone: no tab strip, and no session list
-    /// beside or behind it.
+    /// The Dashboard is its overview alone: no Dashboard/Sessions tab strip around
+    /// it, and no session list beside or behind it. The pane's own section tabs are
+    /// inside the pane and are not that strip.
     /// </summary>
     [Fact]
     public void The_dashboard_shows_its_overview_without_a_tab_strip()
