@@ -988,16 +988,16 @@ public sealed class PullRequestsPaneTests : IDisposable
             {
                 Checks = GitHubCheckState.Failing,
                 CheckCounts = new GitHubCheckCounts(Passed: 7, Failed: 1, Pending: 2),
-                Reviews = new GitHubReviewSummary(GitHubReviewDecision.ReviewRequired, Approvals: 1, ChangesRequested: 0)
+                Reviews = new GitHubReviewSummary(GitHubReviewState.ReviewRequired, Approvals: 1, ChangesRequested: 0)
             },
             Pull("JSdotNet/Backlog", 2) with
             {
                 CheckCounts = new GitHubCheckCounts(Passed: 9, Failed: 0, Pending: 0),
-                Reviews = new GitHubReviewSummary(GitHubReviewDecision.Approved, Approvals: 2, ChangesRequested: 0)
+                Reviews = new GitHubReviewSummary(GitHubReviewState.Approved, Approvals: 2, ChangesRequested: 0)
             },
             Pull("JSdotNet/Backlog", 3) with
             {
-                Reviews = new GitHubReviewSummary(GitHubReviewDecision.ChangesRequested, Approvals: 0, ChangesRequested: 1)
+                Reviews = new GitHubReviewSummary(GitHubReviewState.ChangesRequested, Approvals: 0, ChangesRequested: 1)
             });
         using var context = Context(client);
 

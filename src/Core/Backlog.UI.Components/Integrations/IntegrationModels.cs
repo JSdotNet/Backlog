@@ -73,6 +73,24 @@ public enum IntegrationCheckState
 }
 
 /// <summary>
+/// What a pull request's reviewers decided, as the host read GitHub's review
+/// decision.
+/// <para>
+/// <see cref="None"/> is the default, for the same reason
+/// <see cref="IntegrationCheckState.None"/> is: it covers both "this repository asks
+/// for no review" and "nobody has read it", and a link has nothing true to say about
+/// either.
+/// </para>
+/// </summary>
+public enum IntegrationReviewState
+{
+    None,
+    ReviewRequired,
+    Approved,
+    ChangesRequested
+}
+
+/// <summary>
 /// The state of an agent session — a Copilot CLI run, a Claude session.
 /// </summary>
 public enum IntegrationSessionState
@@ -384,6 +402,9 @@ public sealed record IntegrationRepositoryRef(
 /// checks. Last among the parameters, like <paramref name="Checks"/>, so every
 /// positional construction written before either existed still means what it
 /// did.</param>
+/// <param name="Review">A pull request's review state, as GitHub decided it.
+/// <see cref="IntegrationReviewState.None"/> says nothing. Last among the
+/// parameters for the reason <paramref name="AutoMerge"/> is.</param>
 public sealed record IntegrationLinkRef(
     string Id,
     IntegrationProvider Provider,
@@ -397,7 +418,8 @@ public sealed record IntegrationLinkRef(
     string? DriftNote = null,
     IntegrationRepositoryRef? Repository = null,
     IntegrationCheckState Checks = IntegrationCheckState.None,
-    bool AutoMerge = false)
+    bool AutoMerge = false,
+    IntegrationReviewState Review = IntegrationReviewState.None)
 {
     public static IntegrationLinkRef Issue(
         string id,

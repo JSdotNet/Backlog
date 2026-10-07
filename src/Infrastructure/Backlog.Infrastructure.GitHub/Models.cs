@@ -93,7 +93,14 @@ public sealed record GitHubPullRequestStatus(
     GitHubCheckState Checks,
     bool AutoMergeEnabled,
     bool MergeReady,
-    GitHubMergeMethod PreferredMergeMethod);
+    GitHubMergeMethod PreferredMergeMethod)
+{
+    /// <summary>GitHub's review decision for the pull request, read in the same
+    /// round trip as its state and checks. An init property rather than a positional
+    /// one, so every construction written before it existed still compiles and
+    /// reads as no decision.</summary>
+    public GitHubReviewState ReviewState { get; init; } = GitHubReviewState.None;
+}
 
 /// <summary>
 /// One open pull request as the pull requests list shows it: where it lives, whose
@@ -182,6 +189,10 @@ public sealed record GitHubOpenPullRequest(
     /// <summary>What the reviewers decided.</summary>
     public GitHubReviewSummary Reviews { get; init; } = GitHubReviewSummary.None;
 
+    /// <summary>GitHub's review decision alone — <see cref="Reviews"/>' own, so the
+    /// list and a recorded link read it from one field rather than two.</summary>
+    public GitHubReviewState ReviewState => Reviews.Decision;
+
     /// <summary>The issues this pull request closes when it merges.</summary>
     public IReadOnlyList<GitHubIssueReference> ClosingIssues { get; init; } = [];
 
@@ -189,7 +200,10 @@ public sealed record GitHubOpenPullRequest(
     /// <see cref="GitHubIntegration.MergePullRequestAsync"/> and its two siblings act
     /// on a listed pull request exactly as they act on a recorded one.</summary>
     public GitHubPullRequestStatus ToStatus() =>
-        new(Number, RepositoryFullName, NodeId, State, Checks, AutoMergeEnabled, MergeReady, PreferredMergeMethod);
+        new(Number, RepositoryFullName, NodeId, State, Checks, AutoMergeEnabled, MergeReady, PreferredMergeMethod)
+        {
+            ReviewState = ReviewState
+        };
 }
 
 /// <summary>One repository whose open pull requests could not be read, in the
@@ -264,25 +278,34 @@ public sealed record GitHubCheckCounts(int Passed, int Failed, int Pending)
     public int Total => Passed + Failed + Pending;
 }
 
-/// <summary>GitHub's <c>reviewDecision</c>: what the reviewers' latest reviews add up
-/// to against the base branch's rules.</summary>
-public enum GitHubReviewDecision
+/// <summary>
+/// GitHub's <c>reviewDecision</c>: what the reviewers' latest reviews add up to
+/// against the base branch's rules.
+/// <para>
+/// <see cref="None"/> is GitHub giving no decision at all — a repository that asks
+/// for no review, or a read that did not ask — rather than a null, so a reader
+/// switches over four values and never has to tell "no decision" from "not read"
+/// by a missing field.
+/// </para>
+/// </summary>
+public enum GitHubReviewState
 {
+    None,
+    ReviewRequired,
     Approved,
-    ChangesRequested,
-    ReviewRequired
+    ChangesRequested
 }
 
 /// <summary>
 /// What a pull request's reviewers decided: GitHub's decision, when the repository
 /// asks for one, and how many of the latest opinionated reviews approve or ask for
 /// changes. No "of N required": the number required needs rights to read the branch's
-/// protection that most accounts do not have, and <see cref="GitHubReviewDecision.ReviewRequired"/>
+/// protection that most accounts do not have, and <see cref="GitHubReviewState.ReviewRequired"/>
 /// already says approvals are still missing.
 /// </summary>
-public sealed record GitHubReviewSummary(GitHubReviewDecision? Decision, int Approvals, int ChangesRequested)
+public sealed record GitHubReviewSummary(GitHubReviewState Decision, int Approvals, int ChangesRequested)
 {
-    public static GitHubReviewSummary None { get; } = new(null, 0, 0);
+    public static GitHubReviewSummary None { get; } = new(GitHubReviewState.None, 0, 0);
 }
 
 /// <summary>One pull request somebody pinned on this device, by <c>owner/name</c> and

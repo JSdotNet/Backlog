@@ -98,15 +98,18 @@ public sealed class GitHubClientPullRequestFactsTests
     // --- Reviews --------------------------------------------------------------
 
     [Theory]
-    [InlineData("\"APPROVED\"", GitHubReviewDecision.Approved)]
-    [InlineData("\"CHANGES_REQUESTED\"", GitHubReviewDecision.ChangesRequested)]
-    [InlineData("\"REVIEW_REQUIRED\"", GitHubReviewDecision.ReviewRequired)]
-    [InlineData("null", null)]
-    public async Task The_review_decision_is_githubs_own(string decision, GitHubReviewDecision? expected)
+    [InlineData("\"APPROVED\"", GitHubReviewState.Approved)]
+    [InlineData("\"CHANGES_REQUESTED\"", GitHubReviewState.ChangesRequested)]
+    [InlineData("\"REVIEW_REQUIRED\"", GitHubReviewState.ReviewRequired)]
+    [InlineData("null", GitHubReviewState.None)]
+    [InlineData("\"SOMETHING_NEW\"", GitHubReviewState.None)]
+    public async Task The_review_decision_is_githubs_own(string decision, GitHubReviewState expected)
     {
         var pull = Assert.Single(await Open(Node(reviewDecision: decision)));
 
         Assert.Equal(expected, pull.Reviews.Decision);
+        Assert.Equal(expected, pull.ReviewState);
+        Assert.Equal(expected, pull.ToStatus().ReviewState);
     }
 
     [Fact]
