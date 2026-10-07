@@ -11561,6 +11561,61 @@ select.field__input {
     background: var(--chart-ramp-3);
 }
 
+/* The inputs as labelled bars (ComponentsAsBars): name, track, reading out of 100
+   on one line, the reading and weight under it. */
+.metric-score__bars {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.metric-score__bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(3rem, 6rem) auto;
+    align-items: center;
+    gap: 0 var(--spacing-sm);
+    min-width: 0;
+    font-size: var(--font-size-sm);
+}
+
+.metric-score__bar-name {
+    min-width: 0;
+    color: var(--chart-ink);
+}
+
+/* Under the whole row, so a narrow card gives the name the room and not the detail. */
+.metric-score__bar-detail {
+    grid-column: 1 / -1;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+.metric-score__bar-track {
+    display: block;
+    overflow: hidden;
+    height: 0.375rem;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-track);
+}
+
+.metric-score__bar-fill {
+    display: block;
+    height: 100%;
+    min-width: var(--border-width-2);
+    border-radius: inherit;
+    background: var(--chart-ramp-3);
+}
+
+.metric-score__bar-value {
+    color: var(--chart-ink);
+    font-family: var(--font-family-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
 /* --- Metrics: small multiples -------------------------------------------- */
 
 .metric-trellis {

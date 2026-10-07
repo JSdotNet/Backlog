@@ -1,6 +1,8 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Dashboard.Abstractions.Insights;
+using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Inbox.Abstractions.Services;
@@ -124,6 +126,92 @@ public sealed class DashboardSettingsTests
         Assert.Empty(settings.Component.FindAll("[data-testid^='usage-reset']"));
     }
 
+    /// <summary>Nothing set opens every provider empty and says none has a budget.</summary>
+    [Fact]
+    public void The_spend_budgets_open_empty_and_say_no_provider_has_one()
+    {
+        using var section = RenderSection();
+
+        Assert.Equal(string.Empty, section.Component.Find("#spend-budget-claude").GetAttribute("value") ?? string.Empty);
+        Assert.Equal(string.Empty, section.Component.Find("#spend-budget-copilot").GetAttribute("value") ?? string.Empty);
+        Assert.Equal(string.Empty, section.Component.Find("#spend-budget-azure-foundry").GetAttribute("value") ?? string.Empty);
+        Assert.Contains("No budgets set", section.Component.Find("[data-testid='spend-budget-status']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>An amount is stored for that provider alone, and survives a new store
+    /// over the same file - which is what the next launch is.</summary>
+    [Fact]
+    public void An_amount_is_stored_for_that_provider_alone_and_read_back_next_time()
+    {
+        using var section = RenderSection();
+
+        section.Component.Find("#spend-budget-copilot").Change("49.50");
+
+        Assert.Equal(49.50m, section.SpendBudgets.BudgetFor(SpendProvider.Copilot));
+        Assert.Null(section.SpendBudgets.BudgetFor(SpendProvider.Claude));
+        Assert.Null(section.SpendBudgets.BudgetFor(SpendProvider.AzureFoundry));
+        Assert.Contains("Budgets set for GitHub Copilot", section.Component.Find("[data-testid='spend-budget-status']").TextContent, StringComparison.Ordinal);
+
+        Assert.Equal(49.50m, new SpendBudgetSettingsStore(section.SpendBudgets.SettingsPath).BudgetFor(SpendProvider.Copilot));
+    }
+
+    /// <summary>Emptying the field is how a budget is taken away.</summary>
+    [Fact]
+    public void Emptying_the_field_removes_the_budget()
+    {
+        using var section = RenderSection();
+        section.Component.Find("#spend-budget-claude").Change("100");
+
+        section.Component.Find("#spend-budget-claude").Change("");
+
+        Assert.Null(section.SpendBudgets.BudgetFor(SpendProvider.Claude));
+    }
+
+    [Theory]
+    [InlineData("lots", "Give the Claude budget as an amount, such as 50 or 49.50.")]
+    [InlineData("-5", "A budget can't be negative.")]
+    [InlineData("1e", "Give the Claude budget as an amount, such as 50 or 49.50.")]
+    public void An_amount_that_is_not_a_budget_is_refused_and_the_one_in_force_stays(string typed, string reason)
+    {
+        using var section = RenderSection();
+        section.Component.Find("#spend-budget-claude").Change("100");
+
+        section.Component.Find("#spend-budget-claude").Change(typed);
+
+        Assert.Equal(100m, section.SpendBudgets.BudgetFor(SpendProvider.Claude));
+        Assert.Equal(reason, section.Component.Find("[data-testid='spend-budget-status']").TextContent.Trim());
+    }
+
+    /// <summary>The field is a text input, so text that is not an amount reaches the
+    /// page as typed and is refused - a number input would hand over an empty value,
+    /// which reads as "no budget" and would delete the one in force.</summary>
+    [Fact]
+    public void The_budget_fields_are_text_inputs_so_unreadable_text_is_not_read_as_empty()
+    {
+        using var section = RenderSection();
+
+        Assert.Equal("text", section.Component.Find("#spend-budget-claude").GetAttribute("type"));
+        Assert.Equal("decimal", section.Component.Find("#spend-budget-claude").GetAttribute("inputmode"));
+    }
+
+    /// <summary>A refusal stays on screen while its text does, even after another
+    /// field is committed.</summary>
+    [Fact]
+    public void A_refusal_outlives_a_commit_in_another_field()
+    {
+        using var section = RenderSection();
+
+        section.Component.Find("#spend-budget-claude").Change("-5");
+        section.Component.Find("#spend-budget-copilot").Change("20");
+
+        Assert.Equal(20m, section.SpendBudgets.BudgetFor(SpendProvider.Copilot));
+        Assert.Equal("A budget can't be negative.", section.Component.Find("[data-testid='spend-budget-status']").TextContent.Trim());
+
+        section.Component.Find("#spend-budget-claude").Change("");
+
+        Assert.Contains("Budgets set for GitHub Copilot", section.Component.Find("[data-testid='spend-budget-status']").TextContent, StringComparison.Ordinal);
+    }
+
     private static string[] Tabs(IRenderedComponent<Settings> component) =>
         [.. component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim())];
 
@@ -135,11 +223,13 @@ public sealed class DashboardSettingsTests
         var root = Path.Combine(Path.GetTempPath(), "backlog-dashboard-settings-tests", Guid.NewGuid().ToString("n"));
 
         var usageReset = new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json"));
+        var spendBudgets = new SpendBudgetSettingsStore(Path.Combine(root, "spend-budgets", "spend-budgets.json"));
 
         var context = new BunitContext();
         context.Services.AddSingleton<IUsageResetSettings>(usageReset);
+        context.Services.AddSingleton<ISpendBudgetSettings>(spendBudgets);
 
-        return new SectionRenderContext(root, context, context.Render<DashboardSettings>(), usageReset);
+        return new SectionRenderContext(root, context, context.Render<DashboardSettings>(), usageReset, spendBudgets);
     }
 
     private static SettingsRenderContext RenderSettings(bool dashboard)
@@ -163,6 +253,8 @@ public sealed class DashboardSettingsTests
         context.Services.AddSingleton<IWorkingHoursSettings>(
             new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json")));
         context.Services.AddSingleton<IUsageResetSettings>(usageReset);
+        context.Services.AddSingleton<ISpendBudgetSettings>(
+            new SpendBudgetSettingsStore(Path.Combine(root, "spend-budgets", "spend-budgets.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));
@@ -218,7 +310,8 @@ public sealed class DashboardSettingsTests
         string Root,
         BunitContext TestContext,
         IRenderedComponent<DashboardSettings> Component,
-        UsageResetSettingsStore UsageReset) : IDisposable
+        UsageResetSettingsStore UsageReset,
+        SpendBudgetSettingsStore SpendBudgets) : IDisposable
     {
         public void Dispose()
         {

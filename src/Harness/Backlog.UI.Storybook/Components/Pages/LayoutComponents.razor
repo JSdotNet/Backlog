@@ -89,6 +89,24 @@ Type into both fields below, switch tabs, and come back: the kept panel's field 
         </Tabs>
     </Story>
 
+    <Story Name="A panel rendered before it is opened"
+           Description="Eager renders a panel's body with the strip, hidden while another tab is active, so whatever the body starts when it renders — a fetch, a count another part of the page reads — starts when the strip appears rather than on the first visit. Once rendered it stays, as a kept-alive body does.
+
+The dashboard uses it so every part fetches as the pane opens, the way it did under folds, and the Devbook tab can show its count before the tab is opened. The field in the second panel below exists before you open it."
+           Code="@EagerTabsCode">
+        <Tabs ActiveId="@_activeEager"
+              ActiveIdChanged="id => _activeEager = id"
+              AriaLabel="Eager and plain panels"
+              TestId="eager-tabs">
+            <TabPanel Id="first" Title="First" TestId="eager-panel-first">
+                <p>The panel open on arrival.</p>
+            </TabPanel>
+            <TabPanel Id="eager" Title="Eager" Eager="true" TestId="eager-panel-eager">
+                <TextField Label="Already rendered, hidden until opened" TestId="eager-field" />
+            </TabPanel>
+        </Tabs>
+    </Story>
+
     <Story Name="Card"
            Description="A titled surface with an optional action area, and a compact variant for dense lists."
            Code="@CardCode">
@@ -296,6 +314,7 @@ Left and Right still describe the separator rather than the number, so here Left
     private string _activeTab = "read";
     private string _activePill = "backlog";
     private string _activeKept = "kept";
+    private string _activeEager = "first";
     private string _body = "The editor and the read view are two tabs over the same text.";
     private bool _foldOpen = true;
     private bool _hostFoldOpen;
@@ -333,6 +352,15 @@ Left and Right still describe the separator rather than the number, so here Left
             </TabPanel>
             <TabPanel Id="plain" Title="Plain">
                 <TextField Label="A draft that does not" />
+            </TabPanel>
+        </Tabs>
+        """;
+
+    private const string EagerTabsCode = """
+        <Tabs ActiveId="@_activeEager" ActiveIdChanged="id => _activeEager = id" AriaLabel="Eager and plain panels">
+            <TabPanel Id="first" Title="First">...</TabPanel>
+            <TabPanel Id="eager" Title="Eager" Eager="true">
+                <TextField Label="Already rendered, hidden until opened" />
             </TabPanel>
         </Tabs>
         """;

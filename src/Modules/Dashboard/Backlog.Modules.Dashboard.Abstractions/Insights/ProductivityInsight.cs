@@ -91,6 +91,26 @@ public sealed record ProductivityHeadline(
     /// </summary>
     public int? PreviousPullRequestsMerged { get; init; }
 
+    /// <summary>
+    /// Commits on the merged pull requests, summed by the week each one merged — the
+    /// Commits measure of the volume chart. A pull request whose detail was not read
+    /// adds nothing, so a week holding one is a floor.
+    /// </summary>
+    public IReadOnlyList<InsightPoint> CommitsPerWeek { get; init; } = [];
+
+    /// <summary>
+    /// The median first-review turnaround of each week's merges, in hours, on
+    /// <see cref="MedianReviewTurnaround"/>'s rule; zero for a week with no reviewed
+    /// merge, so the week stays on the axis.
+    /// </summary>
+    public IReadOnlyList<InsightPoint> ReviewTurnaroundPerWeek { get; init; } = [];
+
+    /// <summary>
+    /// The median commit count of each week's merges whose detail was read, on
+    /// <see cref="MedianCommitsPerPullRequest"/>'s rule; zero for a week with none.
+    /// </summary>
+    public IReadOnlyList<InsightPoint> CommitsPerPullRequestPerWeek { get; init; } = [];
+
     public static ProductivityHeadline Empty { get; } = new(0, 0, 0m, null, [], [], []);
 }
 

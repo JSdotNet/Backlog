@@ -61,6 +61,27 @@
            it that the reader can inspect. *@
         <p class="@(Part("opaque"))">Scored from inputs this view does not show.</p>
     }
+    else if (ComponentsAsBars)
+    {
+        @* One labelled bar per input, in the order given: the input, how far it got
+           toward its own maximum as a track, and that reading printed out of 100.
+           The track restates the printed figure, so it is decoration and stays out
+           of the tree; the reading and the weight stay on the face under each bar,
+           because they are what makes the score arguable. *@
+        <ul class="@(Part("bars"))" aria-labelledby="@LabelId">
+            @foreach (var component in Components)
+            {
+                <li class="@(Part("bar"))">
+                    <span class="@(Part("bar-name"))">@component.Label</span>
+                    <span class="@(Part("bar-track"))" aria-hidden="true">
+                        <span class="@(Part("bar-fill"))" style="@($"width: {Width(component.Normalized)}%")"></span>
+                    </span>
+                    <span class="@(Part("bar-value"))">@MetricFormat.Score(component.Normalized * MetricScoring.MaxScore)</span>
+                    <span class="@(Part("bar-detail"))">@MetricFormat.Compact(component.Value) of @MetricFormat.Compact(component.Max) · @MetricFormat.Percent(component.Weight / TotalWeight) weight</span>
+                </li>
+            }
+        </ul>
+    }
     else
     {
         <div class="@(Part("scroll"))">
@@ -141,6 +162,14 @@
     /// the score rather than naming it.</summary>
     [Parameter]
     public bool FootnoteAsHint { get; set; }
+
+    /// <summary>Draws each input as a labelled bar — its name, a track filled to
+    /// its reading against its own maximum, and that reading out of 100 — instead
+    /// of the table of readings, weights and points. For a card laid beside other
+    /// figures, where the table's four columns do not fit; the reading and the
+    /// weight stay printed under each bar.</summary>
+    [Parameter]
+    public bool ComponentsAsBars { get; set; }
 
     [Parameter]
     public MetricStatusKind Status { get; set; } = MetricStatusKind.Ready;

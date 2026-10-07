@@ -281,6 +281,8 @@ public sealed class SettingsWorkingHoursTests
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton<IWorkingHoursSettings>(workingWeek);
         context.Services.AddSingleton<IUsageResetSettings>(usageReset);
+        context.Services.AddSingleton<Backlog.Modules.Dashboard.Abstractions.Services.ISpendBudgetSettings>(
+            new SpendBudgetSettingsStore(Path.Combine(root, "spend-budgets", "spend-budgets.json")));
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));

@@ -95,6 +95,7 @@ public static class DesktopCompositionRegistration
             return sp.GetRequiredService<WorkingHoursSettingsStore>();
         });
         services.AddSingleton(options.UsageResetSettings);
+        services.AddSingleton(options.SpendBudgetSettings);
         services.AddSingleton(options.PlanningVelocitySettings);
         services.AddSingleton(options.ShellNavigation);
         // What can change which surface is showing from outside the user interface —

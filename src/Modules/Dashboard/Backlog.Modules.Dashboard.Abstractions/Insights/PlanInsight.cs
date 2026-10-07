@@ -46,6 +46,15 @@ public sealed record PlanItemInsight(PlanItemProgress Item, PlanOutlook Outlook,
 /// then says there is no plan rather than that nothing is planned.</param>
 public sealed record PlanInsight(bool RoadmapEnabled, PlanPace Pace, IReadOnlyList<PlanItemInsight> Items)
 {
+    /// <summary>The first day of the window the items were read for, inclusive. The
+    /// timeline draws one column per ISO week from the week this day falls in, so its
+    /// axis is the one the items were narrowed by rather than a second reading of the
+    /// clock. <c>default</c> when the insight was built without one.</summary>
+    public DateOnly WindowFrom { get; init; }
+
+    /// <summary>The last day of that window, inclusive — today.</summary>
+    public DateOnly WindowTo { get; init; }
+
     /// <summary>The story points the items gathered, estimated work only.</summary>
     public int PlannedEffort => Items.Sum(item => item.Item.TotalEffort);
 

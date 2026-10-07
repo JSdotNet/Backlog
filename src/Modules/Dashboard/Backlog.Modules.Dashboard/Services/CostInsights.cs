@@ -25,7 +25,8 @@ public sealed class CostInsights(
     IClaudeSpendSource claude,
     ICopilotSpendSource copilot,
     IAzureFoundrySpendSource azureFoundry,
-    TimeProvider time) : ICostInsights
+    TimeProvider time,
+    ISpendBudgetSettings? budgets = null) : ICostInsights
 {
     /// <summary>The providers in the order the parts list them. The order is a
     /// screen decision — Claude first because its tile is the emphasised one —
@@ -68,6 +69,15 @@ public sealed class CostInsights(
 
     public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default) =>
         DeriveAsync("month", MonthWindow(), ByModel, cancellationToken);
+
+    /// <summary>
+    /// Reads the same month as <see cref="GetThisMonthAsync"/>, so it shares that cached
+    /// read; the budgets are read here, at derivation, so a changed budget counts at
+    /// once. Optional so a host without budgets projects with none.
+    /// </summary>
+    public Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(
+        CancellationToken cancellationToken = default) =>
+        DeriveAsync("month", MonthWindow(), Projection, cancellationToken);
 
     public void Invalidate() => _cache.Clear();
 
@@ -270,6 +280,15 @@ public sealed class CostInsights(
             window.From,
             window.To,
             pair.Report.IsEstimate))]);
+
+    private SpendProjectionInsight Projection(
+        IReadOnlyList<SpendAnswer> answers,
+        (DateOnly From, DateOnly To) window) =>
+        new([.. Answered(answers).Select(pair => SpendProjections.Project(
+            pair.Provider,
+            pair.Report,
+            window.To,
+            budgets?.BudgetFor(pair.Provider)))]);
 
     /// <summary>The provider's name as the parts print it. Here rather than in
     /// each part because the trend's series and the model table's detail column

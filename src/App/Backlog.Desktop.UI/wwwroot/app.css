@@ -5688,44 +5688,76 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
-/* Productivity, sessions and cost. A section rather than three panels of tiles,
-   because the thing that separates them is not visual weight — it is that the
-   filter above drives one of them and cannot drive the others, and each folds
-   away under its own heading. */
-.dashboard-section {
+/* The sections as tabs. The wrapper takes the room the content used to take
+   directly, so the panels below the strip scroll while the strip stays put. */
+.dashboard-tabs {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+}
+
+/* The tab list and the "Read as brief" link on one line, the link pushed to the
+   end. The list keeps the library's own underline; it wraps rather than scrolling
+   where the pane is narrow. */
+.dashboard-tabs__strip {
+    display: flex;
+    flex: none;
+    gap: var(--spacing-md);
+    align-items: center;
+    min-width: 0;
+}
+
+.dashboard-tabs__strip > .tabs__list {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.dashboard-tabs__brief:not([hidden]) {
+    flex: none;
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+/* The Devbook tab's count of open drift issues, in the error tone the drift
+   part's own sync-failed badge wears: an open issue is something to act on. */
+.dashboard-tabs__badge {
+    display: inline-block;
+    min-width: 1.25rem;
+    margin-left: var(--spacing-xs);
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: var(--color-error);
+    color: var(--color-error-text);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+/* One tab's panel: the parts stacked. :not([hidden]) so a panel behind another
+   tab keeps the hidden attribute's display: none. */
+.dashboard-tab:not([hidden]) {
     display: grid;
     gap: var(--spacing-md);
     align-content: start;
     min-width: 0;
 }
 
-/* The heading is FoldControl's, wearing this name: the trigger inside it inherits
-   the heading face, so the title reads as a title with a chevron in front of it. */
+/* The heading face a dashboard section title wears where one is drawn as a fold
+   trigger - the storybook's FoldControl sample uses it. */
 .dashboard-section__title {
     margin: 0;
     font-family: var(--font-family-heading);
     font-size: var(--font-size-lg);
 }
 
-/* The fold's wrapper and its region take the stacking the section used to give
-   the parts directly. :not([hidden]) so a folded region keeps the library's
-   display: none — a bare .fold__region rule here would outrank it. */
-.dashboard-section__fold {
-    display: grid;
-    gap: var(--spacing-md);
-    min-width: 0;
-}
-
-.dashboard-section__fold .fold__region:not([hidden]) {
-    display: grid;
-    gap: var(--spacing-md);
-    min-width: 0;
-}
-
-/* A section's More fold: the same FoldControl a step in from the section, with a
-   quieter heading so it reads as the rest of the section rather than a section of its
-   own. After the rule above on purpose — the two region selectors are equally
-   specific, and a More region nested in a section region has to take this one. */
+/* A part's More fold - the sessions part keeps one: a FoldControl with a quieter
+   heading so it reads as the rest of the part rather than a section of its own. */
 .dashboard-section__more {
     display: grid;
     margin-top: var(--spacing-sm);
@@ -5770,6 +5802,46 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The Productivity tab's middle row: the volume chart takes the room, the scores
+   keep their own width beside it, and the two stack where there is no room for both. */
+.dashboard-productivity__split {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-productivity__split > .dashboard-part--volume {
+    flex: 999 1 36rem;
+    min-width: 0;
+}
+
+.dashboard-productivity__split > .dashboard-part--score {
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+
+/* Rework after review: one grid of churn and sync tiles, the churn by repository
+   ranked beside it, stacking where there is no room for both. */
+.dashboard-rework {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-rework__tiles {
+    flex: 2 1 30rem;
+    min-width: 0;
+}
+
+.dashboard-rework__by-repository {
+    flex: 1 1 18rem;
+    min-width: 0;
+}
+
 .dashboard-part {
     display: grid;
     grid-template-rows: auto 1fr;
@@ -5795,6 +5867,22 @@ h1, h2, h3 {
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* A control on the heading's line, pushed against refresh. A header that carries
+   one wraps, so at phone width the control drops under the title rather than
+   pushing the card wider than the pane. */
+.dashboard-part__header:has(.dashboard-part__actions) {
+    flex-wrap: wrap;
+}
+
+.dashboard-part__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-left: auto;
     min-width: 0;
 }
 
@@ -5848,6 +5936,162 @@ h1, h2, h3 {
 
 .dashboard-drift__unit--failed > td {
     background: color-mix(in srgb, var(--color-error) 12%, transparent);
+}
+
+/* The roadmap part's timeline: a column of item names, then one column per week of
+   the window, and a bar per item spanning the weeks it runs in. The columns are one
+   template shared by the axis and every row, so the weeks line up down the grid
+   without the rows being one table. The grid keeps a floor width per week and the
+   wrapper scrolls sideways, so at a narrow width the weeks stay readable and the
+   card does not widen the pane. */
+.dashboard-timeline {
+    container-type: inline-size;
+    --dashboard-timeline-label: 14rem;
+    --dashboard-timeline-week: 3rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-timeline__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.dashboard-timeline__key {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.dashboard-timeline__swatch {
+    width: 0.875rem;
+    height: 0.625rem;
+    border-radius: var(--border-radius-sm);
+}
+
+.dashboard-timeline__swatch--done { background: var(--color-primary); }
+.dashboard-timeline__swatch--planned { background: color-mix(in srgb, var(--color-primary) 28%, transparent); }
+.dashboard-timeline__swatch--behind { background: var(--color-band-4); }
+.dashboard-timeline__swatch--finished { background: var(--color-success-text); }
+
+.dashboard-timeline__scroll {
+    overflow-x: auto;
+    min-width: 0;
+}
+
+/* A narrow card gives the names less room, since they stay put while the weeks
+   scroll: at full width they would leave a phone a sliver of timeline to scroll. */
+@container (max-width: 36rem) {
+    .dashboard-timeline__scroll {
+        --dashboard-timeline-label: 8.5rem;
+    }
+}
+
+.dashboard-timeline__grid {
+    min-width: calc(var(--dashboard-timeline-label) + var(--dashboard-timeline-weeks, 1) * var(--dashboard-timeline-week));
+}
+
+.dashboard-timeline__rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-timeline__row {
+    display: grid;
+    grid-template-columns: var(--dashboard-timeline-label) repeat(var(--dashboard-timeline-weeks, 1), minmax(var(--dashboard-timeline-week), 1fr));
+    align-items: center;
+    min-height: 3.25rem;
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.dashboard-timeline__axis {
+    min-height: 0;
+    padding-bottom: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.dashboard-timeline__week {
+    padding-left: var(--spacing-xs);
+    border-left: var(--border-width) solid var(--color-border);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The names stay put while the weeks scroll under them, so a bar scrolled into view
+   at a narrow width still says which item it is. The card's own background, so a bar
+   passing beneath does not show through. */
+.dashboard-timeline__corner {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--color-background-alt);
+}
+
+.dashboard-timeline__item {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    display: grid;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: stretch;
+    align-content: center;
+    min-width: 0;
+    padding-right: var(--spacing-sm);
+    background: var(--color-background-alt);
+}
+
+.dashboard-timeline__name {
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-timeline__progress {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The bar is the planned stretch in a faint wash of its tone, the fill the share of
+   its effort that is done in the tone itself. A bar cut off by the window loses the
+   rounding on that end, so a clipped bar does not read as one that starts or ends
+   there. */
+.dashboard-timeline__bar {
+    --dashboard-timeline-tone: var(--color-primary);
+    grid-row: 1;
+    height: 1.375rem;
+    margin: 0 2px;
+    overflow: hidden;
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--dashboard-timeline-tone) 28%, transparent);
+}
+
+.dashboard-timeline__bar--behind { --dashboard-timeline-tone: var(--color-band-4); }
+.dashboard-timeline__bar--finished { --dashboard-timeline-tone: var(--color-success-text); }
+
+.dashboard-timeline__bar--clipped-start {
+    margin-left: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.dashboard-timeline__bar--clipped-end {
+    margin-right: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.dashboard-timeline__fill {
+    display: block;
+    height: 100%;
+    background: var(--dashboard-timeline-tone);
 }
 
 /* The sessions takeover. The same frame as the dashboard's — a takeover is a
