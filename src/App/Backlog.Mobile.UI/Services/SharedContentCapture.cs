@@ -28,6 +28,10 @@ namespace Backlog.Mobile.UI.Services;
 /// </remarks>
 public sealed class SharedContentCapture : IDisposable
 {
+    /// <summary>The Inbox tab's address, relative to the base. The app opens on
+    /// Today, so a share lands here rather than on the root.</summary>
+    private const string InboxRoute = "inbox";
+
     private readonly ISharedContentReceiver _receiver;
     private readonly DeviceOutbox _outbox;
     private readonly NavigationManager _navigation;
@@ -143,8 +147,8 @@ public sealed class SharedContentCapture : IDisposable
     /// </summary>
     private void ShowInbox()
     {
-        if (_navigation.ToBaseRelativePath(_navigation.Uri).Length == 0) return;
+        if (string.Equals(_navigation.ToBaseRelativePath(_navigation.Uri), InboxRoute, StringComparison.Ordinal)) return;
 
-        _navigation.NavigateTo("/", replace: true);
+        _navigation.NavigateTo(InboxRoute, replace: true);
     }
 }

@@ -47,9 +47,9 @@
 @code {
     private static readonly IReadOnlyList<NavItem> Tabs =
     [
-        new("", "Inbox", Match: true),
-        new("note", "Note"),
-        new("tasks", "Tasks")
+        new("", "Today", Match: true),
+        new("inbox", "Inbox"),
+        new("notes", "Notes")
     ];
 
     private bool Paired => Credentials.Current is not null;

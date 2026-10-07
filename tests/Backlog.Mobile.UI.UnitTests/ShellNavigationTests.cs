@@ -7,52 +7,53 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// A paired phone: three tabs, a status line, and a draft that is still in the
-/// Inbox's field when the person comes back to it.
+/// A paired phone: three tabs that open on Today, a status line, and a draft
+/// that is still in the Inbox's field when the person comes back to it.
 /// </summary>
 public sealed class ShellNavigationTests
 {
     [Fact]
-    public void A_paired_phone_shows_three_tabs_with_the_current_one_lit()
+    public void A_paired_phone_opens_on_today_with_three_tabs_and_today_lit()
     {
         using var host = ShellHost.Paired();
 
-        var app = host.Open();
+        var app = host.Open("");
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='capture-field'] input")));
+        app.WaitForAssertion(() => Assert.Equal("Today", app.Find("h1").TextContent));
 
         var tabs = app.FindAll("[data-testid='tab-bar'] a");
-        Assert.Equal(["Inbox", "Note", "Tasks"], tabs.Select(tab => tab.TextContent));
-        Assert.Equal(["", "note", "tasks"], tabs.Select(tab => tab.GetAttribute("href")));
-        Assert.Contains("tab-bar__tab--active", app.Find("[data-testid='tab-bar-inbox']").ClassList);
+        Assert.Equal(["Today", "Inbox", "Notes"], tabs.Select(tab => tab.TextContent));
+        Assert.Equal(["", "inbox", "notes"], tabs.Select(tab => tab.GetAttribute("href")));
+        Assert.Contains("tab-bar__tab--active", app.Find("[data-testid='tab-bar-today']").ClassList);
+        Assert.DoesNotContain("tab-bar__tab--active", app.Find("[data-testid='tab-bar-inbox']").ClassList);
 
         Assert.Empty(app.FindAll("[data-testid='pairing-code-field']"));
     }
 
     [Theory]
-    [InlineData("note", "Talk note", "note-send")]
-    [InlineData("tasks", "My Day", "tasks-empty")]
+    [InlineData("inbox", "Inbox", "capture-field")]
+    [InlineData("notes", "Talk note", "note-send")]
     public void Each_tab_resolves_to_its_own_page(string route, string heading, string placeholder)
     {
         using var host = ShellHost.Paired();
-        var app = host.Open();
+        var app = host.Open("");
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='capture-field'] input")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='tasks-empty']")));
 
         host.Navigation.NavigateTo(route);
 
         app.WaitForAssertion(() => Assert.Equal(heading, app.Find("h1").TextContent));
         Assert.NotNull(app.Find($"[data-testid='{placeholder}']"));
         Assert.Contains("tab-bar__tab--active", app.Find($"[data-testid='tab-bar-{route}']").ClassList);
-        Assert.DoesNotContain("tab-bar__tab--active", app.Find("[data-testid='tab-bar-inbox']").ClassList);
+        Assert.DoesNotContain("tab-bar__tab--active", app.Find("[data-testid='tab-bar-today']").ClassList);
     }
 
     /// <summary>
     /// An address the app has no page for is not a dead end: it says so in a
-    /// fragment, the way every empty state does, and links back to the Inbox.
+    /// fragment, the way every empty state does, and links back to Today.
     /// </summary>
     [Fact]
-    public void An_unknown_address_says_nothing_is_there_and_links_back_to_the_inbox()
+    public void An_unknown_address_says_nothing_is_there_and_links_back_to_today()
     {
         using var host = ShellHost.Paired();
         var app = host.Open();
@@ -66,7 +67,7 @@ public sealed class ShellNavigationTests
         Assert.Equal("Nothing here", notFound.QuerySelector(".empty-state__title")!.TextContent.Trim());
         var home = Assert.Single(notFound.QuerySelectorAll("a"));
         Assert.Equal("", home.GetAttribute("href"));
-        Assert.Equal("Back to the Inbox", home.TextContent.Trim());
+        Assert.Equal("Back to Today", home.TextContent.Trim());
     }
 
     /// <summary>
@@ -75,7 +76,7 @@ public sealed class ShellNavigationTests
     /// round trip that used to lose it.
     /// </summary>
     [Fact]
-    public void A_draft_typed_in_the_inbox_is_still_there_after_a_trip_to_tasks_and_back()
+    public void A_draft_typed_in_the_inbox_is_still_there_after_a_trip_to_today_and_back()
     {
         using var host = ShellHost.Paired();
         var app = host.Open();
@@ -83,11 +84,11 @@ public sealed class ShellNavigationTests
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='capture-field'] input")));
         app.Find("[data-testid='capture-field'] input").Input("Call the plumber about the boiler");
 
-        host.Navigation.NavigateTo("tasks");
+        host.Navigation.NavigateTo("");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='tasks-empty']")));
         Assert.Empty(app.FindAll("[data-testid='capture-field']"));
 
-        host.Navigation.NavigateTo("");
+        host.Navigation.NavigateTo("inbox");
         app.WaitForAssertion(() => Assert.Equal(
             "Call the plumber about the boiler",
             app.Find("[data-testid='capture-field'] input").GetAttribute("value")));

@@ -1,0 +1,57 @@
+@using System.Globalization
+
+@*
+    How far through the day's list the person is: "3 of 8 done", and a bar under
+    it. A count and a share of a known whole, so the bar is a progressbar with
+    its maximum, and its words are the same sentence the line above says — a
+    screen reader hears "3 of 8 done", not "37 percent".
+
+    A day with nothing picked has no share to show; the bar stays empty rather
+    than dividing by nothing, and is drawn as decoration, since a progressbar
+    whose maximum is its minimum is not one.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <p class="day-progress__label" data-testid="@PartTestId("label")">
+        <strong class="day-progress__count">@Done of @Total</strong> done
+    </p>
+    <div class="day-progress__track"
+         role="@(Total > 0 ? "progressbar" : null)"
+         aria-hidden="@(Total > 0 ? null : "true")"
+         aria-label="@(Total > 0 ? AriaLabel : null)"
+         aria-valuemin="@(Total > 0 ? "0" : null)"
+         aria-valuemax="@(Total > 0 ? Total : null)"
+         aria-valuenow="@(Total > 0 ? Done : null)"
+         aria-valuetext="@(Total > 0 ? $"{Done} of {Total} done" : null)">
+        <span class="day-progress__fill" style="@($"width: {Percent.ToString("0.##", CultureInfo.InvariantCulture)}%")"></span>
+    </div>
+</div>
+
+@code {
+    /// <summary>How many of the day's tasks are ticked off.</summary>
+    [Parameter]
+    public int Done { get; set; }
+
+    /// <summary>How many tasks the day holds, ticked or not.</summary>
+    [Parameter]
+    public int Total { get; set; }
+
+    /// <summary>What the bar measures, for a screen reader.</summary>
+    [Parameter]
+    public string AriaLabel { get; set; } = "Today's progress";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private double Percent => Total <= 0 ? 0 : Math.Clamp(Done * 100d / Total, 0, 100);
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "day-progress" : $"day-progress {CssClass}";
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+}

@@ -29,7 +29,7 @@ public sealed class TalkNoteScreenTests
         app.Find("[data-testid='note-choose-files']").Click();
         app.WaitForAssertion(() => Assert.Single(app.FindAll("[data-testid='attachment-tile']")));
 
-        host.Navigation.NavigateTo("");
+        host.Navigation.NavigateTo("inbox");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='capture-field'] input")));
         host.Navigation.NavigateTo("note");
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='note-send']")));
@@ -134,7 +134,7 @@ public sealed class TalkNoteScreenTests
         app.WaitForAssertion(() => Assert.Equal("waiting", app.Find("[data-testid='note-status']").GetAttribute("data-status")));
         Assert.Equal(TalkNoteOutboxKind.Token, Assert.Single(host.Outbox.Entries).Kind);
 
-        host.Navigation.NavigateTo("");
+        host.Navigation.NavigateTo("inbox");
 
         app.WaitForAssertion(() =>
         {

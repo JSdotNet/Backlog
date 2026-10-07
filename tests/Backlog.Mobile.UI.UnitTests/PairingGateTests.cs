@@ -16,8 +16,8 @@ public sealed class PairingGateTests
 {
     [Theory]
     [InlineData("")]
-    [InlineData("note")]
-    [InlineData("tasks")]
+    [InlineData("inbox")]
+    [InlineData("notes")]
     public void An_unpaired_phone_is_offered_a_pairing_code_and_nothing_else_on_every_route(string route)
     {
         using var host = ShellHost.Unpaired();
@@ -47,7 +47,7 @@ public sealed class PairingGateTests
     public void Redeeming_a_code_opens_the_page_the_app_was_opened_on()
     {
         using var host = ShellHost.Unpaired();
-        var app = host.Open("tasks");
+        var app = host.Open("");
 
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='pairing-code-field'] input")));
 

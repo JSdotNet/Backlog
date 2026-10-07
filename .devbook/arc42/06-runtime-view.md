@@ -279,7 +279,7 @@ sequenceDiagram
 related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#completed"]
 ```
 
-The phone's Tasks tab is My Day and nothing else. It reads the owner's existing
+The phone's Today tab is My Day and nothing else. It reads the owner's existing
 task feed rather than a My Day endpoint. It writes four things, all through the
 device outbox: a task added for today, and three edits to a task already in
 today's My Day. Those edits are done or undone, a step ticked or unticked, and
@@ -363,7 +363,7 @@ projection of the feed.
 ```mermaid
 sequenceDiagram
     actor ME
-    participant Tasks as Phone Tasks tab
+    participant Tasks as Phone Today tab
     participant View as task_view (SQLite)
     participant Outbox as SQLite Outbox
     participant Sync as Sync Service
@@ -393,7 +393,7 @@ An edit to a task already in My Day takes the same path from the outbox onward:
 ```mermaid
 sequenceDiagram
     actor ME
-    participant Tasks as Phone Tasks tab
+    participant Tasks as Phone Today tab
     participant View as task_view (SQLite)
     participant Outbox as SQLite Outbox
     participant Sync as Sync Service

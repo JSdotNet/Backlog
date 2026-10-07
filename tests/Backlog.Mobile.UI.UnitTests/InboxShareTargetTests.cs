@@ -74,7 +74,7 @@ public sealed class InboxShareTargetTests
     public void A_share_made_while_on_another_tab_is_captured_and_lands_on_the_inbox()
     {
         using var host = ShellHost.Paired();
-        var app = host.Open("tasks");
+        var app = host.Open("");
         app.WaitForAssertion(() => Assert.Equal(1, host.Tasks.Pulls));
 
         host.Share.Share("https://youtu.be/abc123", "How to fold a fitted sheet");
@@ -82,7 +82,7 @@ public sealed class InboxShareTargetTests
         app.WaitForAssertion(() =>
         {
             Assert.Equal(1, host.Inbox.Created);
-            Assert.Equal(string.Empty, host.Navigation.ToBaseRelativePath(host.Navigation.Uri));
+            Assert.Equal("inbox", host.Navigation.ToBaseRelativePath(host.Navigation.Uri));
             Assert.NotNull(app.Find("[data-testid='share-status']"));
         });
 
