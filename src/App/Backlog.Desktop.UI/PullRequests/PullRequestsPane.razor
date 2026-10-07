@@ -353,6 +353,17 @@
                                     Update branch
                                 </AppButton>
                             }
+                            @* Only where a failed check is a GitHub Actions run: a check
+                               another service set has to be re-run there. *@
+                            @if (pull.CanRerunFailed)
+                            {
+                                <AppButton Size="ButtonSize.Small"
+                                           Disabled="@Busy(pull)"
+                                           TestId="pull-request-rerun-failed"
+                                           OnClick="() => RerunFailedAsync(pull)">
+                                    Re-run failed
+                                </AppButton>
+                            }
                             @if (pull.IsOpen && pull.IsDraft)
                             {
                                 <AppButton Size="ButtonSize.Small"
@@ -784,6 +795,9 @@
 
     private Task UpdateBranchAsync(GitHubOpenPullRequest pull) =>
         ActAsync(pull, gitHub => gitHub.UpdateBranchAsync(pull), $"Asked GitHub to update the branch of {Subject(pull)}.");
+
+    private Task RerunFailedAsync(GitHubOpenPullRequest pull) =>
+        ActAsync(pull, gitHub => gitHub.RerunFailedChecksAsync(pull), $"Asked GitHub to re-run the failed checks of {Subject(pull)}.");
 
     private Task MarkReadyAsync(GitHubOpenPullRequest pull) =>
         ActAsync(pull, gitHub => gitHub.MarkReadyForReviewAsync(pull), $"{Subject(pull)} is ready for review.");

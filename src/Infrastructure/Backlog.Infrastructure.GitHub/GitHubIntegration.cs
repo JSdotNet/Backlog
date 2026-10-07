@@ -379,16 +379,75 @@ public sealed partial class GitHubIntegration(
                 cancellationToken));
     }
 
+    /// <summary>
+    /// Runs the failed jobs again of every GitHub Actions workflow run behind one of the
+    /// head commit's failed checks — GitHub's "Re-run failed jobs", once per run however
+    /// many of its checks failed. A failed check another service set is left alone:
+    /// GitHub cannot run it again.
+    /// <para>
+    /// Every run is asked, one after the other, even when one is refused: the runs are
+    /// independent, and a run already re-running says nothing about the next. The first
+    /// refusal is then thrown, worded, and says how many of the others went through.
+    /// </para>
+    /// </summary>
+    /// <exception cref="GitHubException">No failed check is a GitHub Actions run, or
+    /// GitHub refused a run; as <see cref="EnableAutoMergeAsync"/>.</exception>
+    public async Task RerunFailedChecksAsync(GitHubOpenPullRequest pullRequest, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pullRequest);
+
+        var runs = pullRequest.FailedWorkflowRunIds;
+        if (runs.Count == 0)
+        {
+            throw new GitHubException(
+                $"Couldn't re-run the failed checks of {pullRequest.RepositoryFullName}#{pullRequest.Number}: "
+                + "none of them is a GitHub Actions run. Re-run them where they ran.");
+        }
+
+        var repository = RepositoryForFullName(pullRequest.RepositoryFullName);
+        GitHubException? firstRefusal = null;
+        var refused = 0;
+
+        foreach (var run in runs)
+        {
+            try
+            {
+                await Explained(
+                    MergeAct.RerunFailed,
+                    pullRequest.ToStatus(),
+                    () => client.RerunFailedJobsAsync(repository, run, cancellationToken)).ConfigureAwait(false);
+            }
+            catch (GitHubException ex)
+            {
+                refused++;
+                firstRefusal ??= ex;
+            }
+        }
+
+        if (firstRefusal is null) return;
+
+        var started = runs.Count - refused;
+        if (started == 0) throw firstRefusal;
+
+        throw new GitHubException(
+            $"{firstRefusal.Message} {started} of the {runs.Count} workflow runs did start again.", firstRefusal)
+        {
+            Status = firstRefusal.Status,
+            ErrorType = firstRefusal.ErrorType
+        };
+    }
+
     /// <summary>The acts on a pull request whose refusals are put into words here.
-    /// The name is older than the last two members: every act it held was a merge's
-    /// until the pull requests list added two that prepare one.</summary>
+    /// The name is older than the last three members: every act it held was a merge's
+    /// until the pull requests list added acts that prepare one.</summary>
     private enum MergeAct
     {
         EnableAutoMerge,
         DisableAutoMerge,
         Merge,
         UpdateBranch,
-        MarkReady
+        MarkReady,
+        RerunFailed
     }
 
     /// <summary>
@@ -434,6 +493,7 @@ public sealed partial class GitHubIntegration(
             MergeAct.DisableAutoMerge => $"Couldn't cancel auto-merge for {subject}",
             MergeAct.UpdateBranch => $"Couldn't update the branch of {subject}",
             MergeAct.MarkReady => $"Couldn't mark {subject} ready for review",
+            MergeAct.RerunFailed => $"Couldn't re-run the failed checks of {subject}",
             _ => $"Couldn't merge {subject}"
         };
 
@@ -452,6 +512,21 @@ public sealed partial class GitHubIntegration(
         {
             return $"{what}: the base branch conflicts with it, and GitHub can't merge that by itself. "
                 + "Resolve the conflicts on the branch, then push.";
+        }
+
+        // GitHub refuses to re-run a workflow run that has not finished, with a 403
+        // that would otherwise read as a missing permission below.
+        if (act is MergeAct.RerunFailed && (Says("already running") || Says("cannot be rerun")))
+        {
+            return $"{what}: a workflow run is still going or can't be run again. "
+                + "Wait for it to finish, then refresh and try again.";
+        }
+
+        // And one too old to run again, also with a 403.
+        if (act is MergeAct.RerunFailed && (Says("unable to retry") || Says("over 30 days")))
+        {
+            return $"{what}: GitHub runs a workflow again only within 30 days of its start. "
+                + "Push a commit to the branch to run the checks afresh.";
         }
 
         if (Says("auto merge is not allowed") || Says("auto-merge is not allowed"))
@@ -493,6 +568,7 @@ public sealed partial class GitHubIntegration(
             {
                 MergeAct.UpdateBranch => "push to branches",
                 MergeAct.MarkReady => "change pull requests",
+                MergeAct.RerunFailed => "re-run workflows",
                 _ => "merge"
             };
 
