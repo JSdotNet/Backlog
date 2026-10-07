@@ -26,7 +26,7 @@ public sealed class TaskBoardTests
     /// to Draft, and nowhere else.</summary>
     private static TaskBoardDropRule? ReadyRule(string taskId, string columnKey) => columnKey switch
     {
-        "InProgress" => new TaskBoardDropRule(true, "Drop to start"),
+        "InProgress" => new TaskBoardDropRule(true, "Drop to start", "Moves to In progress and stamps Started"),
         "Draft" => new TaskBoardDropRule(true, "Drop to move back to Draft"),
         "Done" => new TaskBoardDropRule(false, "Ready can't move straight to Done — start it first"),
         _ => null
@@ -106,9 +106,18 @@ public sealed class TaskBoardTests
 
         var progress = Column(board, "InProgress");
         Assert.Contains("task-board__column--target", progress.ClassName);
-        Assert.Equal("Drop to start", progress.QuerySelector("[data-testid='board-column-slot']")!.TextContent.Trim());
+        Assert.Equal("Drop to start", progress.QuerySelector("[data-testid='board-column-slot-text']")!.TextContent.Trim());
 
-        Assert.Contains("task-board__column--target", Column(board, "Draft").ClassName);
+        // The rule's second line, under the first: what else the drop writes.
+        Assert.Equal(
+            "Moves to In progress and stamps Started",
+            progress.QuerySelector("[data-testid='board-column-slot-detail']")!.TextContent.Trim());
+
+        // A rule with no detail draws the one line and no empty second one.
+        var draft = Column(board, "Draft");
+        Assert.Contains("task-board__column--target", draft.ClassName);
+        Assert.Equal("Drop to move back to Draft", draft.QuerySelector("[data-testid='board-column-slot-text']")!.TextContent.Trim());
+        Assert.Null(draft.QuerySelector("[data-testid='board-column-slot-detail']"));
 
         var done = Column(board, "Done");
         Assert.Contains("task-board__column--refused", done.ClassName);

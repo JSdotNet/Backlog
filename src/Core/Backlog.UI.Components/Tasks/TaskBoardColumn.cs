@@ -45,7 +45,11 @@ public sealed record TaskBoardCard(
 /// <param name="Text">For an allowed drop, what it does ("Drop to start"); for a
 /// refused one, why not ("Ready can't move straight to Done — start it
 /// first"). Drawn in the column while the card is held over the board.</param>
-public sealed record TaskBoardDropRule(bool Allowed, string Text);
+/// <param name="Detail">For an allowed drop, an optional second line under
+/// <paramref name="Text"/> saying what else the drop writes ("Moves to In progress
+/// and stamps Started"). Null draws the one line. Ignored on a refused drop, whose
+/// <paramref name="Text"/> already is the whole reason.</param>
+public sealed record TaskBoardDropRule(bool Allowed, string Text, string? Detail = null);
 
 /// <summary>A card dropped on a column the host's rule allowed.</summary>
 public sealed record TaskBoardDrop(string TaskId, string ColumnKey);

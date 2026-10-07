@@ -5339,10 +5339,13 @@ button.task-panel__check:focus-visible {
     font-size: var(--font-size-xs);
 }
 
-/* Where the held card lands, and what landing there does. */
+/* Where the held card lands, and what landing there does: the drop on one line,
+   and what else it writes, when the host says, on a quieter one under it. */
 .task-board__slot {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--spacing-2xs);
     min-height: 3rem;
     padding: var(--spacing-sm) var(--spacing-md);
     border: var(--border-width-2) dashed var(--color-border-strong);
@@ -5353,6 +5356,11 @@ button.task-panel__check:focus-visible {
 
 .task-board__slot strong {
     font-weight: var(--font-weight-semibold);
+}
+
+.task-board__slot-detail {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
 .task-board__slot--over {

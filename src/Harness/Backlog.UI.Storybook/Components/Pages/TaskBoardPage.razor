@@ -196,7 +196,7 @@
                 "Ready" when from == "Draft" => "Drop to mark ready",
                 "Ready" => "Drop to move back to Ready",
                 _ => "Drop to move back to Draft"
-            });
+            }, columnKey == "InProgress" && from != "Done" ? "Moves to In progress and stamps Started" : null);
         }
 
         var via = Next[from].FirstOrDefault(next => Next[next].Contains(columnKey));

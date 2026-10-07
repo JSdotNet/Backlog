@@ -231,16 +231,26 @@ public partial class TasksPane
         // Ticked off but still recorded as something before Done — an edit can
         // leave it so. The card sits in Done, but the move the graph is asked
         // about is the one the status change will actually make.
-        return DropRule(row.PreviewStatus, to);
+        return DropRule(row.PreviewStatus, to, started: row.PreviewStartedOn is not null);
     }
 
     /// <summary>The rule on its own, for the status a card is in and the column
     /// it is held over. Internal so the wording can be held to the graph edge by
-    /// edge.</summary>
-    internal static TaskBoardDropRule DropRule(EntryStatus from, EntryStatus to)
+    /// edge.
+    /// <para>
+    /// <paramref name="started"/> is whether the entry already carries a
+    /// <c>started:</c> stamp. Any move into progress writes one when there is
+    /// none — a reopen too, for a Done entry that never had one — and the slot
+    /// says so on its second line; an entry that was started before keeps the day
+    /// it has, so for it the slot does not promise a stamp the drop will not
+    /// write.
+    /// </para></summary>
+    internal static TaskBoardDropRule DropRule(EntryStatus from, EntryStatus to, bool started = false)
     {
         if (EntryStatusFlow.IsAllowed(from, to))
         {
+            var stamps = to == EntryStatus.InProgress && !started;
+
             return new TaskBoardDropRule(true, to switch
             {
                 EntryStatus.InProgress when from == EntryStatus.Done => "Drop to reopen",
@@ -250,7 +260,7 @@ public partial class TasksPane
                 EntryStatus.Ready => "Drop to move back to Ready",
                 EntryStatus.Draft => "Drop to move back to Draft",
                 _ => $"Drop to move to {StatusTitle(to)}"
-            });
+            }, stamps ? "Moves to In progress and stamps Started" : null);
         }
 
         // The step that would make the move possible: the first status this one

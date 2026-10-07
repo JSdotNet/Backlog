@@ -3401,6 +3401,17 @@
                     <Badge Kind="effort" data-testid="entry-effort-badge" title="Effort">@FormatEffort(effort)</Badge>
                 }
 
+                @* The day work started, beside the size and on the same terms:
+                   only when there is one. Read-only, and so a badge rather than a
+                   row in the Scheduling group — nobody sets it; the first move
+                   into progress stamps it (a Board drop, the status selector),
+                   and a row there would offer a picker and a ✕ for a fact the
+                   reader cannot change. *@
+                @if (row.PreviewStartedOn is { } started)
+                {
+                    <Badge Kind="started" data-testid="entry-started-badge" title="Started">Started @FormatDate(started)</Badge>
+                }
+
                 @* Grouped and named after the entry, out loud. Both of these act on
                    the whole task — one files it as an issue, the other hands the
                    entry to a tool — and a step used to carry buttons that looked

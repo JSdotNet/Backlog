@@ -164,7 +164,8 @@ public sealed class TasksPaneBoardTests
 
         var target = pane.Find("[data-board-column='InProgress']");
         Assert.Contains("task-board__column--target", target.ClassName);
-        Assert.Equal("Drop to start", Text(pane, "InProgress", "board-column-slot"));
+        Assert.Equal("Drop to start", Text(pane, "InProgress", "board-column-slot-text"));
+        Assert.Equal("Moves to In progress and stamps Started", Text(pane, "InProgress", "board-column-slot-detail"));
 
         await board.InvokeAsync(() => board.Instance.PointerDragOver("InProgress"));
         await board.InvokeAsync(() => board.Instance.PointerDragEnd());
@@ -180,6 +181,24 @@ public sealed class TasksPaneBoardTests
         await host.State.ReloadFromStoreAsync();
         var reloaded = Assert.Single(host.State.Rows, row => row.Id == ready.Id);
         Assert.Equal(EntryStatus.InProgress, reloaded.PreviewStatus);
+    }
+
+    /// <summary>An entry moved back out of progress keeps the day it first
+    /// started, so the slot over In progress says only that it starts and does
+    /// not promise a stamp the drop will not write.</summary>
+    [Fact]
+    public async Task An_entry_already_started_is_offered_the_start_without_a_new_stamp()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var ready = await host.WriteEntryAsync("# Build the board\n`task` `!ready` `started:2026-10-01`\n");
+
+        var pane = RenderBoard(host);
+        var board = pane.FindComponent<TaskBoard>();
+
+        await board.InvokeAsync(() => board.Instance.PointerDragStart(ready.TaskId));
+
+        Assert.Equal("Drop to start", Text(pane, "InProgress", "board-column-slot-text"));
+        Assert.Empty(pane.FindAll("[data-board-column='InProgress'] [data-testid='board-column-slot-detail']"));
     }
 
     [Fact]
@@ -221,6 +240,12 @@ public sealed class TasksPaneBoardTests
         }
 
         Assert.Equal("Drop to start", TasksPane.DropRule(EntryStatus.Ready, EntryStatus.InProgress).Text);
+        Assert.Equal("Moves to In progress and stamps Started", TasksPane.DropRule(EntryStatus.Ready, EntryStatus.InProgress).Detail);
+        Assert.Null(TasksPane.DropRule(EntryStatus.Ready, EntryStatus.InProgress, started: true).Detail);
+        Assert.Null(TasksPane.DropRule(EntryStatus.Done, EntryStatus.InProgress, started: true).Detail);
+        // A Done entry with no stamp (typed `!done`, an import) gets one on reopen.
+        Assert.Equal("Moves to In progress and stamps Started", TasksPane.DropRule(EntryStatus.Done, EntryStatus.InProgress).Detail);
+        Assert.Null(TasksPane.DropRule(EntryStatus.InProgress, EntryStatus.Done).Detail);
         Assert.Equal("Drop to finish", TasksPane.DropRule(EntryStatus.InProgress, EntryStatus.Done).Text);
         Assert.Equal("Drop to reopen", TasksPane.DropRule(EntryStatus.Done, EntryStatus.InProgress).Text);
         Assert.Equal("Draft can't move straight to In progress — mark it ready first", TasksPane.DropRule(EntryStatus.Draft, EntryStatus.InProgress).Text);
@@ -269,7 +294,7 @@ public sealed class TasksPaneBoardTests
         await board.InvokeAsync(() => board.Instance.PointerDragStart(ticked.TaskId));
 
         // From In progress, Ready is one move back and Draft is not.
-        Assert.Equal("Drop to move back to Ready", Text(pane, "Ready", "board-column-slot"));
+        Assert.Equal("Drop to move back to Ready", Text(pane, "Ready", "board-column-slot-text"));
         Assert.Contains("task-board__column--refused", pane.Find("[data-board-column='Draft']").ClassName);
 
         await board.InvokeAsync(() => board.Instance.PointerDragOver("Ready"));
