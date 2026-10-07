@@ -58,4 +58,11 @@
     <Compile Include="..\Shared\TestDoubles\RecordingTelemetry.cs" Link="Shared\TestDoubles\RecordingTelemetry.cs" />
   </ItemGroup>
 
+  <!-- What Claude Code posted to an OTLP logs endpoint, scrubbed, for ClaudeCodeLogsEndpointGateTests
+       to replay. Shared from tests/Fixtures because the reader and the host route
+       replay the same capture. -->
+  <ItemGroup>
+    <None Include="..\Fixtures\claude-code-otlp\*" Link="Fixtures\claude-code-otlp\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

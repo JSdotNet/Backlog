@@ -30,6 +30,10 @@
     <!-- The Inbox module's two repository ports, answered under Inbox/ by three
          tables in the same database. Same direction, same reasoning. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />
+    <!-- The Sessions context's IClaudeApiRequestStore, answered under Sessions/ by the
+         claude_api_requests table in the same database. The context has no module
+         project, so the port comes from its abstractions; same direction otherwise. -->
+    <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

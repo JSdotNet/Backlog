@@ -254,7 +254,9 @@ app.UseWhen(
     // The hook telemetry route beside /mcp is the same surface, so it goes
     // behind the same Origin check.
     context => context.Request.Path.StartsWithSegments(BacklogMcpServerRegistration.EndpointPath)
-        || context.Request.Path.StartsWithSegments(BacklogTelemetryEndpoint.RoutePath),
+        || context.Request.Path.StartsWithSegments(BacklogTelemetryEndpoint.RoutePath)
+        // And Claude Code's OTLP logs (local ADR 0024), on the same terms.
+        || context.Request.Path.StartsWithSegments(ClaudeCodeLogsEndpoint.RoutePath),
     branch => branch.Use(async (context, next) =>
     {
         // The same predicate the desktop listener refuses on, and the same
@@ -291,6 +293,26 @@ app.MapPost(BacklogTelemetryEndpoint.RoutePath, async context =>
         context.Request.ContentLength,
         context.RequestServices.GetRequiredService<IDeliveryRunTelemetry>(),
         context.RequestAborted);
+});
+
+// And Claude Code's OpenTelemetry logs, whose api_request events go into this
+// harness's backlog.db — the workspace's, as in the app (local ADR 0024). No token
+// here, for the reason the MCP endpoint has none.
+app.MapPost(ClaudeCodeLogsEndpoint.RoutePath, async context =>
+{
+    var reply = await ClaudeCodeLogsEndpoint.AcceptAsync(
+        context.Request.Body,
+        context.Request.ContentLength,
+        context.Request.ContentType,
+        context.Request.Headers.ContentEncoding,
+        context.RequestServices.GetRequiredService<IClaudeApiRequestStore>(),
+        context.RequestAborted);
+
+    context.Response.StatusCode = reply.StatusCode;
+    if (reply.ContentType is not null) context.Response.ContentType = reply.ContentType;
+    if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "Claude Code's telemetry could not be stored; the exporter was asked to retry.");
+    if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    if (reply.Body.Length > 0) await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted);
 });
 
 app.Run();

@@ -5,6 +5,7 @@ using Backlog.Desktop.UI.Shell;
 using Backlog.Aspire.ServiceDefaults;
 using Backlog.SharedKernel;
 using Backlog.Modules.DevPc.Abstractions;
+using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.Infrastructure.AzureFoundry;
@@ -158,6 +159,10 @@ public static class MauiProgram
         builder.Services.TryAddSingleton<IMcpEndpointSource>(sp => new DesktopMcpEndpointSource(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<McpServerWorker>));
+        // And where the same listener receives Claude Code's telemetry (local ADR
+        // 0024), for the Settings page that says what to paste into Claude Code.
+        builder.Services.TryAddSingleton<IClaudeCodeTelemetryEndpoint>(sp =>
+            new DesktopClaudeCodeTelemetryEndpoint(sp.GetRequiredService<IMcpEndpointSource>()));
 
         // The bill for the Azure Foundry resource, read from Azure Cost Management
         // with the developer sign-in on this machine. Reports itself unavailable
