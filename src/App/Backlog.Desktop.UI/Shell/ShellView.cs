@@ -32,6 +32,12 @@ internal enum ShellView
     /// Tasks and Board in the switch; the members' order is not the options'.</summary>
     Calendar,
 
+    /// <summary>The filtered tasks in columns of cards — by status, plan,
+    /// repository or priority — under the Tasks filter bar and beside the same
+    /// detail panel. Its option sits right after Tasks in the switch; the
+    /// members' order is not the options'.</summary>
+    Board,
+
     /// <summary>Every entry in progress with the sessions and pull requests linked to
     /// it, by what needs the person. Offered while the Sessions or the Pull requests
     /// feature is on, as the first option of the work in progress group rather than

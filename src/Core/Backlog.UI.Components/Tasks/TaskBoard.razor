@@ -1,0 +1,348 @@
+@inject IJSRuntime Js
+@implements IAsyncDisposable
+
+@*
+    Tasks laid out in columns, one TaskCard each: the host's grouping, drawn side
+    by side, with each column's count and summed points in its heading.
+
+    The board groups nothing. The columns arrive already built — which ones exist,
+    what they are called, which cards sit in each — because a status, a plan and a
+    repository are the host's words, and a board that knew them would be a board
+    for one product. What the board adds is the arithmetic every column states the
+    same way: how many cards, how many points, and how many of those cards nobody
+    has estimated yet, since a sum that silently skipped them would be a sum that
+    reads smaller than the work is.
+
+    A card can be dragged to another column while Draggable is on. The gesture is
+    the task list's own: pointer events from `taskListDrag` in components.js,
+    because the native drag session is aborted by WebView2 in the desktop head —
+    see the comment there. A card says it can be picked up with data-draggable, the
+    board names its columns with data-board-column, and the script reports which
+    column the pointer is over, never what a drop there would mean. That is
+    DropRuleFor's, the host's rule, asked once per column while a card is held:
+    an allowed column is marked as a target and says what the drop does, a refused
+    one goes quiet and says why not. A drop on a refused column, on the column the
+    card came from, or off the board writes nothing.
+
+    The board scrolls sideways on its own when the space it is given is narrower
+    than its columns — the detail panel opening beside it is the usual cause — so
+    a column is never squeezed below the width a card reads at.
+*@
+<div class="@ClassValue"
+     data-testid="@TestId"
+     data-list-owner="@_boardId"
+     role="group"
+     aria-label="@AriaLabel">
+    @for (var columnIndex = 0; columnIndex < Columns.Count; columnIndex++)
+    {
+        var column = Columns[columnIndex];
+        var index = columnIndex;
+        var rule = RuleFor(column);
+        <section @key="column.Key"
+                 class="@ColumnClass(column, rule)"
+                 data-board-column="@column.Key"
+                 data-testid="board-column"
+                 aria-label="@ColumnLabel(column)">
+            <header class="task-board__head">
+                <span class="@DotClass(column)" aria-hidden="true"></span>
+                <h2 class="task-board__title" data-testid="board-column-title">@column.Title</h2>
+                <span class="task-board__count" data-testid="board-column-count">@column.Cards.Count</span>
+                <span class="task-board__points" data-testid="board-column-points">@PointsText(column)</span>
+            </header>
+
+            @if (rule is { Allowed: false } refused)
+            {
+                <p class="task-board__refusal" data-testid="board-column-refusal">@refused.Text</p>
+            }
+            else if (rule is { Allowed: true } allowed)
+            {
+                <div class="@SlotClass(column)" data-testid="board-column-slot">
+                    <strong>@allowed.Text</strong>
+                </div>
+            }
+
+            <div class="task-board__cards">
+                @foreach (var card in column.Cards)
+                {
+                    <TaskCard @key="card.Task.Id"
+                              Task="@card.Task"
+                              Status="@card.Status"
+                              Priority="@card.Priority"
+                              Repository="@card.Repository"
+                              Effort="@card.Effort"
+                              Overdue="@card.Overdue"
+                              Finished="@card.Finished"
+                              Badges="@Badges"
+                              OnSelected="@OnSelected"
+                              OnTagSelected="@OnTagSelected"
+                              Selected="@(SelectedId is not null && string.Equals(SelectedId, card.Task.Id, StringComparison.Ordinal))"
+                              Draggable="@Draggable"
+                              Dragging="@(_dragId is not null && string.Equals(_dragId, card.Task.Id, StringComparison.Ordinal))"
+                              CssClass="@card.CssClass"
+                              ElementId="@CardElementId(index, card.Task.Id)"
+                              TestId="board-card" />
+                }
+            </div>
+
+            @if (column.CanAdd && OnAdd.HasDelegate)
+            {
+                <AppButton BaseClass="task-board__add"
+                           Variant="ButtonVariant.None"
+                           TestId="board-column-add"
+                           aria-label="@($"New entry in {column.Title}")"
+                           OnClick="() => OnAdd.InvokeAsync(column.Key)">
+                    <span aria-hidden="true">+</span> New entry
+                </AppButton>
+            }
+        </section>
+    }
+
+    @* What a drop did, or why it did nothing, for a reader who cannot see the
+       column change. Polite: it follows a gesture the reader made. *@
+    <p class="sr-only" role="status" aria-live="polite" data-testid="board-announcement">@_announcement</p>
+</div>
+
+@code {
+    private readonly string _boardId = "task-board-" + Guid.NewGuid().ToString("N");
+
+    private DotNetObjectReference<TaskBoard>? _dragSelf;
+
+    /// <summary>The card being held, while a drag is in flight.</summary>
+    private string? _dragId;
+
+    /// <summary>The column the held card was picked up from.</summary>
+    private string? _dragFrom;
+
+    /// <summary>The column the pointer is over, or null off every column.</summary>
+    private string? _overKey;
+
+    private string? _announcement;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TaskBoardColumn> Columns { get; set; } = [];
+
+    /// <summary>Whether a card can be picked up and dropped on another column.
+    /// Off, the cards are only controls that open their task.</summary>
+    [Parameter]
+    public bool Draggable { get; set; }
+
+    /// <summary>The host's rule: what dropping a task on a column would do, or
+    /// null for a column that is not a question at all. Asked only while a card
+    /// is held, and never for the column it came from.</summary>
+    [Parameter]
+    public Func<string, string, TaskBoardDropRule?>? DropRuleFor { get; set; }
+
+    /// <summary>Raised when a card is dropped on a column the rule allowed.</summary>
+    [Parameter]
+    public EventCallback<TaskBoardDrop> OnDrop { get; set; }
+
+    /// <summary>Raised with the task's id when a card is pressed.</summary>
+    [Parameter]
+    public EventCallback<string> OnSelected { get; set; }
+
+    /// <summary>Raised with the raw tag when a tag chip on a card is pressed.</summary>
+    [Parameter]
+    public EventCallback<string> OnTagSelected { get; set; }
+
+    /// <summary>Raised with a column's key when its "+ New entry" is pressed.
+    /// Only columns with <see cref="TaskBoardColumn.CanAdd"/> draw one.</summary>
+    [Parameter]
+    public EventCallback<string> OnAdd { get; set; }
+
+    /// <summary>The host's work badges, the same slot
+    /// <see cref="TaskCard.Badges"/> and <see cref="TaskListView.RowBadges"/> are.</summary>
+    [Parameter]
+    public RenderFragment<TaskRow>? Badges { get; set; }
+
+    /// <summary>The task open beside the board, whose card is drawn selected.</summary>
+    [Parameter]
+    public string? SelectedId { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string ClassValue => _dragId is null ? "task-board" : "task-board task-board--dragging";
+
+    /// <summary>What the held card would do on this column, or null when nothing
+    /// is held, the column is the one it came from, or the rule has no answer.</summary>
+    private TaskBoardDropRule? RuleFor(TaskBoardColumn column) =>
+        _dragId is { } id && DropRuleFor is { } rule && !string.Equals(column.Key, _dragFrom, StringComparison.Ordinal)
+            ? rule(id, column.Key)
+            : null;
+
+    private string ColumnClass(TaskBoardColumn column, TaskBoardDropRule? rule) => string.Join(' ', new[]
+    {
+        "task-board__column",
+        rule is { Allowed: true } ? "task-board__column--target" : null,
+        rule is { Allowed: false } ? "task-board__column--refused" : null,
+        rule is not null && string.Equals(_overKey, column.Key, StringComparison.Ordinal) ? "task-board__column--over" : null
+    }.Where(part => part is not null));
+
+    private string SlotClass(TaskBoardColumn column) =>
+        string.Equals(_overKey, column.Key, StringComparison.Ordinal)
+            ? "task-board__slot task-board__slot--over"
+            : "task-board__slot";
+
+    private static string DotClass(TaskBoardColumn column) =>
+        string.IsNullOrWhiteSpace(column.DotCssClass) ? "task-board__dot" : $"task-board__dot {column.DotCssClass}";
+
+    /// <summary>"12 pts · 2 not estimated": the summed estimate of the cards that
+    /// have one, and how many do not, so a column of guesses never reads as a
+    /// column of small work.</summary>
+    public static string PointsText(TaskBoardColumn column)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+
+        var points = column.Cards.Sum(card => card.Effort ?? 0);
+        var unestimated = column.Cards.Count(card => card.Effort is null);
+        var sum = points == 1 ? "1 pt" : $"{points} pts";
+
+        return unestimated > 0 ? $"{sum} · {unestimated} not estimated" : sum;
+    }
+
+    private static string ColumnLabel(TaskBoardColumn column) =>
+        $"{column.Title}, {column.Cards.Count} {(column.Cards.Count == 1 ? "task" : "tasks")}, {PointsText(column)}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _dragSelf = DotNetObjectReference.Create(this);
+
+        try
+        {
+            await Js.InvokeVoidAsync("taskListDrag.register", _boardId, _dragSelf);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    /// <summary>A held card has travelled far enough to be a drag. Called by
+    /// <c>taskListDrag</c>; ignored while the board is not draggable, so a stale
+    /// card attribute can never start one.</summary>
+    [JSInvokable]
+    public void PointerDragStart(string id)
+    {
+        if (!Draggable) return;
+
+        var from = Columns.FirstOrDefault(column =>
+            column.Cards.Any(card => string.Equals(card.Task.Id, id, StringComparison.Ordinal)));
+        if (from is null) return;
+
+        _dragId = id;
+        _dragFrom = from.Key;
+        _overKey = null;
+        _announcement = null;
+        StateHasChanged();
+    }
+
+    /// <summary>Which column the pointer is over now, or null off every column.</summary>
+    [JSInvokable]
+    public void PointerDragOver(string? columnKey)
+    {
+        if (_dragId is null || string.Equals(_overKey, columnKey, StringComparison.Ordinal)) return;
+
+        _overKey = columnKey;
+        StateHasChanged();
+    }
+
+    /// <summary>The card was released. Written only over a column the rule allows.</summary>
+    [JSInvokable]
+    public async Task PointerDragEnd()
+    {
+        if (_dragId is not { } id) return;
+
+        var target = _overKey is { } key ? Columns.FirstOrDefault(column => column.Key == key) : null;
+        var rule = target is null ? null : RuleFor(target);
+        var title = Columns.SelectMany(column => column.Cards).FirstOrDefault(card => card.Task.Id == id)?.Task.Title ?? id;
+
+        EndDrag();
+
+        if (target is not null && rule is { Allowed: true })
+        {
+            // Said once the host has made the change and the board has been handed
+            // its columns back: the card is announced where it now is, and a
+            // change that did not land is not announced as a move.
+            await OnDrop.InvokeAsync(new TaskBoardDrop(id, target.Key));
+
+            _announcement = Columns.FirstOrDefault(column => column.Key == target.Key)?.Cards
+                .Any(card => string.Equals(card.Task.Id, id, StringComparison.Ordinal)) == true
+                    ? $"Moved {title} to {target.Title}."
+                    : null;
+        }
+        else if (rule is { Allowed: false } refused)
+        {
+            _announcement = refused.Text;
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>The gesture was taken away — Escape, the pointer cancelled, the
+    /// window losing focus. Nothing is written.</summary>
+    [JSInvokable]
+    public void PointerDragCancel()
+    {
+        if (_dragId is null) return;
+
+        EndDrag();
+        StateHasChanged();
+    }
+
+    /// <summary>Puts the focus on the selected task's card — the first one, when
+    /// a grouping draws a task in more than one column.</summary>
+    public async Task FocusSelectedAsync()
+    {
+        if (SelectedId is not { Length: > 0 } id) return;
+
+        for (var index = 0; index < Columns.Count; index++)
+        {
+            if (!Columns[index].Cards.Any(card => string.Equals(card.Task.Id, id, StringComparison.Ordinal))) continue;
+
+            try
+            {
+                await Js.InvokeVoidAsync("backlogFocus", CardElementId(index, id));
+            }
+            catch (Exception)
+            {
+                // The card is still there and usable without its focus ring.
+            }
+
+            return;
+        }
+    }
+
+    /// <summary>Unique on the page: the board, the column and the task, since a
+    /// task can sit in several columns at once under the plan grouping.</summary>
+    private string CardElementId(int columnIndex, string taskId) =>
+        $"{_boardId}-{columnIndex}-{new string([.. taskId.Select(c => char.IsAsciiLetterOrDigit(c) ? c : '-')])}";
+
+    private void EndDrag()
+    {
+        _dragId = null;
+        _dragFrom = null;
+        _overKey = null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_dragSelf is null) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("taskListDrag.unregister", _boardId);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _dragSelf.Dispose();
+    }
+}

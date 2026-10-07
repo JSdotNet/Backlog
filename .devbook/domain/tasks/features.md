@@ -453,12 +453,39 @@ Hand-sequence tasks within the backlog by dragging them into a preferred
 order, independent of recency or priority. A task that has never been
 manually ranked falls back to recency.
 
+### Board view
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag]
+```
+
+The same filtered tasks laid out as columns of cards, under the same filters
+and beside the same open task. The columns are by status by default — Draft,
+Ready, In progress and Done — and can be by plan instead, one per
+[Roadmap Tag](domain.md#roadmap-tag) in view and then the tasks in no plan, by
+repository, or by [Priority](domain.md#priority). Each column says how many
+tasks it holds, the [Effort](domain.md#effort) they add up to, and how many of
+them nobody has estimated. A task under two plans is in both plan columns. The
+choice of columns is remembered with the view.
+
+While the columns are by status the status filter steps aside, since every
+status is a column, and a task can be dragged to another column. Only a move
+the [task lifecycle](flow.md#task-lifecycle) allows is taken: while a task is
+held, the columns it may go to are marked, and the others say why not and what
+has to happen first — a ready task has to be started before it can be done.
+Dropping it makes the same status change the task's own status picker makes.
+Each status column ends in a way to write a new task straight into that
+status. Opening a task from a card opens it as the list would; with the task
+open beside it the board scrolls sideways rather than squeezing its columns.
+
 ### Calendar view
 
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/features.md#my-day]
+related: [.devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/features.md#my-day, .devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first]
 ```
 
 The same filtered tasks laid out on a month by their
@@ -476,6 +503,24 @@ date wait beside the month; dragging one onto a day gives it that due date, and
 dragging a task to another day moves it. Opening a task from the month opens it
 as the list would. Only the due date places a task here, and the range is a
 month.
+
+The roadmap's plans can be drawn over the month: a **Show plans** choice beside
+the month's name, on until the reader turns it off and remembered on this device.
+Each planned item's window is a bar across the days it spans, cut at every week,
+under the day numbers and above the tasks; plans that overlap in a week each take
+a row of their own, and a bar carried on from the week before opens with "…". A
+bar says its title, its plan tag and how many of its points are finished out of
+the total. It wears its repository's colour, as on the roadmap, while repository
+colours are showing, and a neutral grey while they are not. A milestone is a
+diamond on its date. Beside the tasks with no due date, **Plans without a
+window** lists the plans waiting on the roadmap's
+[shelf](../roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first);
+dropping one on a day starts its window there, and the roadmap — never the Tasks
+view — works out where it ends from its points and the pace, as it places any
+plan. The drop is a pointer gesture; the keyboard way to the same result is the
+roadmap's own shelf, whose **Plan it** places the plan from today, and the roadmap's
+item editor, which moves its window to any day. The plans are the roadmap's: the
+Calendar reads them and starts a shelf plan, and changes nothing else about them.
 
 ## Prompt features
 

@@ -687,6 +687,9 @@
     const TASK_DRAG_EXCLUDED =
         '.task-item__check, .task-item__edit, .task-item__delete, .task-item__copy,' +
         '.task-item__badges, .task-item__actions, .task-item__fold, .task-item__rename,' +
+        // A board card's badge slot is the row's, on the row's terms: links to
+        // follow, never a place to pick the card up from.
+        '.task-card__badges,' +
         // The whole gutter and not just the input inside it. The box is padded
         // out to a comfortable target, and a press landing on that padding would
         // start dragging the row a reader was trying to tick.
@@ -778,6 +781,30 @@
             : scroller.getBoundingClientRect();
     }
 
+    // One sideways step of the board a card is being dragged on; true when it
+    // moved. The board is the card's nearest `.task-board`, which is its own
+    // horizontal scroller.
+    function taskBoardScrollStep(card, x) {
+        const board = card.closest('.task-board');
+        if (!board || board.scrollWidth <= board.clientWidth) return false;
+
+        const box = board.getBoundingClientRect();
+
+        let ratio = 0;
+        if (x < box.left + TASK_DRAG_SCROLL_EDGE_PX) {
+            ratio = -Math.min(1, (box.left + TASK_DRAG_SCROLL_EDGE_PX - x) / TASK_DRAG_SCROLL_EDGE_PX);
+        } else if (x > box.right - TASK_DRAG_SCROLL_EDGE_PX) {
+            ratio = Math.min(1, (x - (box.right - TASK_DRAG_SCROLL_EDGE_PX)) / TASK_DRAG_SCROLL_EDGE_PX);
+        }
+
+        if (ratio === 0) return false;
+
+        const before = board.scrollLeft;
+        board.scrollLeft = before + Math.round(ratio * TASK_DRAG_SCROLL_MAX_PX);
+
+        return board.scrollLeft !== before;
+    }
+
     function taskScrollTick() {
         if (taskScrollFrame) return;
 
@@ -816,14 +843,23 @@
             ratio = Math.min(1, (y - (box.bottom - TASK_DRAG_SCROLL_EDGE_PX)) / TASK_DRAG_SCROLL_EDGE_PX);
         }
 
-        if (ratio === 0) return;
+        // A board scrolls sideways as well: its columns run off the right of the
+        // pane once the detail panel narrows it, and a column out of reach is a
+        // drop the reader cannot make. The same bands and the same cap, along the
+        // board's own left and right edges.
+        const sideways = taskDrag.board ? taskBoardScrollStep(taskDrag.row, taskDrag.x) : false;
+
+        if (ratio === 0) {
+            if (sideways) taskReportOver(taskDrag.x, taskDrag.y);
+            return;
+        }
 
         const before = scroller.scrollTop;
         scroller.scrollTop = before + Math.round(ratio * TASK_DRAG_SCROLL_MAX_PX);
 
         // At the end already, so nothing moved and nothing under the pointer
         // changed. Not a reason to stop the loop: the reader may come back.
-        if (scroller.scrollTop === before) return;
+        if (scroller.scrollTop === before && !sideways) return;
 
         taskReportOver(taskDrag.x, taskDrag.y);
     }
@@ -854,6 +890,20 @@
     function taskRowFromPoint(x, y) {
         const element = document.elementFromPoint(x, y);
         return element instanceof Element ? element.closest('.task-item[data-task-id]') : null;
+    }
+
+    // The board's answer to the same question: which column the pointer is over.
+    // A hit test and nothing more, on the same terms as the row's above — what a
+    // drop on that column would mean is TaskBoard's to say.
+    function taskBoardColumnFromPoint(x, y) {
+        const element = document.elementFromPoint(x, y);
+        const column = element instanceof Element ? element.closest('[data-board-column]') : null;
+
+        // Only a column of the board the card was picked up on: two boards on one
+        // page are two drags' worth of columns, and only one is this drag's.
+        return column && column.closest('[data-list-owner]')?.getAttribute('data-list-owner') === taskDrag.ownerId
+            ? column.getAttribute('data-board-column')
+            : null;
     }
 
     // ----- The line a link drag draws ---------------------------------------
@@ -1103,9 +1153,14 @@
         // reorders at all — a list whose order is not the reader's to choose can
         // still be a list whose chain is. A reorder drag needs a row that can be
         // picked up, which is what data-draggable says.
+        //
+        // A board card is picked up on the same terms as a row — TaskBoard says
+        // which cards may move with the same attribute — and the same rules
+        // follow it: its controls keep their press, and a finger scrolls the
+        // board rather than taking a card, since a card has no grip to start from.
         const row = onLinkHandle
             ? target.closest('.task-item[data-task-id]')
-            : target.closest('.task-item[data-draggable="true"]');
+            : target.closest('.task-item[data-draggable="true"], .task-card[data-draggable="true"]');
         if (!row) return;
 
         // A control inside the row keeps its own press, unless the press is on one
@@ -1141,6 +1196,9 @@
             // read but never written for the rest of the drag: the mode is not
             // something the pointer's later travels get a vote on.
             link: onLinkHandle,
+            // A card on a board rather than a row in a list: what it is over is a
+            // column, not a row — see `taskReportOver`.
+            board: row.classList.contains('task-card'),
             lastOverId: null,
             // Where the pointer last was, for the frames between events: the
             // edge scroll reads them while the pointer holds still. The scroller
@@ -1181,8 +1239,15 @@
     // The dragged row is still reported by id. C# knows which row it handed
     // out and turns it into "no target" itself, so the rule that a link cannot
     // land on its own payload has one owner — see `TaskListView.DragOver`.
+    //
+    // A board drag asks the same question of columns: which `data-board-column`
+    // the pointer is over, or null off every column. Which columns would take the
+    // card is TaskBoard's to say, on the same split the link line keeps —
+    // geometry here, meaning in C#.
     function taskReportOver(x, y) {
-        const overId = taskRowFromPoint(x, y)?.getAttribute('data-task-id') ?? null;
+        const overId = taskDrag.board
+            ? taskBoardColumnFromPoint(x, y)
+            : taskRowFromPoint(x, y)?.getAttribute('data-task-id') ?? null;
         if (overId === taskDrag.lastOverId) return;
 
         taskDrag.lastOverId = overId;
@@ -1201,6 +1266,12 @@
             if (travelled < TASK_DRAG_THRESHOLD_PX) return;
 
             taskDrag.active = true;
+
+            // A card's travel before the board refuses a selection — the
+            // round trip that marks it dragging — has already started one across
+            // the cards it crossed. A row's title is one line and its list paints
+            // little; a card is a block of text, so the start is taken back here.
+            if (taskDrag.board) window.getSelection()?.removeAllRanges();
 
             // From here until the gesture ends, the list scrolls itself when the
             // pointer nears an edge. Started with the drag rather than on entering
@@ -4481,6 +4552,10 @@
     //
     // Mouse and pen only. A finger on a chip is how the calendar is scrolled, and
     // the detail panel a tap opens sets the due date as well.
+    //
+    // A plan on the tray's "Plans without a window" is dragged the same way: it
+    // carries `data-calendar-plan` rather than `data-calendar-task`, and its drop is
+    // reported as `DropPlanOnDay` — the day its window opens on.
     const calendarRefs = new Map();
     let calendarDrag = null;
     let calendarClickBlockedUntil = 0;
@@ -4488,10 +4563,14 @@
     const CALENDAR_DRAG_THRESHOLD_PX = 4;
     const CALENDAR_DRAG_CLICK_GRACE_MS = 300;
 
+    // Every element under the pointer, not only the top one: a plan bar is drawn
+    // over the days it spans, and a drop on the bar is a drop on the day beneath.
     function calendarDayAt(root, x, y) {
-        const hit = document.elementFromPoint(x, y);
-        const day = hit?.closest?.('[data-calendar-day]');
-        return day && root.contains(day) ? day : null;
+        for (const hit of document.elementsFromPoint(x, y)) {
+            const day = hit?.closest?.('[data-calendar-day]');
+            if (day && root.contains(day)) return day;
+        }
+        return null;
     }
 
     function calendarMarkDay(day) {
@@ -4528,13 +4607,14 @@
         if (event.pointerType === 'touch') return;
 
         const target = event.target instanceof Element ? event.target : null;
-        const item = target?.closest('[data-calendar-task]');
+        const item = target?.closest('[data-calendar-task], [data-calendar-plan]');
         if (!item) return;
 
         const root = item.closest('[data-calendar-owner]');
         const ownerId = root?.getAttribute('data-calendar-owner');
         const registration = ownerId ? calendarRefs.get(ownerId) : null;
-        const taskId = item.getAttribute('data-calendar-task');
+        const plan = item.getAttribute('data-calendar-plan');
+        const taskId = plan ?? item.getAttribute('data-calendar-task');
         if (!registration || !taskId) return;
 
         calendarDrag = {
@@ -4543,6 +4623,7 @@
             item,
             ref: registration.ref,
             taskId,
+            method: plan ? 'DropPlanOnDay' : 'DropOnDay',
             pointerId: event.pointerId,
             startX: event.clientX,
             startY: event.clientY,
@@ -4577,7 +4658,7 @@
     document.addEventListener('pointerup', (event) => {
         if (!calendarDrag || event.pointerId !== calendarDrag.pointerId) return;
 
-        const { ref, taskId, active, root } = calendarDrag;
+        const { ref, taskId, method, active, root } = calendarDrag;
         const day = active ? calendarDayAt(root, event.clientX, event.clientY) : null;
         endCalendarDrag();
 
@@ -4588,7 +4669,7 @@
         const iso = day?.getAttribute('data-calendar-day');
         if (!iso) return;
 
-        ref.invokeMethodAsync('DropOnDay', taskId, iso).catch(() => {
+        ref.invokeMethodAsync(method, taskId, iso).catch(() => {
         });
     });
 

@@ -376,6 +376,44 @@ public sealed class ShellNavigationStoreTests
         }
     }
 
+    /// <summary>
+    /// The Board's Columns choice survives a restart beside the view. The key is
+    /// written only while it is not the default, so a file from before the Board
+    /// keeps its shape.
+    /// </summary>
+    [Fact]
+    public void The_board_columns_survive_a_restart_and_the_default_writes_no_key()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.Equal("Status", store.BoardColumns);
+
+            store.SetLastView("Board");
+            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.False(none.RootElement.TryGetProperty("boardColumns", out _));
+            }
+
+            store.SetBoardColumns("Plan");
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.Equal("Plan", restarted.BoardColumns);
+            Assert.Equal("Board", restarted.LastView);
+
+            restarted.SetBoardColumns("Status");
+            Assert.Equal("Status", new ShellNavigationStore(path).BoardColumns);
+            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.False(cleared.RootElement.TryGetProperty("boardColumns", out _));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
     [Fact]
     public void Setting_the_same_view_again_is_a_no_op()
     {

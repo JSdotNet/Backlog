@@ -360,6 +360,8 @@ internal static class StorybookIndex
             // After the row and before the panel: a card states the row's facts,
             // stacked for a board column, so it is read once the row is known.
             new("task-list/card", "Task card", "TaskCard: one task as a card in a board column — the row's facts stacked, a raised priority as a small chevron, what it waits on, one line of repository, sub-items, date, work badges and effort, and the whole card one control that opens the task."),
+            // After the card it lays out: a board is columns of them.
+            new("task-list/board", "Task board", "TaskBoard: tasks in columns of cards, each column headed by its count, its summed points and how many are not estimated — and a card dragged between status columns only where the host's rule allows, the refused columns saying why."),
             new("task-list/panel", "Task side panel", "TaskPanel, TaskActionPane and TaskAction: the whole of one task beside its list — a title you can tick and retitle, tags, the detail rows in two columns, then its sub-items or its markdown."),
             new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order — derived, edited, and wired by dragging."),
             // Last in the group: a second layout of the tasks the pages above

@@ -13,6 +13,9 @@ public enum TasksLayout
     /// <summary>The ranked list.</summary>
     List,
 
+    /// <summary>Columns of cards, grouped by <see cref="TaskBoardGrouping"/>.</summary>
+    Board,
+
     /// <summary>A month of entries placed by their due date, with the undated ones
     /// in a tray beside it.</summary>
     Calendar

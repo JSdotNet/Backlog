@@ -67,6 +67,21 @@ public static class RoadmapCrossContextAdapterRegistration
         // so it is scoped for the same reason: ITaskItems is.
         services.AddScoped<IImportedPlanSource, ImportedPlanSource>();
 
+        // The Tasks Calendar's plans, read and started through Roadmap's own ports —
+        // scoped, because every one of them is. The view choice is kept in the shell's
+        // per-device file when the host composed one; the work and pace signals are what
+        // the band redraws on, so the Calendar hears them too.
+        services.AddScoped<ICalendarPlans>(sp =>
+            new RoadmapCalendarPlans(
+                sp.GetRequiredService<IRoadmapPlanning>(),
+                sp.GetRequiredService<IRoadmapItemRollup>(),
+                sp.GetRequiredService<IPlanningVelocity>(),
+                sp.GetRequiredService<IImportedPlanSource>(),
+                sp.GetService<IAppFeatureSettings>(),
+                sp.GetService<ShellNavigationStore>(),
+                sp.GetService<IRoadmapWorkChanges>(),
+                sp.GetService<IPlanningPace>()));
+
         // The finished work a measured pace is counted from, read from the backlog —
         // scoped because ITaskItems is, and resolving it per call because the backlog's
         // plan import reaches the roadmap importer, which reaches the pace, which

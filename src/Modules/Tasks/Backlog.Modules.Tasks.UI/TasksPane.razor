@@ -4,6 +4,7 @@
 @inject GitHubIntegration GitHub
 @inject IAppFeatureSettings Features
 @inject IJSRuntime JS
+@inject IServiceProvider Services
 
 @*
     A list of entries on the left and the selected entry on the right — the shape
@@ -106,6 +107,27 @@
                        out of view behind the rows. Two presses with nothing
                        visibly happening on the first is not a hierarchy, it is a
                        key that looks stuck. *@
+                    @* The Board's own control, first on its bar because it decides
+                       what everything under the bar is: which columns there are.
+                       Not a filter — it narrows nothing — so its own group. The
+                       visible word is the label sighted readers scan for; the
+                       select carries the same name for a screen reader, so the
+                       word itself is hidden from one. *@
+                    @if (Layout == TasksLayout.Board)
+                    {
+                        <div class="filter-group filter-group--columns" data-testid="board-columns-group">
+                            <span class="filter-group__label" aria-hidden="true">Columns</span>
+                            <SelectField CurrentValue="@BoardGrouping.ToString()"
+                                         Options="@BoardGroupingOptions"
+                                         Label="Columns"
+                                         Id="board-columns"
+                                         TestId="board-columns"
+                                         BaseClass="board-columns"
+                                         SelectCssClass="board-columns__select"
+                                         OnChanged="OnBoardGroupingPickedAsync" />
+                        </div>
+                    }
+
                     <div class="filter-group filter-group--select" @onkeydown="OnSelectionChipKeyDown">
                         <ToggleButton BaseClass="chip chip--filter chip--scope"
                                       PressedCssClass="chip--active"
@@ -265,21 +287,28 @@
                         </AppButton>
                     }
 
-                    <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
-                        @foreach (var filter in State.StatusFilters)
-                        {
-                            <AppButton BaseClass="chip chip--filter"
-                                       Variant="ButtonVariant.None"
-                                       CssClass="@(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : null)"
-                                       id="@($"status-filter-{(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)}")"
-                                       TestId="status-filter-option"
-                                       role="radio"
-                                       aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
-                                       OnClick="() => OnFilterChanged(filter.Wire)">
-                                @filter.Label
-                            </AppButton>
-                        }
-                    </div>
+                    @* Off the bar on the Board while its columns are the statuses:
+                       every status is a column there, so narrowing to one would
+                       empty the other three. The list's choice is kept, set aside
+                       rather than cleared — see StatusFilterSuspended. *@
+                    @if (!StatusFilterHidden)
+                    {
+                        <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
+                            @foreach (var filter in State.StatusFilters)
+                            {
+                                <AppButton BaseClass="chip chip--filter"
+                                           Variant="ButtonVariant.None"
+                                           CssClass="@(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : null)"
+                                           id="@($"status-filter-{(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)}")"
+                                           TestId="status-filter-option"
+                                           role="radio"
+                                           aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
+                                           OnClick="() => OnFilterChanged(filter.Wire)">
+                                    @filter.Label
+                                </AppButton>
+                            }
+                        </div>
+                    }
 
                     @* Not a filter either, so its own group beside the statuses it
                        sorts by. It re-ranks only what the bar above leaves in view,
@@ -383,6 +412,44 @@
                             }
                         </div>
                     }
+                    else if (Layout == TasksLayout.Board)
+                    {
+                        @* The Board view: the same filtered rows, in columns, under the
+                           same filter bar and beside the same detail panel. A card
+                           opens its entry the way a row does; a drop runs the same
+                           status change the row's status selector does. An empty
+                           filter result is a board of empty columns rather than the
+                           list's empty state — the columns still say what they are. *@
+                        <TaskBoard @ref="_board"
+                                   Columns="@BoardColumns()"
+                                   Draggable="@(BoardGrouping == TaskBoardGrouping.Status)"
+                                   DropRuleFor="@BoardDropRule"
+                                   OnDrop="OnBoardDropAsync"
+                                   OnSelected="OnEntrySelectedAsync"
+                                   OnTagSelected="OnRowTagSelected"
+                                   OnAdd="OnBoardAdd"
+                                   SelectedId="@SelectedTaskId"
+                                   AriaLabel="@($"Tasks by {BoardGroupingWord}")"
+                                   TestId="task-board">
+                            <Badges Context="task">
+                                @* The list row's badges, on the card's terms: what work
+                                   on the entry produced, and what it is about in the
+                                   Devbook. *@
+                                @if (EntryFor(task.Id) is { } entry)
+                                {
+                                    @if (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any())
+                                    {
+                                        @RenderRowWork(entry)
+                                    }
+
+                                    @if (entry.DevbookReferences.Count > 0)
+                                    {
+                                        @RenderRowDevbook(entry)
+                                    }
+                                }
+                            </Badges>
+                        </TaskBoard>
+                    }
                     else if (Layout == TasksLayout.Calendar)
                     {
                         @* The Calendar view: the same filtered rows, placed by due date,
@@ -399,6 +466,13 @@
                                       SelectedId="@SelectedTaskId"
                                       OnOpen="OnEntrySelectedAsync"
                                       OnDueChanged="OnCalendarDueChangedAsync"
+                                      PlansAvailable="@CalendarPlansAvailable"
+                                      ShowPlans="@(_calendarPlans?.Shown ?? false)"
+                                      ShowPlansChanged="OnShowPlansChangedAsync"
+                                      Plans="@CalendarPlanWindows()"
+                                      Milestones="@CalendarMilestones()"
+                                      ShelfPlans="@CalendarShelf()"
+                                      OnPlanStarted="OnCalendarPlanStartedAsync"
                                       AriaLabel="Tasks by due date"
                                       TestId="task-calendar" />
                     }
@@ -660,6 +734,8 @@
         $"#{DetailElementId}",
         "[data-testid='backlog-split-separator']",
         "#backlog-pane .task-item__copy",
+        // The open entry's own card on the Board, pressed again: it is the entry.
+        "#backlog-pane .task-card[aria-current='true']",
         // The calendar's month bar and a day's "+N more" move around the month and
         // say nothing about the open entry; the open entry's own chip or tray item
         // is the entry, pressed or picked up to move it.
@@ -728,6 +804,9 @@
         _pickerEntry = State.SelectedRow;
         State.Changed += HandleStateChanged;
         Features.Changed += HandleFeaturesChanged;
+
+        _calendarPlans = Services.GetService(typeof(ICalendarPlans)) as ICalendarPlans;
+        if (_calendarPlans is not null) _calendarPlans.Changed += HandleCalendarPlansChanged;
     }
 
     /// <summary>The raw editor's element id, so the caret can be put in it the render
@@ -819,13 +898,14 @@
 
     private async Task FocusSelectedRowAsync()
     {
-        if (Layout == TasksLayout.Calendar ? _calendar is null : _list is null) return;
+        if (Layout switch { TasksLayout.Board => _board is null, TasksLayout.Calendar => _calendar is null, _ => _list is null }) return;
 
         _focusingSelectedRow = true;
 
         try
         {
-            if (Layout == TasksLayout.Calendar) await _calendar!.FocusSelectedAsync();
+            if (Layout == TasksLayout.Board) await _board!.FocusSelectedAsync();
+            else if (Layout == TasksLayout.Calendar) await _calendar!.FocusSelectedAsync();
             else await _list!.FocusSelectedAsync();
         }
         finally
@@ -906,7 +986,17 @@
             _ => false
         };
 
-    private void HandleFeaturesChanged() => _ = InvokeAsync(StateHasChanged);
+    /// <summary>A feature switched — the roadmap among them — so the Calendar's plans are
+    /// read again before it next draws them.</summary>
+    private void HandleFeaturesChanged()
+    {
+        _calendarPlansStale = true;
+        _ = InvokeAsync(async () =>
+        {
+            if (Layout == TasksLayout.Calendar) await ReadCalendarPlansAsync();
+            StateHasChanged();
+        });
+    }
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
 
@@ -920,8 +1010,8 @@
     [Parameter]
     public EventCallback<string> OnOpenSession { get; set; }
 
-    /// <summary>How the entries under the filter bar are laid out — the list, or the
-    /// month calendar. The shell's view switch picks it.</summary>
+    /// <summary>How the entries under the filter bar are laid out — the list, the board
+    /// or the month calendar. The shell's view switch picks it.</summary>
     [Parameter]
     public TasksLayout Layout { get; set; } = TasksLayout.List;
 
@@ -961,6 +1051,128 @@
     private async Task OnCalendarDueChangedAsync(CalendarDueChange change)
     {
         if (EntryFor(change.TaskId) is { } row) await State.ChangeDueAsync(row, change.DueOn);
+    }
+
+    /// <summary>
+    /// The roadmap's plans for the Calendar, through Tasks' own port — null in a host
+    /// that composed no roadmap, when the Calendar offers no plans at all. The port's
+    /// adapter reads Roadmap's abstractions; nothing here sizes or places a window.
+    /// </summary>
+    private ICalendarPlans? _calendarPlans;
+
+    /// <summary>The plans as last read, and whether a read is owed before the Calendar
+    /// next draws them.</summary>
+    private Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto _calendarPlansRead =
+        Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto.Empty;
+    private bool _calendarPlansStale = true;
+    private DateOnly? _calendarPlansReadOn;
+    private TasksLayout? _calendarPlansLayout;
+
+    private bool CalendarPlansAvailable => _calendarPlans is not null && _calendarPlansRead.Available;
+
+    /// <summary>
+    /// Reads the plans while the Calendar shows them: on arriving at the Calendar, when
+    /// the plan, its work or the pace changed, and when the day did — not on every
+    /// render, because reading gathers the backlog per plan.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        var arrived = _calendarPlansLayout != Layout && Layout == TasksLayout.Calendar;
+        _calendarPlansLayout = Layout;
+
+        if (Layout == TasksLayout.Calendar && (arrived || _calendarPlansStale || _calendarPlansReadOn != Today))
+        {
+            await ReadCalendarPlansAsync();
+        }
+    }
+
+    private async Task ReadCalendarPlansAsync()
+    {
+        if (_calendarPlans is null) return;
+
+        _calendarPlansStale = false;
+        _calendarPlansReadOn = Today;
+        try
+        {
+            _calendarPlansRead = await _calendarPlans.ReadAsync(Today);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A plan that cannot be read — a file gone, a document that does not parse —
+            // leaves the tasks on the Calendar; the bars are what goes missing, not the
+            // month or the pane.
+            _calendarPlansRead = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto.Empty;
+        }
+    }
+
+    private void HandleCalendarPlansChanged()
+    {
+        _calendarPlansStale = true;
+        if (Layout != TasksLayout.Calendar) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            await ReadCalendarPlansAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task OnShowPlansChangedAsync(bool shown)
+    {
+        if (_calendarPlans is null) return;
+
+        _calendarPlans.SetShown(shown);
+        if (shown) await ReadCalendarPlansAsync();
+    }
+
+    /// <summary>Each window as a bar, wearing the band colour of the first of its
+    /// repositories that has one — <c>RepositoryColours</c> is empty while the colours
+    /// are hidden, so the bar is then neutral grey.</summary>
+    private IReadOnlyList<CalendarPlan> CalendarPlanWindows()
+    {
+        var colours = State.RepositoryColours;
+        return
+        [
+            .. _calendarPlansRead.Windows.Select(window => new CalendarPlan(
+                window.Id.ToString("N"),
+                window.Title,
+                window.Tag,
+                window.Start,
+                window.End,
+                window.DonePoints,
+                window.TotalPoints,
+                window.RepositoryAliases
+                    .Select(alias => colours.TryGetValue(alias, out var band) ? band : (int?)null)
+                    .FirstOrDefault(band => band is not null)))
+        ];
+    }
+
+    private IReadOnlyList<CalendarMilestone> CalendarMilestones() =>
+        [.. _calendarPlansRead.Milestones.Select(milestone => new CalendarMilestone(milestone.Id.ToString("N"), milestone.Title, milestone.On))];
+
+    private IReadOnlyList<CalendarShelfPlan> CalendarShelf() =>
+        [
+            .. _calendarPlansRead.Shelf.Select(plan => new CalendarShelfPlan(
+                plan.Tag,
+                plan.Title,
+                plan.TaskCount,
+                plan.TotalEffort,
+                plan.UnestimatedCount))
+        ];
+
+    /// <summary>A shelf plan dropped on a day: the roadmap places its window from there,
+    /// by its own placement. A refusal is said in a toast; the plan stays on the shelf.
+    /// The redraw comes from the plan's own change signal, which a stored window raises
+    /// and a refusal does not, so the plan is read once.</summary>
+    private async Task OnCalendarPlanStartedAsync(CalendarPlanStart start)
+    {
+        if (_calendarPlans is null) return;
+
+        var refusal = await _calendarPlans.StartAsync(start.Tag, start.Start);
+        if (refusal is not null)
+        {
+            Toasts.Publish(ToastMessage.Warning($"+{start.Tag} could not be planned: {refusal}", "calendar-plan-refused"));
+        }
     }
 
     private Task OpenSessionAsync(IntegrationLinkRef link) => OnOpenSession.InvokeAsync(link.Id);
@@ -3904,6 +4116,12 @@
     /// The same move Escape makes, minus the closing.</summary>
     private async Task MoveFocusToListAsync()
     {
+        if (Layout == TasksLayout.Board)
+        {
+            if (_board is not null) await _board.FocusSelectedAsync();
+            return;
+        }
+
         if (Layout == TasksLayout.Calendar)
         {
             if (_calendar is not null) await _calendar.FocusSelectedAsync();
@@ -4503,7 +4721,12 @@
     public async ValueTask DisposeAsync()
     {
         State.Changed -= HandleStateChanged;
+
+        // The Board set the status filter aside; whatever shows the rows next —
+        // the list, Ask AI's Tasks area — reads them with it applied again.
+        State.SetStatusFilterSuspended(false);
         Features.Changed -= HandleFeaturesChanged;
+        if (_calendarPlans is not null) _calendarPlans.Changed -= HandleCalendarPlansChanged;
 
         if (_undoKeysReference is null) return;
 

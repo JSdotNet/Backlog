@@ -3,7 +3,7 @@
 <PageTitle>Task calendar — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Task calendar"
-           Summary="`TaskCalendar`: a month of tasks placed by their due date, Monday-first and in whole weeks, with the open tasks that have no due date in a tray beside it. A chip or a tray item opens its task; dragging one onto a day gives it that due date. The Tasks pane that hands it the filtered rows is not this page's subject."
+           Summary="`TaskCalendar`: a month of tasks placed by their due date, Monday-first and in whole weeks, with the open tasks that have no due date in a tray beside it. A chip or a tray item opens its task; dragging one onto a day gives it that due date. The roadmap's plans can be drawn over it: each window a bar across its days, each milestone a diamond, and the plans with no window yet in the tray. The Tasks pane that hands it the filtered rows is not this page's subject."
            Guidelines="@Rules">
 
     <Story Name="A month of tasks"
@@ -37,6 +37,33 @@ Drag a chip to another day, or a tray item onto a day: the line under the sample
                           Today="@Today"
                           TestId="edges" />
         </div>
+    </Story>
+
+    <Story Name="Calendar with plans"
+           Description="With `PlansAvailable` the month bar carries a **Show plans** box, ticked by default; the host keeps the choice (`ShowPlans`, `ShowPlansChanged`). Each `CalendarPlan` is a bar across the days of its window, cut at every week row, under the day numbers and above the chips. Plans that overlap in a week take a lane each, and the week makes room for its lanes. A bar carried on from the week before opens with `…`. Hover a bar: the tooltip gives the title, the plan tag and the finished points of the total.
+
+The fill is the plan's band colour at the roadmap's 24% mix while the host passes a `Band` — only while its repository colours are showing — and neutral grey otherwise; the switch below plays the host. Each `CalendarMilestone` is a diamond chip on its day.
+
+The tray's second section, **Plans without a window**, lists the `ShelfPlans`. Drag one onto a day: the calendar reports `OnPlanStarted` with the tag and the day, and sizes nothing. In the app the roadmap places the window from that day by its own placement; here the host stands in with a window of the plan's points at five a week, so the drop can be seen landing."
+           Code="@PlansCode">
+        <label class="sb-row">
+            <input type="checkbox" checked="@_planColours" @onchange="e => _planColours = e.Value is true" data-testid="task-calendar-plan-colours" />
+            Repository colours
+        </label>
+        <div class="sb-calendar" data-testid="task-calendar-plans">
+            <TaskCalendar Tasks="@_tasks"
+                          Today="@Today"
+                          MyDayCount="2"
+                          PlansAvailable="true"
+                          ShowPlans="@_showPlans"
+                          ShowPlansChanged="shown => _showPlans = shown"
+                          Plans="@Plans"
+                          Milestones="@Milestones"
+                          ShelfPlans="@_shelf"
+                          OnPlanStarted="StartPlan"
+                          TestId="plans" />
+        </div>
+        <p class="sb-state" data-testid="task-calendar-plans-state">@(_planEvent ?? "No plan started yet.")</p>
     </Story>
 
     <Story Name="An empty tray"
@@ -83,6 +110,49 @@ Drag a chip to another day, or a tray item onto a day: the line under the sample
     private string? _opened;
     private string? _lastEvent;
     private bool _colours = true;
+
+    private bool _showPlans = true;
+    private bool _planColours = true;
+    private string? _planEvent;
+
+    private List<(string Id, string Title, string Tag, DateOnly Start, DateOnly End, int Done, int Total, int Band)> _plans =
+    [
+        ("views", "Task views", "task-views", new DateOnly(2026, 9, 30), new DateOnly(2026, 10, 14), 13, 34, 1),
+        ("calendar", "Calendar plans", "calendar-plans", new DateOnly(2026, 10, 8), new DateOnly(2026, 10, 20), 0, 8, 2),
+        ("sync", "Sync devices", "sync-devices", new DateOnly(2026, 10, 13), new DateOnly(2026, 10, 16), 2, 5, 3)
+    ];
+
+    private List<CalendarShelfPlan> _shelf =
+    [
+        new("release-q4", "Release q4", TaskCount: 4, TotalEffort: 10, UnestimatedCount: 1),
+        new("docs-refresh", "Docs refresh", TaskCount: 2, TotalEffort: 3)
+    ];
+
+    private IReadOnlyList<CalendarPlan> Plans =>
+    [
+        .. _plans.Select(plan => new CalendarPlan(
+            plan.Id, plan.Title, plan.Tag, plan.Start, plan.End, plan.Done, plan.Total,
+            _planColours ? plan.Band : null))
+    ];
+
+    private static readonly IReadOnlyList<CalendarMilestone> Milestones =
+    [
+        new("beta", "Beta", new DateOnly(2026, 10, 16)),
+        new("release", "Release 0.9", new DateOnly(2026, 10, 30))
+    ];
+
+    /// <summary>Plays the host: in the app the roadmap places the window; here it is the
+    /// plan's points at five a week, whole days, from the day it was dropped on.</summary>
+    private void StartPlan(CalendarPlanStart start)
+    {
+        var plan = _shelf.FirstOrDefault(candidate => candidate.Tag == start.Tag);
+        if (plan is null) return;
+
+        var days = Math.Max(1, (int)Math.Ceiling(plan.TotalEffort / 5m * 7));
+        _shelf = [.. _shelf.Where(candidate => candidate.Tag != start.Tag)];
+        _plans = [.. _plans, (plan.Tag, plan.Title, plan.Tag, start.Start, start.Start.AddDays(days - 1), 0, plan.TotalEffort, 4)];
+        _planEvent = $"Started +{plan.Tag} on {start.Start:yyyy-MM-dd}.";
+    }
 
     private IReadOnlyList<CalendarTask> EdgeTasks =>
     [
@@ -136,6 +206,32 @@ Drag a chip to another day, or a tray item onto a day: the line under the sample
             CalendarTask Of(Entry entry) => new(
                 entry.Id, entry.Title, entry.DueOn, entry.State,
                 CssClass: coloursShowing ? $"repo-mark repo-mark--{entry.Colour}" : null);
+        }
+        """;
+
+    private const string PlansCode = """
+        <TaskCalendar Tasks="@tasks"
+                      Today="@today"
+                      PlansAvailable="true"
+                      @bind-ShowPlans="showPlans"
+                      Plans="@plans"
+                      Milestones="@milestones"
+                      ShelfPlans="@shelf"
+                      OnPlanStarted="start => roadmap.StartAsync(start.Tag, start.Start)" />
+
+        @code {
+            // Band only while the repository colours are showing; null draws neutral grey.
+            IReadOnlyList<CalendarPlan> plans =
+            [
+                new("views", "Task views", "task-views",
+                    new DateOnly(2026, 9, 30), new DateOnly(2026, 10, 14),
+                    DonePoints: 13, TotalPoints: 34, Band: 1)
+            ];
+
+            IReadOnlyList<CalendarMilestone> milestones = [new("beta", "Beta", new DateOnly(2026, 10, 16))];
+
+            IReadOnlyList<CalendarShelfPlan> shelf =
+                [new("release-q4", "Release q4", TaskCount: 4, TotalEffort: 10, UnestimatedCount: 1)];
         }
         """;
 

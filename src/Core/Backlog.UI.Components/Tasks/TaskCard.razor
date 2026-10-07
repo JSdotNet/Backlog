@@ -30,8 +30,10 @@
     given, so a card and the row for the same entry cannot disagree about it.
 *@
 <article class="@ClassValue"
+         id="@ElementId"
          data-testid="@TestId"
          data-task-id="@Task.Id"
+         data-draggable="@(Draggable ? "true" : null)"
          tabindex="@(Opens ? "0" : null)"
          aria-label="@(Opens ? Task.Title : null)"
          aria-current="@(Selected ? "true" : null)"
@@ -200,6 +202,18 @@
     [Parameter]
     public bool Selected { get; set; }
 
+    /// <summary>Whether the card can be picked up and moved — a board whose
+    /// columns are a lifecycle says yes. The card only says so, as
+    /// <c>data-draggable</c>; the gesture is <c>taskListDrag</c>'s and what a drop
+    /// means is the board's.</summary>
+    [Parameter]
+    public bool Draggable { get; set; }
+
+    /// <summary>The card is the one being held, drawn faded and dashed in the
+    /// place it was picked up from.</summary>
+    [Parameter]
+    public bool Dragging { get; set; }
+
     /// <summary>Added to the card's own classes — where the host's
     /// <c>repo-mark repo-mark--N</c> goes while its repository colours are
     /// showing.</summary>
@@ -208,6 +222,11 @@
 
     [Parameter]
     public string? TestId { get; set; }
+
+    /// <summary>The card element's id, for a host that has to put the focus back
+    /// on it — a board returning the focus to the open task's card.</summary>
+    [Parameter]
+    public string? ElementId { get; set; }
 
     private bool Opens => OnSelected.HasDelegate;
 
@@ -260,6 +279,8 @@
         Task.Done ? "task-card--done" : null,
         Blocked ? "task-card--blocked" : null,
         Selected ? "task-card--selected" : null,
+        Draggable ? "task-card--draggable" : null,
+        Dragging ? "task-card--dragging" : null,
         string.IsNullOrWhiteSpace(CssClass) ? null : CssClass
     }.Where(part => part is not null));
 
