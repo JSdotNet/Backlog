@@ -62,6 +62,7 @@ public class StorybookOrderTests
         ["Menus"] = ["menus"],
         ["Metadata"] = ["devbook"],
         ["Metrics"] = ["usage-metrics", "productivity"],
+        ["Notes"] = ["notes"],
         ["Overlays"] = ["overlays"],
         ["Roadmap"] = ["roadmap"],
         ["Selection"] = ["selection-bar"],
