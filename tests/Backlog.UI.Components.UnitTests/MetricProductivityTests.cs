@@ -214,6 +214,35 @@ public sealed class MetricScoreTests
         Assert.Contains("37.5", rows[0].TextContent, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The bars layout: one labelled bar per input in the order given, the track filled
+    /// to the input's reading against its own maximum and that reading printed out of
+    /// 100, with the reading and the weight still on the face — and no table.
+    /// </summary>
+    [Fact]
+    public void As_bars_every_input_is_a_labelled_bar_with_its_reading_and_weight()
+    {
+        using var context = new BunitContext();
+
+        var score = context.Render<MetricScore>(parameters => parameters
+            .Add(s => s.Components, Inputs)
+            .Add(s => s.ComponentsAsBars, true));
+
+        Assert.Empty(score.FindAll("table"));
+        Assert.Equal("50", score.Find(".metric-score__value").TextContent);
+
+        var bars = score.FindAll(".metric-score__bar");
+
+        Assert.Equal(2, bars.Count);
+        Assert.Contains("Pull requests merged", bars[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("9 of 18", bars[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("75% weight", bars[0].TextContent, StringComparison.Ordinal);
+        Assert.Equal("50", bars[0].QuerySelector(".metric-score__bar-value")!.TextContent);
+        Assert.Contains("width: 50%", bars[0].QuerySelector(".metric-score__bar-fill")!.GetAttribute("style"), StringComparison.Ordinal);
+        Assert.Equal("true", bars[0].QuerySelector(".metric-score__bar-track")!.GetAttribute("aria-hidden"));
+        Assert.Contains("Issues closed", bars[1].TextContent, StringComparison.Ordinal);
+    }
+
     [Theory]
     // Each of these rounds awkwardly on its own: floor every contribution
     // independently and the column sums to a tenth either side of the score.

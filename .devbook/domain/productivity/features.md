@@ -124,11 +124,21 @@ The pane holds six tabs, in this order:
 | Tab | What it answers | What it holds |
 | --- | --- | --- |
 | Overview | How is it going, and what needs me? | The headline tiles, the main charts and [What needs you](#what-needs-you) |
-| Productivity | How much did I ship, and how much came back? | Pull requests merged and issues closed over time, and rework after review |
+| Productivity | How much did I ship, and how much came back? | The throughput tiles, volume over time, the Volume and Quality scores, and rework after review |
 | Tasks | Is the planned work getting done, and will each plan land? | The task figures, the [roadmap timeline](#whether-each-plan-will-land-in-its-window), and tasks and story points completed per week |
 | Sessions | When and how long did the agents work? | Sessions and agent-active hours per week, the hour grid, the longest sessions, and [what the sessions cost and shipped](#what-the-sessions-cost-and-shipped) |
 | Devbook | Which devbook units have drifted from their code? | [Drift at a glance](#drift-at-a-glance) |
 | Cost | What are my assistants costing this month? | [Spend against a monthly budget](#spend-against-a-monthly-budget) |
+
+The Productivity tab opens with five throughput tiles in one row: pull requests
+merged, issues closed, the share that came back after review, how long a first
+review took, and commits per pull request. Each tile draws its own weeks as a
+sparkline. Below them, the volume chart draws one measure per week, and the person
+switches it between pull requests, issues and commits. The tab opens on pull
+requests and does not remember the choice. Beside the chart, the Volume and Quality
+scores show each of their inputs as a labelled bar, with its reading and its weight
+printed under it. Last comes rework after review: the churn and base-sync figures
+as one grid, with the churn ranked by repository beside it.
 
 The task figures on the Tasks tab are tasks completed, story points done, the pace
 in use, the items in the window, the planned effort, and the work still to do.

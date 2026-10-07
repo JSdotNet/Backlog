@@ -2436,11 +2436,24 @@ public class DashboardPaneTests
             DashboardScope scope,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<ProductivityHeadline>.Ready(
-                new ProductivityHeadline(304, 72, 0.2m, TimeSpan.FromHours(5), [], [], [])
+                new ProductivityHeadline(
+                    304,
+                    72,
+                    0.2m,
+                    TimeSpan.FromHours(5),
+                    [new InsightPoint("W33", 140m), new InsightPoint("W34", 164m)],
+                    [new InsightPoint("W33", 30m), new InsightPoint("W34", 42m)],
+                    [new InsightPoint("W33", 0.25m), new InsightPoint("W34", 0.15m)])
                 {
                     Complete = score.Complete,
                     MedianCommitsPerPullRequest = 4,
-                    PullRequestsWithCommitCount = 290
+                    PullRequestsWithCommitCount = 290,
+
+                    // Three measures with different figures in every week, so a chart
+                    // wired to the wrong series shows and fails.
+                    CommitsPerWeek = [new InsightPoint("W33", 610m), new InsightPoint("W34", 733m)],
+                    ReviewTurnaroundPerWeek = [new InsightPoint("W33", 6m), new InsightPoint("W34", 4m)],
+                    CommitsPerPullRequestPerWeek = [new InsightPoint("W33", 5m), new InsightPoint("W34", 3m)]
                 }));
 
         public Task<InsightResult<ProductivityScoreInsight>> GetScoreAsync(
@@ -2505,8 +2518,172 @@ public class DashboardPaneTests
         Assert.Contains("4", conflicts, StringComparison.Ordinal);
         Assert.Contains("At least", conflicts, StringComparison.Ordinal);
 
-        // The churn grid is still there beside it; neither kind hides the other.
-        Assert.NotEmpty(pane.FindAll("[data-testid='dashboard-rework-tiles']"));
+        // The churn tiles are still there beside it; neither kind hides the other.
+        Assert.NotEmpty(pane.FindAll("[data-testid='dashboard-rework-count']"));
+    }
+
+    /// <summary>
+    /// The Productivity tab as the board lays it out: the throughput row, the volume
+    /// chart with the scores beside it, then rework across the tab.
+    /// </summary>
+    [Fact]
+    public void The_productivity_tab_lays_out_throughput_then_volume_beside_score_then_rework()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
+
+        var pane = context.Render<DashboardPane>();
+        var panel = pane.Find("[data-testid='dashboard-productivity']");
+
+        var split = panel.QuerySelector(".dashboard-productivity__split")!;
+        Assert.Equal(
+            ["dashboard-trend", "dashboard-score"],
+            split.Children.Select(child => child.GetAttribute("data-testid")));
+
+        var order = panel.QuerySelectorAll("[data-testid='dashboard-headline'], .dashboard-productivity__split, [data-testid='dashboard-rework']")
+            .Select(element => element.GetAttribute("data-testid") ?? "split")
+            .ToList();
+        Assert.Equal(["dashboard-headline", "split", "dashboard-rework"], order);
+    }
+
+    /// <summary>Every one of the five throughput tiles carries a sparkline, the
+    /// turnaround and commits tiles included.</summary>
+    [Fact]
+    public void Every_throughput_tile_carries_a_sparkline()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
+
+        var pane = context.Render<DashboardPane>();
+        var tiles = pane.Find("[data-testid='dashboard-headline-tiles']");
+
+        foreach (var trend in new[] { "pulls", "issues", "rework", "turnaround", "commits" })
+        {
+            Assert.NotNull(tiles.QuerySelector($"[data-testid='dashboard-headline-{trend}-trend']"));
+        }
+    }
+
+    /// <summary>
+    /// Volume over time draws pull requests per week until another measure is
+    /// pressed, and the toggle redraws the same weeks with that measure's figures.
+    /// </summary>
+    [Fact]
+    public void The_volume_chart_starts_on_pull_requests_and_the_toggle_redraws_it()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Equal("true", pane.Find("[data-testid='dashboard-trend-measure-pulls']").GetAttribute("aria-pressed"));
+        Assert.Equal("false", pane.Find("[data-testid='dashboard-trend-measure-commits']").GetAttribute("aria-pressed"));
+        Assert.Contains("164", pane.Find("[data-testid='dashboard-trend-bars']").TextContent, StringComparison.Ordinal);
+
+        pane.Find("[data-testid='dashboard-trend-measure-commits']").Click();
+
+        Assert.Equal("true", pane.Find("[data-testid='dashboard-trend-measure-commits']").GetAttribute("aria-pressed"));
+        Assert.Equal("false", pane.Find("[data-testid='dashboard-trend-measure-pulls']").GetAttribute("aria-pressed"));
+        var bars = pane.Find("[data-testid='dashboard-trend-bars']").TextContent;
+        Assert.Contains("733", bars, StringComparison.Ordinal);
+        Assert.DoesNotContain("164", bars, StringComparison.Ordinal);
+
+        pane.Find("[data-testid='dashboard-trend-measure-issues']").Click();
+
+        Assert.Contains("42", pane.Find("[data-testid='dashboard-trend-bars']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>The measure is held in the part: a pane opened again starts on pull
+    /// requests whatever the last one showed.</summary>
+    [Fact]
+    public void A_pane_opened_again_charts_pull_requests_again()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
+
+        var first = context.Render<DashboardPane>();
+        first.Find("[data-testid='dashboard-trend-measure-commits']").Click();
+        first.Dispose();
+
+        var again = context.Render<DashboardPane>();
+
+        Assert.Equal("true", again.Find("[data-testid='dashboard-trend-measure-pulls']").GetAttribute("aria-pressed"));
+    }
+
+    /// <summary>Both scores draw each input as a labelled bar, with the reading and
+    /// the weight still printed, rather than as the four-column table.</summary>
+    [Fact]
+    public void Each_score_input_is_a_labelled_bar()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
+
+        var pane = context.Render<DashboardPane>();
+        var score = pane.Find("[data-testid='dashboard-score']");
+
+        Assert.Empty(score.QuerySelectorAll("table"));
+
+        var volume = pane.Find("[data-testid='dashboard-score-volume']").QuerySelectorAll(".metric-score__bar");
+        var quality = pane.Find("[data-testid='dashboard-score-quality']").QuerySelectorAll(".metric-score__bar");
+
+        Assert.Equal(2, volume.Length);
+        Assert.Equal(5, quality.Length);
+        Assert.Contains("Pull requests merged", volume[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("304 of 380", volume[0].TextContent, StringComparison.Ordinal);
+        Assert.Equal("80", volume[0].QuerySelector(".metric-score__bar-value")!.TextContent);
+    }
+
+    /// <summary>
+    /// Rework after review: the churn and sync tiles as one grid, and the churn by
+    /// repository ranked beside it once there is more than one repository to rank.
+    /// </summary>
+    [Fact]
+    public void Rework_is_one_grid_of_churn_and_sync_tiles_beside_churn_by_repository()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(
+                Score(),
+                new ReworkInsight(
+                    6,
+                    30,
+                    12,
+                    2,
+                    9,
+                    true,
+                    [],
+                    [
+                        new InsightRow("marketplace", 3, Detail: "2 of 10 reviewed"),
+                        new InsightRow("backlog", 9, Detail: "4 of 20 reviewed")
+                    ])
+                {
+                    PullRequestsSynced = 14,
+                    PullRequestsWithConflictedSync = 3,
+                    SyncMerges = 21,
+                    ConflictedSyncMerges = 4
+                })));
+
+        var pane = context.Render<DashboardPane>();
+        var rework = pane.Find("[data-testid='dashboard-rework']");
+
+        Assert.Equal("Rework after review", rework.QuerySelector(".dashboard-part__title")!.TextContent);
+
+        var grids = rework.QuerySelectorAll("[data-testid='dashboard-rework-tiles']");
+        Assert.Single(grids);
+        Assert.NotNull(grids[0].QuerySelector("[data-testid='dashboard-rework-count']"));
+        Assert.NotNull(grids[0].QuerySelector("[data-testid='dashboard-rework-conflicted']"));
+        foreach (var tile in new[] { "count", "commits", "forcepushes", "files", "rounds", "changes-requested", "conflicted", "syncs", "conflicts" })
+        {
+            Assert.NotNull(grids[0].QuerySelector($"[data-testid='dashboard-rework-{tile}']"));
+        }
+
+        var ranking = pane.Find("[data-testid='dashboard-rework-by-repository']");
+        Assert.Equal(grids[0].ParentElement, ranking.ParentElement);
+        Assert.Contains("Churn by repository", ranking.TextContent, StringComparison.Ordinal);
+
+        // Ranked by commits after review, largest first, whatever order they came in.
+        var rows = ranking.QuerySelectorAll("li");
+        Assert.Equal(2, rows.Length);
+        Assert.Contains("backlog", rows[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("4 of 20 reviewed", rows[0].TextContent, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -2531,7 +2708,8 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
 
         Assert.Contains("of 12 synced", Squashed(pane.Find("[data-testid='dashboard-rework-conflicted']").TextContent), StringComparison.Ordinal);
-        Assert.Empty(pane.FindAll("[data-testid='dashboard-rework-tiles']"));
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-rework-count']"));
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-rework-by-repository']"));
         Assert.Empty(pane.FindAll("[data-testid='dashboard-rework-status']"));
     }
 
