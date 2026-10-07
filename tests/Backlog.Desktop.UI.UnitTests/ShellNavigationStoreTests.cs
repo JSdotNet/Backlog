@@ -21,6 +21,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
 
             Assert.Null(store.LastSurface);
+            Assert.Equal("Tasks", store.LastView);
             Assert.Empty(store.LastEnabledPanes);
             Assert.Equal(path, store.SettingsPath);
         }
@@ -296,7 +297,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
             Assert.True(store.RoadmapHoursShown);
 
-            store.SetLastSurface("Roadmap");
+            store.SetLastSurface("Tools");
             using (var on = JsonDocument.Parse(File.ReadAllText(path)))
             {
                 Assert.False(on.RootElement.TryGetProperty("roadmapHoursShown", out _));
@@ -306,7 +307,7 @@ public sealed class ShellNavigationStoreTests
 
             var restarted = new ShellNavigationStore(path);
             Assert.False(restarted.RoadmapHoursShown);
-            Assert.Equal("Roadmap", restarted.LastSurface);
+            Assert.Equal("Tools", restarted.LastSurface);
 
             restarted.SetRoadmapHoursShown(true);
             Assert.True(new ShellNavigationStore(path).RoadmapHoursShown);
@@ -331,7 +332,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
             Assert.Empty(store.RoadmapCollapsedGroups);
 
-            store.SetLastSurface("Roadmap");
+            store.SetLastSurface("Tools");
             using (var none = JsonDocument.Parse(File.ReadAllText(path)))
             {
                 Assert.False(none.RootElement.TryGetProperty("roadmapCollapsedGroups", out _));
@@ -341,12 +342,147 @@ public sealed class ShellNavigationStoreTests
 
             var restarted = new ShellNavigationStore(path);
             Assert.Equal(["JSdotNet/Backlog", "docs"], restarted.RoadmapCollapsedGroups);
-            Assert.Equal("Roadmap", restarted.LastSurface);
+            Assert.Equal("Tools", restarted.LastSurface);
 
             restarted.SetRoadmapCollapsedGroups([]);
             Assert.Empty(new ShellNavigationStore(path).RoadmapCollapsedGroups);
             using var cleared = JsonDocument.Parse(File.ReadAllText(path));
             Assert.False(cleared.RootElement.TryGetProperty("roadmapCollapsedGroups", out _));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    [Fact]
+    public void The_last_view_survives_a_restart_under_its_own_key()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+
+            store.SetLastView("Roadmap");
+
+            Assert.Equal("Roadmap", new ShellNavigationStore(path).LastView);
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal("Roadmap", document.RootElement.GetProperty("lastView").GetString());
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    [Fact]
+    public void Setting_the_same_view_again_is_a_no_op()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            store.SetLastView("Roadmap");
+
+            var changes = 0;
+            store.Changed += () => changes++;
+            store.SetLastView("Roadmap");
+
+            Assert.Equal(0, changes);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// A file written before the view switch carries no <c>lastView</c>: the reader
+    /// was looking at the panes, and the panes' main view was the task list.
+    /// </summary>
+    [Fact]
+    public void A_file_without_a_last_view_reads_as_the_tasks_view()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """
+                {
+                  "lastSurface": "Dashboard",
+                  "lastEnabledPanes": ["Tasks", "Devbook"]
+                }
+                """);
+
+            var store = new ShellNavigationStore(path);
+
+            Assert.Equal("Tasks", store.LastView);
+            Assert.Equal("Dashboard", store.LastSurface);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The roadmap was a takeover before it was a view, and a file from then names it
+    /// as the surface. It reopens as the Roadmap view over the workspace, and the next
+    /// save writes the view — never the old surface name.
+    /// </summary>
+    [Fact]
+    public void A_roadmap_surface_from_before_the_view_switch_reads_as_the_roadmap_view()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """
+                {
+                  "lastSurface": "Roadmap",
+                  "lastEnabledPanes": ["Inbox"]
+                }
+                """);
+
+            var store = new ShellNavigationStore(path);
+
+            Assert.Equal("Roadmap", store.LastView);
+            Assert.Equal("Workspace", store.LastSurface);
+            Assert.Equal(["Inbox"], store.LastEnabledPanes);
+
+            store.SetLastPanes(["Inbox", "Devbook"]);
+
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal("Workspace", document.RootElement.GetProperty("lastSurface").GetString());
+            Assert.Equal("Roadmap", document.RootElement.GetProperty("lastView").GetString());
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>Roadmap stays readable as a surface name and is never written as one:
+    /// a caller that still hands it over is heard as the view.</summary>
+    [Fact]
+    public void Roadmap_handed_over_as_a_surface_is_remembered_as_the_view()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+
+            store.SetLastSurface("Roadmap");
+
+            Assert.Equal("Workspace", store.LastSurface);
+            Assert.Equal("Roadmap", store.LastView);
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal("Workspace", document.RootElement.GetProperty("lastSurface").GetString());
         }
         finally
         {
