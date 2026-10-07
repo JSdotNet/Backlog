@@ -5423,6 +5423,17 @@ public sealed class EntryRow
             if (PreviewInMyDayOn is { } myDay)
             {
                 readings.Add(new MetaReading("my day", EntryTextParser.DateToken(myDay), true));
+
+                // Beside the day it borrows its date from, and only there: an
+                // agenda time with no My Day date is not saved, so it is not read
+                // back as if it would be.
+                if (_parsed!.AgendaTime is { } agenda)
+                {
+                    readings.Add(new MetaReading(
+                        "agenda",
+                        $"{agenda.StartToken} for {AgendaTime.DurationToken(agenda.DurationMinutes)}",
+                        true));
+                }
             }
 
             // Beside My Day, because both are something a person said about the
@@ -5486,6 +5497,7 @@ public sealed class EntryRow
     {
         "remind" => "reminder",
         "myday" => "my day",
+        "at" or "for" => "agenda",
         _ => tokenName
     };
 

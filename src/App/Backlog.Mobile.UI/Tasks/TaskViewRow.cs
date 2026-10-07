@@ -1,4 +1,5 @@
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.Modules.Tasks.Abstractions;
 
 namespace Backlog.Mobile.UI.Tasks;
 
@@ -33,4 +34,14 @@ public sealed record TaskViewRow(
     /// </summary>
     public bool IsInMyDay(DateOnly today) =>
         DeletedAt is null && !IsClosed && Task.InMyDayOn == today;
+
+    /// <summary>
+    /// Where the task sits in its My Day, as the desktop set it, or null when it
+    /// has no slot. Read off the document's two plain values and never set here:
+    /// the phone reads an agenda time and the desktop writes it
+    /// (<c>.devbook/domain/tasks/domain.md#agenda-time</c>). It has no date of its
+    /// own, so a task with no My Day date has none either.
+    /// </summary>
+    public AgendaTime? AgendaTime =>
+        Task.InMyDayOn is null ? null : AgendaTime.FromWire(Task.AgendaAt, Task.AgendaMinutes);
 }
