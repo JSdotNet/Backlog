@@ -1,4 +1,5 @@
 using Backlog.Mobile.UI.Components;
+using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.Tasks;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
@@ -214,6 +215,59 @@ public sealed class FocusScreenTests
     }
 
     [Fact]
+    public void The_capture_sheet_opens_over_Focus()
+    {
+        var tasks = new ScriptedTaskService(Timed(Sample()));
+        using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
+        var app = OpenCapture(host);
+
+        var behind = app.Find("[data-testid='capture-behind']");
+        Assert.True(behind.HasAttribute("inert"));
+        app.WaitForAssertion(() => Assert.NotNull(behind.QuerySelector("[data-testid='focus-title']")));
+    }
+
+    [Fact]
+    public void A_thought_captured_from_Focus_is_saved_and_Focus_comes_back()
+    {
+        var inbox = new ScriptedInboxService { State = InboxServiceState.Unreachable };
+        var tasks = new ScriptedTaskService(Timed(Sample()));
+        using var host = ShellHost.Paired(inbox, clock: new FakeTimeProvider(Now), tasks: tasks);
+        var app = OpenCapture(host);
+
+        app.Find("[data-testid='capture-sheet-text'] textarea").Input("Ask Anna about the retry budget");
+        app.Find("[data-testid='capture-sheet-save']").Click();
+
+        app.WaitForAssertion(() =>
+        {
+            Assert.Equal(host.Navigation.BaseUri + $"tasks/{Id}/focus", host.Navigation.Uri);
+            Assert.Empty(app.FindAll("[data-testid='capture-sheet']"));
+            Assert.Equal("Write sync conflict tests", app.Find("h1[data-testid='focus-title']").TextContent);
+        });
+
+        var entry = Assert.Single(host.Outbox.Entries);
+        Assert.Equal("Ask Anna about the retry budget", CaptureOutboxKind.Read(entry).Title);
+    }
+
+    [Theory]
+    [InlineData("capture-sheet-cancel")]
+    [InlineData("capture-sheet-backdrop")]
+    public void Leaving_the_capture_sheet_without_saving_comes_back_to_Focus(string control)
+    {
+        var tasks = new ScriptedTaskService(Timed(Sample()));
+        using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
+        var app = OpenCapture(host);
+
+        app.Find($"[data-testid='{control}']").Click();
+
+        app.WaitForAssertion(() =>
+        {
+            Assert.Equal(host.Navigation.BaseUri + $"tasks/{Id}/focus", host.Navigation.Uri);
+            Assert.NotNull(app.Find("h1[data-testid='focus-title']"));
+        });
+        Assert.Empty(host.Outbox.Entries);
+    }
+
+    [Fact]
     public void An_untimed_task_goes_to_its_own_page()
     {
         var tasks = new ScriptedTaskService(Sample());
@@ -315,6 +369,14 @@ public sealed class FocusScreenTests
             ]);
 
         return change with { Task = change.Task with { Area = "Sync" } };
+    }
+
+    /// <summary>The capture sheet as Focus's Capture a thought opens it.</summary>
+    private static IRenderedComponent<Routes> OpenCapture(ShellHost host)
+    {
+        var app = host.Open($"capture?from=tasks%2F{Id}%2Ffocus");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='capture-sheet']")));
+        return app;
     }
 
     private static TaskChange Timed(TaskChange change) =>

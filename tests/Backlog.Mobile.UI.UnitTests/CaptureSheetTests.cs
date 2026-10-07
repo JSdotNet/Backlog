@@ -38,6 +38,10 @@ public sealed class CaptureSheetTests
     [InlineData("capture", "")]
     [InlineData("capture?from=inbox", "inbox")]
     [InlineData("capture?from=https%3A%2F%2Felsewhere.test", "")]
+    [InlineData("capture?from=%2F%2Felsewhere.test%2Finbox", "")]
+    [InlineData("capture?from=tasks%2F0199b6a0-0000-7000-8000-0000000000fa", "tasks/0199b6a0-0000-7000-8000-0000000000fa")]
+    [InlineData("capture?from=tasks%2Fnot-a-task%2Ffocus", "")]
+    [InlineData("capture?from=elsewhere%2F0199b6a0-0000-7000-8000-0000000000fa%2Ffocus", "")]
     public void Cancel_returns_to_where_the_sheet_came_from(string route, string back)
     {
         using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now));
@@ -79,6 +83,21 @@ public sealed class CaptureSheetTests
         Assert.Equal("Ask Anna about the offsite budget", CaptureOutboxKind.Read(entry).Title);
         Assert.Equal(string.Empty, TextValue(app));
         Assert.Equal(host.Navigation.BaseUri + "capture", host.Navigation.Uri);
+    }
+
+    [Fact]
+    public void A_save_from_any_page_but_Focus_keeps_the_sheet_open()
+    {
+        var inbox = new ScriptedInboxService { State = InboxServiceState.Unreachable };
+        using var host = ShellHost.Paired(inbox, clock: new FakeTimeProvider(Now));
+        var app = Open(host, "capture?from=inbox");
+
+        Type(app, "Call the plumber");
+        app.Find("[data-testid='capture-sheet-save']").Click();
+
+        app.WaitForAssertion(() =>
+            Assert.Equal("Added to inbox — capture another", app.Find("[data-testid='capture-sheet-status']").TextContent.Trim()));
+        Assert.Equal(host.Navigation.BaseUri + "capture?from=inbox", host.Navigation.Uri);
     }
 
     [Fact]

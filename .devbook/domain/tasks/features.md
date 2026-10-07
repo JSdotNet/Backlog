@@ -358,7 +358,8 @@ no pause. Below the ring sits the current step, the first one not ticked off,
 as `Step 2 of 5 · now`, then the steps in order. **Step done — next** ticks off
 the current step. When no step is left it becomes **Complete task**, which
 ticks off the task and returns to Today. **Capture a thought** opens the
-capture sheet over Focus.
+capture sheet over Focus, and saving the thought, cancelling or tapping outside
+the sheet comes back to Focus.
 
 The phone reads everything about a task. It changes four things and nothing
 else:
