@@ -473,7 +473,10 @@ An item assigned to several repositories still makes one task per repository,
 and the tasks it makes are siblings that know about each other. Each sibling's
 body carries the line "Same capture in: <repository> — <title>" for every other
 sibling, and all of them share the general tag `#from-inbox-` followed by the
-last eight hex digits of the item's id. A single task needs neither.
+last eight hex digits of the item's id. A single task needs neither. The lines
+come before the item's notes, so notes ending in a chapter or an open code block
+cannot take them in, and they name each sibling by its repository id. A batch
+links the siblings of each of its items the same way.
 
 ### Create plan from an item
 
