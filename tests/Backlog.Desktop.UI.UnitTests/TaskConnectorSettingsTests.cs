@@ -117,18 +117,130 @@ public sealed class TaskConnectorSettingsTests
     }
 
     [Fact]
-    public async Task Sync_now_runs_the_sync_and_disconnect_removes_the_target()
+    public async Task Sync_now_syncs_the_cards_own_target_and_says_what_it_did()
     {
-        var (context, targets, sync) = Compose(true, new ConnectedTarget(FakeConnector.Id, "owner/repo"));
+        var (context, _, sync) = Compose(true, new ConnectedTarget(FakeConnector.Id, "owner/other"), new ConnectedTarget(FakeConnector.Id, "owner/repo"));
         using var _context = context;
+        sync.Outcome = new LinkedTaskSyncOutcome(true, "Synced owner/repo: 2 new.");
+
+        var page = context.Render<TaskConnectorSettings>();
+        var card = page.FindAll("[data-testid='task-connector-target-card']").Single(card => card.TextContent.Contains("owner/repo", StringComparison.Ordinal));
+        await card.QuerySelector("[data-testid='task-connector-target-card-sync']")!.ClickAsync(new());
+
+        Assert.Equal([(FakeConnector.Id, "owner/repo")], sync.Requests);
+        var message = Assert.Single(page.FindAll("[data-testid='task-connector-target-card-sync-message']"));
+        Assert.Equal("Synced owner/repo: 2 new.", message.TextContent);
+        Assert.Equal("owner/repo", message.Closest(".connected-target")!.QuerySelector("[data-testid='task-connector-target-card-name']")!.TextContent);
+    }
+
+    /// <summary>A press on a second card while the first still syncs goes through —
+    /// the sync queues it — and each card shows its own answer, so neither reads the
+    /// other's.</summary>
+    [Fact]
+    public void Two_cards_synced_at_once_each_run_and_each_show_their_own_answer()
+    {
+        var (context, _, sync) = Compose(true, new ConnectedTarget(FakeConnector.Id, "owner/a"), new ConnectedTarget(FakeConnector.Id, "owner/b"));
+        using var _context = context;
+        var a = new TaskCompletionSource<LinkedTaskSyncOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var b = new TaskCompletionSource<LinkedTaskSyncOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        sync.Answer = (_, target) => target == "owner/a" ? a.Task : b.Task;
+
+        var page = context.Render<TaskConnectorSettings>();
+        Card(page, "owner/a").QuerySelector("[data-testid='task-connector-target-card-sync']")!.Click();
+        Card(page, "owner/b").QuerySelector("[data-testid='task-connector-target-card-sync']")!.Click();
+
+        Assert.Equal([(FakeConnector.Id, "owner/a"), (FakeConnector.Id, "owner/b")], sync.Requests);
+        Assert.Equal("true", SyncButton(page, "owner/a").GetAttribute("aria-busy"));
+        Assert.Equal("true", SyncButton(page, "owner/b").GetAttribute("aria-busy"));
+
+        b.SetResult(new LinkedTaskSyncOutcome(false, "Fake has no target named owner/b.", "linked_tasks.fetch_not_found"));
+        page.WaitForAssertion(() => Assert.Contains("Fake has no target named owner/b.", Card(page, "owner/b").TextContent, StringComparison.Ordinal));
+        Assert.Equal("true", SyncButton(page, "owner/a").GetAttribute("aria-busy"));
+        Assert.Empty(Card(page, "owner/a").QuerySelectorAll("[data-testid='task-connector-target-card-sync-message']"));
+
+        a.SetResult(new LinkedTaskSyncOutcome(true, "Synced owner/a: nothing changed."));
+        page.WaitForAssertion(() => Assert.Contains("Synced owner/a: nothing changed.", Card(page, "owner/a").TextContent, StringComparison.Ordinal));
+        Assert.DoesNotContain("owner/a", Card(page, "owner/b").QuerySelector("[data-testid='task-connector-target-card-sync-message']")!.TextContent, StringComparison.Ordinal);
+
+        static AngleSharp.Dom.IElement Card(IRenderedComponent<TaskConnectorSettings> page, string target) =>
+            page.FindAll("[data-testid='task-connector-target-card']")
+                .Single(card => card.QuerySelector("[data-testid='task-connector-target-card-name']")!.TextContent == target);
+
+        static AngleSharp.Dom.IElement SyncButton(IRenderedComponent<TaskConnectorSettings> page, string target) =>
+            Card(page, target).QuerySelector("[data-testid='task-connector-target-card-sync']")!;
+    }
+
+    /// <summary>The defect this answers: the page said "Synced." over a sync that
+    /// had failed. It says the sync's own sentence instead, which names the
+    /// target.</summary>
+    [Fact]
+    public async Task Sync_now_that_failed_says_why_rather_than_synced()
+    {
+        var (context, _, sync) = Compose(true, new ConnectedTarget(FakeConnector.Id, "owner/repo"));
+        using var _context = context;
+        sync.Outcome = new LinkedTaskSyncOutcome(false, "Fake has no target named owner/repo.", "linked_tasks.fetch_not_found");
 
         var page = context.Render<TaskConnectorSettings>();
         await page.Find("[data-testid='task-connector-target-card-sync']").ClickAsync(new());
-        Assert.Equal(1, sync.Runs);
 
+        var message = page.Find("[data-testid='task-connector-target-card-sync-message']").TextContent;
+        Assert.Equal("Fake has no target named owner/repo.", message);
+        Assert.DoesNotContain("Synced", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_target_whose_last_sync_failed_says_why_on_its_card()
+    {
+        var failed = new ConnectedTarget(FakeConnector.Id, "owner/repo")
+        {
+            LastSyncError = "Fake has no target named owner/repo.",
+            LastSyncFailedAt = new DateTimeOffset(2026, 10, 7, 20, 9, 17, TimeSpan.Zero),
+        };
+        var (context, _, _) = Compose(true, failed, new ConnectedTarget(FakeConnector.Id, "owner/fine"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        var error = Assert.Single(page.FindAll("[data-testid='task-connector-target-card-error']"));
+        Assert.Contains("Fake has no target named owner/repo.", error.TextContent, StringComparison.Ordinal);
+        Assert.Contains("owner/repo", error.Closest(".connected-target")!.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Disconnect_removes_the_target()
+    {
+        var (context, targets, _) = Compose(true, new ConnectedTarget(FakeConnector.Id, "owner/repo"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
         await page.Find("[data-testid='task-connector-target-card-remove']").ClickAsync(new());
+
         Assert.Empty(targets.List());
         Assert.Contains("Disconnected owner/repo", page.Find("[data-testid='task-connectors-message']").TextContent);
+    }
+
+    /// <summary>The field a target is typed into is named by the chosen connector:
+    /// a connector that says nothing gets a neutral label and no example, and one
+    /// whose targets are products asks for a product's slug, not an
+    /// <c>owner/repository</c> it would answer with a 404.</summary>
+    [Fact]
+    public async Task The_target_field_is_named_by_the_chosen_connector()
+    {
+        var context = new BunitContext();
+        using var _context = context;
+        context.Services.AddSingleton(new LinkedTaskSources([new FakeConnector(), new ProductConnector()], new InMemoryTargets()));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.Equal(TaskConnectorDescriptor.DefaultTargetLabel, page.Find("label[for='task-connector-target']").TextContent);
+        Assert.Null(page.Find("input#task-connector-target").GetAttribute("placeholder"));
+
+        await page.Find("select#task-connector-choice").ChangeAsync(new() { Value = ProductConnector.Id });
+
+        Assert.Equal("Product", page.Find("label[for='task-connector-target']").TextContent);
+        Assert.Equal("product-slug", page.Find("input#task-connector-target").GetAttribute("placeholder"));
+        Assert.Contains("spec-manager URL", page.Find("[data-testid='task-connector-target']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -140,6 +252,286 @@ public sealed class TaskConnectorSettingsTests
         var page = context.Render<TaskConnectorSettings>();
 
         Assert.Contains("jira", page.Find(".connected-target__connector").TextContent);
+    }
+
+    // --- Picking a target ---------------------------------------------------------
+
+    private static (BunitContext Context, InMemoryTargets Targets) ComposeChoosing(ITaskConnector connector, params ConnectedTarget[] targets)
+    {
+        var context = new BunitContext();
+        var store = new InMemoryTargets(targets);
+        context.Services.AddSingleton(new LinkedTaskSources([connector], store));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+        return (context, store);
+    }
+
+    /// <summary>The defect this answers: a spec-manager product typed by its name
+    /// 404s, because the source takes only its slug. A connector that can list its
+    /// targets is picked from — the name shown, the target stored — and one already
+    /// connected is not offered again.</summary>
+    [Fact]
+    public async Task A_connector_that_lists_its_targets_is_picked_from_by_name_and_stores_the_target()
+    {
+        var connector = new ChoosingConnector(new ConnectorTargetChoices(
+            [new("fincent", "Fincent"), new("backlog-demo", "Backlog demo")]));
+        var (context, targets) = ComposeChoosing(connector, new ConnectedTarget(ChoosingConnector.Id, "backlog-demo"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.Empty(page.FindAll("input#task-connector-target"));
+        var options = page.FindAll("select#task-connector-target option").Where(option => option.GetAttribute("value") != string.Empty).ToList();
+        Assert.Equal(["fincent"], options.Select(option => option.GetAttribute("value")));
+        Assert.Equal(["Fincent"], options.Select(option => option.TextContent));
+        Assert.Equal("Product", page.Find("label[for='task-connector-target']").TextContent);
+        Assert.True(page.Find("[data-testid='task-connector-connect']").HasAttribute("disabled"));
+
+        await page.Find("select#task-connector-target").ChangeAsync(new() { Value = "fincent" });
+        Assert.False(page.Find("[data-testid='task-connector-connect']").HasAttribute("disabled"));
+        await page.Find("[data-testid='task-connector-connect']").ClickAsync(new());
+
+        Assert.NotNull(targets.Get(ChoosingConnector.Id, "fincent"));
+        Assert.Equal(2, targets.List().Count);
+        Assert.DoesNotContain(page.FindAll("select#task-connector-target option"), option => option.GetAttribute("value") == "fincent");
+    }
+
+    /// <summary>A connector that cannot list today — spec-manager refuses the app's
+    /// token on its product list — falls back to the typed field, and the field
+    /// says why and what to type.</summary>
+    [Fact]
+    public void A_connector_that_cannot_list_falls_back_to_typing_and_says_why()
+    {
+        var connector = new ChoosingConnector(ConnectorTargetChoices.Unavailable(
+            "spec-manager would not list your products yet. Type the product's slug instead, as it appears in its spec-manager URL."));
+        var (context, _) = ComposeChoosing(connector);
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.NotNull(page.Find("input#task-connector-target"));
+        Assert.Empty(page.FindAll("select#task-connector-target"));
+        Assert.Contains("would not list your products yet", page.Find("[data-testid='task-connector-target']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_connector_that_throws_while_listing_falls_back_to_typing_and_the_page_still_works()
+    {
+        var connector = new ChoosingConnector(new InvalidOperationException("boom"));
+        var (context, _) = ComposeChoosing(connector);
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.NotNull(page.Find("input#task-connector-target"));
+        Assert.Contains("could not list", page.Find("[data-testid='task-connector-target']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void While_the_choices_load_the_picker_says_so_and_offers_nothing()
+    {
+        var pending = new TaskCompletionSource<ConnectorTargetChoices>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var connector = new ChoosingConnector(pending.Task);
+        var (context, _) = ComposeChoosing(connector);
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        var loading = page.Find("select#task-connector-target");
+        Assert.True(loading.HasAttribute("disabled"));
+        Assert.Contains("Loading", loading.TextContent, StringComparison.Ordinal);
+        Assert.True(page.Find("[data-testid='task-connector-connect']").HasAttribute("disabled"));
+
+        pending.SetResult(new ConnectorTargetChoices([new("fincent", "Fincent")]));
+
+        page.WaitForAssertion(() => Assert.False(page.Find("select#task-connector-target").HasAttribute("disabled")));
+    }
+
+    /// <summary>Each connector's choices are its own: switching the connector loads
+    /// the new one's list, and a connector that lists nothing is typed into.</summary>
+    [Fact]
+    public async Task Switching_the_connector_loads_that_connectors_choices()
+    {
+        var context = new BunitContext();
+        using var _context = context;
+        var choosing = new ChoosingConnector(new ConnectorTargetChoices([new("fincent", "Fincent")]));
+        context.Services.AddSingleton(new LinkedTaskSources([new FakeConnector(), choosing], new InMemoryTargets()));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+
+        // Connectors are listed by name, so Choosing is the one chosen first.
+        var page = context.Render<TaskConnectorSettings>();
+        Assert.NotNull(page.Find("select#task-connector-target option[value='fincent']"));
+
+        await page.Find("select#task-connector-choice").ChangeAsync(new() { Value = FakeConnector.Id });
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("input#task-connector-target")));
+
+        await page.Find("select#task-connector-choice").ChangeAsync(new() { Value = ChoosingConnector.Id });
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("select#task-connector-target option[value='fincent']")));
+    }
+
+    /// <summary>The defect the review found: a product name typed while signed out
+    /// survived the sign-in that brought the picker, and Connect stayed enabled
+    /// with it — saving the very name that 404s. A typed value the picker does not
+    /// offer is dropped, and Connect waits for a pick.</summary>
+    [Fact]
+    public async Task A_name_typed_before_signing_in_is_dropped_when_the_picker_arrives()
+    {
+        var connector = new SigningChoosingConnector(new ConnectorTargetChoices([new("fincent-bv", "Fincent")]));
+        var (context, targets) = ComposeChoosing(connector);
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("input#task-connector-target").InputAsync(new() { Value = "fincent" });
+        Assert.False(page.Find("[data-testid='task-connector-connect']").HasAttribute("disabled"));
+
+        page.Find($"[data-testid='task-connector-sign-in-{SigningChoosingConnector.Id}-sign-in']").Click();
+
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("select#task-connector-target option[value='fincent-bv']")));
+        Assert.True(page.Find("[data-testid='task-connector-connect']").HasAttribute("disabled"));
+
+        await page.Find("select#task-connector-target").ChangeAsync(new() { Value = "fincent-bv" });
+        await page.Find("[data-testid='task-connector-connect']").ClickAsync(new());
+
+        Assert.NotNull(targets.Get(SigningChoosingConnector.Id, "fincent-bv"));
+        Assert.Null(targets.Get(SigningChoosingConnector.Id, "fincent"));
+    }
+
+    /// <summary>A sign-in the connector reports on its own — one that finished after
+    /// the page stopped waiting — brings the picker too.</summary>
+    [Fact]
+    public void An_account_change_the_connector_raises_on_its_own_reloads_the_choices()
+    {
+        var connector = new SigningChoosingConnector(new ConnectorTargetChoices([new("fincent-bv", "Fincent")]));
+        var (context, _) = ComposeChoosing(connector);
+        using var _context = context;
+        var page = context.Render<TaskConnectorSettings>();
+        Assert.NotNull(page.Find("input#task-connector-target"));
+
+        connector.Account = new TaskConnectorAccount("Sam", DateTimeOffset.UnixEpoch);
+        connector.RaiseAccountChanged();
+
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("select#task-connector-target option[value='fincent-bv']")));
+    }
+
+    /// <summary>An answer for a connector the person has since left is not shown
+    /// under the one they chose.</summary>
+    [Fact]
+    public async Task Choices_that_arrive_after_the_connector_was_switched_are_dropped()
+    {
+        var context = new BunitContext();
+        using var _context = context;
+        var pending = new TaskCompletionSource<ConnectorTargetChoices>(TaskCreationOptions.RunContinuationsAsynchronously);
+        context.Services.AddSingleton(new LinkedTaskSources([new FakeConnector(), new ChoosingConnector(pending.Task)], new InMemoryTargets()));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("select#task-connector-choice").ChangeAsync(new() { Value = FakeConnector.Id });
+        Assert.NotNull(page.Find("input#task-connector-target"));
+
+        pending.SetResult(new ConnectorTargetChoices([new("fincent", "Fincent")]));
+
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        page.Render();
+        Assert.NotNull(page.Find("input#task-connector-target"));
+        Assert.Empty(page.FindAll("select#task-connector-target"));
+    }
+
+    /// <summary>Only the latest request for the same connector lands: an older,
+    /// slower answer arriving after it does not replace it.</summary>
+    [Fact]
+    public async Task An_older_answer_for_the_same_connector_does_not_replace_a_newer_one()
+    {
+        var context = new BunitContext();
+        using var _context = context;
+        var first = new TaskCompletionSource<ConnectorTargetChoices>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var connector = new ChoosingConnector(call => call == 0
+            ? first.Task
+            : Task.FromResult(new ConnectorTargetChoices([new("newer", "Newer")])));
+        context.Services.AddSingleton(new LinkedTaskSources([new FakeConnector(), connector], new InMemoryTargets()));
+        context.Services.AddSingleton<ILinkedTaskSync>(new RecordingSync());
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("select#task-connector-choice").ChangeAsync(new() { Value = FakeConnector.Id });
+        await page.Find("select#task-connector-choice").ChangeAsync(new() { Value = ChoosingConnector.Id });
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("select#task-connector-target option[value='newer']")));
+
+        first.SetResult(new ConnectorTargetChoices([new("older", "Older")]));
+
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        page.Render();
+        Assert.NotNull(page.Find("select#task-connector-target option[value='newer']"));
+        Assert.Empty(page.FindAll("select#task-connector-target option[value='older']"));
+    }
+
+    /// <summary>A connector whose targets are picked, answering what the test
+    /// gives it, or throwing.</summary>
+    private sealed class ChoosingConnector : ITaskConnector
+    {
+        public const string Id = "choosing";
+
+        private readonly Func<int, Task<ConnectorTargetChoices>> _choices;
+        private int _calls;
+
+        public ChoosingConnector(ConnectorTargetChoices choices) => _choices = _ => Task.FromResult(choices);
+
+        public ChoosingConnector(Exception failure) => _choices = _ => Task.FromException<ConnectorTargetChoices>(failure);
+
+        public ChoosingConnector(Task<ConnectorTargetChoices> pending) => _choices = _ => pending;
+
+        /// <summary>Answers each call by its number, from zero.</summary>
+        public ChoosingConnector(Func<int, Task<ConnectorTargetChoices>> byCall) => _choices = byCall;
+
+        public TaskConnectorDescriptor Descriptor { get; } = new(Id, "Choosing", "choosing", "color-primary")
+        {
+            TargetLabel = "Product",
+            TargetPlaceholder = "product-slug",
+        };
+
+        public TaskConnectorCapabilities Capabilities { get; } = new();
+
+        public Task<ConnectorTargetChoices> ListTargetChoicesAsync(CancellationToken cancellationToken) => _choices(_calls++);
+
+        public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<SourceItem>>([]);
+    }
+
+    /// <summary>A connector a person signs in to that lists its targets only once
+    /// signed in, the way spec-manager does. Its sign-in succeeds at once.</summary>
+    private sealed class SigningChoosingConnector(ConnectorTargetChoices signedIn) : ITaskConnector, ITaskConnectorSignIn
+    {
+        public const string Id = "signing-choosing";
+
+        public TaskConnectorDescriptor Descriptor { get; } = new(Id, "Signing", "signing", "color-primary")
+        {
+            TargetLabel = "Product",
+        };
+
+        public TaskConnectorCapabilities Capabilities { get; } = new();
+
+        public TaskConnectorAccount? Account { get; set; }
+
+        public event Action? AccountChanged;
+
+        public Task<ConnectorTargetChoices> ListTargetChoicesAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(Account is null ? ConnectorTargetChoices.Unavailable("Sign in to pick a product.") : signedIn);
+
+        public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<SourceItem>>([]);
+
+        public Task<string?> SignInAsync(CancellationToken cancellationToken)
+        {
+            Account = new TaskConnectorAccount("Sam", DateTimeOffset.UnixEpoch);
+            AccountChanged?.Invoke();
+            return Task.FromResult<string?>(null);
+        }
+
+        public Task SignOutAsync(CancellationToken cancellationToken)
+        {
+            Account = null;
+            AccountChanged?.Invoke();
+            return Task.CompletedTask;
+        }
+
+        public void RaiseAccountChanged() => AccountChanged?.Invoke();
     }
 
     // --- Signing in ------------------------------------------------------------
@@ -324,14 +716,49 @@ public sealed class TaskConnectorSettingsTests
         public void RaiseAccountChanged() => AccountChanged?.Invoke();
     }
 
+    /// <summary>A connector whose targets are products, naming its field the way
+    /// spec-manager's descriptor does.</summary>
+    private sealed class ProductConnector : ITaskConnector
+    {
+        public const string Id = "products";
+
+        public TaskConnectorDescriptor Descriptor { get; } = new(Id, "Products", "products", "color-primary")
+        {
+            TargetLabel = "Product",
+            TargetPlaceholder = "product-slug",
+            TargetHelp = "The product's slug, as it appears in its spec-manager URL.",
+        };
+
+        public TaskConnectorCapabilities Capabilities { get; } = new();
+
+        public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<SourceItem>>([]);
+    }
+
     internal sealed class RecordingSync : ILinkedTaskSync
     {
         public int Runs { get; private set; }
+
+        /// <summary>Every one-target request, in order.</summary>
+        public List<(string ConnectorId, string Target)> Requests { get; } = [];
+
+        /// <summary>What every one-target request answers.</summary>
+        public LinkedTaskSyncOutcome Outcome { get; set; } = new(true, "Synced.");
+
+        /// <summary>When set, answers each one-target request instead of
+        /// <see cref="Outcome"/>, for a test that finishes the syncs itself.</summary>
+        public Func<string, string, Task<LinkedTaskSyncOutcome>>? Answer { get; set; }
 
         public Task RequestSync()
         {
             Runs++;
             return Task.CompletedTask;
+        }
+
+        public Task<LinkedTaskSyncOutcome> RequestSync(string connectorId, string target)
+        {
+            Requests.Add((connectorId, target));
+            return Answer?.Invoke(connectorId, target) ?? Task.FromResult(Outcome);
         }
     }
 }

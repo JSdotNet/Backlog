@@ -84,8 +84,17 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
     /// no provider mark by this one, so the badge draws the name and key alone,
     /// coloured with <c>color-band-2</c>, the teal of the design palette's bands —
     /// distinct from the ink a GitHub badge takes.
+    /// <para>
+    /// A target is a product, typed as its slug: the segment of the product's
+    /// spec-manager address that names it, never a repository.
+    /// </para>
     /// </summary>
-    public TaskConnectorDescriptor Descriptor { get; } = new(ConnectorId, "spec-manager", ConnectorId, "color-band-2");
+    public TaskConnectorDescriptor Descriptor { get; } = new(ConnectorId, "spec-manager", ConnectorId, "color-band-2")
+    {
+        TargetLabel = "Product",
+        TargetPlaceholder = "product-slug",
+        TargetHelp = "The product's slug, as it appears in its spec-manager URL.",
+    };
 
     /// <summary>Items carry storypoints and say what they wait on, and an item is
     /// completed by moving it to the product's first end status.</summary>
@@ -99,10 +108,73 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
         remove => _signIn.AccountChanged -= value;
     }
 
+    /// <summary>
+    /// The product's backlog as items — see the class remarks for what a first and
+    /// a later sync ask for.
+    /// <para>
+    /// A refusal is said as what it means for the person, through
+    /// <see cref="TaskConnectorFetchException"/>: nobody signed in, a product
+    /// spec-manager does not have — most often a slug typed as something else — and
+    /// a product the account may not read. A server error or a network that did not
+    /// answer is left as it was thrown.
+    /// </para>
+    /// </summary>
     public async Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(target);
 
+        IReadOnlyList<SourceItem> items;
+        try
+        {
+            items = await ReadBacklogAsync(target, since, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SpecManagerSignInRequiredException ex)
+        {
+            throw new TaskConnectorFetchException(
+                TaskConnectorFetchFailure.SignInRequired,
+                $"Not signed in to spec-manager, so {target} cannot sync. {WhereToSignIn}",
+                ex);
+        }
+        catch (HttpRequestException ex) when (Classify(ex, target) is { } recognised)
+        {
+            throw recognised;
+        }
+
+        await NameAccountOnceAsync(target, cancellationToken).ConfigureAwait(false);
+
+        return items;
+    }
+
+    /// <summary>
+    /// What a status spec-manager refused a read with means for the person, or null
+    /// for one this connector has no reading of. A 401 here has already been
+    /// retried with a refreshed token, so it is a sign-in spec-manager no longer
+    /// honours.
+    /// </summary>
+    private static TaskConnectorFetchException? Classify(HttpRequestException failure, string product) => failure.StatusCode switch
+    {
+        System.Net.HttpStatusCode.NotFound => new(
+            TaskConnectorFetchFailure.NotFound,
+            $"spec-manager has no product named {product}. Use the product's slug, as it appears in its spec-manager URL.",
+            failure),
+        System.Net.HttpStatusCode.Forbidden => new(
+            TaskConnectorFetchFailure.NoAccess,
+            $"The spec-manager account signed in here may not read {product}. Sign in as a member of the product on the spec-manager line in Settings → Connectors.",
+            failure),
+        System.Net.HttpStatusCode.Unauthorized => new(
+            TaskConnectorFetchFailure.SignInRequired,
+            $"spec-manager no longer accepts this sign-in, so {product} cannot sync. {WhereToSignIn}",
+            failure),
+        _ => null,
+    };
+
+    /// <summary>Where the person signs in, said the way GitHub's sentences name
+    /// Settings → GitHub: the spec-manager line at the top of the Connectors
+    /// section.</summary>
+    private const string WhereToSignIn = "Sign in on the spec-manager line in Settings → Connectors.";
+
+    private async Task<IReadOnlyList<SourceItem>> ReadBacklogAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken)
+    {
         if (_signIn.Account is null) throw new SpecManagerSignInRequiredException();
 
         // The last sync's moment is this machine's clock and bijgewerktOp is the
@@ -133,8 +205,6 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
         }
 
         items.AddRange(archived.Select(item => SpecManagerItemMapper.Map(item with { IsGearchiveerd = true }, catalog, known, _options.Root, target)));
-
-        await NameAccountOnceAsync(target, cancellationToken).ConfigureAwait(false);
 
         return items;
     }
@@ -191,6 +261,47 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
                 : $"spec-manager could not be reached: {ex.Message}";
         }
     }
+
+    /// <summary>
+    /// The products the signed-in account can see, to pick from: each stored as its
+    /// slug and shown by its name, the slug standing in for a name that is blank.
+    /// <para>
+    /// A list that cannot be had is an answer, never a throw into the page: nobody
+    /// signed in, or spec-manager refusing or failing the list — which it does today
+    /// for the app's agent token, until the product list is opened to it. Either
+    /// way the sentence says to type the product's slug instead.
+    /// </para>
+    /// </summary>
+    public async Task<ConnectorTargetChoices> ListTargetChoicesAsync(CancellationToken cancellationToken)
+    {
+        if (_signIn.Account is null) return ConnectorTargetChoices.Unavailable(SignInToPick);
+
+        try
+        {
+            var products = await _client.GetProductsAsync(cancellationToken).ConfigureAwait(false);
+
+            return new ConnectorTargetChoices([.. products
+                .Where(product => !string.IsNullOrWhiteSpace(product.Slug))
+                .Select(product => new ConnectorTargetChoice(
+                    product.Slug!.Trim(),
+                    string.IsNullOrWhiteSpace(product.Naam) ? product.Slug.Trim() : product.Naam.Trim()))]);
+        }
+        catch (SpecManagerSignInRequiredException)
+        {
+            return ConnectorTargetChoices.Unavailable(SignInToPick);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or System.Text.Json.JsonException or NotSupportedException
+            || (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
+        {
+            _log.LogInformation(ex, "spec-manager would not list the products; the settings page falls back to typing a slug.");
+            return ConnectorTargetChoices.Unavailable(
+                "spec-manager would not list your products yet. Type the product's slug instead, as it appears in its spec-manager URL.");
+        }
+    }
+
+    /// <summary>Why the products cannot be listed with nobody signed in.</summary>
+    private const string SignInToPick =
+        "Sign in on the spec-manager line above to pick a product, or type the product's slug, as it appears in its spec-manager URL.";
 
     /// <summary>The refusal a write-back with nobody signed in answers.</summary>
     internal const string SignInToComplete = "Sign in to spec-manager to complete items there.";

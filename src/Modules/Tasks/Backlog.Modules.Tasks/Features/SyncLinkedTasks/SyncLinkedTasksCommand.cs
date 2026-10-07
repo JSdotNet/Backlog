@@ -1,5 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -29,6 +30,11 @@ namespace Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 /// creates a Roadmap Item (ADR 0020, §6; ADR 0013, ruling 3).
 /// </para>
 /// <para>
+/// A target whose connector says its targets are repositories
+/// (<see cref="TaskConnectorCapabilities.TargetIsRepository"/>) files each of its
+/// tasks under that repository while the task is filed under none.
+/// </para>
+/// <para>
 /// <c>.devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md</c> is the
 /// design, §2 to §6 and §9. The handler names no connector: it finds the one whose
 /// descriptor carries <see cref="ConnectorId"/> among those the host registered.
@@ -39,7 +45,8 @@ public sealed record SyncLinkedTasksCommand(string ConnectorId, string Target);
 /// <summary>What one sync did, counted per task.</summary>
 /// <param name="Created">Items that became a task.</param>
 /// <param name="Updated">Tasks a source field, the status, the blocked mark, a
-/// devbook reference, a dependency, the plan or a flag changed on.</param>
+/// devbook reference, a dependency, the plan, the repository or a flag changed
+/// on.</param>
 /// <param name="Unchanged">Tasks the sync read and left alone.</param>
 /// <param name="SkippedTombstoned">Items whose task the person deleted; never made
 /// again.</param>
@@ -59,6 +66,7 @@ public sealed class SyncLinkedTasksCommandHandler(
     ITaskRepository tasks,
     IConnectedTargets targets,
     TimeProvider time,
+    IRepositoryDirectory? repositories = null,
     ILogger<SyncLinkedTasksCommandHandler>? log = null)
     : ICommandHandler<SyncLinkedTasksCommand, Result<LinkedTaskSyncSummary>>
 {
@@ -110,14 +118,16 @@ public sealed class SyncLinkedTasksCommandHandler(
         {
             // Nothing is written on a failed fetch, and nothing is archived as
             // vanished: an answer from a source that could not be reached is not an
-            // empty source.
+            // empty source. Only the failure itself is kept, on the target, so its
+            // card can say why it is not syncing.
             _log.LogWarning(ex, "Fetching {Connector} items for {Target} failed.", connector.Descriptor.Id, target.Target);
-            return Error.Unexpected(
-                "linked_tasks.fetch_failed",
-                $"{connector.Descriptor.DisplayName} could not be reached for {target.Target}.");
+            var error = FetchFailed(connector, target, ex);
+            RecordFailure(target, error.Message);
+            return error;
         }
 
         var connectorId = connector.Descriptor.Id;
+        var repositoryId = RepositoryIdOf(connector, target);
         var today = DateOnly.FromDateTime(time.GetLocalNow().DateTime);
         var seen = new HashSet<Guid>();
         var synced = new List<Synced>();
@@ -148,12 +158,15 @@ public sealed class SyncLinkedTasksCommandHandler(
                     continue;
                 }
 
-                synced.Add(new Synced(Create(id, connectorId, target, item, fetchStartedAt, today, FinishedOn(item, today)), [], IsNew: true, Changed: true));
+                var made = Create(id, connectorId, target, item, fetchStartedAt, today, FinishedOn(item, today));
+                FileUnder(made, repositoryId);
+                synced.Add(new Synced(made, [], IsNew: true, Changed: true));
                 continue;
             }
 
             var heldWaitsOn = existing.SourceRef?.WaitsOn ?? [];
             var changed = Update(existing, connectorId, target, item, today, FinishedOn(item, today));
+            changed |= FileUnder(existing, repositoryId);
             synced.Add(new Synced(existing, heldWaitsOn, IsNew: false, changed));
         }
 
@@ -712,19 +725,105 @@ public sealed class SyncLinkedTasksCommandHandler(
         return builder.Length > 0 && char.IsAsciiLetter(builder[0]) ? builder.ToString() : null;
     }
 
+    // --- The repository a task is filed under -------------------------------------
+
+    /// <summary>
+    /// The repository id this target's tasks are filed under, or null when its
+    /// connector's targets are not repositories.
+    /// <para>
+    /// Read off the capability, never off the connector's name: Tasks names no
+    /// connector. The registry's spelling when it knows the repository, so the row
+    /// shows the repository's own chip; the target as it is spelled otherwise, which
+    /// is still the <c>owner/name</c> the registry would store, and reads as the
+    /// repository the day it is configured.
+    /// </para>
+    /// </summary>
+    private string? RepositoryIdOf(ITaskConnector connector, ConnectedTarget target)
+    {
+        if (!connector.Capabilities.TargetIsRepository) return null;
+
+        var typed = target.Target.Trim();
+        return repositories?.Resolve(typed)?.Id ?? typed;
+    }
+
+    /// <summary>Files the task under <paramref name="repositoryId"/> while it is
+    /// filed under none, and answers whether it did. A list it already has — the
+    /// person's, or an earlier sync's — is theirs and never overwritten, so a sync
+    /// with nothing else to say stays quiet.</summary>
+    private static bool FileUnder(TaskItem task, string? repositoryId)
+    {
+        if (repositoryId is null || task.RepoIds.Count > 0) return false;
+
+        task.SetRepoIds([repositoryId]);
+        return true;
+    }
+
+    // --- Failure ---------------------------------------------------------------
+
+    /// <summary>
+    /// The error a failed fetch is reported as. A failure the connector recognised
+    /// is reported in its own words, under a code of its kind, because the person
+    /// can act on it — pick another account, correct the product's slug, sign in.
+    /// Anything else, and a source that did not answer, reads as the source not
+    /// being reached.
+    /// </summary>
+    private static Error FetchFailed(ITaskConnector connector, ConnectedTarget target, Exception failure)
+    {
+        if (failure is TaskConnectorFetchException { Kind: not TaskConnectorFetchFailure.Unreachable } recognised
+            && !string.IsNullOrWhiteSpace(recognised.Message))
+        {
+            return recognised.Kind switch
+            {
+                TaskConnectorFetchFailure.NotFound => Error.NotFound("linked_tasks.fetch_not_found", recognised.Message),
+                TaskConnectorFetchFailure.NoAccess => Error.Validation("linked_tasks.fetch_no_access", recognised.Message),
+                TaskConnectorFetchFailure.NotConfigured => Error.Validation("linked_tasks.fetch_not_configured", recognised.Message),
+                TaskConnectorFetchFailure.SignInRequired => Error.Validation("linked_tasks.fetch_sign_in_required", recognised.Message),
+                _ => Unreached(),
+            };
+        }
+
+        return Unreached();
+
+        Error Unreached() => Error.Unexpected(
+            "linked_tasks.fetch_failed",
+            $"{connector.Descriptor.DisplayName} could not be reached for {target.Target}.");
+    }
+
+    /// <summary>Keeps a failed sync's sentence on the target, through
+    /// <see cref="IConnectedTargets.Update"/> for the reason <see cref="RecordSync"/>
+    /// gives. Where the next fetch asks from and the first-sync cut-off are the last
+    /// success's, and stay where they are.</summary>
+    private void RecordFailure(ConnectedTarget target, string message)
+    {
+        var failedAt = time.GetUtcNow();
+        var error = targets.Update(target.ConnectorId, target.Target, latest => latest with
+        {
+            LastSyncError = message,
+            LastSyncFailedAt = failedAt,
+        });
+
+        if (error is not null)
+        {
+            _log.LogWarning("The failed sync of {Connector} {Target} could not be recorded: {Error}", target.ConnectorId, target.Target, error);
+        }
+    }
+
     // --- Bookkeeping ----------------------------------------------------------
 
     /// <summary>Records where this sync got to through
     /// <see cref="IConnectedTargets.Update"/>, which applies the two bookkeeping
     /// values to whatever the store holds at that moment, under its own lock — so a
     /// setting the person changed during the fetch, or while this ran, is never
-    /// written back over, and a target removed meanwhile stays removed.</summary>
+    /// written back over, and a target removed meanwhile stays removed. A failure an
+    /// earlier sync recorded is cleared: it no longer says anything true.</summary>
     private void RecordSync(ConnectedTarget target, DateTimeOffset fetchStartedAt, DateTimeOffset? cutoff)
     {
         var error = targets.Update(target.ConnectorId, target.Target, latest => latest with
         {
             LastSyncedAt = fetchStartedAt,
             IgnoreUntouchedBefore = latest.IgnoreUntouchedBefore ?? cutoff,
+            LastSyncError = null,
+            LastSyncFailedAt = null,
         });
 
         // The tasks are written either way. A sync whose bookkeeping did not stick

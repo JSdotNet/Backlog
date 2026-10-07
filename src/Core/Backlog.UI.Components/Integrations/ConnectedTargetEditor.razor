@@ -16,6 +16,11 @@
     Every change is reported at once as the whole options record, and nothing is
     held as a draft: the host saves it and hands the saved record back, so what
     the card shows is always what is stored.
+
+    A last sync that failed is shown under the head, in the sync's own sentence,
+    until a sync succeeds: a target that stopped syncing says why on its own card.
+    What the host's answer to this card's Sync now was is shown on this card too,
+    so two cards syncing at once never read each other's answer.
 *@
 
 <Card Compact="true" CssClass="connected-target" TestId="@TestId" AriaLabel="@($"{Options.ConnectorName} {Options.Target}")">
@@ -30,6 +35,14 @@
             @(Options.LastSynced is null ? "Not synced yet" : $"Synced {Options.LastSynced}")
         </span>
     </div>
+
+    @* Role status rather than alert: it is what the stored target says, drawn on
+       every render, not an event — the page's own message announces a sync that
+       just failed. *@
+    <Alert Message="@LastSyncErrorText"
+           Role="status"
+           CssClass="connected-target__error"
+           TestId="@Suffix("error")" />
 
     <div class="connected-target__options">
         <Toggle Label="Sync this target"
@@ -98,6 +111,11 @@
         }
     </div>
     }
+
+    <Alert Message="@SyncMessage"
+           Role="status"
+           CssClass="connected-target__sync-message"
+           TestId="@Suffix("sync-message")" />
 </Card>
 
 @code {
@@ -123,8 +141,19 @@
     [Parameter]
     public bool Syncing { get; set; }
 
+    /// <summary>How this card's last Sync now went, in the host's words, or null
+    /// for nothing to say.</summary>
+    [Parameter]
+    public string? SyncMessage { get; set; }
+
     [Parameter]
     public string? TestId { get; set; }
+
+    /// <summary>The failure, with when it happened when the host says.</summary>
+    private string? LastSyncErrorText =>
+        string.IsNullOrWhiteSpace(Options.LastSyncError) ? null
+        : Options.LastSyncFailed is { } when ? $"Last sync failed {when}: {Options.LastSyncError}"
+        : $"Last sync failed: {Options.LastSyncError}";
 
     private IntegrationProvider Mark =>
         Enum.TryParse<IntegrationProvider>(Options.Icon, ignoreCase: true, out var provider)

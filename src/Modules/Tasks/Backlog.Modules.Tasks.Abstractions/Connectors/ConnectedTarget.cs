@@ -59,6 +59,16 @@ public sealed record ConnectedTarget(string ConnectorId, string Target, bool Ena
     /// recent enough the day the target was connected.</summary>
     public DateTimeOffset? IgnoreUntouchedBefore { get; init; }
 
+    /// <summary>Why the last sync failed, in the sentence the person reads, or null
+    /// when it succeeded. Set by a failed sync without moving
+    /// <see cref="LastSyncedAt"/>, so the next one still asks from the last success,
+    /// and cleared by the next sync that succeeds.</summary>
+    public string? LastSyncError { get; init; }
+
+    /// <summary>When the failure in <see cref="LastSyncError"/> happened, or null
+    /// when there is none.</summary>
+    public DateTimeOffset? LastSyncFailedAt { get; init; }
+
     /// <summary>Whether this is the target named by the pair. Connector ids are
     /// compared exactly; targets without regard to case, because a repository
     /// name is case-preserving but not case-sensitive.</summary>

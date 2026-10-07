@@ -7,12 +7,13 @@
            Guidelines="@Rules">
 
     <Story Name="One target and its options"
-           Description="Every change is reported at once as the whole options record and nothing is held as a draft: the host saves it and hands the stored record back, so the card always shows what is stored. Sync now and Disconnect are drawn only when the host listens for them. Try the switches — this page plays the host and stores each change."
+           Description="Every change is reported at once as the whole options record and nothing is held as a draft: the host saves it and hands the stored record back, so the card always shows what is stored. Sync now and Disconnect are drawn only when the host listens for them, and the host's answer to Sync now is shown on the card it was pressed on. Try the switches — this page plays the host and stores each change."
            Code="@EditorCode">
         <div class="sb-menu-wide" data-testid="connected-target-live">
             <ConnectedTargetEditor Options="@_live"
                                    OnChange="options => _live = options"
                                    OnSyncNow="_ => _syncs++"
+                                   SyncMessage="@(_syncs == 0 ? null : "Synced JSdotNet/Backlog: nothing changed.")"
                                    OnRemove="_ => _removed = true"
                                    TestId="connected-target" />
             <p class="sb-label" data-testid="connected-target-log">Synced @_syncs @(_syncs == 1 ? "time" : "times")@(_removed ? "; disconnect pressed" : string.Empty).</p>
@@ -25,6 +26,14 @@
         <div class="sb-menu-wide" data-testid="connected-target-complete">
             <ConnectedTargetEditor Options="@_completing" OnChange="options => _completing = options" TestId="connected-target-completing" />
             <ConnectedTargetEditor Options="@CannotComplete" OnChange="_ => { }" TestId="connected-target-cannot-complete" />
+        </div>
+    </Story>
+
+    <Story Name="A last sync that failed"
+           Description="A target whose last sync failed says why on its own card, in the sync's own sentence and with when, until a sync succeeds: a repository the account cannot see, a product slug spec-manager does not have, nobody signed in. The time it last synced stays where it was, because that is still the last success."
+           Code="@FailedCode">
+        <div class="sb-menu-wide" data-testid="connected-target-failed">
+            <ConnectedTargetEditor Options="@Failed" OnChange="_ => { }" OnSyncNow="_ => { }" TestId="connected-target-failed-card" />
         </div>
     </Story>
 
@@ -62,6 +71,14 @@
     private static readonly ConnectedTargetOptions CannotComplete =
         new("Jira", "PROJ") { LastSynced = "5 Oct 2026 08:40" };
 
+    private static readonly ConnectedTargetOptions Failed =
+        new("spec-manager", "JSdotNet/Backlog")
+        {
+            LastSynced = "6 Oct 2026 17:40",
+            LastSyncError = "spec-manager has no product named JSdotNet/Backlog. Use the product's slug, as it appears in its spec-manager URL.",
+            LastSyncFailed = "7 Oct 2026 22:09",
+        };
+
     private static readonly ConnectedTargetOptions Off =
         new("Spec manager", "backlog-product", Enabled: false, SyncIntervalMinutes: 45, SkipUntouchedOlderThanDays: 120);
 
@@ -72,12 +89,19 @@
         <ConnectedTargetEditor Options="@options"
                                OnChange="Save"
                                OnSyncNow="SyncNowAsync"
+                               SyncMessage="@syncMessage"
                                OnRemove="Disconnect" />
         """;
 
     private const string CompleteCode = """
         <ConnectedTargetEditor Options="@(options with { CanCompleteAtSource = connector.Capabilities.CanComplete })"
                                OnChange="Save" />
+        """;
+
+    private const string FailedCode = """
+        <ConnectedTargetEditor Options="@(options with { LastSyncError = target.LastSyncError, LastSyncFailed = failedAt })"
+                               OnChange="Save"
+                               OnSyncNow="SyncNowAsync" />
         """;
 
     private const string OffCode = """
