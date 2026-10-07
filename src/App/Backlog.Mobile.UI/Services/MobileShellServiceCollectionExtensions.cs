@@ -68,6 +68,10 @@ public static class MobileShellServiceCollectionExtensions
         services.AddSingleton<ITaskViewStore>(_ => new SqliteTaskViewStore(databasePath));
         services.AddSingleton<TaskViewProjection>();
 
+        // The three edits to a task already in My Day, the one service the
+        // Tasks tab's screens call. Stateless over the projection and the outbox.
+        services.AddSingleton<TaskEdits>();
+
         return services;
     }
 }
