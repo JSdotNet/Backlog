@@ -4,6 +4,7 @@
 @inject GitHubIntegration GitHub
 @inject IAppFeatureSettings Features
 @inject IJSRuntime JS
+@inject IServiceProvider Services
 
 @*
     A list of entries on the left and the selected entry on the right — the shape
@@ -465,6 +466,13 @@
                                       SelectedId="@SelectedTaskId"
                                       OnOpen="OnEntrySelectedAsync"
                                       OnDueChanged="OnCalendarDueChangedAsync"
+                                      PlansAvailable="@CalendarPlansAvailable"
+                                      ShowPlans="@(_calendarPlans?.Shown ?? false)"
+                                      ShowPlansChanged="OnShowPlansChangedAsync"
+                                      Plans="@CalendarPlanWindows()"
+                                      Milestones="@CalendarMilestones()"
+                                      ShelfPlans="@CalendarShelf()"
+                                      OnPlanStarted="OnCalendarPlanStartedAsync"
                                       AriaLabel="Tasks by due date"
                                       TestId="task-calendar" />
                     }
@@ -796,6 +804,9 @@
         _pickerEntry = State.SelectedRow;
         State.Changed += HandleStateChanged;
         Features.Changed += HandleFeaturesChanged;
+
+        _calendarPlans = Services.GetService(typeof(ICalendarPlans)) as ICalendarPlans;
+        if (_calendarPlans is not null) _calendarPlans.Changed += HandleCalendarPlansChanged;
     }
 
     /// <summary>The raw editor's element id, so the caret can be put in it the render
@@ -975,7 +986,17 @@
             _ => false
         };
 
-    private void HandleFeaturesChanged() => _ = InvokeAsync(StateHasChanged);
+    /// <summary>A feature switched — the roadmap among them — so the Calendar's plans are
+    /// read again before it next draws them.</summary>
+    private void HandleFeaturesChanged()
+    {
+        _calendarPlansStale = true;
+        _ = InvokeAsync(async () =>
+        {
+            if (Layout == TasksLayout.Calendar) await ReadCalendarPlansAsync();
+            StateHasChanged();
+        });
+    }
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
 
@@ -1030,6 +1051,128 @@
     private async Task OnCalendarDueChangedAsync(CalendarDueChange change)
     {
         if (EntryFor(change.TaskId) is { } row) await State.ChangeDueAsync(row, change.DueOn);
+    }
+
+    /// <summary>
+    /// The roadmap's plans for the Calendar, through Tasks' own port — null in a host
+    /// that composed no roadmap, when the Calendar offers no plans at all. The port's
+    /// adapter reads Roadmap's abstractions; nothing here sizes or places a window.
+    /// </summary>
+    private ICalendarPlans? _calendarPlans;
+
+    /// <summary>The plans as last read, and whether a read is owed before the Calendar
+    /// next draws them.</summary>
+    private Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto _calendarPlansRead =
+        Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto.Empty;
+    private bool _calendarPlansStale = true;
+    private DateOnly? _calendarPlansReadOn;
+    private TasksLayout? _calendarPlansLayout;
+
+    private bool CalendarPlansAvailable => _calendarPlans is not null && _calendarPlansRead.Available;
+
+    /// <summary>
+    /// Reads the plans while the Calendar shows them: on arriving at the Calendar, when
+    /// the plan, its work or the pace changed, and when the day did — not on every
+    /// render, because reading gathers the backlog per plan.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        var arrived = _calendarPlansLayout != Layout && Layout == TasksLayout.Calendar;
+        _calendarPlansLayout = Layout;
+
+        if (Layout == TasksLayout.Calendar && (arrived || _calendarPlansStale || _calendarPlansReadOn != Today))
+        {
+            await ReadCalendarPlansAsync();
+        }
+    }
+
+    private async Task ReadCalendarPlansAsync()
+    {
+        if (_calendarPlans is null) return;
+
+        _calendarPlansStale = false;
+        _calendarPlansReadOn = Today;
+        try
+        {
+            _calendarPlansRead = await _calendarPlans.ReadAsync(Today);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A plan that cannot be read — a file gone, a document that does not parse —
+            // leaves the tasks on the Calendar; the bars are what goes missing, not the
+            // month or the pane.
+            _calendarPlansRead = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto.Empty;
+        }
+    }
+
+    private void HandleCalendarPlansChanged()
+    {
+        _calendarPlansStale = true;
+        if (Layout != TasksLayout.Calendar) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            await ReadCalendarPlansAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task OnShowPlansChangedAsync(bool shown)
+    {
+        if (_calendarPlans is null) return;
+
+        _calendarPlans.SetShown(shown);
+        if (shown) await ReadCalendarPlansAsync();
+    }
+
+    /// <summary>Each window as a bar, wearing the band colour of the first of its
+    /// repositories that has one — <c>RepositoryColours</c> is empty while the colours
+    /// are hidden, so the bar is then neutral grey.</summary>
+    private IReadOnlyList<CalendarPlan> CalendarPlanWindows()
+    {
+        var colours = State.RepositoryColours;
+        return
+        [
+            .. _calendarPlansRead.Windows.Select(window => new CalendarPlan(
+                window.Id.ToString("N"),
+                window.Title,
+                window.Tag,
+                window.Start,
+                window.End,
+                window.DonePoints,
+                window.TotalPoints,
+                window.RepositoryAliases
+                    .Select(alias => colours.TryGetValue(alias, out var band) ? band : (int?)null)
+                    .FirstOrDefault(band => band is not null)))
+        ];
+    }
+
+    private IReadOnlyList<CalendarMilestone> CalendarMilestones() =>
+        [.. _calendarPlansRead.Milestones.Select(milestone => new CalendarMilestone(milestone.Id.ToString("N"), milestone.Title, milestone.On))];
+
+    private IReadOnlyList<CalendarShelfPlan> CalendarShelf() =>
+        [
+            .. _calendarPlansRead.Shelf.Select(plan => new CalendarShelfPlan(
+                plan.Tag,
+                plan.Title,
+                plan.TaskCount,
+                plan.TotalEffort,
+                plan.UnestimatedCount))
+        ];
+
+    /// <summary>A shelf plan dropped on a day: the roadmap places its window from there,
+    /// by its own placement. A refusal is said in a toast; the plan stays on the shelf.
+    /// The redraw comes from the plan's own change signal, which a stored window raises
+    /// and a refusal does not, so the plan is read once.</summary>
+    private async Task OnCalendarPlanStartedAsync(CalendarPlanStart start)
+    {
+        if (_calendarPlans is null) return;
+
+        var refusal = await _calendarPlans.StartAsync(start.Tag, start.Start);
+        if (refusal is not null)
+        {
+            Toasts.Publish(ToastMessage.Warning($"+{start.Tag} could not be planned: {refusal}", "calendar-plan-refused"));
+        }
     }
 
     private Task OpenSessionAsync(IntegrationLinkRef link) => OnOpenSession.InvokeAsync(link.Id);
@@ -4567,6 +4710,7 @@
         // the list, Ask AI's Tasks area — reads them with it applied again.
         State.SetStatusFilterSuspended(false);
         Features.Changed -= HandleFeaturesChanged;
+        if (_calendarPlans is not null) _calendarPlans.Changed -= HandleCalendarPlansChanged;
 
         if (_undoKeysReference is null) return;
 

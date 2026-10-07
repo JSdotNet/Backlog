@@ -36,6 +36,18 @@
     The repository identity edge is the host's, through each task's CssClass, as
     on a card and a row: the host passes the shared repo-mark classes only while
     its repository colours are showing.
+
+    Plans, when the host offers them (PlansAvailable), are drawn while the "Show
+    plans" box in the month bar is ticked; the host keeps the choice. Each plan's
+    window is a bar across the days it spans, cut at every week row, under the day
+    numbers and above the chips; plans that overlap in a week take a lane each, and
+    a bar carried on from the week before opens with "…". Its tooltip gives the
+    title, the plan tag and the finished points of the total. The fill is the
+    plan's band colour while the host passes one — only while its repository
+    colours are showing — and neutral grey otherwise. A milestone is a diamond chip
+    on its day. The tray's second section, "Plans without a window", lists the
+    plans with no window yet; dropping one on a day reports it through
+    OnPlanStarted, and the host has the window placed — the calendar sizes nothing.
 *@
 <section class="@ClassValue"
          data-testid="@TestId"
@@ -67,6 +79,14 @@
         <h2 class="task-calendar__month" aria-live="polite" data-testid="@Part("month")">
             @_month.ToString("MMMM yyyy", CultureInfo.CurrentCulture)
         </h2>
+        @if (PlansAvailable)
+        {
+            <Checkbox CssClass="task-calendar__show-plans"
+                      Label="Show plans"
+                      Checked="@ShowPlans"
+                      CheckedChanged="OnShowPlansChangedAsync"
+                      TestId="@Part("show-plans")" />
+        }
     </div>
 
     <div class="task-calendar__body">
@@ -80,11 +100,32 @@
 
             @foreach (var weekStart in CalendarMonth.WeekStarts(_month))
             {
-                <div @key="weekStart" class="task-calendar__week" data-testid="@Part("week")">
+                var (segments, lanes) = WeekPlans(weekStart);
+                <div @key="weekStart"
+                     class="@(lanes > 0 ? "task-calendar__week task-calendar__week--plans" : "task-calendar__week")"
+                     style="@(lanes > 0 ? $"--task-calendar-lanes: {lanes}" : null)"
+                     data-testid="@Part("week")">
                     @for (var offset = 0; offset < 7; offset++)
                     {
                         var date = weekStart.AddDays(offset);
                         @RenderDay(date)
+                    }
+                    @if (segments.Count > 0)
+                    {
+                        <ul class="task-calendar__plans" aria-label="Plans this week">
+                            @foreach (var segment in segments)
+                            {
+                                <li @key="segment.Plan.Id"
+                                    class="@PlanClass(segment)"
+                                    style="@($"grid-column: {segment.Column} / span {segment.Span}; grid-row: {segment.Lane}")"
+                                    title="@segment.Plan.Summary"
+                                    aria-label="@segment.Plan.Summary"
+                                    data-calendar-plan-window="@segment.Plan.Id"
+                                    data-testid="@Part($"plan-{segment.Plan.Id}")">
+                                    <span class="task-calendar__plan-text">@segment.Label</span>
+                                </li>
+                            }
+                        </ul>
                     }
                 </div>
             }
@@ -126,6 +167,37 @@
                     }
                 </ul>
             }
+
+            @if (PlansShown)
+            {
+                <div class="task-calendar__tray-head task-calendar__tray-head--plans">
+                    <h3 class="task-calendar__tray-title" id="@ShelfHeadingId">Plans without a window</h3>
+                    <span class="task-calendar__tray-count" data-testid="@Part("shelf-count")">@ShelfPlans.Count</span>
+                </div>
+                @if (ShelfPlans.Count == 0)
+                {
+                    <p class="task-calendar__tray-hint" data-testid="@Part("shelf-empty")">Every plan on the roadmap has a window.</p>
+                }
+                else
+                {
+                    <p class="task-calendar__tray-hint">Drag onto a day to start its window there.</p>
+                    <ul class="task-calendar__tray-list" aria-labelledby="@ShelfHeadingId">
+                        @foreach (var plan in ShelfPlans)
+                        {
+                            <li @key="plan.Tag"
+                                class="task-calendar__tray-item task-calendar__shelf-item"
+                                title="@ShelfTitle(plan)"
+                                aria-label="@ShelfTitle(plan)"
+                                data-calendar-plan="@plan.Tag"
+                                data-testid="@Part($"shelf-{plan.Tag}")">
+                                <span class="task-calendar__shelf-mark" aria-hidden="true"></span>
+                                <span class="task-calendar__tray-text">@plan.Title</span>
+                                <span class="task-calendar__tray-effort">@ShelfEffort(plan)</span>
+                            </li>
+                        }
+                    </ul>
+                }
+            }
         </aside>
     </div>
 </section>
@@ -148,6 +220,7 @@
     private DateOnly? _expandedDay;
     private ILookup<DateOnly, CalendarTask> _byDay = Array.Empty<CalendarTask>().ToLookup(task => default(DateOnly));
     private IReadOnlyList<CalendarTask> _undated = [];
+    private ILookup<DateOnly, CalendarMilestone> _milestonesByDay = Array.Empty<CalendarMilestone>().ToLookup(milestone => default(DateOnly));
 
     /// <summary>The tasks to place, in the order a day lists them. Filtered by the
     /// host: the calendar shows what it is given.</summary>
@@ -180,6 +253,35 @@
     [Parameter]
     public EventCallback<CalendarDueChange> OnDueChanged { get; set; }
 
+    /// <summary>Whether the host has plans to offer at all. Without it there is no
+    /// "Show plans" box, no bar, no milestone and no shelf.</summary>
+    [Parameter]
+    public bool PlansAvailable { get; set; }
+
+    /// <summary>Whether the plans are drawn — the "Show plans" box. The host keeps the
+    /// choice; the calendar reports a change through <see cref="ShowPlansChanged"/>.</summary>
+    [Parameter]
+    public bool ShowPlans { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<bool> ShowPlansChanged { get; set; }
+
+    /// <summary>The plans' windows, in the order ties are stacked in.</summary>
+    [Parameter]
+    public IReadOnlyList<CalendarPlan> Plans { get; set; } = [];
+
+    /// <summary>The plan's milestones, each a diamond on its day.</summary>
+    [Parameter]
+    public IReadOnlyList<CalendarMilestone> Milestones { get; set; } = [];
+
+    /// <summary>The plans with no window yet, in the tray's second section.</summary>
+    [Parameter]
+    public IReadOnlyList<CalendarShelfPlan> ShelfPlans { get; set; } = [];
+
+    /// <summary>A shelf plan was dropped on a day: start its window there.</summary>
+    [Parameter]
+    public EventCallback<CalendarPlanStart> OnPlanStarted { get; set; }
+
     [Parameter]
     public string AriaLabel { get; set; } = "Calendar";
 
@@ -196,6 +298,13 @@
 
     private string TrayHeadingId => $"{_ownerId}-tray";
 
+    private string ShelfHeadingId => $"{_ownerId}-shelf";
+
+    private bool PlansShown => PlansAvailable && ShowPlans;
+
+    private (IReadOnlyList<CalendarPlanSegment> Segments, int Lanes) WeekPlans(DateOnly weekStart) =>
+        PlansShown ? CalendarPlanLanes.Week(weekStart, Plans) : ([], 0);
+
     private IReadOnlyList<CalendarTask> Undated => _undated;
 
     protected override void OnParametersSet()
@@ -211,6 +320,7 @@
 
         _byDay = Tasks.Where(task => task.DueOn is not null).ToLookup(task => task.DueOn!.Value);
         _undated = [.. Tasks.Where(task => task.DueOn is null && task.Open)];
+        _milestonesByDay = Milestones.ToLookup(milestone => milestone.On);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -230,6 +340,7 @@
     private RenderFragment RenderDay(DateOnly date) => __builder =>
     {
         var tasks = _byDay[date].ToList();
+        List<CalendarMilestone> milestones = PlansShown ? [.. _milestonesByDay[date]] : [];
         var expanded = _expandedDay == date;
         var shown = expanded ? tasks : tasks.Take(ChipsPerDay).ToList();
         var hidden = tasks.Count - shown.Count;
@@ -253,6 +364,17 @@
                     </span>
                 }
             </div>
+
+            @foreach (var milestone in milestones)
+            {
+                <span @key="milestone.Id"
+                      class="task-calendar__milestone"
+                      title="@MilestoneTitle(milestone)"
+                      data-testid="@Part($"milestone-{milestone.Id}")">
+                    <span class="task-calendar__diamond" aria-hidden="true"></span>
+                    <span class="task-calendar__milestone-text">@milestone.Title</span>
+                </span>
+            }
 
             @foreach (var task in shown)
             {
@@ -325,6 +447,53 @@
 
         await OnDueChanged.InvokeAsync(new CalendarDueChange(task.Id, date));
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// The end of a plan's drag, from components.js: the shelf plan tagged
+    /// <paramref name="tag"/> was let go over the day <paramref name="day"/>
+    /// (yyyy-MM-dd). Ignored when it names no plan on the shelf, no day, or while the
+    /// plans are not shown.
+    /// </summary>
+    [JSInvokable]
+    public async Task DropPlanOnDay(string tag, string day)
+    {
+        if (!PlansShown) return;
+        if (!DateOnly.TryParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) return;
+
+        var plan = ShelfPlans.FirstOrDefault(candidate => string.Equals(candidate.Tag, tag, StringComparison.Ordinal));
+        if (plan is null) return;
+
+        await OnPlanStarted.InvokeAsync(new CalendarPlanStart(plan.Tag, date));
+        StateHasChanged();
+    }
+
+    private Task OnShowPlansChangedAsync(bool shown) => ShowPlansChanged.InvokeAsync(shown);
+
+    private static string PlanClass(CalendarPlanSegment segment)
+    {
+        var classes = new List<string>(4)
+        {
+            "task-calendar__plan",
+            segment.Plan.Band is { } band ? $"task-calendar__plan--band-{band}" : "task-calendar__plan--neutral"
+        };
+        if (segment.ContinuesBefore) classes.Add("task-calendar__plan--continues-before");
+        if (segment.ContinuesAfter) classes.Add("task-calendar__plan--continues-after");
+        return string.Join(' ', classes);
+    }
+
+    private static string MilestoneTitle(CalendarMilestone milestone) =>
+        $"{milestone.Title}, milestone, {milestone.On.ToString("D", CultureInfo.CurrentCulture)}";
+
+    private static string ShelfEffort(CalendarShelfPlan plan) =>
+        plan.UnestimatedCount > 0
+            ? string.Create(CultureInfo.CurrentCulture, $"{plan.TotalEffort} pts + {plan.UnestimatedCount} unsized")
+            : string.Create(CultureInfo.CurrentCulture, $"{plan.TotalEffort} pts");
+
+    private static string ShelfTitle(CalendarShelfPlan plan)
+    {
+        var tasks = plan.TaskCount == 1 ? "1 task" : string.Create(CultureInfo.CurrentCulture, $"{plan.TaskCount} tasks");
+        return $"{plan.Title}, +{plan.Tag}, {tasks}, {ShelfEffort(plan)}";
     }
 
     /// <summary>
