@@ -934,6 +934,10 @@
     /// anything — and only behind the same gate as everything else GitHub draws, so
     /// switching the integration off takes the marks with it.
     /// </para>
+    /// <para>
+    /// Its review state rides along on the same terms, carried on the link but not
+    /// yet drawn or worded: the mark that shows it is a later step's.
+    /// </para>
     /// </summary>
     private IntegrationLinkRef Link(EntryRow row, EntryPullRequestLink pr)
     {
@@ -953,6 +957,13 @@
             _ => IntegrationCheckState.None
         };
         var autoMerge = status?.AutoMergeEnabled == true;
+        var review = status?.ReviewState switch
+        {
+            GitHubReviewState.ReviewRequired => IntegrationReviewState.ReviewRequired,
+            GitHubReviewState.Approved => IntegrationReviewState.Approved,
+            GitHubReviewState.ChangesRequested => IntegrationReviewState.ChangesRequested,
+            _ => IntegrationReviewState.None
+        };
 
         var words = new List<string>();
         if (read) words.Add(GitHubStateLabel(state));
@@ -970,7 +981,8 @@
             pr.Url,
             Repository: new IntegrationRepositoryRef(pr.Repository, pr.Repository),
             Checks: checks,
-            AutoMerge: autoMerge);
+            AutoMerge: autoMerge,
+            Review: review);
     }
 
     /// <summary>

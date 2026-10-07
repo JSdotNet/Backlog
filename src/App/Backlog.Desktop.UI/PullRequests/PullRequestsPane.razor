@@ -1344,9 +1344,9 @@
     /// are said even where the repository asks for no decision.</summary>
     private static string? ReviewLabel(GitHubReviewSummary reviews) => reviews.Decision switch
     {
-        GitHubReviewDecision.Approved => "Approved",
-        GitHubReviewDecision.ChangesRequested => "Changes requested",
-        GitHubReviewDecision.ReviewRequired => "Review required",
+        GitHubReviewState.Approved => "Approved",
+        GitHubReviewState.ChangesRequested => "Changes requested",
+        GitHubReviewState.ReviewRequired => "Review required",
         _ => reviews.ChangesRequested > 0 ? "Changes requested" : null
     };
 
@@ -1358,9 +1358,9 @@
 
     private static string? ReviewSlug(GitHubReviewSummary reviews) => reviews.Decision switch
     {
-        GitHubReviewDecision.ChangesRequested => "error",
-        GitHubReviewDecision.ReviewRequired => "warning",
-        GitHubReviewDecision.Approved => null,
+        GitHubReviewState.ChangesRequested => "error",
+        GitHubReviewState.ReviewRequired => "warning",
+        GitHubReviewState.Approved => null,
         _ => reviews.ChangesRequested > 0 ? "error" : null
     };
 

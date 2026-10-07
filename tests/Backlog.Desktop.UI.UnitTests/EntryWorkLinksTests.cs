@@ -1,5 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Infrastructure.GitHub;
+using Backlog.UI.Components.Integrations;
 using Bunit;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -298,6 +299,64 @@ public sealed class EntryWorkLinksTests
         Assert.Empty(pane.FindAll("[data-testid='entry-pull-request-auto-merge']"));
     }
 
+    /// <summary>An open pull request's review state is carried onto the link model
+    /// the row and the open entry hand <see cref="IntegrationLink"/>, so the link
+    /// can show it — and in this step changes nothing it draws or says.</summary>
+    [Theory]
+    [InlineData(GitHubReviewState.ReviewRequired, IntegrationReviewState.ReviewRequired)]
+    [InlineData(GitHubReviewState.Approved, IntegrationReviewState.Approved)]
+    [InlineData(GitHubReviewState.ChangesRequested, IntegrationReviewState.ChangesRequested)]
+    [InlineData(GitHubReviewState.None, IntegrationReviewState.None)]
+    public async Task An_open_pull_requests_review_state_rides_on_its_link(GitHubReviewState review, IntegrationReviewState expected)
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, GitHubCheckState.Passing, review: review);
+
+        var pane = host.Render();
+
+        var links = pane.FindComponents<IntegrationLink>()
+            .Select(link => link.Instance.Link)
+            .Where(link => link.Kind == IntegrationLinkKind.PullRequest)
+            .ToList();
+        Assert.NotEmpty(links);
+        Assert.All(links, link => Assert.Equal(expected, link.Review));
+        Assert.Equal(
+            "Pull request JSdotNet/Backlog#708 — open · checks passing",
+            pane.Find("[data-testid='entry-pull-request']").GetAttribute("title"));
+    }
+
+    /// <summary>A merged pull request's review state is history, gated exactly as
+    /// its checks are.</summary>
+    [Fact]
+    public async Task A_merged_pull_request_carries_no_review_state()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, GitHubCheckState.Passing, state: GitHubItemState.Merged, review: GitHubReviewState.Approved);
+
+        var pane = host.Render();
+
+        Assert.All(
+            pane.FindComponents<IntegrationLink>().Select(link => link.Instance.Link).Where(link => link.Kind == IntegrationLinkKind.PullRequest),
+            link => Assert.Equal(IntegrationReviewState.None, link.Review));
+    }
+
+    [Fact]
+    public async Task No_review_state_rides_on_the_link_while_the_integration_is_off()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, GitHubCheckState.Passing, review: GitHubReviewState.Approved);
+        host.Features.SetEnabled(TasksFeatures.GitHubIntegration, enabled: false);
+
+        var pane = host.Render();
+
+        Assert.All(
+            pane.FindComponents<IntegrationLink>().Select(link => link.Instance.Link).Where(link => link.Kind == IntegrationLinkKind.PullRequest),
+            link => Assert.Equal(IntegrationReviewState.None, link.Review));
+    }
+
     /// <summary>A row with one recorded pull request whose status has been read, the
     /// way <c>RefreshPullRequestStatesAsync</c> leaves one.</summary>
     private static EntryPullRequestLink WithStatus(
@@ -305,7 +364,8 @@ public sealed class EntryWorkLinksTests
         int number,
         GitHubCheckState checks,
         bool autoMerge = false,
-        GitHubItemState state = GitHubItemState.Open)
+        GitHubItemState state = GitHubItemState.Open,
+        GitHubReviewState review = GitHubReviewState.None)
     {
         var pr = new EntryPullRequestLink("JSdotNet/Backlog", number);
         row.PullRequestLinks = [pr];
@@ -313,6 +373,9 @@ public sealed class EntryWorkLinksTests
         row.PullRequestStatuses = new Dictionary<EntryPullRequestLink, GitHubPullRequestStatus>
         {
             [pr] = new(number, pr.Repository, $"PR_{number}", state, checks, autoMerge, MergeReady: false, GitHubMergeMethod.Merge)
+            {
+                ReviewState = review
+            }
         };
         return pr;
     }
