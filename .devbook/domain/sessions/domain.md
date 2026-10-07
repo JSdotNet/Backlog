@@ -454,6 +454,38 @@ rather than a whole conversation counted as the run's.
 or a transcript that cannot be read, records nothing and raises nothing: the reporter
 is a hook that must never fail the tool call it reports on.
 
+### Claude API Request Log
+
+```meta
+type: domain-service
+related: [.devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md, .devbook/domain/sessions/features.md#cost-as-claude-code-reports-it, .devbook/domain/sessions/domain.md#delivery-run-telemetry]
+aliases: [ClaudeApiRequest, IClaudeApiRequestStore, ClaudeCodeOtlpLogs, cost receiver]
+```
+
+The model requests Claude Code reported making, as it reported them: one record per
+`claude_code.api_request` event its OpenTelemetry exporter sends to the desktop app at
+`/v1/logs` (local ADR 0024). Each record names the session, the prompt, the sub-agent
+and the skill it ran under, and holds the model, the effort, Claude Code's cost
+estimate in whole micro-dollars, the four token counts and the duration.
+
+**A request is kept once.** The API's `request_id` is its identity. An exporter retries
+a batch it did not see acknowledged, so the same event arriving again is ordinary, and
+the first copy is the one kept. An event without a `request_id` is not kept at all,
+because it could not be told from its own retry.
+
+**Only this event is kept.** Claude Code sends many events — prompts, tool results,
+hook runs, errors — and every one but `claude_code.api_request` is dropped on arrival.
+Of the one kept, the identity attributes Claude Code adds to every event — the
+account, the organization, the e-mail address — are not stored.
+
+**An unknown figure stays unknown.** A field the event did not carry is stored as
+absent, never as zero, which is the rule every measured figure in this context
+follows.
+
+The records are this machine's: they are kept in the app's local database and do not
+replicate. Where `Delivery Run Telemetry` counts tokens from the transcript, this log
+holds the figures Claude Code itself reported, cost among them.
+
 ### Delivery Run Reference
 
 ```meta

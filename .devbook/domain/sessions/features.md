@@ -773,7 +773,7 @@ reported is left out, never shown as zero.
 ```meta
 type: sub-feature
 status: proposed
-related: [.devbook/domain/sessions/domain.md#delivery-run-telemetry]
+related: [.devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md]
 ```
 
 ```mermaid
@@ -792,6 +792,13 @@ Claude Code's rather than as an invoice.
 Claude Code's own figure is preferred because Claude Code knows the price it applied to
 each request. A price the product worked out afterwards would only be a second guess at
 the same number.
+
+The receiving end is built. The desktop app takes Claude Code's OpenTelemetry logs at
+`/v1/logs` on the port its MCP server listens on, and keeps each
+`claude_code.api_request` event once, in its local database, as the
+[Claude API Request Log](domain.md#claude-api-request-log). Settings has a **Claude
+Code** page with the endpoint and the `settings.json` block to paste into Claude Code.
+The run and stage views that would show the cost are not built yet.
 
 ### A price table for runs without telemetry
 
