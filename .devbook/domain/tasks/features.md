@@ -348,9 +348,17 @@ steps, Move to tomorrow and Mark done change a task only while it is in today's
 My Day and not yet ticked off. Any other task is shown with its steps locked and
 without the two buttons or Focus.
 
-**Focus** exists only for a task with an agenda time today. In Focus the phone
-shows a countdown to the end of the task's block and the task's first open
-step. A task without an agenda time has no Focus.
+**Focus** exists only for a task with an agenda time today that is not yet
+ticked off. Opening Focus for any other task opens the task's own page instead.
+Focus shows the task's area and when its block ends, as `Sync · until 11:30`,
+the title, and a ring counting down to the end of the block, as `28:40` left in
+this block, which moves every second. Once the block has ended it reads how far
+over it is, as `Over by 03:12`. The countdown is the block itself, so there is
+no pause. Below the ring sits the current step, the first one not ticked off,
+as `Step 2 of 5 · now`, then the steps in order. **Step done — next** ticks off
+the current step. When no step is left it becomes **Complete task**, which
+ticks off the task and returns to Today. **Capture a thought** opens the
+capture sheet over Focus.
 
 The phone reads everything about a task. It changes four things and nothing
 else:
