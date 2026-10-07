@@ -647,6 +647,7 @@
 
     private enum SchedulePicker
     {
+        Agenda,
         Due,
         Reminder,
         Repeat,
@@ -1161,7 +1162,10 @@
             // so a connector added later needs nothing here.
             Source: State.LinkedSources.ToTaskSource(row.SourceRef))
         {
-            RepeatLabel = FormatRepeat(row.PreviewRecurrence)
+            RepeatLabel = FormatRepeat(row.PreviewRecurrence),
+            // Only while the row is in today's My Day, the same test the sun
+            // beside it passes: a slot in yesterday's plan is no slot today.
+            Agenda = IsInMyDay(row) ? FormatAgenda(row.PreviewAgendaTime) : null
         })];
 
     /// <summary>
@@ -3157,6 +3161,51 @@
                             Prominent="true"
                             OnSet="() => OnMyDayToggledAsync(row)"
                             TestId="entry-action-myday" />
+
+                @* The time within today, under the decision it belongs to and only
+                   while that decision holds: an agenda time has no date of its own
+                   and borrows My Day's, so outside today's My Day there is nothing
+                   for it to be a time of (.devbook/domain/tasks/domain.md#agenda-time).
+                   In the lead rather than a group because it is part of the same
+                   morning decision, and it appears only once that decision is made. *@
+                @if (IsInMyDay(row))
+                {
+                    <TaskAction Icon="🕒"
+                                Label="@(row.PreviewAgendaTime is null ? "Set a time" : "Planned for")"
+                                Value="@FormatAgenda(row.PreviewAgendaTime)"
+                                Set="@(row.PreviewAgendaTime is not null)"
+                                OnSet="() => TogglePicker(SchedulePicker.Agenda)"
+                                OnClear="() => OnAgendaClearedAsync(row)"
+                                TestId="entry-action-agenda" />
+
+                    @if (IsPickerOpen(SchedulePicker.Agenda))
+                    {
+                        @* Two selects rather than a time input: the start moves in
+                           quarter hours and the duration is one of six lengths, and
+                           a select offers exactly those instead of every minute. The
+                           empty start is "no time", the select's way to clear. *@
+                        <SelectField CurrentValue="@(row.PreviewAgendaTime?.StartToken ?? string.Empty)"
+                                     Options="@AgendaStartOptions(row.PreviewAgendaTime)"
+                                     IncludeEmptyOption="true"
+                                     EmptyLabel="No time"
+                                     Label="Starts at"
+                                     Id="@($"entry-agenda-start-{row.Key}")"
+                                     TestId="entry-agenda-start-select"
+                                     CssClass="entry-doc__schedule-select"
+                                     OnChanged="value => OnAgendaStartPickedAsync(row, value)" />
+
+                        @if (row.PreviewAgendaTime is { } agenda)
+                        {
+                            <SelectField CurrentValue="@agenda.DurationMinutes.ToString(CultureInfo.InvariantCulture)"
+                                         Options="@AgendaDurationOptions(agenda)"
+                                         Label="For"
+                                         Id="@($"entry-agenda-duration-{row.Key}")"
+                                         TestId="entry-agenda-duration-select"
+                                         CssClass="entry-doc__schedule-select"
+                                         OnChanged="value => OnAgendaDurationPickedAsync(row, value)" />
+                        }
+                    }
+                }
             </Lead>
             <Groups>
 
@@ -3873,7 +3922,13 @@
     {
         // Off is clearing the stamp; on is stamping today. Never "today minus
         // one" — there is no way to be in yesterday's My Day.
-        await State.ChangeMyDayAsync(row, IsInMyDay(row) ? null : Today);
+        var leaving = IsInMyDay(row);
+
+        // The agenda picker belongs to the My Day it is a time within: leaving
+        // takes the control away, and coming back must not find it still open.
+        if (leaving && IsPickerOpen(SchedulePicker.Agenda)) ClosePicker();
+
+        await State.ChangeMyDayAsync(row, leaving ? null : Today);
     }
 
     private bool IsPickerOpen(SchedulePicker kind) => _openPicker == kind;
@@ -3928,6 +3983,103 @@
                 ? remindAt
                 : null);
     }
+
+    /// <summary>
+    /// A start picked from the agenda picker. The duration is kept when the entry
+    /// already has one and is the default otherwise, so changing when something
+    /// starts does not quietly change how long it takes. The picker stays open on
+    /// a first start, because the duration select it now shows is the obvious next
+    /// question; "No time" clears and closes.
+    /// </summary>
+    private async Task OnAgendaStartPickedAsync(EntryRow row, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            await OnAgendaClearedAsync(row);
+            return;
+        }
+
+        if (!AgendaTime.TryParseStart(value, out var start)) return;
+
+        var current = row.PreviewAgendaTime;
+        if (current is not null) ClosePicker();
+
+        await State.ChangeAgendaTimeAsync(
+            row,
+            new AgendaTime(start, current?.DurationMinutes ?? AgendaTime.DefaultDurationMinutes));
+    }
+
+    /// <summary>A duration picked for the start already set. With no start there is
+    /// no duration select to pick from, so a value arriving then is ignored.</summary>
+    private async Task OnAgendaDurationPickedAsync(EntryRow row, string? value)
+    {
+        ClosePicker();
+
+        if (row.PreviewAgendaTime is not { } current) return;
+        if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var minutes) || minutes <= 0) return;
+
+        await State.ChangeAgendaTimeAsync(row, new AgendaTime(current.Start, minutes));
+    }
+
+    private async Task OnAgendaClearedAsync(EntryRow row)
+    {
+        ClosePicker();
+        await State.ChangeAgendaTimeAsync(row, null);
+    }
+
+    /// <summary>The lengths the duration select offers, in minutes.</summary>
+    private static readonly int[] AgendaDurations = [15, 30, 45, 60, 90, 120];
+
+    /// <summary>Every quarter hour of the day, by its <c>at:</c> token. A start
+    /// typed into the text off the quarter — <c>at:10:50</c> — is offered too, so
+    /// the select can show the value it was opened on rather than pretending it is
+    /// unset.</summary>
+    private static IReadOnlyList<SelectorOption> AgendaStartOptions(AgendaTime? current)
+    {
+        var options = new List<SelectorOption>(97);
+        for (var minutes = 0; minutes < 24 * 60; minutes += 15)
+        {
+            var token = new TimeOnly(minutes / 60, minutes % 60).ToString("HH:mm", CultureInfo.InvariantCulture);
+            options.Add(new SelectorOption(token, token));
+        }
+
+        if (current is not null && current.Start.Minute % 15 != 0)
+        {
+            var index = options.FindIndex(option => string.CompareOrdinal(option.Value, current.StartToken) > 0);
+            options.Insert(index < 0 ? options.Count : index, new SelectorOption(current.StartToken, current.StartToken));
+        }
+
+        return options;
+    }
+
+    /// <summary>The six lengths, plus the current one when the text says another —
+    /// for the reason <see cref="AgendaStartOptions"/> keeps an off-grid start.</summary>
+    private static IReadOnlyList<SelectorOption> AgendaDurationOptions(AgendaTime current)
+    {
+        IEnumerable<int> minutes = AgendaDurations.Contains(current.DurationMinutes)
+            ? AgendaDurations
+            : AgendaDurations.Append(current.DurationMinutes).Order();
+
+        return [.. minutes.Select(value => new SelectorOption(
+            value.ToString(CultureInfo.InvariantCulture),
+            FormatDuration(value)))];
+    }
+
+    private static string FormatDuration(int minutes) => minutes switch
+    {
+        < 60 => $"{minutes} min",
+        60 => "1 hour",
+        _ when minutes % 60 == 0 => $"{minutes / 60} hours",
+        _ => $"{minutes / 60} h {minutes % 60} min"
+    };
+
+    /// <summary>An agenda time as the row and the pane show it: start to end on a
+    /// 24-hour clock, joined by an en dash — <c>10:45–11:30</c>. Invariant, like the
+    /// token, so the same slot reads the same on every machine.</summary>
+    private static string? FormatAgenda(AgendaTime? agenda) =>
+        agenda is null
+            ? null
+            : $"{agenda.Start.ToString("HH:mm", CultureInfo.InvariantCulture)}–{agenda.End.ToString("HH:mm", CultureInfo.InvariantCulture)}";
 
     private async Task OnRepeatPickedAsync(EntryRow row, string? value)
     {
