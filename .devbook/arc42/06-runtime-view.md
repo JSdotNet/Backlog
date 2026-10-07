@@ -88,7 +88,8 @@ when the service answers.
   last_error, created_at`. The `kind` picks the sender; `capture` is the first,
   and later kinds join the same queue and the same order: `task`, pushed to its
   own endpoint, and `talk-note`, one entry that is several requests — see
-  **Talk Note Upload**.
+  **Talk Note Upload**. Kind `note` joins them for a note the phone creates or
+  edits — see **Mobile Note Sync**.
 - **Oldest first, head of line.** A transient failure (no network, a timeout, a
   5xx, or a 401 from a service that restarted with a new signing key) stops the
   flush, so nothing overtakes it. It is retried after 2s, 4s, 8s, 16s. The fifth
@@ -105,6 +106,15 @@ when the service answers.
   file with its time. A failed pull, including 503 `sync.replica_unavailable`
   while the Cosmos emulator warms up, shows that cached list with one status line
   saying why it is not newer.
+- **Only the phone's own captures.** The Inbox tab lists the captures this phone
+  made, until the desktop takes each in. The phone sends no acknowledgement and
+  no other decision about an item: triage stays on the desktop
+  (`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`). The phone's
+  Dismiss, which posts `POST /inbox/{id}/ack`, is built today and is retired by
+  plan `phone-app-redesign`.
+- **Notes come back.** Notes are the one kind of Inbox item the phone pulls as
+  well as sends. They travel on the task feed, not on the inbox listing, and
+  **Mobile Note Sync** below describes them.
 
 ```mermaid
 sequenceDiagram
@@ -533,4 +543,66 @@ sequenceDiagram
     Monitoring-->>ME: Machine visible as online
 ```
 
+## Mobile Note Sync
 
+```meta
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/features.md#notes", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#capture-attachments", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
+```
+
+A note (`.devbook/domain/inbox/domain.md#note`) is the one Inbox item that
+syncs both ways. The phone pulls every note, whichever device made it, and pushes the notes
+it creates and edits. The desktop pushes its own note edits back, and a
+tombstone when it archives or deletes one. This section is specified and not
+built: plan `phone-app-redesign` builds it.
+
+```mermaid
+sequenceDiagram
+    actor ME
+    participant Notes as Phone Notes tab
+    participant View as note_view (SQLite)
+    participant Outbox as SQLite Outbox
+    participant Sync as Sync Service
+    participant Desktop as Desktop App
+
+    ME->>Notes: Create or edit a note
+    Notes->>View: UPSERT row (UpdatedAt now, server stamp 0)
+    Notes->>Outbox: INSERT outbox (kind=note, whole note document)
+    Outbox->>+Sync: POST /api/sync/tasks (type note, same id every attempt)
+    Sync-->>-Outbox: 200 Accepted
+
+    Desktop->>+Sync: GET /api/sync/tasks?since=cursor
+    Sync-->>-Desktop: note document
+    Desktop->>Desktop: Inbox intake: create or update the item of kind note (later UpdatedAt wins)
+
+    ME->>Desktop: Edit, archive or delete the note
+    Desktop->>Sync: POST /api/sync/tasks (note document, or its tombstone)
+
+    Notes->>+Sync: GET /api/sync/tasks?since=cursor
+    Sync-->>-Notes: Changed documents
+    Notes->>View: Fold notes (later UpdatedAt wins, tombstone hides the row)
+```
+
+- **A third document kind.** A note travels on the replica as a task-shaped
+  document in the `tasks` container with its own kind token, `type: "note"`,
+  under the Inbox item's id. It follows the pattern
+  `.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md` set
+  for `capture`. The difference is that nobody acknowledges a note away: the
+  desktop takes it in and keeps pushing it.
+- **Pulled with the task feed.** The phone already pages through
+  `GET /api/sync/tasks?since=` for My Day. It folds every `note`-type document
+  into a local `note_view` table the way it folds tasks into `task_view`. The
+  later `UpdatedAt` wins, and a `DeletedAt` hides the row. The Notes tab reads
+  `note_view` and searches it on the phone.
+- **Pushed through the outbox.** A note the phone creates or edits is written
+  into `note_view` at once, then queued as outbox kind `note` and posted whole to
+  `POST /api/sync/tasks`. It keeps the order, backoff and waiting marker of every
+  other outbox entry. A retry sends the same id, so the replica's whole-document
+  upsert makes it idempotent.
+- **The desktop owns triage.** The desktop's merge hands each `note` document to
+  the Inbox intake, which creates the item or applies the later edit. The
+  desktop pushes its own edits as note documents. When it archives or deletes a
+  note it pushes the note's tombstone, and the phone drops the row on its next
+  pull. The phone never pushes a tombstone, because it never archives an item.
+- **Files keep their own path.** A note's photos and files travel as
+  **Capture Attachments** describes: each is uploaded before the note document
+  that names it, and the desktop fetches it from the attachment store.

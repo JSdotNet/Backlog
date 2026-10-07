@@ -76,9 +76,12 @@ already holds instead of storing a second one.
 
 The Inbox list reads at a glance: when each capture was made, a glyph for what
 kind of thing it is, and the first line of its body. A tap opens the whole
-capture with its source, tags and person. The phone acknowledges rather than
-triages, so the one action on a row is Dismiss. The list refreshes on a pull
-down, on the refresh button and on returning to the app. When the service
+capture with its source, tags and person. The list holds only the captures this
+phone made, and each leaves it once the desktop takes it in. The phone never
+triages, so a row offers no action that would decide or dismiss it: see
+`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`. Dismiss is
+built today and goes when plan `phone-app-redesign` restyles the tab. The list
+refreshes on a pull down, on the refresh button and on returning to the app. When the service
 cannot answer, the last list the phone saw stays on screen with a line saying
 why it is not newer.
 
@@ -86,12 +89,21 @@ why it is not newer.
 
 ```meta
 type: sub-feature
-related: [".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
+related: [".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/domain/inbox/features.md#notes-on-the-phone", ".devbook/domain/inbox/domain.md#note", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 ```
 
 A note taken during a conference talk — what was said, the slide photo, the
 handout — that lands in the desktop Inbox as one ordinary capture. It is called
 a talk note, never a session note: Sessions is a bounded context of its own.
+
+The talk note is becoming a note (`.devbook/domain/inbox/domain.md#note`).
+The phone's Note tab becomes the Notes tab: a list of every note plus an editor, described in
+`.devbook/domain/inbox/features.md#notes-on-the-phone`. The editor keeps
+everything below, dictation and attachments included. What changes is where a
+note goes after it is sent. A talk note is a `text` capture the phone forgets
+once the desktop takes it in. A note is an item of kind `note` that stays on
+the phone, and either side may edit it. Plan `phone-app-redesign` makes this
+change, and until it lands the talk note works as written here.
 
 The Note tab holds a title, a Markdown body that dictation appends to, the
 speaker as one `@name`, tags, and the files attached to it: photos taken with

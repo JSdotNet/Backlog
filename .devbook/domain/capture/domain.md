@@ -17,7 +17,7 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/domain/capture/domain.invariants.md#capture]
+related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/domain/capture/domain.invariants.md#capture, .devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
 aliases: [ItemCaptured]
 ```
 
@@ -27,6 +27,14 @@ standard shape (title, `body_md`, source, tags, `captured_at`) and preserves its
 original source link and capture timestamp before delivery. Each capture is a
 unique entry — duplicates from multiple devices are acceptable and create
 separate captures. Edits follow last-write-wins by most recent timestamp.
+
+A note the phone creates starts as a capture like any other, with an id the
+phone mints. Unlike the other captures, it does not end at delivery. Its Inbox
+Item has `Content Kind` `note` and keeps syncing with the phone, which may edit
+it again. Those later edits are the Inbox Item's, not the capture's. See
+`.devbook/domain/inbox/domain.md#note`. The phone's talk note becomes this kind
+of note; until plan `phone-app-redesign` builds it, a talk note is still an
+ordinary capture.
 
 The Capture aggregate has no owned entities beyond its root; its variability is
 carried by the `Source Metadata` value object and the `Capture Source` enum, and
@@ -89,7 +97,8 @@ aliases: [CaptureSource, CaptureSourceKind, source]
 
 Origin type of a capture. Values and meaning:
 
-- `mobile` — quick entry from the mobile app (voice, text, share sheet).
+- `mobile` — quick entry from the mobile app (voice, text, share sheet), and
+  a note created on the phone's Notes tab.
 - `youtube` — a new video detected by the YouTube monitor.
 - `website` — a change detected by the website monitor.
 - `email` — a newsletter/summary ingested from an IMAP inbox.
