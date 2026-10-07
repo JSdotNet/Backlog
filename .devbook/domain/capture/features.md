@@ -35,6 +35,23 @@ status: draft
 
 Rapid title + body capture with optional tags and source context.
 
+On the phone, one tap on the capture button opens the capture sheet at
+`/capture`: a sheet up from the bottom edge, over the screen it was opened from.
+It asks where the thought goes — **Inbox** (the default), **Note** or
+**Today** — and the hint over the text field, the field's prompt and the one
+save button follow the choice: `Add to inbox`, `Save note`, `Add to today`.
+Inbox sends the text as an ordinary capture, the same one the Inbox tab's own
+field sends. Note creates a note the phone keeps and edits (see
+`.devbook/domain/inbox/features.md#notes-on-the-phone`). Today creates a task
+picked for today, as My Day's add does (see
+`.devbook/domain/tasks/features.md#my-day`). The sheet takes dictation into
+the field and one photo or more, which go with an Inbox capture or a note; a
+task for today takes text only. A save leaves the sheet open and cleared, with
+a line saying `Added to inbox — capture another`, `Note saved — capture
+another` or `Added to today — capture another`, so several thoughts in a row
+need no reopening. Cancel, a tap on the dimmed screen behind, or Escape go back
+to the screen the sheet came from.
+
 The sync service takes the body, the tags and a person alongside the title and
 the source, each optional and each bounded. A person is sent as the person and
 never as a tag; on the desktop it becomes the item's source person, and the tags
@@ -50,6 +67,10 @@ status: draft
 
 On-device transcription of voice notes into usable markdown, with retry on
 transcription failure, preserving source metadata.
+
+On the phone, dictation is the capture sheet's. What was heard is shown on a
+line and appended to what is already in the field, so nothing is sent that the
+person has not read first.
 
 ### Offline-first sync
 
@@ -74,13 +95,16 @@ Each capture carries an id the phone mints before its first send, so resending
 it after a lost answer delivers it once: the service answers with the capture it
 already holds instead of storing a second one.
 
-The Inbox list reads at a glance: when each capture was made, a glyph for what
-kind of thing it is, and the first line of its body. A tap opens the whole
-capture with its source, tags and person. The list holds only the captures this
-phone made, and each leaves it once the desktop takes it in. The phone never
-triages, so a row offers no action that would decide or dismiss it: see
-`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`. Dismiss is
-built today and goes when plan `phone-app-redesign` restyles the tab. The list
+The Inbox tab says how many captures wait to be sorted, as `3 items to sort`,
+over a field that adds one more. Its list reads at a glance: when each capture
+was made, a glyph and a word for what kind of thing it is, the first line of
+its body, and where it stands — `Waiting` while the phone still holds it,
+`Waiting — tap to retry` once it has stopped retrying on its own, `Sent` once
+cloud sync has it. A tap opens the whole capture with its source, tags and
+person. The list holds only the captures this phone made, and each leaves it
+once the desktop takes it in. The phone never triages, so a row offers no
+action that would decide or dismiss it: see
+`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`. The list
 refreshes on a pull down, on the refresh button and on returning to the app. When the service
 cannot answer, the last list the phone saw stays on screen with a line saying
 why it is not newer.

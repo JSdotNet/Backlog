@@ -340,6 +340,21 @@ html, body {
     max-width: 23.4375rem;
 }
 
+/* A phone's whole screen, for something that covers one — the capture sheet
+   rises from the bottom edge over a dimmed screen. The transform makes this box
+   the containing block of the sheet's fixed layers, so the sheet covers the
+   sample and not the storybook around it. */
+.sb-phone-screen {
+    position: relative;
+    max-width: 23.4375rem;
+    height: 40rem;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background);
+    transform: translateZ(0);
+}
+
 /* The list a phone's Notes tab lays its rows out in, and its search above it:
    the host's spacing, so the rows are reviewed as they stack. */
 .sb-note-list {

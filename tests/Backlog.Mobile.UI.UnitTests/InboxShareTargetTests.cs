@@ -34,7 +34,7 @@ public sealed class InboxShareTargetTests
 
         Assert.Equal("https://example.test/article", Assert.Single(host.Inbox.Received).Title);
         app.WaitForAssertion(() => Assert.Contains(
-            app.FindAll("[data-testid='inbox-row'] .inbox__title"),
+            app.FindAll("[data-testid='inbox-row-title']"),
             title => title.TextContent == "https://example.test/article"));
     }
 

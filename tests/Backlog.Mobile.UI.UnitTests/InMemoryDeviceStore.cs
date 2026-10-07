@@ -71,9 +71,9 @@ internal static class TestOutbox
         services.AddSingleton(taskView ?? new InMemoryTaskViewStore());
         services.AddSingleton<TaskViewProjection>();
         services.AddSingleton<TaskEdits>();
-        services.AddSingleton<IOutboxKind, NoteOutboxKind>();
         services.AddSingleton<INoteViewStore>(new InMemoryNoteViewStore());
         services.AddSingleton<NoteViewProjection>();
+        services.AddSingleton<IOutboxKind, NoteOutboxKind>();
         return services;
     }
 }

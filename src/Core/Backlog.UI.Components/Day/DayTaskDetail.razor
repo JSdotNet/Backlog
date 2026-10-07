@@ -1,0 +1,232 @@
+@*
+    One task, opened from the phone's day: a way back to the day, the title, a
+    row of chips saying what the task is filed under, when it runs today and how
+    big it is, the way into Focus, its steps as a checklist, the task's own text
+    read-only, and the two things the phone does to a whole task — move it to
+    tomorrow, or mark it done.
+
+    Every fact is handed in already worked out. The component decides nothing
+    about the day: whether the task has a time today, whether it may be changed
+    from here, or where Back leads are the host's, so the same markup serves the
+    phone and the storybook.
+
+    Steps are real checkboxes, each one's title its label, so the whole line is
+    the target and a screen reader hears the step and its state together. A
+    ticked step is struck through as well as checked: the strike repeats what
+    the box says and never carries it alone. The count beside the heading is the
+    words of the same fact, "2 of 5".
+
+    Move to tomorrow and Mark done sit at the bottom, two equal targets where a
+    thumb already is, and only when the host hands a callback for them. Focus is
+    a link rather than a button: it opens a page of its own, which Back undoes.
+*@
+
+<article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <a class="task-detail__back" href="@BackHref" data-testid="@PartTestId("back")">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+            <path d="M15 6l-6 6 6 6" />
+        </svg>
+        <span>@BackLabel</span>
+    </a>
+
+    <div class="task-detail__head">
+        @switch (HeadingLevel)
+        {
+            case 1:
+                <h1 class="task-detail__title" data-testid="@PartTestId("title")">@Title</h1>
+                break;
+            case 2:
+                <h2 class="task-detail__title" data-testid="@PartTestId("title")">@Title</h2>
+                break;
+            default:
+                <h3 class="task-detail__title" data-testid="@PartTestId("title")">@Title</h3>
+                break;
+        }
+
+        @if (HasChips)
+        {
+            <ul class="task-detail__chips" aria-label="About this task" data-testid="@PartTestId("chips")">
+                @if (!string.IsNullOrWhiteSpace(Area))
+                {
+                    <li class="task-detail__chip task-detail__chip--area" data-testid="@PartTestId("area")">
+                        <span class="task-detail__chip-dot" aria-hidden="true"></span><span class="sr-only">Area: </span>@Area
+                    </li>
+                }
+                @if (!string.IsNullOrWhiteSpace(TimeLabel))
+                {
+                    <li class="task-detail__chip task-detail__chip--time" data-testid="@PartTestId("time")"><span class="sr-only">When: </span>@TimeLabel</li>
+                }
+                @if (Effort is { } points)
+                {
+                    <li class="task-detail__chip" data-testid="@PartTestId("effort")"><span class="sr-only">Effort: </span>@PointsLabel(points)</li>
+                }
+            </ul>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(FocusHref))
+    {
+        <a class="btn btn--primary task-detail__focus" href="@FocusHref" data-testid="@PartTestId("focus")">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="9" />
+                <circle cx="12" cy="12" r="4" />
+            </svg>
+            Focus on this
+        </a>
+    }
+
+    @if (Steps.Count > 0)
+    {
+        <section class="task-detail__section" aria-labelledby="@StepsHeadingId" data-testid="@PartTestId("steps")">
+            <div class="task-detail__section-head">
+                @SectionHeading(StepsHeadingId, "Steps")
+                <span class="task-detail__count" data-testid="@PartTestId("steps-count")">@StepsDone of @Steps.Count</span>
+            </div>
+            <ul class="task-detail__steps">
+                @foreach (var step in Steps)
+                {
+                    <li @key="step.Id" class="@StepClass(step)" data-done="@(step.Done ? "true" : "false")" data-testid="@PartTestId("step")">
+                        <Checkbox Checked="step.Done" Label="@step.Title"
+                                  Disabled="@(Busy || !OnStepToggled.HasDelegate)"
+                                  CheckedChanged="done => ToggleAsync(step, done)"
+                                  CssClass="task-detail__step-box"
+                                  TestId="@PartTestId("step-box")" />
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Body))
+    {
+        <section class="task-detail__section task-detail__body" aria-labelledby="@BodyHeadingId" data-testid="@PartTestId("body")">
+            @SectionHeading(BodyHeadingId, "Details")
+            <MarkdownView Blocks="@MarkdownPreview.ParseDocument(Body)" Source="@Body" />
+        </section>
+    }
+
+    @if (OnMoveToTomorrow.HasDelegate || OnMarkDone.HasDelegate)
+    {
+        <footer class="task-detail__footer" data-testid="@PartTestId("footer")">
+            @if (OnMoveToTomorrow.HasDelegate)
+            {
+                <AppButton Variant="ButtonVariant.Secondary" CssClass="task-detail__action" Disabled="Busy"
+                           OnClick="() => OnMoveToTomorrow.InvokeAsync()" TestId="@PartTestId("tomorrow")">Move to tomorrow</AppButton>
+            }
+            @if (OnMarkDone.HasDelegate)
+            {
+                <AppButton Variant="ButtonVariant.None" CssClass="task-detail__action task-detail__action--done" Disabled="Busy"
+                           OnClick="() => OnMarkDone.InvokeAsync()" TestId="@PartTestId("done")">Mark done</AppButton>
+            }
+        </footer>
+    }
+</article>
+
+@code {
+    private readonly string _id = "task-detail-" + Guid.NewGuid().ToString("N");
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>The heading level the title takes — 1 where the detail is the
+    /// page, as on the phone; lower where it sits inside another page.</summary>
+    [Parameter]
+    public int HeadingLevel { get; set; } = 1;
+
+    /// <summary>Where Back leads: the day the task was opened from.</summary>
+    [Parameter]
+    public string BackHref { get; set; } = string.Empty;
+
+    /// <summary>Back's words — the name of the screen it returns to.</summary>
+    [Parameter]
+    public string BackLabel { get; set; } = "Today";
+
+    /// <summary>The area the task is filed under, or null for none.</summary>
+    [Parameter]
+    public string? Area { get; set; }
+
+    /// <summary>When the task runs today, such as <c>Today · 10:45–11:30</c>, or
+    /// null when it has no agenda time today.</summary>
+    [Parameter]
+    public string? TimeLabel { get; set; }
+
+    /// <summary>The task's effort in points, or null when it has none.</summary>
+    [Parameter]
+    public int? Effort { get; set; }
+
+    /// <summary>The task's Focus page, or null where the task has no Focus — a
+    /// task without an agenda time today.</summary>
+    [Parameter]
+    public string? FocusHref { get; set; }
+
+    /// <summary>The task's steps in order. None: no Steps section.</summary>
+    [Parameter]
+    public IReadOnlyList<DayStep> Steps { get; set; } = [];
+
+    /// <summary>A step ticked or unticked, handed back with its new state. With
+    /// no callback the boxes are shown and cannot be changed.</summary>
+    [Parameter]
+    public EventCallback<DayStep> OnStepToggled { get; set; }
+
+    /// <summary>The task's own text, Markdown, read-only. Null or blank: no
+    /// section.</summary>
+    [Parameter]
+    public string? Body { get; set; }
+
+    [Parameter]
+    public EventCallback OnMoveToTomorrow { get; set; }
+
+    [Parameter]
+    public EventCallback OnMarkDone { get; set; }
+
+    /// <summary>An edit is under way: the steps and the footer's two buttons
+    /// wait for it.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The test id on the detail. Its parts get <c>{TestId}-back</c>,
+    /// <c>-title</c>, <c>-chips</c>, <c>-area</c>, <c>-time</c>, <c>-effort</c>,
+    /// <c>-focus</c>, <c>-steps</c>, <c>-steps-count</c>, <c>-step</c>,
+    /// <c>-step-box</c>, <c>-body</c>, <c>-footer</c>, <c>-tomorrow</c> and
+    /// <c>-done</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>A section heading one level below the title, so the outline
+    /// stays whole wherever the detail sits.</summary>
+    private RenderFragment SectionHeading(string id, string text) => builder =>
+    {
+        builder.OpenElement(0, $"h{Math.Clamp(HeadingLevel + 1, 2, 6)}");
+        builder.AddAttribute(1, "class", "task-detail__section-title");
+        builder.AddAttribute(2, "id", id);
+        builder.AddContent(3, text);
+        builder.CloseElement();
+    };
+
+    private int StepsDone => Steps.Count(step => step.Done);
+
+    private bool HasChips => !string.IsNullOrWhiteSpace(Area) || !string.IsNullOrWhiteSpace(TimeLabel) || Effort is not null;
+
+    private string StepsHeadingId => _id + "-steps";
+
+    private string BodyHeadingId => _id + "-body";
+
+    private static string PointsLabel(int points) => points == 1 ? "1 point" : $"{points} points";
+
+    private static string StepClass(DayStep step) =>
+        step.Done ? "task-detail__step task-detail__step--done" : "task-detail__step";
+
+    private Task ToggleAsync(DayStep step, bool done) =>
+        OnStepToggled.InvokeAsync(step with { Done = done });
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? "task-detail" : "task-detail " + CssClass;
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+}

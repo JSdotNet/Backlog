@@ -158,7 +158,14 @@ internal static class StorybookIndex
             // opens as two targets — is a convention of its own. It draws only its
             // own three components and the Badge a row's trailing slot holds,
             // which Badges introduced above.
-            new("today", "Today", "DayProgress, NowCard and DayTaskRow: how far through the day the person is, the task the day is on, and every other task picked for it.")
+            new("today", "Today", "DayProgress, NowCard and DayTaskRow: how far through the day the person is, the task the day is on, and every other task picked for it."),
+
+            // After Today, because it is where a Today row and the card's Details
+            // lead. Its own page rather than more stories on Today: a task read
+            // whole, with its steps as a checklist and the footer's two edits, is
+            // a different subject from a day read at a glance. It draws only its
+            // own component.
+            new("task-detail", "Task detail", "DayTaskDetail: one task opened from the phone's day — its chips, its steps as a checklist, its own text, Move to tomorrow and Mark done.")
         ]),
 
         // Ahead of Content because Content composes it: a document that saves says
@@ -168,7 +175,14 @@ internal static class StorybookIndex
         new("Feedback",
         [
             new("feedback", "Feedback", "Alert, EmptyState, SetupSteps, FlowSteps, Spinner, Skeleton, SaveIndicator, Toast, ToastTray."),
-            new("overlays", "Overlays", "Modal and ConfirmDialog.")
+            new("overlays", "Overlays", "Modal and ConfirmDialog."),
+
+            // After Overlays: the phone's capture sheet is a sheet over the
+            // screen it was opened from, and the row beside it is how what it
+            // sent reads on the Inbox tab. Its own page, not a story on Today,
+            // because it draws an Alert and the AttachmentStrip a host fills it
+            // with, and Alert is introduced on Feedback just above.
+            new("capture", "Capture", "CaptureSheet and CaptureRow: one thought sent to the Inbox, kept as a note or added to today, and how one of the phone's own captures reads while it makes its way to the desktop.")
         ]),
 
         // The base content items — what a snippet, a table, a diagram and a block

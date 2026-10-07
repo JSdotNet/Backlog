@@ -21,13 +21,7 @@ public sealed class TalkNoteComposer(TalkNoteFiles files, DeviceOutbox outbox, T
         ArgumentNullException.ThrowIfNull(draft);
         if (!draft.CanSave) return null;
 
-        Directory.CreateDirectory(files.OutboxFolder);
-
-        var attachments = new List<AttachmentMetadata>();
-        foreach (var picked in draft.Accepted)
-        {
-            attachments.Add(await PrepareAsync(picked, draft.SendOriginals, cancellationToken));
-        }
+        var attachments = await PrepareAsync(draft.Accepted, draft.SendOriginals, cancellationToken);
 
         var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
         var title = TalkNoteTitle.For(draft.Title, draft.Body, [.. attachments.Select(a => (a.Name, a.ContentType))], today);
@@ -50,6 +44,31 @@ public sealed class TalkNoteComposer(TalkNoteFiles files, DeviceOutbox outbox, T
         draft.Clear();
 
         return id;
+    }
+
+    /// <summary>
+    /// Moves each staged file into the outbox folder as it will be sent — a
+    /// picture downscaled unless <paramref name="sendOriginals"/> — and answers
+    /// the metadata the service checks. The capture sheet uses it for the photo
+    /// it sends with a note, which goes through the note projection rather than
+    /// as a talk note.
+    /// </summary>
+    public async Task<IReadOnlyList<AttachmentMetadata>> PrepareAsync(
+        IReadOnlyList<DraftAttachment> staged,
+        bool sendOriginals,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(staged);
+
+        Directory.CreateDirectory(files.OutboxFolder);
+
+        var attachments = new List<AttachmentMetadata>();
+        foreach (var picked in staged)
+        {
+            attachments.Add(await PrepareAsync(picked, sendOriginals, cancellationToken));
+        }
+
+        return attachments;
     }
 
     /// <summary>
