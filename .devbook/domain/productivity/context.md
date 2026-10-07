@@ -146,7 +146,6 @@ vocabulary offers: the same reader on a second machine starts again unset.
 ## Monthly spend budget
 
 ```meta
-status: draft
 type: setting
 key: spend-budgets.json
 scope: user
@@ -174,7 +173,14 @@ Per value:
   shows the spend without a budget to set it against, and it never appears in
   What needs you.
 
+An amount is a bare number with no currency. It is read in the currency that
+provider reports its spend in, because Backlog holds no exchange rate. A negative
+amount, or text that is not an amount, is refused with a message, and the budget in
+force stays. A file entry that cannot be read is dropped, and the other budgets in
+the file are kept.
+
 Set in Dashboard settings and stored per device beside the weekly usage reset.
+Clearing the last budget removes the file.
 Like the reset, nothing syncs it, so `scope: user` is the nearest rung the
 vocabulary offers: the same reader on a second machine starts with no budgets.
 

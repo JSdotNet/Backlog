@@ -7,6 +7,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
@@ -75,6 +76,10 @@ public sealed class DesktopCompositionOptions
 
     /// <summary>When the assistant's weekly allowance resets.</summary>
     public required Func<IServiceProvider, IUsageResetSettings> UsageResetSettings { get; init; }
+
+    /// <summary>The monthly spend budget per provider, kept per device beside the
+    /// usage reset.</summary>
+    public required Func<IServiceProvider, ISpendBudgetSettings> SpendBudgetSettings { get; init; }
 
     /// <summary>The reader's pace, which the roadmap places by. It carries the
     /// working week too, so build it over the registered

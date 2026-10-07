@@ -3134,6 +3134,12 @@ public class DashboardPaneTests
             return Task.FromResult(InsightResult<SpendByModelInsight>.Unavailable("Not configured."));
         }
 
+        public Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(InsightResult<SpendProjectionInsight>.Unavailable("Not configured."));
+        }
+
         public void Invalidate()
         {
         }
@@ -3165,6 +3171,9 @@ public class DashboardPaneTests
         public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendByModelInsight>.Ready(new SpendByModelInsight(
                 [new InsightRow("opus", 1_000, new DashboardMoney(12.34m, "USD"), "Claude")])));
+
+        public Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendProjectionInsight>.Ready(SpendProjectionInsight.Empty));
 
         public void Invalidate()
         {

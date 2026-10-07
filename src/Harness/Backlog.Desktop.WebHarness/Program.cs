@@ -91,6 +91,7 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     FeatureSettings = _ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath),
     WorkingHoursSettings = _ => CreateLocalDevelopmentWorkingHoursSettingsStore(builder.Environment.ContentRootPath),
     UsageResetSettings = _ => new UsageResetSettingsStore(Path.Combine(localDevelopment, "usage-reset.settings.json")),
+    SpendBudgetSettings = _ => new SpendBudgetSettingsStore(Path.Combine(localDevelopment, "spend-budgets.settings.json")),
     // Given the working week IWorkingHoursSettings answers, so the Roadmap's Days off
     // presses have a week to block a day in (local ADR 0019).
     PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(
