@@ -182,7 +182,14 @@ internal static class StorybookIndex
         new("Feedback",
         [
             new("feedback", "Feedback", "Alert, EmptyState, SetupSteps, FlowSteps, Spinner, Skeleton, SaveIndicator, Toast, ToastTray."),
-            new("overlays", "Overlays", "Modal and ConfirmDialog.")
+            new("overlays", "Overlays", "Modal and ConfirmDialog."),
+
+            // After Overlays: the phone's capture sheet is a sheet over the
+            // screen it was opened from, and the row beside it is how what it
+            // sent reads on the Inbox tab. Its own page, not a story on Today,
+            // because it draws an Alert and the AttachmentStrip a host fills it
+            // with, and Alert is introduced on Feedback just above.
+            new("capture", "Capture", "CaptureSheet and CaptureRow: one thought sent to the Inbox, kept as a note or added to today, and how one of the phone's own captures reads while it makes its way to the desktop.")
         ]),
 
         // The base content items — what a snippet, a table, a diagram and a block
@@ -415,6 +422,16 @@ internal static class StorybookIndex
             new("markdown-document", "Markdown document", "MarkdownDocument and every option a read view takes: a way into the editor, a copy button, comments inline and comments in the margin."),
             new("folder-view", "Folder view", "FolderView with all of its options: a folder's header, and what is in it as a tree."),
             new("entry-edit", "Entry edit", "The same markdown being written: source beside read view, auto-save, task toggling, sub-items."),
+
+            // After Entry edit: a note being written on a phone is the same
+            // auto-save without a save button, at a phone's width and with a
+            // phone's tools. Its own page because a list a search narrows and an
+            // editor whose only word on saving is one line are a convention of
+            // their own. It draws its own two components and the SearchBox,
+            // EmptyState, SaveIndicator, ToggleButton, AppButton and
+            // AttachmentStrip pages above introduce — which is why it is here and
+            // not beside Today, above Feedback.
+            new("notes", "Notes", "NoteRow and NoteEditor: a list of notes newest first that a search narrows, and one note being written that saves on its own."),
             new("compare", "Section comparison",
                 "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it — aligned by heading, never by line.")
         ])

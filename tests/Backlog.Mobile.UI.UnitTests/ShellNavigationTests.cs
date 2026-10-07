@@ -32,7 +32,7 @@ public sealed class ShellNavigationTests
 
     [Theory]
     [InlineData("inbox", "Inbox", "capture-field")]
-    [InlineData("notes", "Talk note", "note-send")]
+    [InlineData("notes", "Notes", "notes-new")]
     public void Each_tab_resolves_to_its_own_page(string route, string heading, string placeholder)
     {
         using var host = ShellHost.Paired();

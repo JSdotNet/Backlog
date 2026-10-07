@@ -34,7 +34,7 @@ public sealed class PairingGateTests
         // No page is drawn behind the gate, and no tabs lead to one: every one of
         // them would come back to this box.
         Assert.Empty(app.FindAll("[data-testid='capture-field']"));
-        Assert.Empty(app.FindAll("[data-testid='note-placeholder']"));
+        Assert.Empty(app.FindAll("[data-testid='notes']"));
         Assert.Empty(app.FindAll("[data-testid='tasks-empty']"));
         Assert.Empty(app.FindAll("[data-testid='tab-bar']"));
 

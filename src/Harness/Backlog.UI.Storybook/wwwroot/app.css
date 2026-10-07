@@ -340,6 +340,31 @@ html, body {
     max-width: 23.4375rem;
 }
 
+/* A phone's whole screen, for something that covers one — the capture sheet
+   rises from the bottom edge over a dimmed screen. The transform makes this box
+   the containing block of the sheet's fixed layers, so the sheet covers the
+   sample and not the storybook around it. */
+.sb-phone-screen {
+    position: relative;
+    max-width: 23.4375rem;
+    height: 40rem;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background);
+    transform: translateZ(0);
+}
+
+/* The list a phone's Notes tab lays its rows out in, and its search above it:
+   the host's spacing, so the rows are reviewed as they stack. */
+.sb-note-list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-sm) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
 /* A heading standing in for one a Devbook panel draws, so the type marker in
    front of it can be looked at on the line it actually lands on. The block
    margins go, because the sample sits in a flex row beside a status pill and a

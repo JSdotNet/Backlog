@@ -35,6 +35,23 @@ status: draft
 
 Rapid title + body capture with optional tags and source context.
 
+On the phone, one tap on the capture button opens the capture sheet at
+`/capture`: a sheet up from the bottom edge, over the screen it was opened from.
+It asks where the thought goes — **Inbox** (the default), **Note** or
+**Today** — and the hint over the text field, the field's prompt and the one
+save button follow the choice: `Add to inbox`, `Save note`, `Add to today`.
+Inbox sends the text as an ordinary capture, the same one the Inbox tab's own
+field sends. Note creates a note the phone keeps and edits (see
+`.devbook/domain/inbox/features.md#notes-on-the-phone`). Today creates a task
+picked for today, as My Day's add does (see
+`.devbook/domain/tasks/features.md#my-day`). The sheet takes dictation into
+the field and one photo or more, which go with an Inbox capture or a note; a
+task for today takes text only. A save leaves the sheet open and cleared, with
+a line saying `Added to inbox — capture another`, `Note saved — capture
+another` or `Added to today — capture another`, so several thoughts in a row
+need no reopening. Cancel, a tap on the dimmed screen behind, or Escape go back
+to the screen the sheet came from.
+
 The sync service takes the body, the tags and a person alongside the title and
 the source, each optional and each bounded. A person is sent as the person and
 never as a tag; on the desktop it becomes the item's source person, and the tags
@@ -50,6 +67,10 @@ status: draft
 
 On-device transcription of voice notes into usable markdown, with retry on
 transcription failure, preserving source metadata.
+
+On the phone, dictation is the capture sheet's. What was heard is shown on a
+line and appended to what is already in the field, so nothing is sent that the
+person has not read first.
 
 ### Offline-first sync
 
@@ -74,13 +95,16 @@ Each capture carries an id the phone mints before its first send, so resending
 it after a lost answer delivers it once: the service answers with the capture it
 already holds instead of storing a second one.
 
-The Inbox list reads at a glance: when each capture was made, a glyph for what
-kind of thing it is, and the first line of its body. A tap opens the whole
-capture with its source, tags and person. The list holds only the captures this
-phone made, and each leaves it once the desktop takes it in. The phone never
-triages, so a row offers no action that would decide or dismiss it: see
-`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`. Dismiss is
-built today and goes when plan `phone-app-redesign` restyles the tab. The list
+The Inbox tab says how many captures wait to be sorted, as `3 items to sort`,
+over a field that adds one more. Its list reads at a glance: when each capture
+was made, a glyph and a word for what kind of thing it is, the first line of
+its body, and where it stands — `Waiting` while the phone still holds it,
+`Waiting — tap to retry` once it has stopped retrying on its own, `Sent` once
+cloud sync has it. A tap opens the whole capture with its source, tags and
+person. The list holds only the captures this phone made, and each leaves it
+once the desktop takes it in. The phone never triages, so a row offers no
+action that would decide or dismiss it: see
+`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`. The list
 refreshes on a pull down, on the refresh button and on returning to the app. When the service
 cannot answer, the last list the phone saw stays on screen with a line saying
 why it is not newer.
@@ -93,38 +117,32 @@ related: [".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/
 ```
 
 A note taken during a conference talk — what was said, the slide photo, the
-handout — that lands in the desktop Inbox as one ordinary capture. It is called
-a talk note, never a session note: Sessions is a bounded context of its own.
+handout. It is called a talk note, never a session note: Sessions is a bounded
+context of its own.
 
-The talk note is becoming a note (`.devbook/domain/inbox/domain.md#note`).
-The phone's Note tab becomes the Notes tab: a list of every note plus an editor, described in
-`.devbook/domain/inbox/features.md#notes-on-the-phone`. The editor keeps
-everything below, dictation and attachments included. What changes is where a
-note goes after it is sent. A talk note is a `text` capture the phone forgets
-once the desktop takes it in. A note is an item of kind `note` that stays on
-the phone, and either side may edit it. Plan `phone-app-redesign` makes this
-change, and until it lands the talk note works as written here.
+The talk note is now a note (`.devbook/domain/inbox/domain.md#note`), written
+in the phone's Notes tab (`.devbook/domain/inbox/features.md#notes-on-the-phone`),
+which replaced the Note tab. The Notes editor kept the talk note's tools:
+dictation into the body, and photos taken with the camera and pictures and files
+chosen from the phone, several to a note. What changed is where the note goes.
+A talk note was a `text` capture the phone forgot once the desktop took it in.
+A note is an item of kind `note` that stays on the phone, and either side may
+edit it. A note carries no speaker and no tags, and it has no send button: it
+saves on its own. A talk note an earlier build left waiting in the outbox is
+still sent as the capture it was.
 
-The Note tab holds a title, a Markdown body that dictation appends to, the
-speaker as one `@name`, tags, and the files attached to it: photos taken with
-the camera, pictures and files chosen from the phone, several to a note. Each
-file shows its name, type and size. A file cloud sync would not take — over the
-per-file limit, or not a picture, PDF, text or Office file — stays on the strip
-with the reason written under it, and the note is not sent until it is taken
-off. The note being written survives a switch to another tab and the app going
-to the background.
+Each attached file shows its name, type and size. A file cloud sync would not
+take — over the per-file limit, or not a picture, PDF, text or Office file —
+stays off the note, with the reason written under it, until it is taken off the
+list of files not attached.
 
 Pictures are made smaller before they leave: at most 1600 pixels on the longest
 side, as JPEG, with the location, camera and time details removed and only the
-way-up kept. A note can keep its pictures as taken instead. Files go as they
-are.
-
-Sending the note keeps it on the phone first, like any capture, and it appears
-in the Inbox list marked waiting. Each file is uploaded before the capture that
+way-up kept. Files go as they are. Each file is uploaded before the note that
 names it; a file that already went is never sent again, and a failed one is
-retried on its own. The note says where it stands — waiting, uploading 2 of 3,
-synced. A note sent without a title is named for the first line of its body,
-or "Photo · <date>" when a picture is attached, or else the first file's name.
+retried on its own. A note saved without a title is named for the first line of
+its body, or "Photo · <date>" when a picture is attached, or else the first
+file's name.
 
 ### Share-sheet and shortcuts
 

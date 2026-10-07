@@ -1,0 +1,143 @@
+@page "/capture"
+
+<PageTitle>Capture — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Capture"
+           Summary="CaptureSheet and CaptureRow: the phone's quick capture — one thought, sent to the Inbox, kept as a note or added to today — and how one of the phone's own captures reads on its Inbox tab while it makes its way to the desktop."
+           Guidelines="@Rules">
+
+    <Story Name="Inbox"
+           Description="The sheet as it opens: Inbox chosen, because it asks nothing of the person. The hint over the field, the field's prompt and the button all follow the choice. Pick another one here: the sheet is live."
+           Code="@InboxCode">
+        <div class="sb-phone-screen">
+            <CaptureSheet TrapFocus="false" Target="_target" TargetChanged="t => _target = t" @bind-Text="_text"
+                          DictationAvailable="true" PhotoAvailable="@(_target != CaptureTarget.Today)"
+                          CanSave="@(!string.IsNullOrWhiteSpace(_text))" OnSave="Save" OnCancel="() => { }"
+                          SavedAs="_saved" TestId="story-capture-inbox" />
+        </div>
+    </Story>
+
+    <Story Name="Note"
+           Description="A note keeps thoughts rather than to-dos. Save note sends it through the phone's notes, and it can carry the photo."
+           Code="@NoteCode">
+        <div class="sb-phone-screen">
+            <CaptureSheet TrapFocus="false" Target="CaptureTarget.Note" Text="The keynote's three ideas on async stand-ups"
+                          DictationAvailable="true" PhotoAvailable="true" CanSave="true"
+                          OnCancel="() => { }" TestId="story-capture-note" />
+        </div>
+    </Story>
+
+    <Story Name="Today"
+           Description="Add to today makes a task picked for today; it lands in Anytime today. A task takes text only, so the host leaves Photo out."
+           Code="@TodayCode">
+        <div class="sb-phone-screen">
+            <CaptureSheet TrapFocus="false" Target="CaptureTarget.Today" Text="Renew the domain"
+                          DictationAvailable="true" PhotoAvailable="false" CanSave="true"
+                          OnCancel="() => { }" TestId="story-capture-today" />
+        </div>
+    </Story>
+
+    <Story Name="Saved, capture another"
+           Description="After a save the sheet stays up and the field is cleared, and the status line says where the last one went. It is a live region, so a screen reader hears it too. Choosing another target clears it: it would describe something else."
+           Code="@SavedCode">
+        <div class="sb-phone-screen">
+            <CaptureSheet TrapFocus="false" Target="CaptureTarget.Inbox" DictationAvailable="true" PhotoAvailable="true"
+                          SavedAs="CaptureTarget.Inbox" OnCancel="() => { }" TestId="story-capture-saved" />
+        </div>
+    </Story>
+
+    <Story Name="Listening, with a photo"
+           Description="The mic is pressed while the device listens, and the host's own lines — what was heard, the attached photo — go between the field and the buttons."
+           Code="@ListeningCode">
+        <div class="sb-phone-screen">
+            <CaptureSheet TrapFocus="false" Target="CaptureTarget.Inbox" Text="Ask Anna about the offsite budget"
+                          DictationAvailable="true" Listening="true" PhotoAvailable="true" CanSave="true"
+                          OnCancel="() => { }" TestId="story-capture-listening">
+                <AttachmentStrip Tiles="@Photo" OnRemove="_ => { }" AriaLabel="Going with this capture" />
+                <Alert Message="Listening…" Role="status" />
+            </CaptureSheet>
+        </div>
+    </Story>
+
+    <Story Name="Inbox list"
+           Description="The phone's Inbox tab: only the captures this phone made, newest first, each with where it stands. A card opens the whole capture; there is no Today, Later, To note or delete here, because triage stays on the desktop."
+           Code="@ListCode">
+        <div class="sb-phone sb-stack" data-testid="story-capture-list">
+            <CaptureRow Title="Ask Anna about the offsite budget" Kind="text" Time="just now"
+                        State="CaptureSyncState.Waiting" OnOpen="() => { }" TestId="story-capture-row-waiting" />
+            <CaptureRow Title="Keynote: async stand-ups" Kind="text" Time="40m ago" Preview="Three ideas worth trying"
+                        State="CaptureSyncState.Stuck" StuckReason="The service answered 503."
+                        OnOpen="() => { }" OnRetry="() => { }" TestId="story-capture-row-stuck" />
+            <CaptureRow Title="Read the article on async stand-ups" Kind="link" Time="2h ago"
+                        Preview="https://example.com/async" State="CaptureSyncState.Sent"
+                        OnOpen="() => { }" TestId="story-capture-row-sent" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private CaptureTarget _target = CaptureTarget.Inbox;
+    private string _text = string.Empty;
+    private CaptureTarget? _saved;
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("accessibility.md#target-sizes-and-text", "How large the choices, the mic and the save button have to be under a thumb."),
+        new("interaction-guidelines.md#optimistic-ui", "Why a save clears the field at once and a row only says it is waiting."),
+        new("color-scheme.md#badge-and-chip-tones", "Why a row's sync state is a word on a badge and not a colour.")
+    ];
+
+    private static readonly IReadOnlyList<AttachmentTile> Photo =
+    [
+        new("photo", "IMG_2041.jpg", "Picture", "1.2 MB", true, null)
+    ];
+
+    private void Save()
+    {
+        _saved = _target;
+        _text = string.Empty;
+    }
+
+    private const string InboxCode = """
+        <CaptureSheet Target="target" TargetChanged="t => target = t" @bind-Text="text"
+                      DictationAvailable="true" PhotoAvailable="@(target != CaptureTarget.Today)"
+                      CanSave="@(!string.IsNullOrWhiteSpace(text))" OnSave="SaveAsync"
+                      OnCancel="GoBack" SavedAs="saved" />
+        """;
+
+    private const string NoteCode = """
+        <CaptureSheet Target="CaptureTarget.Note" @bind-Text="text"
+                      DictationAvailable="true" PhotoAvailable="true" CanSave="true"
+                      OnSave="SaveAsync" OnCancel="GoBack" />
+        """;
+
+    private const string TodayCode = """
+        <CaptureSheet Target="CaptureTarget.Today" @bind-Text="text"
+                      DictationAvailable="true" PhotoAvailable="false" CanSave="true"
+                      OnSave="SaveAsync" OnCancel="GoBack" />
+        """;
+
+    private const string SavedCode = """
+        <CaptureSheet Target="CaptureTarget.Inbox" SavedAs="CaptureTarget.Inbox" ... />
+        """;
+
+    private const string ListeningCode = """
+        <CaptureSheet Target="CaptureTarget.Inbox" @bind-Text="text"
+                      DictationAvailable="true" Listening="true" OnDictate="DictateAsync"
+                      PhotoAvailable="true" OnPhoto="PhotoAsync" ...>
+            <AttachmentStrip Tiles="photos" OnRemove="RemoveAsync" AriaLabel="Going with this capture" />
+            <Alert Message="Listening…" Role="status" />
+        </CaptureSheet>
+        """;
+
+    private const string ListCode = """
+        <CaptureRow Title="Ask Anna about the offsite budget" Kind="text" Time="just now"
+                    State="CaptureSyncState.Waiting" OnOpen="OpenAsync" />
+        <CaptureRow Title="Keynote: async stand-ups" Kind="text" Time="40m ago"
+                    State="CaptureSyncState.Stuck" StuckReason="@lastError"
+                    OnOpen="OpenAsync" OnRetry="RetryAsync" />
+        <CaptureRow Title="Read the article on async stand-ups" Kind="link" Time="2h ago"
+                    State="CaptureSyncState.Sent" OnOpen="OpenAsync" />
+        """;
+}

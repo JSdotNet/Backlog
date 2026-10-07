@@ -47,6 +47,7 @@ public class StorybookOrderTests
     {
         ["Badges"] = ["badges"],
         ["Buttons"] = ["buttons"],
+        ["Capture"] = ["capture"],
         ["Code"] = ["code"],
         ["Compare"] = ["compare"],
         ["Data"] = ["data-table"],
@@ -62,6 +63,7 @@ public class StorybookOrderTests
         ["Menus"] = ["menus"],
         ["Metadata"] = ["devbook"],
         ["Metrics"] = ["usage-metrics", "productivity"],
+        ["Notes"] = ["notes"],
         ["Overlays"] = ["overlays"],
         ["Roadmap"] = ["roadmap"],
         ["Selection"] = ["selection-bar"],

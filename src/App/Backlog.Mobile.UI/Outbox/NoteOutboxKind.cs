@@ -43,6 +43,33 @@ public sealed class NoteOutboxKind(CloudSyncClient sync, TalkNoteFiles files) : 
             ?? throw new InvalidOperationException($"Outbox entry {entry.Id} holds no note.");
     }
 
+    /// <summary>
+    /// Whether an edit of the note is still on the phone, parked or not: the
+    /// editor says "Waiting to sync" until the entry carrying the last of them is
+    /// delivered. Keyed on the note inside the payload, since an entry's own id is
+    /// not the note's.
+    /// </summary>
+    public static bool Holds(DeviceOutbox outbox, Guid noteId)
+    {
+        ArgumentNullException.ThrowIfNull(outbox);
+
+        return outbox.Entries.Any(entry => entry.Kind == Token && Carries(entry, noteId));
+    }
+
+    private static bool Carries(OutboxEntry entry, Guid noteId)
+    {
+        try
+        {
+            return Read(entry).Change.Id == noteId;
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        {
+            // An entry this build cannot read is not this note's; the outbox
+            // still sends or parks it on its own.
+            return false;
+        }
+    }
+
     public Task<OutboxDelivery> SendAsync(OutboxEntry entry, CancellationToken cancellationToken) =>
         SendAsync(entry, (_, _) => Task.CompletedTask, cancellationToken);
 

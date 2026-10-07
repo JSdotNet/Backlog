@@ -32,9 +32,8 @@ A note the phone creates starts as a capture like any other, with an id the
 phone mints. Unlike the other captures, it does not end at delivery. Its Inbox
 Item has `Content Kind` `note` and keeps syncing with the phone, which may edit
 it again. Those later edits are the Inbox Item's, not the capture's. See
-`.devbook/domain/inbox/domain.md#note`. The phone's talk note becomes this kind
-of note; until plan `phone-app-redesign` builds it, a talk note is still an
-ordinary capture.
+`.devbook/domain/inbox/domain.md#note`. The phone's Notes tab writes this kind
+of note. The talk note it replaced was an ordinary capture.
 
 The Capture aggregate has no owned entities beyond its root; its variability is
 carried by the `Source Metadata` value object and the `Capture Source` enum, and

@@ -109,9 +109,9 @@ when the service answers.
 - **Only the phone's own captures.** The Inbox tab lists the captures this phone
   made, until the desktop takes each in. The phone sends no acknowledgement and
   no other decision about an item: triage stays on the desktop
-  (`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`). The phone's
-  Dismiss, which posts `POST /inbox/{id}/ack`, is built today and is retired by
-  plan `phone-app-redesign`.
+  (`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`). The service
+  answers with every capture the desktop has not taken in, so the tab keeps the
+  ones whose source is the phone channel, `mobile`.
 - **Notes come back.** Notes are the one kind of Inbox item the phone pulls as
   well as sends. They travel on the task feed, not on the inbox listing, and
   **Mobile Note Sync** below describes them.
@@ -578,9 +578,8 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/feature
 A note (`.devbook/domain/inbox/domain.md#note`) is the one Inbox item that
 syncs both ways. The phone pulls every note, whichever device made it, and pushes the notes
 it creates and edits. The desktop pushes its own note edits back, and a
-tombstone when it archives or deletes one. The sync is built. The phone's Notes
-tab, which will read `note_view`, is not built yet: plan `phone-app-redesign`
-builds it next.
+tombstone when it archives or deletes one. The sync and the phone's Notes tab,
+which reads `note_view`, are built.
 
 ```mermaid
 sequenceDiagram
