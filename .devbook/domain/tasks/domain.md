@@ -40,20 +40,26 @@ than a display preference, so both travel with the task to the person's other
 machines: a sequence arranged by hand is an edit, and an edit that did not travel
 would quietly revert on the other device.
 
-Beyond that working-set placement the task carries four scheduling attributes,
+Beyond that working-set placement the task carries five scheduling attributes,
 all optional and none of them load-bearing for the lifecycle. `due_on` is the
 task's [Due Date](#due-date). `remind_at` is its [Reminder](#reminder); overdue
 is derived by comparison rather than stored, and delivery sits outside the
 aggregate - the task records that a reminder was wanted, not that one was sent.
 `recurrence` says the task repeats and is described by the `Recurrence` value
-object. `in_my_day_on` is the date behind [My Day](#my-day).
+object. `in_my_day_on` is the date behind [My Day](#my-day). `agenda_time` places
+the task in that day and is described by the [Agenda Time](#agenda-time) value
+object. The task holds an agenda time only while it has an `in_my_day_on`, and
+it drops the agenda time whenever `in_my_day_on` changes or is cleared, so a
+task moved to tomorrow or taken out of My Day loses its slot.
 `completed_on` records that the task is [Completed](#completed). It is kept
 apart from `status` - `done` and `archived` say the work is over, the tick says
 the person has dealt with the task - so that finished work can sit on the open
 list until they have looked at it, and it carries no invariant. The list's
 checkbox writes two facts at once: ticking a task not yet in an end state through it also sets `done`, because a person who ticks something
 off has finished the work. That is the checkbox's choice, not a rule on the
-task - a `completed:` token typed into the text moves no status.
+task - a `completed:` token typed into the text moves no status. The phone's
+done and undone are that same checkbox: done ticks the task the way the desktop
+does, and undone clears `completed_on` and leaves the status alone.
 
 `started_on` records that the task is [Started](#started). The task stamps it
 from the local date on the first transition into `in_progress` - whether a
@@ -244,6 +250,37 @@ The value object describes the shape of the repeat only. It does not say when
 the next occurrence falls - that is the `Occurrence Spawning` policy's calculation - and
 the repeat is anchored to `due_on` rather than to the completion date, so a
 weekly task finished three days late still falls due on its original weekday.
+
+### Agenda Time
+
+```meta
+type: value-object
+status: proposed
+aliases: [agenda_time, AgendaTime, at, for]
+related: [.devbook/domain/tasks/domain.md#my-day, .devbook/domain/tasks/features.md#my-day, .devbook/design/content-editing.md#scheduling-and-dependency-tokens]
+```
+
+Where a task sits in its My Day: a `start`, a local wall-clock time of day in
+24-hour form, and a `duration` in whole minutes. The pair describes one block,
+such as 10:45 for 45 minutes, which runs from 10:45 to 11:30. Equality is by
+value.
+
+- A start is required. A duration without a start is not an agenda time, and the
+  parser refuses it.
+- A start without a duration means 30 minutes.
+- A duration is a positive whole number of minutes.
+- The time carries no zone, the same as a [Reminder](#reminder): 10:45 means
+  10:45 on the reader's clock.
+
+An agenda time has no date of its own. It borrows the date of
+[My Day](#my-day), so it means something only while the task is in the reader's
+My Day. The [Task](#task) drops it whenever `in_my_day_on` changes or is cleared.
+A task whose My Day date has passed keeps the value until that next change, but
+nothing reads it.
+
+Only the desktop sets or clears an agenda time. The phone reads it to build the
+Now and Agenda groups and Focus, as
+[My Day](features.md#my-day) describes.
 
 ### Attachment
 
@@ -691,14 +728,16 @@ whose time has passed reads as overdue until it is cleared.
 type: term
 status: proposed
 aliases: [in_my_day_on, myday, InMyDay]
-related: [.devbook/domain/tasks/features.md#my-day]
+related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/domain.md#agenda-time]
 ```
 
 The set of tasks a person picked to work on today. Held as the date it was
 picked for, not as a flag, so membership is derived by comparing that date
 against the reader's current local date and expires without a timer.
 Deliberately not a deadline: `My Day` is this morning's choice, a `Due Date` is
-a commitment.
+a commitment. A task in My Day may also carry an [Agenda Time](#agenda-time),
+which places it at a time within that day. Moving a task to tomorrow sets the
+date to the next day and drops any agenda time.
 
 ### Dependency
 
