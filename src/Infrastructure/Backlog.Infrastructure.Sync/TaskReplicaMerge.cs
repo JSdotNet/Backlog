@@ -112,6 +112,13 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// settings port on the same terms (local ADR 0021): before the local task is read,
 /// routed by kind alone, Skipped on a head composed without the port.
 /// </para>
+/// <para>
+/// <b>Nor is a note.</b> A document whose kind token is <c>note</c> is an Inbox
+/// item that syncs both ways (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>),
+/// and is handed to the Inbox's note port whole, before the local task is read.
+/// The port decides by the note's own stamp. A head composed without it holds
+/// notes on the replica, as it holds captures.
+/// </para>
 /// </summary>
 public sealed class TaskReplicaMerge(
     ITaskRepository tasks,
@@ -120,7 +127,8 @@ public sealed class TaskReplicaMerge(
     SyncActivityLog? activity = null,
     ITaskChangeSignal? changes = null,
     IRoadmapReplication? roadmap = null,
-    IGitHubSettingsReplication? github = null)
+    IGitHubSettingsReplication? github = null,
+    IInboxNoteReplication? notes = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -144,6 +152,10 @@ public sealed class TaskReplicaMerge(
     /// a head that keeps no GitHub settings — the phone, or a build from before the
     /// port.</summary>
     private readonly IGitHubSettingsReplication? _github = github;
+
+    /// <summary>Where a note goes, or null on a head without an inbox store,
+    /// which leaves notes on the replica.</summary>
+    private readonly IInboxNoteReplication? _notes = notes;
 
     /// <summary>The signal the host's repository raises on every write, held
     /// here only to be silenced. A document arriving from the replica is not a
@@ -535,6 +547,11 @@ public sealed class TaskReplicaMerge(
             }
         }
 
+        if (NoteReplicaDocuments.IsNote(record.Change))
+        {
+            return await ApplyNoteAsync(record, cancellationToken).ConfigureAwait(false);
+        }
+
         if (RoadmapReplicaDocuments.KindOf(record.Change.Task.Type) is { } document)
         {
             return await ApplyRoadmapAsync(record, document, cancellationToken).ConfigureAwait(false);
@@ -633,6 +650,55 @@ public sealed class TaskReplicaMerge(
                 return ApplyOutcome.Unreadable;
 
             // An echo or an older copy: the local one stands, as it does for a task.
+            default:
+                return ApplyOutcome.Held;
+        }
+    }
+
+    /// <summary>
+    /// Hands a note document to the Inbox's note port and counts what it answered.
+    /// Held, not skipped, on a head without the port, as a capture is: nothing is
+    /// wrong with the document. A note the Inbox cannot take is skipped rather
+    /// than thrown on, for the reason the task path gives.
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyNoteAsync(TaskChangeRecord record, CancellationToken cancellationToken)
+    {
+        if (_notes is null) return ApplyOutcome.Held;
+
+        InboxIntakeOutcome outcome;
+
+        try
+        {
+            outcome = await _notes.ReceiveAsync(NoteReplicaDocuments.ToNote(record.Change), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception failure) when (failure is FormatException or ArgumentException)
+        {
+            _log.LogWarning(
+                failure,
+                "Skipping note {NoteId} from the replica: the inbox could not take the document. "
+                + "It will be offered again the next time the replica hands it out.",
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var id = record.Change.Id.ToString("D");
+        var title = record.Change.Task.Title;
+
+        switch (outcome)
+        {
+            case InboxIntakeOutcome.Received:
+                _activity?.Record(SyncDirection.Received, SyncItemKind.Note, id, title);
+                return ApplyOutcome.Written;
+
+            case InboxIntakeOutcome.Updated:
+                _activity?.Record(SyncDirection.Received, SyncItemKind.Note, id, title, "edited");
+                return ApplyOutcome.Written;
+
+            case InboxIntakeOutcome.Withdrawn:
+                _activity?.Record(SyncDirection.Received, SyncItemKind.Note, id, title, "archived");
+                return ApplyOutcome.Written;
+
             default:
                 return ApplyOutcome.Held;
         }
