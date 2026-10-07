@@ -1,0 +1,8 @@
+@* State that lives only as long as this instance does, so a test can tell a
+   component that was kept from one that was disposed and made again. *@
+
+<button type="button" data-testid="probe-count" @onclick="() => Count++">Count @Count</button>
+
+@code {
+    public int Count { get; private set; }
+}

@@ -477,7 +477,8 @@
     private bool _forgettingDevice;
 
     /// <summary>Redraws the expiry line while a code is on screen. Disposed with
-    /// the screen, so a settings page left behind does not go on ticking.</summary>
+    /// the settings screen; it keeps ticking while another tab is shown, which
+    /// keeps the expiry right on the way back.</summary>
     private System.Threading.Timer? _pairingCodeCountdown;
 
     private bool SyncEnabled => Features.IsEnabled(SyncFeatures.Sync);

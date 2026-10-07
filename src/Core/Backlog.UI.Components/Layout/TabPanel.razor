@@ -31,6 +31,14 @@
     [Parameter]
     public bool Disabled { get; set; }
 
+    /// <summary>
+    /// Keeps the body rendered, hidden, once the panel has been opened, so what is
+    /// inside it survives a switch to another tab. It is still built on demand:
+    /// nothing renders until the first opening.
+    /// </summary>
+    [Parameter]
+    public bool KeepAlive { get; set; }
+
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
@@ -80,7 +88,9 @@
         builder.AddAttribute(7, "data-testid", TestId);
         builder.AddMultipleAttributes(8, AdditionalAttributes);
 
-        if (active)
+        if (active) _opened = true;
+
+        if (active || (KeepAlive && _opened))
         {
             builder.AddContent(9, ChildContent);
         }
@@ -112,12 +122,16 @@
 
         if (changed) Parent?.Refresh();
 
+        // A kept-alive body belongs to the item it was opened for, not to the next one.
+        if (_renderedId is not null && !string.Equals(_renderedId, Id, StringComparison.Ordinal)) _opened = false;
+
         _renderedTitle = Title;
         _renderedId = Id;
     }
 
     private string? _renderedTitle;
     private string? _renderedId;
+    private bool _opened;
 
     public void Dispose() => Parent?.Unregister(this);
 }

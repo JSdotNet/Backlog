@@ -22,7 +22,11 @@ namespace Backlog.SharedKernel;
 /// <param name="Order">Where the page sits among the registered sections, lowest
 /// first. Registered sections always follow the shell's own pages.</param>
 /// <param name="Component">The Razor component the page renders, with no
-/// parameters: it takes what it needs from the container.</param>
+/// parameters: it takes what it needs from the container. One instance lives
+/// from the page's first opening until the settings screen closes, so its state
+/// survives a switch to another tab. Switching the section's feature off takes
+/// the page off the strip and disposes it, so switching it back on starts a new
+/// instance.</param>
 /// <param name="FeatureKey">A feature the page is offered behind, or null for a
 /// page that is always offered. Checked by the shell, so a switched-off feature
 /// has no empty page left on the strip.</param>

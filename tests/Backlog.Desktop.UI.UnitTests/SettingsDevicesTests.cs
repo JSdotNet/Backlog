@@ -780,8 +780,80 @@ public sealed class SettingsDevicesTests
     private static string[] SettingsTabs(IRenderedComponent<Settings> component) =>
         component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim()).ToArray();
 
-    private static void OpenDevicesTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Devices").Click();
+    private static void OpenDevicesTab(IRenderedComponent<Settings> component) => OpenTab(component, "Devices");
+
+    private static void OpenTab(IRenderedComponent<Settings> component, string title) =>
+        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == title).Click();
+
+    // --- Leaving the tab and coming back -------------------------------------
+
+    /// <summary>
+    /// A code is handed out to be typed on another device, which is exactly when
+    /// somebody wanders off to another tab. Coming back has to find the code and
+    /// its countdown still there, and the page has to be the same page - not one
+    /// made again that asks the service who this device is a second time.
+    /// </summary>
+    [Fact]
+    public void A_pairing_code_is_still_shown_after_visiting_another_tab()
+    {
+        using var context = RenderSettings(syncEnabled: true, paired: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-generate-code']")));
+
+        context.Component.Find("[data-testid='devices-generate']").Click();
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal("K7MN-9PQR", context.Component.Find("[data-testid='devices-code-display'] code").TextContent.Trim()));
+
+        OpenTab(context.Component, "Features");
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal("K7MN-9PQR", context.Component.Find("[data-testid='devices-code-display'] code").TextContent.Trim()));
+        Assert.Contains("Expires in", context.Component.Find("[data-testid='devices-code-expiry']").TextContent, StringComparison.Ordinal);
+        Assert.Single(context.Service.Paths, path => path.EndsWith("/devices/me", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_typed_device_name_survives_visiting_another_tab()
+    {
+        using var context = RenderSettings(syncEnabled: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-register']")));
+
+        context.Component.Find("[data-testid='devices-name']").Input("Workshop PC");
+
+        OpenTab(context.Component, "Features");
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal("Workshop PC", context.Component.Find("[data-testid='devices-name']").GetAttribute("value")));
+    }
+
+    /// <summary>The page lives as long as the settings screen and no longer: a
+    /// screen opened again starts with no code on it.</summary>
+    [Fact]
+    public void Opening_settings_again_starts_the_devices_page_afresh()
+    {
+        using var context = RenderSettings(syncEnabled: true, paired: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-generate-code']")));
+        context.Component.Find("[data-testid='devices-generate']").Click();
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-code-display']")));
+
+        var reopened = context.TestContext.Render<Settings>();
+        OpenDevicesTab(reopened);
+
+        reopened.WaitForAssertion(() =>
+            Assert.Single(reopened.FindAll("[data-testid='devices-generate-code']")));
+        Assert.Empty(reopened.FindAll("[data-testid='devices-code-display']"));
+    }
 
     /// <summary>The token answer, so a script that only covers the route under
     /// test still lets the authentication handler mint one.</summary>

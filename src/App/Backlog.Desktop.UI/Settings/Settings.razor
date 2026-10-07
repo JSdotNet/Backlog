@@ -1810,12 +1810,15 @@
 
     @* The modules' own pages, after the app-wide ones and in their registered
        order. The shell knows each only as a title and a component: what is on
-       the page, and what it writes, is the module's. *@
+       the page, and what it writes, is the module's. Kept alive, so a section's
+       state lives as long as the settings screen, as it did when the shell held
+       it, instead of resetting on every tab switch. *@
     @foreach (var section in OfferedSections)
     {
         <TabPanel @key="section.Id"
                   Id="@section.Id"
                   Title="@section.Title"
+                  KeepAlive="true"
                   Element="section"
                   BaseClass="setting"
                   aria-label="@($"{section.Title} settings")">
