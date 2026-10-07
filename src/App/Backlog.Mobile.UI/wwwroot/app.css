@@ -166,6 +166,9 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .task-page { padding-top: .25rem; }
 /* Pinned above the tab bar, which is pinned to the bottom itself. */
 .task-page .task-detail__footer { bottom: calc(3rem + 1px + env(safe-area-inset-bottom)); }
+.focus-page { padding-top: .25rem; }
+/* Pinned above the tab bar, as the task page's footer is. */
+.focus-page .focus__footer { bottom: calc(3rem + 1px + env(safe-area-inset-bottom)); }
 .task-page__waiting {
     margin: .5rem 0 0;
     color: var(--color-text-secondary);

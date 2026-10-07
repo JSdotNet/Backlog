@@ -17,8 +17,10 @@
     Quick capture: one thought, sent to the Inbox (the default), kept as a
     note, or added to today — over the screen it was opened from, which is
     drawn behind the sheet and is where Cancel, a tap outside or Escape go back
-    to. The opener names itself in `from` ("" for Today, "inbox"); anything that
-    is not one of this app's own pages goes back to Today.
+    to. The opener names itself in `from` by its route ("" for Today, "inbox",
+    "tasks/{id}/focus"); anything that is not one of this app's own pages —
+    a route with an id must match one of the app's own templates, the id
+    included — goes back to Today.
 
     Each choice goes through the path that already exists for it, so the sheet
     adds no way of sending anything: the Inbox through the outbox's quick
@@ -28,7 +30,9 @@
 
     A save keeps the sheet open and clears it, and the status line says where
     the last one went. The choice stays: the next thought is usually the same
-    kind as the last.
+    kind as the last. Focus is the exception: a thought caught while working on
+    one task is set down and the task taken up again, so a save from Focus goes
+    back to Focus.
 *@
 
 <PageTitle>Capture</PageTitle>
@@ -82,22 +86,22 @@
        up. After the sheet in the markup, so the sheet's heading is the first
        one on the page and the one focus lands on. *@
     <div class="capture-behind" inert aria-hidden="true" data-testid="capture-behind">
-        <DynamicComponent Type="behind" />
+        <DynamicComponent Type="behind.Page" Parameters="behind.Parameters" />
     </div>
 }
 
 @code {
     private const string Listening = "Listening…";
 
-    /// <summary>The routes this app's own pages answer on, so a `from` that is
-    /// not one of them goes nowhere but Today.</summary>
-    private static readonly IReadOnlyDictionary<string, Type> Pages = typeof(Capture).Assembly
+    /// <summary>The route templates this app's own pages answer on, split into
+    /// segments, so a `from` that is not one of them goes nowhere but Today.
+    /// Templates without a parameter first: a literal segment wins over an id.</summary>
+    private static readonly IReadOnlyList<(string[] Segments, Type Page)> Pages = typeof(Capture).Assembly
         .GetTypes()
         .Where(type => type != typeof(Capture) && typeof(IComponent).IsAssignableFrom(type))
-        .SelectMany(type => type.GetCustomAttributes<RouteAttribute>().Select(route => (Route: route.Template.Trim('/'), Type: type)))
-        .Where(page => !page.Route.Contains('{', StringComparison.Ordinal))
-        .GroupBy(page => page.Route, StringComparer.OrdinalIgnoreCase)
-        .ToDictionary(group => group.Key, group => group.First().Type, StringComparer.OrdinalIgnoreCase);
+        .SelectMany(type => type.GetCustomAttributes<RouteAttribute>().Select(route => (Segments: route.Template.Trim('/').Split('/'), Page: type)))
+        .OrderBy(page => page.Segments.Any(IsParameter))
+        .ToList();
 
     private CaptureTarget _target = CaptureTarget.Inbox;
     private string _text = string.Empty;
@@ -119,9 +123,13 @@
     [SupplyParameterFromQuery(Name = "from")]
     public string? From { get; set; }
 
-    private string Origin => From?.Trim('/') is { } from && Pages.ContainsKey(from) ? from : string.Empty;
+    /// <summary>The page the sheet was opened over and goes back to: Today, the
+    /// root route, for a `from` that names none of the app's pages.</summary>
+    private Opener Behind => Match(From) ?? Match(null)!;
 
-    private Type? Behind => Pages.GetValueOrDefault(Origin);
+    /// <summary>Focus is one task being worked on now: a thought caught there
+    /// is set down and the task taken up again, so a save goes back.</summary>
+    private bool LeavesAfterSave => Behind.Page == typeof(FocusPage);
 
     private bool CanSave =>
         !_saving && _photos.All(photo => photo.Refusal is null) && _target switch
@@ -185,7 +193,7 @@
         if (_text.Length > 0) _savedAs = null;
     }
 
-    private void Leave() => Navigation.NavigateTo(Origin);
+    private void Leave() => Navigation.NavigateTo(Behind.Route);
 
     private async Task SaveAsync()
     {
@@ -222,6 +230,8 @@
             _photos.RemoveAll(photos.Contains);
             _speechStatus = null;
             _speechError = null;
+
+            if (LeavesAfterSave) Leave();
         }
         catch (Exception ex)
         {
@@ -396,4 +406,57 @@
 
         await InvokeAsync(StateHasChanged);
     }
+
+    /// <summary>A page of this app, by the route it was reached on — rebuilt
+    /// from its template, never echoed from `from` — and the parameters its
+    /// route gave it.</summary>
+    private sealed record Opener(string Route, Type Page, IDictionary<string, object> Parameters);
+
+    /// <summary>
+    /// The app's own page `from` names, or null. Every segment must match its
+    /// template's: a literal one exactly, ignoring case, and a parameter one only
+    /// as a guid for a `{Name:guid}` parameter — the only kind the app's routes
+    /// use, so any other template is no match. Nothing but the app's own routes,
+    /// with an id where they take one, can come out: no other host, no query.
+    /// </summary>
+    private static Opener? Match(string? from)
+    {
+        var segments = (from ?? string.Empty).Trim('/').Split('/');
+
+        foreach (var (template, page) in Pages)
+        {
+            if (template.Length != segments.Length) continue;
+
+            var route = new string[template.Length];
+            var parameters = new Dictionary<string, object>();
+            var matched = true;
+
+            for (var i = 0; i < template.Length && matched; i++)
+            {
+                if (!IsParameter(template[i]))
+                {
+                    matched = string.Equals(template[i], segments[i], StringComparison.OrdinalIgnoreCase);
+                    route[i] = template[i];
+                    continue;
+                }
+
+                if (template[i][1..^1].Split(':') is [var name, "guid"] && Guid.TryParseExact(segments[i], "D", out var id))
+                {
+                    parameters[name] = id;
+                    route[i] = id.ToString("D");
+                }
+                else
+                {
+                    matched = false;
+                }
+            }
+
+            if (matched) return new Opener(string.Join('/', route), page, parameters);
+        }
+
+        return null;
+    }
+
+    private static bool IsParameter(string segment) =>
+        segment.StartsWith('{') && segment.EndsWith('}');
 }

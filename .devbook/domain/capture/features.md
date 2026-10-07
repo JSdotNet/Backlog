@@ -49,8 +49,9 @@ the field and one photo or more, which go with an Inbox capture or a note; a
 task for today takes text only. A save leaves the sheet open and cleared, with
 a line saying `Added to inbox — capture another`, `Note saved — capture
 another` or `Added to today — capture another`, so several thoughts in a row
-need no reopening. Cancel, a tap on the dimmed screen behind, or Escape go back
-to the screen the sheet came from.
+need no reopening. Opened from Focus, a save goes back to Focus instead: the
+thought is set down and the task taken up again. Cancel, a tap on the dimmed
+screen behind, or Escape go back to the screen the sheet came from.
 
 The sync service takes the body, the tags and a person alongside the title and
 the source, each optional and each bounded. A person is sent as the person and

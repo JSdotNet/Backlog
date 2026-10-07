@@ -165,7 +165,14 @@ internal static class StorybookIndex
             // whole, with its steps as a checklist and the footer's two edits, is
             // a different subject from a day read at a glance. It draws only its
             // own component.
-            new("task-detail", "Task detail", "DayTaskDetail: one task opened from the phone's day — its chips, its steps as a checklist, its own text, Move to tomorrow and Mark done.")
+            new("task-detail", "Task detail", "DayTaskDetail: one task opened from the phone's day — its chips, its steps as a checklist, its own text, Move to tomorrow and Mark done."),
+
+            // After Task detail, because its Focus on this is the way in. Its own
+            // page rather than another story there: a countdown to the end of a
+            // block, worked through a step at a time, is a subject of its own. It
+            // draws only its own component; DayStep, its input, was introduced
+            // with Task detail above.
+            new("focus", "Focus", "DayFocus: one timed task worked on now — a ring counting down to the end of its block, the current step, and Step done or Complete task.")
         ]),
 
         // Ahead of Content because Content composes it: a document that saves says
