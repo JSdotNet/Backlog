@@ -1,6 +1,7 @@
 ﻿using Backlog.UI.Components.Integrations;
 using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Markdown;
+using Backlog.UI.Components.Tasks;
 
 namespace Backlog.UI.Storybook.Components.Shared;
 
@@ -372,6 +373,88 @@ internal static class IntegrationFixtures
             id,
             $"Session {id} · {words} — open in Sessions",
             SessionState: state);
+
+    // --- Work in progress ---------------------------------------------------
+
+    /// <summary>
+    /// The sessions the work cards and the In progress view are drawn from, one per
+    /// state a session reaches from what it leaves on disk. The quiet one asks for the
+    /// person and says so as "Quiet 30 min"; the detail line is the host's sentence,
+    /// written out because the library holds no clock.
+    /// </summary>
+    public static readonly WorkSession QuietSession = new(
+        "4a1c9e02", "Extract TaskCard", IntegrationSessionState.Stalled, "Last activity 42 min ago · 9 prompts");
+
+    public static readonly WorkSession RunningSession = new(
+        "9f30b7d1", "Stage timeline", IntegrationSessionState.Running, "Last activity just now · 14 prompts");
+
+    public static readonly WorkSession FinishedSession = new(
+        "7e12c4a8", "Sync retries", IntegrationSessionState.Finished, "Ended yesterday · 21 prompts");
+
+    /// <summary>A live session no task links, for the "Not linked to a task" section.</summary>
+    public static readonly WorkSession LooseSession = new(
+        "3c85d0f6", "Drift at a glance dashboard", IntegrationSessionState.Running, "Backlog · 22 prompts · Last activity 6 min ago");
+
+    /// <summary>The pull requests beside them: a draft still checking, one with
+    /// requested changes and a failing check, one approved and green, and one of the
+    /// reader's own that no task links.</summary>
+    public static readonly WorkPullRequest DraftPullRequest = new(
+        "JSdotNet/Backlog#1019", 1019, "Extract TaskCard component", IntegrationArtifactState.Draft,
+        Checks: IntegrationCheckState.Pending, ChecksText: "Checks running 4/7", Additions: 412, Deletions: 198);
+
+    public static readonly WorkPullRequest ChangesRequestedPullRequest = new(
+        "JSdotNet/Backlog#1018", 1018, "Filter Tasks by plan", IntegrationArtifactState.Open,
+        IntegrationReviewState.ChangesRequested, IntegrationCheckState.Failing, "1 check failing", 156, 22);
+
+    public static readonly WorkPullRequest ApprovedPullRequest = new(
+        "JSdotNet/backlog-sync#212", 212, "Retry sync pushes with backoff", IntegrationArtifactState.Open,
+        IntegrationReviewState.Approved, IntegrationCheckState.Passing, Additions: 88, Deletions: 14);
+
+    public static readonly WorkPullRequest LoosePullRequest = new(
+        "JSdotNet/Backlog#1020", 1020, "Bump Aspire to the next patch", IntegrationArtifactState.Open,
+        Checks: IntegrationCheckState.Passing, Additions: 6, Deletions: 6);
+
+    /// <summary>
+    /// The tasks the In progress page lays out: two that need the person — one for a
+    /// quiet session, one for a pull request with requested changes — two that are
+    /// moving, one with nothing linked yet, and one finished today. The repositories
+    /// and their hues are <see cref="ProductRepo"/>'s, <see cref="SyncRepo"/>'s and
+    /// <see cref="PluginsRepo"/>'s.
+    /// </summary>
+    public static IReadOnlyList<InProgressTask> InProgressTasks { get; } =
+    [
+        new("extract", "Extract TaskCard from the TaskItem row", [QuietSession], [DraftPullRequest],
+            Plan: "+task-views", Repository: "backlog", Colour: ProductRepo.Colour,
+            SubItems: "3 of 5 sub-items", Started: "Started Oct 1", Due: "Due Oct 8", Effort: "5 pts"),
+        new("facet", "Plan facet on the Tasks filter", [], [ChangesRequestedPullRequest],
+            Plan: "+task-views", Repository: "backlog", Colour: ProductRepo.Colour,
+            SubItems: "1 of 2 sub-items", Started: "Started Oct 3", Due: "Due Oct 6", Overdue: true, Effort: "3 pts"),
+        new("timeline", "Stage timeline on the dashboard", [RunningSession], [],
+            Plan: "+delivery-surfaces", Repository: "claude-plugins", Colour: PluginsRepo.Colour,
+            SubItems: "0 of 3 sub-items", Started: "Started today", Due: "Due Oct 23", Effort: "5 pts"),
+        new("retries", "Sync retries with backoff", [FinishedSession], [ApprovedPullRequest],
+            Plan: "+sync-hardening", Repository: "Sync", Colour: SyncRepo.Colour,
+            SubItems: "2 of 2 sub-items", Started: "Started Sep 29", Due: "Due Oct 9", Effort: "3 pts"),
+        new("banner", "Sync conflict banner copy", [], [],
+            Status: "Done", Repository: "Sync", Colour: SyncRepo.Colour, Started: "Started yesterday", Effort: "1 pt", Finished: true)
+    ];
+
+    /// <summary>What no task links: a live session and one of the reader's own
+    /// pull requests.</summary>
+    public static IReadOnlyList<InProgressLoose> InProgressLoose { get; } =
+    [
+        new(Session: LooseSession, Repository: "backlog", Colour: ProductRepo.Colour),
+        new(PullRequest: LoosePullRequest, Repository: "backlog", Colour: ProductRepo.Colour)
+    ];
+
+    /// <summary>The choices the "Link to a task…" picker offers: the tasks in
+    /// progress first, then the ones ready to start.</summary>
+    public static IReadOnlyList<WorkLinkOption> LinkTaskOptions { get; } =
+    [
+        new("extract", "Extract TaskCard from the TaskItem row", "In progress · backlog"),
+        new("timeline", "Stage timeline on the dashboard", "In progress · claude-plugins"),
+        new("board", "Board view: status columns", "Ready · backlog")
+    ];
 
     /// <summary>The drift case with a note the host wrote. The default sentence
     /// is general on purpose; this one names the entry.</summary>

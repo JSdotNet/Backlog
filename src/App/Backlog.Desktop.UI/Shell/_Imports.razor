@@ -16,6 +16,9 @@
    through the adapter, which no Sessions project may reference — so it lives in
    this project, in a folder of its own, and is composed from here like the rest. *@
 @using Backlog.Desktop.UI.PullRequests
+@* The In progress view joins an entry to its sessions and pull requests, so it
+   lives beside the pull requests list for the same reason. *@
+@using Backlog.Desktop.UI.InProgress
 @using Backlog.Modules.Roadmap.UI
 @using Backlog.Modules.Dashboard.UI
 @using Backlog.Modules.Dashboard.Abstractions

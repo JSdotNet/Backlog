@@ -1,0 +1,77 @@
+@*
+    The sessions and the pull requests that worked on one task, in two columns:
+    Sessions, then Pull requests, each under a small heading and each saying
+    "None yet" when the task has none of that kind.
+
+    Two columns rather than one mixed list because the two answer different
+    questions — what is running on it, and what it shipped — and a reader looks
+    for one of them at a time. "None yet" rather than an empty column, so a column
+    with nothing in it still says it was looked at.
+
+    The columns wrap under each other where the host is narrow; the host owns how
+    wide that is.
+*@
+<div class="@ClassValue" data-testid="@TestId">
+    <div class="work-links__column" data-testid="work-links-sessions">
+        <span class="work-links__heading">Sessions</span>
+        @if (Sessions.Count == 0)
+        {
+            <span class="work-links__none" data-testid="work-links-no-sessions">None yet</span>
+        }
+        else
+        {
+            @foreach (var session in Sessions)
+            {
+                <WorkSessionCard @key="session.Id" Session="session" OnOpen="OnOpenSession" />
+            }
+        }
+    </div>
+    <div class="work-links__column" data-testid="work-links-pull-requests">
+        <span class="work-links__heading">Pull requests</span>
+        @if (PullRequests.Count == 0)
+        {
+            <span class="work-links__none" data-testid="work-links-no-pull-requests">None yet</span>
+        }
+        else
+        {
+            @foreach (var pull in PullRequests)
+            {
+                <WorkPullRequestCard @key="pull.Key" PullRequest="pull" OnOpen="OnOpenPullRequest" />
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<WorkSession> Sessions { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<WorkPullRequest> PullRequests { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<WorkSession> OnOpenSession { get; set; }
+
+    [Parameter]
+    public EventCallback<WorkPullRequest> OnOpenPullRequest { get; set; }
+
+    /// <summary>Stacks the two columns rather than laying them side by side — for a
+    /// narrow host such as a task's side panel.</summary>
+    [Parameter]
+    public bool Stacked { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "work-links";
+
+    private string ClassValue
+    {
+        get
+        {
+            var value = Stacked ? "work-links work-links--stacked" : "work-links";
+            return string.IsNullOrWhiteSpace(CssClass) ? value : $"{value} {CssClass}";
+        }
+    }
+}

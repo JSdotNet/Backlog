@@ -1,0 +1,140 @@
+@implements IDisposable
+@using Backlog.Desktop.UI.Tasks
+@using Backlog.UI.Components.Integrations
+@using Backlog.UI.Components.Tasks
+@inject TasksDesktopState State
+@inject IServiceProvider Services
+
+@*
+    A task's "Sessions and pull requests", in its side panel: the same cards the In
+    progress view draws, "Open in In progress", and "Link a session or pull
+    request…" — the shell's fill for the slot the Tasks pane offers, because the
+    cards carry what Sessions and GitHub say and that pane may reach neither.
+
+    It reads the session record when it first draws, which is local, and never
+    GitHub on its own: a linked pull request draws from the open read the In
+    progress view made, else from what the task list already read about it. The
+    link action is the one thing that asks GitHub, because a person asked for the
+    list of what could be linked.
+*@
+@{ var projection = Projection; }
+<WorkLinksPanel Sessions="@(ShowSessions ? projection.SessionsOf(Row) : [])"
+                PullRequests="@(ShowPullRequests ? projection.PullRequestsOf(Row) : [])"
+                OnOpenSession="session => OnOpenSession.InvokeAsync(session.Id)"
+                OnOpenPullRequest="pull => OnOpenPullRequest.InvokeAsync(pull.Key)"
+                OnOpenInProgress="OnOpenInProgress"
+                OnLink="OpenPickerAsync"
+                Busy="_opening"
+                TestId="entry-linked-work" />
+
+<WorkLinkPicker Open="_picking"
+                OpenChanged="open => _picking = open"
+                Title="Link a session or pull request"
+                Description="Running sessions and your open pull requests that no task links yet."
+                Options="@Options"
+                EmptyTitle="Nothing unlinked to choose"
+                OnChosen="LinkAsync"
+                TestId="entry-link-picker" />
+
+@code {
+    [Parameter, EditorRequired]
+    public EntryRow Row { get; set; } = default!;
+
+    /// <summary>The shell's reader, shared with the In progress view.</summary>
+    [Parameter, EditorRequired]
+    public WorkInProgressReader Reader { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<string> OnOpenSession { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnOpenPullRequest { get; set; }
+
+    /// <summary>"Open in In progress"; unset while the view is not offered, and the
+    /// control is then not drawn.</summary>
+    [Parameter]
+    public EventCallback OnOpenInProgress { get; set; }
+
+    /// <summary>Whether the session list is on: off, no session is read, drawn or offered.</summary>
+    [Parameter]
+    public bool ShowSessions { get; set; } = true;
+
+    /// <summary>Whether the pull requests list is on: off, GitHub is not asked and no
+    /// pull request is drawn or offered.</summary>
+    [Parameter]
+    public bool ShowPullRequests { get; set; } = true;
+
+    protected override void OnParametersSet()
+    {
+        Reader.ReadsSessions = ShowSessions;
+        Reader.ReadsPullRequests = ShowPullRequests;
+    }
+
+    private bool _picking;
+    private bool _opening;
+    private TimeProvider _clock = TimeProvider.System;
+    private IToastChannel? _toasts;
+
+    /// <summary>The loose items by their key, as offered the last time the picker opened.</summary>
+    private Dictionary<string, InProgressLoose> _offered = new(StringComparer.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
+        _toasts = Services.GetService<IToastChannel>();
+        Reader.Changed += OnChanged;
+
+        await Reader.EnsureSessionsAsync();
+    }
+
+    public void Dispose() => Reader.Changed -= OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private InProgressProjection Projection => new(
+        State.Rows,
+        Reader.Sessions,
+        Reader.PullRequests,
+        State.RepositoryAliasFor,
+        State.RepositoryColourFor,
+        State.SessionStateOf,
+        _clock.GetLocalNow(),
+        Reader.SessionsRead);
+
+    /// <summary>Every repository's, not only the header's scope: the task may be
+    /// in a repository the reader has not scoped to.</summary>
+    private IReadOnlyList<WorkLinkOption> Options =>
+        [.. _offered.Values.Select(loose => loose.Session is { } session
+            ? new WorkLinkOption(loose.Key, session.Title, Detail("Session", session.Detail))
+            : new WorkLinkOption(loose.Key, $"#{loose.PullRequest!.Number} {loose.PullRequest.Title}", Detail("Pull request", loose.Repository)))];
+
+    private static string Detail(string kind, string? rest) => string.IsNullOrWhiteSpace(rest) ? kind : $"{kind} · {rest}";
+
+    private async Task OpenPickerAsync()
+    {
+        _opening = true;
+        try
+        {
+            // A fresh read: the picker is the list of what could be linked now, and a
+            // session started a minute ago is the one most likely to be chosen.
+            await Reader.ReadAsync();
+        }
+        finally
+        {
+            _opening = false;
+        }
+
+        _offered = Projection.Loose([])
+            .Where(loose => loose.Session is null ? ShowPullRequests : ShowSessions)
+            .ToDictionary(loose => loose.Key, StringComparer.OrdinalIgnoreCase);
+        _picking = true;
+    }
+
+    private async Task LinkAsync(WorkLinkOption option)
+    {
+        _picking = false;
+        if (!_offered.TryGetValue(option.Id, out var loose)) return;
+
+        await WorkLinker.LinkAsync(State, _toasts, Projection, Row, loose);
+    }
+}

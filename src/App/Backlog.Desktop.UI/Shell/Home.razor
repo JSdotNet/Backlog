@@ -164,8 +164,8 @@
            only" state it allowed: the task list is the Tasks view now.
 
            The shapes. A fused group is a set of sibling destinations read as one
-           control — the view switch, and the work in progress (Sessions and Pull
-           requests, which In progress joins in a later step) — and the pressed
+           control — the view switch, and the work in progress (In progress,
+           Sessions and Pull requests) — and the pressed
            state says which is on. A standalone option is one on-or-off of its own:
            the two side panes. The loose group is the remaining takeovers, related
            to each other only by being takeovers.
@@ -260,15 +260,29 @@
 
             @* The work in progress: what the assistants are running and what they
                shipped. Two takeovers of the Sessions context, each under its own
-               flag, fused because they are one context's two lists; In progress
-               joins them in a later step. A takeover, so pressing the pressed one,
-               Escape, or the surface's own close button returns to the workspace.
-               Renders only while one of them is offered. *@
+               flag, fused because they are one context's two lists, led by the In
+               progress view that summarises both. Each list is a takeover, so
+               pressing the pressed one, Escape, or the surface's own close button
+               returns to the workspace. Renders only while one of them is offered. *@
             @if (SessionsOffered || PullRequestsOffered)
             {
                 <ButtonGroup CssClass="header-group header-group--work"
                              AriaLabel="Work in progress"
                              TestId="work-in-progress-switcher">
+                    @* A main view, not a takeover, though it sits with two: pressing
+                       it shows the view as a view-switch option does, the Inbox and
+                       the Devbook stay beside it, and nothing closes it. First,
+                       because it is the summary the other two are the lists behind. *@
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="ViewOptionPressed(ShellView.InProgress)"
+                                  id="in-progress-view-option"
+                                  TestId="in-progress-view-option"
+                                  aria-controls="in-progress-view"
+                                  OnClick="() => ShowView(ShellView.InProgress)">
+                        In progress
+                    </ToggleButton>
+
                     @if (SessionsOffered)
                     {
                         <ToggleButton BaseClass="header-group__option"
@@ -583,7 +597,8 @@
                               RepositoryColour="@RepositoryColourFor"
                               PullRequestTask="PullRequestTaskFor"
                               OnOpenTask="OpenPlanEntryAsync"
-                              OnOpenSession="OpenSessionAsync" />
+                              OnOpenSession="OpenSessionAsync"
+                              FocusPullRequest="@_focusPullRequest" />
         </main>
     }
     else
@@ -611,9 +626,21 @@
                         <RoadmapBand />
                     </div>
                 }
+                else if (InProgressViewVisible)
+                {
+                    @* A view like the roadmap: no Escape, no filter bar. *@
+                    <div class="in-progress-view" id="in-progress-view" data-testid="in-progress-view">
+                        <InProgressView Reader="_work"
+                                        OnOpenTask="OpenEntryAsync"
+                                        OnOpenSession="OpenSessionAsync"
+                                        OnOpenPullRequest="OpenPullRequestAsync"
+                                        ShowSessions="SessionsOffered"
+                                        ShowPullRequests="PullRequestsOffered" />
+                    </div>
+                }
                 else
                 {
-                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" Layout="@TasksPaneLayout" />
+                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" Layout="@TasksPaneLayout" LinkedWork="LinkedWorkFor" />
                 }
 
                 @if (DevbookPaneVisible)
@@ -756,6 +783,8 @@
         // answering questions from outside, so a host that composed no activator
         // simply is not asked, which is the correct behaviour rather than a gap.
         _surfaceAttachment = Services.GetService<SessionsSurfaceActivator>()?.Attach(DescribeSessionsAsync);
+
+        _work = WorkInProgressReader.From(Services);
 
         await State.InitializeAsync();
         SynchronizePaneAvailability();
@@ -914,7 +943,19 @@
     /// <summary>The view the workspace shows: the one chosen, unless its feature
     /// has since been switched off — then Tasks, which is always offered. The
     /// choice itself is kept, so switching the feature back on shows it again.</summary>
-    private ShellView EffectiveView => _view == ShellView.Roadmap && !RoadmapViewOffered ? ShellView.Tasks : _view;
+    private ShellView EffectiveView => _view switch
+    {
+        ShellView.Roadmap when !RoadmapViewOffered => ShellView.Tasks,
+        ShellView.InProgress when !InProgressViewOffered => ShellView.Tasks,
+        _ => _view
+    };
+
+    /// <summary>Whether the work in progress group offers In progress: while either
+    /// of the lists it summarises is on.</summary>
+    private bool InProgressViewOffered => SessionsOffered || PullRequestsOffered;
+
+    /// <summary>Whether the In progress view is on screen.</summary>
+    private bool InProgressViewVisible => WorkspaceVisible && EffectiveView == ShellView.InProgress;
 
     /// <summary>Whether the task list is in front of the reader — the Tasks view, or
     /// the Calendar laying out the same filtered rows, on screen in the workspace,
@@ -931,7 +972,7 @@
     /// Devbook reads one, and Tools reads none, so on those a chip is a single
     /// select and the scope is kept to its anchor.</summary>
     private bool RepositoryScopeTakesSeveral =>
-        TasksListOnScreen || DashboardVisible || SessionsVisible || PullRequestsVisible;
+        TasksListOnScreen || InProgressViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible;
 
     /// <summary>Offered while the feature is on and there is an area to ask about.
     /// It used to be the task list alone; every area answers now, so the button
@@ -1020,6 +1061,9 @@
         ShellView.Tasks => "tasks",
         ShellView.Calendar => "tasks",
         ShellView.Roadmap => "roadmap",
+        // No Ask AI source answers for it yet, so the panel falls back to the
+        // first open area rather than pointing at this one.
+        ShellView.InProgress => "in-progress",
         _ => throw new ArgumentOutOfRangeException(nameof(view), view, "No Ask AI area is defined for this view.")
     };
 
@@ -1063,7 +1107,9 @@
     {
         _view = view;
         ShellNavigation.SetLastView(view.ToString());
-        RememberAiScope(AiScopeFor(view));
+
+        // A view with no Ask AI source leaves the reader's chosen area alone.
+        if (_aiSources.ContainsKey(AiScopeFor(view))) RememberAiScope(AiScopeFor(view));
         KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
 
@@ -1124,6 +1170,7 @@
     private void ToggleSurface(WorkspaceSurface surface)
     {
         _focusSessionId = null;
+        _focusPullRequest = null;
         _surface = _surface == surface ? WorkspaceSurface.Workspace : surface;
         _focusSurfacePending = _surface != WorkspaceSurface.Workspace;
         RememberSurface();
@@ -1151,6 +1198,7 @@
     private void CloseSurface()
     {
         _focusSessionId = null;
+        _focusPullRequest = null;
         _surface = WorkspaceSurface.Workspace;
         RememberSurface();
         KeepRepositoryScopeSingleWhereOnlyOneFits();
@@ -1200,6 +1248,69 @@
     }
 
     private const string SessionsOffTestId = "tasks-session-sessions-off";
+
+    /// <summary>The pull request a card asked the pull requests list to open on, by
+    /// its <c>owner/name#number</c> key, until the reader leaves the list.</summary>
+    private string? _focusPullRequest;
+
+    /// <summary>
+    /// A pull request a card on the In progress view or a task's side panel names,
+    /// opened from the card: the pull requests list on screen with its row marked.
+    /// The mirror of <see cref="OpenSessionAsync"/>, on the same terms.
+    /// </summary>
+    private Task OpenPullRequestAsync(string key)
+    {
+        if (!PullRequestsOffered)
+        {
+            Toasts.Publish(ToastMessage.Warning(
+                "The pull requests list is switched off, so this pull request cannot be opened here.",
+                PullRequestsOffTestId));
+
+            return Task.CompletedTask;
+        }
+
+        if (_surface != WorkspaceSurface.PullRequests) TogglePullRequests();
+
+        _focusPullRequest = key;
+
+        return Task.CompletedTask;
+    }
+
+    private const string PullRequestsOffTestId = "in-progress-pull-requests-off";
+
+    /// <summary>The sessions and open pull requests the In progress view and a
+    /// task's side panel draw from, read by either and kept for both. Rebuilt with
+    /// the page, which the Router remounts on every route change — so a trip to
+    /// Settings and back reads again, which is what that trip is usually for.</summary>
+    private WorkInProgressReader _work = new(null, null);
+
+    /// <summary>An entry the In progress view names, opened from its title: the
+    /// Tasks view on screen with that entry selected.</summary>
+    private async Task OpenEntryAsync(Guid id)
+    {
+        if (State.Rows.FirstOrDefault(candidate => candidate.Id == id) is not { } row) return;
+
+        ShowView(ShellView.Tasks);
+
+        // In progress shows entries the list's own filters may hide; the list is
+        // widened to it, as a press on the row would be.
+        State.Reveal(row);
+        await State.SelectAsync(row);
+    }
+
+    /// <summary>The Tasks detail panel's "Sessions and pull requests", for the
+    /// selected entry. Offered while the In progress view is: the section is that
+    /// view's cards for one entry, and its "Open in In progress" leads there.</summary>
+    private RenderFragment<EntryRow>? LinkedWorkFor => InProgressViewOffered
+        ? row => @<LinkedWorkSection @key="row.Key"
+                                     Row="row"
+                                     Reader="_work"
+                                     OnOpenSession="OpenSessionAsync"
+                                     OnOpenPullRequest="OpenPullRequestAsync"
+                                     OnOpenInProgress="() => ShowView(ShellView.InProgress)"
+                                     ShowSessions="SessionsOffered"
+                                     ShowPullRequests="PullRequestsOffered" />
+        : null;
 
     /// <summary>
     /// The repository an entry's reference asked the Devbook pane to read, and the

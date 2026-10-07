@@ -4948,6 +4948,24 @@ h1, h2, h3 {
     flex: 1 1 auto;
 }
 
+/* The In progress view, in the same column. Unlike the roadmap it scrolls as a
+   whole: its cards are a list, read top to bottom, with nothing to keep pinned. */
+.in-progress-view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.in-progress-view__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+}
+
 .roadmap-band {
     display: flex;
     flex-direction: column;
@@ -6096,6 +6114,16 @@ h1, h2, h3 {
 .sessions-table__row--focused:focus-visible {
     outline: 2px solid var(--color-border-focus);
     outline-offset: -2px;
+}
+
+/* The pull request a card opened the list on, marked the way the session list
+   marks the session a task opened it on. */
+tr[data-testid="pull-request-row"][data-focused="true"] > td {
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+tr[data-testid="pull-request-row"][data-focused="true"] > td:first-child {
+    box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 /* Two short figures, read across rather than wrapped. */

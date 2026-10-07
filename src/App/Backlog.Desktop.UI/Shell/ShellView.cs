@@ -30,5 +30,12 @@ internal enum ShellView
     /// <summary>The filtered tasks on a month grid by their due date, under the
     /// Tasks filter bar and beside the same detail panel. Its option sits after
     /// Tasks and Board in the switch; the members' order is not the options'.</summary>
-    Calendar
+    Calendar,
+
+    /// <summary>Every entry in progress with the sessions and pull requests linked to
+    /// it, by what needs the person. Offered while the Sessions or the Pull requests
+    /// feature is on, as the first option of the work in progress group rather than
+    /// of the task views' switch: it answers "what is moving", which is that group's
+    /// question. Appended, because the name is stored.</summary>
+    InProgress
 }

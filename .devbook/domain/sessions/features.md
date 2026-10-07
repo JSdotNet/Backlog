@@ -666,6 +666,60 @@ That answer is more honest than either hiding the reporting layer or pretending 
 external activity exists. A broken path is a fact worth surfacing, and it is separate
 from the session's own `Session State`.
 
+## In progress, by task
+
+```meta
+type: feature
+related: [.devbook/domain/sessions/features.md#open-on-the-session-a-task-names]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.In_progress_is_a_main_view_that_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_sessions_and_pull_requests_off_there_is_no_in_progress_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_card_draws_what_its_entry_links_and_the_rest_is_not_linked_to_a_task]
+```
+
+Answer "what is moving, and what needs me" as one view: every task in progress in
+the repository scope, each with the sessions and pull requests linked to it beside it
+— a session's title, state and last activity; a pull request's number, title, draft
+or open, review verdict, checks and size. A task with nothing of a kind says "None
+yet". It is the first option of the work in progress group in the header and a main
+view rather than a takeover: the Inbox and the Devbook still open beside it, and it is
+offered while the session list or the pull requests list is.
+
+### Needs you first
+
+```meta
+type: sub-feature
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Needs_you_comes_first_then_moving_each_in_the_hosts_order, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_failing_check_or_requested_changes_on_an_open_pull_request_needs_you, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_quiet_session_needs_you, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_linked_session_that_has_gone_quiet_needs_you_and_says_quiet_30_min]
+```
+
+A task whose linked session has gone quiet — `Stalled`, shown as "Quiet 30 min" — or
+whose open pull request has a failing check or requested changes is under **Needs
+you**; the rest are under **Moving**. Switched off, the tasks are one list in the task
+list's order. "Include finished today" adds the tasks done today in a section of
+their own. Neither choice is remembered past the session.
+
+### Link what no task claims
+
+```meta
+type: sub-feature
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Link_to_a_task_records_a_loose_session_on_the_chosen_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Link_to_a_task_records_a_loose_pull_request_on_the_chosen_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Linking_what_the_entry_already_holds_writes_nothing]
+```
+
+Live sessions and the reader's own open pull requests that no task links are listed
+last, under **Not linked to a task**, each with "Link to a task…". Linking records the
+session or the pull request on the chosen entry through the same write the
+`link_session` and `link_change` tools make, so a link made by hand and one an agent
+made are one kind of record. A link the entry already holds is not written twice.
+
+### From a task's side panel
+
+```meta
+type: sub-feature
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_side_panel_section_links_a_session_or_pull_request_to_its_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.An_in_progress_title_opens_the_entry_in_the_tasks_view]
+```
+
+A task's side panel carries the same cards under "Sessions and pull requests", with
+"Link a session or pull request…" and "Open in In progress". A task's title on the
+view opens it in the Tasks view; a session or a pull request opens the session list
+or the pull requests list on that item.
+
 ## Turn the area off
 
 ```meta

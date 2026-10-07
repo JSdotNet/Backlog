@@ -528,6 +528,32 @@
     [Parameter]
     public EventCallback<string> OnOpenSession { get; set; }
 
+    /// <summary>
+    /// The pull request the list was opened on — <c>owner/name#number</c> — from a
+    /// card on the In progress view or a task's side panel, or null. Its row is
+    /// marked current, and the list opens on Everyone's rather than Mine so a pull
+    /// request somebody else opened is still on screen.
+    /// </summary>
+    [Parameter]
+    public string? FocusPullRequest { get; set; }
+
+    private string? _focusApplied;
+
+    /// <summary>Whether a row is the one the list was opened on. Let through the
+    /// scope and the label filters the way a pin is, because a card asked for it by
+    /// name and a list without it would be no answer.</summary>
+    private bool IsFocused(GitHubOpenPullRequest pull) =>
+        !string.IsNullOrWhiteSpace(FocusPullRequest)
+        && string.Equals(FocusPullRequest, Key(pull), StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnParametersSet()
+    {
+        if (string.Equals(FocusPullRequest, _focusApplied, StringComparison.OrdinalIgnoreCase)) return;
+
+        _focusApplied = FocusPullRequest;
+        if (!string.IsNullOrWhiteSpace(FocusPullRequest)) _mine = false;
+    }
+
     /// <summary>Whether there is anything to read: the adapter composed, and at least
     /// one repository registered with it.</summary>
     private bool Configured => _gitHub is { IsConfigured: true };
@@ -967,7 +993,7 @@
     /// <summary>The scope, the label filters, then whose — and every pinned pull
     /// request whatever they say.</summary>
     private IReadOnlyList<GitHubOpenPullRequest> Visible =>
-        [.. OpenRows.Where(pull => IsPinned(pull)
+        [.. OpenRows.Where(pull => IsPinned(pull) || IsFocused(pull)
             || (InScope(pull.RepositoryFullName)
                 && PassesLabels(pull.RepositoryFullName, pull.Labels)
                 && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskSubject(pull)))))];
@@ -1176,6 +1202,12 @@
         };
 
         if (IsPinned(repositoryFullName, number)) attributes["data-pinned"] = "true";
+        if (string.Equals(FocusPullRequest, Key(repositoryFullName, number), StringComparison.OrdinalIgnoreCase))
+        {
+            attributes["aria-current"] = "true";
+            attributes["data-focused"] = "true";
+        }
+
         return attributes;
     }
 

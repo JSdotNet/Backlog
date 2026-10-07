@@ -362,7 +362,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 ["tasks-view-option", "calendar-view-option", "roadmap-view-option"],
                 OptionIds(component, "view-switch"));
             Assert.Equal(
-                ["sessions-toggle-button", "pull-requests-toggle-button"],
+                ["in-progress-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
                 OptionIds(component, "work-in-progress-switcher"));
             Assert.Equal(
                 ["dashboard-toggle-button", "tools-toggle-button"],
@@ -2035,6 +2035,103 @@ public sealed class HomeWorkspaceSurfaceTests
         await harness.Context.DisposeAsync();
 
         Assert.Single(harness.Context.JSInterop.Invocations["backlogTakeoverEscape.unregister"]);
+    }
+
+    private const string InProgressEntryText = "# Wire the In progress view\n`prompt` `!in-progress`\n";
+
+    /// <summary>
+    /// In progress leads the work in progress group, and it is a main view rather
+    /// than a takeover: pressing it puts the view in the workspace, where the panes
+    /// still open beside it, and its option reads pressed in place of the Tasks one.
+    /// </summary>
+    [Fact]
+    public void In_progress_is_a_main_view_that_leads_the_work_in_progress_group()
+    {
+        using var harness = CreateHarness(seed: InProgressEntryText);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-view-option']")));
+        component.Find("[data-testid='in-progress-view-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='in-progress-view'] [data-testid='in-progress-board']"));
+            Assert.Single(component.FindAll("main"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
+            Assert.Equal("true", component.Find("[data-testid='in-progress-view-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+
+            var title = Assert.Single(component.FindAll("[data-testid='in-progress-task-title']"));
+            Assert.Equal("Wire the In progress view", title.TextContent.Trim());
+        });
+
+        // Remembered as a view, by its name.
+        Assert.Equal("InProgress", harness.Context.Services.GetRequiredService<ShellNavigationStore>().LastView);
+    }
+
+    /// <summary>The entry's title on a card is the way back to the entry itself: the
+    /// Tasks view, with that entry selected.</summary>
+    [Fact]
+    public void An_in_progress_title_opens_the_entry_in_the_tasks_view()
+    {
+        using var harness = CreateHarness(seed: InProgressEntryText);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-view-option']")));
+        component.Find("[data-testid='in-progress-view-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-task-title']")));
+
+        component.Find("[data-testid='in-progress-task-title']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='in-progress-view']"));
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+            Assert.NotEmpty(component.FindAll("[data-testid='entry-detail']"));
+
+            // The detail panel carries the same work, with the way back.
+            Assert.NotEmpty(component.FindAll("[data-testid='entry-detail'] [data-testid='entry-linked-work']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='work-links-open-in-progress']"));
+        });
+
+        component.Find("[data-testid='work-links-open-in-progress']").Click();
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-view']")));
+    }
+
+    /// <summary>The view follows the two lists it summarises: with both switched off
+    /// there is no option, and a remembered In progress opens on Tasks.</summary>
+    [Fact]
+    public void With_sessions_and_pull_requests_off_there_is_no_in_progress_view()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            shellNavigation.SetLastView("InProgress");
+
+            using var harness = CreateHarness(
+                features =>
+                {
+                    features.SetEnabled(SessionFeatures.Sessions, false);
+                    features.SetEnabled(SessionFeatures.PullRequests, false);
+                },
+                shellNavigation,
+                seed: InProgressEntryText);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.Empty(component.FindAll("[data-testid='in-progress-view-option']"));
+                Assert.Empty(component.FindAll("[data-testid='in-progress-view']"));
+                Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
     }
 
     /// <summary>Presses the Pull requests segment and waits for the list to take the

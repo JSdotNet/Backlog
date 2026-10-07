@@ -39,6 +39,24 @@ public sealed class GitHubClientPullRequestFactsTests
         Assert.Empty(pull.Labels);
     }
 
+    // --- Diff size --------------------------------------------------------------
+
+    /// <summary>How big the pull request is, which the In progress view's card draws as
+    /// <c>+412 −198</c>; a node without the counts has none rather than zero.</summary>
+    [Fact]
+    public async Task An_open_pull_request_carries_its_diff_size_when_github_gives_one()
+    {
+        var sized = Node().Replace("\"isDraft\": false,", "\"isDraft\": false, \"additions\": 412, \"deletions\": 198,", StringComparison.Ordinal);
+
+        var pull = Assert.Single(await Open(sized));
+        var unsized = Assert.Single(await Open(Node()));
+
+        Assert.Equal(412, pull.Additions);
+        Assert.Equal(198, pull.Deletions);
+        Assert.Null(unsized.Additions);
+        Assert.Null(unsized.Deletions);
+    }
+
     // --- Check progress -------------------------------------------------------
 
     /// <summary>Check runs and commit statuses are counted together, the way GitHub's
@@ -153,6 +171,8 @@ public sealed class GitHubClientPullRequestFactsTests
         Assert.Contains("latestOpinionatedReviews(", query, StringComparison.Ordinal);
         Assert.Contains("checkRunCountsByState", query, StringComparison.Ordinal);
         Assert.Contains("closingIssuesReferences(", query, StringComparison.Ordinal);
+        Assert.Contains("additions", query, StringComparison.Ordinal);
+        Assert.Contains("deletions", query, StringComparison.Ordinal);
     }
 
     // --- Refusals -----------------------------------------------------------------

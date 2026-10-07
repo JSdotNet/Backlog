@@ -186,6 +186,12 @@ public sealed record GitHubOpenPullRequest(
     /// or the token was refused them.</summary>
     public GitHubCheckCounts? CheckCounts { get; init; }
 
+    /// <summary>Lines the pull request adds, or null where GitHub did not say.</summary>
+    public int? Additions { get; init; }
+
+    /// <summary>Lines the pull request removes, or null where GitHub did not say.</summary>
+    public int? Deletions { get; init; }
+
     /// <summary>What the reviewers decided.</summary>
     public GitHubReviewSummary Reviews { get; init; } = GitHubReviewSummary.None;
 
