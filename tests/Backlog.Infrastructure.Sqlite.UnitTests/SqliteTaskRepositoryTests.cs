@@ -393,6 +393,27 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Null((await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.BlockedSince);
     }
 
+    /// <summary>The agenda time is saved beside the My Day date it borrows its
+    /// date from, and taking the task out of My Day clears it in the row too.</summary>
+    [Fact]
+    public async Task An_agenda_time_is_saved_and_cleared_with_my_day()
+    {
+        var task = new TaskItem("Standup", string.Empty, EntryType.Task);
+        task.SetInMyDayOn(new DateOnly(2026, 10, 7));
+        task.SetAgendaTime(new AgendaTime(new TimeOnly(10, 45), 45));
+
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(new AgendaTime(new TimeOnly(10, 45), 45), loaded.AgendaTime);
+
+        loaded.SetInMyDayOn(null);
+        await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
+
+        Assert.Null((await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.AgendaTime);
+    }
+
     /// <summary>
     /// The attachment is the one field the sync payload and the entry grammar both
     /// carry that this store once did not, so a task with a folder attached lost it

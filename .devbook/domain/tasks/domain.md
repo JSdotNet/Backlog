@@ -255,7 +255,6 @@ weekly task finished three days late still falls due on its original weekday.
 
 ```meta
 type: value-object
-status: proposed
 aliases: [agenda_time, AgendaTime, at, for]
 related: [.devbook/domain/tasks/domain.md#my-day, .devbook/domain/tasks/features.md#my-day, .devbook/design/content-editing.md#scheduling-and-dependency-tokens]
 ```
@@ -276,7 +275,17 @@ An agenda time has no date of its own. It borrows the date of
 [My Day](#my-day), so it means something only while the task is in the reader's
 My Day. The [Task](#task) drops it whenever `in_my_day_on` changes or is cleared.
 A task whose My Day date has passed keeps the value until that next change, but
-nothing reads it.
+nothing reads it. Given an agenda time while it has no `in_my_day_on`, the task
+holds none: the value is dropped rather than refused, the way the parser drops
+what it cannot place. A text save that moves `myday:` drops the `at:` and `for:`
+left on the line unedited, because they are the old day's slot carried along;
+a slot typed or changed in the same save is the person's, and stays.
+
+The agenda time crosses the sync task feed as two plain values beside
+`in_my_day_on`, the start as `HH:MM` and the duration in minutes, both absent on
+a task with no slot. A document from a build that never sent them reads as
+having none, and the phone's `task_view` row reads them straight off the
+document.
 
 Only the desktop sets or clears an agenda time. The phone reads it to build the
 Now and Agenda groups and Focus, as

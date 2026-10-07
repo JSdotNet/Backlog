@@ -310,7 +310,9 @@ public sealed class TaskReplicaMerge(
                     source.BlockedReason,
                     source.WaitsOn.Count == 0 ? null : [.. source.WaitsOn],
                     source.WriteBackRefusal)
-                : null);
+                : null,
+            AgendaAt: task.AgendaTime?.StartToken,
+            AgendaMinutes: task.AgendaTime?.DurationMinutes);
     }
 
     /// <summary>The source reference a document carries, or null. One that names no
@@ -379,6 +381,9 @@ public sealed class TaskReplicaMerge(
         task.SetReminder(payload.RemindAt);
         task.SetRecurrence(EntryTextParser.ParseRepeat(payload.Recurrence));
         task.SetInMyDayOn(payload.InMyDayOn);
+        // After the day it borrows its date from: the aggregate holds an agenda
+        // time only beside a My Day date.
+        task.SetAgendaTime(AgendaTime.FromWire(payload.AgendaAt, payload.AgendaMinutes));
         task.SetCompletedOn(payload.CompletedOn);
         task.SetStartedOn(payload.StartedOn);
         task.SetBlockedSince(payload.BlockedSince);
