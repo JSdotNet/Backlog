@@ -1,7 +1,7 @@
 {
   "name": "backlog-tools",
   "description": "Backlog-native Claude Code skills for the Backlog product itself — writing a Backlog import plan from an agreed specification, running one item of such a plan when it is pasted back out of the app, running a whole plan through sub-agents with one worktree and pull request per entry, turning another to-do tool's export into an inbox import manifest, and answering the private reading notes the app holds on a repository's Devbook chapters — plus Claude Code hooks that forward a session's tool and token telemetry to the app and show a running plan's progress, with each entry's delivery-flow stages, in a band above the prompt and a pane.",
-  "version": "0.15.1",
+  "version": "0.16.0",
   "author": {
     "name": "Job Schepers"
   },
