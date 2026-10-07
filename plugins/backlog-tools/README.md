@@ -15,8 +15,8 @@ for the remarks a person leaves while reading — and a pane that follows a runn
   with a `Kept manual:` line saying why. Every step, whatever its kind, names its
   repository with `repo:`. It always ships a review view next to the raw plan — one HTML page built from
   `skills/import-plan/assets/plan-review.html` that parses the embedded plan
-  itself and shows its checks, dependency order and entries, published as an artifact where
-  the host has one and written beside the plan otherwise. User-invoked only
+  itself and shows its checks, dependency order and entries, published as an artifact every
+  run before the plan text is shown — a local HTML file only when the host has no artifacts. User-invoked only
   (`disable-model-invocation: true`); it never talks to the Backlog app or GitHub.
   A plan imports at two levels (ADR 0013:
   `.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`): it opens with
