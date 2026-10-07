@@ -216,7 +216,8 @@ public static class EntryTextParser
         EntryKind Kind = EntryKind.Task,
         DateOnly? StartedOn = null,
         IReadOnlyList<string>? DevbookReferences = null,
-        DateOnly? BlockedSince = null);
+        DateOnly? BlockedSince = null,
+        AgendaTime? AgendaTime = null);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -239,7 +240,8 @@ public static class EntryTextParser
         EntryKind Kind = EntryKind.Task,
         DateOnly? StartedOn = null,
         IReadOnlyList<string>? DevbookReferences = null,
-        DateOnly? BlockedSince = null)
+        DateOnly? BlockedSince = null,
+        AgendaTime? AgendaTime = null)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -392,7 +394,8 @@ public static class EntryTextParser
             metadata.Kind,
             metadata.StartedOn,
             metadata.DevbookReferences ?? [],
-            metadata.BlockedSince);
+            metadata.BlockedSince,
+            metadata.AgendaTime);
     }
 
     private static Metadata ParseMetadataLine(string line)
@@ -407,6 +410,9 @@ public static class EntryTextParser
         DateTime? remindAt = null;
         Recurrence? recurrence = null;
         DateOnly? inMyDayOn = null;
+        TimeOnly? agendaStart = null;
+        int? agendaMinutes = null;
+        string? agendaMinutesText = null;
         DateOnly? completedOn = null;
         DateOnly? startedOn = null;
         DateOnly? blockedSince = null;
@@ -455,6 +461,26 @@ public static class EntryTextParser
                     case "myday":
                         if (TryParseDateToken(value, out var myDay)) inMyDayOn = myDay;
                         else unreadable.Add(new UnreadableToken("myday", value));
+                        break;
+
+                    case "at":
+                        // The agenda start, a local 24-hour time with no date and
+                        // no zone: the date is the `myday:` beside it and the
+                        // clock is the reader's (.devbook/domain/tasks/domain.md#agenda-time).
+                        if (AgendaTime.TryParseStart(value, out var start)) agendaStart = start;
+                        else unreadable.Add(new UnreadableToken("at", value));
+                        break;
+
+                    case "for":
+                        // The agenda duration, `45m`. Whether it stands alone is
+                        // only known once the whole line is read, so it is held
+                        // here and judged after the loop.
+                        if (AgendaTime.TryParseDuration(value, out var minutes))
+                        {
+                            agendaMinutes = minutes;
+                            agendaMinutesText = value;
+                        }
+                        else unreadable.Add(new UnreadableToken("for", value));
                         break;
 
                     case "started":
@@ -645,6 +671,21 @@ public static class EntryTextParser
             else if (StatusTokens.TryGetValue(normalized, out var s)) status = s;
         }
 
+        // A duration with no start is not an agenda time: it reads as malformed,
+        // the same as `due:` with nothing after it. A start with no duration
+        // means the default. Both are read whether or not `myday:` is on the
+        // line — the parser says what the text says, and it is the task that
+        // holds an agenda time only while it is in My Day.
+        AgendaTime? agendaTime = null;
+        if (agendaStart is { } agendaAt)
+        {
+            agendaTime = new AgendaTime(agendaAt, agendaMinutes ?? AgendaTime.DefaultDurationMinutes);
+        }
+        else if (agendaMinutesText is not null)
+        {
+            unreadable.Add(new UnreadableToken("for", agendaMinutesText));
+        }
+
         return new Metadata(
             type,
             priority,
@@ -666,7 +707,8 @@ public static class EntryTextParser
             kind,
             startedOn,
             devbookReferences,
-            blockedSince);
+            blockedSince,
+            agendaTime);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
@@ -1495,6 +1537,14 @@ public static class EntryTextParser
         if (entry.RemindAt is { } remindAt) meta += $" `remind:{ReminderToken(remindAt)}`";
         if (entry.Recurrence is { } recurrence) meta += $" `repeat:{RepeatToken(recurrence)}`";
         if (entry.InMyDayOn is { } inMyDayOn) meta += $" `myday:{DateToken(inMyDayOn)}`";
+
+        // Straight after the day it borrows its date from, and only beside one:
+        // an agenda time means nothing without a My Day date.
+        if (entry.InMyDayOn is not null && entry.AgendaTime is { } agendaTime)
+        {
+            foreach (var token in AgendaTokens(agendaTime)) meta += $" `{token}`";
+        }
+
         if (entry.StartedOn is { } startedOn) meta += $" `started:{DateToken(startedOn)}`";
         if (entry.CompletedOn is { } completedOn) meta += $" `completed:{DateToken(completedOn)}`";
         // Beside the two dates that span the work, and after them: started and
@@ -1737,6 +1787,14 @@ public static class EntryTextParser
     /// today's.</summary>
     public static string WithMyDay(string raw, DateOnly? inMyDayOn) =>
         RewriteMetaLine(raw, inMyDayOn: inMyDayOn, updateMyDay: true);
+
+    /// <summary>Places the entry at a time within its My Day, or clears the
+    /// agenda time. Written straight after <c>myday:</c> and only beside it: an
+    /// entry with no My Day date has no day for the time to fall in, so nothing
+    /// is written for it. <see cref="WithMyDay"/> drops both tokens whenever the
+    /// date changes.</summary>
+    public static string WithAgendaTime(string raw, AgendaTime? agendaTime) =>
+        RewriteMetaLine(raw, agendaTime: agendaTime, updateAgenda: true);
 
     /// <summary>Ticks the entry off on a day, or unticks it by clearing the
     /// token. Writes nothing else: in particular it leaves the status token
@@ -1988,6 +2046,8 @@ public static class EntryTextParser
         bool updateRepeat = false,
         DateOnly? inMyDayOn = null,
         bool updateMyDay = false,
+        AgendaTime? agendaTime = null,
+        bool updateAgenda = false,
         DateOnly? completedOn = null,
         bool updateCompletedOn = false,
         DateOnly? blockedSince = null,
@@ -2087,8 +2147,37 @@ public static class EntryTextParser
 
         if (updateMyDay)
         {
+            // The agenda time borrows its date from My Day, so a different day —
+            // or none — takes `at:` and `for:` with it. The same day keeps them,
+            // moved along so they still sit straight after the date.
+            var dayBefore = NamedTokenValue(tokens, "myday") is { } previous && TryParseDateToken(previous, out var parsedDay)
+                ? parsedDay
+                : (DateOnly?)null;
+            var agenda = tokens.Where(token => IsNamedToken(token, "at") || IsNamedToken(token, "for")).ToList();
+
             RemoveNamedToken(tokens, "myday");
-            if (inMyDayOn is { } myDay) tokens.Add($"myday:{DateToken(myDay)}");
+            RemoveNamedToken(tokens, "at");
+            RemoveNamedToken(tokens, "for");
+
+            if (inMyDayOn is { } myDay)
+            {
+                tokens.Add($"myday:{DateToken(myDay)}");
+                if (dayBefore == myDay) tokens.AddRange(agenda);
+            }
+        }
+
+        if (updateAgenda)
+        {
+            RemoveNamedToken(tokens, "at");
+            RemoveNamedToken(tokens, "for");
+
+            // Only beside a My Day date, and straight after it: an agenda time
+            // with no day to place it in is not one, so it is not written.
+            var myDayIndex = tokens.FindIndex(token => IsNamedToken(token, "myday"));
+            if (agendaTime is { } agenda && myDayIndex >= 0)
+            {
+                tokens.InsertRange(myDayIndex + 1, AgendaTokens(agenda));
+            }
         }
 
         if (updateCompletedOn)
@@ -2156,7 +2245,30 @@ public static class EntryTextParser
     }
 
     private static void RemoveNamedToken(List<string> tokens, string name) =>
-        tokens.RemoveAll(token => token.StartsWith(name + ":", StringComparison.OrdinalIgnoreCase));
+        tokens.RemoveAll(token => IsNamedToken(token, name));
+
+    private static bool IsNamedToken(string token, string name) =>
+        token.StartsWith(name + ":", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The value of the last token of that name, which is the one the
+    /// parser reads, or null when the line has none.</summary>
+    private static string? NamedTokenValue(List<string> tokens, string name) =>
+        tokens.LastOrDefault(token => IsNamedToken(token, name)) is { } token ? token[(name.Length + 1)..].Trim() : null;
+
+    /// <summary>
+    /// The <c>at:</c> and <c>for:</c> tokens for an agenda time, in that order. A
+    /// default duration writes no <c>for:</c>, because the start alone already
+    /// means it and absent means absent
+    /// (<c>.devbook/design/content-editing.md#scheduling-and-dependency-tokens</c>).
+    /// </summary>
+    public static IReadOnlyList<string> AgendaTokens(AgendaTime agendaTime)
+    {
+        ArgumentNullException.ThrowIfNull(agendaTime);
+
+        return agendaTime.DurationMinutes == AgendaTime.DefaultDurationMinutes
+            ? [$"at:{agendaTime.StartToken}"]
+            : [$"at:{agendaTime.StartToken}", $"for:{AgendaTime.DurationToken(agendaTime.DurationMinutes)}"];
+    }
 
     /// <summary>The metadata line an entry that has none would have. It is
     /// reconstructed from the parse rather than from defaults alone, so a field
@@ -2185,6 +2297,7 @@ public static class EntryTextParser
         if (parsed.RemindAt is { } remindAt) tokens.Add($"remind:{ReminderToken(remindAt)}");
         if (parsed.Recurrence is { } recurrence) tokens.Add($"repeat:{RepeatToken(recurrence)}");
         if (parsed.InMyDayOn is { } inMyDayOn) tokens.Add($"myday:{DateToken(inMyDayOn)}");
+        if (parsed.InMyDayOn is not null && parsed.AgendaTime is { } agendaTime) tokens.AddRange(AgendaTokens(agendaTime));
         if (parsed.StartedOn is { } startedOn) tokens.Add($"started:{DateToken(startedOn)}");
         if (parsed.CompletedOn is { } completedOn) tokens.Add($"completed:{DateToken(completedOn)}");
         if (parsed.BlockedSince is { } blockedSince) tokens.Add($"blocked:{DateToken(blockedSince)}");

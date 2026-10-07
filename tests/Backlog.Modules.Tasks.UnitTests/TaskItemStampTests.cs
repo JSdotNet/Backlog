@@ -53,6 +53,7 @@ public sealed class TaskItemStampTests
         [nameof(TaskItem.SetReminder)] = task => task.SetReminder(new DateTime(2026, 2, 1, 9, 0, 0)),
         [nameof(TaskItem.SetRecurrence)] = task => task.SetRecurrence(null),
         [nameof(TaskItem.SetInMyDayOn)] = task => task.SetInMyDayOn(new DateOnly(2026, 2, 1)),
+        [nameof(TaskItem.SetAgendaTime)] = task => task.SetAgendaTime(new AgendaTime(new TimeOnly(10, 45), 45)),
         [nameof(TaskItem.SetCompletedOn)] = task => task.SetCompletedOn(new DateOnly(2026, 2, 1)),
         [nameof(TaskItem.SetStartedOn)] = task => task.SetStartedOn(new DateOnly(2026, 2, 1)),
         [nameof(TaskItem.SetBlockedSince)] = task => task.SetBlockedSince(new DateOnly(2026, 2, 1)),
