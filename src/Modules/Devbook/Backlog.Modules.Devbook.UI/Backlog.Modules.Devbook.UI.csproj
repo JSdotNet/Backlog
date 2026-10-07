@@ -37,6 +37,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The chapter resolver, reader and writers moved into the adapter's
+         Chapters/ folder (issue #738) and took its namespace with them. The
+         editor, the panels and the stores that stayed here all reach for them,
+         so the namespace is imported once, for the .cs and .razor files alike. -->
+    <Using Include="Backlog.Infrastructure.Devbook.Chapters" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
     <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- This context's own published surface: the devbook-folder port, the

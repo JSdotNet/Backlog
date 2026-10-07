@@ -1,6 +1,6 @@
 using Backlog.Modules.Devbook.Abstractions;
 
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook.Chapters;
 
 /// <summary>
 /// Turns "this area, this folder, that selection" into the one chapter file an

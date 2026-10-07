@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook.Chapters;
 
 /// <summary>
 /// How a panel's chapter comes off disk: <see cref="File.ReadAllTextAsync(string, CancellationToken)"/>,

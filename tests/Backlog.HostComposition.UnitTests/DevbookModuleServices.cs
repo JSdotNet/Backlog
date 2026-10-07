@@ -1,5 +1,6 @@
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Infrastructure.Devbook;
+using Backlog.Infrastructure.Devbook.Chapters;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;

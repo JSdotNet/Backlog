@@ -147,6 +147,31 @@ public sealed partial class DevbookModuleRegistrationTests
         }
     }
 
+    /// <summary>
+    /// The second slice: a chapter's way on and off the disk. The resolver that finds
+    /// its file, the reader the panels load it through, the writer the editor saves it
+    /// with, the status writer the stores set and clear a status with, and the
+    /// reference the resolver and the writer take. None of them renders anything, so
+    /// they sit in the adapter's <c>Chapters/</c> folder, and the four that open a file
+    /// left <see cref="ModuleUiIoTests.AllowedUiIo"/> with them.
+    /// </summary>
+    [Theory]
+    [InlineData("DevbookChapterRef.cs")]
+    [InlineData("DevbookChapterResolver.cs")]
+    [InlineData("DevbookChapterFileReader.cs")]
+    [InlineData("DevbookChapterWriter.cs")]
+    [InlineData("DevbookMarkdownStatusWriter.cs")]
+    public void The_devbook_chapter_readers_and_writers_live_in_the_adapter(string moved)
+    {
+        var chapters = Path.Combine(
+            Repository.Root.FullName, "src", "Infrastructure", "Backlog.Infrastructure.Devbook", "Chapters");
+
+        Assert.False(
+            File.Exists(Path.Combine([Repository.Root.FullName, .. DevbookUi.Split('/'), moved])),
+            $"{moved} is back in the Devbook UI project; it belongs in Backlog.Infrastructure.Devbook.");
+        Assert.True(File.Exists(Path.Combine(chapters, moved)), $"{moved} is not in Backlog.Infrastructure.Devbook/Chapters.");
+    }
+
     private static IEnumerable<(string RelativePath, string Text)> SourceFiles(string root, string pattern)
     {
         var folder = new DirectoryInfo(Path.Combine([Repository.Root.FullName, .. root.Split('/')]));
