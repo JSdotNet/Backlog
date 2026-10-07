@@ -4,7 +4,7 @@ using Backlog.Infrastructure.AzureFoundry.Dashboard;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Infrastructure.AzureFoundry.UnitTests;
 
 /// <summary>
 /// What a host gets for calling <c>AddAzureFoundryDashboardAdapters()</c>: the

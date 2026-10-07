@@ -80,7 +80,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
-    <ProjectReference Include="..\..\src\Harness\Backlog.AzureFoundry.TestService\Backlog.AzureFoundry.TestService.csproj" />
     <!-- The desktop web harness. Referencing a harness from a test project is
          allowed; only shipping projects under src/ may not
          (HarnessIsNotDeployedTests). -->
@@ -125,7 +124,6 @@
        from tests/Directory.Build.props: a double that implements a product
        interface only compiles in a project that references it. -->
   <ItemGroup>
-    <Compile Include="..\Shared\TestDoubles\RecordingHandler.cs" Link="Shared\TestDoubles\RecordingHandler.cs" />
     <Compile Include="..\Shared\TestDoubles\RecordingTelemetry.cs" Link="Shared\TestDoubles\RecordingTelemetry.cs" />
     <Compile Include="..\Shared\TestDoubles\StubAzureFoundryChatClient.cs" Link="Shared\TestDoubles\StubAzureFoundryChatClient.cs" />
     <Compile Include="..\Shared\TestDoubles\StubGitHubClient.cs" Link="Shared\TestDoubles\StubGitHubClient.cs" />

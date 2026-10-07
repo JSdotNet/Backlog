@@ -7,7 +7,7 @@ using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
 using Polly.Timeout;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Infrastructure.AzureFoundry.UnitTests;
 
 public sealed class AzureFoundrySettingsStoreTests : IDisposable
 {

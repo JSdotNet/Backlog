@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+    <InternalsVisibleTo Include="Backlog.Infrastructure.AzureFoundry.UnitTests" />
   </ItemGroup>
 
 </Project>
