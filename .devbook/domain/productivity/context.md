@@ -11,7 +11,8 @@ person using it, and owns none of the work it measures.
 Inside the boundary: the productivity ledger and the summaries read off it, and
 the choices that shape how a week is read. These are the reader's own working
 week, which follows them between devices, and when their weekly assistant
-allowance resets, which stays on each device.
+allowance resets, which stays on each device. The monthly budget for each
+assistant's spend is one of them too, and it also stays on each device.
 
 Outside it: task work, repository state, and completion decisions, which
 [Tasks](../tasks/domain.md#task) and
@@ -142,6 +143,41 @@ week back to detection. Stored per device beside the working week. Unlike the
 working week, nothing syncs it, so `scope: user` is only the nearest rung the
 vocabulary offers: the same reader on a second machine starts again unset.
 
+## Monthly spend budget
+
+```meta
+status: draft
+type: setting
+key: spend-budgets.json
+scope: user
+default: no budget for any provider
+related: [.devbook/domain/productivity/features.md#spend-against-a-monthly-budget, .devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/features.md#personal-productivity-dashboard]
+```
+
+How much the reader means to spend on each assistant in a calendar month. There is
+one amount for each spend provider: Claude (Anthropic), GitHub Copilot and the Azure
+AI Foundry resource. Each amount stands alone, because the providers' figures differ
+in kind and possibly in currency, and one budget across all three would compare
+unlike amounts.
+
+The dashboard sets each provider's spend so far against its budget, and draws the
+budget line on the spend chart. A provider projected past its budget by the end of
+the month is listed under
+[What needs you](features.md#what-needs-you). The projection is described in
+[Spend against a monthly budget](features.md#spend-against-a-monthly-budget).
+
+Per value:
+
+- **An amount** sets that provider's budget for every month until the reader
+  changes it.
+- **Empty**, which is how it ships, means that provider has no budget. Its card
+  shows the spend without a budget to set it against, and it never appears in
+  What needs you.
+
+Set in Dashboard settings and stored per device beside the weekly usage reset.
+Like the reset, nothing syncs it, so `scope: user` is the nearest rung the
+vocabulary offers: the same reader on a second machine starts with no budgets.
+
 ## AI usage metrics
 
 ```meta
@@ -164,4 +200,4 @@ default: on
 related: [".devbook/domain/productivity/features.md#personal-productivity-dashboard"]
 ```
 
-Turning it on opens the full-screen dashboard of the reader's productivity and what their assistants cost from the app chrome. On by default and marked `DEV`. The key is `DashboardFeatures.Dashboard` in the Dashboard module; the string is unchanged from when it lived on `MonitoringFeatures`, so nobody's switched-off dashboard came back. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the dashboard leaves `DEV`.
+Turning it on lets the reader open the full-screen dashboard of their productivity and what their assistants cost from the app chrome. The dashboard is six tabs and opens on the Overview every time; [Six tabs and what each answers](features.md#six-tabs-and-what-each-answers) says what each holds. On by default and marked `DEV`. The key is `DashboardFeatures.Dashboard` in the Dashboard module; the string is unchanged from when it lived on `MonitoringFeatures`, so nobody's switched-off dashboard came back. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the dashboard leaves `DEV`.

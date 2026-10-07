@@ -98,13 +98,145 @@ narrowing has to stay visible to the person reading the numbers.
 type: feature
 status: draft
 feature-flag: .devbook/domain/productivity/context.md#dashboard
-setting: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/productivity/context.md#weekly-usage-reset]
+setting: [.devbook/domain/productivity/context.md#working-week, .devbook/domain/productivity/context.md#weekly-usage-reset, .devbook/domain/productivity/context.md#monthly-spend-budget]
 related: [.devbook/domain/monitoring/features.md#multi-layer-dashboards]
 ```
 
 Expose productivity trends as personal insight rather than team performance
 reporting. The view shows patterns and evidence while preserving the user's
 control over interpretation.
+
+The dashboard is one pane of six tabs. The Overview answers "how is it going, and
+what needs me?" in one screen. The other five tabs each answer one question in
+depth. A person can also read the last finished week as a short brief instead of
+as charts.
+
+### Six tabs and what each answers
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/features.md#spend-against-a-monthly-budget, .devbook/domain/productivity/features.md#the-weekly-brief]
+```
+
+The pane holds six tabs, in this order:
+
+| Tab | What it answers | What it holds |
+| --- | --- | --- |
+| Overview | How is it going, and what needs me? | The headline tiles, the main charts and [What needs you](#what-needs-you) |
+| Productivity | How much did I ship, and how much came back? | Pull requests merged and issues closed over time, and rework after review |
+| Tasks | Is the planned work getting done, and will each plan land? | The task figures, the [roadmap timeline](#whether-each-plan-will-land-in-its-window), and tasks and story points completed per week |
+| Sessions | When and how long did the agents work? | Sessions and agent-active hours per week, the hour grid, the longest sessions, and [what the sessions cost and shipped](#what-the-sessions-cost-and-shipped) |
+| Devbook | Which devbook units have drifted from their code? | [Drift at a glance](#drift-at-a-glance) |
+| Cost | What are my assistants costing this month? | [Spend against a monthly budget](#spend-against-a-monthly-budget) |
+
+The task figures on the Tasks tab are tasks completed, story points done, the pace
+in use, the items in the window, the planned effort, and the work still to do.
+
+The pane opens on the Overview every time, and it does not remember which tab was
+selected. Nothing on the dashboard outlives the pane being closed: the scope, the
+window and the folded sections are already forgotten when it closes, and the tab is
+no exception.
+
+Three controls narrow what the tabs show. The repository chips stay in the shell
+header. The Machine select and the Window toggle sit in the pane header, because only
+the dashboard reads them. The Devbook tab says that the window and the machine do not
+apply to it.
+
+Each headline figure carries a delta against the previous window of the same length.
+A figure over a window of N weeks is compared with the N weeks just before it, so the
+person sees which way it moved without choosing a second period.
+
+### What needs you
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers, .devbook/domain/productivity/features.md#drift-at-a-glance, .devbook/domain/productivity/features.md#whether-each-plan-will-land-in-its-window, .devbook/domain/productivity/features.md#spend-against-a-monthly-budget]
+```
+
+The Overview opens with five headline tiles:
+
+- pull requests merged;
+- story points done, out of those planned;
+- agent-active time;
+- spend this month, out of the monthly budget;
+- devbook drift issues open.
+
+The spend tile gives each provider its own line, with that provider's spend set
+against that provider's budget. It never adds the providers into one total, for the
+reason [Spend against a monthly budget](#spend-against-a-monthly-budget) gives.
+
+Below the tiles come throughput, the roadmap against its pace, Needs you, spend by
+model, and [hours worked](#hours-worked).
+
+```mermaid
+flowchart LR
+  D[Devbook tab: a unit failed to sync or conflicts] --> N[Needs you on the Overview]
+  T[Tasks tab: a plan is Behind] --> N
+  C[Cost tab: a provider will pass its budget] --> N
+  P[Productivity tab: rework above a quarter] --> N
+  N --> B[Carrying into next week, in the weekly brief]
+```
+
+Needs you lists what the person should look at, in this order:
+
+1. Devbook units whose drift issue carries `sync-failed`, or whose last verdict is
+   conflict.
+2. Roadmap items whose outlook is Behind.
+3. Providers projected to pass their monthly budget by the end of the month.
+4. Rework, when the pull requests that came back after review are more than 25% of
+   those merged in the window.
+
+Each item has a title, a one-line detail and a link to its tab. The list only points;
+the tab holds the evidence. When nothing qualifies, the list says "Nothing needs you."
+
+### Spend against a monthly budget
+
+```meta
+type: sub-feature
+status: draft
+setting: [.devbook/domain/productivity/context.md#monthly-spend-budget]
+related: [.devbook/domain/productivity/features.md#ai-vendor-usage-import, .devbook/domain/productivity/features.md#what-needs-you]
+```
+
+Show what each assistant has cost this month, and whether it will stay inside the
+budget the person set for it. The spend providers are Claude (Anthropic), GitHub
+Copilot and the Azure AI Foundry resource.
+
+Each provider has its own monthly budget, set in Dashboard settings. An empty budget
+means that provider has none. The dashboard projects each provider's month-end spend
+as its spend so far this month, plus its average daily spend over the last 7 days
+times the days left in the month.
+
+The Cost tab holds one card per provider. A card shows the spend so far out of the
+budget, with a marker where the projected month-end spend falls. Below the cards, a
+chart draws spend over time, either cumulative or per day. It draws the budget line,
+and it draws the projected days to the end of the month faded, so a projection never
+reads as spend that happened. The tab ends with spend by model: each model's share,
+its input and output tokens, and its spend.
+
+Each provider's spend stays on its own and is never summed into one total. The
+figures differ in kind, because one provider calls its figure an estimate and another
+reports what it charged, and they may be in different currencies. No provider reports
+spend per repository, so the repository chips do not narrow spend.
+
+### The weekly brief
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/productivity/features.md#what-needs-you, .devbook/domain/productivity/features.md#six-tabs-and-what-each-answers]
+```
+
+Read the last finished week as a few sentences rather than as charts. The brief
+covers the last completed week, Monday to Sunday, and links to the week before it.
+The person reaches it from the "Read as brief" link on the tab strip.
+
+The brief has one block each for Shipping, Plan, Sessions and Cost. Each block opens
+with a headline sentence built from a template, adds one supporting sentence, and
+shows its figure and a small chart. It closes with "Carrying into next week", which
+holds the items of [What needs you](#what-needs-you).
 
 ### What the sessions cost and shipped
 
@@ -114,8 +246,8 @@ status: draft
 related: [.devbook/domain/sessions/features.md#what-a-session-cost-and-what-it-shipped]
 ```
 
-As of 2026-09-23 the assistant-sessions part also reads what the session records
-carry beyond time: **output tokens**, per usage week and cut by model or by repository,
+This part sits on the Sessions tab. Beside time, it reads what the session records
+carry: **output tokens**, per usage week and cut by model or by repository,
 and **pull requests linked**, per week and by the repository each lives in — counted
 once however many sessions linked one. Both are charts of their own rather than lines
 on the hours chart, because a count of tokens and a count of hours are two measures.
@@ -138,7 +270,7 @@ related: [.devbook/domain/productivity/requirements.md#hours-worked, .devbook/do
 ```
 
 Show how long the person actually worked, and how much of it fell outside the
-hours they meant to work. The Hours worked part of the dashboard shows, per day
+hours they meant to work. The Hours worked chart on the Overview shows, per day
 and per week over the period the dashboard's selector picks, the person's
 [actual hours](../roadmap/domain.md#actual-hours). It splits them into the time
 **inside** and **outside** their [office hours](domain.md#office-hours), and sets
@@ -164,20 +296,20 @@ related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter, .d
 ```
 
 Show how far each repository's devbook has drifted from its code, without opening a
-chapter. The Drift at a glance part of the dashboard lists every sync unit a devbook
-sweep has verified, grouped by the direction the unit goes — push, pull, sync,
-report, or off — each with the last verdict the sweep reached on it, what the sweep
-did about it, and when. A verdict leads to the pull request or drift issue the sweep
-opened. Below the units it lists the `devbook-drift` issues still open, those
+chapter. This part is the Devbook tab. It lists every sync unit a devbook sweep has
+verified, grouped by the direction the unit goes — push, pull, sync, report, or off —
+each with the last verdict the sweep reached on it, what the sweep did about it, and
+when. The units that need a look come first, and the aligned units are folded away.
+A verdict leads to the pull request or drift issue the sweep opened. Below the units it lists the `devbook-drift` issues still open, those
 labelled `sync-failed` first: a sweep tried that unit, did not finish, and will not
 try again until a person clears the label. A unit whose drift issue carries the
 label is marked in its row too.
 
 The direction is the one the sweep read when it verified the unit, so a group is
 also the sweep that owns its units. A unit no sweep has verified is not listed.
-The repository chips narrow the part; the window and the machine do not, because a
-verdict is the latest a sweep left and an issue is open now. The verdicts are this
-machine's and the issues are GitHub's, and either shows without the other: issues
+The repository chips narrow the tab. The window and the machine do not, because a
+verdict is the latest a sweep left and an issue is open now, and the tab says so.
+The verdicts are this machine's and the issues are GitHub's, and either shows without the other: issues
 that cannot be read leave the units standing and say why.
 
 ### Whether each plan will land in its window
@@ -191,10 +323,13 @@ tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:
 ```
 
 See, without opening the roadmap, which plans will land inside the window they
-were given. The Roadmap part of the dashboard lists the plans whose window overlaps
+were given. The Tasks tab draws the roadmap as a week-by-week timeline, which
+replaces the table it used to be. The timeline holds the plans whose window overlaps
 the weeks the selector picks, together with every plan whose window is still sized
 by its effort. Each plan says how its work stands: finished, on track, behind,
-overdue, not sized, or with no pace to read it at.
+overdue, not sized, or with no pace to read it at. The Overview's roadmap chart sets
+the same plans against their pace, and a plan that is behind is listed under
+[What needs you](#what-needs-you).
 
 A plan placed by hand or by its due date is projected one repository part at a
 time, the same parts [Placing a plan in time](../roadmap/features.md#placing-a-plan-in-time)
