@@ -444,6 +444,27 @@ public sealed record AssistantSessionsInsight(
     /// </summary>
     public IReadOnlyList<WeeklyBand> PullRequestsByRepository { get; init; } = [];
 
+    /// <summary>
+    /// <see cref="ActiveTime"/> over the window of the same length just before this
+    /// one, on the same machines — or null when that window reaches further back than
+    /// the sources were read.
+    /// <para>
+    /// Swept from the reading already in hand rather than from a second one, and that
+    /// is what makes it null for twelve weeks. Both sources are read back to
+    /// <c>DashboardScope.Horizon</c>, twelve weeks, so four weeks has its previous four
+    /// inside the reading and twelve weeks has its previous twelve entirely outside it.
+    /// Reading further back would cost a second parse of every transcript for one
+    /// comparison, and the Sessions context does not promise to keep records that old
+    /// anyway — a figure swept from a history that may have been pruned would compare
+    /// a full window against a partial one and call the difference a trend.
+    /// </para>
+    /// <para>
+    /// Null rather than zero, because zero is a reading — no agent worked — and a tile
+    /// would draw it as "up from nothing".
+    /// </para>
+    /// </summary>
+    public TimeSpan? PreviousActiveTime { get; init; }
+
     public static AssistantSessionsInsight Empty { get; } =
         new(0, TimeSpan.Zero, null, 0, false, [], []) { SessionsPerWeek = [] };
 }

@@ -1193,6 +1193,77 @@ public class SessionInsightsTests
     }
 
     /// <summary>
+    /// Four weeks opens at midnight on 22 July, so the four before it run from 24 June
+    /// to that midnight. A run across the edge is split at it, an hour to each side, on
+    /// the same clipping every other figure here uses — and nothing is read again: the
+    /// twelve weeks already in hand cover both windows.
+    /// </summary>
+    [Fact]
+    public async Task Four_weeks_carries_the_agent_active_time_of_the_four_before_it()
+    {
+        var earlier = (new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero));
+        var across = (new DateTimeOffset(2026, 7, 21, 23, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 7, 22, 1, 0, 0, TimeSpan.Zero));
+        var tooEarly = (new DateTimeOffset(2026, 6, 23, 10, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 23, 15, 0, 0, TimeSpan.Zero));
+        var recent = (Now.AddDays(-1), Now.AddDays(-1).AddHours(1));
+
+        var activity = Activity(
+            Ran("earlier", Tower, "Claude", earlier),
+            Ran("across", Tower, "Claude", across),
+            Ran("too-early", Tower, "Claude", tooEarly),
+            Ran("recent", Tower, "Claude", recent));
+
+        var source = new StubAssistantSessionSource();
+        var insights = Insights(source, activity);
+
+        var four = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
+
+        Assert.Equal(TimeSpan.FromHours(2), four.ActiveTime);
+        Assert.Equal(TimeSpan.FromHours(3), four.PreviousActiveTime);
+        Assert.Equal(1, activity.Calls);
+        Assert.Equal(1, source.Calls);
+    }
+
+    /// <summary>The previous window follows the machine filter exactly as the tile
+    /// beside it does, or the comparison would set one machine against all of them.</summary>
+    [Fact]
+    public async Task The_previous_agent_active_time_follows_the_machine_filter()
+    {
+        var earlier = (new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero));
+
+        var insights = Insights(
+            new StubAssistantSessionSource(),
+            Activity(
+                Ran("tower", Tower, "Claude", earlier),
+                Ran("laptop", Laptop, "Claude", earlier)));
+
+        var all = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        var tower = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks, MachineId: Tower));
+
+        Assert.Equal(TimeSpan.FromHours(4), all.PreviousActiveTime);
+        Assert.Equal(TimeSpan.FromHours(2), tower.PreviousActiveTime);
+    }
+
+    /// <summary>
+    /// Twelve weeks' previous twelve lie wholly before the horizon the sources were read
+    /// to, so there is no figure — not a zero, which would read as an agent that never
+    /// worked, and not a second read, which would parse every transcript again for one
+    /// comparison.
+    /// </summary>
+    [Fact]
+    public async Task Twelve_weeks_has_no_previous_agent_active_time_because_it_was_never_read()
+    {
+        var older = (Now.AddDays(-100), Now.AddDays(-100).AddHours(1));
+        var activity = Activity(Ran("old", Tower, "Claude", older));
+
+        var twelve = await ValueOf(
+            Insights(new StubAssistantSessionSource(), activity),
+            new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+
+        Assert.Null(twelve.PreviousActiveTime);
+        Assert.Equal(1, activity.Calls);
+    }
+
+    /// <summary>
     /// The property the horizon exists for. Moving the period control derives again over
     /// the reading already in hand; it does not send the expensive source back to the
     /// disk, which is the whole reason the horizon is a constant rather than the scope's

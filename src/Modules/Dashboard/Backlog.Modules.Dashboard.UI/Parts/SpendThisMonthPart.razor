@@ -12,6 +12,10 @@
     would say which part. So each tile says whose it is and whether it is
     estimated, and the reader does the addition knowing that.
 
+    Each tile is compared with the same days of last month rather than the whole of
+    it, because this month is not over, and spend going up is the worse direction.
+    Copilot reports a month as one entry and so has no comparison.
+
     The meter appears only for a provider that reported a discount, which today
     means Copilot: GitHub says how much of the month's consumption the plan already
     covered, so value-against-consumed is a real ratio. Anthropic and Azure report
@@ -34,6 +38,7 @@
                     <MetricTile Label="@Name(provider.Provider)"
                                 Value="@MetricFormat.Money(new MoneyAmount(provider.Spend.Amount, provider.Spend.Currency))"
                                 Emphasis="@(provider.Provider == SpendProvider.Claude)"
+                                Delta="@DashboardFormat.ShareDelta(provider.Spend.Amount, provider.PreviousSpend?.Amount, "same days last month", higherIsBetter: false)"
                                 Footnote="@Footnote(provider)"
                                 TestId="@($"dashboard-spend-month-{Slug(provider.Provider)}")" />
                 }
