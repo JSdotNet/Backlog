@@ -217,6 +217,115 @@ public class TaskInsightsTests
         Assert.Equal(PlanOutlook.OnTrack, only.Outlook);
     }
 
+    /// <summary>Monday 12 October 2026, the day the per-part scenarios start on.</summary>
+    private static readonly DateTimeOffset MondayTwelfth = new(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
+
+    /// <summary>
+    /// A hand-placed item, 12–16 October, with 8 open points in <c>app</c> at 8 a week and
+    /// 4 in <c>site</c> at 4 a week, the <c>site</c> work waiting on the <c>app</c> work.
+    /// Each part is projected at its own pace — <c>app</c> 12–16 October, then <c>site</c>
+    /// 19–23 October — and the item is judged on the latest part end. The lowest pace
+    /// across both would have put all 12 points at 4 a week, to 30 October.
+    /// </summary>
+    [Fact]
+    public async Task An_item_in_several_repositories_is_projected_part_by_part_and_judged_on_the_latest_part_end()
+    {
+        var plan = new StubPlanSource(Item(
+            "Item",
+            start: new DateOnly(2026, 10, 12),
+            end: new DateOnly(2026, 10, 16),
+            totalEffort: 12,
+            parts:
+            [
+                new PlanPartProgress("app", 8, 8m, []),
+                new PlanPartProgress("site", 4, 4m, [0])
+            ]));
+
+        var result = await Insights(plan, MondayTwelfth).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        var only = Assert.Single(result.Value!.Items);
+        Assert.Equal(PlanOutlook.Behind, only.Outlook);
+        Assert.Equal(new DateOnly(2026, 10, 23), only.ProjectedEnd);
+    }
+
+    /// <summary>Parts that wait on nothing run side by side from today: 8 points at 8 a
+    /// week and 4 at 4 a week both land on Friday 16 October.</summary>
+    [Fact]
+    public async Task Parts_that_wait_on_nothing_are_projected_side_by_side_from_today()
+    {
+        var plan = new StubPlanSource(Item(
+            "Item",
+            start: new DateOnly(2026, 10, 12),
+            end: new DateOnly(2026, 10, 16),
+            totalEffort: 12,
+            parts:
+            [
+                new PlanPartProgress("app", 8, 8m, []),
+                new PlanPartProgress("site", 4, 4m, [])
+            ]));
+
+        var result = await Insights(plan, MondayTwelfth).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        var only = Assert.Single(result.Value!.Items);
+        Assert.Equal(PlanOutlook.OnTrack, only.Outlook);
+        Assert.Equal(new DateOnly(2026, 10, 16), only.ProjectedEnd);
+    }
+
+    /// <summary>A part with nothing left takes no time, but what waits on it still waits
+    /// on what it waited on: <c>docs</c> waits on <c>site</c>, which has nothing left and
+    /// waited on <c>app</c>, so <c>docs</c> runs 19–23 October.</summary>
+    [Fact]
+    public async Task A_part_with_nothing_left_passes_its_own_waits_on_to_what_waits_on_it()
+    {
+        var plan = new StubPlanSource(Item(
+            "Item",
+            start: new DateOnly(2026, 10, 12),
+            end: new DateOnly(2026, 10, 30),
+            totalEffort: 16,
+            doneEffort: 4,
+            parts:
+            [
+                new PlanPartProgress("app", 8, 8m, []),
+                new PlanPartProgress("site", 0, 4m, [0]),
+                new PlanPartProgress("docs", 4, 4m, [1])
+            ]));
+
+        var result = await Insights(plan, MondayTwelfth).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        var only = Assert.Single(result.Value!.Items);
+        Assert.Equal(PlanOutlook.OnTrack, only.Outlook);
+        Assert.Equal(new DateOnly(2026, 10, 23), only.ProjectedEnd);
+    }
+
+    /// <summary>There is no pace to project at only when no part with work left has one;
+    /// a part with no pace otherwise counts nothing, as an unestimated entry does.</summary>
+    [Theory]
+    [InlineData(0, 4, PlanOutlook.OnTrack, "2026-10-16")]
+    [InlineData(0, 0, PlanOutlook.NoPace, null)]
+    public async Task There_is_no_pace_only_when_no_part_with_work_left_has_one(
+        int appPace,
+        int sitePace,
+        PlanOutlook expected,
+        string? projected)
+    {
+        var plan = new StubPlanSource(Item(
+            "Item",
+            start: new DateOnly(2026, 10, 12),
+            end: new DateOnly(2026, 10, 16),
+            totalEffort: 12,
+            parts:
+            [
+                new PlanPartProgress("app", 8, appPace, []),
+                new PlanPartProgress("site", 4, sitePace, [])
+            ]));
+
+        var result = await Insights(plan, MondayTwelfth).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        var only = Assert.Single(result.Value!.Items);
+        Assert.Equal(expected, only.Outlook);
+        Assert.Equal(projected is null ? null : DateOnly.Parse(projected, CultureInfo.InvariantCulture), only.ProjectedEnd);
+    }
+
     [Fact]
     public async Task The_plan_totals_add_up_the_items_in_scope()
     {
@@ -254,6 +363,8 @@ public class TaskInsightsTests
 
     private static TaskInsights Insights(IPlanProgressSource plan) => new(new StubSource(), plan, new FakeTimeProvider(Now));
 
+    private static TaskInsights Insights(IPlanProgressSource plan, DateTimeOffset now) => new(new StubSource(), plan, new FakeTimeProvider(now));
+
     private static PlanItemProgress Item(
         string title,
         DateOnly? start = null,
@@ -265,7 +376,8 @@ public class TaskInsightsTests
         bool finished = false,
         DateOnly? lastCompletedOn = null,
         decimal pace = 7m,
-        bool placedByEffort = false) =>
+        bool placedByEffort = false,
+        PlanPartProgress[]? parts = null) =>
         new(
             Guid.NewGuid(),
             title,
@@ -279,7 +391,7 @@ public class TaskInsightsTests
             unestimated,
             finished,
             lastCompletedOn,
-            pace,
+            parts ?? [new PlanPartProgress(null, Math.Max(0, totalEffort - doneEffort), pace, [])],
             placedByEffort);
 
     private static CompletedTask Ticked(int year, int month, int day, int? effort, params string[] aliases) =>

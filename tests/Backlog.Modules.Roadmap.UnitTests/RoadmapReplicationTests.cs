@@ -189,6 +189,46 @@ public sealed class RoadmapReplicationTests
         Assert.Equal(2, local);
     }
 
+    /// <summary>A pulled plan is written only while no writer of this process holds the
+    /// plan. Written in the middle of one — the keep-up writer gathering the backlog — it
+    /// would be saved over from the copy that writer loaded before it arrived, and the
+    /// next push would carry the loss back to the device it came from.</summary>
+    [Fact]
+    public async Task A_pulled_plan_waits_for_the_writer_holding_the_plan_and_is_then_taken()
+    {
+        var store = new FakeReplicaStore(RoadmapReplicaDocument.Plan) { Stored = new RoadmapReplicaCopyDto("local", Morning) };
+        var gate = new RoadmapPlanGate();
+        var replication = new RoadmapReplication([store], new RoadmapPlanChanges(), gate: gate);
+
+        var writer = await gate.EnterAsync(Cancellation);
+        var pulled = replication.ApplyAsync(
+            RoadmapReplicaDocument.Plan, new RoadmapReplicaCopyDto("remote", Morning.AddMinutes(1)), Cancellation);
+
+        Assert.False(pulled.IsCompleted);
+        Assert.Equal(0, store.Writes);
+
+        writer.Dispose();
+
+        Assert.Equal(RoadmapReplicaOutcome.Taken, await pulled);
+        Assert.Equal("remote", store.Stored!.Content);
+    }
+
+    /// <summary>The gate is the plan's: a pace copy is a document of its own, which no
+    /// plan writer loads and saves, so it is taken while one holds the plan.</summary>
+    [Fact]
+    public async Task A_pulled_pace_does_not_wait_for_a_writer_of_the_plan()
+    {
+        var store = new FakeReplicaStore(RoadmapReplicaDocument.Pace);
+        var gate = new RoadmapPlanGate();
+        var replication = new RoadmapReplication([store], new RoadmapPlanChanges(), gate: gate);
+
+        using var writer = await gate.EnterAsync(Cancellation);
+        var outcome = await replication.ApplyAsync(
+            RoadmapReplicaDocument.Pace, new RoadmapReplicaCopyDto("""{"storyPointsPerWeek":5}""", Morning), Cancellation);
+
+        Assert.Equal(RoadmapReplicaOutcome.Taken, outcome);
+    }
+
     /// <summary>ADR 0018, Consequences: the roadmap's first load follows a pull, so a
     /// device never draws — and saves over — the plan it held before the other PC's
     /// edit arrived. The read waits for the host's catch-up, then loads.</summary>

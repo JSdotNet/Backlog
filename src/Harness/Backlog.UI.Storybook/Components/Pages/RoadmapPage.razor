@@ -222,12 +222,14 @@ The content is announced, inside a group named for its band, and a Tab reaches i
     </Story>
 
     <Story Name="A plan handed over between repositories, and drawing what waits"
-           Description="How the app draws a plan whose tasks hand over from one repository to another: backlog's part first, then web's part that waits on it, then backlog again. Each segment is one repository's share of one phase, the window shared out by effort, and the arrows between them are the task dependencies that cross a repository — a wait inside one repository stays that segment's own business.
+           Description="How the app draws a plan whose tasks hand over from one repository to another: backlog's part first, then web's part that waits on it, then backlog again. Each segment is one repository's part of one phase, placed at that repository's own pace after the segments it waits on, and the arrows between them are the task dependencies that cross a repository — a wait inside one repository stays that segment's own business.
 
-With `OnLinkCreated` set, every bar offers a dot past its end. Drag it onto another bar or a date and that one waits for it; the chart proposes the link and the host decides whether it stands, so the arrow appears when this page hands it back. Escape abandons the gesture."
+With `OnLinkCreated` set, every bar offers a dot past its end. Drag it onto another bar or a date and that one waits for it; the chart proposes the link and the host decides whether it stands, so the arrow appears when this page hands it back. Escape abandons the gesture.
+
+Moving one segment moves the whole plan, as the app does, so the dates the segment landed on are not the news. `DroppedAt` hands back the window the plan lands on, and the drop is read out at that window rather than at the segment's own dates. Grab a Release segment with Space, move it a week with an arrow key and drop it with Space: every segment moves, and the announcement and the line below name the plan's new window."
            Code="@HandOverCode">
         <RoadmapTimeline Groups="@HandOverPlan"
-                         Bars="@HandOverBars"
+                         Bars="@_handOverBars"
                          Milestones="@HandOverMilestones"
                          Links="@_handOverLinks"
                          Title="Release across repositories"
@@ -236,8 +238,11 @@ With `OnLinkCreated` set, every bar offers a dot past its end. Drag it onto anot
                          ShowFilters="false"
                          ShowSteps="false"
                          OnLinkCreated="AddHandOverLink"
+                         OnBarChanged="MoveHandOver"
+                         DroppedAt="HandOverDroppedAt"
                          TestId="hand-over" />
         <p class="sb-state" data-testid="hand-over-last-link">Last link: @(_lastLink ?? "(none)")</p>
+        <p class="sb-state" data-testid="hand-over-last-drop">Last drop: @(_lastDrop ?? "(none)")</p>
     </Story>
 
     <Story Name="The working week on the axis, date by date"
@@ -795,7 +800,7 @@ Every action is a real button named for its plan, and the shelf is a region name
         new("web", "web", [new("web::planned", "Planned")], "var(--color-band-2)")
     ];
 
-    private static readonly RoadmapBar[] HandOverBars =
+    private RoadmapBar[] _handOverBars =
     [
         new("release@backlog#1", "backlog::planned", "Release", On(2, 2), On(2, 27), 1,
             Detail: "one of 3 parts, handed over between repositories"),
@@ -817,6 +822,41 @@ Every action is a real button named for its plan, and the shelf is a region name
 
     private string? _lastLink;
 
+    private string? _lastDrop;
+
+    /// <summary>The plan a bar id names: the part before its repository, <c>release</c> for
+    /// <c>release@web#2</c>.</summary>
+    private static string PlanOf(string barId) => barId.Split('@')[0];
+
+    /// <summary>Where the plan a dropped segment belongs to lands: each edge of the window its
+    /// segments are drawn over moves as far as that edge of the segment did, the way the
+    /// app's band measures it.</summary>
+    private (DateOnly Start, DateOnly End) HandOverDroppedAt(RoadmapChange change)
+    {
+        var bar = _handOverBars.Single(candidate => candidate.Id == change.BarId);
+        var plan = _handOverBars.Where(candidate => PlanOf(candidate.Id) == PlanOf(bar.Id)).ToList();
+
+        return (
+            plan.Min(segment => segment.Start).AddDays(change.Start.DayNumber - bar.Start.DayNumber),
+            plan.Max(segment => segment.End).AddDays(change.End.DayNumber - bar.End.DayNumber));
+    }
+
+    /// <summary>What this page does with a dropped segment: a move carries every segment of
+    /// its plan by as much, a resize changes the segment alone.</summary>
+    private void MoveHandOver(RoadmapChange change)
+    {
+        var bar = _handOverBars.Single(candidate => candidate.Id == change.BarId);
+        var (start, end) = HandOverDroppedAt(change);
+        var days = change.Start.DayNumber - bar.Start.DayNumber;
+
+        _handOverBars = [.. _handOverBars.Select(segment =>
+            segment.Id == bar.Id ? change.ApplyTo(segment)
+            : change.Kind == RoadmapDrag.Move && PlanOf(segment.Id) == PlanOf(bar.Id)
+                ? segment with { Start = segment.Start.AddDays(days), End = segment.End.AddDays(days) }
+                : segment)];
+        _lastDrop = $"{bar.Title} now runs {start:d MMM} – {end:d MMM}";
+    }
+
     /// <summary>What a host does with a drawn link: decide, then hand it back. This
     /// page accepts every one; the app asks the plan, which refuses a cycle.</summary>
     private void AddHandOverLink(RoadmapLink link)
@@ -835,6 +875,11 @@ Every action is a real button named for its plan, and the shelf is a region name
 
         // Dropping the handle proposes a link; the host decides and hands it back
         void AddLink(RoadmapLink link) => links = [.. links, link];
+
+        // A segment is one part of the plan: say where the plan lands, and the drop is
+        // read out at that window instead of the segment's own dates
+        <RoadmapTimeline ... OnBarChanged="MoveAll" DroppedAt="PlanWindow" />
+        (DateOnly Start, DateOnly End) PlanWindow(RoadmapChange change) => ...;
         """;
 
     // --- The working week on the axis -----------------------------------------

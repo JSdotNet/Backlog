@@ -102,6 +102,7 @@
                                  SelectedId="@_selectedId"
                                  OnBarSelected="Select"
                                  OnBarChanged="Apply"
+                                 DroppedAt="DroppedAt"
                                  OnLinkCreated="LinkAsync"
                                  OnSlotActivated="PlaceHere"
                                  GroupContent="@BandPace"
@@ -153,7 +154,6 @@
                        Item="@_edited"
                        Placement="@_placement"
                        Rollup="@_rollup"
-                       Proposal="@_proposal"
                        CanUseForecast="@UseForecastOffered"
                        Repositories="@Configured()"
                        DependencyOptions="@DependencyOptions()"
@@ -161,7 +161,6 @@
                        OnSave="SaveAsync"
                        OnDelete="DeleteAsync"
                        OnDependencyChanged="ChangeDependencyAsync"
-                       OnUpdateFromTasks="UpdateFromTasksAsync"
                        OnUseForecast="UseForecastAsync" />
 
     <RoadmapMilestoneEditor @ref="_dateEditor"
@@ -247,7 +246,6 @@
     private RoadmapItemPlacement? _placement;
     private DateOnly? _placedOn;
     private RoadmapItemRollupDto _rollup = RoadmapItemRollupDto.Empty;
-    private RoadmapRelengthProposalDto? _proposal;
     private bool _editing;
 
     private RoadmapMilestoneEditor? _dateEditor;
@@ -358,8 +356,34 @@
         WorkChanges.Changed += OnWorkChanged;
         Paces.Changed += OnPaceSettingsChanged;
         _hoursShown = ViewPreferences.HoursShown;
+
+        // Opening the roadmap is one of the two moments the keep-up projection stores
+        // what it moved; the plan is read after it, so the bars are the stored windows.
+        await KeepUpWithWorkAsync();
         await Load();
         _loaded = true;
+    }
+
+    /// <summary>
+    /// Stores the window each item sized by its effort now makes from its unfinished work,
+    /// counted from the day this band draws as today (ADR 0013, ruling 5 as amended on
+    /// 2026-09-27). Run when the roadmap opens and when a task changes — never on a pace
+    /// change or a plan pulled from another PC, which only redraw (local ADR 0018).
+    /// <para>
+    /// A failure is logged, not shown: the plan still opens, drawn through the same rule
+    /// from what is stored, and the next open or task change stores it.
+    /// </para>
+    /// </summary>
+    private async Task KeepUpWithWorkAsync()
+    {
+        try
+        {
+            await Planning.KeepUpWithWorkAsync(Today ?? DateOnly.FromDateTime(DateTime.Today));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Log.LogWarning(exception, "The roadmap could not store the windows its effort-placed work now makes; it draws them from what is stored.");
+        }
     }
 
     /// <summary>
@@ -463,10 +487,10 @@
 
         var configured = Configured();
 
-        // Work in flight is drawn from the work: from when it began to when what is
-        // left should be done at the pace its band is placed at; a plan nobody started
-        // that is sized by its effort, to where that effort reaches at the same pace
-        // (RoadmapPlanView.AsDrawn).
+        // The plan is drawn the way the keep-up projection lays it out from today, one
+        // part per repository at that repository's pace: work in flight from the work, a
+        // plan sized by its effort from today or from what it waits on, and everything a
+        // person or a due date placed over its stored window (RoadmapPlanView.Layouts).
         // Every band's pace from one read of the finished work, not one read per band.
         var paces = await Paces.ReadPacesInUseAsync();
 
@@ -658,11 +682,6 @@
             // module port; the adapter behind it is the one thing allowed to read both
             // the backlog and the knowledge graph.
             _rollup = await Rollups.GatherAsync(item);
-
-            // Asked from the total the dialog is about to show, so "Update from tasks"
-            // is offered against the number the person is reading. Null — no offer —
-            // unless the window is still sized by effort and that total changes it.
-            _proposal = await Planning.ProposeWindowFromEffortAsync(item.Id, _rollup.TotalEffort);
             _edited = item;
             _editing = true;
             return;
@@ -679,7 +698,6 @@
     {
         // Nothing to gather for work that does not exist yet.
         _rollup = RoadmapItemRollupDto.Empty;
-        _proposal = null;
         _edited = null;
         _placement = null;
         _editing = true;
@@ -738,8 +756,8 @@
         if (open) return;
 
         _edited = null;
-        _proposal = null;
         _placement = null;
+        KeepUpHeldForTheEditor();
     }
 
     /// <summary>Everything in the plan an item could be told to wait for, itself
@@ -801,6 +819,7 @@
         _editing = false;
         _edited = null;
         await Load();
+        KeepUpHeldForTheEditor();
     }
 
     private async Task DeleteAsync(Guid itemId)
@@ -819,6 +838,7 @@
         _edited = null;
         _selectedId = null;
         await Load();
+        KeepUpHeldForTheEditor();
     }
 
     private async Task SaveDateAsync(RoadmapMilestoneSubmission submission)
@@ -910,39 +930,6 @@
         }
     }
 
-
-    /// <summary>
-    /// "Update from tasks", taken: the item's window re-lengthened from what its tasks
-    /// register now, by the rule a task-level re-import applies.
-    /// <para>
-    /// The dialog stays open either way, the way a dependency change keeps it open. A
-    /// refusal is shown where the button was. An accepted one puts the new dates in the
-    /// fields and names the work that now overlaps it — which the chart behind the
-    /// dialog cannot say while the dialog covers it, and which is the one thing the
-    /// person has to act on next. The offer is asked for again, so it goes once the
-    /// window matches.
-    /// </para>
-    /// </summary>
-    private async Task UpdateFromTasksAsync(RoadmapRelengthProposalDto proposal)
-    {
-        var result = await Planning.RelengthenFromEffortAsync(proposal.ItemId, proposal.GatheredEffort);
-
-        await Load();
-
-        _edited = _plan.Items.FirstOrDefault(item => item.Id == proposal.ItemId) ?? _edited;
-        _proposal = _edited is null
-            ? null
-            : await Planning.ProposeWindowFromEffortAsync(_edited.Id, _rollup.TotalEffort);
-
-        if (result.IsFailure)
-        {
-            _editor?.Refuse(result.Error.Message);
-            return;
-        }
-
-        _editor?.Relengthened(result.Value.Item, result.Value.NowOverlapping);
-    }
-
     /// <summary>
     /// A drag or a keyboard move, settled. The timeline has already snapped the
     /// dates to the week and told us where the bar landed; the plan decides whether
@@ -963,8 +950,9 @@
         // Started work has a start that is a fact and an end that is a forecast. Its
         // bar offers the end alone, and dragging it pins that end: the forecast stops
         // deciding it until the person hands it back ("Use forecast" in the editor).
-        // Nothing else about the item moves, so this is not a reschedule. An earlier
-        // segment of a hand-over moves the item's end as far as its own end was dragged.
+        // Nothing else about the item moves, so this is not a reschedule. A part that
+        // does not end last moves the item's end as far as its own end was dragged, and
+        // the pin then draws the part that ends latest to it.
         var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
         var rescheduled = bar is { Locked: true, EndResizable: true }
             ? await Planning.PinItemEndAsync(itemId.Value, RoadmapPlanView.PinnedEndFor(_view.Bars, bar, change))
@@ -976,6 +964,28 @@
         if (rescheduled.IsFailure) _error = rescheduled.Error.Message;
 
         await Load();
+    }
+
+    /// <summary>
+    /// Where the item a dropped bar belongs to lands, which is what the drop is read out at
+    /// — not the bar's own dates, which for one part of an item are not where the item went.
+    /// The same two readings <see cref="Apply"/> stores: a moved or resized bar moves the
+    /// item's window as far as it moved, and a pulled end of work in flight keeps the item's
+    /// drawn start and ends it on the pin.
+    /// </summary>
+    private (DateOnly Start, DateOnly End) DroppedAt(RoadmapChange change)
+    {
+        var itemId = RoadmapPlanView.NodeIdOf(change.BarId);
+        if (itemId is null) return (change.Start, change.End);
+
+        var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
+        if (bar is { Locked: true, EndResizable: true })
+        {
+            var drawnStart = RoadmapPlanView.ItemWindowFor(_view.Bars, bar, change with { Start = bar.Start }).Start;
+            return (drawnStart, RoadmapPlanView.PinnedEndFor(_view.Bars, bar, change));
+        }
+
+        return ItemWindowFor(change, itemId.Value);
     }
 
     private Task<global::Backlog.SharedKernel.Results.Result<RoadmapItemDto>> RescheduleAsync(RoadmapChange change, Guid itemId)
@@ -1006,29 +1016,29 @@
 
         _editing = false;
         _edited = null;
-        _proposal = null;
         await Load();
+        KeepUpHeldForTheEditor();
     }
 
     /// <summary>
     /// The item's own window, from where one of its bars was put.
     /// <para>
-    /// A bar may be one segment of an item whose tasks hand over between
-    /// repositories, and then its dates are a slice of the item's window rather than
-    /// the window itself. So what is carried over is how far each edge moved: dragging
-    /// a segment a week moves the whole item a week, and pulling a segment's end out
-    /// lengthens the item by as much. For a bar that is the whole item, the two readings
-    /// are the same.
+    /// A bar may be one repository's part of an item, and then its dates are part of the
+    /// item's window rather than the window itself. So what is carried over is how far
+    /// each edge moved: dragging a part a week moves the whole item a week, and pulling a
+    /// part's end out lengthens the item by as much. Measured from the window the item is
+    /// drawn over, not the one stored, which a layout from today may already have moved
+    /// (<see cref="RoadmapPlanView.ItemWindowFor"/>). For a bar that is the whole item,
+    /// the two readings are the same.
     /// </para>
     /// </summary>
     private (DateOnly Start, DateOnly End) ItemWindowFor(RoadmapChange change, Guid itemId)
     {
         var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
-        var item = _plan.Items.FirstOrDefault(candidate => candidate.Id == itemId);
 
-        return bar is null || item is null
+        return bar is null || RoadmapPlanView.NodeIdOf(bar.Id) != itemId
             ? (change.Start, change.End)
-            : RoadmapPlanView.ItemWindowFor(item, bar, change);
+            : RoadmapPlanView.ItemWindowFor(_view.Bars, bar, change);
     }
 
     /// <summary>
@@ -1080,9 +1090,10 @@
     private void OnPlanChanged() => ReloadForOutsideChange();
 
     /// <summary>A gathered task was written — a step marked done, a task-level import —
-    /// so the steps, the fill and the shelf are read again from what Tasks now
-    /// holds.</summary>
-    private void OnWorkChanged() => ReloadForOutsideChange();
+    /// so every item sized by its effort is laid out again from its unfinished work and
+    /// the windows that moved are stored, then the steps, the fill and the shelf are read
+    /// again from what Tasks now holds.</summary>
+    private void OnWorkChanged() => ReloadForOutsideChange(keepUp: true);
 
     /// <summary>
     /// A typed pace or a choice changed — in this band's own pace controls, in another
@@ -1095,10 +1106,11 @@
     /// read the backlog again for nothing — the stall after letting go of a slider.
     /// </para>
     /// <para>
-    /// A read, never a plan write. Those windows are derived where they are drawn
-    /// (<see cref="EffortWindow"/>), so the pace document is the only thing a pace
-    /// change writes — a plan saved here would carry a newer stamp to the other PCs and
-    /// overwrite an edit made there in the same interval (local ADR 0018).
+    /// A read, never a plan write. Those windows are drawn through the keep-up rule
+    /// (<see cref="RoadmapProjection"/>) and stored only on the next open or task change,
+    /// so the pace document is the only thing a pace change writes — a plan saved here
+    /// would carry a newer stamp to the other PCs and overwrite an edit made there in the
+    /// same interval (local ADR 0018).
     /// </para>
     /// </summary>
     private void OnPaceSettingsChanged()
@@ -1116,6 +1128,30 @@
     /// <summary>One more change arrived while it was.</summary>
     private bool _reloadAgain;
 
+    /// <summary>A task changed since the keep-up projection last stored what it moved.</summary>
+    private bool _keepUpAgain;
+
+    /// <summary>
+    /// An existing item is open in the editor, so the keep-up projection waits for the
+    /// dialog to close.
+    /// <para>
+    /// The editor's fields hold the window the item had when it opened. A keep-up stored
+    /// meanwhile would leave them behind the plan, and a Save of only the title would
+    /// send the old window back: a window that differs from the stored one is a hand
+    /// move, so the item would stop being effort-placed and never be kept up again. Held,
+    /// the Save compares against the window the fields were read from, and the keep-up
+    /// runs over what it stored (<see cref="KeepUpHeldForTheEditor"/>).
+    /// </para>
+    /// </summary>
+    private bool EditorHoldsAnItem => _editing && _edited is not null;
+
+    /// <summary>The item dialog closed — saved, deleted, handed back to the forecast or
+    /// cancelled — so a keep-up held while it was open runs now.</summary>
+    private void KeepUpHeldForTheEditor()
+    {
+        if (_keepUpAgain && !EditorHoldsAnItem) ReloadForOutsideChange();
+    }
+
     /// <summary>
     /// Reads the band again after a change made outside it.
     /// <para>
@@ -1123,9 +1159,16 @@
     /// and each write is heard: the changes that land during a reload are answered
     /// by one more reload after it, not by one each.
     /// </para>
+    /// <para>
+    /// With <paramref name="keepUp"/> — a task changed — the keep-up projection stores what
+    /// it moved before the plan is read. Its own save is heard as a plan change, which
+    /// only reads again, so nothing loops.
+    /// </para>
     /// </summary>
-    private void ReloadForOutsideChange() => InvokeAsync(async () =>
+    private void ReloadForOutsideChange(bool keepUp = false) => InvokeAsync(async () =>
     {
+        _keepUpAgain |= keepUp;
+
         if (_reloading)
         {
             _reloadAgain = true;
@@ -1138,6 +1181,12 @@
             do
             {
                 _reloadAgain = false;
+                if (_keepUpAgain && !EditorHoldsAnItem)
+                {
+                    _keepUpAgain = false;
+                    await KeepUpWithWorkAsync();
+                }
+
                 await Load();
                 StateHasChanged();
             }

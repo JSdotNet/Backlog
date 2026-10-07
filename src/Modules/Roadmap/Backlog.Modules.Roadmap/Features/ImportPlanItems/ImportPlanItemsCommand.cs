@@ -15,15 +15,19 @@ namespace Backlog.Modules.Roadmap.Features.ImportPlanItems;
 /// A person pressing Import is a person changing the plan, so this is a command like
 /// every other edit — not a reaction to anything Tasks published. The caller has
 /// already parsed the document and already written its tasks; it hands over the
-/// entries and, per tag, the effort those tasks registered, and nothing of the
-/// parser's crosses.
+/// entries and the tags those tasks were written under, and nothing of the parser's
+/// crosses. The work itself is read back through Roadmap's own gathering
+/// (<see cref="IRoadmapItemRollup"/>) — the one the roadmap draws from, with each task's
+/// repositories and waits — so the import lays an item out part by part exactly as
+/// the roadmap reads it (ADR 0013, ruling 3).
 /// </para>
 /// </summary>
 /// <param name="Entries">The document's plan-level entries, in document order.</param>
-/// <param name="GatheredEffort">Per plan tag, what the tasks under it registered. A
-/// tag absent from this gathered nothing. A tag here that no entry names still
-/// re-lengthens the item carrying it while that item is still effort-placed — a
-/// task-level re-import under an existing item (ADR 0013, ruling 5).</param>
+/// <param name="GatheredEffort">The plan tags the import wrote tasks under. A tag here
+/// that no entry names still lays out again the item carrying it while that item is
+/// still effort-placed — a task-level re-import under an existing item (ADR 0013,
+/// ruling 5). The effort each carries is not what places the window: the gathered work
+/// is.</param>
 /// <param name="CreateIfMissing">Entries to lay out only when no item carries their
 /// tag yet — the Import dialog's "Lay out on the roadmap" for a document that wrote
 /// no <c>plan</c> entry (ruling 3). An item already there is left to the
@@ -52,7 +56,9 @@ public sealed record ImportPlanItemsCommand(
 public sealed class ImportPlanItemsCommandHandler(
     IRoadmapPlanRepository plans,
     IPlanningVelocity velocity,
-    TimeProvider clock) : ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>>
+    IRoadmapItemRollup rollups,
+    TimeProvider clock,
+    RoadmapPlanGate gate) : ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>>
 {
     public async Task<Result<PlanImportResultDto>> Handle(
         ImportPlanItemsCommand command,
@@ -60,6 +66,7 @@ public sealed class ImportPlanItemsCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
         // Every pace read once: each item is placed at the pace of the repositories it
@@ -127,23 +134,18 @@ public sealed class ImportPlanItemsCommandHandler(
         }
 
         // Placement, predecessors first, so an item starts after what it waits on as
-        // that now stands — each at the pace of the repositories it is filed under,
-        // which Match has just set from the entry.
+        // that now stands — part by part, each repository's part at its own pace, over
+        // the work Tasks has just written. The whole plan's work is gathered once, after
+        // Match has set each item's tag and repositories from its entry.
         var effort = EffortByTag(command.GatheredEffort);
+        var gathered = await GatherAsync(plan, cancellationToken);
 
         foreach (var current in InDependencyOrder(touched))
         {
             var item = current.Item;
             if (item.PlacedByImport is null) continue; // moved by hand: kept, dates and all
 
-            var closes = plan.Nodes().ToDictionary(node => node.Id, node => node.Closes);
-            var start = ImportedPlanPlacement.StartAfter(item.Dependencies.All.Select(id => closes[id]), today);
-            var (window, placement) = ImportedPlanPlacement.Place(
-                start,
-                current.Entry.Due,
-                effort.GetValueOrDefault(item.Tag.Value),
-                paces.For(item.Scope.Aliases),
-                paces.Week);
+            var (window, placement) = Place(plan, item, current.Entry.Due, gathered, paces, today);
 
             var placed = plan.PlaceByImport(item.Id, window, placement);
             if (placed.IsFailure) return Result.Failure<PlanImportResultDto>(placed.Error);
@@ -154,7 +156,7 @@ public sealed class ImportPlanItemsCommandHandler(
             }
         }
 
-        var relengthened = Relengthen(plan, touched, effort, paces, scheduled);
+        var relengthened = Relengthen(plan, touched, effort.Keys, gathered, paces, today, scheduled);
 
         // A task-level import whose tags carry no item, or only hand-placed ones,
         // changed nothing — and a save that changes nothing is still a write the
@@ -192,26 +194,27 @@ public sealed class ImportPlanItemsCommandHandler(
     }
 
     /// <summary>
-    /// Re-lengthens the item each gathered tag names that no entry of this import
-    /// touched, while its window is still effort-placed (ADR 0013, ruling 5): the end is
-    /// recomputed from the newly gathered effort, counted in working hours through the
-    /// person's week, and the start stays — unless the week no longer works that day, when
-    /// it moves to the next worked day (local ADR 0019, §1). A due-date-placed
-    /// item keeps the end the person wrote; a hand-placed one is untouched. When several
-    /// items carry the tag, the first by creation order, as for an entry. Each at the
-    /// pace of the repositories that item is filed under.
+    /// Lays out again the item each gathered tag names that no entry of this import
+    /// touched, while its window is still effort-placed (ADR 0013, ruling 5): placed the
+    /// way the keep-up projection places it (<see cref="Place"/>) — work nobody has begun
+    /// from the later of today and the day after its predecessors end, begun work from the
+    /// day it began, each repository's part at its own pace. A due-date-placed item keeps
+    /// the end the person wrote; a hand-placed one is untouched. When several items carry
+    /// the tag, the first by creation order, as for an entry.
     /// </summary>
-    private List<RoadmapItemDto> Relengthen(
+    private static List<RoadmapItemDto> Relengthen(
         RoadmapPlan plan,
         List<Touched> touched,
-        Dictionary<string, int> effort,
+        IEnumerable<string> tags,
+        IReadOnlyDictionary<Guid, RoadmapItemRollupDto> gathered,
         PacesInUseDto paces,
+        DateOnly today,
         List<RoadmapItemScheduledDto> scheduled)
     {
         var relengthened = new List<RoadmapItemDto>();
         var done = touched.Select(current => current.Item.Id).ToHashSet();
 
-        foreach (var (tag, total) in effort)
+        foreach (var tag in tags)
         {
             var carrying = plan.ItemsTagged(PlanningTag.Of(tag));
             if (carrying.Count == 0) continue;
@@ -220,12 +223,7 @@ public sealed class ImportPlanItemsCommandHandler(
             if (!done.Add(item.Id) || item.PlacedByImport is not ImportPlacement.Effort) continue;
 
             var previous = item.Window;
-            var (window, placement) = ImportedPlanPlacement.Place(
-                previous.Start,
-                due: null,
-                total,
-                paces.For(item.Scope.Aliases),
-                paces.Week);
+            var (window, placement) = Place(plan, item, due: null, gathered, paces, today);
             if (window == previous) continue;
 
             var placed = plan.PlaceByImport(item.Id, window, placement);
@@ -236,6 +234,65 @@ public sealed class ImportPlanItemsCommandHandler(
         }
 
         return relengthened;
+    }
+
+    /// <summary>
+    /// Where the import places <paramref name="item"/>'s window, and the rule that placed
+    /// it (ADR 0013, rulings 4 and 5 as amended on 2026-10-07).
+    /// <para>
+    /// The floor is the later of today and the day after the latest end among its
+    /// predecessors as they now stand — at import as in the keep-up projection. A
+    /// <paramref name="due"/> ends the window there. Otherwise the window is the envelope
+    /// of the item's parts (<see cref="RoadmapProjection.One"/>): each repository's part
+    /// counted at that repository's own pace, after the parts it waits on, from the floor.
+    /// An item whose parts place nothing — it gathers no work — takes one working week from
+    /// the floor.
+    /// </para>
+    /// </summary>
+    private static (PlannedWindow Window, ImportPlacement Placement) Place(
+        RoadmapPlan plan,
+        RoadmapItem item,
+        DateOnly? due,
+        IReadOnlyDictionary<Guid, RoadmapItemRollupDto> gathered,
+        PacesInUseDto paces,
+        DateOnly today)
+    {
+        var closes = plan.Nodes().ToDictionary(node => node.Id, node => node.Closes);
+        var after = ImportedPlanPlacement.StartAfter(item.Dependencies.All.Select(id => closes[id]), today);
+        var floor = after > today ? after : today;
+
+        // Nothing gathered is counted at this pace: an end the effort does not decide is
+        // one working week, whatever the pace.
+        var (window, placement) = ImportedPlanPlacement.Place(floor, due, gatheredEffort: 0, paces.Global, paces.Week);
+        if (placement is not ImportPlacement.Effort) return (window, placement);
+
+        var sized = item.ToDto() with
+        {
+            Start = window.Start,
+            End = window.End,
+            PlacedByImport = ImportPlacement.Effort
+        };
+
+        var (_, layout) = RoadmapProjection.One(sized, gathered.GetValueOrDefault(item.Id), paces, today, floor);
+
+        return layout.Placement is PartsPlacement.Stored
+            ? (window, placement)
+            : (PlannedWindow.Of(layout.Start, layout.End), placement);
+    }
+
+    /// <summary>
+    /// What the plan's import-placed items gather, by id, off one read — the only items
+    /// whose window the import places. Nothing is read when there are none.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<Guid, RoadmapItemRollupDto>> GatherAsync(
+        RoadmapPlan plan,
+        CancellationToken cancellationToken)
+    {
+        var all = plan.ToDto();
+        List<RoadmapItemDto> placed = [.. all.Items.Where(item => item.PlacedByImport is not null)];
+        if (placed.Count == 0) return new Dictionary<Guid, RoadmapItemRollupDto>();
+
+        return await rollups.GatherPlanAsync(all with { Items = placed }, cancellationToken);
     }
 
     /// <summary>

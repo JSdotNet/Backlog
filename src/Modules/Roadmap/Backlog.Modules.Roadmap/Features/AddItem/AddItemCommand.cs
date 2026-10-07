@@ -28,7 +28,7 @@ public sealed record AddItemCommand(
     string? Tag = null,
     IReadOnlyList<string>? KnowledgeRefs = null);
 
-public sealed class AddItemCommandHandler(IRoadmapPlanRepository plans)
+public sealed class AddItemCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
     : ICommandHandler<AddItemCommand, Result<RoadmapItemDto>>
 {
     public async Task<Result<RoadmapItemDto>> Handle(
@@ -40,6 +40,7 @@ public sealed class AddItemCommandHandler(IRoadmapPlanRepository plans)
         var window = PlannedWindow.Create(command.Start, command.End);
         if (window.IsFailure) return Result.Failure<RoadmapItemDto>(window.Error);
 
+        using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var added = plan.AddItem(
             command.Title,

@@ -29,7 +29,7 @@ public sealed record UpdateItemCommand(
     string? Tag = null,
     IReadOnlyList<string>? KnowledgeRefs = null);
 
-public sealed class UpdateItemCommandHandler(IRoadmapPlanRepository plans)
+public sealed class UpdateItemCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
     : ICommandHandler<UpdateItemCommand, Result<RoadmapItemDto>>
 {
     public async Task<Result<RoadmapItemDto>> Handle(
@@ -41,6 +41,7 @@ public sealed class UpdateItemCommandHandler(IRoadmapPlanRepository plans)
         var window = PlannedWindow.Create(command.Start, command.End);
         if (window.IsFailure) return Result.Failure<RoadmapItemDto>(window.Error);
 
+        using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var updated = plan.UpdateItem(
             command.ItemId,

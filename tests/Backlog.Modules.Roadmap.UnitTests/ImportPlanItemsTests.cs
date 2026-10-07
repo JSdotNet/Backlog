@@ -5,6 +5,7 @@ using Backlog.Modules.Roadmap.DomainModels;
 using Backlog.Modules.Roadmap.Features.ImportPlanItems;
 using Backlog.Modules.Roadmap.Features.RescheduleItem;
 using Backlog.Modules.Roadmap.Features.UpdateItem;
+using Backlog.Modules.Roadmap.Services;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
@@ -24,19 +25,54 @@ public class ImportPlanItemsTests
 
     private readonly SnapshotPlanRepository _plans = new();
     private readonly FixedVelocity _velocity = new(7);
+    private readonly TaggedWork _work = new();
     private readonly FakeTimeProvider _clock = new();
 
     public ImportPlanItemsTests()
     {
         _clock.SetLocalTimeZone(TimeZoneInfo.Utc);
-        _clock.SetUtcNow(new DateTimeOffset(Today, new TimeOnly(9, 0), TimeSpan.Zero));
+        SetToday(Today);
     }
 
+    private void SetToday(DateOnly day) =>
+        _clock.SetUtcNow(new DateTimeOffset(day, new TimeOnly(9, 0), TimeSpan.Zero));
+
+    /// <summary>
+    /// The import as Tasks hands it over: the tags its tasks were written under, after
+    /// those tasks are down. Each tag given here files, under it, one task of its total
+    /// effort and one unestimated task per unestimated count — filed in no repository, so
+    /// they land in the item's first part — replacing what the tag gathered before, the
+    /// way a re-imported task document replaces its tasks.
+    /// </summary>
     private Task<Result<PlanImportResultDto>> ImportAsync(
         IReadOnlyList<PlanImportEntryDto> entries,
-        params PlanTagEffortDto[] effort) =>
-        new ImportPlanItemsCommandHandler(_plans, _velocity, _clock)
+        params PlanTagEffortDto[] effort)
+    {
+        File(effort);
+        return new ImportPlanItemsCommandHandler(_plans, _velocity, _work, _clock, new RoadmapPlanGate())
             .Handle(new ImportPlanItemsCommand(entries, effort), TestContext.Current.CancellationToken);
+    }
+
+    private void File(IEnumerable<PlanTagEffortDto> effort)
+    {
+        foreach (var tag in effort)
+        {
+            List<RoadmapGatheredLink> tasks = [];
+            if (tag.TotalEffort > 0) tasks.Add(Work($"{tag.Tag}-sized", tag.TotalEffort));
+            for (var index = 0; index < tag.UnestimatedCount; index++) tasks.Add(Work($"{tag.Tag}-unsized-{index}", null));
+
+            _work.File(tag.Tag, [.. tasks]);
+        }
+    }
+
+    private static RoadmapGatheredLink Work(
+        string key,
+        int? effort,
+        string[]? repositories = null,
+        string[]? after = null,
+        RoadmapProgress progress = RoadmapProgress.Ready,
+        DateOnly? started = null) =>
+        new(key, key, effort, RollupOrigin.Tag, progress, after ?? [], repositories ?? [], started);
 
     private async Task<PlanImportResultDto> ImportedAsync(
         IReadOnlyList<PlanImportEntryDto> entries,
@@ -111,25 +147,72 @@ public class ImportPlanItemsTests
         Assert.Equal(5, Stored("plan-a").Window.Days);  // 14 points at 14 a week: Monday to Friday
         Assert.Equal(12, Stored("plan-b").Window.Days); // 14 points at 7 a week: to the next Friday
         Assert.Equal(1, _velocity.Reads);
+        Assert.Equal(1, _work.Reads); // the whole plan's work gathered at once
     }
 
+    /// <summary>AC7: each repository's part at its own pace, the window their envelope — not
+    /// the whole plan's effort at the slowest pace among them, which would be 35 points at 7
+    /// a week, five working weeks.</summary>
     [Fact]
-    public async Task AnEntryUnderSeveralRepositories_IsPlacedAtTheSlowest_AndAnUnfiledOneAtTheGlobalPace()
+    public async Task AnEntryUnderSeveralRepositories_IsPlacedPartByPart_AndAnUnfiledOneAtTheGlobalPace()
     {
         _velocity.StoryPointsPerWeek = 28;
         _velocity.ByRepository["backlog"] = 14;
         _velocity.ByRepository["site"] = 7;
+        _work.File("plan-both", Work("in-backlog", 28, ["backlog"]), Work("in-site", 7, ["site"]));
 
         await ImportedAsync(
             [
                 new PlanImportEntryDto("Both", "plan-both", null, ["backlog", "site"], PlanningPriority.High, null, [], null),
                 new PlanImportEntryDto("Unfiled", "plan-unfiled", null, [], PlanningPriority.High, null, [], null)
             ],
-            new PlanTagEffortDto("plan-both", 14, 0),
             new PlanTagEffortDto("plan-unfiled", 14, 0));
 
-        Assert.Equal(12, Stored("plan-both").Window.Days);  // at site's 7 a week: two working weeks
+        // backlog's two working weeks beside site's one: the window is backlog's.
+        Assert.Equal(PlannedWindow.Of(Today, new DateOnly(2026, 3, 13)), Stored("plan-both").Window);
         Assert.Equal(3, Stored("plan-unfiled").Window.Days); // at the global 28 a week: 21.25 hours
+    }
+
+    /// <summary>AC3: an item that hands over from one repository to another ends on its
+    /// latest part end, and a plan imported in the same run that waits on it starts the
+    /// day after. Today is Monday 12 October 2026; <c>app</c> gets through 8 points a week
+    /// and <c>site</c> 4.</summary>
+    [Fact]
+    public async Task APlanWaitingOnAPlan_StartsTheDayAfterItsLatestPartEnds()
+    {
+        SetToday(new DateOnly(2026, 10, 12));
+        _velocity.ByRepository["app"] = 8;
+        _velocity.ByRepository["site"] = 4;
+        _work.File("plan-a", Work("build", 8, ["app"]), Work("publish", 4, ["site"], after: ["build"]));
+        _work.File("plan-b", Work("follow-up", 8, ["app"]));
+
+        await ImportedAsync(
+        [
+            new PlanImportEntryDto("Plan B", "plan-b", null, ["app"], PlanningPriority.High, null, ["plan-a"], null),
+            new PlanImportEntryDto("Plan A", "plan-a", null, ["app", "site"], PlanningPriority.High, null, [], null)
+        ]);
+
+        // app 12–16 Oct, then site 19–23 Oct: under the slowest pace, 12 points at 4 a
+        // week, it would have run to 30 Oct.
+        Assert.Equal(PlannedWindow.Of(new DateOnly(2026, 10, 12), new DateOnly(2026, 10, 23)), Stored("plan-a").Window);
+        Assert.Equal(PlannedWindow.Of(new DateOnly(2026, 10, 26), new DateOnly(2026, 10, 30)), Stored("plan-b").Window);
+        Assert.Equal(ImportPlacement.Effort, Stored("plan-a").PlacedByImport);
+    }
+
+    /// <summary>A predecessor that ended before today holds nothing back: the floor is the
+    /// later of today and the day after it ends, at import as in the projection.</summary>
+    [Fact]
+    public async Task APredecessorThatEndedBeforeToday_LeavesTheItemStartingToday()
+    {
+        var plan = RoadmapPlan.Empty();
+        plan.AddItem(
+            "Done long ago", PlannedWindow.Of(new DateOnly(2026, 2, 2), new DateOnly(2026, 2, 6)),
+            tag: PlanningTag.Of("done-long-ago"));
+        _plans.Current = plan;
+
+        await ImportedAsync([Entry("plan-a", after: "done-long-ago")], new PlanTagEffortDto("plan-a", 7, 0));
+
+        Assert.Equal(PlannedWindow.Of(Today, new DateOnly(2026, 3, 6)), Stored("plan-a").Window);
     }
 
     [Fact]
@@ -349,7 +432,7 @@ public class ImportPlanItemsTests
     {
         await ImportedAsync([Entry("plan-a", "First title")]);
         var id = Stored("plan-a").Id;
-        var moved = await new RescheduleItemCommandHandler(_plans).Handle(
+        var moved = await new RescheduleItemCommandHandler(_plans, new RoadmapPlanGate()).Handle(
             new RescheduleItemCommand(id, new DateOnly(2026, 6, 1), new DateOnly(2026, 6, 30)),
             TestContext.Current.CancellationToken);
         Assert.True(moved.IsSuccess);
@@ -425,24 +508,55 @@ public class ImportPlanItemsTests
     private Task<Result<PlanImportResultDto>> ImportAsync(
         IReadOnlyList<PlanImportEntryDto> entries,
         IReadOnlyList<PlanImportEntryDto> createIfMissing,
-        params PlanTagEffortDto[] effort) =>
-        new ImportPlanItemsCommandHandler(_plans, _velocity, _clock)
+        params PlanTagEffortDto[] effort)
+    {
+        File(effort);
+        return new ImportPlanItemsCommandHandler(_plans, _velocity, _work, _clock, new RoadmapPlanGate())
             .Handle(new ImportPlanItemsCommand(entries, effort, createIfMissing), TestContext.Current.CancellationToken);
+    }
 
+    /// <summary>Re-placed the way the keep-up projection places it: work nobody has begun
+    /// is laid out from today, not from the start an earlier import gave it.</summary>
     [Fact]
-    public async Task GatheredEffortAlone_RelengthensAnEffortPlacedItem_KeepingItsStart()
+    public async Task GatheredEffortAlone_RelaysAnEffortPlacedItemNobodyBegan_FromToday()
     {
         await ImportedAsync([Entry("plan-a")]);
-        _clock.Advance(TimeSpan.FromDays(3)); // the start stays where it was placed
+        _clock.Advance(TimeSpan.FromDays(3)); // Thursday 5 March
 
         var result = await ImportedAsync([], new PlanTagEffortDto("plan-a", 8, 0));
 
-        Assert.Equal(PlannedWindow.Of(Today, Today.AddDays(7)), Stored("plan-a").Window);
+        // 8 points at 7 a week: 48.6 hours from the Thursday, to the next Thursday.
+        Assert.Equal(PlannedWindow.Of(new DateOnly(2026, 3, 5), new DateOnly(2026, 3, 12)), Stored("plan-a").Window);
         Assert.Equal(Stored("plan-a").Id, Assert.Single(result.Relengthened).Id);
         Assert.Empty(result.Created);
         Assert.Empty(result.Updated);
         var scheduled = Assert.Single(result.Scheduled);
+        Assert.Equal(Today, scheduled.PreviousStart);
         Assert.Equal(Today.AddDays(4), scheduled.PreviousEnd);
+    }
+
+    /// <summary>AC8 at import: work already begun keeps the day it began, and only what is
+    /// still open is placed.</summary>
+    [Fact]
+    public async Task GatheredEffortAlone_KeepsTheDayABegunItemsWorkBegan()
+    {
+        await ImportedAsync([Entry("plan-a")]);
+        _clock.Advance(TimeSpan.FromDays(3)); // Thursday 5 March
+        _work.File(
+            "plan-a",
+            Work("first", 7, progress: RoadmapProgress.InProgress, started: new DateOnly(2026, 3, 3)),
+            Work("second", 7));
+
+        // The tag is handed over as touched; what it gathers is the work filed above.
+        var result = await new ImportPlanItemsCommandHandler(_plans, _velocity, _work, _clock, new RoadmapPlanGate()).Handle(
+            new ImportPlanItemsCommand([], [new PlanTagEffortDto("plan-a", 14, 0)]),
+            TestContext.Current.CancellationToken);
+        Assert.True(result.IsSuccess);
+
+        var item = Stored("plan-a");
+        Assert.Equal(new DateOnly(2026, 3, 3), item.Window.Start);
+        Assert.True(item.Window.End > new DateOnly(2026, 3, 12), item.Window.ToString()); // more than one week open
+        Assert.Equal(ImportPlacement.Effort, item.PlacedByImport);
     }
 
     [Fact]
@@ -518,13 +632,43 @@ public class ImportPlanItemsTests
         await ImportedAsync([Entry("plan-a")]);
         var item = Stored("plan-a");
 
-        var edited = await new UpdateItemCommandHandler(_plans).Handle(
+        var edited = await new UpdateItemCommandHandler(_plans, new RoadmapPlanGate()).Handle(
             new UpdateItemCommand(item.Id, item.Title, Today, Today.AddDays(20), item.Priority, item.Scope.Aliases,
                 Tag: item.Tag.Value),
             TestContext.Current.CancellationToken);
 
         Assert.True(edited.IsSuccess);
         Assert.Null(Stored("plan-a").PlacedByImport);
+    }
+
+    /// <summary>
+    /// The backlog the importer gathers from, by tag: what the tasks filed under a tag
+    /// are, as Roadmap's own read port answers it. Counts its reads, so a test can see the
+    /// whole plan is gathered once.
+    /// </summary>
+    private sealed class TaggedWork : IRoadmapItemRollup
+    {
+        private readonly Dictionary<string, RoadmapGatheredLink[]> _byTag = new(StringComparer.Ordinal);
+
+        public int Reads { get; private set; }
+
+        /// <summary>Files <paramref name="tasks"/> under <paramref name="tag"/>, replacing
+        /// what was filed there before.</summary>
+        public void File(string tag, params RoadmapGatheredLink[] tasks) => _byTag[PlanningTag.Of(tag).Value] = tasks;
+
+        public Task<RoadmapItemRollupDto> GatherAsync(RoadmapItemDto item, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Of(item));
+
+        public Task<IReadOnlyDictionary<Guid, RoadmapItemRollupDto>> GatherPlanAsync(
+            RoadmapPlanDto plan,
+            CancellationToken cancellationToken = default)
+        {
+            Reads++;
+            return Task.FromResult<IReadOnlyDictionary<Guid, RoadmapItemRollupDto>>(plan.Items.ToDictionary(item => item.Id, Of));
+        }
+
+        private RoadmapItemRollupDto Of(RoadmapItemDto item) =>
+            _byTag.TryGetValue(item.Tag, out var tasks) ? new RoadmapItemRollupDto(tasks, []) : RoadmapItemRollupDto.Empty;
     }
 
     /// <summary>A store that, like the real one, hands out a fresh plan on every load

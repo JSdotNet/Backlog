@@ -747,6 +747,12 @@
     [Parameter]
     public EventCallback<RoadmapChange> OnBarChanged { get; set; }
 
+    /// <summary>Where what a dropped bar stands for lands, read out when the gesture settles.
+    /// The bar's own dates when not given. A host whose bar is one part of something larger
+    /// moves that larger thing by the gesture, and its window is the news, not the part's.</summary>
+    [Parameter]
+    public Func<RoadmapChange, (DateOnly Start, DateOnly End)>? DroppedAt { get; set; }
+
     /// <summary>
     /// A dependency the reader drew: the handle past one bar's end dragged onto
     /// another bar or a milestone, which is to wait for it. Proposed, not applied —
@@ -1606,7 +1612,8 @@
             return;
         }
 
-        Announce($"Dropped {bar.Title} at {DateLabel(change.Start)} to {DateLabel(change.End)}.");
+        var (landedStart, landedEnd) = DroppedAt?.Invoke(change) ?? (change.Start, change.End);
+        Announce($"Dropped {bar.Title} at {DateLabel(landedStart)} to {DateLabel(landedEnd)}.");
 
         await OnBarChanged.InvokeAsync(change);
 

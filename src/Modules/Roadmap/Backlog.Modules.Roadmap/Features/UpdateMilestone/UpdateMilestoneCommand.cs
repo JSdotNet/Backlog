@@ -18,7 +18,7 @@ public sealed record UpdateMilestoneCommand(
     string? Lane = null,
     bool IsPlanWide = false);
 
-public sealed class UpdateMilestoneCommandHandler(IRoadmapPlanRepository plans)
+public sealed class UpdateMilestoneCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
     : ICommandHandler<UpdateMilestoneCommand, Result<RoadmapMilestoneDto>>
 {
     public async Task<Result<RoadmapMilestoneDto>> Handle(
@@ -27,6 +27,7 @@ public sealed class UpdateMilestoneCommandHandler(IRoadmapPlanRepository plans)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var updated = plan.UpdateMilestone(
             command.MilestoneId,

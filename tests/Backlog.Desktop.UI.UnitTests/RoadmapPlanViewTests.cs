@@ -255,6 +255,110 @@ public class RoadmapPlanViewTests
         Assert.Equal(0, fincent.DoneEffort);
     }
 
+    // --- Each repository draws its own part at its own pace -----------------------
+
+    /// <summary>Monday 12 October 2026, on the default working week: backlog gets through 8
+    /// points a week, fincent 4, and work under no repository the default 7.</summary>
+    private static readonly RoadmapForecast OnMonday12October = new(
+        new DateOnly(2026, 10, 12),
+        new PacesInUseDto(7m, new Dictionary<string, decimal> { ["backlog"] = 8m, ["fincent"] = 4m }));
+
+    private static DateOnly October(int day) => new(2026, 10, day);
+
+    /// <summary>An item the import sized by its effort, filed under
+    /// <paramref name="repositories"/>, stored over a window long gone.</summary>
+    private static RoadmapItemDto SizedByEffort(params string[] repositories) =>
+        new(Guid.NewGuid(), "Plan", October(1), October(2), PlanningPriority.Medium, repositories, null, null, [],
+            PlacedByImport: ImportPlacement.Effort);
+
+    private static RoadmapGatheredLink Filed(string key, int? effort, params string[] repositories) =>
+        new(key, key.ToUpperInvariant(), effort, RollupOrigin.Tag, RoadmapProgress.Planned, null, repositories);
+
+    private static RoadmapTimelineModel OnMonday(
+        RoadmapItemDto item,
+        IReadOnlyList<PlannedRepository> configured,
+        RoadmapForecast forecast,
+        params RoadmapGatheredLink[] tasks) =>
+        RoadmapPlanView.From(
+            Plan([item]),
+            configured,
+            new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = new(tasks, []) },
+            forecast);
+
+    /// <summary>AC1: an 8-point task filed under backlog (8 a week) and fincent (4 a week)
+    /// counts in full in both parts, each at its own pace.</summary>
+    [Fact]
+    public void ATaskFiledInTwoRepositories_IsDrawnInEachBand_AtThatBandsOwnPace()
+    {
+        var item = SizedByEffort("backlog", "fincent");
+
+        var view = OnMonday(item, Configured, OnMonday12October, Filed("a", 8, "JSdotNet/Backlog", "JSdotNet/Fincent"));
+
+        var backlog = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("backlog::", StringComparison.Ordinal));
+        var fincent = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("fincent::", StringComparison.Ordinal));
+        Assert.Equal((October(12), October(16)), (backlog.Start, backlog.End));
+        Assert.Equal((October(12), October(23)), (fincent.Start, fincent.End));
+    }
+
+    /// <summary>AC4: one repository's slice of a large plan. 52 points over seven
+    /// repositories, 16 of them open in fincent at 40 a week and waiting on no other
+    /// repository: fincent's band spans two days, not the whole plan's window.</summary>
+    [Fact]
+    public void OneRepositorysSliceOfALargePlan_SpansOnlyThatRepositorysWork()
+    {
+        string[] aliases = ["app", "site", "docs", "api", "ops", "data", "fincent"];
+        var configured = aliases.Select((alias, index) => new PlannedRepository(alias, $"JSdotNet/{alias}", index % 5 + 1)).ToList();
+        var forecast = new RoadmapForecast(
+            October(12),
+            new PacesInUseDto(7m, aliases.ToDictionary(alias => alias, alias => alias == "fincent" ? 40m : 6m)));
+
+        var item = SizedByEffort(aliases);
+        RoadmapGatheredLink[] tasks =
+        [
+            .. aliases.Where(alias => alias != "fincent").Select((alias, index) => Filed($"t{index}", 6, $"JSdotNet/{alias}")),
+            Filed("f1", 8, "JSdotNet/fincent"),
+            Filed("f2", 8, "JSdotNet/fincent")
+        ];
+
+        var view = OnMonday(item, configured, forecast, tasks);
+
+        var fincent = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("fincent::", StringComparison.Ordinal));
+        Assert.Equal((October(12), October(13)), (fincent.Start, fincent.End));
+        Assert.Equal(52, tasks.Sum(task => task.Effort));
+        Assert.All(
+            view.Bars.Where(bar => bar != fincent),
+            bar => Assert.Equal((October(12), October(16)), (bar.Start, bar.End)));
+    }
+
+    /// <summary>AC6: a repository the item names that holds none of its tasks draws over the
+    /// window the other parts make, so the item still shows it is filed there.</summary>
+    [Fact]
+    public void ANamedRepositoryHoldingNoTask_DrawsOverTheWindowTheOtherPartsMake()
+    {
+        var item = SizedByEffort("backlog", "fincent");
+
+        var view = OnMonday(item, Configured, OnMonday12October, Filed("a", 12, "JSdotNet/Backlog"));
+
+        var backlog = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("backlog::", StringComparison.Ordinal));
+        var fincent = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("fincent::", StringComparison.Ordinal));
+        Assert.Equal((October(12), October(21)), (backlog.Start, backlog.End));
+        Assert.Equal((backlog.Start, backlog.End), (fincent.Start, fincent.End));
+        Assert.Empty(fincent.StepList);
+    }
+
+    /// <summary>AC6: a part holding only unestimated tasks takes one working week, at
+    /// whatever pace its repository goes.</summary>
+    [Fact]
+    public void APartWithNothingSized_TakesOneWorkingWeek()
+    {
+        var item = SizedByEffort("backlog", "fincent");
+
+        var view = OnMonday(item, Configured, OnMonday12October, Filed("a", 2, "JSdotNet/Backlog"), Filed("b", null, "JSdotNet/Fincent"));
+
+        var fincent = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("fincent::", StringComparison.Ordinal));
+        Assert.Equal((October(12), October(16)), (fincent.Start, fincent.End));
+    }
+
     [Fact]
     public void AnArrowToASplitItem_RunsWithinEachRepository()
     {
@@ -798,7 +902,8 @@ public class RoadmapPlanViewTests
 
     /// <summary>Local ADR 0019: work in flight on a Saturday is forecast from the
     /// Monday, counting the working hours — 3 points at 7 a week need 18.2 hours, so the
-    /// Monday, the Tuesday and into the Wednesday.</summary>
+    /// Monday, the Tuesday and into the Wednesday. Drawn from the Tuesday its work
+    /// began.</summary>
     [Fact]
     public void AnItemInFlight_IsForecastThroughTheWorkingWeek()
     {
@@ -807,13 +912,13 @@ public class RoadmapPlanViewTests
             Item("Plan", startDay: 5, endDay: 31, repositories: ["backlog"]),
             Sized("a", 3, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 6)));
 
-        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 6), bar.Start);
         Assert.Equal(new DateOnly(2026, 1, 14), bar.End);
     }
 
     /// <summary>Local ADR 0019 Verification 1, as drawn: an item nobody started, sized
-    /// by its effort, 10 points at 5 a week from a Monday, ends on the next week's
-    /// Friday.</summary>
+    /// by its effort, laid out from today — a Saturday, so from the Monday — 10 points at
+    /// 5 a week, ends on the next week's Friday.</summary>
     [Fact]
     public void AnEffortPlacedItemNobodyStarted_IsDrawnThroughTheWorkingWeek()
     {
@@ -827,8 +932,8 @@ public class RoadmapPlanViewTests
             Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort),
             Sized("a", 10, RoadmapProgress.Planned));
 
-        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
-        Assert.Equal(new DateOnly(2026, 1, 16), bar.End);
+        Assert.Equal(new DateOnly(2026, 1, 12), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 23), bar.End);
     }
 
     private static RoadmapGatheredLink Sized(
@@ -871,17 +976,16 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
-    public void AnItemInFlight_StartingLaterThanPlanned_KeepsThePlannedStart()
+    public void AnItemInFlight_IsDrawnFromWhenItsWorkBegan_NotFromAnEarlierPlannedStart()
     {
-        // Planned from the 12th, and its task started on the 14th. Work beginning after
-        // the planned start leaves the start alone, and the 2 points left run from the
-        // 12th — the later of the start and today, the 10th.
+        // Planned from the 5th, and its task started on the 8th. A part is drawn from the
+        // day its work began, and the 2 points left run from today, the 10th.
         var bar = Forecasted(
-            Item("Plan", startDay: 12, endDay: 20, repositories: ["backlog"]),
-            Sized("a", 2, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 14)));
+            Item("Plan", startDay: 5, endDay: 20, repositories: ["backlog"]),
+            Sized("a", 2, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 8)));
 
-        Assert.Equal(new DateOnly(2026, 1, 12), bar.Start);
-        Assert.Equal(new DateOnly(2026, 1, 13), bar.End);
+        Assert.Equal(new DateOnly(2026, 1, 8), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 11), bar.End);
     }
 
     // --- A pinned end outranks the forecast for work in flight --------------------
@@ -996,18 +1100,18 @@ public class RoadmapPlanViewTests
     // --- Sized by effort, read at the pace in use (local ADR 0018) --------------
 
     [Fact]
-    public void AnEffortPlacedItemNobodyStarted_IsDrawnAtThePaceInUse_FromItsStart_AndCanBeMoved()
+    public void AnEffortPlacedItemNobodyStarted_IsDrawnAtThePaceInUse_FromToday_AndCanBeMoved()
     {
-        // Stored 5–9 January at whatever pace was in use then. 18 points at backlog's 7
-        // a week is 18 days: the 5th to the 22nd. The start is the plan's; only the end
-        // is read.
+        // Stored 5–9 January at whatever pace was in use then, and nobody started it by
+        // today, the 10th. 18 points at backlog's 7 a week is 18 days: the 10th to the
+        // 27th — laid out again from today, as the keep-up projection stores it.
         var bar = Forecasted(
             Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort),
             Sized("a", 13, RoadmapProgress.Ready),
             Sized("b", 5, RoadmapProgress.Planned));
 
-        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
-        Assert.Equal(new DateOnly(2026, 1, 22), bar.End);
+        Assert.Equal(new DateOnly(2026, 1, 10), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 27), bar.End);
         Assert.False(bar.Locked);
     }
 
@@ -1015,34 +1119,44 @@ public class RoadmapPlanViewTests
     public void AnEffortPlacedItemNobodyStarted_InARepositoryWithNoPaceOfItsOwn_IsDrawnAtTheGlobalPace()
     {
         // Fincent has no pace in the forecast, so 14 points go at the global 14 a week:
-        // a week, the 5th to the 11th.
+        // a week from today, the 10th to the 16th.
         var bar = Forecasted(
             Item("Plan", startDay: 5, endDay: 31, repositories: ["fincent"], placedBy: ImportPlacement.Effort),
             Sized("a", 14, RoadmapProgress.Planned));
 
-        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
-        Assert.Equal(new DateOnly(2026, 1, 11), bar.End);
+        Assert.Equal(new DateOnly(2026, 1, 10), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 16), bar.End);
     }
 
     [Fact]
     public void AnEffortPlacedItemNobodyStarted_WithNoRepository_IsDrawnAtTheGlobalPace()
     {
-        // 14 points at the global 14 a week: a week, the 5th to the 11th.
+        // 14 points at the global 14 a week: a week from today, the 10th to the 16th.
         var bar = Forecasted(
             Item("Plan", startDay: 5, endDay: 31, placedBy: ImportPlacement.Effort),
             Sized("a", 14, RoadmapProgress.Planned));
 
-        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
-        Assert.Equal(new DateOnly(2026, 1, 11), bar.End);
+        Assert.Equal(new DateOnly(2026, 1, 10), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 16), bar.End);
     }
 
+    /// <summary>One rule for the drawing and the store: the bar is the window the keep-up
+    /// projection would store today.</summary>
     [Fact]
-    public void AnEffortPlacedItemNobodyStarted_IsDrawnAsTheImportsOwnPlacementWouldStoreIt()
+    public void AnEffortPlacedItemNobodyStarted_IsDrawnAsTheKeepUpProjectionWouldStoreIt()
     {
         var item = Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort);
-        var bar = Forecasted(item, Sized("a", 3, RoadmapProgress.Ready), Sized("b", null, RoadmapProgress.Ready));
+        RoadmapGatheredLink[] work = [Sized("a", 3, RoadmapProgress.Ready), Sized("b", null, RoadmapProgress.Ready)];
 
-        Assert.Equal(EffortWindow.EndFrom(item.Start, 3, 7m, Forecast.Paces.Week), bar.End);
+        var bar = Forecasted(item, work);
+        var stored = Assert.Single(RoadmapProjection.Project(
+            [item],
+            new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = new(work, []) },
+            Forecast.Paces,
+            Forecast.Today));
+
+        Assert.Equal((stored.Start, stored.End), (bar.Start, bar.End));
+        Assert.Equal(EffortWindow.EndFrom(Forecast.Today, 3, 7m, Forecast.Paces.Week), bar.End);
     }
 
     [Fact]
@@ -1105,13 +1219,13 @@ public class RoadmapPlanViewTests
     public void AnItemInFlight_InARepositoryWithNoPaceOfItsOwn_IsForecastAtTheGlobalPace()
     {
         // Fincent has no pace in the forecast. Two points a day globally: 4 points left
-        // is 2 days, the 10th and 11th.
+        // is 2 days, the 10th and 11th — from the 6th, when its work began.
         var bar = Forecasted(
             Item("Plan", startDay: 5, endDay: 31, repositories: ["fincent"]),
             Sized("a", 1, RoadmapProgress.Done, started: new DateOnly(2026, 1, 6), completed: new DateOnly(2026, 1, 7)),
             Sized("b", 4, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 8)));
 
-        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 6), bar.Start);
         Assert.Equal(new DateOnly(2026, 1, 11), bar.End);
     }
 

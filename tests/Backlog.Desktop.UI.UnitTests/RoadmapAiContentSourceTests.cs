@@ -7,6 +7,8 @@ using Backlog.Modules.Roadmap.UI;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Ai;
 
+using Microsoft.Extensions.Time.Testing;
+
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
@@ -59,9 +61,9 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
         Assert.Contains("Item: Polish, 2026-04-02 to 2026-04-03, medium priority, before milestone Freeze", content.Body, StringComparison.Ordinal);
     }
 
-    /// <summary>A window sized by effort is written as the band draws it: its gathered
-    /// effort at the pace in use from its planned start, not the end stored when the
-    /// import placed it (local ADR 0018).</summary>
+    /// <summary>A window sized by effort is written as the keep-up projection lays it
+    /// out: its gathered effort at the pace in use from today, not the end stored when the
+    /// import placed it (ADR 0013, ruling 5; local ADR 0018).</summary>
     [Fact]
     public async Task An_item_sized_by_its_effort_is_written_with_the_end_its_effort_reaches_at_the_pace_in_use()
     {
@@ -79,6 +81,28 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
         // 14 points at 14 a week: one working week from the planned start.
         Assert.Contains(
             $"Item: Ship sync, {Iso(stored.Start)} to {Iso(EffortWindow.EndFrom(stored.Start, 14, 14m, WorkingHours.Default))},",
+            content.Body,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>A reader that has not opened the roadmap since still writes the dates the
+    /// roadmap would store: two weeks on, work nobody began is written from that day.</summary>
+    [Fact]
+    public async Task An_item_sized_by_its_effort_nobody_began_is_written_from_the_day_it_is_read()
+    {
+        var planning = Planning();
+        Assert.True((await planning.ImportPlanItemsAsync(
+            [new PlanImportEntryDto("Ship sync", "sync", RepositoryAliases: ["backlog"])],
+            cancellationToken: TestContext.Current.CancellationToken)).IsSuccess);
+        var stored = Assert.Single((await planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
+        var later = stored.Start.AddDays(14);
+        var clock = new FakeTimeProvider(new DateTimeOffset(later.ToDateTime(new TimeOnly(9, 0)), TimeSpan.Zero));
+
+        var content = await new RoadmapAiContentSource(planning, new EveryItemGathers(14), new GlobalPace(14m), clock)
+            .ComposeAsync(new AiContentRequest("when does sync ship?", 6000), TestContext.Current.CancellationToken);
+
+        Assert.Contains(
+            $"Item: Ship sync, {Iso(later)} to {Iso(EffortWindow.EndFrom(later, 14, 14m, WorkingHours.Default))},",
             content.Body,
             StringComparison.Ordinal);
     }
@@ -104,7 +128,7 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
             Task.FromResult(new PacesInUseDto(pointsPerWeek, new Dictionary<string, decimal>()));
 
         public Task<decimal> GetStoryPointsPerWeekAsync(
-            IReadOnlyCollection<string> repositoryAliases,
+            string? repository = null,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(pointsPerWeek);
     }

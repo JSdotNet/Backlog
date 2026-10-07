@@ -106,17 +106,10 @@ internal sealed class FakeRoadmapPlanning(RoadmapPlanDto plan) : IRoadmapPlannin
         CancellationToken cancellationToken = default) =>
         throw Written(nameof(ImportPlanItemsAsync));
 
-    public Task<RoadmapRelengthProposalDto?> ProposeWindowFromEffortAsync(
-        Guid itemId,
-        int gatheredEffort,
+    public Task<IReadOnlyList<RoadmapItemScheduledDto>> KeepUpWithWorkAsync(
+        DateOnly today,
         CancellationToken cancellationToken = default) =>
-        throw Written(nameof(ProposeWindowFromEffortAsync));
-
-    public Task<Result<RoadmapRelengthResultDto>> RelengthenFromEffortAsync(
-        Guid itemId,
-        int gatheredEffort,
-        CancellationToken cancellationToken = default) =>
-        throw Written(nameof(RelengthenFromEffortAsync));
+        throw Written(nameof(KeepUpWithWorkAsync));
 
     private static InvalidOperationException Written(string member) =>
         new($"A read-only MCP tool called IRoadmapPlanning.{member}.");

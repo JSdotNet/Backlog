@@ -45,10 +45,12 @@ works (ADR 0019, proposed).
 
 **Kept per repository band**, because productivity differs from one project to
 the next, with one **global** pace beside them (ADR 0013, ruling 4 as amended on
-2026-09-26). A plan filed under one configured repository is placed at that
-repository's pace; one filed under several, at the **lowest** pace in use among
-them, which gives the longest bar; one filed under none, or under a repository
-nobody configured, at the global pace. A repository keeps no pace of its own
+2026-09-26 and on 2026-10-07). A plan is placed one repository part at a time. Each
+part is placed at the pace in use for its own repository. A part under no
+repository, or under a repository nobody configured, is placed at the global pace.
+A plan filed under several repositories therefore draws a bar in each of their
+bands, and its own window ends on the latest of those bars
+([Placing a plan in time](features.md#placing-a-plan-in-time)). A repository keeps no pace of its own
 until the reader sets one: until then it reads the global typed pace and choice,
 so nobody sees a bar move on upgrading. The first change made for a repository
 gives it its own entry, copying the half not being changed — the typed pace, or
@@ -72,15 +74,16 @@ count only the entries filed under it, and an entry filed under two counts in
 full toward both; the global ones count every finished entry once.
 
 It is the divisor behind one thing only: an imported plan that states no due
-date gets a **length from its effort** — the story points its gathered tasks and
-chapters registered, divided by this — never shorter than a day. A plan that
+date gets a **length from its effort**. Each of its repository parts is as long as
+the story points registered by the work filed there, divided by that repository's
+figure, and never shorter than a day. A plan that
 does state a due date is placed on it, and this figure is not consulted.
 
 It is a **reading preference, not an estimate** (ADR 0013, ruling 4). The effort
 stays the tasks' own, added and never invented; the only thing the placement
 adds is how fast the reader says they work through it. Every plan whose window
 is still sized by its effort is laid out from the work it has **not done yet**,
-at the pace in use for its repositories, from today. This happens each time the
+each repository part at the pace in use for its own repository, from today. This happens each time the
 roadmap loads, each time a task changes, and when a person changes the pace in
 use (ruling 5 as amended on 2026-09-27). A measured pace that moves as work is
 finished therefore moves those bars too, at the next load. A window placed by its

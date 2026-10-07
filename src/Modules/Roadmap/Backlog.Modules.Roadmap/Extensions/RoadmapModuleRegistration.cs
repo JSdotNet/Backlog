@@ -7,8 +7,8 @@ using Backlog.Modules.Roadmap.Features.RemoveMilestone;
 using Backlog.Modules.Roadmap.Features.UpdateMilestone;
 using Backlog.Modules.Roadmap.Features.GetPlan;
 using Backlog.Modules.Roadmap.Features.ImportPlanItems;
+using Backlog.Modules.Roadmap.Features.KeepUpWithWork;
 using Backlog.Modules.Roadmap.Features.PrioritiseItem;
-using Backlog.Modules.Roadmap.Features.RelengthenItem;
 using Backlog.Modules.Roadmap.Features.RemoveDependency;
 using Backlog.Modules.Roadmap.Features.RemoveItem;
 using Backlog.Modules.Roadmap.Features.PinItemEnd;
@@ -54,10 +54,9 @@ public static class RoadmapModuleRegistration
         // Needs IPlanningVelocity, registered below over the host's pace settings and
         // finished work.
         services.AddScoped<ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>>, ImportPlanItemsCommandHandler>();
-        // Both answer "Update from tasks" by the importer's own effort rule, so they
-        // need IPlanningVelocity as Import does.
-        services.AddScoped<IQueryHandler<ProposeRelengthQuery, RoadmapRelengthProposalDto?>, ProposeRelengthQueryHandler>();
-        services.AddScoped<ICommandHandler<RelengthenItemCommand, Result<RoadmapRelengthResultDto>>, RelengthenItemCommandHandler>();
+        // The keep-up projection's writer: the importer's own placement rule, so it needs
+        // IPlanningVelocity and IRoadmapItemRollup as Import does.
+        services.AddScoped<ICommandHandler<KeepUpWithWorkCommand, IReadOnlyList<RoadmapItemScheduledDto>>, KeepUpWithWorkCommandHandler>();
 
         // Placement reads "today"; a host that already registered a clock keeps its own.
         services.TryAddSingleton(TimeProvider.System);
@@ -71,6 +70,10 @@ public static class RoadmapModuleRegistration
 
         // One for the whole host, whatever scope a write or a listener comes from.
         services.TryAddSingleton<RoadmapPlanChanges>();
+        // Every command above that loads and saves the plan holds this from load to save,
+        // so the keep-up writer and an import started by the same task write cannot save
+        // over each other. One for the whole host, for the same reason.
+        services.TryAddSingleton<RoadmapPlanGate>();
         services.AddScoped<IRoadmapPlanning, RoadmapPlanning>();
 
         // The plan and the pace as the documents that travel between devices (local
@@ -82,7 +85,8 @@ public static class RoadmapModuleRegistration
         services.TryAddSingleton<IRoadmapReplication>(sp => new RoadmapReplication(
             sp.GetServices<IRoadmapReplicaStore>(),
             sp.GetRequiredService<RoadmapPlanChanges>(),
-            sp.GetService<IPlanningVelocitySettings>()));
+            sp.GetService<IPlanningVelocitySettings>(),
+            sp.GetRequiredService<RoadmapPlanGate>()));
 
         return services;
     }

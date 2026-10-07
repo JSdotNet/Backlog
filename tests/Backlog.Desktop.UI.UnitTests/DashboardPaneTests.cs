@@ -2675,6 +2675,46 @@ public class DashboardPaneTests
     }
 
     /// <summary>
+    /// An item filed under two repositories is projected part by part, each at its own
+    /// repository's pace, so the badge's title names each pace rather than one figure for
+    /// the whole item.
+    /// </summary>
+    [Fact]
+    public void An_item_in_two_repositories_says_the_pace_of_each_part_it_was_projected_at()
+    {
+        var plan = new PlanInsight(
+            RoadmapEnabled: true,
+            new PlanPace(12m, PlanPaceBasis.LastFourWeeks),
+            [
+                new PlanItemInsight(
+                    new PlanItemProgress(
+                        Guid.Parse("5b0e2d71-6c3a-4f18-9d24-7e1a3c5b8f03"),
+                        "Shared work",
+                        new DateOnly(2026, 10, 12),
+                        new DateOnly(2026, 10, 16),
+                        ["app", "site"],
+                        GatheredCount: 2,
+                        DoneCount: 0,
+                        TotalEffort: 12,
+                        DoneEffort: 0,
+                        Unestimated: 0,
+                        IsFinished: false,
+                        LastCompletedOn: null,
+                        Parts: [new PlanPartProgress("app", 8, 8m, []), new PlanPartProgress("site", 4, 4m, [0])],
+                        PlacedByEffort: false),
+                    PlanOutlook.Behind,
+                    new DateOnly(2026, 10, 23))
+            ]);
+        using var context = Context(configure: services =>
+            services.AddSingleton<ITaskInsights>(new ReadyPlanTaskInsights(plan)));
+
+        var pane = context.Render<DashboardPane>();
+
+        var badge = pane.Find("[data-testid='dashboard-roadmap-table'] .badge--outlook");
+        Assert.Equal("Projected to end 23 Oct at app 8, site 4 pts/week; planned to end 16 Oct.", badge.GetAttribute("title"));
+    }
+
+    /// <summary>
     /// A plan is filed under repositories and records no machine, so the header's chips
     /// reach the roadmap part and the machine filter does not send it back to the
     /// roadmap for an answer that cannot have changed.
@@ -2720,7 +2760,7 @@ public class DashboardPaneTests
                         Unestimated: 1,
                         IsFinished: false,
                         LastCompletedOn: null,
-                        PacePointsPerWeek: 8m,
+                        Parts: [new PlanPartProgress("backlog", 8, 8m, [])],
                         PlacedByEffort: false),
                     PlanOutlook.OnTrack,
                     new DateOnly(2026, 10, 2)),
@@ -2738,7 +2778,7 @@ public class DashboardPaneTests
                         Unestimated: 0,
                         IsFinished: false,
                         LastCompletedOn: null,
-                        PacePointsPerWeek: 4m,
+                        Parts: [new PlanPartProgress(null, 8, 4m, [])],
                         PlacedByEffort: false),
                     PlanOutlook.Behind,
                     new DateOnly(2026, 10, 12))

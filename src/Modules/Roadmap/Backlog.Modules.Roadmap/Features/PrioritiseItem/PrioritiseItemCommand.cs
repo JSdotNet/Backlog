@@ -16,7 +16,7 @@ namespace Backlog.Modules.Roadmap.Features.PrioritiseItem;
 /// </summary>
 public sealed record PrioritiseItemCommand(Guid ItemId, PlanningPriority Priority);
 
-public sealed class PrioritiseItemCommandHandler(IRoadmapPlanRepository plans)
+public sealed class PrioritiseItemCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
     : ICommandHandler<PrioritiseItemCommand, Result<RoadmapItemDto>>
 {
     public async Task<Result<RoadmapItemDto>> Handle(
@@ -25,6 +25,7 @@ public sealed class PrioritiseItemCommandHandler(IRoadmapPlanRepository plans)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var prioritised = plan.Prioritise(command.ItemId, command.Priority);
 

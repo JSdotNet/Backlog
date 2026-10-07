@@ -51,12 +51,14 @@ public static class RoadmapCrossContextAdapterRegistration
 
         // The rollup also captures the storage root, read per call rather than
         // pinned, so it stays a factory — but a scoped one, resolving its scoped
-        // ITaskItems from the same scope the request runs in. The session source is
-        // optional: it dates work its entry left undated, and a host without one draws
-        // the entries' own dates, as before.
+        // ITaskItems from the same scope the request runs in, per call: the backlog's
+        // plan import reaches the roadmap importer, which gathers through this, so
+        // taking the backlog in the constructor deadlocks the scope, as for the
+        // finished work below. The session source is optional: it dates work its entry
+        // left undated, and a host without one draws the entries' own dates, as before.
         services.AddScoped<IRoadmapItemRollup>(sp =>
             new RoadmapItemRollupService(
-                sp.GetRequiredService<ITaskItems>(),
+                () => sp.GetRequiredService<ITaskItems>(),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
                 sp.GetService<IAgentSessionSource>(),
                 sp.GetService<TimeProvider>()));
