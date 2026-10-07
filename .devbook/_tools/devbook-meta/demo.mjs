@@ -372,8 +372,15 @@ export function demoFileIssues(relPath, html) {
     const issues = [];
     const error = (message) => issues.push({ severity: "error", message: `${relPath} ${message}` });
 
+    // A JSON part is exempt only when it is the one script with its id and is
+    // typed as JSON, so a second script reusing the id cannot run code.
+    const jsonPart = (script) =>
+        (script.id === DEMO_MODEL_ID || script.id === DEMO_META_ID) &&
+        script.type?.trim().toLowerCase() === "application/json" &&
+        !script.src &&
+        demo.scripts.filter((s) => !s.managed && s.id === script.id).length === 1;
     for (const script of demo.scripts) {
-        if (script.managed || script.id === DEMO_MODEL_ID || script.id === DEMO_META_ID) continue;
+        if (script.managed || jsonPart(script)) continue;
         error(
             `has a \`<script${script.id ? ` id="${script.id}"` : ""}>\` outside the template's managed region — ` +
                 `the only scripts a demo adds are \`${DEMO_MODEL_ID}\` and its \`${DEMO_META_ID}\`; behaviour comes from the template.`

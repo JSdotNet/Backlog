@@ -37,6 +37,7 @@ import {
     DELTA_FOLDER,
     DELTA_SECTIONS,
     DECISION_STATUSES,
+    DEVBOOK_PREFIX,
     changeHash,
     changePathParts,
     chapterFingerprint,
@@ -50,7 +51,8 @@ import {
     validateDocument,
 } from "./metadata.mjs";
 import { loadStatusLadder } from "./statuses.mjs";
-import { demoFileIssues } from "./demo.mjs";
+import { demoFileIssues, demoReader } from "./demo.mjs";
+import { regionProblem } from "./demo-template.mjs";
 
 const FENCE = /^\s*(`{3,}|~{3,})/;
 const HEADING = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
@@ -349,8 +351,13 @@ function liftLapsedDecisions(original, lines, change, issues, target = null, dem
             ? String(recorded).trim() !== chapterFingerprint(target ?? "", text, c.line, target ? demoText : null)
             : c.meta.change === change;
     });
+    return stripDecisions(lines, lapsed, issues);
+}
+
+/** Remove the status and decision record from each chapter in `lapsed`, reporting each. */
+function stripDecisions(lines, lapsed, issues, reason = "the merge changes the content that was decided") {
     const out = [...lines];
-    for (const chapter of lapsed.reverse()) {
+    for (const chapter of [...lapsed].reverse()) {
         const fence = metaFenceAfter(out, chapter.line - 1, out.length);
         if (!fence) continue;
         for (let i = fence.close - 1; i > fence.open; i--) {
@@ -359,7 +366,7 @@ function liftLapsedDecisions(original, lines, change, issues, target = null, dem
         }
         issues.push({
             severity: "info",
-            message: `lifts \`${chapter.meta.status}\` from "${chapter.text}": the merge changes the content that was decided, and the change's own decision is on its proposal.md.`,
+            message: `lifts \`${chapter.meta.status}\` from "${chapter.text}": ${reason}, and the change's own decision is on its proposal.md.`,
         });
     }
     return out;
@@ -413,6 +420,8 @@ export function checkDemoDelta(relPath, html) {
     if (!DEMO_LANDING.test(target)) {
         issues.push({ severity: "error", message: `lands as ${target}, which is not where a demo lives — \`demo.html\` or \`<page>.demo.html\` directly in a \`domain/<context>/\` folder.` });
     }
+    const region = regionProblem(relPath, html);
+    if (region) issues.push({ severity: "error", message: region });
     issues.push(...demoFileIssues(relPath, html));
     return { issues, target, merged: html, demo: true, placeholder: false, removesFile: false };
 }
@@ -460,6 +469,16 @@ async function exists(absolute) {
     }
 }
 
+/** Read a file by its repository-relative path, refusing one that resolves outside the repository. */
+async function readInRepo(repoRoot, relPath) {
+    const root = path.resolve(repoRoot);
+    const absolute = path.resolve(root, relPath);
+    if (path.relative(root, absolute).startsWith("..") || path.isAbsolute(path.relative(root, absolute))) {
+        throw new Error(`${relPath} resolves outside the repository.`);
+    }
+    return readFile(absolute, "utf8");
+}
+
 /** Check every delta of one change. */
 export async function checkChange(repoRoot, name) {
     const { ladder, issues: ladderIssues } = await loadStatusLadder(repoRoot);
@@ -479,15 +498,46 @@ export async function checkChange(repoRoot, name) {
     for (const relPath of other.sort()) {
         report.problems.push({ severity: "error", message: `${relPath} is neither a Markdown delta nor a \`*.demo.html\` — a demo is the one other file ${DELTA_FOLDER}/ holds.` });
     }
+    // Chapter fingerprints read each demo as the change would leave it: the
+    // proposed copy where the change carries one, the repository's otherwise.
+    const proposedDemos = new Map();
+    for (const relPath of demos) proposedDemos.set(changePathParts(relPath).target, await readInRepo(repoRoot, relPath));
+    const onDisk = demoReader(repoRoot);
+    const demoText = (relPath) => (proposedDemos.has(relPath) ? proposedDemos.get(relPath) : onDisk(relPath));
     for (const relPath of deltas.sort()) {
-        const markdown = await readFile(path.join(repoRoot, relPath), "utf8");
-        report.deltas.push({ path: relPath, markdown, ...(await checkDelta(repoRoot, relPath, markdown, { ladder })) });
+        const markdown = await readInRepo(repoRoot, relPath);
+        report.deltas.push({ path: relPath, markdown, ...(await checkDelta(repoRoot, relPath, markdown, { ladder, demoText })) });
     }
     for (const relPath of demos.sort()) {
-        const markdown = await readFile(path.join(repoRoot, relPath), "utf8");
+        const markdown = proposedDemos.get(changePathParts(relPath).target);
         report.deltas.push({ path: relPath, markdown, ...checkDemoDelta(relPath, markdown) });
     }
+    if (proposedDemos.size) report.deltas.push(...(await demoLapses(repoRoot, report.deltas, onDisk, demoText)));
     return report;
+}
+
+/**
+ * A replaced demo lapses every decision whose fingerprint folds it in, in
+ * files no Markdown delta of the change merges into. Each such file comes back
+ * as a delta entry carrying the file with those decisions lifted, so
+ * `applyChange` writes it beside the demo.
+ */
+async function demoLapses(repoRoot, deltas, onDisk, demoText) {
+    const merged = new Set(deltas.filter((d) => !d.placeholder && !d.demo).map((d) => d.target));
+    const lapses = [];
+    for (const relPath of await markdownUnder(repoRoot, `${DEVBOOK_PREFIX}domain`)) {
+        if (merged.has(relPath)) continue;
+        const text = await readInRepo(repoRoot, relPath);
+        const lapsed = parseDocument(text).chapters.filter(
+            (c) => DECISION_STATUSES.includes(c.meta?.status) && chapterFingerprint(relPath, text, c.line, onDisk) !== chapterFingerprint(relPath, text, c.line, demoText)
+        );
+        if (!lapsed.length) continue;
+        const issues = [];
+        const eol = text.includes("\r\n") ? "\r\n" : "\n";
+        const lines = stripDecisions(text.split(/\r?\n/), lapsed, issues, "the change replaces a demo it folds in");
+        lapses.push({ path: relPath, target: relPath, markdown: text, merged: lines.join(eol), issues, placeholder: false, removesFile: false });
+    }
+    return lapses;
 }
 
 /** A change's proposal and deltas, read from disk; `null` when it has no proposal. */
