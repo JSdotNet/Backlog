@@ -258,6 +258,16 @@ html, body {
     border-radius: var(--border-radius-md);
 }
 
+/* A board column's width, for the cards that live in one: a card shown at the
+   full width of this page is a card no board will ever draw. */
+.sb-board-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    width: 18rem;
+    max-width: 100%;
+}
+
 .sb-stack {
     display: flex;
     flex-direction: column;

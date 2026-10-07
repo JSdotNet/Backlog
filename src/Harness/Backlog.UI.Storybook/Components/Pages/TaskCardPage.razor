@@ -1,0 +1,246 @@
+@page "/task-list/card"
+
+<PageTitle>Task card — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Task card"
+           Summary="`TaskCard`: one task as a card in a board column — the same `TaskRow` a list row draws, stacked. The type and a raised priority on top, the title, what it waits on, its tags, then one line with the repository, the sub-items, the date that matters, the host's work badges and the effort. The whole card is one control that opens the task; the Board that lays cards out in columns is not this page's subject."
+           Guidelines="@Rules">
+
+    <Story Name="Cards in a column"
+           Description="`Task` is the row record, and the facts a row has no field for come in beside it: `Priority`, `Repository`, `Effort`, `Overdue` and `Finished`. `Status` is the same `TaskChainStatus` a list derives for its rows. Everything absent is left out — a card with no due date draws no date, a card with no sub-items no count — except the effort, which says `Not estimated`."
+           Code="@ColumnCode">
+        <div class="sb-board-column" data-testid="task-card-column">
+            @foreach (var card in Column)
+            {
+                <TaskCard Task="@card.Task"
+                          Status="@card.Status"
+                          Priority="@card.Priority"
+                          Repository="@card.Repository"
+                          Effort="@card.Effort"
+                          Overdue="@card.Overdue"
+                          Finished="@card.Finished"
+                          CssClass="@Mark(card.Colour)"
+                          Badges="@(task => WorkBadges(task))"
+                          OnSelected="Open"
+                          TestId="@($"card-{card.Task.Id}")" />
+            }
+        </div>
+        <p class="sb-state" data-testid="task-card-opened">Opened: @(_opened ?? "(none)")</p>
+    </Story>
+
+    <Story Name="Priority stays quiet"
+           Description="Only `High` and `Critical` draw anything: a small up-chevron on the top line whose tooltip and accessible name give the priority. `Medium`, `Low` and no priority at all draw nothing. The priority is the host's word, matched without regard to case."
+           Code="@PriorityCode">
+        <div class="sb-row" data-testid="task-card-priorities">
+            @foreach (var priority in Priorities)
+            {
+                <div class="sb-board-column">
+                    <span class="sb-label">@priority</span>
+                    <TaskCard Task="@(new TaskRow($"p-{priority}", $"{priority} priority task", Kind: TaskKinds.Task))"
+                              Priority="@priority"
+                              Effort="2"
+                              TestId="@($"priority-{priority.ToLowerInvariant()}")" />
+                </div>
+            }
+        </div>
+    </Story>
+
+    <Story Name="Waits on"
+           Description="When `Status` says the task is blocked, the card says what it waits on, by name, between the title and the tags — the names the chain resolved, and the raw id for one it could not. A ready card draws nothing there."
+           Code="@WaitingCode">
+        <div class="sb-board-column" data-testid="task-card-waiting">
+            <TaskCard Task="@Dragging"
+                      Status="@DraggingStatus"
+                      Priority="High"
+                      Repository="backlog"
+                      Effort="3"
+                      TestId="waiting" />
+        </div>
+    </Story>
+
+    <Story Name="Due, overdue and finished"
+           Description="One date, whichever matters: when an open task is due — in the error ink when the host says `Overdue` — and when a done task was finished, in the success ink. A done task's due date is not drawn. Both strings are the host's, already formatted."
+           Code="@DateCode">
+        <div class="sb-row" data-testid="task-card-dates">
+            <div class="sb-board-column">
+                <TaskCard Task="@(new TaskRow("due", "List · Board · Calendar switch", Due: "Due Oct 9", Kind: TaskKinds.Task))" Effort="2" TestId="date-due" />
+            </div>
+            <div class="sb-board-column">
+                <TaskCard Task="@(new TaskRow("overdue", "Rotate the sync signing key", Due: "Overdue 5 days", Kind: TaskKinds.Task))" Overdue="true" Priority="Critical" Effort="2" TestId="date-overdue" />
+            </div>
+            <div class="sb-board-column">
+                <TaskCard Task="@(new TaskRow("done", "Sync conflict banner copy", Done: true, Due: "Due Oct 4", Kind: TaskKinds.Task))" Finished="Finished Oct 5" Effort="1" TestId="date-finished" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="The repository identity edge"
+           Description="The edge is the host's, through `CssClass`, on the seam `TaskListView.RowCssClass` gives a row: the desktop pane hands both the same `repo-mark repo-mark--N` classes while its repository colours are showing, and nothing when they are off. The card never decides whether colours are on. The switch below plays the host."
+           Code="@EdgeCode">
+        <label class="sb-row">
+            <input type="checkbox" checked="@_colours" @onchange="e => _colours = e.Value is true" data-testid="task-card-colours" />
+            Repository colours
+        </label>
+        <div class="sb-row" data-testid="task-card-edges">
+            @foreach (var card in Column.Take(3))
+            {
+                <div class="sb-board-column">
+                    <TaskCard Task="@card.Task"
+                              Repository="@card.Repository"
+                              Effort="@card.Effort"
+                              CssClass="@(_colours ? Mark(card.Colour) : null)"
+                              TestId="@($"edge-{card.Task.Id}")" />
+                </div>
+            }
+        </div>
+    </Story>
+
+    <Story Name="One control, and what stops inside it"
+           Description="With `OnSelected`, the whole card is one focusable control: a click, Enter or Space opens the task. Without it the card is out of the tab order and does nothing. The `Badges` slot is the row's `RowBadges` on a card — usually links — and a press, a click or a key inside it never reaches the card. A tag is inert unless `OnTagSelected` is set, and then it is a control of its own and stops the same way."
+           Code="@ControlCode">
+        <div class="sb-board-column" data-testid="task-card-control">
+            <TaskCard Task="@Extract"
+                      Priority="High"
+                      Repository="backlog"
+                      Effort="5"
+                      Badges="@(task => WorkBadges(task))"
+                      OnSelected="Open"
+                      OnTagSelected="Filter"
+                      TestId="control" />
+        </div>
+        <p class="sb-state" data-testid="task-card-control-state">@(_lastPress ?? "Nothing pressed yet.")</p>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#task-rows", "What a task states and what goes quiet — the card states the row's facts."),
+        new("color-scheme.md#the-identity-edge", "The 4px repository edge, and that it is never the only thing naming the repository."),
+        new("typography-and-layout.md#metadata-lines", "How dates, counts and tags are set under a title."),
+        new("accessibility.md#iconography-accessibility", "Why the chevron carries its priority as a name, not only as a shape.")
+    ];
+
+    private static class TaskKinds
+    {
+        public static readonly TaskKind Task = new("📋", "Task");
+        public static readonly TaskKind Test = new("🧪", "Test");
+        public static readonly TaskKind Idea = new("💡", "Idea");
+    }
+
+    private sealed record Sample(
+        TaskRow Task,
+        string? Priority = null,
+        string? Repository = null,
+        int? Effort = null,
+        bool Overdue = false,
+        string? Finished = null,
+        int? Colour = null,
+        TaskChainStatus? Status = null);
+
+    private static readonly TaskRow Extract = new(
+        "card",
+        "Extract TaskCard from the TaskItem row",
+        InMyDay: true,
+        Due: "Due Oct 8",
+        StepsDone: 3,
+        StepCount: 5,
+        Tags: ["+task-views"],
+        Kind: TaskKinds.Task);
+
+    private static readonly TaskRow Dragging = new(
+        "drag",
+        "Dragging between columns follows the status flow",
+        Tags: ["+task-views"],
+        DependsOn: ["board"],
+        Kind: TaskKinds.Test);
+
+    private static readonly TaskChainStatus DraggingStatus = new(
+        "drag",
+        TaskReadiness.Blocked,
+        [new TaskDependency("board", "Board view", InList: true)],
+        InCycle: false);
+
+    private static readonly IReadOnlyList<Sample> Column =
+    [
+        new(Extract, "High", "backlog", 5, Colour: 1),
+        new(new TaskRow("facet", "Plan facet on the Tasks filter", Due: "Due Oct 13", StepsDone: 1, StepCount: 2, Tags: ["+task-views"], Kind: TaskKinds.Task), "Medium", "backlog-plugins", 3, Colour: 3),
+        new(new TaskRow("key", "Rotate the sync signing key", Due: "Overdue 5 days", Tags: ["+sync-hardening"], Kind: TaskKinds.Task), "Critical", "backlog-sync", 2, Overdue: true, Colour: 2),
+        new(Dragging, "High", "backlog", 3, Colour: 1, Status: DraggingStatus),
+        new(new TaskRow("swim", "Explore swimlanes by plan on the board", Tags: ["#ux"], Kind: TaskKinds.Idea), "Low", "backlog", Colour: 1),
+        new(new TaskRow("banner", "Sync conflict banner copy", Done: true, Kind: TaskKinds.Task), "Low", "backlog-sync", 1, Finished: "Finished Oct 5", Colour: 2)
+    ];
+
+    private static readonly string[] Priorities = ["Low", "Medium", "High", "Critical"];
+
+    private bool _colours = true;
+
+    private string? _opened;
+
+    private string? _lastPress;
+
+    private static string? Mark(int? colour) => colour is null ? null : $"repo-mark repo-mark--{colour}";
+
+    private void Open(string id)
+    {
+        _opened = id;
+        _lastPress = $"Opened {id}.";
+    }
+
+    private void FollowPullRequest() => _lastPress = "Followed pull request 1019.";
+
+    private void Filter(string tag) => _lastPress = $"Filtered by {tag}.";
+
+    private RenderFragment WorkBadges(TaskRow task) =>
+        @<text>
+            @if (task.Id == Extract.Id)
+            {
+                <a class="badge badge--metadata" href="#pull-request-1019" title="Pull request 1019 · draft" @onclick="FollowPullRequest" @onclick:preventDefault="true">#1019</a>
+            }
+        </text>;
+
+    private const string ColumnCode = """
+        <TaskCard Task="@row"
+                  Status="@chain.StatusOf(row.Id)"
+                  Priority="High"
+                  Repository="backlog"
+                  Effort="5"
+                  Overdue="false"
+                  Finished="@null"
+                  CssClass="@repositoryMark"
+                  Badges="@(task => WorkBadges(task))"
+                  OnSelected="Open" />
+        """;
+
+    private const string PriorityCode = """
+        <TaskCard Task="@row" Priority="Low" />       @* nothing *@
+        <TaskCard Task="@row" Priority="Medium" />    @* nothing *@
+        <TaskCard Task="@row" Priority="High" />      @* up-chevron, "High priority" *@
+        <TaskCard Task="@row" Priority="Critical" />  @* up-chevron, "Critical priority" *@
+        """;
+
+    private const string WaitingCode = """
+        <TaskCard Task="@row"
+                  Status="@(new TaskChainStatus(row.Id, TaskReadiness.Blocked,
+                      [new TaskDependency("board", "Board view", InList: true)], InCycle: false))" />
+        """;
+
+    private const string DateCode = """
+        <TaskCard Task="@(row with { Due = "Due Oct 9" })" />
+        <TaskCard Task="@(row with { Due = "Overdue 5 days" })" Overdue="true" />
+        <TaskCard Task="@(row with { Done = true })" Finished="Finished Oct 5" />
+        """;
+
+    private const string EdgeCode = """
+        @* The same class the row is handed through RowCssClass, or null while
+           the repository colours are off. *@
+        <TaskCard Task="@row" Repository="backlog" CssClass="@State.RepositoryMarkClass(entry)" />
+        """;
+
+    private const string ControlCode = """
+        <TaskCard Task="@row"
+                  Badges="@(task => WorkBadges(task))"
+                  OnSelected="id => Open(id)"
+                  OnTagSelected="tag => Filter(tag)" />
+        """;
+}
