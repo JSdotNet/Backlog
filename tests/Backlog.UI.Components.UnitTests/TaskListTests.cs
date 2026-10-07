@@ -146,7 +146,7 @@ public sealed class TaskListTests
         Assert.Equal("10:45–11:30", agenda.Text);
         Assert.Equal("Agenda time", agenda.Name);
         Assert.NotEqual(new TaskDetail(TaskDetailKind.Reminder, "x").Glyph, agenda.Glyph);
-        Assert.Empty(new TaskRow("a", "T", InMyDay: true).Details.Where(d => d.Kind is TaskDetailKind.Agenda));
+        Assert.DoesNotContain(new TaskRow("a", "T", InMyDay: true).Details, d => d.Kind is TaskDetailKind.Agenda);
     }
 
     [Fact]
