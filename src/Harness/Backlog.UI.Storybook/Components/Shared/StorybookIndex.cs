@@ -158,7 +158,14 @@ internal static class StorybookIndex
             // opens as two targets — is a convention of its own. It draws only its
             // own three components and the Badge a row's trailing slot holds,
             // which Badges introduced above.
-            new("today", "Today", "DayProgress, NowCard and DayTaskRow: how far through the day the person is, the task the day is on, and every other task picked for it.")
+            new("today", "Today", "DayProgress, NowCard and DayTaskRow: how far through the day the person is, the task the day is on, and every other task picked for it."),
+
+            // After Today, because it is where a Today row and the card's Details
+            // lead. Its own page rather than more stories on Today: a task read
+            // whole, with its steps as a checklist and the footer's two edits, is
+            // a different subject from a day read at a glance. It draws only its
+            // own component.
+            new("task-detail", "Task detail", "DayTaskDetail: one task opened from the phone's day — its chips, its steps as a checklist, its own text, Move to tomorrow and Mark done.")
         ]),
 
         // Ahead of Content because Content composes it: a document that saves says
