@@ -105,8 +105,8 @@ public sealed class ShellNavigationStore
     public string? LastSurface { get; private set; }
 
     /// <summary>The main view the workspace was showing when last set — by name,
-    /// <c>Tasks</c> or <c>Roadmap</c> — and <see cref="DefaultView"/> when nothing
-    /// has been remembered yet.</summary>
+    /// <c>Tasks</c>, <c>Board</c>, <c>Calendar</c>, <c>Roadmap</c> or <c>InProgress</c>
+    /// — and <see cref="DefaultView"/> when nothing has been remembered yet.</summary>
     public string LastView { get; private set; }
 
     /// <summary>The side panes that were open beside the main view when last set.
