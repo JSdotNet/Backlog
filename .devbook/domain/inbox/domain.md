@@ -18,7 +18,7 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests]
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/capture/domain.md#capture, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md]
+related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/capture/domain.md#capture, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests]
 aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions]
 ```
@@ -64,6 +64,21 @@ A capture can also bring files — a photo, a screenshot, a PDF the phone
 shared. The item owns them as [Attachments](#attachment): the file belongs to the
 thought, so it lives inside the item's boundary and not beside it, and it stays
 with the item whatever triage later decides.
+
+An item of kind `note` is a [Note](#note): something the person keeps and edits
+rather than a thought waiting to be sorted. It is the one kind that lives on the
+phone as well as the desktop. Every note syncs both ways, so the phone and the
+desktop may each change its title, body and files. Both sides keep the edit
+with the later `updated_at`, the same last-write-wins rule the task feed uses
+(`.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`).
+A note keeps its id on every device. It is not acknowledged away from the phone
+when the desktop takes it in, as a `text` capture is. A note stops syncing only
+when the desktop archives or deletes it. The phone then drops it from its list.
+
+Triage stays on the desktop for every kind, notes included. The phone may create
+a note and edit any note, but it never routes, defers, accepts or archives an
+item. A note waits in the queue as `unprocessed` like any other item, and the
+desktop may triage it like any other.
 
 The Inbox Item aggregate has no owned child entities; `Tag`, `Routing Target`,
 `Source` and `Attachment` are value objects owned by the root.
@@ -166,14 +181,19 @@ change is a new attachment that the item swaps in, and only the item does so.
 ```meta
 type: enum
 status: draft
+related: [.devbook/domain/inbox/domain.md#note]
 aliases: [ContentKind, CaptureKinds, kind, KindSlug]
 ```
 
 What the captured content is, as a reader sorting the queue would name it —
 distinct from `Capture Source`, which says how it arrived:
 
-- `text` — a plain note; the kind every source can produce and the kind an
-  item is until somebody says otherwise.
+- `text` — a plain thought waiting to be sorted; the kind every source can
+  produce and the kind an item is until somebody says otherwise.
+- `note` — a [Note](#note) the person keeps and edits. Created on the phone's
+  Notes tab or as a note from any device, it syncs both ways with the phone.
+  Classification never infers it from the text: an item is a note because it
+  was created as one.
 - `article` — a web page worth reading, clipped or linked.
 - `link` — a bare URL not yet known to be an article.
 - `youtube` — a video, from the YouTube monitor or a shared link.
@@ -187,7 +207,10 @@ distinct from `Capture Source`, which says how it arrived:
 The set will grow; a kind nobody has drawn yet is shown as its plain word rather
 than breaking the queue. `article`, `link`, `youtube`, `image`, `document`,
 `email` and `claude-artifact` are *reference* kinds — collected material rather
-than a thought of the reader's own.
+than a thought of the reader's own. `note` is the only kind that changes after
+it is captured: every other kind records what arrived and keeps it.
+
+`note` is specified and not built. Plan `phone-app-redesign` builds it.
 
 ### Inbox Status
 
@@ -453,6 +476,23 @@ title and, optionally, notes that become the item's body. It becomes an
 `CaptureItemCommand` is the slice, `InboxEnumMap.ManualChannel` the token.
 Distinct from a `Capture` in the Capture context, which arrives from a device
 through sync.
+
+### Note
+
+```meta
+type: term
+status: draft
+aliases: [note, NoteItem, Notes tab]
+related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/features.md#notes, .devbook/domain/capture/features.md#talk-note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
+```
+
+An Inbox Item of `Content Kind` `note`: text the person keeps and returns to,
+such as what was said in a meeting or a list they add to. A note syncs both
+ways between the desktop and the phone, and either side may edit it. A `text`
+item is different: it is a thought waiting to be sorted, and the phone forgets
+it once the desktop takes it in. A note is not a *Knowledge Note*, which is a
+Devbook entry that triage could create from an item. The phone's former *talk
+note* is now a note written in the Notes tab.
 
 ### Plan tag
 
