@@ -86,7 +86,8 @@ internal sealed class TasksPaneHost : IDisposable
         TimeProvider? clock = null,
         TaskStoreCalls? storeCalls = null,
         IDevbookReferenceResolver? devbookReferences = null,
-        LinkedTaskSources? linkedSources = null)
+        LinkedTaskSources? linkedSources = null,
+        ILinkedSessionStates? sessionStates = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-pane-host", Guid.NewGuid().ToString("n"));
 
@@ -105,7 +106,7 @@ internal sealed class TasksPaneHost : IDisposable
         var gitHub = new GitHubIntegration(gitHubSettings, client, new ConnectedProbe());
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
         var toasts = new ToastChannel();
-        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts, clock: clock, storeCalls: storeCalls, devbookReferences: devbookReferences, linkedSources: linkedSources);
+        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts, clock: clock, storeCalls: storeCalls, devbookReferences: devbookReferences, linkedSources: linkedSources, sessionStates: sessionStates);
 
         await state.InitializeAsync();
 

@@ -247,6 +247,24 @@ Unset, a row renders exactly the markup it rendered before the slot existed."
         <p class="sb-state" data-testid="task-list-row-action-state">@(_lastAction ?? "Nothing pressed yet.")</p>
     </Story>
 
+    <Story Name="Work badges, and the state they carry"
+           Description="What the desktop pane puts in `RowBadges`: the latest pull request and session a task's work produced, each a small `IntegrationLink` with `ShowTitle=&quot;false&quot;` — mark, number, checks glyph — and now the state beside it.
+
+A pull request's review verdict is a mark next to the checks glyph: changes requested in the error ink, approved in the success ink, and nothing for review required or no review, which is an open pull request's ordinary state. A session's state colours its mark through `StateAsInk`: stalled — quiet for the Sessions threshold, the state that needs you — is highlighted in the primary gold and worded &quot;Quiet 30 min&quot;; running keeps the neutral ink; finished is muted. There is no waiting-for-input state, because nothing a session leaves on disk says a question was asked.
+
+Every badge carries its full state twice, on its tooltip and as its `AriaLabel`, so the ink is never the only carrier. The rows are drawn from `IntegrationFixtures.WorkBadgePullRequests` and `WorkBadgeSessions`."
+           Code="@WorkBadgeCode">
+        <div class="sb-menu-wide" data-testid="task-list-work-badges">
+            <TaskListView Tasks="@WorkBadgeRows"
+                          OnToggle="_ => { }"
+                          AllowCopy="false"
+                          AriaLabel="Tasks with work badges"
+                          TestId="work-badges"
+                          RowBadges="@(task => WorkBadges(task))" />
+        </div>
+        <p class="sb-state" data-testid="task-list-work-badge-state">@(_lastSessionOpened is null ? "No session opened yet." : $"Opened session {_lastSessionOpened}.")</p>
+    </Story>
+
     <Story Name="Right-click, and what the host puts there"
            Description="`OnContextMenu` is the gesture and nothing more. The row reports which row was asked and where the pointer was, and the host decides what the menu holds — here the library's own `ContextMenu` from Menus, filled with the acts the desktop pane offers. Nothing is applied: the choice is written below, the way a rename or a delete is on the stories above.
 
@@ -806,6 +824,56 @@ It exists for the row that was projected from a document the task itself does no
         </text>;
 
     private void Record(string what, TaskRow task) => _lastAction = $"{what}: {task.Title}.";
+
+    /// <summary>One row per state pairing: the pull request and the session at the
+    /// same index in the fixtures.</summary>
+    private static readonly IReadOnlyList<TaskRow> WorkBadgeRows =
+    [
+        new("changes", "Show session and review state on the work badges", Group: "Tasks"),
+        new("approved", "Read a pull request's review state from GitHub", Group: "Tasks"),
+        new("required", "Lay out the board's columns", Group: "Tasks")
+    ];
+
+    private string? _lastSessionOpened;
+
+    private RenderFragment WorkBadges(TaskRow task) => __builder =>
+    {
+        var index = WorkBadgeRows.ToList().FindIndex(row => row.Id == task.Id);
+        if (index < 0) return;
+
+        var pull = IntegrationFixtures.WorkBadgePullRequests[index];
+        var session = IntegrationFixtures.WorkBadgeSessions[index];
+
+        <IntegrationLink Link="@pull"
+                         ShowTitle="false"
+                         AriaLabel="@pull.Title"
+                         TestId="@($"work-badges-{task.Id}-pull-request")"
+                         ChecksTestId="@($"work-badges-{task.Id}-checks")"
+                         ReviewTestId="@($"work-badges-{task.Id}-review")" />
+
+        <IntegrationLink Link="@session"
+                         ShowTitle="false"
+                         StateAsInk="true"
+                         AriaLabel="@session.Title"
+                         OnOpen="@(link => _lastSessionOpened = link.Id)"
+                         TestId="@($"work-badges-{task.Id}-session")" />
+    };
+
+    private const string WorkBadgeCode = """
+        <IntegrationLink Link="@pullRequest" ShowTitle="false" AriaLabel="@pullRequest.Title" />
+
+        <IntegrationLink Link="@session" ShowTitle="false" StateAsInk="true"
+                         AriaLabel="@session.Title" OnOpen="OpenSession" />
+
+        @code {
+            // Review = ChangesRequested draws the verdict mark beside the checks;
+            // SessionState = Stalled, with StateAsInk, highlights the session's mark.
+            private readonly IntegrationLinkRef pullRequest = new(url, IntegrationProvider.GitHub,
+                IntegrationLinkKind.PullRequest, "#1018",
+                "Pull request JSdotNet/Backlog#1018 — open · changes requested · checks failing", url,
+                Checks: IntegrationCheckState.Failing, Review: IntegrationReviewState.ChangesRequested);
+        }
+        """;
 
     private bool _rowMenuOpen;
 

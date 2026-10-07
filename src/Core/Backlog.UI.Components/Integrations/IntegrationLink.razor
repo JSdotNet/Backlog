@@ -28,6 +28,7 @@
        target="_blank"
        rel="noopener"
        title="@TitleValue"
+       aria-label="@AriaLabel"
        data-testid="@TestId">@Body()</a>
 }
 else if (OnOpen.HasDelegate)
@@ -35,12 +36,13 @@ else if (OnOpen.HasDelegate)
     <button type="button"
             class="@ClassValue("action")"
             title="@TitleValue"
+            aria-label="@AriaLabel"
             data-testid="@TestId"
             @onclick="() => OnOpen.InvokeAsync(Link)">@Body()</button>
 }
 else
 {
-    <span class="@ClassValue("inert")" title="@TitleValue" data-testid="@TestId">@Body()</span>
+    <span class="@ClassValue("inert")" title="@TitleValue" aria-label="@AriaLabel" role="@(AriaLabel is null ? null : "img")" data-testid="@TestId">@Body()</span>
 }
 
 @code {
@@ -68,9 +70,22 @@ else
     /// <summary>Carry the artifact's state as the link's own colour rather than as
     /// a chip beside it, for a table where the link is the one button per row and
     /// a chip would say the state a second time. The words stay — in the title and
-    /// an sr-only span — so the colour is never the sole carrier.</summary>
+    /// an sr-only span — so the colour is never the sole carrier.
+    /// <para>
+    /// A session's state is carried the same way, on its mark: a stalled session is
+    /// highlighted in the primary ink, a running one keeps the neutral ink and a
+    /// finished one is muted — the small badge a row has room for, where a chip
+    /// would be wider than the id beside it.
+    /// </para></summary>
     [Parameter]
     public bool StateAsInk { get; set; }
+
+    /// <summary>The accessible name, for a badge whose visible text is only a number
+    /// and whose full state — "Pull request 1018 · changes requested · checks
+    /// failing" — is the host's sentence. Unset, the reference is named by its
+    /// content, as before.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }
@@ -97,6 +112,38 @@ else
 
     [Parameter]
     public string? AutoMergeTestId { get; set; }
+
+    [Parameter]
+    public string? ReviewTestId { get; set; }
+
+    /// <summary>
+    /// The two review glyphs: a speech bubble — what a review is — with a tick for
+    /// approved and a bar for changes requested. The bubble keeps them apart from the
+    /// checks marks beside them, which are the same tick and a cross with no outline.
+    /// </summary>
+    private static RenderFragment ReviewIcon(IntegrationReviewState review) =>
+        @<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor"
+              stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true" focusable="false">
+            <path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" />
+            @if (review is IntegrationReviewState.Approved)
+            {
+                <path d="M5.5 7 7.25 8.75 10.5 5.5" />
+            }
+            else
+            {
+                <path d="M5.5 7h5" />
+            }
+        </svg>;
+
+    /// <summary>Whether the review state earns a mark. Approved and changes
+    /// requested are verdicts; review required is the ordinary state of an open pull
+    /// request, and a mark on every one of them would be noise.</summary>
+    private bool ShowsReview => Link.Review is IntegrationReviewState.Approved or IntegrationReviewState.ChangesRequested;
+
+    /// <summary>The session state the link wears on its mark, or null when it draws
+    /// a chip instead.</summary>
+    private IntegrationSessionState? InkedSession => StateAsInk && Link.ArtifactState is null ? Link.SessionState : null;
 
     /// <summary>
     /// The three check glyphs, in the chips' own drawing — stroked at 1.6, never
@@ -155,6 +202,11 @@ else
             stem += $" integration-link--stateful integration-link--state-{IntegrationStates.SlugOf(state)}";
         }
 
+        if (InkedSession is { } session)
+        {
+            stem += $" integration-link--session integration-link--session-{IntegrationStates.SlugOf(session)}";
+        }
+
         return string.IsNullOrWhiteSpace(CssClass) ? stem : $"{stem} {CssClass}";
     }
 
@@ -179,6 +231,11 @@ else
                 <span class="sr-only" data-testid="@StateTestId">@IntegrationStates.LabelOf(inked)</span>
             }
 
+            @if (InkedSession is { } inkedSession)
+            {
+                <span class="sr-only" data-testid="@StateTestId">@IntegrationStates.LabelOf(inkedSession)</span>
+            }
+
             @* Two small marks about the pull request, after the number they speak
                about and before anything else, so the label stays the first thing a
                reader scans for. Marks rather than chips: a row already carries its
@@ -195,6 +252,18 @@ else
                       data-testid="@ChecksTestId">
                     @ChecksIcon(Link.Checks)
                     <span class="sr-only">@checksLabel</span>
+                </span>
+            }
+
+            @if (ShowsReview)
+            {
+                var reviewLabel = IntegrationStates.LabelOf(Link.Review);
+
+                <span class="integration-link__review integration-link__review--@IntegrationStates.SlugOf(Link.Review)"
+                      title="@reviewLabel"
+                      data-testid="@ReviewTestId">
+                    @ReviewIcon(Link.Review)
+                    <span class="sr-only">@reviewLabel</span>
                 </span>
             }
 
@@ -227,10 +296,10 @@ else
                 <span class="integration-link__title">@Link.Title</span>
             }
 
-            @if ((Link.ArtifactState is not null && InkedState is null) || Link.SessionState is not null)
+            @if ((Link.ArtifactState is not null && InkedState is null) || (Link.SessionState is not null && InkedSession is null))
             {
                 <IntegrationStateChip Artifact="@(InkedState is null ? Link.ArtifactState : null)"
-                                      Session="@Link.SessionState"
+                                      Session="@(InkedSession is null ? Link.SessionState : null)"
                                       Kind="@Link.Kind"
                                       IconOnly="@IconOnly"
                                       TestId="@StateTestId" />

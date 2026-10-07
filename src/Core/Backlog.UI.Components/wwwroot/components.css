@@ -14102,6 +14102,52 @@ select.field__input {
     color: inherit;
 }
 
+/* A pull request's review verdict, beside its checks: the same two semantic
+   foregrounds — success for approved, error for changes requested. Review
+   required draws nothing, so there is no third ink. The bubble outline keeps
+   the shape apart from the checks' tick and cross. */
+.integration-link__review {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+}
+
+.integration-link__review--approved {
+    color: var(--color-success-text);
+}
+
+.integration-link__review--changes-requested {
+    color: var(--color-error-text);
+}
+
+/* A session's state as the colour of its mark. Stalled is the one that asks for
+   the person — quiet past the Sessions threshold — so it is highlighted: the
+   primary ink on the alert surface the chips already spend. Running keeps the
+   neutral ink, finished the muted one. Positioned for the .sr-only copy of the
+   state's words, so colour is never the only carrier. */
+.integration-link--session {
+    position: relative;
+}
+
+.integration-link--session-running .provider-mark {
+    color: var(--integration-ink-muted);
+}
+
+.integration-link--session-finished .provider-mark {
+    color: var(--integration-ink-off);
+}
+
+.integration-link--session-stalled {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: var(--integration-alert-surface);
+}
+
+.integration-link--session-stalled .provider-mark {
+    color: var(--color-primary);
+}
+
 /* State as ink: the link is the one button for its artifact, outlined in the
    state chip's own inks and edges so a row says Open, Draft or Merged once.
    Positioned for the .sr-only copy of the state's words, which keeps colour

@@ -101,6 +101,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private readonly TasksCopilotCli _copilot;
     private readonly IRoadmapTagSource _roadmapTags;
 
+    /// <summary>Where the state of a linked agent session is read from, or null in a
+    /// host that composes no Sessions record. See <see cref="ReadSessionStatesAsync"/>.</summary>
+    private readonly ILinkedSessionStates? _sessionStates;
+
     /// <summary>What an entry's Devbook references point at, and what a picker may
     /// offer. <see cref="UnavailableDevbookReferenceResolver"/> in a host that
     /// composes no Devbook.</summary>
@@ -209,7 +213,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ITaskChangeSignal? taskWrites = null,
         TimeProvider? timeProvider = null,
         IDevbookReferenceResolver? devbookReferences = null,
-        LinkedTaskSources? linkedSources = null)
+        LinkedTaskSources? linkedSources = null,
+        ILinkedSessionStates? sessionStates = null)
     {
         _store = store;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -227,6 +232,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (_taskWrites is not null) _taskWrites.Changed += OnTaskWritten;
 
         LinkedSources = linkedSources ?? LinkedTaskSources.None;
+        _sessionStates = sessionStates;
     }
 
     /// <summary>The installed connectors and connected targets the source badge
@@ -937,6 +943,60 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             IsLoading = false;
         }
 
+        Changed?.Invoke();
+
+        _ = ReadSessionStatesAsync();
+    }
+
+    /// <summary>
+    /// The last known state of each agent session a task links to, keyed by session
+    /// id without regard to case; a session never read, or no longer in the record, is
+    /// absent. Not persisted, for the reason <see cref="EntryRow.Snapshot"/> is not: it
+    /// is a view of something the Sessions record owns.
+    /// <para>
+    /// Held on the list rather than on each row, because a session id means the same
+    /// session on every row that links it, and a reload that replaces every row has
+    /// nothing to carry across.
+    /// </para>
+    /// </summary>
+    public IReadOnlyDictionary<string, LinkedSessionState> SessionStates { get; private set; } =
+        new Dictionary<string, LinkedSessionState>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The last known state of one linked session, or null when none is
+    /// known.</summary>
+    public LinkedSessionState? SessionStateOf(string sessionId) =>
+        SessionStates.TryGetValue(sessionId, out var state) ? state : null;
+
+    /// <summary>
+    /// Reads the state of every session the rows link to, in one ask, and redraws.
+    /// Started after the first load and after every reload somebody else asked for,
+    /// and never awaited there: the list is already on screen, and a session record
+    /// that cannot be read leaves the badges as they were. Ends quietly at
+    /// <see cref="Dispose"/>.
+    /// </summary>
+    public async Task ReadSessionStatesAsync()
+    {
+        if (_sessionStates is null || _untilDisposed.IsCancellationRequested) return;
+
+        var ids = Rows.SelectMany(row => row.SessionLinks)
+            .Select(link => link.SessionId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (ids.Count == 0) return;
+
+        IReadOnlyDictionary<string, LinkedSessionState> read;
+        try
+        {
+            read = await _sessionStates.StatesOfAsync(ids, _untilDisposed);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        if (_untilDisposed.IsCancellationRequested) return;
+
+        SessionStates = new Dictionary<string, LinkedSessionState>(read, StringComparer.OrdinalIgnoreCase);
         Changed?.Invoke();
     }
 
@@ -2849,6 +2909,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (_untilDisposed.IsCancellationRequested) return;
 
         Changed?.Invoke();
+
+        // A reload is how an agent's link_session reaches the list, so a session just
+        // linked is read here rather than waiting for the next launch.
+        _ = ReadSessionStatesAsync();
     }
 
     /// <summary>

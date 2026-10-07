@@ -935,8 +935,11 @@
     /// switching the integration off takes the marks with it.
     /// </para>
     /// <para>
-    /// Its review state rides along on the same terms, carried on the link but not
-    /// yet drawn or worded: the mark that shows it is a later step's.
+    /// Its review state rides along on the same terms: a mark beside the checks for a
+    /// verdict — approved, or changes requested — and the words in the tooltip for
+    /// every state GitHub decided, review required included. The tooltip is the
+    /// badge's accessible name too, so a reader who cannot see the inks hears the
+    /// same sentence.
     /// </para>
     /// </summary>
     private IntegrationLinkRef Link(EntryRow row, EntryPullRequestLink pr)
@@ -967,6 +970,12 @@
 
         var words = new List<string>();
         if (read) words.Add(GitHubStateLabel(state));
+        if (review is not IntegrationReviewState.None) words.Add(review switch
+        {
+            IntegrationReviewState.Approved => "approved",
+            IntegrationReviewState.ChangesRequested => "changes requested",
+            _ => "review required"
+        });
         if (checks is not IntegrationCheckState.None) words.Add($"checks {checks.ToString().ToLowerInvariant()}");
         if (autoMerge) words.Add("auto-merge on");
 
@@ -998,15 +1007,48 @@
             ? $"entry-doc__work-link entry-doc__work-link--{GitHubStateClass(state)}"
             : "entry-doc__work-link";
 
-    /// <summary>The short id alone, beside the Claude mark; the words are in the
-    /// tooltip, where the whole id is too.</summary>
-    private static IntegrationLinkRef Link(EntrySessionLink session) =>
-        new(
+    /// <summary>
+    /// The short id alone, beside the Claude mark; the words are in the tooltip,
+    /// where the whole id is too, and the tooltip is the badge's accessible name.
+    /// <para>
+    /// The mark is coloured by the session's state as the Sessions record last
+    /// answered it (<see cref="TasksDesktopState.SessionStates"/>): stalled is the
+    /// state that needs the person, highlighted and worded as what it is — quiet for
+    /// half an hour — rather than as a verdict; running keeps the neutral ink and
+    /// finished is muted. A session the record does not hold, or that has not been
+    /// read yet, has no state and draws as it always did.
+    /// </para>
+    /// </summary>
+    private IntegrationLinkRef Link(EntrySessionLink session)
+    {
+        var state = State.SessionStateOf(session.SessionId);
+
+        return new(
             session.SessionId,
             IntegrationProvider.Claude,
             IntegrationLinkKind.Session,
             session.ShortId,
-            $"Session {session.SessionId} — open in Sessions");
+            state is { } known
+                ? $"Session {session.SessionId} · {SessionStateWords(known)} — open in Sessions"
+                : $"Session {session.SessionId} — open in Sessions",
+            SessionState: state switch
+            {
+                LinkedSessionState.Running => IntegrationSessionState.Running,
+                LinkedSessionState.Stalled => IntegrationSessionState.Stalled,
+                LinkedSessionState.Finished => IntegrationSessionState.Finished,
+                _ => null
+            });
+    }
+
+    /// <summary>A linked session's state in the badge's words. Stalled says what it
+    /// means — nothing has moved for the Sessions threshold — because "stalled" on
+    /// its own reads as a fault, and the session is usually waiting on the person.</summary>
+    private static string SessionStateWords(LinkedSessionState state) => state switch
+    {
+        LinkedSessionState.Stalled => "Quiet 30 min",
+        LinkedSessionState.Finished => "finished",
+        _ => "running"
+    };
 
     /// <summary>
     /// The work links, drawn once for both surfaces: every recorded pull request
@@ -1022,18 +1064,26 @@
 
             foreach (var pr in latestOnly ? pulls.TakeLast(1) : pulls)
             {
-                <IntegrationLink Link="@Link(row, pr)"
+                var prLink = Link(row, pr);
+
+                <IntegrationLink Link="@prLink"
                                  ShowTitle="false"
+                                 AriaLabel="@prLink.Title"
                                  CssClass="@WorkLinkClass(row, pr)"
                                  TestId="@($"{testIdPrefix}pull-request")"
                                  ChecksTestId="@($"{testIdPrefix}pull-request-checks")"
+                                 ReviewTestId="@($"{testIdPrefix}pull-request-review")"
                                  AutoMergeTestId="@($"{testIdPrefix}pull-request-auto-merge")" />
             }
 
             foreach (var session in latestOnly ? sessions.TakeLast(1) : sessions)
             {
-                <IntegrationLink Link="@Link(session)"
+                var sessionLink = Link(session);
+
+                <IntegrationLink Link="@sessionLink"
                                  ShowTitle="false"
+                                 StateAsInk="true"
+                                 AriaLabel="@sessionLink.Title"
                                  CssClass="entry-doc__work-link"
                                  OnOpen="SessionOpener"
                                  TestId="@($"{testIdPrefix}session")" />

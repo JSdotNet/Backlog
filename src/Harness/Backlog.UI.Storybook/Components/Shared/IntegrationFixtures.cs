@@ -316,6 +316,63 @@ internal static class IntegrationFixtures
         "Absorbing the improvised badges in the desktop pane",
         repository: DesktopRepo);
 
+    // --- Work badges --------------------------------------------------------
+
+    /// <summary>
+    /// The pull requests a task row's work badges are drawn from, one per review
+    /// state that draws something and one that does not: the mark, the number, the
+    /// checks glyph and the review verdict beside it. The title is the host's whole
+    /// sentence, which is both the tooltip and the accessible name of a badge whose
+    /// visible text is only a number.
+    /// </summary>
+    public static IReadOnlyList<IntegrationLinkRef> WorkBadgePullRequests { get; } =
+    [
+        WorkBadgePull(1018, IntegrationReviewState.ChangesRequested, IntegrationCheckState.Failing,
+            "Pull request JSdotNet/Backlog#1018 — open · changes requested · checks failing"),
+        WorkBadgePull(1021, IntegrationReviewState.Approved, IntegrationCheckState.Passing,
+            "Pull request JSdotNet/Backlog#1021 — open · approved · checks passing"),
+        WorkBadgePull(1024, IntegrationReviewState.ReviewRequired, IntegrationCheckState.Pending,
+            "Pull request JSdotNet/Backlog#1024 — open · review required · checks pending")
+    ];
+
+    /// <summary>
+    /// The sessions a task row's work badges are drawn from, one per state a linked
+    /// session can be in. Stalled is the one that needs the person and says so as
+    /// "Quiet 30 min"; there is no waiting-for-input state, because nothing on disk
+    /// says a question was asked.
+    /// </summary>
+    public static IReadOnlyList<IntegrationLinkRef> WorkBadgeSessions { get; } =
+    [
+        WorkBadgeSession("4a1c9e02", IntegrationSessionState.Stalled, "Quiet 30 min"),
+        WorkBadgeSession("9f30b7d1", IntegrationSessionState.Running, "running"),
+        WorkBadgeSession("7e12c4a8", IntegrationSessionState.Finished, "finished")
+    ];
+
+    private static IntegrationLinkRef WorkBadgePull(
+        int number,
+        IntegrationReviewState review,
+        IntegrationCheckState checks,
+        string title) =>
+        new(
+            $"https://github.com/JSdotNet/Backlog/pull/{number}",
+            IntegrationProvider.GitHub,
+            IntegrationLinkKind.PullRequest,
+            $"#{number}",
+            title,
+            $"https://github.com/JSdotNet/Backlog/pull/{number}",
+            Repository: ProductRepo,
+            Checks: checks,
+            Review: review);
+
+    private static IntegrationLinkRef WorkBadgeSession(string id, IntegrationSessionState state, string words) =>
+        new(
+            id,
+            IntegrationProvider.Claude,
+            IntegrationLinkKind.Session,
+            id,
+            $"Session {id} · {words} — open in Sessions",
+            SessionState: state);
+
     /// <summary>The drift case with a note the host wrote. The default sentence
     /// is general on purpose; this one names the entry.</summary>
     public static readonly IntegrationLinkRef DriftedIssue = IntegrationLinkRef.Issue(
