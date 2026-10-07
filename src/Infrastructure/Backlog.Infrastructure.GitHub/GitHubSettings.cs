@@ -149,6 +149,49 @@ public sealed class GitHubSettings
         Repositories.FirstOrDefault(r => string.Equals(r.FullName, id, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
+    /// The alias a repository about to be added may take: the one asked for, or a
+    /// distinct one when a <em>different</em> repository already answers to it.
+    /// <para>
+    /// Aliases have to stay unique for two reasons: a repository list is judged
+    /// invalid on a duplicate alias (<see cref="ParseText"/>), and
+    /// <c>RepositoryColours.Resolve</c> keys its answer on the alias, so two rows
+    /// sharing one would share a hue and a filter selection.
+    /// </para>
+    /// <para>
+    /// An existing alias is never renamed to make room. A rename would be the app
+    /// changing a label somebody chose, and it would orphan the roadmap bands keyed
+    /// on exactly that label. The newcomer takes the compound <c>owner-name</c> form
+    /// instead, then a counter. Here rather than in either caller — a plan import
+    /// registering a repository, a host seeding one — so the two cannot pick
+    /// differently.
+    /// </para>
+    /// </summary>
+    public string UniqueAlias(string alias, GitHubRepositoryRef repository)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        var normalized = GitHubRepositoryRef.NormalizeAlias(alias);
+        if (!IsTaken(normalized, repository)) return normalized;
+
+        var compound = GitHubRepositoryRef.NormalizeAlias($"{repository.Owner}-{repository.Name}");
+        if (!IsTaken(compound, repository)) return compound;
+
+        for (var suffix = 2; ; suffix++)
+        {
+            var candidate = GitHubRepositoryRef.NormalizeAlias($"{compound}-{suffix}");
+            if (!IsTaken(candidate, repository)) return candidate;
+        }
+    }
+
+    /// <summary>Whether a repository <em>other than this one</em> already answers
+    /// to the alias. "Other than this one" is judged on the id, because a
+    /// repository holding its own alias is not a collision.</summary>
+    private bool IsTaken(string alias, GitHubRepositoryRef repository) =>
+        Repositories.Any(other =>
+            string.Equals(other.Alias, alias, StringComparison.Ordinal)
+            && !string.Equals(other.FullName, repository.FullName, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
     /// Which identity hue each configured repository wears, keyed by alias.
     /// <para>
     /// Worked out from the whole list rather than per repository, because an
@@ -722,6 +765,52 @@ public sealed partial class GitHubSettingsStore
 
         Changed?.Invoke();
         return error;
+    }
+
+    /// <summary>
+    /// Makes sure one repository is configured, leaving every other row alone.
+    /// Returns the store's message when a write was refused or failed, exactly as
+    /// the method it went through would.
+    /// <para>
+    /// For a host that seeds a repository at start-up — the web harness seeding its
+    /// own checkout. That seed used to be <see cref="SetRepositories"/> with a list
+    /// of one, which replaced every row of the shared registry: every other
+    /// repository and its account binding went, the registry was restamped, and
+    /// the loss travelled to every paired device (local ADR 0021). Upserting is the
+    /// only shape that cannot do that, because the other rows are never in the
+    /// write's hands.
+    /// </para>
+    /// <para>
+    /// A row with the same id is somebody's configuration, so it keeps its alias,
+    /// hue, account, knowledge source and folder choices; only the clone directory
+    /// follows the seed, since which checkout this host runs from is the one thing
+    /// the seed knows better. And only when it actually moved: a start that finds
+    /// the row as it left it writes nothing and announces nothing. The clone
+    /// directory is machine data, so even a move is no new version of the
+    /// registry.
+    /// </para>
+    /// <para>
+    /// A row that is absent is added through <see cref="AddRepository"/>. When
+    /// another repository already answers to the alias asked for, that row keeps
+    /// it and this one takes a free alias by <see cref="GitHubSettings.UniqueAlias"/>,
+    /// so a caller that needs the alias afterwards reads it off the row, by id.
+    /// A repository somebody removed is added again too, and deliberately: the
+    /// host needs the row, which is what the seed this replaced did as well.
+    /// </para>
+    /// </summary>
+    public string? EnsureRepository(GitHubRepositoryRef repository)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        if (Find(repository.FullName) is not { } existing)
+        {
+            return AddRepository(repository with { Alias = Current.UniqueAlias(repository.Alias, repository) });
+        }
+
+        var cloneDirectory = CleanPath(repository.CloneDirectory);
+        if (cloneDirectory is null || string.Equals(cloneDirectory, existing.CloneDirectory, StringComparison.OrdinalIgnoreCase)) return null;
+
+        return SetCloneDirectory(existing.FullName, cloneDirectory);
     }
 
     /// <summary>Why a rename was refused, or null when it was applied. Sentences

@@ -3,8 +3,6 @@ extern alias DesktopHarness;
 using Backlog.Infrastructure.Mcp;
 using Backlog.SharedKernel;
 
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.HostComposition.UnitTests;
@@ -42,13 +40,10 @@ public class McpServerCompositionTests
     /// <see cref="WebHarnessHostTests"/> gives: the generic host only turns
     /// <c>ValidateOnBuild</c> and <c>ValidateScopes</c> on there, and that
     /// validation is what turns an unsatisfiable registration into a startup
-    /// failure. Every AppHost run of this harness is a Development run.</summary>
-    private sealed class Harness<TEntryPoint> : WebApplicationFactory<TEntryPoint>
-        where TEntryPoint : class
-    {
-        protected override void ConfigureWebHost(IWebHostBuilder builder) =>
-            builder.UseEnvironment("Development");
-    }
+    /// failure. Every AppHost run of this harness is a Development run. Over a
+    /// workspace of the test's own: see <see cref="IsolatedHarnessFactory{TEntryPoint}"/>.</summary>
+    private sealed class Harness<TEntryPoint> : IsolatedHarnessFactory<TEntryPoint>
+        where TEntryPoint : class;
 
     /// <summary>
     /// Every tool class the library publishes can be constructed out of a request

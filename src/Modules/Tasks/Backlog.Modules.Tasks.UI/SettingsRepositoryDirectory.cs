@@ -72,7 +72,10 @@ internal sealed class SettingsRepositoryDirectory(GitHubSettingsStore settings) 
             // TryParse has already derived the alias the way a configured line
             // would: the repository name, lower-cased. `bar` for `foo/bar`, which
             // is what somebody typing `repo:bar` afterwards would expect.
-            ? parsed with { Alias = UniqueAlias(parsed.Alias, parsed) }
+            //
+            // Kept distinct from every other repository's alias by the settings'
+            // own rule (GitHubSettings.UniqueAlias), which the harness seed uses too.
+            ? parsed with { Alias = settings.Current.UniqueAlias(parsed.Alias, parsed) }
             // A bare name states no coordinate, so owner and name stand in as the
             // alias: a syntactically valid coordinate that is plainly not a
             // verified GitHub one, so the repository is usable straight away and
@@ -107,46 +110,6 @@ internal sealed class SettingsRepositoryDirectory(GitHubSettingsStore settings) 
     public bool WasRemoved(string id) => settings.Current.WasRemoved(id);
 
     private static GitHubRepositoryRef Placeholder(string alias) => new(alias, alias, alias);
-
-    /// <summary>
-    /// The derived alias, or a distinct one when a <em>different</em> repository
-    /// already answers to it.
-    /// <para>
-    /// Aliases have to stay unique for two reasons that predate this: a
-    /// repository list is judged invalid on a duplicate alias
-    /// (<c>GitHubSettings.ParseText</c>), and <c>RepositoryColours.Resolve</c>
-    /// keys its answer on the alias, so two rows sharing one would share a hue
-    /// and a filter selection. Registering <c>foo/thing</c> beside a configured
-    /// <c>other/thing</c> must not do that.
-    /// </para>
-    /// <para>
-    /// An existing alias is never renamed to make room. A rename would be this
-    /// code changing a label somebody chose, and it would orphan the roadmap
-    /// bands keyed on exactly that label. The newcomer takes the compound
-    /// <c>owner-name</c> form instead, then a counter.
-    /// </para></summary>
-    private string UniqueAlias(string alias, GitHubRepositoryRef repository)
-    {
-        if (!IsTaken(alias, repository)) return alias;
-
-        var compound = GitHubRepositoryRef.NormalizeAlias($"{repository.Owner}-{repository.Name}");
-        if (!IsTaken(compound, repository)) return compound;
-
-        for (var suffix = 2; ; suffix++)
-        {
-            var candidate = GitHubRepositoryRef.NormalizeAlias($"{compound}-{suffix}");
-            if (!IsTaken(candidate, repository)) return candidate;
-        }
-    }
-
-    /// <summary>Whether a repository <em>other than this one</em> already answers
-    /// to the alias. "Other than this one" is judged on the id, because a
-    /// repository holding its own alias is not a collision — that is the
-    /// idempotent case <see cref="Register"/> has already returned from.</summary>
-    private bool IsTaken(string alias, GitHubRepositoryRef repository) =>
-        settings.Current.Repositories.Any(other =>
-            string.Equals(other.Alias, alias, StringComparison.Ordinal)
-            && !string.Equals(other.FullName, repository.FullName, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The configured repository a name refers to, matched on shape: a
     /// name containing a <c>/</c> against the <c>owner/name</c> identity without

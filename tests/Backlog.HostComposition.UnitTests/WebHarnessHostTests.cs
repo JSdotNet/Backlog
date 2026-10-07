@@ -1,7 +1,6 @@
 extern alias DesktopHarness;
 extern alias MobileHarness;
 
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,14 +33,11 @@ public class WebHarnessHostTests
     /// and <c>ValidateScopes</c> on in Development, and that validation is what
     /// turns an unsatisfiable registration into a startup failure. Every AppHost
     /// run of these harnesses is a Development run, so this is also what they
-    /// actually do.
+    /// actually do. Over a workspace of the test's own: see
+    /// <see cref="IsolatedHarnessFactory{TEntryPoint}"/>.
     /// </summary>
-    private sealed class Harness<TEntryPoint> : WebApplicationFactory<TEntryPoint>
-        where TEntryPoint : class
-    {
-        protected override void ConfigureWebHost(IWebHostBuilder builder) =>
-            builder.UseEnvironment("Development");
-    }
+    private sealed class Harness<TEntryPoint> : IsolatedHarnessFactory<TEntryPoint>
+        where TEntryPoint : class;
 
     /// <summary>
     /// The desktop harness, which has an <c>ITaskRepository</c> and opts into

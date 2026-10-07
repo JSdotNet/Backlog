@@ -11,7 +11,6 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.HostComposition.UnitTests;
@@ -47,12 +46,10 @@ public class McpEndpointGateTests
     /// <summary>Development for the reason <see cref="WebHarnessHostTests"/>
     /// gives — it is the only environment where the provider validates — plus the
     /// feature switch this class needs to decide.</summary>
-    private sealed class Harness(bool sessions = true) : WebApplicationFactory<DesktopHarness::Program>
+    private sealed class Harness(bool sessions = true) : IsolatedHarnessFactory<DesktopHarness::Program>
     {
-        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        protected override void ConfigureHarness(IWebHostBuilder builder)
         {
-            builder.UseEnvironment("Development");
-
             // After the harness's own registration, so this is the one resolved:
             // the last registration of a service wins.
             builder.ConfigureServices(services =>
