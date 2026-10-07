@@ -150,7 +150,15 @@ internal static class StorybookIndex
             // tabs along the bottom and the sync line in the title bar. It draws
             // nothing but its own two components, so it could sit anywhere after
             // Buttons; it sits with navigation because the tab bar is navigation.
-            new("app-shell", "App shell", "TabBar and SyncStatusLine: the destinations along the bottom of the phone, and where its sync stands.")
+            new("app-shell", "App shell", "TabBar and SyncStatusLine: the destinations along the bottom of the phone, and where its sync stands."),
+
+            // After App shell: the parts of the page the phone opens on, inside
+            // that chrome. Its own page and not a row on Task list, because a day
+            // read at a glance — a share, the task on now, a row that ticks and
+            // opens as two targets — is a convention of its own. It draws only its
+            // own three components and the Badge a row's trailing slot holds,
+            // which Badges introduced above.
+            new("today", "Today", "DayProgress, NowCard and DayTaskRow: how far through the day the person is, the task the day is on, and every other task picked for it.")
         ]),
 
         // Ahead of Content because Content composes it: a document that saves says

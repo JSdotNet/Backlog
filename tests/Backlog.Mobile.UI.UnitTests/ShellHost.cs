@@ -86,8 +86,9 @@ internal sealed class ShellHost : IDisposable
         new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView);
 
     /// <summary>Renders the app opened on <paramref name="route"/>, relative to
-    /// the base address — "" is the Inbox.</summary>
-    public IRenderedComponent<Routes> Open(string route = "")
+    /// the base address — "" is Today, and the default is the Inbox, which most
+    /// of these tests are about.</summary>
+    public IRenderedComponent<Routes> Open(string route = "inbox")
     {
         Navigation.NavigateTo(route);
         return _context.Render<Routes>();

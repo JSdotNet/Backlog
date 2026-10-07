@@ -69,6 +69,7 @@ internal static class TestOutbox
         services.AddSingleton<DeviceOutbox>();
         services.AddSingleton(taskView ?? new InMemoryTaskViewStore());
         services.AddSingleton<TaskViewProjection>();
+        services.AddSingleton<TaskEdits>();
         return services;
     }
 }

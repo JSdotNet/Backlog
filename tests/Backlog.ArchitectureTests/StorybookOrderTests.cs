@@ -50,6 +50,7 @@ public class StorybookOrderTests
         ["Code"] = ["code"],
         ["Compare"] = ["compare"],
         ["Data"] = ["data-table"],
+        ["Day"] = ["today"],
         ["Diagrams"] = ["diagrams", "graph-explorer", "graph-atlas"],
         ["Feedback"] = ["feedback"],
         ["Icons"] = ["foundations"],

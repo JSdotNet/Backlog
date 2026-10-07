@@ -17,8 +17,8 @@ public sealed class ForgetDeviceTests
 
     [Theory]
     [InlineData("")]
-    [InlineData("note")]
-    [InlineData("tasks")]
+    [InlineData("inbox")]
+    [InlineData("notes")]
     public void Forgetting_the_device_shows_the_pairing_box_on_every_tab(string route)
     {
         using var host = ShellHost.Paired();

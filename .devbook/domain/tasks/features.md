@@ -302,9 +302,11 @@ a start time and a duration that place it in the day, such as 10:45 for 45
 minutes. The agenda time is set and cleared on the desktop only. It means
 nothing without a My Day date, and it is dropped when the task leaves My Day.
 
-On the phone, My Day is the whole of the Tasks tab, shown as the Today screen.
-It shows what was picked for the phone's own date, never a due-date grouping,
-and splits that list into four groups:
+On the phone, My Day is the Today tab, the first of the phone's three tabs
+(Today, Inbox, Notes) and the screen the app opens on. Under the phone's own
+date it says how many of the day's tasks are ticked off, as `3 of 8 done` with
+a bar. It shows what was picked for the phone's own date, never a due-date
+grouping, and splits that list into four groups:
 
 ```mermaid
 flowchart TD
@@ -317,10 +319,15 @@ flowchart TD
     Current -- no --> Agenda["Agenda, in time order"]
 ```
 
-**Now** holds the timed task whose block contains the current time. **Agenda**
-holds the other timed tasks in time order. **Anytime today** holds the open
-tasks without an agenda time, in the order My Day keeps them. **Done today**
-holds the tasks ticked off today.
+**Now** holds the timed task whose block contains the current time, as a card
+at the top labelled `Now · until 11:30`, with the task's first open step, a bar
+of its steps, and the ways into Focus and the task's own page. Between blocks
+the card shows the next timed task to start instead, labelled `Next · 14:00`;
+with no timed task still to come there is no card. **Agenda** holds the other
+open timed tasks in time order, each showing its block as `10:45–11:30`.
+**Anytime today** holds the open tasks without an agenda time, in the order My
+Day keeps them. **Done today** holds the tasks ticked off today. Every row
+ticks its task off or back on, and opens the task's own page.
 
 **Focus** exists only for a task with an agenda time today. In Focus the phone
 shows a countdown to the end of the task's block and the task's first open
@@ -331,7 +338,7 @@ else:
 
 | On the phone | What it writes |
 | --- | --- |
-| Add a task | A new task picked for today, because adding it on that screen is the decision My Day records. |
+| Add a task | A new task picked for today, because adding it to Today is the decision My Day records. The Today screen adds through its capture button rather than a field of its own. |
 | Mark a task done or undone | The task's tick, the way the desktop's checkbox writes it. See [Completed](domain.md#completed). |
 | Tick or untick a step | The status of one [Sub-Item](domain.md#sub-item). |
 | Move a task to tomorrow | `myday:` set to the phone's local date plus one day. |

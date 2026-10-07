@@ -67,6 +67,30 @@ public sealed class TaskViewProjection : IDisposable
         }
     }
 
+    /// <summary>
+    /// Everything picked for <paramref name="today"/>, ticked or not, in the order
+    /// <see cref="MyDay"/> keeps — what the Today screen groups. Unlike
+    /// <see cref="MyDay"/> a done task stays in: it is ticked off today, which is
+    /// the Done today group, and an unticked task whose status still reads done
+    /// (the desktop's untick leaves the status alone) is open again. A deleted or
+    /// archived task is gone.
+    /// </summary>
+    public IReadOnlyList<TaskViewRow> Day(DateOnly today)
+    {
+        lock (_rowsLock)
+        {
+            return
+            [
+                .. _rows.Values
+                    .Where(row => row.DeletedAt is null
+                        && row.Task.InMyDayOn == today
+                        && !string.Equals(row.Task.Status, "archived", StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(row => PriorityRank(row.Task.Priority))
+                    .ThenBy(row => row.Task.CreatedAt)
+            ];
+        }
+    }
+
     public TaskViewRow? Find(Guid id)
     {
         lock (_rowsLock) return _rows.GetValueOrDefault(id);

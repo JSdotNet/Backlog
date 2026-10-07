@@ -15493,6 +15493,238 @@ select.field__input {
     box-shadow: 0 0 0 2px var(--color-info);
 }
 
+/* --- Day: progress, the card on now, a day's row ------------------------- */
+/*
+  The phone's Today screen: how far through the day the person is, the task
+  the day is on, and the rows of the rest. Every control here keeps the 44px
+  touch minimum of accessibility.md#target-sizes-and-text. A ticked row is
+  struck through *and* says so in its button's words, and the card on now is
+  told apart by its kicker's words as well as its accent edge (color-scheme.md:
+  a colour is never the sole carrier).
+*/
+
+.day-progress {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.day-progress__label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.day-progress__count {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.day-progress__track {
+    overflow: hidden;
+    height: 6px;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+}
+
+.day-progress__fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    transition: width var(--transition-base);
+}
+
+.now-card {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.now-card--current {
+    border-color: var(--color-primary);
+}
+
+.now-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-xs);
+}
+
+.now-card__kicker {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.now-card--current .now-card__kicker {
+    color: var(--color-primary);
+}
+
+.now-card__step {
+    color: var(--color-text-secondary);
+}
+
+.now-card__open {
+    display: grid;
+    gap: var(--spacing-2xs);
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.now-card__open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.now-card__title {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.now-card__next {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.now-card__steps {
+    display: grid;
+    grid-template-columns: repeat(var(--now-card-steps, 1), minmax(0, 1fr));
+    gap: var(--spacing-2xs);
+}
+
+.now-card__segment {
+    height: 4px;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+}
+
+.now-card__segment--done {
+    background: var(--color-success-text);
+}
+
+.now-card__segment--current {
+    background: var(--color-primary);
+}
+
+.now-card__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.now-card__action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    text-decoration: none;
+}
+
+.day-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    min-height: 3.5rem;
+    padding-right: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.day-row__tick {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    min-height: 3.5rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+}
+
+.day-row__tick:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+    border-radius: var(--border-radius-md);
+}
+
+.day-row__tick:disabled {
+    cursor: default;
+}
+
+.day-row__circle-ring {
+    fill: none;
+    stroke: var(--color-border-strong);
+    stroke-width: 2;
+}
+
+.day-row__circle-fill {
+    fill: var(--color-success-text);
+}
+
+.day-row__circle-check {
+    fill: none;
+    stroke: var(--color-background);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.day-row__open {
+    display: grid;
+    flex: 1;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-xs) 0;
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.day-row__open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.day-row__title {
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.day-row--done .day-row__title {
+    color: var(--color-text-secondary);
+    text-decoration: line-through;
+}
+
+.day-row__meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.day-row__trailing {
+    flex: none;
+}
+
+.day-row__chevron {
+    flex: none;
+    fill: none;
+    stroke: var(--color-border-strong);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 /* --- Attachment strip ---------------------------------------------------- */
 /*
   The files on something being written, one tile per file. A tile is a full row

@@ -134,48 +134,51 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .inbox-sheet__tags { display: flex; flex-wrap: wrap; gap: .25rem; }
 
 /*
-  My Day on the Tasks tab: the Inbox's shape — a row is the button that opens its
-  sheet, the outbox's waiting marker at the trailing edge — with the row's facts
-  (priority, due date, sub-item progress) on one line under the title.
+  Today. The library draws the progress line, the card and the rows; this file
+  only lays them out down the screen and pins the capture button above the tab
+  bar, where a thumb already is. Colours are the library's tokens.
 */
-.my-day-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-.my-day-heading h1 { margin: 0; }
+.today-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.today-heading__titles { display: grid; gap: .125rem; }
+.today-heading__date { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.today-heading h1 { margin: 0; font-family: var(--font-family-heading); }
 
-.my-day__list { list-style: none; padding: 0; margin: 0; }
-.my-day__row { display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid var(--color-border); }
-.my-day__row[data-waiting="true"] .my-day__title { color: var(--color-text-secondary); }
+.today__progress { margin-bottom: 1.25rem; }
+.today__card { margin-bottom: 1.25rem; }
 
-.my-day__open {
-    flex: 1;
-    min-width: 0;
-    min-height: 44px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: .25rem;
-    padding: .5rem 0;
-    background: none;
-    border: 0;
-    color: inherit;
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
+.today__group { margin-bottom: 1.25rem; }
+.today__group-title {
+    margin: 0 .25rem .5rem;
+    color: var(--color-text-secondary);
+    font-size: .8125rem;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: .04em;
+    text-transform: uppercase;
 }
-.my-day__open:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 2px; }
+.today__list { display: grid; gap: .25rem; margin: 0; padding: 0; list-style: none; }
 
-.my-day__title { overflow-wrap: anywhere; }
-.my-day__meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .5rem; color: var(--color-text-secondary); font-size: .75rem; }
-.my-day__action { flex: 0 0 auto; }
+/* Clear of the capture button, so neither the last row nor the card's
+   buttons are ever under it. */
+.today { padding-bottom: 5rem; }
 
-.task-sheet__body { margin-bottom: 1rem; }
-.task-sheet__facts { display: grid; grid-template-columns: auto 1fr; gap: .35rem .75rem; margin: 0; }
-.task-sheet__facts dt { color: var(--color-text-secondary); }
-.task-sheet__facts dd { margin: 0; overflow-wrap: anywhere; }
-.task-sheet__chips { display: flex; flex-wrap: wrap; gap: .25rem; }
-.task-sheet__heading { margin: 1rem 0 .5rem; font-size: 1rem; }
-.task-sheet__sub-items { margin: 0; padding-inline-start: 1.25rem; }
-.task-sheet__sub-items li { overflow-wrap: anywhere; }
-.task-sheet__sub-items li[data-done="true"] { color: var(--color-text-secondary); text-decoration: line-through; }
+.today__capture {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 5rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.75rem;
+    height: 3.75rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    box-shadow: var(--shadow-lg);
+}
+.today__capture:hover { background: var(--color-primary-light); color: var(--color-text-inverse); }
+.today__capture:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 3px; }
+
 .error { color: var(--color-error-text); }
 
 /*

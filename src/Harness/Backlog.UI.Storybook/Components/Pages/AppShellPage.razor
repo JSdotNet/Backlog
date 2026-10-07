@@ -10,7 +10,7 @@
     <Story Name="Tab bar"
            Description="One link per destination, each a route of its own, so the Router and the back button already understand it. NavLink decides which tab is lit — the root route is given Match: true, or it would match every path as a prefix.
 
-The tabs below are live: this page answers /app-shell/note and /app-shell/tasks too, so tapping one moves the lit tab and the address together."
+The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes too, so tapping one moves the lit tab and the address together."
            Code="@TabBarCode">
         <div class="sb-phone">
             <TabBar Items="Tabs" AriaLabel="Sections" TestId="tab-bar" />
@@ -53,9 +53,9 @@ The tabs below are live: this page answers /app-shell/note and /app-shell/tasks 
 
     private static readonly IReadOnlyList<NavItem> Tabs =
     [
-        new("app-shell", "Inbox", Match: true),
-        new("app-shell/note", "Note"),
-        new("app-shell/tasks", "Tasks")
+        new("app-shell", "Today", Match: true),
+        new("app-shell/inbox", "Inbox"),
+        new("app-shell/notes", "Notes")
     ];
 
     private static readonly DesignGuideline[] Rules =
@@ -71,9 +71,9 @@ The tabs below are live: this page answers /app-shell/note and /app-shell/tasks 
         @code {
             private static readonly IReadOnlyList<NavItem> Tabs =
             [
-                new("", "Inbox", Match: true),
-                new("note", "Note"),
-                new("tasks", "Tasks")
+                new("", "Today", Match: true),
+                new("inbox", "Inbox"),
+                new("notes", "Notes")
             ];
         }
         """;

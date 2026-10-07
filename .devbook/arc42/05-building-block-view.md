@@ -399,7 +399,7 @@ graph TB
     Shell["Shell\n(sync status, pairing gate)"]
     InboxTab["Inbox tab\n(quick capture, list, Dismiss)"]
     NoteTab["Note tab\n(talk note)"]
-    TasksTab["Tasks tab\n(My Day, add and edit for today)"]
+    TasksTab["Today tab\n(My Day grouped, tick, open)"]
   end
 
   subgraph "Device store (SQLite)"
