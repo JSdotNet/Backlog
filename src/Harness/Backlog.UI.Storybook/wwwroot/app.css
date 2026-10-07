@@ -340,6 +340,24 @@ html, body {
     max-width: 23.4375rem;
 }
 
+/* The desktop header's nav, laid out the way the shell lays it out: the
+   workspace's own three controls close together, the takeover groups further
+   apart, wrapping on a narrow page rather than scrolling. */
+.sb-header-nav,
+.sb-header-nav__workspace {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.sb-header-nav {
+    gap: var(--spacing-md);
+}
+
+.sb-header-nav__workspace {
+    gap: var(--spacing-xs);
+}
+
 /* A heading standing in for one a Devbook panel draws, so the type marker in
    front of it can be looked at on the line it actually lands on. The block
    margins go, because the sample sits in a flex row beside a status pill and a

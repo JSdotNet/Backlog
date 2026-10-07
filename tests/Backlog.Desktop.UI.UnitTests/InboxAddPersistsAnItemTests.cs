@@ -66,9 +66,10 @@ public sealed class InboxAddPersistsAnItemTests
     }
 
     /// <summary>Add is capture, not triage. The reader is filling the queue: no
-    /// backlog entry is written, and the Tasks pane stays closed.</summary>
+    /// backlog entry is written, and nothing is selected or opened on the task list
+    /// beside the Inbox.</summary>
     [Fact]
-    public async Task Adding_writes_no_backlog_entry_and_opens_no_backlog_pane()
+    public async Task Adding_writes_no_backlog_entry_and_opens_no_entry()
     {
         using var harness = CreateHarness();
 
@@ -79,7 +80,6 @@ public sealed class InboxAddPersistsAnItemTests
         Assert.Empty(await harness.Entries.ListAsync(TestContext.Current.CancellationToken));
         Assert.Null(state.SelectedRow);
         Assert.Null(state.EditingRow);
-        Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
         Assert.Empty(component.FindAll("[data-testid='entry-detail']"));
     }
 

@@ -150,7 +150,7 @@ internal static class StorybookIndex
             // tabs along the bottom and the sync line in the title bar. It draws
             // nothing but its own two components, so it could sit anywhere after
             // Buttons; it sits with navigation because the tab bar is navigation.
-            new("app-shell", "App shell", "TabBar and SyncStatusLine: the destinations along the bottom of the phone, and where its sync stands.")
+            new("app-shell", "App shell", "The desktop header's view switch and takeovers, and the phone's TabBar and SyncStatusLine: its destinations and where its sync stands.")
         ]),
 
         // Ahead of Content because Content composes it: a document that saves says

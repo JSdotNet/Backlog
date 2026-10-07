@@ -4,8 +4,40 @@
 <PageTitle>App shell — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="App shell"
-           Summary="TabBar and SyncStatusLine: the row of destinations along the bottom of the phone, and the line in its title bar that says where sync stands."
+           Summary="The desktop header's navigation — the view switch with the side panes beside it, then the takeovers — and on the phone, TabBar and SyncStatusLine: the row of destinations along the bottom, and the line in its title bar that says where sync stands."
            Guidelines="@Rules">
+
+    <Story Name="Desktop header navigation"
+           Description="The desktop header's nav, left to right: the Inbox toggle, the view switch, the Devbook toggle, then the work in progress and the other takeovers. The view switch is a fused ButtonGroup of ToggleButtons with exactly one pressed — a view is replaced, never closed, so pressing the pressed one changes nothing. The Inbox and the Devbook are standalone toggles that open beside whichever view is showing. Sessions and Pull requests are one context's two lists, fused; Dashboard and Tools stand loose.
+
+The sample is live: pick a view, open a side pane beside it, or press a takeover — the line under it says what the shell would show. Board, Calendar and In progress join these groups in later steps, one option each."
+           Code="@HeaderCode">
+        <nav class="sb-header-nav" aria-label="Workspace views" data-testid="sb-header-nav">
+            <div class="sb-header-nav__workspace">
+                <ToggleButton Pressed="@(_takeover is null && _inbox)" OnClick="() => PressSidePane(ref _inbox)" TestId="sb-inbox-toggle">Inbox</ToggleButton>
+                <ButtonGroup AriaLabel="View" TestId="sb-view-switch">
+                    @foreach (var view in Views)
+                    {
+                        <ToggleButton Pressed="@(_takeover is null && _view == view)" OnClick="() => ShowView(view)">@view</ToggleButton>
+                    }
+                </ButtonGroup>
+                <ToggleButton Pressed="@(_takeover is null && _devbook)" OnClick="() => PressSidePane(ref _devbook)" TestId="sb-devbook-toggle">Devbook</ToggleButton>
+            </div>
+            <ButtonGroup AriaLabel="Work in progress" TestId="sb-work-in-progress">
+                @foreach (var takeover in WorkInProgress)
+                {
+                    <ToggleButton Pressed="@(_takeover == takeover)" OnClick="() => ToggleTakeover(takeover)">@takeover</ToggleButton>
+                }
+            </ButtonGroup>
+            <div class="sb-row" role="group" aria-label="Surface">
+                @foreach (var takeover in Surfaces)
+                {
+                    <ToggleButton Pressed="@(_takeover == takeover)" OnClick="() => ToggleTakeover(takeover)">@takeover</ToggleButton>
+                }
+            </div>
+        </nav>
+        <p class="sb-state" data-testid="sb-header-state">@HeaderState</p>
+    </Story>
 
     <Story Name="Tab bar"
            Description="One link per destination, each a route of its own, so the Router and the back button already understand it. NavLink decides which tab is lit — the root route is given Match: true, or it would match every path as a prefix.
@@ -58,8 +90,53 @@ The tabs below are live: this page answers /app-shell/note and /app-shell/tasks 
         new("app-shell/tasks", "Tasks")
     ];
 
+    private static readonly string[] Views = ["Tasks", "Roadmap"];
+    private static readonly string[] WorkInProgress = ["Sessions", "Pull requests"];
+    private static readonly string[] Surfaces = ["Dashboard", "Tools"];
+
+    private string _view = "Tasks";
+    private string? _takeover;
+    private bool _inbox;
+    private bool _devbook;
+
+    /// <summary>A view press is also the way back from a takeover.</summary>
+    private void ShowView(string view)
+    {
+        _takeover = null;
+        _view = view;
+    }
+
+    private void ToggleTakeover(string takeover) => _takeover = _takeover == takeover ? null : takeover;
+
+    /// <summary>A side-pane toggle: during a takeover it is a way back, showing the
+    /// workspace with that pane open; otherwise it opens or closes the pane.</summary>
+    private void PressSidePane(ref bool open)
+    {
+        if (_takeover is not null)
+        {
+            _takeover = null;
+            open = true;
+            return;
+        }
+
+        open = !open;
+    }
+
+    private string HeaderState
+    {
+        get
+        {
+            if (_takeover is not null) return $"{_takeover} has the screen; Escape, a view or a side pane returns to {_view}.";
+
+            var beside = new[] { _inbox ? "Inbox" : null, _devbook ? "Devbook" : null }.OfType<string>().ToArray();
+            return beside.Length == 0 ? $"{_view} view." : $"{_view} view, with {string.Join(" and ", beside)} beside it.";
+        }
+    }
+
     private static readonly DesignGuideline[] Rules =
     [
+        new("interaction-guidelines.md#workspace-panes", "How the side panes open beside the view, and how a narrow window trims them."),
+        new("interaction-guidelines.md#group-shape-says-cardinality", "What a fused group and a standalone option say before anything is pressed."),
         new("accessibility.md#target-sizes-and-text", "How large a tab has to be under a thumb, and why the lit tab is not told apart by colour alone."),
         new("interaction-guidelines.md#offline", "Why offline is a calm, persistent line rather than an error."),
         new("accessibility.md#screen-reader--announcements", "What a status line announces, and that it never interrupts.")
@@ -76,6 +153,27 @@ The tabs below are live: this page answers /app-shell/note and /app-shell/tasks 
                 new("tasks", "Tasks")
             ];
         }
+        """;
+
+    private const string HeaderCode = """
+        <nav class="app-header__nav" aria-label="Workspace views">
+            <div class="app-header__workspace">
+                <ToggleButton Pressed="PaneOptionPressed(GlobalPane.Inbox)" OnClick="() => PressPane(GlobalPane.Inbox)">Inbox</ToggleButton>
+                <ButtonGroup CssClass="header-group header-group--views" AriaLabel="View">
+                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Tasks)" OnClick="() => ShowView(ShellView.Tasks)">Tasks</ToggleButton>
+                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Roadmap)" OnClick="() => ShowView(ShellView.Roadmap)">Roadmap</ToggleButton>
+                </ButtonGroup>
+                <ToggleButton Pressed="PaneOptionPressed(GlobalPane.Devbook)" OnClick="() => PressPane(GlobalPane.Devbook)">Devbook</ToggleButton>
+            </div>
+            <ButtonGroup CssClass="header-group header-group--work" AriaLabel="Work in progress">
+                <ToggleButton Pressed="SessionsVisible" PressedChanged="ToggleSessions">Sessions</ToggleButton>
+                <ToggleButton Pressed="PullRequestsVisible" PressedChanged="TogglePullRequests">Pull requests</ToggleButton>
+            </ButtonGroup>
+            <ButtonGroup CssClass="header-group header-group--loose header-group--surface" AriaLabel="Surface">
+                <ToggleButton Pressed="DashboardVisible" PressedChanged="ToggleDashboard">Dashboard</ToggleButton>
+                <ToggleButton Pressed="ToolsVisible" PressedChanged="ToggleTools">Tools</ToggleButton>
+            </ButtonGroup>
+        </nav>
         """;
 
     private const string NotPairedCode = """

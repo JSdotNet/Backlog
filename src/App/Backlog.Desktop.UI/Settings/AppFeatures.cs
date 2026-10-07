@@ -75,7 +75,7 @@ public static class AppFeatures
         // --- Domain: an area of the product ---------------------------------
         new(TasksFeatures.Tasks, "Tasks", "Create, edit, filter, reorder, and store tasks.", AlwaysEnabled: true),
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false, Status: AppFeatureStatus.Dev),
-        new(RoadmapFeatures.Roadmap, "Roadmap band", "Show the roadmap band above the panes in the Home shell."),
+        new(RoadmapFeatures.Roadmap, "Roadmap view", "Offer the Roadmap view in the Home shell's view switch, beside Tasks: plans on a graduated axis under their own Planning heading."),
         // The devbook keys carried the context's former name; the former keys
         // keep a features.json written before the rename reading as it did.
         // Devbook also absorbed the separate Devbook sections switch, so a

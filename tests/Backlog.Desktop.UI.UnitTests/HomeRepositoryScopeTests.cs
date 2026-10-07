@@ -224,10 +224,9 @@ public sealed class HomeRepositoryScopeTests
 
         Chips(component)[1].Click();
 
-        // With Ctrl, so opening Devbook puts it beside the list rather than in its
-        // place — a plain pane press is a switch, and the list has to stay for a
-        // second repository to have anywhere to be.
-        component.WaitForElement("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
+        // Devbook opens beside the list, which has to stay for a second repository
+        // to have anywhere to be.
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
@@ -413,13 +412,13 @@ public sealed class HomeRepositoryScopeTests
     // --- Several only while the list is on screen ------------------------------------
     //
     // More than one repository is a list affordance: the backlog list is the only
-    // pane that can show several. So the scope holds several only while Tasks is on
-    // screen — going to Devbook, which as a plain switch takes the list's
-    // place, narrows the scope to the anchor, and without the list a modified press
-    // is an ordinary press.
+    // view that can show several. So the scope holds several only while Tasks is on
+    // screen — switching to the Roadmap view, which takes the list's place, narrows
+    // the scope to the anchor, and without the list a modified press is an ordinary
+    // press.
 
     [Fact]
-    public void Going_to_knowledge_in_place_of_the_list_narrows_the_scope_to_the_anchor()
+    public void Going_to_the_roadmap_in_place_of_the_list_narrows_the_scope_to_the_anchor()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
@@ -429,10 +428,11 @@ public sealed class HomeRepositoryScopeTests
         Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
         Assert.Equal(["docs", "backlog"], state.SelectedRepositoryAliases);
 
-        GoToDevbook(component);
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+        GoToTheRoadmap(component);
 
         // The anchor, not the latest: docs was taken first, and it is what the
-        // knowledge pane would have been reading beside the list.
+        // knowledge pane was reading beside the list.
         component.WaitForAssertion(() => Assert.Equal(["docs"], state.SelectedRepositoryAliases));
         Assert.Equal("docs", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
     }
@@ -445,7 +445,7 @@ public sealed class HomeRepositoryScopeTests
         var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
 
         Chips(component)[0].Click();
-        GoToDevbook(component);
+        GoToTheRoadmap(component);
 
         Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
 
@@ -453,18 +453,19 @@ public sealed class HomeRepositoryScopeTests
         // file is: going to Devbook leaves the pane's own load draining through the
         // renderer, and a press dispatched while it does lands a batch later. The
         // assertion is the same one; what changes is that it stops racing the drain.
+        // Going to the roadmap leaves its plan read draining the same way.
         component.WaitForAssertion(() => Assert.Equal(["docs"], state.SelectedRepositoryAliases));
         Assert.DoesNotContain("Ctrl+click", Chips(component)[0].GetAttribute("title"));
     }
 
-    /// <summary>Presses the Devbook option, which — a plain press being a switch —
-    /// puts the Devbook pane where the list was.</summary>
-    private static void GoToDevbook(IRenderedComponent<Home> component)
+    /// <summary>Presses the Roadmap option in the view switch, which puts the
+    /// roadmap where the list was.</summary>
+    private static void GoToTheRoadmap(IRenderedComponent<Home> component)
     {
-        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+        component.WaitForElement("[data-testid='roadmap-view-option']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
         });
     }
