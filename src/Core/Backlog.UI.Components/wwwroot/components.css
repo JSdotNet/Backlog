@@ -5208,13 +5208,19 @@ button.task-panel__check:focus-visible {
    Columns of TaskCards, side by side. See TaskBoard.razor. The columns never
    shrink below the width a card reads at; the board scrolls sideways instead,
    which is what it does once the detail panel opens beside it.
+
+   Every column is as tall as the tallest one. A column is where a held card
+   is dropped, and one only as tall as its cards left the space beside a long
+   column's foot belonging to nobody: a card picked up low in a long Ready
+   column and carried across to a short In progress column was released over
+   the board itself, and the drop did nothing.
 */
 .task-board {
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: minmax(17rem, 1fr);
     gap: var(--spacing-md);
-    align-items: start;
+    align-items: stretch;
     min-width: 0;
     overflow-x: auto;
     padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
