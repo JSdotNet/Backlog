@@ -271,13 +271,41 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         Assert.Empty(await _repository.ListPendingReplicaAckAsync(TestContext.Current.CancellationToken));
 
         var kept = Assert.Single(await _repository.ListDeletedCapturesAsync(TestContext.Current.CancellationToken));
-        Assert.Equal(new InboxDeletedCapture(owed.Id, "Still on the phone", owed.CapturedAt, Noon.AddHours(2)), kept);
+        Assert.Equal(new InboxDeletedCapture(owed.Id, "Still on the phone", owed.CapturedAt, Noon.AddHours(2), "text"), kept);
         Assert.Equal(kept, await _repository.GetDeletedCaptureAsync(owed.Id, TestContext.Current.CancellationToken));
         Assert.Null(await _repository.GetDeletedCaptureAsync(local.Id, TestContext.Current.CancellationToken));
 
         await _repository.ForgetDeletedCaptureAsync(owed.Id, TestContext.Current.CancellationToken);
 
         Assert.Empty(await _repository.ListDeletedCapturesAsync(TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>A note's own stamp survives the store, apart from the item's, and
+    /// a deleted note's acknowledgement remembers it was a note, so its tombstone
+    /// goes out as one (.devbook/arc42/06-runtime-view.md#mobile-note-sync).</summary>
+    [Fact]
+    public async Task A_notes_text_and_own_stamp_round_trip_and_its_deletion_remembers_the_kind()
+    {
+        var note = InboxItem.FromCapture(
+            Guid.CreateVersion7(), "Standup", new InboxSource("mobile", null), null, ContentKind.Note, Noon, Noon.AddMinutes(5));
+        note.StampEdited(Noon);
+        note.EditNote("Standup notes", "- shipped", Noon.AddHours(1));
+        note.MoveToList(null);
+        await _repository.SaveAsync(note, TestContext.Current.CancellationToken);
+
+        var read = await _repository.GetAsync(note.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(read);
+        Assert.Equal(ContentKind.Note, read.Kind);
+        Assert.Equal("Standup notes", read.Title);
+        Assert.Equal("- shipped", read.BodyMd);
+        Assert.Equal(Noon.AddHours(1), read.EditedAt);
+
+        read.Delete(Noon.AddHours(2));
+        await _repository.DeleteAsync(read, TestContext.Current.CancellationToken);
+
+        var kept = Assert.Single(await _repository.ListDeletedCapturesAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("note", kept.Kind);
     }
 
     /// <summary>An item with no replica behind it — a feed's, an import's —

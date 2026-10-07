@@ -510,8 +510,9 @@ A note is an Inbox Item the person keeps and edits, rather than a thought
 waiting to be sorted. Its `Content Kind` is `note`. Every note reaches the
 phone, whichever device made it, and an edit on either side reaches the other.
 The phone and the desktop each keep the edit with the later `updated_at`, the
-same rule the task feed uses. This feature is specified and not built: plan
-`phone-app-redesign` builds it.
+same rule the task feed uses. The sync both ways and the desktop half are built.
+The phone keeps every note and can create and edit one, but has no screen for
+notes yet: plan `phone-app-redesign` builds the Notes tab next.
 
 ### Notes on the phone
 
@@ -539,10 +540,12 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
 On the desktop a note is an item in the queue like any other. It shows its kind
-on its row, and the kind chips filter it like any kind. The reader may edit its
-title and body, and the edit reaches the phone. The reader may also triage it:
-routing, deferring and archiving work as for any item. Archiving or deleting a
-note removes it from the phone.
+on its row, with a mark of its own, and the kind chips filter it like any kind.
+The reader may edit its title and body in place in the detail column with
+**Edit note**, and the edit reaches the phone on the next sync. An archived note
+offers no edit, because it has left the phone. The reader may also triage it:
+routing, deferring and archiving work as for any item. Routing a note leaves it on
+the phone. Archiving or deleting a note removes it from the phone.
 
 ### Triage stays on the desktop
 
