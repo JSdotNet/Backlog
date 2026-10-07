@@ -359,7 +359,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal(["inbox-pane-option", "view-switch", "devbook-pane-option"], workspace);
 
             Assert.Equal(
-                ["tasks-view-option", "roadmap-view-option"],
+                ["tasks-view-option", "board-view-option", "roadmap-view-option"],
                 OptionIds(component, "view-switch"));
             Assert.Equal(
                 ["sessions-toggle-button", "pull-requests-toggle-button"],
@@ -1101,6 +1101,67 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
+    /// The Board is a main view over the same Tasks pane: the filter bar stays,
+    /// the list gives way to the columns, and the switch reads Board pressed. Its
+    /// name is what the shell remembers, and the Columns choice is remembered
+    /// beside it, so a fresh shell reopens on the Board grouped the same way.
+    /// </summary>
+    [Fact]
+    public void The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            using (var harness = CreateHarness(shellNavigation: shellNavigation))
+            {
+                var component = Render(harness);
+
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='entry-list'], [data-testid='empty-state']")));
+                component.Find("[data-testid='board-view-option']").Click();
+
+                component.WaitForAssertion(() =>
+                {
+                    Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane'] .filter-bar"));
+                    Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane'] [data-testid='task-board']"));
+                    Assert.Empty(component.FindAll("[data-testid='entry-list']"));
+                    Assert.Equal("true", component.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
+                    Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+                    Assert.Equal("Board", shellNavigation.LastView);
+                    Assert.Equal("Status", shellNavigation.BoardColumns);
+                });
+
+                component.Find("#board-columns").Change("Priority");
+                component.WaitForAssertion(() =>
+                {
+                    Assert.Equal("Priority", shellNavigation.BoardColumns);
+                    Assert.Equal("Critical", component.Find("[data-testid='board-column-title']").TextContent);
+                });
+
+                component.Find("[data-testid='tasks-view-option']").Click();
+                component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='task-board']")));
+            }
+
+            var reopenedNavigation = new ShellNavigationStore(path);
+            reopenedNavigation.SetLastView("Board");
+            using var reopened = CreateHarness(shellNavigation: reopenedNavigation);
+            var again = Render(reopened);
+
+            again.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(again.FindAll("[data-testid='task-board']"));
+                Assert.Equal("true", again.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("Priority", again.Find("#board-columns").GetAttribute("value"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
     /// The roadmap is a main view, not a takeover: it shows in the workspace's own
     /// <c>main</c>, in the place of the task list, and the Tasks filter bar goes with
     /// the list. The view switch reads Roadmap pressed and Tasks not.
@@ -1209,12 +1270,13 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             // No option offering it: the flag decides whether the option exists. The
-            // switch stays, with Tasks as its one option.
+            // switch stays, with Tasks and the Board as its options.
             Assert.Empty(component.FindAll("[data-testid='roadmap-view-option']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
 
-            var view = Assert.Single(component.Find("[data-testid='view-switch']").Children);
-            Assert.Equal("tasks-view-option", view.GetAttribute("data-testid"));
+            Assert.Equal(
+                ["tasks-view-option", "board-view-option"],
+                component.Find("[data-testid='view-switch']").Children.Select(option => option.GetAttribute("data-testid")));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });
     }

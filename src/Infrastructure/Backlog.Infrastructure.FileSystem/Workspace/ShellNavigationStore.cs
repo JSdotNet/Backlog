@@ -50,6 +50,9 @@ public sealed class ShellNavigationStore
     /// view switch the workspace's main pane was the task list.</summary>
     public const string DefaultView = "Tasks";
 
+    /// <summary>What the Board's columns are when nothing else was remembered.</summary>
+    public const string DefaultBoardColumns = "Status";
+
     /// <summary>The surface name the roadmap was stored under while it was a
     /// takeover, and the view name it is stored under now.</summary>
     private const string RoadmapName = "Roadmap";
@@ -89,6 +92,7 @@ public sealed class ShellNavigationStore
         LastEnabledPanes = dto?.LastEnabledPanes ?? Empty;
         RoadmapHoursShown = dto?.RoadmapHoursShown ?? true;
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
+        BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -118,6 +122,18 @@ public sealed class ShellNavigationStore
     /// <summary>The roadmap bands, by group id, the reader folded to one lane on this
     /// device. Empty until one is folded.</summary>
     public IReadOnlyList<string> RoadmapCollapsedGroups { get; private set; }
+
+    /// <summary>
+    /// What the Board view's columns were last grouped by — the name of a
+    /// <c>TaskBoardGrouping</c> member, kept beside the view it belongs to.
+    /// <para>
+    /// A name rather than the enum, for the reason <see cref="LastView"/> is one:
+    /// this store sits below the module that owns the vocabulary. Left out of the
+    /// file while it is the default, so a file from before the Board keeps its
+    /// shape; a name the shell no longer knows is read back as Status there.
+    /// </para>
+    /// </summary>
+    public string BoardColumns { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
@@ -183,6 +199,15 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetBoardColumns(string columns)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(columns);
+        if (columns == BoardColumns) return;
+
+        BoardColumns = columns;
+        Save();
+    }
+
     private void Save()
     {
         try
@@ -195,7 +220,9 @@ public sealed class ShellNavigationStore
                 // Left out while on, so a file from before the switch keeps its shape.
                 RoadmapHoursShown = RoadmapHoursShown ? null : false,
                 // Likewise left out while no band is folded.
-                RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups]
+                RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups],
+                // Likewise left out while the columns are the default ones.
+                BoardColumns = BoardColumns == DefaultBoardColumns ? null : BoardColumns
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -240,5 +267,8 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RoadmapCollapsedGroups { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? BoardColumns { get; init; }
     }
 }

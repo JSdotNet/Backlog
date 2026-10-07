@@ -243,7 +243,7 @@ public sealed class TasksPaneFocusTests
         var invocation = Assert.Single(host.Context.JSInterop.Invocations["backlogFocusOutside"]);
 
         Assert.Equal(
-            ["#backlog-pane-detail", "[data-testid='backlog-split-separator']", "#backlog-pane .task-item__copy"],
+            ["#backlog-pane-detail", "[data-testid='backlog-split-separator']", "#backlog-pane .task-item__copy", "#backlog-pane .task-card[aria-current='true']"],
             invocation.Arguments);
     }
 

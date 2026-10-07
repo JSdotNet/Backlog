@@ -10,7 +10,7 @@
     <Story Name="Desktop header navigation"
            Description="The desktop header's nav, left to right: the Inbox toggle, the view switch, the Devbook toggle, then the work in progress and the other takeovers. The view switch is a fused ButtonGroup of ToggleButtons with exactly one pressed — a view is replaced, never closed, so pressing the pressed one changes nothing. The Inbox and the Devbook are standalone toggles that open beside whichever view is showing. Sessions and Pull requests are one context's two lists, fused; Dashboard and Tools stand loose.
 
-The sample is live: pick a view, open a side pane beside it, or press a takeover — the line under it says what the shell would show. Board, Calendar and In progress join these groups in later steps, one option each."
+The sample is live: pick a view, open a side pane beside it, or press a takeover — the line under it says what the shell would show. Board lays the Tasks rows out in columns; Calendar and In progress join these groups in later steps, one option each."
            Code="@HeaderCode">
         <nav class="sb-header-nav" aria-label="Workspace views" data-testid="sb-header-nav">
             <div class="sb-header-nav__workspace">
@@ -90,7 +90,7 @@ The tabs below are live: this page answers /app-shell/note and /app-shell/tasks 
         new("app-shell/tasks", "Tasks")
     ];
 
-    private static readonly string[] Views = ["Tasks", "Roadmap"];
+    private static readonly string[] Views = ["Tasks", "Board", "Roadmap"];
     private static readonly string[] WorkInProgress = ["Sessions", "Pull requests"];
     private static readonly string[] Surfaces = ["Dashboard", "Tools"];
 
@@ -161,6 +161,7 @@ The tabs below are live: this page answers /app-shell/note and /app-shell/tasks 
                 <ToggleButton Pressed="PaneOptionPressed(GlobalPane.Inbox)" OnClick="() => PressPane(GlobalPane.Inbox)">Inbox</ToggleButton>
                 <ButtonGroup CssClass="header-group header-group--views" AriaLabel="View">
                     <ToggleButton Pressed="ViewOptionPressed(ShellView.Tasks)" OnClick="() => ShowView(ShellView.Tasks)">Tasks</ToggleButton>
+                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Board)" OnClick="() => ShowView(ShellView.Board)">Board</ToggleButton>
                     <ToggleButton Pressed="ViewOptionPressed(ShellView.Roadmap)" OnClick="() => ShowView(ShellView.Roadmap)">Roadmap</ToggleButton>
                 </ButtonGroup>
                 <ToggleButton Pressed="PaneOptionPressed(GlobalPane.Devbook)" OnClick="() => PressPane(GlobalPane.Devbook)">Devbook</ToggleButton>

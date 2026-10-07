@@ -57,6 +57,7 @@ public sealed class GlobalPaneMarkupTests
             "TestId=\"inbox-pane-option\"",
             "TestId=\"view-switch\"",
             "TestId=\"tasks-view-option\"",
+            "TestId=\"board-view-option\"",
             "TestId=\"roadmap-view-option\"",
             "TestId=\"devbook-pane-option\"",
             "TestId=\"work-in-progress-switcher\"",
@@ -298,7 +299,7 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("if (EffectiveView != ShellView.Tasks) SetView(ShellView.Tasks);", home, StringComparison.Ordinal);
+        Assert.Contains("if (EffectiveView is not (ShellView.Tasks or ShellView.Board)) SetView(ShellView.Tasks);", home, StringComparison.Ordinal);
         Assert.DoesNotContain("_globalPanes.TryClose(GlobalPane.Inbox)", home, StringComparison.Ordinal);
     }
 
@@ -561,7 +562,7 @@ public sealed class GlobalPaneMarkupTests
         var layout = home.IndexOf("data-testid=\"devbook-layout\"", StringComparison.Ordinal);
         var inbox = home.IndexOf("@InboxPaneContent", layout, StringComparison.Ordinal);
         var roadmap = home.IndexOf("@if (RoadmapViewVisible)", layout, StringComparison.Ordinal);
-        var tasks = home.IndexOf("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" />", StringComparison.Ordinal);
+        var tasks = home.IndexOf("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" />", StringComparison.Ordinal);
         var devbook = home.IndexOf("<DevbookPane ", layout, StringComparison.Ordinal);
 
         Assert.True(inbox > layout);
@@ -830,7 +831,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("<CaptureSourcesPanel OnImported=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
-        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" />", home, StringComparison.Ordinal);
+        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" />", home, StringComparison.Ordinal);
         Assert.Contains("<DevbookPane RepositoryAlias=", home, StringComparison.Ordinal);
 
         // The roadmap and the dashboard are composed on the same terms. Their content

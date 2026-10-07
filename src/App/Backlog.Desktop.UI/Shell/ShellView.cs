@@ -25,5 +25,11 @@ internal enum ShellView
 
     /// <summary>The Roadmap context's plans on a graduated axis, under its own
     /// Planning heading row. Offered while <c>RoadmapFeatures.Roadmap</c> is on.</summary>
-    Roadmap
+    Roadmap,
+
+    /// <summary>The filtered tasks in columns of cards — by status, plan,
+    /// repository or priority — under the Tasks filter bar and beside the same
+    /// detail panel. Its option sits right after Tasks in the switch; the
+    /// members' order is not the options'.</summary>
+    Board
 }

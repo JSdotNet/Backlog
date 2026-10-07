@@ -453,6 +453,33 @@ Hand-sequence tasks within the backlog by dragging them into a preferred
 order, independent of recency or priority. A task that has never been
 manually ranked falls back to recency.
 
+### Board view
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag]
+```
+
+The same filtered tasks laid out as columns of cards, under the same filters
+and beside the same open task. The columns are by status by default — Draft,
+Ready, In progress and Done — and can be by plan instead, one per
+[Roadmap Tag](domain.md#roadmap-tag) in view and then the tasks in no plan, by
+repository, or by [Priority](domain.md#priority). Each column says how many
+tasks it holds, the [Effort](domain.md#effort) they add up to, and how many of
+them nobody has estimated. A task under two plans is in both plan columns. The
+choice of columns is remembered with the view.
+
+While the columns are by status the status filter steps aside, since every
+status is a column, and a task can be dragged to another column. Only a move
+the [task lifecycle](flow.md#task-lifecycle) allows is taken: while a task is
+held, the columns it may go to are marked, and the others say why not and what
+has to happen first — a ready task has to be started before it can be done.
+Dropping it makes the same status change the task's own status picker makes.
+Each status column ends in a way to write a new task straight into that
+status. Opening a task from a card opens it as the list would; with the task
+open beside it the board scrolls sideways rather than squeezing its columns.
+
 ## Prompt features
 
 ```meta
