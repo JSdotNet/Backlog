@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
@@ -139,11 +141,25 @@ internal static class Projections
         run.InProgress,
         run.StartedAt,
         run.UpdatedAt,
-        [.. run.Stages.Select(stage => new RunStagePayload(stage.Name, stage.Status, stage.DurationMs, stage.DoneCount))],
+        [.. run.Stages.Select(stage => new RunStagePayload(stage.Name, stage.Status, stage.DurationMs, stage.DoneCount, Element(stage.Execution)))],
         run.SessionIds,
         run.Trigger,
         run.Schedule,
-        run.Repository);
+        run.Repository,
+        Element(run.RunContext));
+
+    /// <summary>The JSON text a run keeps as the element it serializes as, so it
+    /// crosses the wire as the object it was sent rather than as a string of JSON a
+    /// caller would have to parse a second time. Cloned so the element outlives the
+    /// document it was parsed into.</summary>
+    private static JsonElement? Element(string? json)
+    {
+        if (json is null) return null;
+
+        using var document = JsonDocument.Parse(json);
+
+        return document.RootElement.Clone();
+    }
 
     internal static RunsPayload Runs(string worktree, IReadOnlyList<DeliveryRun> runs) => new(
         worktree,

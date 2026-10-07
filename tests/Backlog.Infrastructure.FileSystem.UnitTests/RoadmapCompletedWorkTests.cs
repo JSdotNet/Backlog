@@ -74,6 +74,21 @@ public class RoadmapCompletedWorkTests
         Assert.Equal(["backlog", "site"], work.Repositories);
     }
 
+    /// <summary>A gathered task names its repositories by the <c>owner/name</c> id, so
+    /// the roadmap is handed the way from each configured id to the alias its pace is kept
+    /// under — matched without regard to case, as GitHub matches it.</summary>
+    [Fact]
+    public void Each_configured_repository_id_leads_to_its_alias()
+    {
+        var work = new RoadmapCompletedWork(
+            () => throw new InvalidOperationException("The backlog is not read for this."),
+            () => new FixedDirectory(Configured));
+
+        Assert.Equal("backlog", work.AliasesById["jsdotnet/backlog"]);
+        Assert.Equal("site", work.AliasesById["JSdotNet/Site"]);
+        Assert.Equal(2, work.AliasesById.Count);
+    }
+
     private static TaskItemDto Entry(string title, DateOnly? completedOn, int? effort, params string[] repoIds) =>
         new(Guid.NewGuid(), title, string.Empty, EntryType.Task, Priority.Medium,
             completedOn is null ? EntryStatus.Ready : EntryStatus.Done,

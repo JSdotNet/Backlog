@@ -15,6 +15,8 @@ public class RoadmapPlanProgressSourceTests
     private static readonly DateOnly From = new(2026, 8, 27);
     private static readonly DateOnly To = new(2026, 9, 24);
 
+    private static readonly DateOnly Today = new(2026, 9, 1);
+
     private static readonly PlanningPacesDto TwoWeeks = new(7m, 6m, 5m, 4m, PaceSource.LastTwoWeeks);
 
     private static readonly PacesInUseDto Paces = new(
@@ -38,8 +40,11 @@ public class RoadmapPlanProgressSourceTests
         Assert.Equal(["Ends on the first day", "Starts on the last day", "Spans it"], items.Select(item => item.Title));
     }
 
+    /// <summary>An item sized by its effort is laid out again from today, so neither its
+    /// stored end nor its stored start says where it reaches: it is read whatever its
+    /// stored window, and narrowed once projected.</summary>
     [Fact]
-    public void An_item_sized_by_its_effort_may_reach_the_window_whatever_its_stored_end_says()
+    public void An_item_sized_by_its_effort_may_reach_the_window_whatever_its_stored_window_says()
     {
         var items = RoadmapPlanProgressSource.MayReach(
             [
@@ -51,34 +56,59 @@ public class RoadmapPlanProgressSourceTests
             From,
             To);
 
-        Assert.Equal(["Stored before, sized by effort", "Spans it"], items.Select(item => item.Title));
+        Assert.Equal(["Stored before, sized by effort", "Starts after, sized by effort", "Spans it"], items.Select(item => item.Title));
     }
 
-    /// <summary>The end reported for a window sized by effort is the one the roadmap
-    /// draws: its gathered effort at its pace in use from its planned start — not the
-    /// end stored when the import placed it, which a pace change leaves as it was
-    /// (local ADR 0018).</summary>
+    /// <summary>The window reported for an item sized by its effort is the one the
+    /// keep-up projection gives it today (ADR 0013, ruling 5) — its gathered effort at its
+    /// pace in use from today — not the one last stored, which a pace change leaves as it
+    /// was (local ADR 0018). A hand-placed one is reported as stored.</summary>
     [Fact]
-    public void An_item_sized_by_its_effort_crosses_with_the_end_its_effort_reaches_at_its_pace()
+    public void An_item_sized_by_its_effort_crosses_with_the_window_the_projection_gives_it_today()
     {
-        var sized = Item("Sized", new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5), ["backlog"], ImportPlacement.Effort);
+        var sized = Item("Sized", new DateOnly(2026, 8, 3), new DateOnly(2026, 8, 7), ["backlog"], ImportPlacement.Effort);
         var placed = Item("Placed", new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5), ["backlog"]);
         var rollup = new RoadmapItemRollupDto([Link("a", 18, RoadmapProgress.Ready)], []);
 
-        var reading = RoadmapPlanProgressSource.Map(
-            [sized, placed],
+        var items = RoadmapPlanProgressSource.Read(
+            new RoadmapPlanDto([sized, placed], [], []),
             new Dictionary<Guid, RoadmapItemRollupDto> { [sized.Id] = rollup, [placed.Id] = rollup },
-            TwoWeeks,
-            Paces);
+            Paces,
+            today: new DateOnly(2026, 9, 1),
+            From,
+            To);
 
-        // 18 points at the backlog repository's 9 a week: two weeks, the 1st to the 14th.
-        Assert.Equal(new DateOnly(2026, 9, 1), reading.Items[0].Start);
-        Assert.Equal(new DateOnly(2026, 9, 14), reading.Items[0].End);
-        Assert.Equal(new DateOnly(2026, 9, 5), reading.Items[1].End);
+        // 18 points at the backlog repository's 9 a week: two weeks from today, the 1st to the 14th.
+        Assert.Equal(["Sized", "Placed"], items.Select(item => item.Title));
+        Assert.Equal((new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 14)), (items[0].Start, items[0].End));
+        Assert.Equal(new DateOnly(2026, 9, 5), items[1].End);
     }
 
+    /// <summary>An item sized by its effort that waits on another is read after that one's
+    /// projected end — so one stored inside the window can be read out of it, and is
+    /// narrowed away once read.</summary>
     [Fact]
-    public void Each_item_carries_its_own_pace_the_lowest_across_its_repositories()
+    public void An_item_sized_by_its_effort_is_read_after_what_it_waits_on_and_narrowed_once_read()
+    {
+        var before = Item("Before", new DateOnly(2026, 8, 3), new DateOnly(2026, 8, 7), ["backlog"], ImportPlacement.Effort);
+        var after = Item("After", new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5), ["backlog"], ImportPlacement.Effort) with { DependsOn = [before.Id] };
+        var gathered = new Dictionary<Guid, RoadmapItemRollupDto>
+        {
+            [before.Id] = new([Link("a", 45, RoadmapProgress.Ready)], []),
+            [after.Id] = new([Link("b", 9, RoadmapProgress.Ready)], [])
+        };
+
+        var items = RoadmapPlanProgressSource.Read(new RoadmapPlanDto([before, after], [], []), gathered, Paces, today: From, From, To);
+
+        // 45 points at 9 a week: five weeks from Thursday 27 August, past the window's end.
+        Assert.Equal(["Before"], items.Select(item => item.Title));
+    }
+
+    /// <summary>Each item crosses with a part per repository it is filed under, each at
+    /// that repository's own pace — the global one for an item filed under none, or under
+    /// a repository nobody configured — never one lowest pace for the whole item.</summary>
+    [Fact]
+    public void Each_item_carries_a_part_per_repository_each_at_its_own_pace()
     {
         var reading = RoadmapPlanProgressSource.Map(
             [
@@ -89,9 +119,75 @@ public class RoadmapPlanProgressSourceTests
             ],
             new Dictionary<Guid, RoadmapItemRollupDto>(),
             TwoWeeks,
-            Paces);
+            Paces,
+            Today);
 
-        Assert.Equal([6m, 9m, 3m, 6m], reading.Items.Select(item => item.PacePointsPerWeek));
+        Assert.Equal(
+            ["(none) 6", "backlog 9", "backlog 9 · backlog-ide 3", "(none) 6"],
+            reading.Items.Select(item => string.Join(
+                " · ",
+                item.Parts.Select(part => FormattableString.Invariant($"{part.Alias ?? "(none)"} {part.PacePointsPerWeek}")))));
+    }
+
+    /// <summary>
+    /// A hand-placed item, 12–16 October, with 8 open points in <c>app</c> at 8 a week and
+    /// 4 in <c>site</c> at 4 a week, the <c>site</c> task waiting on the <c>app</c> task:
+    /// the <c>site</c> part crosses waiting on the <c>app</c> part, so the outlook can lay
+    /// <c>site</c> out after it — the way the roadmap draws the work once it begins, even
+    /// though the stored window is drawn as one.
+    /// </summary>
+    [Fact]
+    public void A_part_crosses_waiting_on_the_part_holding_the_work_its_own_work_waits_on()
+    {
+        var paces = new PacesInUseDto(
+            7m,
+            new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["app"] = 8m, ["site"] = 4m });
+        var item = Item("Hand-placed", new DateOnly(2026, 10, 12), new DateOnly(2026, 10, 16), ["app", "site"]);
+        var rollup = new RoadmapItemRollupDto(
+            [
+                Link("a", 8, RoadmapProgress.Ready, repositories: ["app"]),
+                Link("b", 4, RoadmapProgress.Ready, repositories: ["site"], dependsOn: ["a"])
+            ],
+            []);
+
+        var reading = RoadmapPlanProgressSource.Map(
+            [item],
+            new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = rollup },
+            TwoWeeks,
+            paces,
+            new DateOnly(2026, 10, 12));
+
+        var parts = Assert.Single(reading.Items).Parts;
+        Assert.Equal(
+            [("app", 8, 8m, ""), ("site", 4, 4m, "0")],
+            parts.Select(part => (part.Alias, part.RemainingEffort, part.PacePointsPerWeek, string.Join(",", part.WaitsOn))));
+    }
+
+    /// <summary>A part's work left is its open work that carries an estimate: a done task
+    /// counts nothing, nor does an open one nobody estimated — the outlook counts it
+    /// nothing, as it does in the item's planned effort — and an in-progress task counts in
+    /// full.</summary>
+    [Fact]
+    public void A_parts_work_left_is_its_open_estimated_work()
+    {
+        var item = Item("In flight", aliases: ["backlog"]);
+        var rollup = new RoadmapItemRollupDto(
+            [
+                Link("a", 3, RoadmapProgress.Done, completedOn: new DateOnly(2026, 8, 28), repositories: ["backlog"]),
+                Link("b", 5, RoadmapProgress.InProgress, repositories: ["backlog"]),
+                Link("c", null, RoadmapProgress.Ready, repositories: ["backlog"])
+            ],
+            []);
+
+        var reading = RoadmapPlanProgressSource.Map(
+            [item],
+            new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = rollup },
+            TwoWeeks,
+            Paces,
+            Today);
+
+        var part = Assert.Single(Assert.Single(reading.Items).Parts);
+        Assert.Equal(("backlog", 5, 9m), (part.Alias, part.RemainingEffort, part.PacePointsPerWeek));
     }
 
     [Fact]
@@ -105,7 +201,8 @@ public class RoadmapPlanProgressSourceTests
             ],
             new Dictionary<Guid, RoadmapItemRollupDto>(),
             TwoWeeks,
-            Paces);
+            Paces,
+            Today);
 
         Assert.Equal([true, false, false], reading.Items.Select(item => item.PlacedByEffort));
     }
@@ -126,7 +223,8 @@ public class RoadmapPlanProgressSourceTests
             [item],
             new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = rollup },
             TwoWeeks,
-            Paces);
+            Paces,
+            Today);
 
         var only = Assert.Single(reading.Items);
         Assert.True(reading.RoadmapEnabled);
@@ -151,7 +249,8 @@ public class RoadmapPlanProgressSourceTests
             [Item("Missing")],
             new Dictionary<Guid, RoadmapItemRollupDto>(),
             TwoWeeks,
-            Paces);
+            Paces,
+            Today);
 
         var only = Assert.Single(reading.Items);
         Assert.Equal(0, only.GatheredCount);
@@ -184,7 +283,8 @@ public class RoadmapPlanProgressSourceTests
             [],
             new Dictionary<Guid, RoadmapItemRollupDto>(),
             new PlanningPacesDto(7m, twoWeeks, fourWeeks, eightWeeks, chosen),
-            Paces);
+            Paces,
+            Today);
 
         Assert.Equal(new PlanPace(expected, basis), reading.Pace);
     }
@@ -211,6 +311,8 @@ public class RoadmapPlanProgressSourceTests
         string key,
         int? effort,
         RoadmapProgress? progress,
-        DateOnly? completedOn = null) =>
-        new(key, key, effort, RollupOrigin.Direct, progress, CompletedOn: completedOn);
+        DateOnly? completedOn = null,
+        string[]? repositories = null,
+        string[]? dependsOn = null) =>
+        new(key, key, effort, RollupOrigin.Direct, progress, DependsOn: dependsOn, RepositoryIds: repositories, CompletedOn: completedOn);
 }

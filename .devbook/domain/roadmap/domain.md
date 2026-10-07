@@ -89,6 +89,7 @@ A plan with no items is a valid plan — a first run, or everything delivered.
 type: entity
 status: draft
 aliases: [RoadmapItem, roadmap_item_id, planned work, planned item]
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
 ```
 
 A single piece of planned work, identified by `roadmap_item_id`. Holds `title`,
@@ -105,16 +106,29 @@ set again except by an import creating the item anew; an import re-places only a
 window that still carries it. While it is still `effort` and its work is not
 finished, the item **keeps up with its work** without being asked. Its window is
 re-projected from the effort not yet done (the total registered effort less the
-finished effort) at the reader's velocity, laid out from today over the reader's
-[Working Week](#working-week) (ADR 0019). The start is kept
-once any of its work has begun. An item whose work has not begun starts on the
+finished effort), laid out from today over the reader's
+[Working Week](#working-week) (ADR 0019). Once any of its work
+has begun, the start is the day that work began, the earliest start among its
+begun parts. An item whose work has not begun starts on the
 later of today and the day after its latest predecessor ends, so an unstarted
 item follows the item it waits on. The value stays `effort`, because the window
 is still the importer's rule applied, not a hand move. An item carrying
 `due-date`, or none, never moves this way (ADR 0013, ruling 5 as amended on
-2026-09-27). A drop onto another lane
-that leaves the dates alone keeps it, because no date the importer chose was
-overruled.
+2026-09-27 and on 2026-10-07). A drop onto another lane that leaves the dates
+alone keeps it, because no date the importer chose was overruled.
+
+The effort is laid out one **part** per repository, each at the reader's velocity
+for that repository. A part is the gathered work filed in one repository. When the
+work hands over to another repository and back, that repository has one part per
+phase of the hand-over. Each part counts the full effort of its tasks, so a task
+filed under two repositories counts in both. A part starts on the latest of three
+days: today, the day after the item's latest predecessor ends, and the day after
+the latest end among the parts it waits on. Those waits are the ones
+[Roadmap Item Gathering](#roadmap-item-gathering) carries between its tasks. The
+item's window **ends on the latest part end** and starts on the earliest part
+start, and that window is what the item stores. Parts are worked out on every
+reading and are never stored. How they are drawn is
+[Placing a plan in time](features.md#placing-a-plan-in-time).
 
 It has no status and no percentage. Both are questions about execution, and
 execution belongs to Tasks: an item that names a task shows that

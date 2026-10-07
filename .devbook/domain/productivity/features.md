@@ -179,3 +179,31 @@ The repository chips narrow the part; the window and the machine do not, because
 verdict is the latest a sweep left and an issue is open now. The verdicts are this
 machine's and the issues are GitHub's, and either shows without the other: issues
 that cannot be read leave the units standing and say why.
+
+### Whether each plan will land in its window
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/productivity/context.md#dashboard
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#forecasting-work-in-flight, .devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#5-placed_by_import-and-what-a-re-import-may-touch]
+tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.TaskInsightsTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapPlanProgressSourceTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.An_item_in_two_repositories_says_the_pace_of_each_part_it_was_projected_at]
+```
+
+See, without opening the roadmap, which plans will land inside the window they
+were given. The Roadmap part of the dashboard lists the plans whose window overlaps
+the weeks the selector picks, together with every plan whose window is still sized
+by its effort. Each plan says how its work stands: finished, on track, behind,
+overdue, not sized, or with no pace to read it at.
+
+A plan placed by hand or by its due date is projected one repository part at a
+time, the same parts [Placing a plan in time](../roadmap/features.md#placing-a-plan-in-time)
+lays out. Each part's estimated work left is spent at its own repository's pace in
+use. It starts on the later of today and the day after the parts it waits on end.
+The plan is judged on the latest part end: on track when that falls inside its
+window, behind when it falls after. A plan whose window is still sized by its effort
+is already laid out that way, so the part reports the window the roadmap stores.
+An unestimated task counts nothing here, because the part reports it as unestimated.
+A figure that also guessed at its size would count it twice. A plan has no pace only
+when no part with work left has one. Where the parts with work left run at different
+paces, the plan names each of them, for example "app 8, site 4 points a week".

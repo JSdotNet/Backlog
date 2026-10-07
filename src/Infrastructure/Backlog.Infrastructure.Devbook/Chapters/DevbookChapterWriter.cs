@@ -2,7 +2,7 @@ using Backlog.SharedKernel.Devbook;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook.Chapters;
 
 /// <summary>
 /// Writes an edited knowledge chapter back over its source <c>.md</c> file.
@@ -87,7 +87,7 @@ public sealed class DevbookChapterWriter
         // A leading U+FEFF in the buffer is the mark round-tripped as a character
         // by something upstream rather than content: whether the file carries one
         // is decided from its bytes and nowhere else.
-        var body = DevbookChapterText.ToLineFeeds(rawText.TrimStart('\uFEFF'));
+        var body = DevbookChapterStatusText.ToLineFeeds(rawText.TrimStart('\uFEFF'));
         var merged = MergeStatuses(body, original, baseline, FolderOf(chapter));
 
         // Translated and re-terminated rather than split into lines and joined
@@ -181,21 +181,21 @@ public sealed class DevbookChapterWriter
 
             if (textStillCarriesBaseline && diskHasMoved)
             {
-                merged = DevbookChapterText.WithStatus(merged, heading, onDiskValue, folder);
+                merged = DevbookChapterStatusText.WithStatus(merged, heading, onDiskValue, folder);
             }
         }
 
         if (baseline is null) return merged;
 
-        var onDiskLines = DevbookChapterText.ToLineFeeds(onDisk);
+        var onDiskLines = DevbookChapterStatusText.ToLineFeeds(onDisk);
         foreach (var (heading, baselineValue) in baseline.ByHeading)
         {
-            var diskRemovedIt = onDiskStatuses.For(heading) is null && DevbookChapterText.HasFence(onDiskLines, heading);
+            var diskRemovedIt = onDiskStatuses.For(heading) is null && DevbookChapterStatusText.HasFence(onDiskLines, heading);
             var textStillCarriesBaseline = Matches(inText.For(heading), baselineValue);
 
             if (diskRemovedIt && textStillCarriesBaseline)
             {
-                merged = DevbookChapterText.WithoutStatus(merged, heading, folder);
+                merged = DevbookChapterStatusText.WithoutStatus(merged, heading, folder);
             }
         }
 
@@ -382,7 +382,7 @@ public sealed class DevbookChapterStatus
     /// <summary>Reads the statuses out of a chapter's markdown. This is how a
     /// caller takes the baseline it will hand back to
     /// <see cref="DevbookChapterWriter.WriteAsync"/>.</summary>
-    public static DevbookChapterStatus Read(string? markdown) => DevbookChapterText.ReadStatuses(markdown);
+    public static DevbookChapterStatus Read(string? markdown) => DevbookChapterStatusText.ReadStatuses(markdown);
 
     /// <summary>Built by the reader below, which is the only thing that knows
     /// how to find a fence and whose heading it is under.</summary>
@@ -430,7 +430,7 @@ public sealed class DevbookChapterStatus
 /// it would have the merge write back a record the status writer had just deleted.
 /// </para>
 /// </summary>
-internal static class DevbookChapterText
+internal static class DevbookChapterStatusText
 {
     private static readonly Regex Heading = new("^(#{1,6})[ \\t]+(.+?)\\s*$", RegexOptions.Compiled);
 

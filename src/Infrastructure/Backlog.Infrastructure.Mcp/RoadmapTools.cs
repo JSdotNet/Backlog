@@ -30,20 +30,26 @@ namespace Backlog.Infrastructure.Mcp;
 /// class keeps a group's cost to the group.
 /// </para>
 /// <para>
-/// <b>Windows as the roadmap draws them.</b> An item the import sized by its effort is
-/// answered with the end its gathered effort reaches at its pace in use
-/// (<see cref="EffortWindow"/>), not the end stored when it was placed: a pace change
-/// writes nothing to the plan (local ADR 0018). The rollup and the pace are optional
-/// for the same reason the class is its own: a head that composes the plan without the
-/// backlog still answers — with the stored windows.
+/// <b>Windows as the roadmap lays them out.</b> An item the import sized by its effort is
+/// answered with the window the keep-up projection gives it today
+/// (<see cref="RoadmapProjection"/>; ADR 0013, ruling 5): part by part, from its gathered
+/// effort at each repository's pace in use, after what it waits on — not the window last
+/// stored, which only an opening of the roadmap or a task change brings up to date, and
+/// a pace change never does (local ADR 0018). The rollup and the pace are optional for the
+/// same reason the class is its own: a head that composes the plan without the backlog
+/// still answers — with the stored windows.
 /// </para>
 /// </summary>
+/// <param name="clock">Where "today" comes from for that projection. Optional, as on
+/// <see cref="TrackerTools"/>: the container the tools are built from need not register a
+/// <see cref="TimeProvider"/>, and <see cref="TimeProvider.System"/> stands in.</param>
 [McpServerToolType]
 public sealed class RoadmapTools(
     IRoadmapPlanning planning,
     IRepositoryDirectory repositories,
     IRoadmapItemRollup? rollups = null,
-    IPlanningVelocity? velocity = null)
+    IPlanningVelocity? velocity = null,
+    TimeProvider? clock = null)
 {
     internal const string GetRoadmap = "get_roadmap";
 
@@ -59,9 +65,15 @@ public sealed class RoadmapTools(
         var plan = await planning.GetPlanAsync(cancellationToken).ConfigureAwait(false);
         if (rollups is not null && velocity is not null)
         {
-            // Only this repository's slice is gathered: gathering walks the backlog.
-            var slice = plan with { Items = [.. plan.Items.Where(item => Names(item.RepositoryAliases, scope.Alias))] };
-            plan = await slice.WithDerivedWindowsAsync(rollups, velocity, cancellationToken).ConfigureAwait(false);
+            // Only this repository's slice and what it waits on are gathered: gathering
+            // walks the backlog, and a predecessor filed elsewhere still holds it back.
+            var today = DateOnly.FromDateTime((clock ?? TimeProvider.System).GetLocalNow().DateTime);
+            plan = await plan.WithDerivedWindowsAsync(
+                rollups,
+                velocity,
+                today,
+                item => Names(item.RepositoryAliases, scope.Alias),
+                cancellationToken).ConfigureAwait(false);
         }
 
         // Aliases here, ids in the backlog tools, and the difference is not an

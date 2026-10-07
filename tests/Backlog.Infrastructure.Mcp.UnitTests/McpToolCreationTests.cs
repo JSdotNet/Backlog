@@ -199,10 +199,10 @@ public class McpToolCreationTests
         Assert.Equal(["worktree", "skillId", "title", "stages", "changeKind", "sessionId", "trigger", "schedule", "repo"], schemas["start_run"]);
         Assert.Equal(["worktree", "runId", "prompt", "kind", "label"], schemas["record_prompt"]);
         Assert.Equal(
-            ["worktree", "runId", "changeKind", "approval", "approvalNote", "model"],
+            ["worktree", "runId", "changeKind", "approval", "approvalNote", "model", "runContext"],
             schemas["set_run_context"]);
         Assert.Equal(
-            ["worktree", "runId", "stageIndex", "status", "output", "links", "scenarios", "monitoring"],
+            ["worktree", "runId", "stageIndex", "status", "output", "links", "scenarios", "monitoring", "execution"],
             schemas["update_stage"]);
         Assert.Equal(["worktree", "runId", "status", "summary", "verdicts"], schemas["finish_run"]);
         Assert.Equal(["worktree"], schemas["list_runs"]);

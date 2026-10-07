@@ -902,10 +902,13 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
                 plan.Items.ToDictionary(item => item.Id, _ => Rollup));
     }
 
-    /// <summary>A band drawn with its chart, and with the paces read.</summary>
+    /// <summary>A band drawn with its chart, and with the paces read — opened on the day the
+    /// import ran (<see cref="RoadmapBandHarness.PaceToday"/>). A plan sized by its effort is
+    /// laid out from today, so opened on that day it is drawn from the start the import gave
+    /// it, and only its length moves with the pace.</summary>
     private static IRenderedComponent<RoadmapBand> Banded(BunitContext context)
     {
-        var band = context.Render<RoadmapBand>();
+        var band = context.Render<RoadmapBand>(parameters => parameters.Add(component => component.Today, PaceToday));
         band.WaitForElement("[data-testid='roadmap-timeline']");
         band.WaitForElement(".roadmap-pace input");
         return band;

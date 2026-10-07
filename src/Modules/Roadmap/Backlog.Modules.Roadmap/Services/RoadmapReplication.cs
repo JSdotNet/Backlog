@@ -33,6 +33,7 @@ internal sealed class RoadmapReplication : IRoadmapReplication
 {
     private readonly Dictionary<RoadmapReplicaDocument, IRoadmapReplicaStore> _stores;
     private readonly RoadmapPlanChanges _planChanges;
+    private readonly RoadmapPlanGate? _gate;
     private readonly AsyncLocal<int> _applying = new();
 
     /// <param name="stores">Whichever documents this host keeps. One missing is a
@@ -42,10 +43,14 @@ internal sealed class RoadmapReplication : IRoadmapReplication
     /// on, and what a local save raises.</param>
     /// <param name="pace">The pace settings, for their change notice only. Optional:
     /// a host without a pace file has no pace change to hear.</param>
+    /// <param name="gate">The plan's one-writer gate. A pulled plan is written only while
+    /// no plan writer of this process holds it. Optional, for a host — or a test — with no
+    /// plan writer to wait for.</param>
     public RoadmapReplication(
         IEnumerable<IRoadmapReplicaStore> stores,
         RoadmapPlanChanges planChanges,
-        IPlanningVelocitySettings? pace = null)
+        IPlanningVelocitySettings? pace = null,
+        RoadmapPlanGate? gate = null)
     {
         ArgumentNullException.ThrowIfNull(stores);
         ArgumentNullException.ThrowIfNull(planChanges);
@@ -57,6 +62,7 @@ internal sealed class RoadmapReplication : IRoadmapReplication
         }
 
         _planChanges = planChanges;
+        _gate = gate;
         _planChanges.Changed += OnLocalChange;
         if (pace is not null) pace.Changed += OnLocalChange;
     }
@@ -79,6 +85,47 @@ internal sealed class RoadmapReplication : IRoadmapReplication
 
         if (!_stores.TryGetValue(document, out var store)) return RoadmapReplicaOutcome.Unreadable;
 
+        _applying.Value++;
+        try
+        {
+            var outcome = await WriteAsync(document, store, inbound, cancellationToken).ConfigureAwait(false);
+
+            // The roadmap redraws on the plan's own notice. Raised for the pace too:
+            // bar lengths are divided by it, and the band reads it on every load. Raised
+            // once the gate is let go, so nothing that hears it waits on this pull.
+            if (outcome == RoadmapReplicaOutcome.Taken) _planChanges.Raise();
+
+            return outcome;
+        }
+        finally
+        {
+            _applying.Value--;
+        }
+    }
+
+    /// <summary>
+    /// The stamp decision and the write, for the plan inside the plan's gate.
+    /// <para>
+    /// A plan writer loads the whole plan, awaits — the keep-up writer gathers the backlog —
+    /// and saves the whole plan. A pull written in between would be saved over from the copy
+    /// it loaded first, and the next push would carry the loss back to the device the edit
+    /// came from: not last write wins between devices, but a remote edit that had already
+    /// arrived lost to a stale read. So the read, the decision and the write wait for the
+    /// writer to finish, and the stamp is compared with what it saved. No plan writer
+    /// reaches this port while it holds the gate — the keep-up writer awaits the catch-up
+    /// before it enters — so the wait cannot close a circle.
+    /// </para>
+    /// </summary>
+    private async Task<RoadmapReplicaOutcome> WriteAsync(
+        RoadmapReplicaDocument document,
+        IRoadmapReplicaStore store,
+        RoadmapReplicaCopyDto inbound,
+        CancellationToken cancellationToken)
+    {
+        using var held = document == RoadmapReplicaDocument.Plan && _gate is not null
+            ? await _gate.EnterAsync(cancellationToken).ConfigureAwait(false)
+            : null;
+
         var local = await store.ReadAsync(cancellationToken).ConfigureAwait(false);
 
         if (local is not null)
@@ -87,24 +134,9 @@ internal sealed class RoadmapReplication : IRoadmapReplication
             if (inbound.UpdatedAt < local.UpdatedAt) return RoadmapReplicaOutcome.Refused;
         }
 
-        _applying.Value++;
-        try
-        {
-            if (!await store.TryWriteAsync(inbound, cancellationToken).ConfigureAwait(false))
-            {
-                return RoadmapReplicaOutcome.Unreadable;
-            }
-
-            // The roadmap redraws on the plan's own notice. Raised for the pace too:
-            // bar lengths are divided by it, and the band reads it on every load.
-            _planChanges.Raise();
-        }
-        finally
-        {
-            _applying.Value--;
-        }
-
-        return RoadmapReplicaOutcome.Taken;
+        return await store.TryWriteAsync(inbound, cancellationToken).ConfigureAwait(false)
+            ? RoadmapReplicaOutcome.Taken
+            : RoadmapReplicaOutcome.Unreadable;
     }
 
     private void OnLocalChange()

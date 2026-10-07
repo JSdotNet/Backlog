@@ -1,3 +1,4 @@
+using Backlog.Modules.Roadmap.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -17,13 +18,14 @@ namespace Backlog.Modules.Roadmap.Features.AddDependency;
 /// <param name="DependsOnId">The thing it waits for.</param>
 public sealed record AddDependencyCommand(Guid NodeId, Guid DependsOnId);
 
-public sealed class AddDependencyCommandHandler(IRoadmapPlanRepository plans)
+public sealed class AddDependencyCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
     : ICommandHandler<AddDependencyCommand, Result>
 {
     public async Task<Result> Handle(AddDependencyCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var added = plan.AddDependency(command.NodeId, command.DependsOnId);
 

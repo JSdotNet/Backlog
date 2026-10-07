@@ -2,7 +2,7 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel.Devbook;
 using System.Text.RegularExpressions;
 
-namespace Backlog.Desktop.UI.Devbook;
+namespace Backlog.Infrastructure.Devbook.Chapters;
 
 /// <summary>
 /// Writes the <c>status</c> field of the <c>meta</c> fence belonging to one
@@ -130,7 +130,7 @@ internal static class DevbookMarkdownStatusWriter
     /// <para>Deleted in the same write as the status, as the rule asks. A record
     /// left behind on a chapter no longer claiming its rung is itself reported, so
     /// a status change that stranded one would trade one violation for another.
-    /// Asked by <see cref="DevbookChapterText"/> too, whose merge applies a status
+    /// Asked by <see cref="DevbookChapterStatusText"/> too, whose merge applies a status
     /// by the same rule.</para>
     /// </summary>
     internal static IReadOnlyList<string> RecordFieldsThatNoLongerStand(string? status)
@@ -179,7 +179,7 @@ internal static class DevbookMarkdownStatusWriter
 
     /// <summary>Resolve the item path to a file inside the folder, read it, and
     /// find the addressed heading. The half both verbs share — and
-    /// <see cref="DevbookMarkdownSyncWriter"/>'s, which addresses a heading the
+    /// <c>DevbookMarkdownSyncWriter</c>'s, which addresses a heading the
     /// same way.</summary>
     internal static HeadingDocument Open(string folderRoot, string itemPath, string folderPrefix)
     {

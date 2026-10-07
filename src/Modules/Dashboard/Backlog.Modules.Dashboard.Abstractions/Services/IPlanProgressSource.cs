@@ -30,6 +30,35 @@ public enum PlanPaceBasis
 public sealed record PlanPace(decimal PointsPerWeek, PlanPaceBasis Basis);
 
 /// <summary>
+/// One repository's part of a roadmap item — or one phase of it, where the work hands
+/// over between repositories and back — reduced to what the outlook projects: the
+/// estimated work it has left, the pace its repository places work at, and the parts it
+/// has to wait for.
+/// <para>
+/// A mirror of the roadmap's own part rather than that type, for the reason
+/// <see cref="PlanPaceBasis"/> is: nothing in this module may name a Roadmap type, yet the
+/// outlook has to lay the work out the way the roadmap draws it — each part at its own
+/// repository's pace, after the parts it waits on (ADR 0013, ruling 4 as amended on
+/// 2026-10-07).
+/// </para>
+/// </summary>
+/// <param name="Alias">The configured repository alias it is drawn under, or <c>null</c>
+/// for work filed under no configured repository.</param>
+/// <param name="RemainingEffort">The story points of its open work that carries an
+/// estimate. An open entry nobody estimated adds nothing, as it adds nothing to
+/// <see cref="PlanItemProgress.TotalEffort"/>; a task filed in two repositories counts in
+/// full in both parts.</param>
+/// <param name="PacePointsPerWeek">Its repository's pace in use — the global one for work
+/// filed under none.</param>
+/// <param name="WaitsOn">The positions in <see cref="PlanItemProgress.Parts"/> of the parts
+/// it waits on, each earlier in the list.</param>
+public sealed record PlanPartProgress(
+    string? Alias,
+    int RemainingEffort,
+    decimal PacePointsPerWeek,
+    IReadOnlyList<int> WaitsOn);
+
+/// <summary>
 /// One roadmap item the window shows, reduced to what an outlook is worked out from.
 /// </summary>
 /// <param name="Start">First day, inclusive — as planned, not as drawn.</param>
@@ -42,9 +71,10 @@ public sealed record PlanPace(decimal PointsPerWeek, PlanPaceBasis Basis);
 /// so the total can say it is a floor.</param>
 /// <param name="LastCompletedOn">The day its last entry was ticked off, when one says —
 /// where a finished item actually ended.</param>
-/// <param name="PacePointsPerWeek">The item's own pace: the lowest across its
-/// repositories, the global one when it names none. Per item, not the reading's, because
-/// the roadmap places each item at its own and the outlook has to agree with the bar.</param>
+/// <param name="Parts">Its parts, one per repository its work is filed in — one phase of
+/// one, where the work hands over and back — every part after the parts it waits on.
+/// Per part, not the item's nor the reading's, because the roadmap places each part at its
+/// own repository's pace and the outlook has to agree with the bars.</param>
 /// <param name="PlacedByEffort">Whether its window is still the importer's, sized from
 /// effort. Such a window moves with the pace by itself, so there is nothing to be
 /// behind.</param>
@@ -61,7 +91,7 @@ public sealed record PlanItemProgress(
     int Unestimated,
     bool IsFinished,
     DateOnly? LastCompletedOn,
-    decimal PacePointsPerWeek,
+    IReadOnlyList<PlanPartProgress> Parts,
     bool PlacedByEffort);
 
 /// <summary>

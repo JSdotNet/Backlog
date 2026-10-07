@@ -3,6 +3,8 @@ using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
+using Microsoft.Extensions.Time.Testing;
+
 using ModelContextProtocol;
 
 namespace Backlog.Infrastructure.Mcp.UnitTests;
@@ -62,10 +64,13 @@ public class RoadmapToolsTests
         Assert.Equal(release, contradiction.DependsOnId);
     }
 
-    /// <summary>A window sized by effort is answered as the roadmap draws it — its
-    /// gathered effort at the pace in use from its planned start — not with the end
-    /// stored when the import placed it (local ADR 0018). A hand-placed one is
-    /// answered as stored.</summary>
+    /// <summary>Tuesday 1 September 2026 — the day the windows below are read on.</summary>
+    private static FakeTimeProvider OnFirstSeptember() => new(new DateTimeOffset(2026, 9, 1, 9, 0, 0, TimeSpan.Zero));
+
+    /// <summary>A window sized by effort is answered as the roadmap lays it out — its
+    /// gathered effort at the pace in use from today — not with the end stored when the
+    /// import placed it (ADR 0013, ruling 5). A hand-placed one is answered as
+    /// stored.</summary>
     [Fact]
     public async Task A_window_sized_by_effort_is_answered_at_the_pace_in_use()
     {
@@ -77,7 +82,8 @@ public class RoadmapToolsTests
             new FakeRoadmapPlanning(plan),
             new FakeRepositoryDirectory([Backlog]),
             new EveryItemGathers(14),
-            new GlobalPace(7m));
+            new GlobalPace(7m),
+            OnFirstSeptember());
 
         var answer = await tools.GetRoadmapAsync("JSdotNet/Backlog", TestContext.Current.CancellationToken);
 
@@ -86,6 +92,31 @@ public class RoadmapToolsTests
         Assert.Equal(new DateOnly(2026, 9, 1), drawn.Start);
         Assert.Equal(new DateOnly(2026, 9, 14), drawn.End);
         Assert.Equal(new DateOnly(2026, 9, 30), Assert.Single(answer.Items, item => item.Title == "Placed").End);
+    }
+
+    /// <summary>A window sized by effort waits on its predecessor even when that one is
+    /// filed under another repository and is not answered itself: the predecessor's
+    /// window, as the roadmap lays it out, still holds it back.</summary>
+    [Fact]
+    public async Task A_window_sized_by_effort_starts_after_a_predecessor_in_another_repository()
+    {
+        var theirs = Item(Guid.NewGuid(), "Theirs", ["other"]) with { PlacedByImport = ImportPlacement.Effort };
+        var mine = Item(Guid.NewGuid(), "Mine", ["backlog"]) with { PlacedByImport = ImportPlacement.Effort, DependsOn = [theirs.Id] };
+        var plan = new RoadmapPlanDto([mine, theirs], [], []);
+
+        var tools = new RoadmapTools(
+            new FakeRoadmapPlanning(plan),
+            new FakeRepositoryDirectory([Backlog, Other]),
+            new EveryItemGathers(14),
+            new GlobalPace(7m),
+            OnFirstSeptember());
+
+        var answer = await tools.GetRoadmapAsync("JSdotNet/Backlog", TestContext.Current.CancellationToken);
+
+        // Theirs runs 1 to 14 September; mine the two weeks after.
+        var drawn = Assert.Single(answer.Items);
+        Assert.Equal(new DateOnly(2026, 9, 15), drawn.Start);
+        Assert.Equal(new DateOnly(2026, 9, 28), drawn.End);
     }
 
     private sealed class EveryItemGathers(int effort) : IRoadmapItemRollup
@@ -107,7 +138,7 @@ public class RoadmapToolsTests
             Task.FromResult(new PacesInUseDto(pointsPerWeek, new Dictionary<string, decimal>()));
 
         public Task<decimal> GetStoryPointsPerWeekAsync(
-            IReadOnlyCollection<string> repositoryAliases,
+            string? repository = null,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(pointsPerWeek);
     }

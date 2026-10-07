@@ -1,3 +1,4 @@
+using Backlog.Modules.Roadmap.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -7,13 +8,14 @@ namespace Backlog.Modules.Roadmap.Features.RemoveItem;
 /// pointed at it.</summary>
 public sealed record RemoveItemCommand(Guid ItemId);
 
-public sealed class RemoveItemCommandHandler(IRoadmapPlanRepository plans)
+public sealed class RemoveItemCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
     : ICommandHandler<RemoveItemCommand, Result>
 {
     public async Task<Result> Handle(RemoveItemCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var removed = plan.RemoveItem(command.ItemId);
 

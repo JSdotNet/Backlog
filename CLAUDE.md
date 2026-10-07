@@ -58,7 +58,8 @@ model-invoked when a plan item is pasted in, but it runs the item's instructions
 the gate — the matching flow — rather than adding an execution path beside it.
 `execute-plan` is user-invoked and changes nothing itself: it hands each prompt
 entry of a plan to a sub-agent that runs it through `run-plan-item`, so every entry
-still passes the gate and its own Personal Validation.
+still passes the gate and its own Personal Validation — relayed to the person when attended,
+moved onto a draft pull request when unattended.
 `handle-remarks` is model-invoked when asked to handle or answer the Devbook remarks; it writes
 only `annotation` fences, through `.devbook/_tools/devbook-meta/annotations.mjs`, offers the
 commit and never pushes.

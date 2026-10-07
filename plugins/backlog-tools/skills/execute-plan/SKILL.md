@@ -1,6 +1,6 @@
 ---
 name: execute-plan
-description: Execute a whole Backlog import plan by delegating its prompt entries to sub-agents — each entry run through run-plan-item in its own worktree and landed through its own pull request, entries that wait on nothing in parallel, an entry's dependents started once its pull request merges. Reads the plan from the Backlog MCP server by its +tag, or from a plan file import-plan wrote. Stops at task and test entries, which only the person does. Optional branch mode lands the whole plan on one integration branch and opens a single pull request to the base branch.
+description: Execute a whole Backlog import plan by delegating its prompt entries to sub-agents — each entry run through run-plan-item in its own worktree and landed through its own pull request, entries that wait on nothing in parallel, an entry's dependents started once it lands. Reads the plan from the Backlog MCP server by its +tag, or from a plan file import-plan wrote. Lands per item, on one plan/<slug> integration branch, or as stacked pull requests; attended, or unattended with every entry a draft pull request and Personal Validation moved onto it. Stops at task and test entries, which only the person does.
 disable-model-invocation: true
 ---
 
@@ -11,47 +11,59 @@ Open the reply with `backlog-tools@<version>`, `version` read from `../../.claud
 This skill is the layer above a flow: it orders the plan and hands out entries, and changes
 no file itself. Every entry is one flow, run by one sub-agent per `assets/item-brief.md`.
 Read `../import-plan/assets/backlog-import-grammar.md` — `## Metadata line`,
-`## Entry kinds` and `## Two levels` are what the plan's lines mean.
+`## Entry kinds` and `## Two levels` are what the plan's lines mean — and
+`assets/landing-modes.md`, which defines the modes, the branch names and every merge.
 
 ## Inputs
 
 - **The plan.** A `+tag` → `get_plan_items` on the `backlog` MCP server; a path → the plan
   file, statuses then read per entry with `read_item` when the server is present. Neither
   given → ask. Without the server, an entry's state is its pull request's (open, merged).
-- **Mode.** *Per item* (default): every entry's pull request targets the base branch and the
-  person merges it. *Branch*: `plan/<tag-without-sigil>` is created from the base branch and
-  pushed; entry pull requests target it and this skill merges each once its Personal
-  Validation is approved and its checks are green; the plan ends in one pull request
-  `plan/<tag>` → base. Create the branch remotely (`git push origin <base>:refs/heads/plan/<tag>`)
-  so this checkout stays as it is. Ask when the request does not say.
+- **Landing**: *per item*, *branch* or *stacked*. **Attendance**: *attended* or *unattended*.
+  Taken from the request (`/backlog-tools:execute-plan +tag unattended stacked`); otherwise
+  asked in one question. Unattended per item is refused with the reason.
 - **Parallelism.** At most 3 sub-agents at once unless the person names another number.
 
 ## Workflow
 
 1. **Graph.** Skip the `plan` entry. Keep `prompt`, `task`, `test` steps with their type,
-   status, `after:` edges, `repo:` and title. Refuse a cycle. An entry is *done* when its
-   status is Done/Archived or its pull request has merged; *ready* when it is a `prompt`,
-   not done, and every `after:` is done. Show the graph and the first frontier; confirm the
-   mode and go.
-2. **Dispatch.** For each ready entry not already running, start one sub-agent with the
-   brief, filled in: the entry text, its id, the tag, the repository, the base branch (the
-   base branch or `plan/<tag>`). Entries in another repository than this checkout's are
-   listed and left for a session there.
-3. **Gate.** A sub-agent returns at Personal Validation with its review handoff. Relay it to
-   the person verbatim with the entry's `<n> - <Title>`; send the decision back to that
-   sub-agent, which then opens its pull request or revises. One gate at a time, in plan order.
-4. **Merge.** Per item: wait for the person to merge, checking the open pull requests when
-   they say so or when this skill is invoked again. Branch: merge the approved pull request
-   into `plan/<tag>`. On a merge, `transition` the entry to Done, remove its worktree
-   (`git worktree remove`), and go to step 2 with the new frontier.
-5. **Stop.** No entry ready and none running: list what blocks — each `task`/`test` the
-   person has to do, with the prompts waiting on it, and each pull request still open.
-   Invoking this skill again resumes from the plan's state; nothing is kept in the session.
-   All prompts done, in branch mode: open the `plan/<tag>` → base pull request through the
-   repository's own pull-request rules and say it needs the person's approval and merge.
-6. **Report.** Per entry: done before, landed now (pull request), waiting (on what), manual.
+   status, `after:` edges, `repo:` and title. Refuse a cycle. Read each entry's pull request
+   (`gh pr list --head <slug>/<id> --state all --json number,state,isDraft,baseRefName,body`).
+   An entry is *done* when its status is Done/Archived or its pull request merged — into
+   `plan/<slug>` counts in branch mode; *ready* when it is a `prompt`, not done, not running,
+   not blocked, and the landing mode lets its `after:` edges start it. Show the graph, the
+   modes and the first frontier, then go: from here an unattended run asks nothing.
+2. **Resume.** Before dispatching, act on what an earlier run left: an entry or closing pull
+   request merged into `<base>` since → `transition` its entries to Done and remove their
+   worktrees; then restack, merge what is settled, and re-check blocked entries — all per
+   `assets/landing-modes.md`.
+3. **Dispatch.** For each ready entry, `transition` it to In progress and `link_session` it
+   with this session's id, then start one background sub-agent with the brief filled in.
+   Entries in another repository than this checkout's are listed and left for a session there.
+4. **Gate.** *Attended*: a sub-agent returns `gate` with a review handoff. Relay it verbatim
+   with the entry's `<n> - <Title>` as it arrives — several waiting are listed in plan order
+   and each is decided on its own — and send the decision back to that sub-agent. *Unattended*:
+   no gate here; the sub-agent returns `pr <url>`, a draft.
+5. **Land.** Branch: merge each settled entry into `plan/<slug>`. Stacked: a dependent may
+   start on its parent's open pull request. On any merge into `<base>`, `transition` the entry
+   to Done, restack its children, and `git worktree remove` it. Go to step 3. A failure blocks
+   the entry and its dependents only.
+6. **Wait.** While sub-agents or check watches run, end the turn: their completion wakes this
+   session. Unattended, keep one one-shot 30-minute fallback wake-up pending as well,
+   replacing the previous one, so a lost notification does not end the run. A merge only the
+   person makes is never waited for: the run goes on to Stop.
+7. **Stop.** No entry ready and none running: list what blocks — each `task`/`test` the person
+   has to do with the prompts waiting on it, each blocked entry with its reason and
+   dependents, each pull request waiting on the person. Branch mode: open the closing pull
+   request. Invoking this skill again resumes from the plan's state; nothing is kept in the
+   session but what the pull requests and Backlog hold.
+8. **Report.** Per entry: done before, landed now (pull request, draft or merged), waiting
+   (on what), blocked (why), manual. An unattended run ends with a push notification carrying
+   the counts.
 
 ## Never
 
-- Edit or commit in this checkout; run a `task` or `test`; mark an entry Done before its
-  pull request merges; merge into the base branch, or skip an entry's Personal Validation.
+- Edit or commit in this checkout; run a `task` or `test`; mark an entry Done before it
+  reaches `<base>`; merge into `<base>` directly; force a branch other than a restacked entry's own;
+  approve a gate for the person, or take a pull request out of draft before its review is
+  settled.

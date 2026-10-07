@@ -74,13 +74,20 @@ internal sealed class PlanningPace(
             byRepository[key] = PacesOf(key, finished, today).InUse;
         }
 
-        return new PacesInUseDto(PacesOf(null, finished, today).InUse, byRepository) { Week = Week };
+        return new PacesInUseDto(PacesOf(null, finished, today).InUse, byRepository)
+        {
+            Week = Week,
+            AliasesById = completed.AliasesById
+        };
     }
 
     public async Task<decimal> GetStoryPointsPerWeekAsync(
-        IReadOnlyCollection<string> repositoryAliases,
-        CancellationToken cancellationToken = default) =>
-        (await ReadPacesInUseAsync(cancellationToken)).For(repositoryAliases);
+        string? repository = null,
+        CancellationToken cancellationToken = default)
+    {
+        var paces = await ReadPacesInUseAsync(cancellationToken);
+        return paces.PaceOf(paces.AliasOf(repository));
+    }
 
     public string? SetManual(string? typed) => settings.SetManual(typed);
 

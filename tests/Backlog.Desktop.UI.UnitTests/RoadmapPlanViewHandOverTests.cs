@@ -4,9 +4,10 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// An item whose tasks hand over between repositories is drawn as that sequence — a
-/// segment per repository per phase — rather than one bar per repository all running
-/// the same window. What decides a phase, how the window is shared out, and which
-/// arrows the hand-overs draw.
+/// segment per repository per phase — each segment placed after the segments it waits on
+/// at its own repository's pace, rather than one bar per repository all running the same
+/// window or a window shared out by size. What decides a phase, where each segment lands,
+/// which arrows the hand-overs draw, and how a drag on one segment moves the item.
 /// </summary>
 public class RoadmapPlanViewHandOverTests
 {
@@ -16,12 +17,25 @@ public class RoadmapPlanViewHandOverTests
         new("fincent", "JSdotNet/Fincent", 2)
     ];
 
-    private static RoadmapItemDto Item(Guid? id = null, Guid[]? dependsOn = null, int startDay = 1, int endDay = 30) =>
+    /// <summary>Monday 12 October 2026, on the default working week: backlog gets through 8
+    /// points a week and fincent 4.</summary>
+    private static readonly RoadmapForecast OnMonday = new(
+        new DateOnly(2026, 10, 12),
+        new PacesInUseDto(7m, new Dictionary<string, decimal> { ["backlog"] = 8m, ["fincent"] = 4m }));
+
+    private static DateOnly October(int day) => new(2026, 10, day);
+
+    private static RoadmapItemDto Item(
+        Guid? id = null,
+        Guid[]? dependsOn = null,
+        int startDay = 1,
+        int endDay = 30,
+        ImportPlacement? placedBy = ImportPlacement.Effort) =>
         new(
             id ?? Guid.NewGuid(),
             "Spans both",
-            new DateOnly(2026, 1, startDay),
-            new DateOnly(2026, 1, endDay),
+            October(startDay),
+            October(endDay),
             PlanningPriority.Medium,
             ["backlog", "fincent"],
             null,
@@ -29,7 +43,8 @@ public class RoadmapPlanViewHandOverTests
             dependsOn ?? [],
             null,
             "",
-            null);
+            null,
+            placedBy);
 
     private static RoadmapGatheredLink Task(string key, int effort, string repository, params string[] waits) =>
         new(key, key.ToUpperInvariant(), effort, RollupOrigin.Tag, RoadmapProgress.Planned, waits, [repository]);
@@ -40,11 +55,15 @@ public class RoadmapPlanViewHandOverTests
     private static RoadmapTimelineModel Draw(
         IEnumerable<RoadmapItemDto> items,
         IReadOnlyDictionary<Guid, RoadmapItemRollupDto> rollups) =>
-        RoadmapPlanView.From(new RoadmapPlanDto([.. items], [], [], null), Configured, rollups);
+        RoadmapPlanView.From(new RoadmapPlanDto([.. items], [], [], null), Configured, rollups, OnMonday);
 
     private static RoadmapGatheredLink Done(string key, string repository, int started, int completed, params string[] waits) =>
         new(key, key.ToUpperInvariant(), 5, RollupOrigin.Tag, RoadmapProgress.Done, waits, [repository],
             StartedOn: new DateOnly(2026, 1, started), CompletedOn: new DateOnly(2026, 1, completed));
+
+    private static RoadmapItemDto January() =>
+        new(Guid.NewGuid(), "Spans both", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 30), PlanningPriority.Medium,
+            ["backlog", "fincent"], null, null, [], null, "", null);
 
     [Fact]
     public void AnItemInFlight_DrawsItsDoneSegmentsWhereTheyRan_AndOnlyTheOpenOnesForward()
@@ -52,7 +71,7 @@ public class RoadmapPlanViewHandOverTests
         // Planned across all of January; backlog and fincent finished their parts in
         // the first week, and one point is left in backlog. Today is Saturday the 10th,
         // so the point left is forecast for Monday the 12th, the first worked day.
-        var item = Item();
+        var item = January();
         var rollups = new Dictionary<Guid, RoadmapItemRollupDto>
         {
             [item.Id] = new(
@@ -81,7 +100,7 @@ public class RoadmapPlanViewHandOverTests
     {
         // Backlog finished its first part; fincent and then backlog again are still
         // open. Today is the 10th.
-        var item = Item();
+        var item = January();
         var rollups = new Dictionary<Guid, RoadmapItemRollupDto>
         {
             [item.Id] = new(
@@ -105,38 +124,66 @@ public class RoadmapPlanViewHandOverTests
         Assert.Equal([false, true, true], bars.Select(bar => bar.EndResizable));
     }
 
+    /// <summary>AC10 (Q2): in-flight work whose backlog part is forecast to end on Friday the
+    /// 16th and whose fincent part, waiting on it, on Friday the 23rd. The end pinned at the
+    /// 30th draws the fincent part to the pin and leaves the backlog part on its forecast.</summary>
     [Fact]
-    public void PullingAnEarlierSegmentsEnd_PinsTheItemsEnd_AsManyDaysLater()
+    public void APinnedEnd_MovesOnlyThePartThatEndsLatest()
+    {
+        var item = Item(startDay: 12, endDay: 30, placedBy: null) with { EndPinned = true };
+        var view = Draw(
+            item,
+            new RoadmapGatheredLink("a", "A", 8, RollupOrigin.Tag, RoadmapProgress.InProgress, null, ["JSdotNet/Backlog"],
+                StartedOn: October(12)),
+            Task("b", 4, "JSdotNet/Fincent", "a"));
+
+        var backlog = Assert.Single(view.Bars, bar => bar.Id.Contains("@backlog", StringComparison.Ordinal));
+        var fincent = Assert.Single(view.Bars, bar => bar.Id.Contains("@fincent", StringComparison.Ordinal));
+
+        Assert.Equal((October(12), October(16)), (backlog.Start, backlog.End));
+        Assert.Equal((October(19), October(30)), (fincent.Start, fincent.End));
+
+        // The pinned part keeps its own forecast in its detail; the other part was not moved.
+        Assert.Contains("Forecast: 23 Oct 2026 at 4 pt/wk", fincent.Detail!.Split('\n'));
+        Assert.DoesNotContain("Forecast:", backlog.Detail, StringComparison.Ordinal);
+    }
+
+    /// <summary>AC10: dragging the end of a part that is not the latest pins the item's end at
+    /// the drawn envelope's end, moved by as many days as that part's end was.</summary>
+    [Fact]
+    public void PullingAnEarlierPartsEnd_PinsTheItemsEnd_AsManyDaysLater()
     {
         var item = Item();
         var bars = new[]
         {
-            new RoadmapBar($"{item.Id}@backlog#1", "row", "Spans both", new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 12), Locked: true, EndResizable: true),
-            new RoadmapBar($"{item.Id}@fincent#2", "row", "Spans both", new DateOnly(2026, 1, 13), new DateOnly(2026, 1, 20), Locked: true, EndResizable: true)
+            new RoadmapBar($"{item.Id}@backlog", "row", "Spans both", October(12), October(16), Locked: true, EndResizable: true),
+            new RoadmapBar($"{item.Id}@fincent", "row", "Spans both", October(19), October(23), Locked: true, EndResizable: true)
         };
 
-        // The first segment's end, pulled out four days: the item ends four days later.
+        // The earlier part's end, pulled out three days: the item ends three days later.
         var earlier = RoadmapPlanView.PinnedEndFor(bars, bars[0],
-            new RoadmapChange(bars[0].Id, "row", bars[0].Start, new DateOnly(2026, 1, 16), RoadmapDrag.ResizeEnd));
-        Assert.Equal(new DateOnly(2026, 1, 24), earlier);
+            new RoadmapChange(bars[0].Id, "row", bars[0].Start, October(19), RoadmapDrag.ResizeEnd));
+        Assert.Equal(October(26), earlier);
 
-        // The last segment's end is the item's: it pins where it was dropped.
+        // The latest part's end is the item's: it pins where it was dropped.
         var last = RoadmapPlanView.PinnedEndFor(bars, bars[1],
-            new RoadmapChange(bars[1].Id, "row", bars[1].Start, new DateOnly(2026, 1, 27), RoadmapDrag.ResizeEnd));
-        Assert.Equal(new DateOnly(2026, 1, 27), last);
+            new RoadmapChange(bars[1].Id, "row", bars[1].Start, October(30), RoadmapDrag.ResizeEnd));
+        Assert.Equal(October(30), last);
     }
 
+    /// <summary>AC2 and the hand-over: backlog, then fincent waiting on it, then backlog
+    /// again waiting on fincent — each segment from the worked day after the one it waits on,
+    /// for its own points at its own repository's pace.</summary>
     [Fact]
-    public void TasksHandingOverBetweenRepositories_AreDrawnAsConsecutiveSegments()
+    public void TasksHandingOverBetweenRepositories_AreDrawnAsConsecutiveSegments_EachAtItsOwnPace()
     {
         var item = Item();
 
-        // backlog, then fincent waiting on it, then backlog again waiting on fincent.
         var view = Draw(
             item,
-            Task("a", 3, "JSdotNet/Backlog"),
-            Task("b", 5, "JSdotNet/Fincent", "a"),
-            Task("c", 2, "JSdotNet/Backlog", "b"));
+            Task("a", 8, "JSdotNet/Backlog"),
+            Task("b", 4, "JSdotNet/Fincent", "a"),
+            Task("c", 8, "JSdotNet/Backlog", "b"));
 
         var bars = view.Bars.OrderBy(bar => bar.Start).ToList();
         Assert.Equal(
@@ -146,10 +193,10 @@ public class RoadmapPlanViewHandOverTests
         // Every segment is the one stored item, so opening or moving any opens or moves it.
         Assert.All(bars, bar => Assert.Equal(item.Id, RoadmapPlanView.NodeIdOf(bar.Id)));
 
-        // The window shared out by effort, 3 : 5 : 2 of 30 days, end to end.
+        // 8 points at 8 a week, then 4 at 4 a week, then 8 at 8 a week: a working week each.
         Assert.Equal(
-            [(1, 9), (10, 24), (25, 30)],
-            bars.Select(bar => (bar.Start.Day, bar.End.Day)));
+            [(October(12), October(16)), (October(19), October(23)), (October(26), October(30))],
+            bars.Select(bar => (bar.Start, bar.End)));
 
         Assert.Equal(["a"], bars[0].StepList.Select(step => step.Id));
         Assert.Equal(["b"], bars[1].StepList.Select(step => step.Id));
@@ -177,8 +224,11 @@ public class RoadmapPlanViewHandOverTests
         Assert.Equal(new RoadmapLink($"{item.Id}@backlog#1", $"{item.Id}@fincent#2"), link);
     }
 
+    /// <summary>AC1: repositories that never hand over keep one part each, side by side, but
+    /// each at its own pace — 4 points at backlog's 8 a week is half a week, 4 at fincent's
+    /// 4 a week a whole one.</summary>
     [Fact]
-    public void RepositoriesThatNeverHandOver_KeepOnePartEach_OverTheWholeWindow()
+    public void RepositoriesThatNeverHandOver_KeepOnePartEach_EachAtItsOwnPace()
     {
         var item = Item();
 
@@ -186,7 +236,30 @@ public class RoadmapPlanViewHandOverTests
             item,
             Task("a", 2, "JSdotNet/Backlog"),
             Task("a2", 2, "JSdotNet/Backlog", "a"),
-            Task("b", 2, "JSdotNet/Fincent"));
+            Task("b", 4, "JSdotNet/Fincent"));
+
+        var backlog = Assert.Single(view.Bars, bar => bar.Id == $"{item.Id}@backlog");
+        var fincent = Assert.Single(view.Bars, bar => bar.Id == $"{item.Id}@fincent");
+
+        Assert.Equal((October(12), October(14)), (backlog.Start, backlog.End));
+        Assert.Equal((October(12), October(16)), (fincent.Start, fincent.End));
+        Assert.Empty(view.Links);
+    }
+
+    /// <summary>AC6: a due date or a person placed the window, so the work is not cut into
+    /// phases — every part draws over the one stored window, and nothing hands over.</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData(ImportPlacement.DueDate)]
+    public void AHandOverInAWindowNotSizedByItsEffort_DrawsEveryPartOverTheStoredWindow(ImportPlacement? placedBy)
+    {
+        var item = Item(startDay: 12, endDay: 30, placedBy: placedBy);
+
+        var view = Draw(
+            item,
+            Task("a", 8, "JSdotNet/Backlog"),
+            Task("b", 4, "JSdotNet/Fincent", "a"),
+            Task("c", 8, "JSdotNet/Backlog", "b"));
 
         Assert.Equal(
             [$"{item.Id}@backlog", $"{item.Id}@fincent"],
@@ -195,11 +268,28 @@ public class RoadmapPlanViewHandOverTests
         Assert.Empty(view.Links);
     }
 
+    /// <summary>Q4: a task filed in both repositories in the middle of a hand-over belongs to
+    /// a segment in each, and what waits on it waits on both.</summary>
+    [Fact]
+    public void ATaskFiledInBothRepositoriesInAHandOver_IsASegmentInEach()
+    {
+        var item = Item();
+
+        var view = Draw(
+            item,
+            Task("a", 4, "JSdotNet/Backlog"),
+            new RoadmapGatheredLink("b", "B", 4, RollupOrigin.Tag, RoadmapProgress.Planned, ["a"], ["JSdotNet/Backlog", "JSdotNet/Fincent"]),
+            Task("c", 4, "JSdotNet/Fincent", "b"));
+
+        var withB = view.Bars.Where(bar => bar.StepList.Any(step => step.Id == "b")).Select(bar => bar.Id).Order(StringComparer.Ordinal);
+        Assert.Equal([$"{item.Id}@backlog#1", $"{item.Id}@fincent#2"], withB);
+    }
+
     [Fact]
     public void APlanDependencyOnASequencedItem_IsOneArrow_FromItsLastSegment()
     {
         var first = Item();
-        var then = Item(dependsOn: [first.Id], startDay: 31, endDay: 31);
+        var then = Item(dependsOn: [first.Id], startDay: 31, endDay: 31, placedBy: null);
 
         var view = Draw(
             [first, then],
@@ -215,22 +305,58 @@ public class RoadmapPlanViewHandOverTests
         Assert.Equal($"{first.Id}@fincent#2", planArrow.FromId);
     }
 
+    /// <summary>AC5: the AC2 plan draws backlog 12–16 and fincent 19–23 October. Dragging the
+    /// fincent part a week moves the whole item a week from the window it is drawn over —
+    /// not from whatever was stored — and pulling that part's end out lengthens it.</summary>
     [Fact]
-    public void DraggingOneSegment_MovesTheWholeItem_AndPullingItsEnd_LengthensIt()
+    public void DraggingOnePart_MovesTheWholeItemFromItsDrawnWindow_AndPullingItsEnd_LengthensIt()
     {
-        var item = Item();
+        var item = Item(startDay: 1, endDay: 2);
+        var view = RoadmapPlanView.From(
+            new RoadmapPlanDto([item], [], [], null),
+            Configured,
+            new Dictionary<Guid, RoadmapItemRollupDto>
+            {
+                [item.Id] = new([Task("a", 4, "JSdotNet/Backlog"), Task("b", 4, "JSdotNet/Fincent", "a")], [])
+            },
+            OnMonday with { Paces = OnMonday.Paces with { ByRepository = new Dictionary<string, decimal> { ["backlog"] = 4m, ["fincent"] = 4m } } });
+        var second = view.Bars.Single(bar => bar.Id.EndsWith("#2", StringComparison.Ordinal));
+        Assert.Equal((October(19), October(23)), (second.Start, second.End));
+
+        var moved = RoadmapPlanView.ItemWindowFor(view.Bars, second,
+            new RoadmapChange(second.Id, second.RowId, second.Start.AddDays(7), second.End.AddDays(7), RoadmapDrag.Move));
+        Assert.Equal((October(19), October(30)), moved);
+
+        var longer = RoadmapPlanView.ItemWindowFor(view.Bars, second,
+            new RoadmapChange(second.Id, second.RowId, second.Start, second.End.AddDays(7), RoadmapDrag.ResizeEnd));
+        Assert.Equal((October(12), October(30)), longer);
+    }
+
+    /// <summary>QA fix round 1: an item in flight whose fincent part has begun — one task done
+    /// from the 5th to the 9th, one still open — and whose backlog part holds 7 points nobody
+    /// has started. Only the begun part is drawn from when its work began and says so; the
+    /// backlog part is placed from today, as a part not begun is, and says that instead.</summary>
+    [Fact]
+    public void InAnItemInFlight_APartWhoseWorkHasNotBegun_IsNotDrawnOrDescribedAsBegun()
+    {
+        var item = Item(startDay: 1, endDay: 30, placedBy: null);
         var view = Draw(
             item,
-            Task("a", 1, "JSdotNet/Backlog"),
-            Task("b", 1, "JSdotNet/Fincent", "a"));
-        var second = view.Bars.Single(bar => bar.Id.EndsWith("#2", StringComparison.Ordinal));
+            Task("a", 7, "JSdotNet/Backlog"),
+            new RoadmapGatheredLink("b", "B", 2, RollupOrigin.Tag, RoadmapProgress.Done, null, ["JSdotNet/Fincent"],
+                StartedOn: October(5), CompletedOn: October(9)),
+            Task("c", 4, "JSdotNet/Fincent"));
 
-        var moved = RoadmapPlanView.ItemWindowFor(item, second,
-            new RoadmapChange(second.Id, second.RowId, second.Start.AddDays(7), second.End.AddDays(7), RoadmapDrag.Move));
-        Assert.Equal((new DateOnly(2026, 1, 8), new DateOnly(2026, 2, 6)), moved);
+        var backlog = Assert.Single(view.Bars, bar => bar.Id.Contains("@backlog", StringComparison.Ordinal));
+        var fincent = Assert.Single(view.Bars, bar => bar.Id.Contains("@fincent", StringComparison.Ordinal));
 
-        var longer = RoadmapPlanView.ItemWindowFor(item, second,
-            new RoadmapChange(second.Id, second.RowId, second.Start, second.End.AddDays(7), RoadmapDrag.ResizeEnd));
-        Assert.Equal((item.Start, new DateOnly(2026, 2, 6)), longer);
+        // The begun part starts where its work did; the other from today, not from fincent's work.
+        Assert.Equal(October(5), fincent.Start);
+        Assert.Equal(October(12), backlog.Start);
+
+        Assert.Contains("in progress, drawn from when the work began", fincent.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("in progress", backlog.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("when the work began", backlog.Detail, StringComparison.Ordinal);
+        Assert.Contains("not started yet, placed after what it waits on", backlog.Detail, StringComparison.Ordinal);
     }
 }

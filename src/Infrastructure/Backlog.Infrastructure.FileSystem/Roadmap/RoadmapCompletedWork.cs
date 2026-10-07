@@ -46,6 +46,12 @@ public sealed class RoadmapCompletedWork : IRoadmapCompletedWork
     public IReadOnlyList<string> Repositories =>
         [.. _repositories().Repositories.Select(repository => repository.Alias)];
 
+    /// <summary>Each configured repository's <c>owner/name</c> id to its alias, matched
+    /// without regard to case, as GitHub matches it — the mapping
+    /// <see cref="Completed"/> applies, handed to the roadmap so a gathered task's
+    /// repositories resolve to the alias its pace is kept under.</summary>
+    public IReadOnlyDictionary<string, string> AliasesById => AliasesByIdOf(_repositories().Repositories);
+
     public async Task<IReadOnlyList<CompletedEffortDto>> CompletedSinceAsync(
         DateOnly since,
         CancellationToken cancellationToken = default)
@@ -64,8 +70,7 @@ public sealed class RoadmapCompletedWork : IRoadmapCompletedWork
         DateOnly since,
         IReadOnlyList<TasksRepositoryRef> repositories)
     {
-        var aliasById = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var repository in repositories) aliasById.TryAdd(repository.Id, repository.Alias);
+        var aliasById = AliasesByIdOf(repositories);
 
         return
         [
@@ -82,5 +87,13 @@ public sealed class RoadmapCompletedWork : IRoadmapCompletedWork
                     ]
                 })
         ];
+    }
+
+    /// <summary>Each id to its alias; the first repository wins an id two share.</summary>
+    private static Dictionary<string, string> AliasesByIdOf(IReadOnlyList<TasksRepositoryRef> repositories)
+    {
+        var aliasById = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var repository in repositories) aliasById.TryAdd(repository.Id, repository.Alias);
+        return aliasById;
     }
 }

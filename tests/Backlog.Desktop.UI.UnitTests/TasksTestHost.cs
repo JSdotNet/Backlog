@@ -101,6 +101,10 @@ internal static class TasksTestHost
             .AddSingleton(pace)
             .AddSingleton(finished ?? new NothingFinished())
             .AddSingleton(clock ?? TimeProvider.System)
+            // Import lays an item out over the work it gathers, read the way the band
+            // reads it: the real gathering over the backlog under the same root.
+            .AddSingleton<IRoadmapItemRollup>(
+                new Backlog.Infrastructure.FileSystem.Roadmap.RoadmapItemRollupService(EntriesFor(store), () => store.RootDirectory))
             .AddRoadmapModule()
             .BuildServiceProvider()
             .GetRequiredService<IRoadmapPlanning>();

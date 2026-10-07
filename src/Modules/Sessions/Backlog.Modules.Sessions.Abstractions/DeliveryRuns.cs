@@ -122,6 +122,18 @@ public sealed record DeliveryRun(
     /// </summary>
     public IReadOnlyList<DeliverySyncUnitVerdict> Verdicts { get; init; } = [];
 
+    /// <summary>
+    /// The run context the Reporting Contract sends through <c>set_run_context</c> — the
+    /// resolved phase map, the tracker, the policy, the gates and where each came from —
+    /// the object verbatim, as JSON text, or null where the run file holds none.
+    /// <para>
+    /// Text rather than a JSON node so a run stays a value: two reads of one file are
+    /// equal, which a node, compared by reference, would never be. This product keeps
+    /// the object for a reader and interprets none of it, so text loses nothing.
+    /// </para>
+    /// </summary>
+    public string? RunContext { get; init; }
+
     /// <summary>Whether a schedule fired the run rather than a person.</summary>
     public bool Scheduled => string.Equals(Trigger, DeliveryRunTriggers.Scheduled, StringComparison.OrdinalIgnoreCase);
 
@@ -244,6 +256,14 @@ public sealed record DeliveryRunStage(string Name, string Status, long? Duration
     /// the run file records for the run as a whole and never per stage.
     /// </summary>
     public IReadOnlyList<DeliveryRunStageAgent> Agents { get; init; } = [];
+
+    /// <summary>
+    /// How the stage ran, as <c>update_stage</c> last reported it — inline or delegated,
+    /// to which agent, on which model — the object verbatim, as JSON text, or null where
+    /// the stage holds none. Text for the reason <see cref="DeliveryRun.RunContext"/>
+    /// is.
+    /// </summary>
+    public string? Execution { get; init; }
 }
 
 /// <summary>

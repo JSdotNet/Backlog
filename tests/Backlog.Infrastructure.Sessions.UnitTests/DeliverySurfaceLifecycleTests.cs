@@ -268,7 +268,7 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
             [new DeliveryStageLink("Pull request", "https://github.com/JSdotNet/Backlog/pull/572", "The change under review")],
             [new DeliveryScenario("Sessions pane shows a live run", "pass", "Row appeared without a refresh", [".qa-workspace/sessions-pane.png"])],
             new DeliveryMonitoring("No errors during the run", ["One warning from the harness at startup"]),
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         // The pull request reaches the reader as a reference, which is the whole
         // reason a stage carries links: it is where a run records what it delivered,
@@ -356,6 +356,188 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
         Assert.Equal(0, run.TokenUsage.Total.InputTokens);
         Assert.Equal(0, run.TokenUsage.Total.ModelCalls);
     }
+
+    /// <summary>
+    /// The run context the Reporting Contract added: the resolved phase map, the
+    /// tracker, the policy, the gates and where each came from, kept at the file's
+    /// root under the contract's own key and exactly as it was sent — this product
+    /// keeps it for the pane to show and interprets none of it.
+    /// </summary>
+    [Fact]
+    public async Task A_run_context_object_is_kept_at_the_root_verbatim()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+
+        await surface.SetRunContextAsync(Worktree, started.RunId, runContext: RunContext(), cancellationToken: TestContext.Current.CancellationToken);
+
+        var kept = Assert.IsType<JsonObject>(Document(started.RunId)["runContext"]);
+
+        Assert.True(JsonNode.DeepEquals(RunContext(), kept));
+    }
+
+    /// <summary>
+    /// A later run context merges one level deep, the way the collector merges it: each
+    /// key the call names replaces that key whole, and every key it does not name stays.
+    /// A flow sends the phase map once it resolves and the gates as they pass, and a
+    /// call carrying one must not erase the other.
+    /// </summary>
+    [Fact]
+    public async Task A_later_run_context_replaces_the_keys_it_names_and_keeps_the_rest()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+
+        await surface.SetRunContextAsync(Worktree, started.RunId, runContext: RunContext(), cancellationToken: TestContext.Current.CancellationToken);
+
+        var phases = new JsonObject
+        {
+            ["phases"] = new JsonObject
+            {
+                ["flow-code"] = new JsonObject { ["phase-verify"] = new JsonObject { ["mode"] = "inline" } }
+            }
+        };
+
+        await surface.SetRunContextAsync(Worktree, started.RunId, runContext: phases, cancellationToken: TestContext.Current.CancellationToken);
+
+        var kept = (JsonObject)Document(started.RunId)["runContext"]!;
+
+        // Replaced whole, not merged into: phase-implement is gone because the call's
+        // phases did not carry it.
+        Assert.True(JsonNode.DeepEquals(phases["phases"], kept["phases"]));
+        Assert.True(JsonNode.DeepEquals(RunContext()["tracker"], kept["tracker"]));
+        Assert.True(JsonNode.DeepEquals(RunContext()["gates"], kept["gates"]));
+    }
+
+    [Fact]
+    public async Task A_run_context_call_without_the_object_leaves_it_standing()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+
+        await surface.SetRunContextAsync(Worktree, started.RunId, runContext: RunContext(), cancellationToken: TestContext.Current.CancellationToken);
+        await surface.SetRunContextAsync(Worktree, started.RunId, approval: "approved", cancellationToken: TestContext.Current.CancellationToken);
+
+        var document = Document(started.RunId);
+
+        Assert.True(JsonNode.DeepEquals(RunContext(), document["runContext"]));
+        Assert.Equal("approved", document["approval"]!["personalValidation"]!.GetValue<string>());
+    }
+
+    /// <summary>
+    /// A stage's execution — how the phase ran: inline or delegated, to which agent, on
+    /// which model — kept on the stage it was sent with and on no other.
+    /// </summary>
+    [Fact]
+    public async Task A_stage_execution_is_kept_on_that_stage_alone()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+
+        await surface.UpdateStageAsync(Worktree, started.RunId, 2, "in_progress", execution: Execution("opus"), cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(JsonNode.DeepEquals(Execution("opus"), StageOf(started.RunId, 2)["execution"]));
+        Assert.Null(StageOf(started.RunId, 1)["execution"]);
+        Assert.Null(StageOf(started.RunId, 3)["execution"]);
+    }
+
+    /// <summary>
+    /// Replaced whole by the next one, unlike the run context: an execution describes one
+    /// pass of the stage, and a re-run delegated differently is a different description
+    /// rather than an amendment to the first. A call that sends none keeps it.
+    /// </summary>
+    [Fact]
+    public async Task A_later_execution_replaces_the_earlier_and_a_call_without_one_keeps_it()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+
+        await surface.UpdateStageAsync(Worktree, started.RunId, 2, "in_progress", execution: Execution("opus"), cancellationToken: TestContext.Current.CancellationToken);
+
+        var second = new JsonObject { ["mode"] = "inline", ["model"] = "sonnet" };
+
+        await surface.UpdateStageAsync(Worktree, started.RunId, 2, "in_progress", execution: second, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(JsonNode.DeepEquals(second, StageOf(started.RunId, 2)["execution"]));
+
+        await surface.UpdateStageAsync(Worktree, started.RunId, 2, "done", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(JsonNode.DeepEquals(second, StageOf(started.RunId, 2)["execution"]));
+    }
+
+    /// <summary>
+    /// Both read back through the reader the pane uses, as the JSON text of the object
+    /// that was sent — text rather than a node so a run stays a value, equal to another
+    /// read of the same file.
+    /// </summary>
+    [Fact]
+    public async Task The_run_context_and_a_stage_execution_read_back_as_they_were_sent()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+
+        await surface.SetRunContextAsync(Worktree, started.RunId, runContext: RunContext(), cancellationToken: TestContext.Current.CancellationToken);
+        await surface.UpdateStageAsync(Worktree, started.RunId, 2, "in_progress", execution: Execution("opus"), cancellationToken: TestContext.Current.CancellationToken);
+
+        var listed = Assert.Single(await surface.ListRunsAsync(Worktree, TestContext.Current.CancellationToken));
+        var got = await surface.GetRunAsync(Worktree, started.RunId, TestContext.Current.CancellationToken);
+
+        foreach (var run in new[] { listed, got! })
+        {
+            Assert.True(JsonNode.DeepEquals(RunContext(), JsonNode.Parse(run.RunContext!)));
+            Assert.True(JsonNode.DeepEquals(Execution("opus"), JsonNode.Parse(run.Stages[2].Execution!)));
+            Assert.Null(run.Stages[0].Execution);
+        }
+    }
+
+    [Fact]
+    public async Task A_run_that_sent_neither_reads_back_with_neither()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+
+        await surface.UpdateStageAsync(Worktree, started.RunId, 0, "done", cancellationToken: TestContext.Current.CancellationToken);
+
+        var run = Assert.Single(await surface.ListRunsAsync(Worktree, TestContext.Current.CancellationToken));
+
+        Assert.Null(run.RunContext);
+        Assert.All(run.Stages, stage => Assert.Null(stage.Execution));
+
+        // And nothing written for them: a field stays out of the file while unknown,
+        // as it is on every run from before the contract named it.
+        Assert.False(Document(started.RunId).ContainsKey("runContext"));
+        Assert.False(StageOf(started.RunId, 0).ContainsKey("execution"));
+    }
+
+    private static JsonObject RunContext() => new()
+    {
+        ["phases"] = new JsonObject
+        {
+            ["flow-code"] = new JsonObject
+            {
+                ["phase-implement"] = new JsonObject
+                {
+                    ["mode"] = "delegate",
+                    ["agent"] = "csharp-coding:coding",
+                    ["model"] = "opus",
+                    ["effort"] = null
+                }
+            }
+        },
+        ["tracker"] = new JsonObject { ["kind"] = "github", ["repo"] = "JSdotNet/Backlog" },
+        ["policy"] = new JsonObject { ["qaDepth"] = "standard" },
+        ["gates"] = new JsonArray("personal-validation"),
+        ["origins"] = new JsonArray(new JsonObject { ["key"] = "phases", ["from"] = ".devbook/config.json" })
+    };
+
+    private static JsonObject Execution(string model) => new()
+    {
+        ["mode"] = "delegate",
+        ["agent"] = "csharp-coding:coding",
+        ["model"] = model,
+        ["effort"] = null,
+        ["runs"] = new JsonArray(new JsonObject { ["agent"] = "csharp-coding:coding", ["model"] = model, ["effort"] = null, ["slice"] = "backend" })
+    };
 
     [Fact]
     public async Task Finishing_a_run_records_the_status_and_the_summary()

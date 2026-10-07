@@ -154,7 +154,8 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
 
     /// <summary>
     /// The backlog's plan import reaches the roadmap importer, which asks the pace,
-    /// which counts finished work from the backlog. Taken eagerly that is a loop the
+    /// which counts finished work from the backlog, and gathers the plan's work through
+    /// the rollup, which reads the backlog too. Taken eagerly that is a loop the
     /// container cannot see through its factories, and a scope resolving any of them
     /// deadlocks — so both ends are resolved here, in both orders, and the pace is
     /// read, under a deadline that turns a hang back into a failure.
@@ -175,6 +176,11 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
             var pace = scope.ServiceProvider.GetRequiredService<IPlanningPace>();
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPlanningVelocity>());
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<ITaskItems>());
+
+            // The importer gathers the plan's work through the rollup, which reads the
+            // backlog: the same loop again, closed at the rollup.
+            var rollup = scope.ServiceProvider.GetRequiredService<IRoadmapItemRollup>();
+            Assert.Empty(await rollup.GatherPlanAsync(RoadmapPlanDto.Empty));
 
             return await pace.ReadAsync();
         });

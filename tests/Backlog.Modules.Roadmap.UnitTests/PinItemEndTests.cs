@@ -1,6 +1,7 @@
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.DomainModels;
 using Backlog.Modules.Roadmap.Features.PinItemEnd;
+using Backlog.Modules.Roadmap.Services;
 
 namespace Backlog.Modules.Roadmap.UnitTests;
 
@@ -126,7 +127,7 @@ public class PinItemEndTests
     {
         var id = Added();
 
-        var result = await new PinItemEndCommandHandler(_plans)
+        var result = await new PinItemEndCommandHandler(_plans, new RoadmapPlanGate())
             .Handle(new PinItemEndCommand(id, Day(18)), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
@@ -138,7 +139,7 @@ public class PinItemEndTests
     [Fact]
     public async Task ThePinCommand_SavesNothing_ForAnUnknownItem()
     {
-        var result = await new PinItemEndCommandHandler(_plans)
+        var result = await new PinItemEndCommandHandler(_plans, new RoadmapPlanGate())
             .Handle(new PinItemEndCommand(Guid.NewGuid(), Day(1)), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
@@ -151,7 +152,7 @@ public class PinItemEndTests
         var id = Added();
         _plans.Plan.PinEnd(id, Day(18));
 
-        var result = await new UnpinItemEndCommandHandler(_plans)
+        var result = await new UnpinItemEndCommandHandler(_plans, new RoadmapPlanGate())
             .Handle(new UnpinItemEndCommand(id), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
@@ -162,7 +163,7 @@ public class PinItemEndTests
     [Fact]
     public async Task TheUnpinCommand_FailsForAnUnknownItem()
     {
-        var result = await new UnpinItemEndCommandHandler(_plans)
+        var result = await new UnpinItemEndCommandHandler(_plans, new RoadmapPlanGate())
             .Handle(new UnpinItemEndCommand(Guid.NewGuid()), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);

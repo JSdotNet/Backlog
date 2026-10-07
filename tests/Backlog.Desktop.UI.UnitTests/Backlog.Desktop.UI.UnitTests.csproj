@@ -44,6 +44,9 @@
          had a folder in Backlog.Desktop.UI, so its types say
          Backlog.Modules.Devbook.Abstractions. -->
     <Using Include="Backlog.Modules.Devbook.Abstractions" />
+    <!-- And the chapter resolver, reader and writers, which left the Devbook UI
+         project for its adapter under issue #738 and say so in their namespace. -->
+    <Using Include="Backlog.Infrastructure.Devbook.Chapters" />
     <!-- Roadmap Planning now has a domain module, so its feature key and its DTOs
          come from the abstractions project like every other context's; the .UI
          namespace is still imported for the band and the view that maps a plan onto
@@ -80,7 +83,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
-    <ProjectReference Include="..\..\src\Harness\Backlog.AzureFoundry.TestService\Backlog.AzureFoundry.TestService.csproj" />
     <!-- The desktop web harness. Referencing a harness from a test project is
          allowed; only shipping projects under src/ may not
          (HarnessIsNotDeployedTests). -->
@@ -125,7 +127,6 @@
        from tests/Directory.Build.props: a double that implements a product
        interface only compiles in a project that references it. -->
   <ItemGroup>
-    <Compile Include="..\Shared\TestDoubles\RecordingHandler.cs" Link="Shared\TestDoubles\RecordingHandler.cs" />
     <Compile Include="..\Shared\TestDoubles\RecordingTelemetry.cs" Link="Shared\TestDoubles\RecordingTelemetry.cs" />
     <Compile Include="..\Shared\TestDoubles\StubAzureFoundryChatClient.cs" Link="Shared\TestDoubles\StubAzureFoundryChatClient.cs" />
     <Compile Include="..\Shared\TestDoubles\StubGitHubClient.cs" Link="Shared\TestDoubles\StubGitHubClient.cs" />
