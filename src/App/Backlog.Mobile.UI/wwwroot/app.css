@@ -81,51 +81,30 @@ h1:focus {
 /* Dark mode only, per .devbook/design/color-scheme.md. */
 html, body { background-color: var(--color-background); color: var(--color-text-primary); }
 .capture { display: flex; gap: .5rem; margin-bottom: 1rem; }
-.capture input { flex: 1; background: var(--color-background-alt); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: .25rem; padding: .5rem; }
+.capture__add {
+    flex: none;
+    width: 48px;
+    min-height: 48px;
+    border: 0;
+    border-radius: var(--border-radius-md);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+.capture__add:disabled { background: var(--color-background-raised); color: var(--color-text-disabled); }
 /*
-  The Inbox list. A row is the button that opens its sheet, then one action at
-  the trailing edge — Dismiss, or the outbox's waiting marker for a capture that
-  has not left the phone. Colours are the library's tokens.
+  The Inbox: a header that counts what waits to be sorted, the add field, and
+  the phone's own captures as cards the library draws (CaptureRow). Colours are
+  the library's tokens.
 */
-.inbox-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-.inbox-heading h1 { margin: 0; }
+.inbox-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.inbox-heading__titles { display: grid; gap: .125rem; }
+.inbox-heading__lede { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.inbox-heading h1 { margin: 0; font-family: var(--font-family-heading); }
 
 .inbox { transition: transform .15s ease-out; }
 .inbox--pulling { transform: translateY(.75rem); }
 
-.inbox__list { list-style: none; padding: 0; margin: 0; }
-.inbox__row { display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid var(--color-border); }
-.inbox__row[data-waiting="true"] .inbox__title { color: var(--color-text-secondary); }
-
-.inbox__open {
-    flex: 1;
-    min-width: 0;
-    min-height: 44px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: .15rem;
-    padding: .5rem 0;
-    background: none;
-    border: 0;
-    color: inherit;
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
-}
-.inbox__open:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 2px; }
-
-.inbox__meta { display: inline-flex; align-items: center; gap: .35rem; color: var(--color-text-secondary); font-size: .75rem; }
-.inbox__title { overflow-wrap: anywhere; }
-.inbox__preview {
-    max-width: 100%;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    color: var(--color-text-secondary);
-    font-size: .85rem;
-}
-.inbox__action { flex: 0 0 auto; }
+.inbox__list { display: grid; gap: .5rem; list-style: none; padding: 0; margin: 0; }
 
 .inbox-sheet__body { margin-bottom: 1rem; }
 .inbox-sheet__facts { display: grid; grid-template-columns: auto 1fr; gap: .35rem .75rem; margin: 0; }
@@ -182,15 +161,11 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .error { color: var(--color-error-text); }
 
 /*
-  Speech capture on the Inbox screen.
-
-  The mic sits in the capture row; everything it has to say goes on its own line
-  underneath, because a phone-width row has room for controls and nothing else.
+  The capture field's lines, on the Inbox and on the capture sheet: a share
+  that just landed, dictation's running commentary, a pull that did not answer.
   Colours are the library's tokens — this file declares none of its own.
 */
 .capture__field { flex: 1; }
-
-.capture__mic { flex: 0 0 auto; }
 
 .capture__status,
 .capture__notice {

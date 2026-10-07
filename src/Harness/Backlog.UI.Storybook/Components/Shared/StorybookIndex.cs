@@ -168,7 +168,14 @@ internal static class StorybookIndex
         new("Feedback",
         [
             new("feedback", "Feedback", "Alert, EmptyState, SetupSteps, FlowSteps, Spinner, Skeleton, SaveIndicator, Toast, ToastTray."),
-            new("overlays", "Overlays", "Modal and ConfirmDialog.")
+            new("overlays", "Overlays", "Modal and ConfirmDialog."),
+
+            // After Overlays: the phone's capture sheet is a sheet over the
+            // screen it was opened from, and the row beside it is how what it
+            // sent reads on the Inbox tab. Its own page, not a story on Today,
+            // because it draws an Alert and the AttachmentStrip a host fills it
+            // with, and Alert is introduced on Feedback just above.
+            new("capture", "Capture", "CaptureSheet and CaptureRow: one thought sent to the Inbox, kept as a note or added to today, and how one of the phone's own captures reads while it makes its way to the desktop.")
         ]),
 
         // The base content items — what a snippet, a table, a diagram and a block

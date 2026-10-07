@@ -139,7 +139,7 @@ public sealed class TalkNoteScreenTests
         app.WaitForAssertion(() =>
         {
             var row = app.Find("[data-testid='inbox-row']");
-            Assert.Equal("true", row.GetAttribute("data-waiting"));
+            Assert.Equal("waiting", row.GetAttribute("data-state"));
             Assert.Contains("Keynote", row.TextContent, StringComparison.Ordinal);
         });
     }
