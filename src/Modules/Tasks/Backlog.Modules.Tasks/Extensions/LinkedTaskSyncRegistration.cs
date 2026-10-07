@@ -1,5 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.Features.CompleteLinkedTask;
+using Backlog.Modules.Tasks.Features.DeleteDisconnectedLinkedTasks;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -40,8 +41,9 @@ public static class LinkedTaskSyncRegistration
     }
 
     /// <summary>
-    /// Registers the sync and its timer, and the write-back a save asks for when it
-    /// finishes a linked task. The host registers the
+    /// Registers the sync and its timer, the write-back a save asks for when it
+    /// finishes a linked task, and the delete of what a disconnected source left
+    /// behind. The host registers the
     /// <see cref="IConnectedTargets"/> store, and resolves
     /// <see cref="LinkedTaskSyncWorker"/> once after building, or the timer never
     /// starts.
@@ -66,6 +68,12 @@ public static class LinkedTaskSyncRegistration
         // them at the source, and one that does not leaves the save asking nobody.
         services.AddScoped<ICommandHandler<CompleteLinkedTaskCommand, Result<LinkedTaskWriteBackOutcome>>, CompleteLinkedTaskCommandHandler>();
         services.TryAddSingleton<ILinkedTaskWriteBack, LinkedTaskWriteBack>();
+
+        // Deleting what a disconnected source left behind needs the same connected
+        // targets the sync reads, to tell a disconnected source from a connected one.
+        services.AddScoped<IQueryHandler<ListDisconnectedSourcesQuery, IReadOnlyList<DisconnectedSource>>, ListDisconnectedSourcesQueryHandler>();
+        services.AddScoped<ICommandHandler<DeleteDisconnectedLinkedTasksCommand, Result<int>>, DeleteDisconnectedLinkedTasksCommandHandler>();
+        services.TryAddScoped<IDisconnectedLinkedTasks, DisconnectedLinkedTasks>();
 
         return services;
     }
