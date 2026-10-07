@@ -127,6 +127,28 @@ public sealed class TaskListTests
             row.Details.Select(d => d.Kind));
     }
 
+    /// <summary>An agenda time rides beside My Day — it is a time within that day —
+    /// with its own glyph and name, on a row with a kind and one without.</summary>
+    [Fact]
+    public void An_agenda_time_sits_straight_after_my_day()
+    {
+        var plain = new TaskRow("a", "T", InMyDay: true, Due: "Today") { Agenda = "10:45–11:30" };
+        var kinded = new TaskRow("a", "T", InMyDay: true, Due: "Today", Kind: new TaskKind("✨", "prompt")) { Agenda = "10:45–11:30" };
+
+        Assert.Equal(
+            [TaskDetailKind.MyDay, TaskDetailKind.Agenda, TaskDetailKind.Due],
+            plain.Details.Select(d => d.Kind));
+        Assert.Equal(
+            [TaskDetailKind.Kind, TaskDetailKind.MyDay, TaskDetailKind.Agenda, TaskDetailKind.Due],
+            kinded.Details.Select(d => d.Kind));
+
+        var agenda = plain.Details.Single(d => d.Kind is TaskDetailKind.Agenda);
+        Assert.Equal("10:45–11:30", agenda.Text);
+        Assert.Equal("Agenda time", agenda.Name);
+        Assert.NotEqual(new TaskDetail(TaskDetailKind.Reminder, "x").Glyph, agenda.Glyph);
+        Assert.Empty(new TaskRow("a", "T", InMyDay: true).Details.Where(d => d.Kind is TaskDetailKind.Agenda));
+    }
+
     [Fact]
     public void What_is_not_known_is_left_out_rather_than_filled_in()
     {
