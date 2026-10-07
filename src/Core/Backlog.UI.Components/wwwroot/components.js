@@ -45,6 +45,37 @@
         attempt(focusFrames);
     };
 
+    // A list opened on one row — the pull requests list from a task's card — has to
+    // show that row, which may sit far down a long table. The nearest scroll
+    // container is scrolled until the row is inside it, and nothing above that: the
+    // reason is the one the tag picker's reveal below gives for not using
+    // `scrollIntoView`, which also scrolls the `overflow: hidden` workspace. Waited
+    // for a few frames, as backlogFocus waits, because the row arrives with the read.
+    window.backlogRevealRow = (selector) => {
+        const attempt = framesLeft => {
+            const row = document.querySelector(selector);
+            if (!row) {
+                if (framesLeft > 0) requestAnimationFrame(() => attempt(framesLeft - 1));
+                return;
+            }
+
+            let container = row.parentElement;
+            while (container && container !== document.body) {
+                const overflowY = getComputedStyle(container).overflowY;
+                if (overflowY === 'auto' || overflowY === 'scroll') break;
+                container = container.parentElement;
+            }
+            if (!container || container === document.body) return;
+
+            const bounds = container.getBoundingClientRect();
+            const box = row.getBoundingClientRect();
+            if (box.top < bounds.top) container.scrollTop -= bounds.top - box.top;
+            else if (box.bottom > bounds.bottom) container.scrollTop += box.bottom - bounds.bottom;
+        };
+
+        attempt(focusFrames);
+    };
+
     // Tab inside a quick edit belongs to the list, not to the browser: it commits
     // the rename and opens the field on the next row, and a browser that also
     // moved the focus ring on would land it one control past the field that just

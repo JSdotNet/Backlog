@@ -8,38 +8,80 @@
     for one of them at a time. "None yet" rather than an empty column, so a column
     with nothing in it still says it was looked at.
 
+    A column whose feature the host has off is not drawn at all: "None yet" under
+    the heading of a list that is switched off would say the task was looked at
+    where nothing was asked.
+
+    Each card carries an "Unlink" beside it while the host listens for one — a
+    button of its own rather than a part of the card, because the card is already
+    the button that opens the item, and a control inside a control is neither.
+
     The columns wrap under each other where the host is narrow; the host owns how
     wide that is.
 *@
 <div class="@ClassValue" data-testid="@TestId">
-    <div class="work-links__column" data-testid="work-links-sessions">
-        <span class="work-links__heading">Sessions</span>
-        @if (Sessions.Count == 0)
-        {
-            <span class="work-links__none" data-testid="work-links-no-sessions">None yet</span>
-        }
-        else
-        {
+    @if (ShowSessions)
+    {
+        <div class="work-links__column" data-testid="work-links-sessions">
+            <span class="work-links__heading">Sessions</span>
+            @if (Sessions.Count == 0)
+            {
+                <span class="work-links__none" data-testid="work-links-no-sessions">None yet</span>
+            }
             @foreach (var session in Sessions)
             {
-                <WorkSessionCard @key="session.Id" Session="session" OnOpen="OnOpenSession" />
+                @if (OnUnlinkSession.HasDelegate)
+                {
+                    <div @key="session.Id" class="work-links__item" data-testid="work-links-item">
+                        <WorkSessionCard Session="session" OnOpen="OnOpenSession" CssClass="work-links__card" />
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   Size="ButtonSize.Small"
+                                   CssClass="work-links__unlink"
+                                   TestId="work-links-unlink"
+                                   aria-label="@($"Unlink the session {session.Title}")"
+                                   title="@($"Unlink the session {session.Title} from this task")"
+                                   data-unlink="@session.Id"
+                                   OnClick="() => OnUnlinkSession.InvokeAsync(session)">Unlink</AppButton>
+                    </div>
+                }
+                else
+                {
+                    <WorkSessionCard @key="session.Id" Session="session" OnOpen="OnOpenSession" />
+                }
             }
-        }
-    </div>
-    <div class="work-links__column" data-testid="work-links-pull-requests">
-        <span class="work-links__heading">Pull requests</span>
-        @if (PullRequests.Count == 0)
-        {
-            <span class="work-links__none" data-testid="work-links-no-pull-requests">None yet</span>
-        }
-        else
-        {
+        </div>
+    }
+    @if (ShowPullRequests)
+    {
+        <div class="work-links__column" data-testid="work-links-pull-requests">
+            <span class="work-links__heading">Pull requests</span>
+            @if (PullRequests.Count == 0)
+            {
+                <span class="work-links__none" data-testid="work-links-no-pull-requests">None yet</span>
+            }
             @foreach (var pull in PullRequests)
             {
-                <WorkPullRequestCard @key="pull.Key" PullRequest="pull" OnOpen="OnOpenPullRequest" />
+                @if (OnUnlinkPullRequest.HasDelegate)
+                {
+                    <div @key="pull.Key" class="work-links__item" data-testid="work-links-item">
+                        <WorkPullRequestCard PullRequest="pull" OnOpen="OnOpenPullRequest" CssClass="work-links__card" />
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   Size="ButtonSize.Small"
+                                   CssClass="work-links__unlink"
+                                   TestId="work-links-unlink"
+                                   aria-label="@($"Unlink pull request #{pull.Number}")"
+                                   title="@($"Unlink pull request #{pull.Number} from this task")"
+                                   data-unlink="@pull.Key"
+                                   OnClick="() => OnUnlinkPullRequest.InvokeAsync(pull)">Unlink</AppButton>
+                    </div>
+                }
+                else
+                {
+                    <WorkPullRequestCard @key="pull.Key" PullRequest="pull" OnOpen="OnOpenPullRequest" />
+                }
             }
-        }
-    </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -54,6 +96,26 @@
 
     [Parameter]
     public EventCallback<WorkPullRequest> OnOpenPullRequest { get; set; }
+
+    /// <summary>"Unlink" was pressed beside a session. Without a listener there is no
+    /// button.</summary>
+    [Parameter]
+    public EventCallback<WorkSession> OnUnlinkSession { get; set; }
+
+    /// <summary>"Unlink" was pressed beside a pull request. Without a listener there
+    /// is no button.</summary>
+    [Parameter]
+    public EventCallback<WorkPullRequest> OnUnlinkPullRequest { get; set; }
+
+    /// <summary>Whether the Sessions column is drawn — off while the host's session
+    /// list is off.</summary>
+    [Parameter]
+    public bool ShowSessions { get; set; } = true;
+
+    /// <summary>Whether the Pull requests column is drawn — off while the host's pull
+    /// requests list is off.</summary>
+    [Parameter]
+    public bool ShowPullRequests { get; set; } = true;
 
     /// <summary>Stacks the two columns rather than laying them side by side — for a
     /// narrow host such as a task's side panel.</summary>
@@ -71,6 +133,7 @@
         get
         {
             var value = Stacked ? "work-links work-links--stacked" : "work-links";
+            if (ShowSessions != ShowPullRequests) value += " work-links--single";
             return string.IsNullOrWhiteSpace(CssClass) ? value : $"{value} {CssClass}";
         }
     }

@@ -139,8 +139,13 @@ public sealed class InProgressProjection
     /// (<paramref name="scope"/> by alias, empty for every repository). Everyone's
     /// pull requests would be every bot's bump in every repository; a person links
     /// what they opened.
+    /// <para>
+    /// <paramref name="noRepositoryOnly"/> is the task list's "No repository" scope:
+    /// only what resolves to no configured repository is left — a session placed
+    /// nowhere registered, and never a pull request, which is always read from one.
+    /// </para>
     /// </summary>
-    public IReadOnlyList<InProgressLoose> Loose(IReadOnlyCollection<string> scope)
+    public IReadOnlyList<InProgressLoose> Loose(IReadOnlyCollection<string> scope, bool noRepositoryOnly = false)
     {
         var loose = new List<InProgressLoose>();
 
@@ -150,6 +155,7 @@ public sealed class InProgressProjection
 
             var repository = RepositoryOf(session);
             if (!InScope(repository, scope)) continue;
+            if (noRepositoryOnly && repository is not null && _alias(repository) is not null) continue;
 
             loose.Add(new InProgressLoose(
                 Session: Session(session, withRepository: true),
@@ -160,7 +166,7 @@ public sealed class InProgressProjection
         foreach (var pull in _pulls)
         {
             if (!pull.IsOpen || !pull.ViewerDidAuthor || _linkedPulls.Contains(Key(pull.RepositoryFullName, pull.Number))) continue;
-            if (!InScope(pull.RepositoryFullName, scope)) continue;
+            if (noRepositoryOnly || !InScope(pull.RepositoryFullName, scope)) continue;
 
             loose.Add(new InProgressLoose(
                 PullRequest: PullRequest(pull),

@@ -239,4 +239,63 @@ public sealed class InProgressBoardTests
         Assert.Empty(card.FindAll("[data-testid='work-pull-request-diff']"));
         Assert.DoesNotContain("work-card--fault", card.Find("[data-testid='work-pull-request']").ClassName, StringComparison.Ordinal);
     }
+
+    // --- Unlink, one feature off, and the focus target ------------------------
+
+    [Fact]
+    public void Unlink_beside_a_card_hands_the_host_the_task_and_the_item()
+    {
+        using var context = new BunitContext();
+        var pressed = new List<InProgressUnlink>();
+
+        var board = context.Render<InProgressBoard>(parameters => parameters
+            .Add(p => p.Tasks, [Item("a", [Running], [Pull(7)])])
+            .Add(p => p.OnUnlink, unlink => pressed.Add(unlink)));
+
+        board.Find("[data-testid='work-links-unlink'][data-unlink='running']").Click();
+        board.Find("[data-testid='work-links-unlink'][data-unlink='o/r#7']").Click();
+
+        Assert.Equal(2, pressed.Count);
+        Assert.Equal(("a", "running"), (pressed[0].Task.Id, pressed[0].Session?.Id));
+        Assert.Equal(("a", "o/r#7"), (pressed[1].Task.Id, pressed[1].PullRequest?.Key));
+        Assert.Equal("Unlink pull request #7", board.Find("[data-unlink='o/r#7']").GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public void Without_a_listener_there_is_no_unlink()
+    {
+        using var context = new BunitContext();
+
+        var board = context.Render<InProgressBoard>(parameters => parameters
+            .Add(p => p.Tasks, [Item("a", [Running], [Pull(7)])]));
+
+        Assert.Empty(board.FindAll("[data-testid='work-links-unlink']"));
+    }
+
+    [Fact]
+    public void A_feature_that_is_off_draws_no_column_and_no_count()
+    {
+        using var context = new BunitContext();
+
+        var board = context.Render<InProgressBoard>(parameters => parameters
+            .Add(p => p.Tasks, [Item("a", [Running])])
+            .Add(p => p.ShowPullRequests, false));
+
+        Assert.NotEmpty(board.FindAll("[data-testid='work-links-sessions']"));
+        Assert.Empty(board.FindAll("[data-testid='work-links-pull-requests']"));
+        Assert.Equal("1 task · 1 session", board.Find("[data-testid='in-progress-summary']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void Each_task_card_is_a_focus_target_a_host_can_name()
+    {
+        using var context = new BunitContext();
+
+        var board = context.Render<InProgressBoard>(parameters => parameters
+            .Add(p => p.Tasks, [Item("a", [Running])]));
+
+        var card = board.Find($"#{InProgressBoard.TaskCardId("a")}");
+        Assert.Equal("-1", card.GetAttribute("tabindex"));
+        Assert.Equal("-1", board.Find($"#{InProgressBoard.TitleId}").GetAttribute("tabindex"));
+    }
 }

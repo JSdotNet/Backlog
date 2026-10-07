@@ -2,6 +2,7 @@ using System.Globalization;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.UI.Components.Feedback;
+using Backlog.UI.Components.Integrations;
 using Backlog.UI.Components.Tasks;
 
 namespace Backlog.Desktop.UI.InProgress;
@@ -77,6 +78,61 @@ public static class WorkLinker
         {
             var title = string.IsNullOrWhiteSpace(row.PreviewTitle) ? "the task" : row.PreviewTitle;
             toasts?.Publish(ToastMessage.Info($"Linked to {title}.", LinkedTestId));
+        }
+
+        return failure;
+    }
+
+    public const string UnlinkedTestId = "in-progress-unlinked";
+
+    /// <summary>
+    /// Takes one session or pull request off an entry — "Unlink" beside a card on the
+    /// In progress view and in a task's side panel. Under the repository the link was
+    /// recorded with, through <see cref="TasksDesktopState.UnlinkWorkAsync"/>, which
+    /// says its own refusals.
+    /// </summary>
+    /// <returns>Null when the link was taken off; else why not.</returns>
+    public static async Task<string?> UnlinkAsync(
+        TasksDesktopState state,
+        IToastChannel? toasts,
+        EntryRow row,
+        WorkSession? session,
+        WorkPullRequest? pull)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(row);
+
+        string? failure;
+        string what;
+
+        if (session is not null
+            && row.SessionLinks.FirstOrDefault(link => string.Equals(link.SessionId, session.Id, StringComparison.OrdinalIgnoreCase)) is { } sessionLink)
+        {
+            what = "The session";
+            failure = await state.UnlinkWorkAsync(row, sessionLink.Repository, sessionLink.SessionId, EntryProjectionDto.SessionTargetType);
+        }
+        else if (pull is not null
+            && row.PullRequestLinks.FirstOrDefault(link => string.Equals(
+                InProgressProjection.Key(link.Repository, link.Number), pull.Key, StringComparison.OrdinalIgnoreCase)) is { } pullLink)
+        {
+            what = $"Pull request #{pullLink.Number}";
+            failure = await state.UnlinkWorkAsync(
+                row,
+                pullLink.Repository,
+                pullLink.Number.ToString(CultureInfo.InvariantCulture),
+                EntryProjectionDto.PullRequestTargetType);
+        }
+        else
+        {
+            // Already gone — an agent or another window took it off first. The card
+            // redraws from the entry on the next change, so there is nothing to say.
+            return null;
+        }
+
+        if (failure is null)
+        {
+            var title = string.IsNullOrWhiteSpace(row.PreviewTitle) ? "the task" : row.PreviewTitle;
+            toasts?.Publish(ToastMessage.Info($"{what} is no longer linked to {title}.", UnlinkedTestId));
         }
 
         return failure;

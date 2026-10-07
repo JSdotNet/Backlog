@@ -3,7 +3,7 @@
 <PageTitle>Work cards — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Work cards"
-           Summary="A session or a pull request as a card beside the task it worked on: the session's title, its state and one line of what it last did; the pull request's number and title, draft or open, the reviewers' verdict, the checks and the diff size. `WorkLinks` sets them in two columns that say `None yet` when empty, `WorkLinksPanel` is the same columns as a section of a task's side panel, and `WorkLinkPicker` is the dialog behind linking one to a task."
+           Summary="A session or a pull request as a card beside the task it worked on: the session's title, its state and one line of what it last did; the pull request's number and title, draft or open, the reviewers' verdict, the checks and the diff size. `WorkLinks` sets them in two columns that say `None yet` when empty, with `Unlink` beside each card while the host listens and no column for a feature that is off, `WorkLinksPanel` is the same columns as a section of a task's side panel, and `WorkLinkPicker` is the dialog behind linking one to a task."
            Guidelines="@Rules">
 
     <Story Name="A session card in each state"
@@ -29,29 +29,42 @@
     </Story>
 
     <Story Name="Two columns, None yet when empty"
-           Description="`WorkLinks` sets a task's sessions and pull requests side by side, each under a small heading, and wraps them under each other where the host is narrow. A column with nothing in it says `None yet`, so an empty column reads as looked at rather than forgotten."
+           Description="`WorkLinks` sets a task's sessions and pull requests side by side, each under a small heading, and wraps them under each other where the host is narrow. A column with nothing in it says `None yet`, so an empty column reads as looked at rather than forgotten. With `OnUnlinkSession` or `OnUnlinkPullRequest` set, each card gets a quiet `Unlink` beside it, a button of its own because the card is already the button that opens the item; its name says which item it takes off. `ShowSessions` or `ShowPullRequests` off leaves that column out altogether, as the host does while that feature is off."
            Code="@LinksCode">
         <div class="sb-stack" data-testid="work-links-samples">
             <WorkLinks Sessions="@([IntegrationFixtures.QuietSession])"
                        PullRequests="@([IntegrationFixtures.DraftPullRequest])"
                        OnOpenSession="OpenSession"
                        OnOpenPullRequest="OpenPullRequest"
+                       OnUnlinkSession="UnlinkSession"
+                       OnUnlinkPullRequest="UnlinkPullRequest"
                        TestId="work-links-both" />
             <WorkLinks Sessions="@([IntegrationFixtures.RunningSession])" TestId="work-links-sessions-only" />
+            <WorkLinks Sessions="@([IntegrationFixtures.RunningSession])" ShowPullRequests="false" TestId="work-links-pull-requests-off" />
         </div>
     </Story>
 
     <Story Name="A section of a task's side panel"
-           Description="`WorkLinksPanel` is the same columns stacked, under a `Sessions and pull requests` heading with `Open in In progress` beside it and `Link a session or pull request…` under them. Each control is drawn only while the host listens for it. The button opens the host's `WorkLinkPicker`, shown here with the tasks a loose session could be linked to."
+           Description="`WorkLinksPanel` is the same columns stacked, under a `Sessions and pull requests` heading with `Open in In progress` beside it, `Unlink` beside each card, and `Link a session or pull request…` under them. With one feature off the heading and the link action name only the kind left — `Pull requests`, `Link a pull request…` — and the other column is not drawn. Each control is drawn only while the host listens for it. The button opens the host's `WorkLinkPicker`, shown here with the tasks a loose session could be linked to."
            Code="@PanelCode">
         <div class="sb-board-column" data-testid="work-links-panel-sample">
             <WorkLinksPanel Sessions="@([IntegrationFixtures.QuietSession])"
                             PullRequests="@([IntegrationFixtures.DraftPullRequest])"
                             OnOpenSession="OpenSession"
                             OnOpenPullRequest="OpenPullRequest"
+                            OnUnlinkSession="UnlinkSession"
+                            OnUnlinkPullRequest="UnlinkPullRequest"
                             OnOpenInProgress="ShowInProgress"
                             OnLink="() => _picking = true" />
         </div>
+        <div class="sb-board-column" data-testid="work-links-panel-one-feature">
+            <WorkLinksPanel PullRequests="@([IntegrationFixtures.ApprovedPullRequest])"
+                            ShowSessions="false"
+                            OnOpenPullRequest="OpenPullRequest"
+                            OnUnlinkPullRequest="UnlinkPullRequest"
+                            OnLink="() => _picking = true" />
+        </div>
+        <p class="sb-state" data-testid="work-links-panel-opened">Last: @(_opened ?? "(none)")</p>
         <WorkLinkPicker Open="_picking"
                         OpenChanged="open => _picking = open"
                         Title="Link to a task"
@@ -78,6 +91,10 @@
 
     private void ShowInProgress() => _opened = "In progress";
 
+    private void UnlinkSession(WorkSession session) => _opened = $"unlinked session {session.Id}";
+
+    private void UnlinkPullRequest(WorkPullRequest pull) => _opened = $"unlinked {pull.Key}";
+
     private void Link(WorkLinkOption option) => _opened = $"Linked to {option.Label}";
 
     private const string SessionCode = """
@@ -98,7 +115,10 @@
         <WorkLinks Sessions="@task.Sessions"
                    PullRequests="@task.PullRequests"
                    OnOpenSession="OpenSession"
-                   OnOpenPullRequest="OpenPullRequest" />
+                   OnOpenPullRequest="OpenPullRequest"
+                   OnUnlinkSession="UnlinkSessionAsync"
+                   OnUnlinkPullRequest="UnlinkPullRequestAsync"
+                   ShowPullRequests="pullRequestsOn" />
         """;
 
     private const string PanelCode = """
@@ -106,6 +126,8 @@
                         PullRequests="@pulls"
                         OnOpenSession="OpenSession"
                         OnOpenPullRequest="OpenPullRequest"
+                        OnUnlinkSession="UnlinkSessionAsync"
+                        OnUnlinkPullRequest="UnlinkPullRequestAsync"
                         OnOpenInProgress="ShowInProgress"
                         OnLink="() => _picking = true" />
 

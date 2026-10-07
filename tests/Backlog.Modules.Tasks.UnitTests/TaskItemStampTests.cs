@@ -93,6 +93,14 @@ public sealed class TaskItemStampTests
             task.LoadStamps(Stamped, null);
             task.RenameRepository("JSdotNet/Backlog", "JSdotNet/Backlog-renamed");
         },
+        // An unlink that removed a link is an edit; seeded first, because one that
+        // finds nothing to remove leaves the stamp alone by design.
+        [nameof(TaskItem.RemoveProjectionRef)] = task =>
+        {
+            task.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", "pull-request"));
+            task.LoadStamps(Stamped, null);
+            task.RemoveProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", "pull-request"));
+        },
         [nameof(TaskItem.RemoveSubItem)] = task => task.RemoveSubItem(FirstSubItem(task)),
         [nameof(TaskItem.ToggleSubItem)] = task => task.ToggleSubItem(FirstSubItem(task)),
         [nameof(TaskItem.SetSubItemStatus)] = task => task.SetSubItemStatus(FirstSubItem(task), SubItemStatus.Done),

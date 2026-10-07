@@ -4,6 +4,7 @@
 @using Backlog.UI.Components.Tasks
 @inject TasksDesktopState State
 @inject IServiceProvider Services
+@inject IJSRuntime JS
 
 @*
     A task's "Sessions and pull requests", in its side panel: the same cards the In
@@ -20,11 +21,16 @@
 @{ var projection = Projection; }
 <WorkLinksPanel Sessions="@(ShowSessions ? projection.SessionsOf(Row) : [])"
                 PullRequests="@(ShowPullRequests ? projection.PullRequestsOf(Row) : [])"
+                ShowSessions="ShowSessions"
+                ShowPullRequests="ShowPullRequests"
                 OnOpenSession="session => OnOpenSession.InvokeAsync(session.Id)"
                 OnOpenPullRequest="pull => OnOpenPullRequest.InvokeAsync(pull.Key)"
+                OnUnlinkSession="session => UnlinkAsync(session, null)"
+                OnUnlinkPullRequest="pull => UnlinkAsync(null, pull)"
                 OnOpenInProgress="OnOpenInProgress"
                 OnLink="OpenPickerAsync"
                 Busy="_opening"
+                HeadingId="@HeadingId"
                 TestId="entry-linked-work" />
 
 <WorkLinkPicker Open="_picking"
@@ -136,5 +142,35 @@
         if (!_offered.TryGetValue(option.Id, out var loose)) return;
 
         await WorkLinker.LinkAsync(State, _toasts, Projection, Row, loose);
+    }
+
+    /// <summary>"Unlink" beside a card: off this task through the entries module's
+    /// own unlink. A session still live and a pull request still open are then
+    /// offered again by the link action and listed under "Not linked to a task".</summary>
+    private async Task UnlinkAsync(WorkSession? session, WorkPullRequest? pull)
+    {
+        // The Unlink pressed goes with its card, and the focus with it; the section's
+        // heading takes it rather than the page body. The link action needs no such
+        // help: the picker hands the focus back to the button that opened it.
+        if (await WorkLinker.UnlinkAsync(State, _toasts, Row, session, pull) is null) _focusHeading = true;
+    }
+
+    /// <summary>The section heading's id: the row's, so it is stable across renders.</summary>
+    private string HeadingId => $"entry-linked-work-{Row.Key}";
+
+    private bool _focusHeading;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusHeading) return;
+        _focusHeading = false;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogFocus", HeadingId);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
     }
 }

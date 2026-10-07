@@ -5,14 +5,15 @@
 
     The section is always drawn for a saved task, empty or not: the link action is
     how a task with nothing on it gets something, and "None yet" says the task was
-    looked at rather than that the panel forgot to ask.
+    looked at rather than that the panel forgot to ask. A kind whose feature the
+    host has off is not drawn, and the link action names only the kind left.
 
     Each control is offered only while the host listens for it, on the rule the
-    cards follow.
+    cards follow — "Unlink" beside each card among them.
 *@
-<section class="@ClassValue" aria-labelledby="@_headingId" data-testid="@TestId">
+<section class="@ClassValue" aria-labelledby="@HeadingIdValue" data-testid="@TestId">
     <div class="work-links-panel__header">
-        <h3 class="work-links-panel__heading" id="@_headingId">Sessions and pull requests</h3>
+        <h3 class="work-links-panel__heading" id="@HeadingIdValue" tabindex="-1">@Heading</h3>
         @if (OnOpenInProgress.HasDelegate)
         {
             <AppButton Variant="ButtonVariant.Ghost"
@@ -27,6 +28,10 @@
                PullRequests="PullRequests"
                OnOpenSession="OnOpenSession"
                OnOpenPullRequest="OnOpenPullRequest"
+               OnUnlinkSession="OnUnlinkSession"
+               OnUnlinkPullRequest="OnUnlinkPullRequest"
+               ShowSessions="ShowSessions"
+               ShowPullRequests="ShowPullRequests"
                Stacked="true" />
 
     @if (OnLink.HasDelegate)
@@ -36,12 +41,19 @@
                    CssClass="work-links-panel__link"
                    TestId="work-links-link"
                    Busy="Busy"
-                   OnClick="() => OnLink.InvokeAsync()">Link a session or pull request…</AppButton>
+                   OnClick="() => OnLink.InvokeAsync()">@LinkLabel</AppButton>
     }
 </section>
 
 @code {
-    private readonly string _headingId = "work-links-" + Guid.NewGuid().ToString("N")[..8];
+    private readonly string _generatedHeadingId = "work-links-" + Guid.NewGuid().ToString("N")[..8];
+
+    private string HeadingIdValue => string.IsNullOrWhiteSpace(HeadingId) ? _generatedHeadingId : HeadingId;
+
+    /// <summary>The heading's id, for a host that moves the focus to the section once
+    /// a link or an unlink has removed the control that had it. Unset, one is made up.</summary>
+    [Parameter]
+    public string? HeadingId { get; set; }
 
     [Parameter]
     public IReadOnlyList<WorkSession> Sessions { get; set; } = [];
@@ -54,6 +66,22 @@
 
     [Parameter]
     public EventCallback<WorkPullRequest> OnOpenPullRequest { get; set; }
+
+    /// <summary>"Unlink" beside a session card. Without a listener there is no button.</summary>
+    [Parameter]
+    public EventCallback<WorkSession> OnUnlinkSession { get; set; }
+
+    /// <summary>"Unlink" beside a pull request card. Without a listener there is no button.</summary>
+    [Parameter]
+    public EventCallback<WorkPullRequest> OnUnlinkPullRequest { get; set; }
+
+    /// <summary>Whether sessions are drawn — off while the host's session list is off.</summary>
+    [Parameter]
+    public bool ShowSessions { get; set; } = true;
+
+    /// <summary>Whether pull requests are drawn — off while the host's pull requests list is off.</summary>
+    [Parameter]
+    public bool ShowPullRequests { get; set; } = true;
 
     /// <summary>"Open in In progress": the host's view of every task's work.</summary>
     [Parameter]
@@ -72,6 +100,20 @@
 
     [Parameter]
     public string? TestId { get; set; } = "work-links-panel";
+
+    private string Heading => (ShowSessions, ShowPullRequests) switch
+    {
+        (true, false) => "Sessions",
+        (false, true) => "Pull requests",
+        _ => "Sessions and pull requests"
+    };
+
+    private string LinkLabel => (ShowSessions, ShowPullRequests) switch
+    {
+        (true, false) => "Link a session…",
+        (false, true) => "Link a pull request…",
+        _ => "Link a session or pull request…"
+    };
 
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "work-links-panel" : $"work-links-panel {CssClass}";
 }

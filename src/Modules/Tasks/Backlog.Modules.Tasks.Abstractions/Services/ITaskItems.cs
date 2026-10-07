@@ -63,6 +63,17 @@ public interface ITaskItems
         string targetType,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Forgets that an entry became an external artifact — the counterpart
+    /// of <see cref="LinkToIssueAsync"/>, matched on the repository, the external id
+    /// and the target type without regard to case. A link the entry does not hold
+    /// leaves it as it was and still succeeds; the entry's repositories stay.</summary>
+    Task<Result<TaskItemDto>> UnlinkFromIssueAsync(
+        Guid id,
+        string repoId,
+        string externalId,
+        string targetType,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Replaces the Devbook pages and chapters an entry points at with
     /// <paramref name="references"/> — <c>path</c> or <c>path#anchor</c>, normalised,
     /// order kept, repeats dropped; an empty list clears them. Answers the entry as

@@ -14,10 +14,14 @@
     The toggles are the host's state: it may remember them, and the view only
     reports a press. The repository identity edge is the host's too, through each
     task's Colour, null while the host's colours are hidden.
+
+    Each task card and the title are focus targets of their own (tabindex -1, an id
+    from TaskCardId), so a host can put the focus on the card a link just landed
+    on rather than leave it on the page body where the removed control dropped it.
 *@
 <div class="@ClassValue" data-testid="@TestId">
     <div class="in-progress-board__header">
-        <h2 class="in-progress-board__title">In progress</h2>
+        <h2 class="in-progress-board__title" id="@TitleId" tabindex="-1">In progress</h2>
         <span class="in-progress-board__summary" data-testid="in-progress-summary">@Summary</span>
         <span class="in-progress-board__spacer"></span>
         @Actions
@@ -60,6 +64,9 @@
             {
                 <article @key="task.Id"
                          class="@TaskClass(task)"
+                         id="@TaskCardId(task.Id)"
+                         tabindex="-1"
+                         aria-label="@task.Title"
                          data-testid="in-progress-task"
                          data-task-id="@task.Id">
                     <div class="in-progress-task__facts">
@@ -104,11 +111,18 @@
                             }
                         </div>
                     </div>
-                    <WorkLinks Sessions="task.Sessions"
-                               PullRequests="task.PullRequests"
-                               OnOpenSession="OnOpenSession"
-                               OnOpenPullRequest="OnOpenPullRequest"
-                               CssClass="in-progress-task__links" />
+                    @if (ShowSessions || ShowPullRequests)
+                    {
+                        <WorkLinks Sessions="task.Sessions"
+                                   PullRequests="task.PullRequests"
+                                   OnOpenSession="OnOpenSession"
+                                   OnOpenPullRequest="OnOpenPullRequest"
+                                   OnUnlinkSession="UnlinkSession(task)"
+                                   OnUnlinkPullRequest="UnlinkPullRequest(task)"
+                                   ShowSessions="ShowSessions"
+                                   ShowPullRequests="ShowPullRequests"
+                                   CssClass="in-progress-task__links" />
+                    }
                 </article>
             }
         </section>
@@ -201,6 +215,38 @@
     [Parameter]
     public EventCallback<InProgressLoose> OnLink { get; set; }
 
+    /// <summary>"Unlink" was pressed beside a session or pull request a task's card
+    /// carries. Without a listener there is no button.</summary>
+    [Parameter]
+    public EventCallback<InProgressUnlink> OnUnlink { get; set; }
+
+    /// <summary>Whether the cards draw a Sessions column — off while the host's
+    /// session list is off.</summary>
+    [Parameter]
+    public bool ShowSessions { get; set; } = true;
+
+    /// <summary>Whether the cards draw a Pull requests column — off while the host's
+    /// pull requests list is off.</summary>
+    [Parameter]
+    public bool ShowPullRequests { get; set; } = true;
+
+    /// <summary>The id a task's card carries, for a host that moves the focus to it.</summary>
+    public static string TaskCardId(string taskId) => $"in-progress-task-{taskId}";
+
+    /// <summary>The id the board's title carries: where the focus goes when no card
+    /// is left to take it.</summary>
+    public const string TitleId = "in-progress-board-title";
+
+    private EventCallback<WorkSession> UnlinkSession(InProgressTask task) =>
+        OnUnlink.HasDelegate
+            ? EventCallback.Factory.Create<WorkSession>(this, session => OnUnlink.InvokeAsync(new InProgressUnlink(task, Session: session)))
+            : default;
+
+    private EventCallback<WorkPullRequest> UnlinkPullRequest(InProgressTask task) =>
+        OnUnlink.HasDelegate
+            ? EventCallback.Factory.Create<WorkPullRequest>(this, pull => OnUnlink.InvokeAsync(new InProgressUnlink(task, PullRequest: pull)))
+            : default;
+
     /// <summary>Header controls of the host's own — a Refresh, a reading time — drawn
     /// before the toggles.</summary>
     [Parameter]
@@ -224,7 +270,11 @@
             var sessions = tasks.Sum(task => task.Sessions.Count) + Loose.Count(loose => loose.Session is not null);
             var pulls = tasks.Sum(task => task.PullRequests.Count) + Loose.Count(loose => loose.PullRequest is not null);
 
-            return $"{Count(tasks.Count, "task")} · {Count(sessions, "session")} · {Count(pulls, "pull request")}";
+            var parts = new List<string>(3) { Count(tasks.Count, "task") };
+            if (ShowSessions) parts.Add(Count(sessions, "session"));
+            if (ShowPullRequests) parts.Add(Count(pulls, "pull request"));
+
+            return string.Join(" · ", parts);
         }
     }
 
