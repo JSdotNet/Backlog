@@ -114,3 +114,7 @@ build/.local/
 # environment, per developer machine. Deployment targets that matter are written
 # down in docs/deployment/sync.md instead.
 .azure/
+
+# The type declarations Claude Code lays beside a plugin of function hooks when it loads one
+# from this checkout (backlog-tools' plan-progress pane), regenerated per release.
+plugins/*/.claude-plugin/types/
