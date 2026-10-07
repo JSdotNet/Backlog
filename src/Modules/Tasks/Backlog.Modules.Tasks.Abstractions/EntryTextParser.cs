@@ -1457,6 +1457,87 @@ public static class EntryTextParser
         return raw;
     }
 
+    /// <summary>
+    /// Marks the nth sub-item, as <see cref="Parse"/> numbers them, done or not
+    /// done — the explicit form of the list's step checkbox, for a caller that
+    /// knows which it means rather than wanting the state flipped.
+    /// <para>
+    /// The numbering is the parse's, so it counts the checklist lines among the
+    /// headings, which is the order the aggregate's sub-items are synced in. Each
+    /// kind is written the way the desktop writes it: a checklist line has its
+    /// marker flipped; a heading with a literal <c>[ ]</c> has its marker flipped;
+    /// any other heading — or one whose own metadata line outranks the marker —
+    /// gets <c>!done</c> or <c>!ready</c> on its metadata line. A sub-item already
+    /// in the state asked for, or an index past the last one, returns the text
+    /// unchanged.
+    /// </para>
+    /// </summary>
+    public static string WithSubItemDone(string raw, int subItemIndex, bool done)
+    {
+        if (subItemIndex < 0) return raw;
+
+        var parsed = Parse(raw).SubItems;
+        if (subItemIndex >= parsed.Count || parsed[subItemIndex].Done == done) return raw;
+
+        var lines = Normalize(raw).Split('\n');
+        var first = 0;
+        while (first < lines.Length && string.IsNullOrWhiteSpace(lines[first])) first++;
+
+        var inFence = false;
+        var seen = 0;
+        var headings = 0;
+        var checklists = 0;
+
+        // The walk ExtractSubItems makes, counting each kind as ToggleSubItem and
+        // ToggleChecklistItem count it, so the parse's nth item can be handed to
+        // the rewrite that owns its kind. The first content line is the title.
+        for (var i = first + 1; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].TrimStart();
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence) continue;
+
+            if (ChecklistRegex.IsMatch(lines[i]))
+            {
+                if (seen++ == subItemIndex) return ToggleChecklistItem(raw, checklists);
+                checklists++;
+                continue;
+            }
+
+            var heading = HeadingRegex.Match(trimmed);
+            if (!heading.Success || heading.Groups[1].Value.Length is not (2 or 3)) continue;
+
+            var headingIndex = headings++;
+            var text = heading.Groups[2].Value.Trim();
+            var box = CheckboxPrefixRegex.Match(text);
+            if (box.Success) text = text[box.Length..].Trim();
+            if (text.Length == 0) continue;
+
+            if (seen++ != subItemIndex) continue;
+
+            // The marker first, then the metadata line, then both: a step reads
+            // done when either says so, so unticking a `## [x]` step that also
+            // carries `!done` — a ticked step whose task was then marked done —
+            // has to clear the two.
+            var status = done ? EntryStatus.Done : EntryStatus.Ready;
+            var toggled = ToggleSubItem(raw, headingIndex);
+            foreach (var candidate in new[] { toggled, WithSubItemStatus(raw, headingIndex, status), WithSubItemStatus(toggled, headingIndex, status) })
+            {
+                var after = Parse(candidate).SubItems;
+                if (subItemIndex < after.Count && after[subItemIndex].Done == done) return candidate;
+            }
+
+            return raw;
+        }
+
+        return raw;
+    }
+
     private static string RebuildSubItemText(string[] lines, int firstSubItemStart, List<string[]> blocks)
     {
         var rebuilt = new List<string>(lines[..firstSubItemStart]);

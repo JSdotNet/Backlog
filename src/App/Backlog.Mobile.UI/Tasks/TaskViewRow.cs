@@ -38,7 +38,8 @@ public sealed record TaskViewRow(
     /// <summary>
     /// Where the task sits in its My Day, as the desktop set it, or null when it
     /// has no slot. Read off the document's two plain values and never set here:
-    /// the phone reads an agenda time and the desktop writes it
+    /// the desktop writes an agenda time, and the phone only reads it — and clears
+    /// it when it moves the task to tomorrow
     /// (<c>.devbook/domain/tasks/domain.md#agenda-time</c>). It has no date of its
     /// own, so a task with no My Day date has none either.
     /// </summary>

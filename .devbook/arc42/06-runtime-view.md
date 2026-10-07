@@ -319,16 +319,42 @@ projection of the feed.
   the later `UpdatedAt` wins whole (ADR 0005), so the phone cannot send a field
   on its own. It takes the task's row from `task_view`, applies the one edit,
   stamps `UpdatedAt` now and queues the whole `TaskChange` as outbox kind `task`.
+  When the phone's clock is behind the stamp the row already carries, the edit
+  is stamped one millisecond past it instead, so it is still the later write.
   Done ticks the task as the desktop's checkbox does. Undone clears
   `completed_on`. A step edit changes one sub-item's status. Move to tomorrow
   sets `InMyDayOn` to the phone's local date plus one day and drops the agenda
-  time.
+  time. An edit that changes nothing, such as ticking a task already ticked
+  today, queues nothing.
+- **An edit rewrites the entry text.** The desktop's next save reads a task's
+  fields back off its text, so the phone edits the text and not only the
+  fields. It builds the task's title, a metadata line and its body from
+  `ContentMd`, then applies the same `EntryTextParser` rewrite the desktop's
+  control uses. It reads status, `completed_on` and `in_my_day_on` back off the
+  result. When the body changed, it also reads the body and the steps'
+  statuses, by position, as the desktop's save syncs them. So done writes
+  `!done` on to every step chapter, and a step tick flips a `[ ]` marker or
+  writes the step's own `!done` or `!ready`. A step that has no place in the
+  text is still set in the sub-item list. `TaskEdits` is the one service the
+  screens call for the three edits.
 - **Every edit gets its own entry.** Each edit is a new outbox entry with its own
   entry id, carrying the task's own id in the `TaskChange`. A retry sends the
   same document, so the replica's upsert keeps it idempotent. Entries queue
   behind the ones before them, so two quick taps on the same task arrive
   in the order they were made. The edit is applied to `task_view` at once and
-  marked waiting, the same as an added task.
+  marked waiting, the same as an added task. Because an edit's entry id is not
+  the task's, the waiting marker looks for the task's id inside the queued
+  document, not for an entry with that id. A pull that brings back an older
+  copy before delivery does not undo the edit, because the edit's stamp is
+  later.
+- **A repeating task gets no successor from the phone.** The desktop spawns a
+  repeating task's next occurrence only when its own save ticks it, and the
+  replica merge spawns none. A repeating task ticked on the phone therefore
+  arrives done with no next occurrence. This gap is open.
+- **A refused edit stays on the phone.** The service may refuse an edit and
+  answer the same way on every retry. The outbox then sets the entry aside, and
+  the phone's row keeps the edit until a later write from another device
+  replaces it.
 - **A concurrent desktop edit loses or wins whole.** When the desktop changes the
   same task while a phone edit waits in the outbox, the later `UpdatedAt` decides
   the whole task. The phone's narrow edits make this rare, but it is the cost of
