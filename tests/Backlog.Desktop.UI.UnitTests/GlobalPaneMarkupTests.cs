@@ -58,6 +58,7 @@ public sealed class GlobalPaneMarkupTests
             "TestId=\"view-switch\"",
             "TestId=\"tasks-view-option\"",
             "TestId=\"board-view-option\"",
+            "TestId=\"calendar-view-option\"",
             "TestId=\"roadmap-view-option\"",
             "TestId=\"devbook-pane-option\"",
             "TestId=\"work-in-progress-switcher\"",
@@ -299,7 +300,7 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("if (EffectiveView is not (ShellView.Tasks or ShellView.Board)) SetView(ShellView.Tasks);", home, StringComparison.Ordinal);
+        Assert.Contains("if (EffectiveView is not (ShellView.Tasks or ShellView.Board or ShellView.Calendar)) SetView(ShellView.Tasks);", home, StringComparison.Ordinal);
         Assert.DoesNotContain("_globalPanes.TryClose(GlobalPane.Inbox)", home, StringComparison.Ordinal);
     }
 

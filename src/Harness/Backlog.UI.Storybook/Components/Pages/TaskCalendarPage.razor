@@ -1,0 +1,145 @@
+@page "/task-list/calendar"
+
+<PageTitle>Task calendar — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Task calendar"
+           Summary="`TaskCalendar`: a month of tasks placed by their due date, Monday-first and in whole weeks, with the open tasks that have no due date in a tray beside it. A chip or a tray item opens its task; dragging one onto a day gives it that due date. The Tasks pane that hands it the filtered rows is not this page's subject."
+           Guidelines="@Rules">
+
+    <Story Name="A month of tasks"
+           Description="`Tasks` is every task the host's filters let through, each a `CalendarTask` with its due date, its state and the host's repository mark. The month bar steps back and forward and returns to today's month. The weeks run Monday to Sunday and reach into the neighbouring months, whose days are dimmed; Saturday and Sunday are shaded. Today's number is ringed and the cell says how many tasks are in My Day, from `MyDayCount`.
+
+A day shows two chips and folds the rest behind `+N more`, which opens the whole day in place. An open task due before `Today` is drawn in the error colour; a done one is struck through. The dot says the state in shape as well as colour: a hollow ring for a draft.
+
+Drag a chip to another day, or a tray item onto a day: the line under the sample says what the host was told. A press that does not travel opens the task instead."
+           Code="@MonthCode">
+        <div class="sb-calendar" data-testid="task-calendar-month">
+            <TaskCalendar Tasks="@_tasks"
+                          Today="@Today"
+                          MyDayCount="2"
+                          SelectedId="@_opened"
+                          OnOpen="Open"
+                          OnDueChanged="Move"
+                          TestId="calendar" />
+        </div>
+        <p class="sb-state" data-testid="task-calendar-state">@(_lastEvent ?? "Nothing opened or moved yet.")</p>
+    </Story>
+
+    <Story Name="The repository identity edge"
+           Description="The edge is the host's, through each task's `CssClass`, on the seam a list row and a board card use: the desktop pane passes the shared `repo-mark repo-mark--N` classes while its repository colours are showing and nothing when they are off. The calendar never decides whether the colours are on. The switch below plays the host."
+           Code="@EdgeCode">
+        <label class="sb-row">
+            <input type="checkbox" checked="@_colours" @onchange="e => _colours = e.Value is true" data-testid="task-calendar-colours" />
+            Repository colours
+        </label>
+        <div class="sb-calendar" data-testid="task-calendar-edges">
+            <TaskCalendar Tasks="@EdgeTasks"
+                          Today="@Today"
+                          TestId="edges" />
+        </div>
+    </Story>
+
+    <Story Name="An empty tray"
+           Description="With every open task dated, the tray says so rather than vanishing — it is where the next undated task will appear, and a drop target the reader has already learned the place of."
+           Code="@EmptyCode">
+        <div class="sb-calendar" data-testid="task-calendar-empty">
+            <TaskCalendar Tasks="@([.. _tasks.Where(task => task.DueOn is not null)])"
+                          Today="@Today"
+                          TestId="empty" />
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#drag-and-drop-reordering", "Why a drag is a pointer gesture with a threshold, and what a press that does not travel stays."),
+        new("color-scheme.md#the-identity-edge", "The 4px repository edge, and that it is never the only thing naming the repository."),
+        new("accessibility.md#iconography-accessibility", "Why a status dot differs in shape as well as colour.")
+    ];
+
+    /// <summary>A fixed today, so the page reads the same on every day it is opened.</summary>
+    private static readonly DateOnly Today = new(2026, 10, 6);
+
+    private List<CalendarTask> _tasks =
+    [
+        new("hours", "Hours report shows prompt count", new DateOnly(2026, 9, 30), CalendarTaskState.Done, Effort: "2 pts"),
+        new("rotate", "Rotate the sync signing key", new DateOnly(2026, 10, 1), CalendarTaskState.Ready, CssClass: "repo-mark repo-mark--3"),
+        new("dedupe", "Import plan dedupes by id", new DateOnly(2026, 10, 2), CalendarTaskState.Done),
+        new("review", "Review merge feedback", Today, CalendarTaskState.InProgress, Repeats: true),
+        new("retro", "Weekly retro", Today, CalendarTaskState.Ready, Repeats: true),
+        new("card", "Extract TaskCard from TaskItem", new DateOnly(2026, 10, 8), CalendarTaskState.InProgress, CssClass: "repo-mark repo-mark--1"),
+        new("switch", "Shared view switcher", new DateOnly(2026, 10, 9), CalendarTaskState.Ready, CssClass: "repo-mark repo-mark--1"),
+        new("columns", "Board view: status columns", new DateOnly(2026, 10, 16), CalendarTaskState.Ready),
+        new("flow", "Drag follows status flow", new DateOnly(2026, 10, 16), CalendarTaskState.Ready),
+        new("notes", "Release notes for task views", new DateOnly(2026, 10, 16), CalendarTaskState.Draft),
+        new("calendar", "Calendar view by due date", new DateOnly(2026, 10, 23), CalendarTaskState.Draft),
+        new("release", "Release 0.9", new DateOnly(2026, 11, 1), CalendarTaskState.Draft),
+        new("swimlanes", "Explore swimlanes by plan on the board", null, CalendarTaskState.Draft),
+        new("persist", "Persist the last view per workspace", null, CalendarTaskState.Ready, Effort: "1 pt"),
+        new("keyboard", "Move a task one day with Alt+Arrow", null, CalendarTaskState.Ready, Effort: "2 pts")
+    ];
+
+    private string? _opened;
+    private string? _lastEvent;
+    private bool _colours = true;
+
+    private IReadOnlyList<CalendarTask> EdgeTasks =>
+    [
+        new("edge-1", "Filed against backlog", Today.AddDays(1), CalendarTaskState.Ready, CssClass: _colours ? "repo-mark repo-mark--1" : null),
+        new("edge-2", "Filed against backlog-sync", Today.AddDays(1), CalendarTaskState.InProgress, CssClass: _colours ? "repo-mark repo-mark--2" : null),
+        new("edge-3", "Not dated yet", null, CalendarTaskState.Draft, CssClass: _colours ? "repo-mark repo-mark--3" : null)
+    ];
+
+    private void Open(string id)
+    {
+        _opened = id;
+        _lastEvent = $"Opened {Title(id)}.";
+    }
+
+    private void Move(CalendarDueChange change)
+    {
+        var index = _tasks.FindIndex(task => task.Id == change.TaskId);
+        if (index < 0) return;
+
+        _tasks[index] = _tasks[index] with { DueOn = change.DueOn };
+        _tasks = [.. _tasks];
+        _lastEvent = $"Moved {Title(change.TaskId)} to {change.DueOn:yyyy-MM-dd}.";
+    }
+
+    private string Title(string id) => _tasks.FirstOrDefault(task => task.Id == id)?.Title ?? id;
+
+    private const string MonthCode = """
+        <TaskCalendar Tasks="@tasks"
+                      Today="@today"
+                      MyDayCount="@myDayCount"
+                      SelectedId="@openId"
+                      OnOpen="Open"
+                      OnDueChanged="change => SetDue(change.TaskId, change.DueOn)" />
+
+        @code {
+            // One record per task the filters let through.
+            IReadOnlyList<CalendarTask> tasks =
+            [
+                new("rotate", "Rotate the sync signing key", new DateOnly(2026, 10, 1), CalendarTaskState.Ready),
+                new("dedupe", "Import plan dedupes by id", new DateOnly(2026, 10, 2), CalendarTaskState.Done),
+                new("persist", "Persist the last view per workspace", null, CalendarTaskState.Ready, Effort: "1 pt")
+            ];
+        }
+        """;
+
+    private const string EdgeCode = """
+        <TaskCalendar Tasks="@tasks" Today="@today" />
+
+        @code {
+            // The host's own answer, passed only while its colours are showing.
+            CalendarTask Of(Entry entry) => new(
+                entry.Id, entry.Title, entry.DueOn, entry.State,
+                CssClass: coloursShowing ? $"repo-mark repo-mark--{entry.Colour}" : null);
+        }
+        """;
+
+    private const string EmptyCode = """
+        <TaskCalendar Tasks="@datedTasks" Today="@today" />
+        """;
+}

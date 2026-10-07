@@ -50,11 +50,6 @@ public partial class TasksPane
     /// back to the open entry's card where it would go back to a row.</summary>
     private TaskBoard? _board;
 
-    /// <summary>How the entries under the filter bar are laid out — the list, or the
-    /// board. The shell's view switch picks it.</summary>
-    [Parameter]
-    public TasksLayout Layout { get; set; } = TasksLayout.List;
-
     /// <summary>What the Board's columns are. The shell holds the choice, beside
     /// the view it belongs to, and hands it back here.</summary>
     [Parameter]

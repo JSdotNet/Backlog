@@ -27,6 +27,11 @@ internal enum ShellView
     /// Planning heading row. Offered while <c>RoadmapFeatures.Roadmap</c> is on.</summary>
     Roadmap,
 
+    /// <summary>The filtered tasks on a month grid by their due date, under the
+    /// Tasks filter bar and beside the same detail panel. Its option sits after
+    /// Tasks and Board in the switch; the members' order is not the options'.</summary>
+    Calendar,
+
     /// <summary>The filtered tasks in columns of cards — by status, plan,
     /// repository or priority — under the Tasks filter bar and beside the same
     /// detail panel. Its option sits right after Tasks in the switch; the

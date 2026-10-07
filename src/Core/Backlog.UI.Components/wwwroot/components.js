@@ -4535,4 +4535,157 @@
             explorers.delete(id);
         }
     };
+
+    // ----- Moving a task between days on the month calendar ---------------
+    //
+    // The same pointer gesture `taskListDrag` above is, for the same reason: the
+    // desktop head's WebView2 aborts a native drag before it delivers a drop, so
+    // both halves come from pointer events. A press on a chip or a tray item that
+    // travels past the threshold becomes a drag; the day under the pointer is lit
+    // while it moves; letting go over a day tells TaskCalendar which task landed
+    // where, once, and the click that follows the release is swallowed so the
+    // drop does not also open the task. A press that never travels stays a click.
+    //
+    // Nothing is drawn by Blazor while it runs — the lit day is feedback, not
+    // state — so the classes live here and the host is told only on drop.
+    // Escape, a cancelled pointer, or the window losing focus put the task back.
+    //
+    // Mouse and pen only. A finger on a chip is how the calendar is scrolled, and
+    // the detail panel a tap opens sets the due date as well.
+    const calendarRefs = new Map();
+    let calendarDrag = null;
+    let calendarClickBlockedUntil = 0;
+
+    const CALENDAR_DRAG_THRESHOLD_PX = 4;
+    const CALENDAR_DRAG_CLICK_GRACE_MS = 300;
+
+    function calendarDayAt(root, x, y) {
+        const hit = document.elementFromPoint(x, y);
+        const day = hit?.closest?.('[data-calendar-day]');
+        return day && root.contains(day) ? day : null;
+    }
+
+    function calendarMarkDay(day) {
+        if (!calendarDrag || calendarDrag.over === day) return;
+        calendarDrag.over?.classList.remove('task-calendar__day--drop');
+        calendarDrag.over = day;
+        day?.classList.add('task-calendar__day--drop');
+    }
+
+    function endCalendarDrag() {
+        if (!calendarDrag) return;
+        calendarDrag.over?.classList.remove('task-calendar__day--drop');
+        calendarDrag.item.classList.remove('task-calendar__item--dragging');
+        calendarDrag.root.classList.remove('task-calendar--dragging');
+        calendarDrag = null;
+    }
+
+    window.backlogCalendarDrag = {
+        attach(element, ownerId, dotNetRef) {
+            if (!element || !ownerId) return;
+            calendarRefs.set(ownerId, { element, ref: dotNetRef });
+        },
+        detach(ownerId) {
+            if (calendarDrag && calendarDrag.ownerId === ownerId) endCalendarDrag();
+            calendarRefs.delete(ownerId);
+        }
+    };
+
+    document.addEventListener('pointerdown', (event) => {
+        // A gesture whose release was never heard is over once a new press lands.
+        endCalendarDrag();
+
+        if (event.button !== 0 || !event.isPrimary) return;
+        if (event.pointerType === 'touch') return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        const item = target?.closest('[data-calendar-task]');
+        if (!item) return;
+
+        const root = item.closest('[data-calendar-owner]');
+        const ownerId = root?.getAttribute('data-calendar-owner');
+        const registration = ownerId ? calendarRefs.get(ownerId) : null;
+        const taskId = item.getAttribute('data-calendar-task');
+        if (!registration || !taskId) return;
+
+        calendarDrag = {
+            ownerId,
+            root,
+            item,
+            ref: registration.ref,
+            taskId,
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            active: false,
+            over: null
+        };
+    });
+
+    document.addEventListener('pointermove', (event) => {
+        if (!calendarDrag || event.pointerId !== calendarDrag.pointerId) return;
+
+        // No button held means the release went somewhere this never heard; a
+        // later, unrelated release must not drop the task.
+        if (event.buttons === 0) {
+            endCalendarDrag();
+            return;
+        }
+
+        if (!calendarDrag.active) {
+            const travelled = Math.hypot(event.clientX - calendarDrag.startX, event.clientY - calendarDrag.startY);
+            if (travelled < CALENDAR_DRAG_THRESHOLD_PX) return;
+
+            calendarDrag.active = true;
+            calendarDrag.item.classList.add('task-calendar__item--dragging');
+            calendarDrag.root.classList.add('task-calendar--dragging');
+        }
+
+        event.preventDefault();
+        calendarMarkDay(calendarDayAt(calendarDrag.root, event.clientX, event.clientY));
+    });
+
+    document.addEventListener('pointerup', (event) => {
+        if (!calendarDrag || event.pointerId !== calendarDrag.pointerId) return;
+
+        const { ref, taskId, active, root } = calendarDrag;
+        const day = active ? calendarDayAt(root, event.clientX, event.clientY) : null;
+        endCalendarDrag();
+
+        if (!active) return;
+
+        calendarClickBlockedUntil = performance.now() + CALENDAR_DRAG_CLICK_GRACE_MS;
+
+        const iso = day?.getAttribute('data-calendar-day');
+        if (!iso) return;
+
+        ref.invokeMethodAsync('DropOnDay', taskId, iso).catch(() => {
+        });
+    });
+
+    document.addEventListener('pointercancel', endCalendarDrag);
+    window.addEventListener('blur', endCalendarDrag);
+
+    document.addEventListener(
+        'keydown',
+        (event) => {
+            if (event.key !== 'Escape' || !calendarDrag || !calendarDrag.active) return;
+            event.preventDefault();
+            event.stopPropagation();
+            endCalendarDrag();
+        },
+        true
+    );
+
+    document.addEventListener(
+        'click',
+        (event) => {
+            if (performance.now() >= calendarClickBlockedUntil) return;
+
+            calendarClickBlockedUntil = 0;
+            event.preventDefault();
+            event.stopPropagation();
+        },
+        true
+    );
 })();

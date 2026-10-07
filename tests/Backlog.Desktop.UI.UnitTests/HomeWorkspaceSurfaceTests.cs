@@ -359,7 +359,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal(["inbox-pane-option", "view-switch", "devbook-pane-option"], workspace);
 
             Assert.Equal(
-                ["tasks-view-option", "board-view-option", "roadmap-view-option"],
+                ["tasks-view-option", "board-view-option", "calendar-view-option", "roadmap-view-option"],
                 OptionIds(component, "view-switch"));
             Assert.Equal(
                 ["sessions-toggle-button", "pull-requests-toggle-button"],
@@ -1162,6 +1162,57 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
+    /// The Calendar is a main view over the same Tasks pane: the filter bar stays,
+    /// the list gives way to the month, and the switch reads Calendar pressed. Its
+    /// name is what the shell remembers, and a fresh shell reopens on it.
+    /// </summary>
+    [Fact]
+    public void The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            using (var harness = CreateHarness(shellNavigation: shellNavigation))
+            {
+                var component = Render(harness);
+
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='entry-list'], [data-testid='empty-state']")));
+                component.Find("[data-testid='calendar-view-option']").Click();
+
+                component.WaitForAssertion(() =>
+                {
+                    Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane'] .filter-bar"));
+                    Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane'] [data-testid='task-calendar']"));
+                    Assert.Empty(component.FindAll("[data-testid='entry-list']"));
+                    Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+                    Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+                    Assert.Equal("Calendar", shellNavigation.LastView);
+                });
+
+                component.Find("[data-testid='tasks-view-option']").Click();
+                component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='task-calendar']")));
+                component.Find("[data-testid='calendar-view-option']").Click();
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='task-calendar']")));
+            }
+
+            using var reopened = CreateHarness(shellNavigation: new ShellNavigationStore(path));
+            var again = Render(reopened);
+
+            again.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(again.FindAll("[data-testid='task-calendar']"));
+                Assert.Equal("true", again.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
     /// The roadmap is a main view, not a takeover: it shows in the workspace's own
     /// <c>main</c>, in the place of the task list, and the Tasks filter bar goes with
     /// the list. The view switch reads Roadmap pressed and Tasks not.
@@ -1270,12 +1321,12 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             // No option offering it: the flag decides whether the option exists. The
-            // switch stays, with Tasks and the Board as its options.
+            // switch stays, with Tasks, the Board and the Calendar as its options.
             Assert.Empty(component.FindAll("[data-testid='roadmap-view-option']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
 
             Assert.Equal(
-                ["tasks-view-option", "board-view-option"],
+                ["tasks-view-option", "board-view-option", "calendar-view-option"],
                 component.Find("[data-testid='view-switch']").Children.Select(option => option.GetAttribute("data-testid")));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });

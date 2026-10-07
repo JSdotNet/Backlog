@@ -1,0 +1,463 @@
+@implements IAsyncDisposable
+@using System.Globalization
+@inject IJSRuntime Js
+
+@*
+    A month of tasks placed by their due date, with the tasks that have none in a
+    tray beside it.
+
+    The month bar steps a month back or forward, or back to the month holding
+    today, and names the month it shows. The grid is Monday-first and whole weeks:
+    it starts on the Monday on or before the 1st and runs to the week holding the
+    last day, so its first and last rows reach into the neighbouring months. Those
+    days are dimmed rather than left blank, because a task due on the 30th of the
+    month before is still a task the reader is looking at. Saturdays and Sundays
+    are shaded. Today is ringed and says how many tasks are in My Day.
+
+    A day lists its tasks as compact chips with a dot for where each one is: a
+    hollow ring for a draft, filled grey for ready, the brand colour in progress
+    and the success ink for done. Shape and colour both, so the dots still read
+    apart without the colour. An open task due before today is drawn in the error
+    colour; a done one is struck through. Two chips fit; past that a "+N more"
+    opens the whole day in place, and "Show fewer" folds it back.
+
+    The tray lists the open tasks without a due date. Dragging one onto a day
+    gives it that date, and dragging a chip to another day moves it — a pointer
+    gesture, through `backlogCalendarDrag` in components.js, for the reason
+    `taskListDrag` there gives: native drag never delivers a drop in the desktop
+    head's WebView2. A press that does not travel stays a click, and a click on a
+    chip or a tray item opens the task. The keyboard way to the same date is the
+    detail panel the click opens.
+
+    The calendar holds no tasks and writes nothing. The host hands in the tasks —
+    already filtered — and is told which one was opened and which one was dropped
+    where; it redraws from what it wrote.
+
+    The repository identity edge is the host's, through each task's CssClass, as
+    on a card and a row: the host passes the shared repo-mark classes only while
+    its repository colours are showing.
+*@
+<section class="@ClassValue"
+         data-testid="@TestId"
+         data-calendar-owner="@_ownerId"
+         aria-label="@AriaLabel"
+         @ref="_root">
+
+    <div class="task-calendar__bar" data-testid="@Part("bar")">
+        <IconButton BaseClass="task-calendar__nav task-calendar__nav--step"
+                    AriaLabel="Previous month"
+                    Title="Previous month"
+                    TestId="@Part("previous")"
+                    OnClick="() => Move(-1)">
+            <span aria-hidden="true">‹</span>
+        </IconButton>
+        <IconButton BaseClass="task-calendar__nav task-calendar__nav--step"
+                    AriaLabel="Next month"
+                    Title="Next month"
+                    TestId="@Part("next")"
+                    OnClick="() => Move(1)">
+            <span aria-hidden="true">›</span>
+        </IconButton>
+        <AppButton BaseClass="task-calendar__nav"
+                   Variant="ButtonVariant.None"
+                   TestId="@Part("today")"
+                   OnClick="ShowToday">
+            Today
+        </AppButton>
+        <h2 class="task-calendar__month" aria-live="polite" data-testid="@Part("month")">
+            @_month.ToString("MMMM yyyy", CultureInfo.CurrentCulture)
+        </h2>
+    </div>
+
+    <div class="task-calendar__body">
+        <div class="task-calendar__grid" data-testid="@Part("grid")">
+            <div class="task-calendar__weekdays" aria-hidden="true">
+                @foreach (var day in WeekDays)
+                {
+                    <span class="task-calendar__weekday">@CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedDayName(day)</span>
+                }
+            </div>
+
+            @foreach (var weekStart in CalendarMonth.WeekStarts(_month))
+            {
+                <div @key="weekStart" class="task-calendar__week" data-testid="@Part("week")">
+                    @for (var offset = 0; offset < 7; offset++)
+                    {
+                        var date = weekStart.AddDays(offset);
+                        @RenderDay(date)
+                    }
+                </div>
+            }
+        </div>
+
+        <aside class="task-calendar__tray" aria-labelledby="@TrayHeadingId" data-testid="@Part("tray")">
+            <div class="task-calendar__tray-head">
+                <h3 class="task-calendar__tray-title" id="@TrayHeadingId">Tasks without a due date</h3>
+                <span class="task-calendar__tray-count" data-testid="@Part("tray-count")">@Undated.Count</span>
+            </div>
+            @if (Undated.Count == 0)
+            {
+                <p class="task-calendar__tray-hint" data-testid="@Part("tray-empty")">Every open task in view has a due date.</p>
+            }
+            else
+            {
+                <p class="task-calendar__tray-hint">Drag onto a day to set its due date.</p>
+                <ul class="task-calendar__tray-list">
+                    @foreach (var task in Undated)
+                    {
+                        <li @key="task.Id">
+                            <AppButton BaseClass="task-calendar__tray-item"
+                                       Variant="ButtonVariant.None"
+                                       CssClass="@ItemClass(task, "task-calendar__tray-item")"
+                                       TestId="@Part($"tray-{task.Id}")"
+                                       id="@ItemDomId(task.Id)"
+                                       data-calendar-task="@task.Id"
+                                       aria-label="@ChipTitle(task)"
+                                       aria-current="@(IsSelected(task) ? "true" : null)"
+                                       OnClick="() => OpenAsync(task)">
+                                <span class="@DotClass(task)" aria-hidden="true"></span>
+                                <span class="task-calendar__tray-text">@task.Title</span>
+                                @if (!string.IsNullOrWhiteSpace(task.Effort))
+                                {
+                                    <span class="task-calendar__tray-effort">@task.Effort</span>
+                                }
+                            </AppButton>
+                        </li>
+                    }
+                </ul>
+            }
+        </aside>
+    </div>
+</section>
+
+@code {
+    /// <summary>How many chips a day shows before the rest fold behind "+N more".</summary>
+    public const int ChipsPerDay = 2;
+
+    private static readonly DayOfWeek[] WeekDays =
+    [
+        DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday,
+        DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday
+    ];
+
+    private readonly string _ownerId = $"task-calendar-{Guid.NewGuid():N}";
+    private ElementReference _root;
+    private DotNetObjectReference<TaskCalendar>? _self;
+    private DateOnly _month;
+    private DateOnly? _shownMonth;
+    private DateOnly? _expandedDay;
+    private ILookup<DateOnly, CalendarTask> _byDay = Array.Empty<CalendarTask>().ToLookup(task => default(DateOnly));
+    private IReadOnlyList<CalendarTask> _undated = [];
+
+    /// <summary>The tasks to place, in the order a day lists them. Filtered by the
+    /// host: the calendar shows what it is given.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<CalendarTask> Tasks { get; set; } = [];
+
+    /// <summary>The date drawn as today, and what "overdue" is measured against.
+    /// The host's clock, so a test can pin it.</summary>
+    [Parameter, EditorRequired]
+    public DateOnly Today { get; set; }
+
+    /// <summary>Any date in the month shown first. The calendar steps between months
+    /// on its own after that; a new value here moves it again.</summary>
+    [Parameter]
+    public DateOnly? Month { get; set; }
+
+    /// <summary>How many tasks are in today's My Day; today's cell says it.</summary>
+    [Parameter]
+    public int MyDayCount { get; set; }
+
+    /// <summary>The task the host has open, marked on its chip.</summary>
+    [Parameter]
+    public string? SelectedId { get; set; }
+
+    /// <summary>A chip or a tray item was pressed: open that task.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpen { get; set; }
+
+    /// <summary>A task was dropped on a day other than the one it is due on.</summary>
+    [Parameter]
+    public EventCallback<CalendarDueChange> OnDueChanged { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Calendar";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>The month on screen, as its first day.</summary>
+    public DateOnly ShownMonth => _month;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "task-calendar" : $"task-calendar {CssClass}";
+
+    private string TrayHeadingId => $"{_ownerId}-tray";
+
+    private IReadOnlyList<CalendarTask> Undated => _undated;
+
+    protected override void OnParametersSet()
+    {
+        // Keyed on the month, not the day: today rolling over at midnight must not
+        // pull a reader who stepped to another month back to this one.
+        var month = CalendarMonth.FirstOf(Month ?? Today);
+        if (_shownMonth != month)
+        {
+            _shownMonth = month;
+            _month = CalendarMonth.FirstOf(month);
+        }
+
+        _byDay = Tasks.Where(task => task.DueOn is not null).ToLookup(task => task.DueOn!.Value);
+        _undated = [.. Tasks.Where(task => task.DueOn is null && task.Open)];
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _self = DotNetObjectReference.Create(this);
+        try
+        {
+            await Js.InvokeVoidAsync("backlogCalendarDrag.attach", _root, _ownerId, _self);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private RenderFragment RenderDay(DateOnly date) => __builder =>
+    {
+        var tasks = _byDay[date].ToList();
+        var expanded = _expandedDay == date;
+        var shown = expanded ? tasks : tasks.Take(ChipsPerDay).ToList();
+        var hidden = tasks.Count - shown.Count;
+        var isToday = date == Today;
+        var iso = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        <div @key="date"
+             class="@DayClass(date)"
+             role="group"
+             aria-label="@DayLabel(date, tasks.Count)"
+             aria-current="@(isToday ? "date" : null)"
+             data-calendar-day="@iso"
+             data-testid="@Part($"day-{iso}")">
+            <div class="task-calendar__day-head">
+                <span class="task-calendar__day-number" data-testid="@Part($"day-{iso}-number")">@DayNumber(date)</span>
+                @if (isToday)
+                {
+                    <span class="task-calendar__my-day" title="In My Day" data-testid="@Part("my-day")">
+                        <SunIcon Size="13" />
+                        <span>My Day · @MyDayCount</span>
+                    </span>
+                }
+            </div>
+
+            @foreach (var task in shown)
+            {
+                <AppButton @key="task.Id"
+                           BaseClass="task-calendar__chip"
+                           Variant="ButtonVariant.None"
+                           CssClass="@ChipClass(task)"
+                           TestId="@Part($"chip-{task.Id}")"
+                           id="@ItemDomId(task.Id)"
+                           data-calendar-task="@task.Id"
+                           title="@ChipTitle(task)"
+                           aria-label="@ChipTitle(task)"
+                           aria-current="@(IsSelected(task) ? "true" : null)"
+                           OnClick="() => OpenAsync(task)">
+                    <span class="@DotClass(task)" aria-hidden="true"></span>
+                    <span class="task-calendar__chip-text">@task.Title</span>
+                </AppButton>
+            }
+
+            @if (hidden > 0)
+            {
+                <AppButton BaseClass="task-calendar__more"
+                           Variant="ButtonVariant.None"
+                           TestId="@Part($"day-{iso}-more")"
+                           aria-expanded="false"
+                           OnClick="() => _expandedDay = date">
+                    +@hidden more
+                </AppButton>
+            }
+            else if (expanded && tasks.Count > ChipsPerDay)
+            {
+                <AppButton BaseClass="task-calendar__more"
+                           Variant="ButtonVariant.None"
+                           TestId="@Part($"day-{iso}-fewer")"
+                           aria-expanded="true"
+                           OnClick="() => _expandedDay = null">
+                    Show fewer
+                </AppButton>
+            }
+        </div>
+    };
+
+    private void Move(int months)
+    {
+        _month = _month.AddMonths(months);
+        _expandedDay = null;
+    }
+
+    private void ShowToday()
+    {
+        _month = CalendarMonth.FirstOf(Today);
+        _expandedDay = null;
+    }
+
+    private Task OpenAsync(CalendarTask task) => OnOpen.InvokeAsync(task.Id);
+
+    /// <summary>
+    /// The end of a drag, from components.js: <paramref name="taskId"/> was let go
+    /// over the day <paramref name="day"/> (yyyy-MM-dd). Ignored when it names no
+    /// task this calendar was given, no day, or the day the task is already due on —
+    /// a drop back where it started is not an edit.
+    /// </summary>
+    [JSInvokable]
+    public async Task DropOnDay(string taskId, string day)
+    {
+        if (!DateOnly.TryParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) return;
+
+        var task = Tasks.FirstOrDefault(candidate => string.Equals(candidate.Id, taskId, StringComparison.Ordinal));
+        if (task is null || task.DueOn == date) return;
+
+        await OnDueChanged.InvokeAsync(new CalendarDueChange(task.Id, date));
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Puts the focus on the selected task's chip, or its tray item — where a host
+    /// sends the focus back when the task it opened closes, as a list sends it back
+    /// to the row. A chip folded behind "+N more" opens its day first, so there is a
+    /// chip to land on. Nothing selected, or a task this month does not show, moves
+    /// nothing.
+    /// </summary>
+    public async Task FocusSelectedAsync()
+    {
+        if (SelectedId is null) return;
+
+        var task = Tasks.FirstOrDefault(candidate => string.Equals(candidate.Id, SelectedId, StringComparison.Ordinal));
+        if (task is null) return;
+
+        if (task.DueOn is { } due
+            && _expandedDay != due
+            && _byDay[due].TakeWhile(candidate => !ReferenceEquals(candidate, task)).Count() >= ChipsPerDay)
+        {
+            _expandedDay = due;
+            StateHasChanged();
+        }
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", ItemDomId(task.Id), false);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    /// <summary>The element id of a task's chip or tray item: unique to this
+    /// calendar, since a page may hold two.</summary>
+    private string ItemDomId(string taskId) => $"{_ownerId}-task-{taskId}";
+
+    private bool IsSelected(CalendarTask task) => string.Equals(task.Id, SelectedId, StringComparison.Ordinal);
+
+    private string DayClass(DateOnly date)
+    {
+        var classes = new List<string>(4) { "task-calendar__day" };
+        if (date.Month != _month.Month || date.Year != _month.Year) classes.Add("task-calendar__day--outside");
+        if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) classes.Add("task-calendar__day--weekend");
+        if (date == Today) classes.Add("task-calendar__day--today");
+        if (_expandedDay == date) classes.Add("task-calendar__day--expanded");
+        return string.Join(' ', classes);
+    }
+
+    private string ChipClass(CalendarTask task)
+    {
+        var classes = new List<string>(4);
+        if (task.IsOverdue(Today)) classes.Add("task-calendar__chip--overdue");
+        if (task.Done) classes.Add("task-calendar__chip--done");
+        if (IsSelected(task)) classes.Add("task-calendar__chip--selected");
+        if (!string.IsNullOrWhiteSpace(task.CssClass)) classes.Add(task.CssClass);
+        return string.Join(' ', classes);
+    }
+
+    private string? ItemClass(CalendarTask task, string block)
+    {
+        var classes = new List<string>(2);
+        if (IsSelected(task)) classes.Add($"{block}--selected");
+        if (!string.IsNullOrWhiteSpace(task.CssClass)) classes.Add(task.CssClass);
+        return classes.Count == 0 ? null : string.Join(' ', classes);
+    }
+
+    private string DotClass(CalendarTask task)
+    {
+        var state = task.IsOverdue(Today)
+            ? "overdue"
+            : task.State switch
+            {
+                CalendarTaskState.Ready => "ready",
+                CalendarTaskState.InProgress => "in-progress",
+                CalendarTaskState.Done => "done",
+                CalendarTaskState.Archived => "archived",
+                _ => "draft"
+            };
+        return $"task-calendar__dot task-calendar__dot--{state}";
+    }
+
+    private string ChipTitle(CalendarTask task)
+    {
+        var state = task.State switch
+        {
+            CalendarTaskState.InProgress => "In progress",
+            _ => task.State.ToString()
+        };
+        var parts = new List<string>(4) { task.Title, state };
+        if (task.IsOverdue(Today)) parts.Add("overdue");
+        if (task.Repeats) parts.Add("repeats");
+        return string.Join(", ", parts);
+    }
+
+    /// <summary>The day's number, with the month's short name on the 1st so a row
+    /// that crosses a month says where.</summary>
+    private static string DayNumber(DateOnly date) =>
+        date.Day == 1
+            ? date.ToString("MMM d", CultureInfo.CurrentCulture)
+            : date.Day.ToString(CultureInfo.CurrentCulture);
+
+    private static string DayLabel(DateOnly date, int count)
+    {
+        var spoken = date.ToString("D", CultureInfo.CurrentCulture);
+        return count switch
+        {
+            0 => spoken,
+            1 => $"{spoken}, 1 task",
+            _ => $"{spoken}, {count} tasks"
+        };
+    }
+
+    private string? Part(string name) => TestId is null ? null : $"{TestId}-{name}";
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_self is null) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogCalendarDrag.detach", _ownerId);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        _self.Dispose();
+    }
+}
