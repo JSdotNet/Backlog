@@ -55,6 +55,15 @@ public sealed record InProgressLoose(
     public string Key => Session?.Id ?? PullRequest?.Key ?? string.Empty;
 }
 
+/// <summary>
+/// "Unlink" was pressed on a session or pull request a task's card carries: which
+/// task, and which of its items. Exactly one of the two items is set.
+/// </summary>
+public sealed record InProgressUnlink(
+    InProgressTask Task,
+    WorkSession? Session = null,
+    WorkPullRequest? PullRequest = null);
+
 /// <summary>Which of the view's sections a group of tasks is.</summary>
 public enum InProgressSectionKind
 {

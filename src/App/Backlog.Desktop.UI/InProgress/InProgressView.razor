@@ -5,6 +5,7 @@
 @using Backlog.UI.Components.Tasks
 @inject TasksDesktopState State
 @inject IServiceProvider Services
+@inject IJSRuntime JS
 
 @*
     The In progress view: every entry in progress under the header's repository
@@ -52,7 +53,10 @@
                      OnOpenTask="OpenTaskAsync"
                      OnOpenSession="session => OnOpenSession.InvokeAsync(session.Id)"
                      OnOpenPullRequest="pull => OnOpenPullRequest.InvokeAsync(pull.Key)"
-                     OnLink="ChooseTaskFor">
+                     OnLink="ChooseTaskFor"
+                     OnUnlink="UnlinkAsync"
+                     ShowSessions="ShowSessions"
+                     ShowPullRequests="ShowPullRequests">
         <Actions>
             <AppButton Variant="ButtonVariant.Ghost"
                        Size="ButtonSize.Small"
@@ -152,15 +156,17 @@
         _clock.GetLocalNow(),
         Reader.SessionsRead);
 
+    /// <summary>Under the whole repository scope the task list applies, its "No
+    /// repository" scope included.</summary>
     private IReadOnlyList<InProgressTask> Tasks =>
-        [.. Projection.Tasks(State.ScopedRows).Select(task => task with
+        [.. Projection.Tasks(State.RowsInRepositoryScope).Select(task => task with
         {
             Sessions = ShowSessions ? task.Sessions : [],
             PullRequests = ShowPullRequests ? task.PullRequests : []
         })];
 
     private IReadOnlyList<InProgressLoose> Loose =>
-        [.. Projection.Loose(State.SelectedRepositoryAliases)
+        [.. Projection.Loose(State.SelectedRepositoryAliases, State.NoRepositoryOnly)
             .Where(loose => loose.Session is null ? ShowPullRequests : ShowSessions)];
 
     private string FailureMessage =>
@@ -180,8 +186,10 @@
         _ => string.Empty
     };
 
-    /// <summary>Every open entry under the scope, the ones in progress first — the
-    /// work a running session or a fresh pull request is most likely for.</summary>
+    /// <summary>Every open entry under the header's repositories, the ones in progress
+    /// first — the work a running session or a fresh pull request is most likely for.
+    /// Not narrowed by "No repository": a session placed nowhere is linked under the
+    /// chosen task's repository, so the picker has to offer tasks that have one.</summary>
     private IReadOnlyList<WorkLinkOption> TaskOptions =>
         [.. State.ScopedRows
             .Where(row => row.IsPersisted && row.PreviewStatus is EntryStatus.Draft or EntryStatus.Ready or EntryStatus.InProgress)
@@ -213,6 +221,47 @@
         var row = State.Rows.FirstOrDefault(candidate => candidate.Id?.ToString() == option.Id);
         if (row is null) return;
 
-        await WorkLinker.LinkAsync(State, _toasts, Projection, row, loose);
+        // The card that opened the picker is gone once the link lands, and the focus
+        // with it. It goes to the card the item now sits under — or, for a task the
+        // view does not show, to the view's title, so it is never left on the body.
+        if (await WorkLinker.LinkAsync(State, _toasts, Projection, row, loose) is null)
+        {
+            _focusAfterRender = Tasks.Any(task => task.Id == option.Id)
+                ? InProgressBoard.TaskCardId(option.Id)
+                : InProgressBoard.TitleId;
+        }
+    }
+
+    /// <summary>"Unlink" beside an item on a task's card: off the entry through the
+    /// entries module's own unlink, and back under "Not linked to a task" while it is
+    /// still live. The focus goes to the card it was on, which stays.</summary>
+    private async Task UnlinkAsync(InProgressUnlink unlink)
+    {
+        var row = State.Rows.FirstOrDefault(candidate => candidate.Id?.ToString() == unlink.Task.Id);
+        if (row is null) return;
+
+        if (await WorkLinker.UnlinkAsync(State, _toasts, row, unlink.Session, unlink.PullRequest) is null)
+        {
+            _focusAfterRender = Tasks.Any(task => task.Id == unlink.Task.Id)
+                ? InProgressBoard.TaskCardId(unlink.Task.Id)
+                : InProgressBoard.TitleId;
+        }
+    }
+
+    /// <summary>The element to focus once the render a link or unlink set off lands.</summary>
+    private string? _focusAfterRender;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusAfterRender is not { } id) return;
+        _focusAfterRender = null;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogFocus", id);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
     }
 }

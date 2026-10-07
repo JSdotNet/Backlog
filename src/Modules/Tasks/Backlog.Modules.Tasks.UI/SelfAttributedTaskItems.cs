@@ -67,6 +67,17 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         return await inner.LinkToIssueAsync(id, repoId, externalId, targetType, cancellationToken);
     }
 
+    public async Task<Result<TaskItemDto>> UnlinkFromIssueAsync(
+        Guid id,
+        string repoId,
+        string externalId,
+        string targetType,
+        CancellationToken cancellationToken = default)
+    {
+        _writingHere.Value = true;
+        return await inner.UnlinkFromIssueAsync(id, repoId, externalId, targetType, cancellationToken);
+    }
+
     public async Task<Result<TaskItemDto>> SetDevbookReferencesAsync(
         Guid id,
         IReadOnlyList<string> references,

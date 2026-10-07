@@ -10,6 +10,7 @@ using Backlog.Modules.Tasks.Features.RecordTaskUsage;
 using Backlog.Modules.Tasks.Features.ReorderTasks;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
 using Backlog.Modules.Tasks.Features.SetDevbookReferences;
+using Backlog.Modules.Tasks.Features.UnlinkTaskFromIssue;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -24,6 +25,7 @@ internal sealed class TaskItems(
     IQueryHandler<ListTasksQuery, IReadOnlyList<TaskItemDto>> list,
     ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>> save,
     ICommandHandler<LinkTaskToIssueCommand, Result<TaskItemDto>> link,
+    ICommandHandler<UnlinkTaskFromIssueCommand, Result<TaskItemDto>> unlink,
     ICommandHandler<SetDevbookReferencesCommand, Result<TaskItemDto>> setDevbookReferences,
     ICommandHandler<DeleteTaskCommand> delete,
     ICommandHandler<ReorderTasksCommand> reorder,
@@ -56,6 +58,14 @@ internal sealed class TaskItems(
         string targetType,
         CancellationToken cancellationToken = default) =>
         link.Handle(new LinkTaskToIssueCommand(id, repoId, externalId, targetType), cancellationToken);
+
+    public Task<Result<TaskItemDto>> UnlinkFromIssueAsync(
+        Guid id,
+        string repoId,
+        string externalId,
+        string targetType,
+        CancellationToken cancellationToken = default) =>
+        unlink.Handle(new UnlinkTaskFromIssueCommand(id, repoId, externalId, targetType), cancellationToken);
 
     public Task<Result<TaskItemDto>> SetDevbookReferencesAsync(
         Guid id,

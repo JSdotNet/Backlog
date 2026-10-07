@@ -398,6 +398,16 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     public bool NoRepositoryOnly { get; private set; }
 
     /// <summary>
+    /// The rows the whole repository scope leaves in view — <see cref="ScopedRows"/>,
+    /// narrowed to the entries filed against no repository while
+    /// <see cref="NoRepositoryOnly"/> — for a view beside the list that draws its own
+    /// selection from the scope, such as In progress. Asked the way the list asks it:
+    /// "resolves to no configured repository".
+    /// </summary>
+    public IEnumerable<EntryRow> RowsInRepositoryScope =>
+        NoRepositoryOnly ? ScopedRows.Where(row => RepositoryFor(row) is null) : ScopedRows;
+
+    /// <summary>
     /// True while the view is narrowed to the entries marked <c>!ready</c> that
     /// are filed under a <c>+plan</c>: the work a plan has lined up to pick up.
     /// <para>
@@ -3496,29 +3506,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
                 && string.Equals(link.Number.ToString(System.Globalization.CultureInfo.InvariantCulture), key, StringComparison.Ordinal));
         if (already) return null;
 
-        // Whatever is typed into the entry and not yet saved goes first: the link
-        // rewrites the row's text from the store, and an edit still waiting on its
-        // debounce would otherwise be replaced by the text from before it.
-        bool pending;
-        lock (_debounceTimers)
-        {
-            pending = _debounceTimers.ContainsKey(row.Key);
-        }
-
-        if (pending)
-        {
-            CancelDebounce(row);
-            var saved = await SaveRowAsync(row, isFlush: true);
-
-            // A refused save keeps the text on screen; linking now would replace it
-            // with the stored text, which is the loss the flush is here to prevent.
-            if (!saved.IsSuccess)
-            {
-                return string.IsNullOrWhiteSpace(saved.Error.Message)
-                    ? "Save the entry before linking work to it."
-                    : saved.Error.Message;
-            }
-        }
+        if (await FlushBeforeWorkLinkAsync(row, "Save the entry before linking work to it.") is { } refused) return refused;
 
         Result<TaskItemDto> linked;
         try
@@ -3555,6 +3543,86 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Takes an AI session or a pull request off an entry, by hand — the unlink on
+    /// each linked card of the In progress view and the detail panel — through
+    /// <see cref="ITaskItems.UnlinkFromIssueAsync"/>, the counterpart of the use
+    /// case <see cref="LinkWorkAsync"/> writes through. A session still live, or a
+    /// pull request of the reader's still open, goes back to "Not linked to a task".
+    /// <para>
+    /// A link the entry does not hold is answered as done. Returns null on success,
+    /// else the sentence to show.
+    /// </para>
+    /// </summary>
+    /// <param name="repository">The repository the link was recorded under, as
+    /// <c>owner/name</c>.</param>
+    /// <param name="externalId">The session id, or the pull request number.</param>
+    /// <param name="targetType"><see cref="EntryProjectionDto.SessionTargetType"/> or
+    /// <see cref="EntryProjectionDto.PullRequestTargetType"/>.</param>
+    public async Task<string?> UnlinkWorkAsync(EntryRow row, string repository, string externalId, string targetType)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (row.Id is not { } id) return "Save the entry before unlinking work from it.";
+
+        var key = (externalId ?? string.Empty).Trim();
+        var repo = (repository ?? string.Empty).Trim();
+        if (key.Length == 0) return "There is nothing to unlink.";
+
+        if (await FlushBeforeWorkLinkAsync(row, "Save the entry before unlinking work from it.") is { } refused) return refused;
+
+        Result<TaskItemDto> unlinked;
+        try
+        {
+            unlinked = await _entryUseCases.UnlinkFromIssueAsync(id, repo, key, targetType, _untilDisposed);
+        }
+        catch (Exception) when (!_untilDisposed.IsCancellationRequested)
+        {
+            const string failed = "Couldn't unlink it from the entry.";
+            AnnounceRowFailure(row, failed, WorkLinkFailureTestId);
+            return failed;
+        }
+
+        if (!unlinked.TryGetValue(out var updated))
+        {
+            var message = string.IsNullOrWhiteSpace(unlinked.Error.Message) ? "Couldn't unlink it from the entry." : unlinked.Error.Message;
+            AnnounceRowFailure(row, message, WorkLinkFailureTestId);
+            return message;
+        }
+
+        _entries[id] = updated;
+        RefreshRowFromEntry(row, updated, rewriteText: true);
+        SetSaveState(AppSaveState.Saved);
+        ApplyFilter();
+        Changed?.Invoke();
+
+        return null;
+    }
+
+    /// <summary>Whatever is typed into the entry and not yet saved goes first: a link
+    /// or an unlink rewrites the row's text from the store, and an edit still waiting
+    /// on its debounce would otherwise be replaced by the text from before it. Null
+    /// when the write may go ahead, else why not.</summary>
+    private async Task<string?> FlushBeforeWorkLinkAsync(EntryRow row, string refusal)
+    {
+        bool pending;
+        lock (_debounceTimers)
+        {
+            pending = _debounceTimers.ContainsKey(row.Key);
+        }
+
+        if (!pending) return null;
+
+        CancelDebounce(row);
+        var saved = await SaveRowAsync(row, isFlush: true);
+
+        // A refused save keeps the text on screen; writing the link now would replace
+        // it with the stored text, which is the loss the flush is here to prevent.
+        if (saved.IsSuccess) return null;
+
+        return string.IsNullOrWhiteSpace(saved.Error.Message) ? refusal : saved.Error.Message;
     }
 
     private const string WorkLinkFailureTestId = "tasks-work-link-failed";

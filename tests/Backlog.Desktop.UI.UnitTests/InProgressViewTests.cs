@@ -196,6 +196,168 @@ public sealed class InProgressViewTests
         Assert.Equal(["abc"], row.SessionLinks.Select(link => link.SessionId));
     }
 
+    /// <summary>"Unlink" beside a session on a task's card takes it off the entry
+    /// through the entries module's own unlink, and the session, still running, goes
+    /// back under "Not linked to a task".</summary>
+    [Fact]
+    public async Task Unlink_on_a_card_takes_the_session_off_and_it_is_not_linked_again()
+    {
+        using var host = await TasksPaneHost.CreateAsync(Repository);
+        var row = await host.WriteEntryAsync(Entry);
+        Assert.Null(await host.State.LinkWorkAsync(row, Repository, "live", SessionTarget));
+        var reader = Reader(host, Session("live", AgentSessionState.Running, Noon.AddMinutes(-2), resolved: Repository));
+
+        var view = Render(host, reader);
+        view.WaitForAssertion(() => Assert.NotEmpty(view.FindAll("[data-testid='in-progress-task'] [data-testid='work-links-unlink'][data-unlink='live']")));
+        Assert.Empty(view.FindAll("[data-testid='in-progress-loose']"));
+
+        view.Find("[data-testid='in-progress-task'] [data-testid='work-links-unlink'][data-unlink='live']").Click();
+
+        view.WaitForAssertion(() =>
+        {
+            Assert.Empty(row.SessionLinks);
+            Assert.Equal(["live"], view.FindAll("[data-testid='in-progress-loose']").Select(item => item.GetAttribute("data-loose-key")));
+            Assert.Empty(view.FindAll("[data-testid='in-progress-task'] [data-testid='work-session']"));
+            Assert.Contains(host.Toasts.Visible, toast => toast.TestId == WorkLinker.UnlinkedTestId);
+
+            // The Unlink pressed is gone; the focus goes to the card it was on.
+            Assert.Equal($"in-progress-task-{row.Id}", host.Context.JSInterop.Invocations["backlogFocus"][^1].Arguments[0]);
+        });
+
+        // The unlink survives a reload: it was written, not only drawn.
+        await host.State.ReloadFromStoreAsync();
+        Assert.Empty(Assert.Single(host.State.Rows).SessionLinks);
+    }
+
+    /// <summary>The side panel's section offers the same unlink on a pull request,
+    /// and the pull request — still open and the reader's — is offered to link again.</summary>
+    [Fact]
+    public async Task Unlink_in_the_side_panel_takes_a_pull_request_off_its_entry()
+    {
+        using var host = await TasksPaneHost.CreateAsync(Repository);
+        var row = await host.WriteEntryAsync(Entry);
+        host.Client.OpenPullRequests.Add(Pull(700, mine: true));
+        Assert.Null(await host.State.LinkWorkAsync(row, Repository, "700", PullRequestTarget));
+        var reader = Reader(host);
+        await reader.ReadAsync();
+
+        var section = host.Context.Render<LinkedWorkSection>(parameters => parameters
+            .Add(p => p.Row, row)
+            .Add(p => p.Reader, reader));
+
+        section.WaitForAssertion(() => Assert.NotEmpty(section.FindAll("[data-testid='work-links-unlink'][data-unlink='JSdotNet/Backlog#700']")));
+        section.Find("[data-testid='work-links-unlink'][data-unlink='JSdotNet/Backlog#700']").Click();
+
+        section.WaitForAssertion(() =>
+        {
+            Assert.Empty(row.PullRequestLinks);
+            Assert.NotEmpty(section.FindAll("[data-testid='work-links-no-pull-requests']"));
+
+            // The section's heading takes the focus the removed Unlink had.
+            var heading = section.Find("h3.work-links-panel__heading");
+            Assert.Equal(heading.Id, host.Context.JSInterop.Invocations["backlogFocus"][^1].Arguments[0]);
+            Assert.Equal("-1", heading.GetAttribute("tabindex"));
+        });
+
+        section.Find("[data-testid='work-links-link']").Click();
+        section.WaitForAssertion(() =>
+            Assert.Contains("JSdotNet/Backlog#700", section.FindAll("[data-testid='work-link-picker-option']").Select(option => option.GetAttribute("data-option-id"))));
+    }
+
+    /// <summary>The task list's "No repository" scope narrows In progress the way it
+    /// narrows the list: only entries filed against no repository, and of the loose
+    /// work only what lives in no registered repository.</summary>
+    [Fact]
+    public async Task The_no_repository_scope_narrows_the_view_like_the_task_list()
+    {
+        using var host = await TasksPaneHost.CreateAsync(Repository);
+        await host.WriteEntryAsync(Entry);
+        await host.WriteEntryAsync("# Tidy the notes\n`task` `!in-progress`\n");
+        host.Client.OpenPullRequests.Add(Pull(700, mine: true));
+        var reader = Reader(host,
+            Session("placed", AgentSessionState.Running, Noon.AddMinutes(-2), resolved: Repository),
+            Session("nowhere", AgentSessionState.Running, Noon.AddMinutes(-3)));
+
+        var view = Render(host, reader);
+        view.WaitForAssertion(() => Assert.Equal(2, view.FindAll("[data-testid='in-progress-task']").Count));
+
+        host.State.SetNoRepositoryFilter(true);
+
+        view.WaitForAssertion(() =>
+        {
+            var titles = view.FindAll("[data-testid='in-progress-task-title']").Select(title => title.TextContent.Trim()).ToList();
+            Assert.Equal(["Tidy the notes"], titles);
+            Assert.Equal(["nowhere"], view.FindAll("[data-testid='in-progress-loose']").Select(item => item.GetAttribute("data-loose-key")));
+        });
+
+        host.State.SetNoRepositoryFilter(false);
+
+        view.WaitForAssertion(() => Assert.Equal(2, view.FindAll("[data-testid='in-progress-task']").Count));
+    }
+
+    /// <summary>The card that opened the picker is gone once the link lands, so the
+    /// focus goes to the card of the task the item now sits under.</summary>
+    [Fact]
+    public async Task Linking_moves_the_focus_to_the_card_the_item_now_sits_under()
+    {
+        using var host = await TasksPaneHost.CreateAsync(Repository);
+        var row = await host.WriteEntryAsync(Entry);
+        var reader = Reader(host, Session("loose", AgentSessionState.Running, Noon.AddMinutes(-6), resolved: Repository));
+
+        var view = Render(host, reader);
+        view.WaitForAssertion(() => Assert.NotEmpty(view.FindAll("[data-loose-key='loose'] [data-testid='in-progress-link']")));
+
+        view.Find("[data-loose-key='loose'] [data-testid='in-progress-link']").Click();
+        view.WaitForAssertion(() => Assert.NotEmpty(view.FindAll("[data-testid='work-link-picker-option']")));
+        view.Find($"[data-testid='work-link-picker-option'][data-option-id='{row.Id}']").Click();
+
+        var cardId = $"in-progress-task-{row.Id}";
+        view.WaitForAssertion(() =>
+        {
+            Assert.Equal("-1", view.Find($"#{cardId}").GetAttribute("tabindex"));
+            var focus = host.Context.JSInterop.Invocations["backlogFocus"];
+            Assert.Equal(cardId, focus[^1].Arguments[0]);
+        });
+    }
+
+    /// <summary>With only one of Sessions and Pull requests on, the other column is not
+    /// drawn — neither on the view's cards nor in the side panel's section.</summary>
+    [Fact]
+    public async Task A_feature_that_is_off_draws_no_column_in_the_view_or_the_side_panel()
+    {
+        using var host = await TasksPaneHost.CreateAsync(Repository);
+        var row = await host.WriteEntryAsync(Entry);
+        var reader = Reader(host);
+
+        var view = host.Context.Render<InProgressView>(parameters => parameters
+            .Add(p => p.Reader, reader)
+            .Add(p => p.ShowPullRequests, false));
+
+        view.WaitForAssertion(() =>
+        {
+            var card = view.Find("[data-testid='in-progress-task']");
+            Assert.NotNull(card.QuerySelector("[data-testid='work-links-sessions']"));
+            Assert.Null(card.QuerySelector("[data-testid='work-links-pull-requests']"));
+            Assert.DoesNotContain("pull request", view.Find("[data-testid='in-progress-summary']").TextContent, StringComparison.Ordinal);
+        });
+
+        var section = host.Context.Render<LinkedWorkSection>(parameters => parameters
+            .Add(p => p.Row, row)
+            .Add(p => p.Reader, reader)
+            .Add(p => p.ShowSessions, false));
+
+        section.WaitForAssertion(() =>
+        {
+            Assert.Empty(section.FindAll("[data-testid='work-links-sessions']"));
+            Assert.NotEmpty(section.FindAll("[data-testid='work-links-no-pull-requests']"));
+            Assert.Equal("Link a pull request…", section.Find("[data-testid='work-links-link']").TextContent.Trim());
+        });
+    }
+
+    private const string SessionTarget = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.EntryProjectionDto.SessionTargetType;
+
+    private const string PullRequestTarget = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.EntryProjectionDto.PullRequestTargetType;
+
     private static IRenderedComponent<InProgressView> Render(TasksPaneHost host, WorkInProgressReader reader) =>
         host.Context.Render<InProgressView>(parameters => parameters.Add(p => p.Reader, reader));
 

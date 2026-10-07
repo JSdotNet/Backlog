@@ -16828,6 +16828,24 @@ select.field__input {
     font-size: var(--font-size-sm);
 }
 
+/* A card with its Unlink beside it: the card takes the width, the quiet button sits
+   at its top edge, so a column of them reads as cards first and actions second. */
+.work-links__item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.work-links__card {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.work-links__unlink {
+    flex: none;
+}
+
 /* The side panel section: the heading with "Open in In progress" beside it, the
    two columns stacked, and the link action under them. */
 .work-links-panel {
@@ -17015,6 +17033,13 @@ select.field__input {
 
 .in-progress-task.repo-mark {
     padding-left: calc(var(--spacing-md) + var(--border-width-4));
+}
+
+/* The focus a link lands on the card it moved the item under: the shared ring, so
+   the reader sees where the item went. */
+.in-progress-task:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .in-progress-task--loose {
