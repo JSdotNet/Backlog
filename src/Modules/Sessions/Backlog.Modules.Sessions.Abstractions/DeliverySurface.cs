@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+
 namespace Backlog.Modules.Sessions.Abstractions;
 
 /// <summary>
@@ -369,6 +371,13 @@ public interface IDeliverySurfaceLifecycle
     /// <summary><c>set_run_context</c>. Every argument is optional and an absent one
     /// leaves what was there — this is called repeatedly through a run, once per fact
     /// as it becomes known.</summary>
+    /// <param name="runContext">The Reporting Contract's run context — the resolved
+    /// phase map, the tracker, the policy, the gates and where each came from — kept
+    /// at the run's root under <c>runContext</c>, verbatim. A later one merges one
+    /// level deep: each key it names replaces that key whole and every key it does not
+    /// name stays, which is how the collector merges it too. Typed as an object so a
+    /// caller cannot hand this port anything else; the wire's refusal of a non-object
+    /// is the MCP tool's, the one layer that sees the JSON kind.</param>
     Task SetRunContextAsync(
         string worktree,
         string runId,
@@ -376,10 +385,16 @@ public interface IDeliverySurfaceLifecycle
         string? approval = null,
         string? approvalNote = null,
         string? model = null,
+        JsonObject? runContext = null,
         CancellationToken cancellationToken = default);
 
     /// <summary><c>update_stage</c>, addressing the stage by its index in the list the
     /// run was started with.</summary>
+    /// <param name="execution">How the stage ran — inline or delegated, to which agent,
+    /// runner or skill, on which model and effort, and one row per delegated run — kept
+    /// on that stage under <c>execution</c>, verbatim. Replaced whole by the next one
+    /// rather than merged: it describes a pass of the stage, and a re-run delegated
+    /// differently is a different pass. A call without one keeps what was there.</param>
     Task<DeliveryStageUpdated> UpdateStageAsync(
         string worktree,
         string runId,
@@ -389,6 +404,7 @@ public interface IDeliverySurfaceLifecycle
         IReadOnlyList<DeliveryStageLink>? links = null,
         IReadOnlyList<DeliveryScenario>? scenarios = null,
         DeliveryMonitoring? monitoring = null,
+        JsonObject? execution = null,
         CancellationToken cancellationToken = default);
 
     /// <summary><c>finish_run</c>.</summary>

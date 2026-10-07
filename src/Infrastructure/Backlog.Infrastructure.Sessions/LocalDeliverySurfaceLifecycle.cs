@@ -269,6 +269,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         string? approval = null,
         string? approvalNote = null,
         string? model = null,
+        JsonObject? runContext = null,
         CancellationToken cancellationToken = default)
     {
         using var held = await HoldAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
@@ -324,6 +325,25 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
             }
         }
 
+        if (runContext is not null)
+        {
+            if (run["runContext"] is not JsonObject kept)
+            {
+                kept = [];
+                run["runContext"] = kept;
+            }
+
+            // One level deep, as the collector merges it: a key the call names is
+            // replaced whole, never merged into. The phase map arrives resolved, and
+            // a stale phase left over from an earlier map would describe a binding
+            // the run no longer has. Cloned because a node belongs to one parent, and
+            // the caller's object is still the caller's.
+            foreach (var (key, value) in runContext)
+            {
+                kept[key] = value?.DeepClone();
+            }
+        }
+
         await SaveAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
     }
 
@@ -336,6 +356,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         IReadOnlyList<DeliveryStageLink>? links = null,
         IReadOnlyList<DeliveryScenario>? scenarios = null,
         DeliveryMonitoring? monitoring = null,
+        JsonObject? execution = null,
         CancellationToken cancellationToken = default)
     {
         if (!DeliveryStageStatuses.Requestable.Contains(status, StringComparer.Ordinal))
@@ -420,6 +441,11 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
                 ["findings"] = new JsonArray([.. (monitoring.Findings ?? []).Select(finding => (JsonNode)JsonValue.Create(finding)!)])
             };
         }
+
+        // Replaced whole rather than merged, unlike the run context: an execution
+        // describes one pass of the stage, and a re-run delegated to another agent is
+        // a different pass rather than an amendment to the first.
+        if (execution is not null) stage["execution"] = execution.DeepClone();
 
         WritePhaseDoneCounts(run);
 
