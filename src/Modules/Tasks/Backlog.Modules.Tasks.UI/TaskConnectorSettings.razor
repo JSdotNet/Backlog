@@ -21,6 +21,10 @@
     its REST interface does not take. One that lists nothing, or cannot list, is
     typed into, and the field says why when the connector said.
 
+    Disconnecting keeps a target's tasks, so the sources that left tasks behind are
+    listed under the cards, each with a confirmed "Delete tasks"
+    (IDisconnectedLinkedTasks). Nothing is listed in a host without that port.
+
     The namespace is the project's root rather than a Settings folder's, for the
     reason InboxSettings gives: a ...Tasks.Settings namespace would shadow the
     settings screen's own component.
@@ -122,7 +126,7 @@ else
             <AppButton Variant="ButtonVariant.Primary"
                        Disabled="@(!CanConnect)"
                        TestId="task-connector-connect"
-                       OnClick="Connect">
+                       OnClick="ConnectAsync">
                 Connect
             </AppButton>
         </div>
@@ -142,8 +146,39 @@ else
                                            SyncMessage="@_syncMessages.GetValueOrDefault(KeyOf(target))"
                                            OnChange="options => Change(target, options)"
                                            OnSyncNow="@(Sync is null ? default(EventCallback<ConnectedTargetOptions>) : EventCallback.Factory.Create<ConnectedTargetOptions>(this, _ => SyncNowAsync(target)))"
-                                           OnRemove="_ => Remove(target)"
+                                           OnRemove="_ => RemoveAsync(target)"
                                            TestId="task-connector-target-card" />
+                }
+            </div>
+        }
+
+        @if (_disconnected.Count > 0)
+        {
+            <h3 class="setting__subtitle">Disconnected sources</h3>
+            <p class="setting__body">
+                These are no longer connected, but their tasks are still on the list.
+            </p>
+            <div class="task-connectors__disconnected" data-testid="task-connectors-disconnected">
+                @foreach (var source in _disconnected)
+                {
+                    <Card @key="@KeyOf(source)"
+                          Compact="true"
+                          AriaLabel="@($"{Sources.NameOf(source.ConnectorId)} {source.Target}")"
+                          TestId="task-connector-disconnected">
+                        <div class="task-connectors__disconnected-head">
+                            <span class="task-connectors__disconnected-connector" data-testid="task-connector-disconnected-connector">@Sources.NameOf(source.ConnectorId)</span>
+                            <code data-testid="task-connector-disconnected-target">@source.Target</code>
+                            <Badge BaseClass="task-connectors__disconnected-count" Kind="" TestId="task-connector-disconnected-count">@TaskCount(source.TaskCount)</Badge>
+                            <AppButton Variant="ButtonVariant.Danger"
+                                       Size="ButtonSize.Small"
+                                       Busy="@_deletingKeys.Contains(KeyOf(source))"
+                                       BusyLabel="Deleting"
+                                       TestId="task-connector-disconnected-delete"
+                                       OnClick="() => _deleting = source">
+                                Delete tasks
+                            </AppButton>
+                        </div>
+                    </Card>
                 }
             </div>
         }
@@ -152,6 +187,20 @@ else
         {
             <Alert Message="@_message" Role="status" BaseClass="setting__note" TestId="task-connectors-message" />
         }
+
+        @* No OpenChanged binding, for the reason ToolsPane gives: it is raised before
+           OnConfirm, and clearing the subject there would clear it before the
+           confirm reads it. Cancel, Escape and the backdrop all arrive on OnCancel. *@
+        <ConfirmDialog Open="@(_deleting is not null)"
+                       Title="Delete these tasks?"
+                       Message="@DeleteMessage"
+                       ConfirmText="Delete tasks"
+                       Destructive="true"
+                       TestId="task-connector-delete-dialog"
+                       ConfirmTestId="task-connector-delete-confirm"
+                       CancelTestId="task-connector-delete-cancel"
+                       OnConfirm="ConfirmDeleteAsync"
+                       OnCancel="() => _deleting = null" />
     }
 }
 
@@ -183,6 +232,29 @@ else
 
     /// <summary>The sync, for "Sync now", or null in a host that runs none.</summary>
     private ILinkedTaskSync? Sync => Services.GetService<ILinkedTaskSync>();
+
+    /// <summary>What lists and deletes the tasks a disconnected source left behind,
+    /// or null in a host that has no such port or keeps no connected targets.</summary>
+    private IDisconnectedLinkedTasks? Disconnected => Targets is null ? null : Services.GetService<IDisconnectedLinkedTasks>();
+
+    /// <summary>The sources that left tasks behind, as last listed.</summary>
+    private IReadOnlyList<DisconnectedSource> _disconnected = [];
+
+    /// <summary>The source whose "Delete tasks" is being confirmed, or null.</summary>
+    private DisconnectedSource? _deleting;
+
+    /// <summary>The sources a confirmed delete is running for, by
+    /// <see cref="KeyOf(DisconnectedSource)"/>.</summary>
+    private readonly HashSet<string> _deletingKeys = new(StringComparer.Ordinal);
+
+    /// <summary>Counts the list requests, so only the latest one lands, as
+    /// <see cref="_choicesRequest"/> does for the choices.</summary>
+    private int _disconnectedRequest;
+
+    /// <summary>The connected targets the disconnected sources were last listed
+    /// against, so a change that connects or removes none — a sync recording its
+    /// progress — does not list them again.</summary>
+    private IReadOnlyList<ConnectedTarget> _listedAgainst = [];
 
     /// <summary>The connector chosen in the connect form, whose descriptor names
     /// the target field.</summary>
@@ -224,6 +296,10 @@ else
 
     private static string KeyOf(ConnectedTarget target) => $"{target.ConnectorId}/{target.Target}";
 
+    private static string KeyOf(DisconnectedSource source) => $"{source.ConnectorId}/{source.Target}";
+
+    private static string TaskCount(int count) => count == 1 ? "1 task" : $"{count} tasks";
+
     private IReadOnlyList<SelectorOption> ConnectorOptions =>
         [.. Sources.Descriptors.Select(descriptor => new SelectorOption(descriptor.Id, descriptor.DisplayName))];
 
@@ -245,6 +321,7 @@ else
         }
 
         await LoadChoicesAsync();
+        await RefreshDisconnectedAsync();
     }
 
     /// <summary>What each sign-in's AccountChanged is handled by, kept so Dispose
@@ -316,9 +393,63 @@ else
     }
 
     /// <summary>The store may raise off the renderer's thread — a sync recording
-    /// its progress — so the re-render is marshalled rather than called. A sign-in's
-    /// change is <see cref="OnAccountChanged"/>'s.</summary>
-    private void OnExternalChange() => _ = InvokeAsync(StateHasChanged);
+    /// its progress — so the re-render is marshalled rather than called. A target
+    /// connected or removed elsewhere moves a source on or off the disconnected
+    /// list, so that is asked for again; a change to a target's settings or
+    /// progress moves none, and is only drawn. A sign-in's change is
+    /// <see cref="OnAccountChanged"/>'s.</summary>
+    private void OnExternalChange() => _ = InvokeAsync(async () =>
+    {
+        if (_disposed) return;
+
+        StateHasChanged();
+        if (SamePairs(Targets?.List() ?? [], _listedAgainst)) return;
+
+        await RefreshDisconnectedAsync();
+        StateHasChanged();
+    });
+
+    /// <summary>Whether two lists hold the same pairs, compared the way a target
+    /// is (<see cref="ConnectedTarget.Is"/>), whatever their settings.</summary>
+    private static bool SamePairs(IReadOnlyList<ConnectedTarget> left, IReadOnlyList<ConnectedTarget> right) =>
+        left.Count == right.Count
+        && left.All(target => right.Any(other => other.Is(target.ConnectorId, target.Target)));
+
+    /// <summary>
+    /// Asks which sources left tasks behind. Only the latest request lands. Never
+    /// throws into the page: a list that fails is logged and shows nothing, which
+    /// hides the section rather than offering a delete for a list it could not read.
+    /// </summary>
+    private async Task RefreshDisconnectedAsync()
+    {
+        if (_disposed) return;
+
+        var request = ++_disconnectedRequest;
+        _listedAgainst = Targets?.List() ?? [];
+        if (Disconnected is not { } disconnected)
+        {
+            _disconnected = [];
+            return;
+        }
+
+        IReadOnlyList<DisconnectedSource> sources;
+        try
+        {
+            sources = await disconnected.ListAsync(_lifetime.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            Log.LogError(ex, "Listing the disconnected connector sources threw.");
+            sources = [];
+        }
+
+        if (_disposed || request != _disconnectedRequest) return;
+        _disconnected = sources;
+    }
 
     private SignInState SignInStateOf(string connectorId)
     {
@@ -402,7 +533,7 @@ else
             LastSyncFailed = target.LastSyncFailedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
         };
 
-    private void Connect()
+    private async Task ConnectAsync()
     {
         if (Targets is null || !CanConnect) return;
 
@@ -420,6 +551,9 @@ else
         var name = _choices?.Choices.FirstOrDefault(choice => string.Equals(choice.Target, target, StringComparison.OrdinalIgnoreCase))?.Name ?? target;
         _message = $"Connected {name}. Its items arrive with the next sync.";
         _target = string.Empty;
+
+        // Connected again, a source is no longer one whose tasks can be deleted here.
+        await RefreshDisconnectedAsync();
     }
 
     private void Change(ConnectedTarget target, ConnectedTargetOptions options)
@@ -435,11 +569,74 @@ else
         });
     }
 
-    private void Remove(ConnectedTarget target)
+    private async Task RemoveAsync(ConnectedTarget target)
     {
         var error = Targets?.Remove(target.ConnectorId, target.Target);
         _syncMessages.Remove(KeyOf(target));
         _message = error ?? $"Disconnected {target.Target}. Its tasks stay on the list as they are.";
+
+        // Its tasks are now a disconnected source's, which can be deleted below.
+        await RefreshDisconnectedAsync();
+    }
+
+    /// <summary>What the confirmation says: what is deleted and from where, what is
+    /// not touched, that connecting again does not undo it, that it reaches the
+    /// other devices, and how many tasks will be left waiting on a missing
+    /// one.</summary>
+    private string DeleteMessage
+    {
+        get
+        {
+            if (_deleting is not { } source) return string.Empty;
+
+            var message =
+                $"This deletes {TaskCount(source.TaskCount)} from {source.Target}. The items at the source stay untouched. "
+                + $"Connecting {source.Target} again will not bring these tasks back, and the deletion reaches your other devices.";
+
+            return source.DependentCount switch
+            {
+                0 => message,
+                1 => $"{message} 1 task that waits on these will show as blocked on a missing task.",
+                var count => $"{message} {count} tasks that wait on these will show as blocked on a missing task.",
+            };
+        }
+    }
+
+    /// <summary>
+    /// Deletes the confirmed source's tasks and says how it went on the page's
+    /// status line: how many were deleted, or why none were — a source connected
+    /// again since it was listed is refused. Not tied to the page's lifetime, for
+    /// the reason a sign-out is not: a delete cut off halfway would leave some of
+    /// the source's tasks behind. The list is asked for again either way.
+    /// </summary>
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_deleting is not { } source) return;
+        _deleting = null;
+
+        var key = KeyOf(source);
+        if (Disconnected is not { } disconnected || !_deletingKeys.Add(key)) return;
+
+        string message;
+        try
+        {
+            var result = await disconnected.DeleteAsync(source.ConnectorId, source.Target, CancellationToken.None);
+            message = result.IsSuccess ? $"Deleted {TaskCount(result.Value)} from {source.Target}." : result.Error.Message;
+        }
+        catch (Exception ex)
+        {
+            Log.LogError(ex, "Deleting the tasks of {Connector} {Target} threw.", source.ConnectorId, source.Target);
+            message = $"Deleting the tasks from {source.Target} did not finish. Try again.";
+        }
+        finally
+        {
+            _deletingKeys.Remove(key);
+        }
+
+        if (_disposed) return;
+
+        _message = message;
+        await RefreshDisconnectedAsync();
     }
 
     /// <summary>
