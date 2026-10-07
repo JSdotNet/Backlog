@@ -266,13 +266,15 @@ sequenceDiagram
 ## Mobile My Day and Task Push
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day"]
+related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#completed"]
 ```
 
 The phone's Tasks tab is My Day and nothing else. It reads the owner's existing
-task feed rather than a My Day endpoint, and it writes exactly one thing: a task
-added for today. It keeps no task store of its own — a projection of the feed,
-and a push through the outbox.
+task feed rather than a My Day endpoint. It writes four things, all through the
+device outbox: a task added for today, and three edits to a task already in
+today's My Day. Those edits are done or undone, a step ticked or unticked, and
+the task moved to tomorrow. The phone keeps no task store of its own, only a
+projection of the feed.
 
 - **Fold the feed.** `GET /api/sync/tasks?since=` is pulled from a cursor kept
   on the phone, page after page until `hasMore` is false, and each page is kept
@@ -284,7 +286,10 @@ and a push through the outbox.
   never changes the result.
 - **My Day is arithmetic**, as `.devbook/domain/tasks/domain.md#my-day` defines
   it. The list is the rows whose `in_my_day_on` is the phone's current local date
-  and whose status is neither `done` nor `archived`.
+  and whose status is not `archived`. A row with `completed_on` today is in Done
+  today. The other rows are grouped by their agenda time against the phone's
+  clock into Now, Agenda and Anytime today, as
+  `.devbook/domain/tasks/features.md#my-day` describes.
 - **A rejected cursor starts over.** `sync.cursor_malformed` or
   `sync.cursor_expired` drops the cursor and pulls once from the beginning; the
   rows already kept fold to the same result. Any other failure keeps the list on
@@ -300,6 +305,24 @@ and a push through the outbox.
   is queued, with server stamp 0, so it is in today's list immediately and marked
   waiting until the outbox delivers it. The pull that delivery triggers brings
   back the replica's copy of the same write, which replaces it.
+- **An edit is a whole document.** The replica keeps one document per task and
+  the later `UpdatedAt` wins whole (ADR 0005), so the phone cannot send a field
+  on its own. It takes the task's row from `task_view`, applies the one edit,
+  stamps `UpdatedAt` now and queues the whole `TaskChange` as outbox kind `task`.
+  Done ticks the task as the desktop's checkbox does. Undone clears
+  `completed_on`. A step edit changes one sub-item's status. Move to tomorrow
+  sets `InMyDayOn` to the phone's local date plus one day and drops the agenda
+  time.
+- **Every edit gets its own entry.** Each edit is a new outbox entry with its own
+  entry id, carrying the task's own id in the `TaskChange`. A retry sends the
+  same document, so the replica's upsert keeps it idempotent. Entries queue
+  behind the ones before them, so two quick taps on the same task arrive
+  in the order they were made. The edit is applied to `task_view` at once and
+  marked waiting, the same as an added task.
+- **A concurrent desktop edit loses or wins whole.** When the desktop changes the
+  same task while a phone edit waits in the outbox, the later `UpdatedAt` decides
+  the whole task. The phone's narrow edits make this rare, but it is the cost of
+  sending documents rather than field changes.
 
 ```mermaid
 sequenceDiagram
@@ -327,6 +350,28 @@ sequenceDiagram
             Tasks->>View: Forget the cursor; pull again from the beginning
         end
     end
+```
+
+An edit to a task already in My Day takes the same path from the outbox onward:
+
+```mermaid
+sequenceDiagram
+    actor ME
+    participant Tasks as Phone Tasks tab
+    participant View as task_view (SQLite)
+    participant Outbox as SQLite Outbox
+    participant Sync as Sync Service
+
+    ME->>Tasks: Mark done, tick a step, or move to tomorrow
+    Tasks->>View: Read the task's row
+    Tasks->>Outbox: INSERT outbox (new entry id v7, kind=task, whole TaskChange under the task's id, UpdatedAt now)
+    Tasks->>View: UPSERT edited row (server stamp 0)
+    Tasks-->>ME: Change shown at once, marked waiting
+
+    Outbox->>+Sync: POST /api/sync/tasks (same document every attempt)
+    Sync-->>-Outbox: 200 Accepted
+    Outbox->>Outbox: DELETE entry
+    Tasks->>Sync: GET /api/sync/tasks?since=cursor (fold as above)
 ```
 
 ## Sync Item Lifecycle

@@ -286,7 +286,7 @@ from crowding the default views.
 type: feature
 status: proposed
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
-related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
+related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/domain.md#my-day, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push, .devbook/design/content-editing.md#scheduling-and-dependency-tokens]
 ```
 
 Pick the tasks to work on today, separately from when they are due: a task
@@ -297,12 +297,48 @@ My Day expires on its own, so yesterday's list clears itself with no timer, no
 timezone rule and no overnight sweep, and a device that was switched
 off for a week comes back to an empty My Day rather than a stale one.
 
-On the phone, My Day is the whole of the Tasks tab. It shows what was picked for
-the phone's own date — never a due-date grouping — and reads everything about a
-task without editing it. The one thing it changes is the list itself: a task
-added there is picked for today as it is created, because adding it on that
-screen is the decision My Day records. Editing, scheduling and the rest of a
-task's life stay on the desktop; see
+A task in today's My Day may also carry an [Agenda Time](domain.md#agenda-time):
+a start time and a duration that place it in the day, such as 10:45 for 45
+minutes. The agenda time is set and cleared on the desktop only. It means
+nothing without a My Day date, and it is dropped when the task leaves My Day.
+
+On the phone, My Day is the whole of the Tasks tab, shown as the Today screen.
+It shows what was picked for the phone's own date, never a due-date grouping,
+and splits that list into four groups:
+
+```mermaid
+flowchart TD
+    MyDay["Tasks in today's My Day"] --> Ticked{"Ticked off today?"}
+    Ticked -- yes --> Done["Done today"]
+    Ticked -- no --> Timed{"Has an agenda time?"}
+    Timed -- no --> Anytime["Anytime today, in My Day order"]
+    Timed -- yes --> Current{"Does its block contain the current time?"}
+    Current -- yes --> Now["Now"]
+    Current -- no --> Agenda["Agenda, in time order"]
+```
+
+**Now** holds the timed task whose block contains the current time. **Agenda**
+holds the other timed tasks in time order. **Anytime today** holds the open
+tasks without an agenda time, in the order My Day keeps them. **Done today**
+holds the tasks ticked off today.
+
+**Focus** exists only for a task with an agenda time today. In Focus the phone
+shows a countdown to the end of the task's block and the task's first open
+step. A task without an agenda time has no Focus.
+
+The phone reads everything about a task. It changes four things and nothing
+else:
+
+| On the phone | What it writes |
+| --- | --- |
+| Add a task | A new task picked for today, because adding it on that screen is the decision My Day records. |
+| Mark a task done or undone | The task's tick, the way the desktop's checkbox writes it. See [Completed](domain.md#completed). |
+| Tick or untick a step | The status of one [Sub-Item](domain.md#sub-item). |
+| Move a task to tomorrow | `myday:` set to the phone's local date plus one day. |
+
+The last three apply only to a task in today's My Day. Editing, scheduling, the
+agenda time and the rest of a task's life stay on the desktop. How the phone
+delivers each change is
 `.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push`.
 
 ## Task dependencies

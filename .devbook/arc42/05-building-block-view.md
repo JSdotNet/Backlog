@@ -378,8 +378,9 @@ three tabs along the bottom, withheld until the device is paired:
   each marked waiting until it has left the outbox; Dismiss acknowledges one.
 - **Note** — the talk note: a title, a dictated Markdown body, the speaker, tags
   and attached pictures and files, sent as one capture.
-- **Tasks** — My Day, read from `task_view`, and the one write the phone makes to
-  tasks: adding a task picked for today.
+- **Tasks** — My Day, read from `task_view`, and the writes the phone makes to
+  tasks: adding a task picked for today, and marking a task in today's My Day
+  done or undone, ticking one of its steps, or moving it to tomorrow.
 
 Its local SQLite file holds three things and no canonical task data: the
 outbox, the last inbox it pulled, and `task_view`, a fold of the owner's task
@@ -398,7 +399,7 @@ graph TB
     Shell["Shell\n(sync status, pairing gate)"]
     InboxTab["Inbox tab\n(quick capture, list, Dismiss)"]
     NoteTab["Note tab\n(talk note)"]
-    TasksTab["Tasks tab\n(My Day, add for today)"]
+    TasksTab["Tasks tab\n(My Day, add and edit for today)"]
   end
 
   subgraph "Device store (SQLite)"
