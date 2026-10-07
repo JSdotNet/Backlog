@@ -414,6 +414,38 @@ public sealed class DeliveryRunReaderTests : IDisposable
         Assert.Equal(["Stage 1", "Implementation"], run.TokenUsage!.ByStage.Select(stage => stage.StageName));
     }
 
+    /// <summary>
+    /// The run context and a stage's execution are read only where they are objects,
+    /// which is all the contract sends. A hand-edit that turned either into a string
+    /// costs that field and nothing else — the run still reads.
+    /// </summary>
+    [Fact]
+    public async Task A_run_context_and_an_execution_are_read_only_as_objects()
+    {
+        GivenRun("backlog", "Backlog-43b9057e", "run-objects.json", """
+            {
+              "id": "run-objects",
+              "skillId": "flow-code",
+              "status": "in_progress",
+              "runContext": { "tracker": { "kind": "github" } },
+              "stages": [
+                { "name": "Implement", "status": "in_progress", "execution": { "mode": "delegate", "model": "opus" } },
+                { "name": "Verify", "status": "pending", "execution": "inline" }
+              ]
+            }
+            """);
+        GivenRun("backlog", "Backlog-43b9057e", "run-strings.json", """
+            { "id": "run-strings", "skillId": "flow-spec", "status": "done", "runContext": "github", "stages": [] }
+            """);
+
+        var runs = (await ReadAsync()).Runs.ToDictionary(run => run.Id);
+
+        Assert.Equal("""{ "tracker": { "kind": "github" } }""", runs["run-objects"].RunContext);
+        Assert.Equal("""{ "mode": "delegate", "model": "opus" }""", runs["run-objects"].Stages[0].Execution);
+        Assert.Null(runs["run-objects"].Stages[1].Execution);
+        Assert.Null(runs["run-strings"].RunContext);
+    }
+
     [Fact]
     public async Task Both_dashboards_are_read_and_say_which_they_are()
     {

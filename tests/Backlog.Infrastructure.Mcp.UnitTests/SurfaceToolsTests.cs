@@ -1,4 +1,9 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
 using Backlog.Modules.Sessions.Abstractions;
+
+using ModelContextProtocol;
 
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
@@ -216,6 +221,126 @@ public class SurfaceToolsTests
         // change kind of this layer's invention.
         Assert.Null(surface.ChangeKind);
     }
+
+    /// <summary>
+    /// The Reporting Contract's run context and a stage's execution reach the port as
+    /// the objects they were sent, key for key — the port keeps them for the pane and
+    /// this layer has no opinion about what is in them.
+    /// </summary>
+    [Fact]
+    public async Task A_run_context_and_an_execution_reach_the_port_as_sent()
+    {
+        var surface = new FakeDeliverySurfaceLifecycle();
+        var tools = new SurfaceTools(surface);
+
+        await tools.SetRunContextAsync(Worktree, "run-1", runContext: Element(RunContextJson), cancellationToken: TestContext.Current.CancellationToken);
+        await tools.UpdateStageAsync(Worktree, "run-1", 2, "in_progress", execution: Element(ExecutionJson), cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(RunContextJson), surface.RunContext));
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(ExecutionJson), surface.Execution));
+    }
+
+    /// <summary>
+    /// Absent and an explicit JSON null are the same answer: this call says nothing
+    /// about it. Either one handed on as an object would replace what an earlier call
+    /// kept.
+    /// </summary>
+    [Fact]
+    public async Task A_run_context_or_execution_left_out_or_null_hands_the_port_none()
+    {
+        var surface = new FakeDeliverySurfaceLifecycle();
+        var tools = new SurfaceTools(surface);
+
+        await tools.SetRunContextAsync(Worktree, "run-1", runContext: Element("null"), cancellationToken: TestContext.Current.CancellationToken);
+        await tools.UpdateStageAsync(Worktree, "run-1", 0, "done", execution: Element("null"), cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Null(surface.RunContext);
+        Assert.Null(surface.Execution);
+
+        await tools.SetRunContextAsync(Worktree, "run-1", approval: "approved", cancellationToken: TestContext.Current.CancellationToken);
+        await tools.UpdateStageAsync(Worktree, "run-1", 0, "done", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Null(surface.RunContext);
+        Assert.Null(surface.Execution);
+    }
+
+    /// <summary>
+    /// Anything but an object is refused by name, before the port is reached, and as
+    /// the one exception whose message the SDK hands the client — any other comes back
+    /// as "an error occurred", which a model cannot act on.
+    /// </summary>
+    [Theory]
+    [InlineData("\"delegate\"")]
+    [InlineData("42")]
+    [InlineData("true")]
+    [InlineData("[{\"mode\":\"delegate\"}]")]
+    public async Task A_run_context_or_execution_that_is_not_an_object_is_refused_by_name(string json)
+    {
+        var surface = new FakeDeliverySurfaceLifecycle();
+        var tools = new SurfaceTools(surface);
+
+        var context = await Assert.ThrowsAsync<McpException>(() =>
+            tools.SetRunContextAsync(Worktree, "run-1", runContext: Element(json), cancellationToken: TestContext.Current.CancellationToken));
+        var execution = await Assert.ThrowsAsync<McpException>(() =>
+            tools.UpdateStageAsync(Worktree, "run-1", 0, "done", execution: Element(json), cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("runContext", context.Message, StringComparison.Ordinal);
+        Assert.Contains("object", context.Message, StringComparison.Ordinal);
+        Assert.Contains("execution", execution.Message, StringComparison.Ordinal);
+        Assert.Contains("object", execution.Message, StringComparison.Ordinal);
+        Assert.Empty(surface.Calls);
+    }
+
+    [Fact]
+    public async Task Get_run_carries_the_run_context_and_each_stage_execution_as_objects()
+    {
+        var surface = new FakeDeliverySurfaceLifecycle(
+            run: Runs.Run(stages:
+                [
+                    new DeliveryRunStage("Implementation", "in_progress", null, 0) { Execution = ExecutionJson },
+                    new DeliveryRunStage("Verify", "pending", null, 0)
+                ]) with { RunContext = RunContextJson });
+
+        var run = await new SurfaceTools(surface).GetRunAsync(Worktree, "run-1", TestContext.Current.CancellationToken);
+
+        Assert.NotNull(run);
+        Assert.Equal(JsonValueKind.Object, run.RunContext!.Value.ValueKind);
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(RunContextJson), JsonNode.Parse(run.RunContext.Value.GetRawText())));
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(ExecutionJson), JsonNode.Parse(run.Stages[0].Execution!.Value.GetRawText())));
+        Assert.Null(run.Stages[1].Execution);
+
+        // On the wire as objects under the contract's keys, not as strings of JSON a
+        // caller would have to parse a second time.
+        var wire = JsonSerializer.SerializeToNode(run, JsonSerializerOptions.Web)!;
+
+        Assert.IsType<JsonObject>(wire["runContext"]);
+        Assert.IsType<JsonObject>(wire["stages"]![0]!["execution"]);
+    }
+
+    [Fact]
+    public async Task List_runs_reads_a_run_without_either_as_null()
+    {
+        var surface = new FakeDeliverySurfaceLifecycle(runs: [Runs.Run("run-1")]);
+
+        var listed = await new SurfaceTools(surface).ListRunsAsync(Worktree, TestContext.Current.CancellationToken);
+
+        Assert.Null(listed.Runs[0].RunContext);
+        Assert.All(listed.Runs[0].Stages, stage => Assert.Null(stage.Execution));
+    }
+
+    private const string RunContextJson = """
+        {
+          "phases": { "flow-code": { "phase-implement": { "mode": "delegate", "agent": "csharp-coding:coding", "model": "opus", "effort": null } } },
+          "tracker": { "kind": "github" },
+          "gates": ["personal-validation"]
+        }
+        """;
+
+    private const string ExecutionJson = """
+        { "mode": "delegate", "agent": "csharp-coding:coding", "model": "opus", "runs": [{ "agent": "csharp-coding:coding", "slice": "backend" }] }
+        """;
+
+    private static JsonElement Element(string json) => JsonDocument.Parse(json).RootElement.Clone();
 
     [Fact]
     public async Task List_runs_projects_every_run_and_counts_them()

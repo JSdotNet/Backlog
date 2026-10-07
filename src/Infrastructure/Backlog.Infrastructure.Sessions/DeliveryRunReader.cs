@@ -225,7 +225,8 @@ internal sealed partial class DeliveryRunReader
                 Trigger = Text(root, "trigger"),
                 Schedule = Text(root, "schedule"),
                 Repository = Text(root, "repo"),
-                Verdicts = Verdicts(root)
+                Verdicts = Verdicts(root),
+                RunContext = ObjectText(root, "runContext")
             };
         }
     }
@@ -528,7 +529,8 @@ internal sealed partial class DeliveryRunReader
                 Integer(stage, "durationMs"),
                 (int)(Integer(stage, "doneCount") ?? 0))
             {
-                Agents = StageAgents(stage, delegated.Where(agent => agent.Index == position || (agent.Index is null && agent.Stage == name)))
+                Agents = StageAgents(stage, delegated.Where(agent => agent.Index == position || (agent.Index is null && agent.Stage == name))),
+                Execution = ObjectText(stage, "execution")
             });
         }
 
@@ -755,5 +757,13 @@ internal sealed partial class DeliveryRunReader
     private static string? Text(JsonElement root, string name) =>
         root.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String
             ? value.GetString()
+            : null;
+
+    /// <summary>An object property as its JSON text, or null where it is absent or is
+    /// not an object — the contract sends nothing else, and a hand-edit that made one a
+    /// string costs that field rather than the run.</summary>
+    private static string? ObjectText(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.Object
+            ? value.GetRawText()
             : null;
 }

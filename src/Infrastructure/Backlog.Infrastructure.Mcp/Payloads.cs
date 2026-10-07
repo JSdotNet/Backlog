@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Backlog.Infrastructure.Mcp;
 
 /*
@@ -452,7 +454,9 @@ public sealed record StageUpdatedPayload(
     string? SessionTitle);
 
 /// <summary>One stage of a run, as a session reads it back.</summary>
-public sealed record RunStagePayload(string Name, string Status, long? DurationMs, int DoneCount);
+/// <param name="Execution">How the stage ran, as <c>update_stage</c> last reported it:
+/// the object it was sent, or null where none was.</param>
+public sealed record RunStagePayload(string Name, string Status, long? DurationMs, int DoneCount, JsonElement? Execution = null);
 
 /// <summary>
 /// One run, as a session reads it back.
@@ -473,6 +477,9 @@ public sealed record RunStagePayload(string Name, string Status, long? DurationM
 /// <param name="Trigger">What started the run, where the caller said.</param>
 /// <param name="Schedule">The schedule that fired it, for a scheduled run.</param>
 /// <param name="Repo">The repository it worked in, where the caller said.</param>
+/// <param name="RunContext">The run context <c>set_run_context</c> kept, as an
+/// object — authored by the flow, unlike the measured figures this leaves out, so a
+/// flow reading it back reads its own words.</param>
 public sealed record RunPayload(
     string Id,
     string Worktree,
@@ -487,7 +494,8 @@ public sealed record RunPayload(
     IReadOnlyList<string> SessionIds,
     string? Trigger = null,
     string? Schedule = null,
-    string? Repo = null);
+    string? Repo = null,
+    JsonElement? RunContext = null);
 
 /// <summary>The runs of one worktree.</summary>
 public sealed record RunsPayload(string Worktree, int Count, IReadOnlyList<RunPayload> Runs);

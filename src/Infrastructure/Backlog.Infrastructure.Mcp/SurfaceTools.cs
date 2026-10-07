@@ -1,7 +1,11 @@
 using System.ComponentModel;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel.Results;
 
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace Backlog.Infrastructure.Mcp;
@@ -46,6 +50,17 @@ namespace Backlog.Infrastructure.Mcp;
 /// does. These methods pass the arguments through and let the refusal surface.
 /// A second guard here would be a second opinion about the same rule, free to
 /// drift from the one the pane obeys.
+/// </para>
+/// <para>
+/// One refusal is this layer's, because only this layer can see it: a
+/// <c>runContext</c> or an <c>execution</c> that is not a JSON object. The port
+/// takes a <see cref="System.Text.Json.Nodes.JsonObject"/>, so the rule is its
+/// type there and nothing it could restate. Both arrive as a
+/// <see cref="JsonElement"/> rather than bound straight to that type, which would
+/// advertise <c>object</c> in the schema: a non-object would then fail in the
+/// SDK's own binding, before this method runs, and reach the client as "an error
+/// occurred" — while the <see cref="McpException"/> thrown here names the
+/// argument, and is the one exception whose message the SDK hands back.
 /// </para>
 /// </summary>
 [McpServerToolType]
@@ -185,9 +200,10 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
         OpenWorld = false)]
     [Description(
         "Persists the state a later phase reads back: the change kind that selects validation depth, the Personal "
-        + "Validation decision and the wording behind it, and the resolved model. Every argument is optional and "
-        + "only the ones supplied are written, so a later call recording an approval does not erase the change kind "
-        + "an earlier one recorded.")]
+        + "Validation decision and the wording behind it, the resolved model, and the run context — the resolved "
+        + "phase map, tracker, policy, gates and where each came from. Every argument is optional and only the ones "
+        + "supplied are written, so a later call recording an approval does not erase the change kind an earlier one "
+        + "recorded. A later runContext replaces the top-level keys it names and keeps the rest.")]
     public Task SetRunContextAsync(
         [Description("The full path of the worktree the run is running in.")]
         string worktree,
@@ -201,8 +217,18 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
         string? approvalNote = null,
         [Description("Optional. The model resolved for the run.")]
         string? model = null,
+        [Description("Optional. A JSON object: the run context, e.g. phases, tracker, policy, gates and origins. Kept verbatim; anything but an object is refused.")]
+        JsonElement? runContext = null,
         CancellationToken cancellationToken = default) =>
-        surface.SetRunContextAsync(worktree, runId, changeKind, approval, approvalNote, model, cancellationToken);
+        surface.SetRunContextAsync(
+            worktree,
+            runId,
+            changeKind,
+            approval,
+            approvalNote,
+            model,
+            ObjectOrRefuse(runContext, nameof(runContext)),
+            cancellationToken);
 
     /// <summary>
     /// Move one stage, addressed by its index in the list the run was started
@@ -225,7 +251,8 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
         "Moves one stage of a run, addressed by its index in the stage list start_run was given, and answers with "
         + "the stage's new status and how many times it has completed. An index outside that list is refused rather "
         + "than ignored, as is a status outside pending, in_progress, done, blocked and skipped. Each transition to "
-        + "done counts, so a stage re-run after requested changes reads as a second pass.")]
+        + "done counts, so a stage re-run after requested changes reads as a second pass. An execution replaces the "
+        + "stage's earlier one whole; a call without one keeps it.")]
     public async Task<StageUpdatedPayload> UpdateStageAsync(
         [Description("The full path of the worktree the run is running in.")]
         string worktree,
@@ -243,8 +270,14 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
         IReadOnlyList<ScenarioInput>? scenarios = null,
         [Description("Optional. What a runtime monitor observed while the stage ran.")]
         MonitoringInput? monitoring = null,
+        [Description("Optional. A JSON object: how the stage ran — mode, agent, runner, skill, model, effort, mcp, fallback, qualifier, and runs of { agent, model, effort, slice }. Kept verbatim; anything but an object is refused.")]
+        JsonElement? execution = null,
         CancellationToken cancellationToken = default)
     {
+        // Before the port, so a refused execution leaves the stage as it was rather
+        // than half-moved.
+        var executed = ObjectOrRefuse(execution, nameof(execution));
+
         var updated = await surface
             .UpdateStageAsync(
                 worktree,
@@ -255,11 +288,33 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
                 Projections.StageLinks(links),
                 Projections.Scenarios(scenarios),
                 Projections.Monitoring(monitoring),
+                executed,
                 cancellationToken)
             .ConfigureAwait(false);
 
         return Projections.StageUpdated(updated);
     }
+
+    /// <summary>The argument as the object the port takes, or null where it was left
+    /// out or sent as JSON null — both say nothing about it. Anything else is refused
+    /// by name; see the class's last paragraph for why here and why this
+    /// exception.</summary>
+    private static JsonObject? ObjectOrRefuse(JsonElement? argument, string name) => argument switch
+    {
+        null or { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined } => null,
+        { ValueKind: JsonValueKind.Object } element => JsonObject.Create(element),
+        { } element => throw RepositoryScope.Failure(Error.Validation(
+            $"{name}.not-an-object",
+            $"{name} must be a JSON object; it was sent as {Kind(element.ValueKind)}."))
+    };
+
+    private static string Kind(JsonValueKind kind) => kind switch
+    {
+        JsonValueKind.Array => "an array",
+        JsonValueKind.String => "a string",
+        JsonValueKind.Number => "a number",
+        _ => "a boolean"
+    };
 
     /// <summary>Close a run with a final status and a summary.</summary>
     [McpServerTool(

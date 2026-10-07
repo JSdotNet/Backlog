@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 
@@ -78,6 +80,10 @@ internal sealed class FakeDeliverySurfaceLifecycle(
 
     public DeliveryMonitoring? Monitoring { get; private set; }
 
+    public JsonObject? RunContext { get; private set; }
+
+    public JsonObject? Execution { get; private set; }
+
     public Task<DeliverySurfaceOpened> OpenDashboardAsync(CancellationToken cancellationToken = default)
     {
         Calls.Add(DeliverySurfaceOperations.OpenDashboard);
@@ -131,12 +137,14 @@ internal sealed class FakeDeliverySurfaceLifecycle(
         string? approval = null,
         string? approvalNote = null,
         string? model = null,
+        JsonObject? runContext = null,
         CancellationToken cancellationToken = default)
     {
         Calls.Add(DeliverySurfaceOperations.SetRunContext);
         Worktree = worktree;
         RunId = runId;
         ChangeKind = changeKind;
+        RunContext = runContext;
 
         return Task.CompletedTask;
     }
@@ -150,9 +158,11 @@ internal sealed class FakeDeliverySurfaceLifecycle(
         IReadOnlyList<DeliveryStageLink>? links = null,
         IReadOnlyList<DeliveryScenario>? scenarios = null,
         DeliveryMonitoring? monitoring = null,
+        JsonObject? execution = null,
         CancellationToken cancellationToken = default)
     {
         Calls.Add(DeliverySurfaceOperations.UpdateStage);
+        Execution = execution;
         Worktree = worktree;
         RunId = runId;
         StageIndex = stageIndex;
