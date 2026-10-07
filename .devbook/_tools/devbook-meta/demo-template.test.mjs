@@ -11,7 +11,7 @@
 //
 // Run: node --test plugins/devbook/tools/devbook-meta/demo-template.test.mjs
 
-import { test } from "node:test";
+import { test as nodeTest } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -23,20 +23,23 @@ import { fileURLToPath } from "node:url";
 import { TEMPLATE_PATH, readRegion, refreshDemos, regionHash, templateProblems } from "./demo-template.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-// The vendored copy under .devbook/_tools/ runs these tests too, and finds the
-// assets through the repository root either way.
+// The template and sample ship with the devbook plugin source. A vendored copy
+// under .devbook/_tools/ runs without them, so there every case is skipped.
 const repoRootOf = (dir) => {
     for (let at = dir; ; at = path.dirname(at)) {
         try {
             readFileSync(path.join(at, "plugins/devbook/assets/procedures/demo-template.html"));
             return at;
         } catch {
-            if (path.dirname(at) === at) throw new Error("no plugins/devbook/assets/procedures above this test");
+            if (path.dirname(at) === at) return null;
         }
     }
 };
-const assets = path.join(repoRootOf(here), "plugins/devbook/assets/procedures");
-const asset = (rel) => readFileSync(path.join(assets, rel), "utf8").replace(/\r\n/g, "\n");
+const root = repoRootOf(here);
+const assets = root && path.join(root, "plugins/devbook/assets/procedures");
+const asset = (rel) => (assets ? readFileSync(path.join(assets, rel), "utf8").replace(/\r\n/g, "\n") : "");
+const skip = assets ? false : "the devbook plugin's procedure assets are not in this repository";
+const test = (name, fn) => nodeTest(name, { skip }, fn);
 const TEMPLATE = asset("demo-template.html");
 const SAMPLE = asset("demo-sample/features.demo.html");
 

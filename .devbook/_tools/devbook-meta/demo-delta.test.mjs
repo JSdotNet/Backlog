@@ -7,10 +7,11 @@
 import { mkdtemp, mkdir, writeFile, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { CHANGES_ROOT } from "./metadata.mjs";
+import { CHANGES_ROOT, chapterFingerprint } from "./metadata.mjs";
 import { buildGraph } from "./graph.mjs";
 import { applyChange, changeFingerprint, checkChange, checkDemoDelta } from "./delta.mjs";
-import { demoFileIssues } from "./demo.mjs";
+import { demoFileIssues, demoReader } from "./demo.mjs";
+import { regionHash } from "./demo-template.mjs";
 
 let failed = 0;
 const check = (ok, name, detail) => {
@@ -21,9 +22,10 @@ const errorsOf = (issues) => issues.filter((i) => i.severity === "error");
 const fence = (body) => "```meta\n" + body + "```\n";
 const exists = async (p) => stat(p).then(() => true, () => false);
 
+const REGION = `\n<style>body{margin:0}</style>\n<script>window.addEventListener("message",()=>{});</script>\n`;
 const demo = ({ head = "", app = "<section data-screen=\"cart\" id=\"cart\"><p>Cart</p></section>", region = true, meta = { question: "Does checkout fit one screen?" }, model = { screens: [{ id: "cart", title: "Cart" }] } } = {}) =>
     `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n${head}` +
-    (region ? `<!-- template:begin hash=sha256:abcd1234 -->\n<style>body{margin:0}</style>\n<script>window.addEventListener("message",()=>{});</script>\n<!-- template:end -->\n` : "") +
+    (region ? `<!-- template:begin hash=${regionHash(REGION)} -->${REGION}<!-- template:end -->\n` : "") +
     `</head>\n<body>\n<main data-demo-app>${app}</main>\n` +
     (model ? `<script type="application/json" id="demo-model">${JSON.stringify(model)}</script>\n` : "") +
     (meta ? `<script type="application/json" id="demo-meta">${JSON.stringify(meta)}</script>\n` : "") +
@@ -45,6 +47,11 @@ check(
     "a demo-meta naming a status or verdict is an error"
 );
 check(has(demoFileIssues(AT, demo().replace(/(id="demo-meta">)[^<]*/, "$1{not json")), /demo-meta` that is not valid JSON/), "a demo-meta that is not JSON is an error");
+check(has(checkDemoDelta(`${CHANGES_ROOT}/x/devbook-delta/domain/ordering/features.demo.html`, demo({ region: false })).issues, /no `<!-- template:begin/), "a demo delta with no managed region is an error");
+check(
+    has(checkDemoDelta(`${CHANGES_ROOT}/x/devbook-delta/domain/ordering/features.demo.html`, demo().replace("margin:0", "margin:1")).issues, /edited by hand/),
+    "a demo delta whose region does not hash to its marker is an error"
+);
 check(
     has(checkDemoDelta(`${CHANGES_ROOT}/x/devbook-delta/domain/ordering/features.demo.html`, demo({ app: "<script>alert(1)</script>" })).issues, /outside the template's managed region/),
     "a demo delta is checked with the demo rules"
@@ -140,6 +147,48 @@ async function decide(root) {
     check(!changeErrors.length, "a change carrying a demo indexes with no error", JSON.stringify(changeErrors));
 }
 
+// -- An approval whose fingerprint covers the demo ---------------------------
+
+async function approvedFixture(demoDelta) {
+    // The approved chapter names the demo; the delta adds under its sibling.
+    const features = (rung) =>
+        `# Features\n\n${fence("")}\nWhat ordering does.\n\n` +
+        `## Checkout\n\n${fence(`demo: [${AT}]\n${rung}`)}\nPay for the cart.\n\n` +
+        `## Returns\n\n${fence("")}\nSend it back.\n`;
+    const root = await fixture({
+        [FEATURES]: features(""),
+        [`${BASE}/devbook-delta/domain/ordering/features.md`]:
+            fence("change: show-checkout\ndelta: modified\n") + `\n## Returns\n\n### ADDED\n\n#### Refunds\n\n${fence("")}\nMoney back.\n`,
+        [`${BASE}/devbook-delta/domain/ordering/features.demo.html`]: demoDelta,
+    });
+    const line = features("").split("\n").indexOf("## Checkout") + 1;
+    const hash = chapterFingerprint(FEATURES, features(""), line, demoReader(root));
+    await writeFile(path.join(root, FEATURES), features(`status: approved\napproved-by: @amy\napproved-at: 2026-09-20\napproved-hash: ${hash}\n`), "utf8");
+    return root;
+}
+const lifts = (report) => report.deltas.some((d) => d.issues.some((i) => /lifts `approved`/.test(i.message)));
+check(!lifts(await checkChange(await approvedFixture(null), "show-checkout")), "--check keeps an approval whose chapter and demo the change leaves alone");
+check(lifts(await checkChange(await approvedFixture(demo()), "show-checkout")), "--check lifts an approval whose demo the change replaces");
+
+{
+    // A demo-only change: the Markdown delta is a placeholder, and the chapters
+    // folding the demo in sit in the page itself and in another file.
+    const REQUIREMENTS = ".devbook/domain/ordering/requirements.md";
+    const approved = (hash) => `status: approved\napproved-by: @amy\napproved-at: 2026-09-20\napproved-hash: ${hash}\n`;
+    const page = (rung) => `# Features\n\n${fence(rung)}\nWhat ordering does.\n`;
+    const rules = (rung) => `# Requirements\n\n${fence("")}\nWhat ordering promises.\n\n## Checkout\n\n${fence(`demo: [${AT}]\n${rung}`)}\nPay for the cart.\n`;
+    const root = await fixture();
+    const read = demoReader(root);
+    const line = rules("").split("\n").indexOf("## Checkout") + 1;
+    await writeFile(path.join(root, FEATURES), page(approved(chapterFingerprint(FEATURES, page(""), 1, read))), "utf8");
+    await writeFile(path.join(root, REQUIREMENTS), rules(approved(chapterFingerprint(REQUIREMENTS, rules(""), line, read))), "utf8");
+    await decide(root);
+    const result = await applyChange(root, "show-checkout", { date: "2026-09-28", move: false });
+    check(result.applied, "--apply merges a demo-only change", JSON.stringify(result.report.problems));
+    check(!/approved/.test(await readFile(path.join(root, FEATURES), "utf8")), "a replaced demo lifts the approval of the page it belongs to, behind a placeholder delta");
+    check(!/approved/.test(await readFile(path.join(root, REQUIREMENTS), "utf8")), "a replaced demo lifts the approval of a chapter in another file that names it");
+}
+
 // -- --apply ----------------------------------------------------------------
 
 {
@@ -163,6 +212,17 @@ async function decide(root) {
     await writeFile(path.join(root, `${BASE}/devbook-delta/domain/ordering/features.demo.html`), demo({ meta: { question: "Edited after?" } }), "utf8");
     const result = await applyChange(root, "show-checkout", { date: "2026-09-28" });
     check(!result.applied, "--apply refuses a change whose demo was edited after the decision");
+}
+
+for (const [html, name] of [
+    [demo({ region: false }), "no managed region"],
+    [demo().replace("margin:0", "margin:1"), "a hand-edited region"],
+]) {
+    const root = await fixture({ [`${BASE}/devbook-delta/domain/ordering/features.demo.html`]: html });
+    await decide(root);
+    const before = await readFile(path.join(root, AT), "utf8");
+    const result = await applyChange(root, "show-checkout", { date: "2026-09-28" });
+    check(!result.applied && (await readFile(path.join(root, AT), "utf8")) === before, `--apply refuses an accepted demo with ${name} and writes nothing`);
 }
 
 console.log(failed ? `\n${failed} case(s) failed.` : "\nAll cases passed.");

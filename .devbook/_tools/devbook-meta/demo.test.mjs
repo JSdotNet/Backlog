@@ -214,6 +214,14 @@ for (const [address, needle, name] of [
     check(has(problems, "error", "outside the template's managed region"), "a script outside the managed region errors", dump(problems));
 }
 
+for (const [html, name] of [
+    [demoHtml({ head: `<script id="demo-meta">alert(1)</script>\n` }), "a second demo-meta script"],
+    [demoHtml().replace(`<script type="application/json" id="demo-meta">`, `<script id="demo-meta">`), "a demo-meta not typed as JSON"],
+]) {
+    const problems = await demoProblemsOf({ [DEMO]: html });
+    check(has(problems, "error", "outside the template's managed region"), `${name} is not exempt from the managed region`, dump(problems));
+}
+
 {
     const html = demoHtml().replace("<!-- template:begin -->", "").replace("<!-- template:end -->", "");
     const problems = await demoProblemsOf({ [DEMO]: html });

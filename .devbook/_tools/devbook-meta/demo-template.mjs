@@ -91,6 +91,20 @@ function stamp(html, region, hash) {
 }
 
 /**
+ * What is wrong with one demo's managed region on its own, as a message, or
+ * null: no single region, or a region that does not hash to its own marker.
+ */
+export function regionProblem(relPath, html) {
+    const region = readRegion(html);
+    if (region.problem) return `${relPath} ${region.problem}.`;
+    if (region.declared === region.hash) return null;
+    return (
+        `${relPath} has a managed region matching no template version — it hashes to ${region.hash}, not the ${region.declared ?? "missing hash"} its marker carries, so it was edited by hand. ` +
+        `Make the change in ${TEMPLATE_PATH}, then run demo-template.mjs --refresh, which rewrites the region and discards the edit.`
+    );
+}
+
+/**
  * Every demo's region against the template, as `{ severity, path, message }`.
  * Hand edits are found with or without a template; staleness needs one.
  */
@@ -119,17 +133,11 @@ export async function templateProblems(repoRoot, folders) {
     }
 
     for (const relPath of demos) {
-        const region = readRegion((await readText(repoRoot, relPath)) ?? "");
-        if (region.problem) {
-            problems.push({ severity: "error", path: relPath, message: `${relPath} ${region.problem}.` });
-        } else if (region.declared !== region.hash) {
-            problems.push({
-                severity: "error",
-                path: relPath,
-                message:
-                    `${relPath} has a managed region matching no template version — it hashes to ${region.hash}, not the ${region.declared ?? "missing hash"} its marker carries, so it was edited by hand. ` +
-                    `Make the change in ${TEMPLATE_PATH}, then run demo-template.mjs --refresh, which rewrites the region and discards the edit.`,
-            });
+        const html = (await readText(repoRoot, relPath)) ?? "";
+        const region = readRegion(html);
+        const problem = regionProblem(relPath, html);
+        if (problem) {
+            problems.push({ severity: "error", path: relPath, message: problem });
         } else if (current && region.declared !== current) {
             problems.push({
                 severity: "warning",

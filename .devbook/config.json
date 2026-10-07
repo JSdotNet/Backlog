@@ -104,10 +104,10 @@
   ],
   "components": {
     "delivery": {
-      "pluginVersion": "1.18.0"
+      "pluginVersion": "1.20.1"
     },
     "devbook": {
-      "pluginVersion": "1.19.0",
+      "pluginVersion": "1.20.1",
       "contractVersion": 29,
       "adopted": [
         "arc42",
@@ -238,8 +238,8 @@
           "managed": false
         },
         ".devbook/_tools/devbook-meta": {
-          "from": "1.19.0",
-          "hash": "sha256:5fa903a45d344ac473868eb643b37cc9ce488aa51a0e390c65206102b8fde33d",
+          "from": "1.20.1",
+          "hash": "sha256:00f68472e5c6680b3ff2982d36921c7f1ac6645e1df02515721b7e90997bd5b7",
           "managed": true
         },
         ".devbook/_tools/devbook-tech": {
@@ -397,7 +397,7 @@
       }
     },
     "schedule": {
-      "pluginVersion": "1.18.0",
+      "pluginVersion": "1.20.1",
       "enabled": [
         "issue-sweep",
         "merge-review",
