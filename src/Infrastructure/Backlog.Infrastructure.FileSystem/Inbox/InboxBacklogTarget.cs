@@ -36,8 +36,18 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 /// on a title line. The capture said it; the entry keeps it.
 /// </para>
 /// </summary>
-internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDirectory repositories) : IInboxBacklogTarget
+internal sealed partial class InboxBacklogTarget(
+    ITaskItems tasks,
+    IRepositoryDirectory repositories,
+    TimeProvider? clock = null) : IInboxBacklogTarget
 {
+    /// <summary>The usage a merge records on the task, beside the MCP
+    /// <c>comment</c> tool's own: usage actions are read back as a set, so the
+    /// two writers of a comment stay told apart.</summary>
+    internal const string MergeUsageAction = "inbox-merge";
+
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+
     public async Task<Result<IReadOnlyList<Guid>>> CreateTasksAsync(
         InboxRouteRequestDto request,
         CancellationToken cancellationToken = default)
@@ -422,6 +432,41 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
         return Attachment.From(request.AttachmentPath) is { } attachment
             ? EntryTextParser.WithAttachment(text.ToString(), attachment)
             : text.ToString();
+    }
+
+    public async Task<Result> CommentOnTaskAsync(InboxMergeRequestDto request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var commented = await tasks
+            .CommentAsync(
+                request.TaskId,
+                MergeComment(request),
+                DateOnly.FromDateTime(_clock.GetLocalNow().DateTime),
+                MergeUsageAction,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return commented.IsSuccess ? Result.Success() : Result.Failure(commented.Error);
+    }
+
+    /// <summary>
+    /// The capture as one comment: its title, then its link when it has one,
+    /// then its notes after a blank line — the order the merge promises. The
+    /// title is one line, every whitespace run in it one space, as
+    /// <see cref="Compose"/> writes a routed entry's; the notes go as they were
+    /// captured, and Tasks' comment rule decides whether they can be prose.
+    /// </summary>
+    internal static string MergeComment(InboxMergeRequestDto request)
+    {
+        var text = new StringBuilder(WhitespaceRun().Replace(request.Title.Trim(), " "));
+
+        if (!string.IsNullOrWhiteSpace(request.SourceUrl)) text.Append('\n').Append(request.SourceUrl.Trim());
+
+        var notes = request.BodyMd.Trim();
+        if (notes.Length > 0) text.Append("\n\n").Append(notes);
+
+        return text.ToString();
     }
 
     [GeneratedRegex(@"\s+")]

@@ -186,5 +186,6 @@ public sealed class BatchTests
             suggest: null!,
             dismissSuggestion: null!,
             related: null!,
-            linkToTask: null!);
+            linkToTask: null!,
+            mergeIntoTask: null!);
 }

@@ -69,6 +69,16 @@ public interface IInboxItems
     /// <c>inbox.link.task_not_found</c> for a task the backlog no longer has.</summary>
     Task<Result> LinkToTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default);
 
+    /// <summary>Folds the item into the backlog task <paramref name="taskId"/> it
+    /// repeats — "Merge into a task": the item's title, then its link when it has
+    /// one, then its notes are written on the task as one comment, and the item is
+    /// archived as a duplicate of the task (<c>DuplicateOf</c> names it,
+    /// <c>DuplicateOfTask</c> says so). Only an open item. Fails with
+    /// <c>inbox.merge.task_not_found</c> for a task the backlog no longer has,
+    /// and with Tasks' <c>comment.not_prose</c> when a line of the item would
+    /// become structure on the task; either way nothing is written.</summary>
+    Task<Result> MergeIntoTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default);
+
     /// <summary>What the item already has to do with the rest of the backlog:
     /// the other items that look like the same capture and the tasks that carry
     /// it, each with the reason, and the open tasks "Link to task…" can offer.

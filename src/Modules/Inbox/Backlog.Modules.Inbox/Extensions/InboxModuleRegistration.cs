@@ -14,6 +14,7 @@ using Backlog.Modules.Inbox.Features.DismissSuggestion;
 using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.LinkToTask;
+using Backlog.Modules.Inbox.Features.MergeIntoTask;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
@@ -117,6 +118,7 @@ public static class InboxModuleRegistration
         // them relates items to items and takes a linked task's id as given.
         services.AddScoped<IQueryHandler<RelatedQuery, Result<InboxRelationsDto>>, RelatedQueryHandler>();
         services.AddScoped<ICommandHandler<LinkToTaskCommand, Result>, LinkToTaskCommandHandler>();
+        services.AddScoped<ICommandHandler<MergeIntoTaskCommand, Result>, MergeIntoTaskCommandHandler>();
 
         services.AddScoped<IInboxItems, InboxItems>();
 

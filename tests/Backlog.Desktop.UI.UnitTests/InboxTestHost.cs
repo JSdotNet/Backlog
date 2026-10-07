@@ -398,6 +398,29 @@ internal sealed class FakeInboxItems : IInboxItems
         });
     }
 
+    /// <summary>Every merge asked of the port, by item and task.</summary>
+    public List<(Guid Id, Guid TaskId)> Merges { get; } = [];
+
+    /// <summary>The module's merge, restated: only an open item, archived as a
+    /// duplicate of the task. The comment is the adapter's and has its own tests.</summary>
+    public Task<Result> MergeIntoTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default)
+    {
+        Merges.Add((id, taskId));
+
+        if (Find(id) is { } item && (item.Routing is not null || item.Status is not (InboxStatus.Unprocessed or InboxStatus.Deferred)))
+        {
+            return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Only an open item can be merged.")));
+        }
+
+        return Update(id, current => current with
+        {
+            Status = InboxStatus.Archived,
+            DeferredUntil = null,
+            DuplicateOf = taskId,
+            DuplicateOfTask = true,
+        });
+    }
+
     /// <summary>Every id deleted, in order.</summary>
     public List<Guid> Deleted { get; } = [];
 

@@ -89,4 +89,19 @@ public interface IInboxBacklogTarget
         string planMarkdown,
         IReadOnlyCollection<Guid> itemIds,
         IReadOnlyList<string> allowedRepoIds);
+
+    /// <summary>
+    /// "Merge into a task": writes the capture onto the task it repeats as one
+    /// comment — its title, then its link when it has one, then its notes —
+    /// through Tasks' own comment, the one the <c>backlog</c> MCP server's
+    /// <c>comment</c> tool writes through. The task keeps everything it had.
+    /// <para>
+    /// Refused, with nothing written, when the backlog no longer has the task
+    /// (<c>item.not_found</c>) or when a line of the capture would become
+    /// structure on the task — a heading, a checklist item or a fence
+    /// (<c>comment.not_prose</c>): Tasks' comment rule refuses those rather than
+    /// rewrite what it was handed, and the merge keeps it.
+    /// </para>
+    /// </summary>
+    Task<Result> CommentOnTaskAsync(InboxMergeRequestDto request, CancellationToken cancellationToken = default);
 }
