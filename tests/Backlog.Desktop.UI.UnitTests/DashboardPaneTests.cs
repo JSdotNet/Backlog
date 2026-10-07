@@ -328,7 +328,7 @@ public class DashboardPaneTests
     /// </summary>
     [Theory]
     [InlineData("dashboard-productivity", new[] { "dashboard-headline", "dashboard-trend", "dashboard-score", "dashboard-rework" })]
-    [InlineData("dashboard-tasks-section", new[] { "dashboard-tasks-completed", "dashboard-tasks-effort", "dashboard-roadmap" })]
+    [InlineData("dashboard-tasks-section", new[] { "dashboard-roadmap", "dashboard-tasks-completed", "dashboard-tasks-effort" })]
     [InlineData("dashboard-sessions-section", new[] { "dashboard-sessions", "dashboard-hours-worked" })]
     [InlineData("dashboard-devbook-section", new[] { "dashboard-drift" })]
     [InlineData("dashboard-cost", new[] { "dashboard-spend-month", "dashboard-spend-trend", "dashboard-spend-model" })]
@@ -2755,12 +2755,14 @@ public class DashboardPaneTests
 
     /// <summary>
     /// With the roadmap on, the part says the pace it quotes and where that pace came
-    /// from, how much was planned and done, and a row per item with its window, its
-    /// repositories, its progress and its outlook — the outlook a word on its tone, with
-    /// the projection behind it in the badge's title.
+    /// from, how much was planned and done, and draws the items on a timeline of the
+    /// window's weeks: a row per item with its name and its progress and outlook in
+    /// words, and a bar from the week it starts in to the week it ends in, filled by the
+    /// share of its effort that is done — the projection behind the outlook the bar's
+    /// title.
     /// </summary>
     [Fact]
-    public void The_roadmap_part_shows_the_pace_the_items_and_their_outlook()
+    public void The_roadmap_part_shows_the_pace_and_draws_each_item_as_a_bar_on_the_windows_weeks()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<ITaskInsights>(new ReadyPlanTaskInsights(Plan())));
@@ -2783,29 +2785,146 @@ public class DashboardPaneTests
         Assert.Contains("15", done, StringComparison.Ordinal);
         Assert.Contains("of 31 pts", done, StringComparison.Ordinal);
 
-        var table = pane.Find("[data-testid='dashboard-roadmap-table']");
-        Assert.Equal("Roadmap items overlapping the last 12 weeks", table.QuerySelector("table")!.GetAttribute("aria-label"));
+        var timeline = pane.Find("[data-testid='dashboard-roadmap-timeline']");
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-roadmap-table']"));
 
-        var rows = table.QuerySelectorAll("tbody tr");
+        // The window 16 Jul – 08 Oct touches thirteen ISO weeks, W29 to W41: one column
+        // each, the same weeks the task charts bucket into.
+        var weeks = timeline.QuerySelectorAll("[data-testid='dashboard-roadmap-week']").Select(week => week.TextContent).ToList();
+        Assert.Equal(13, weeks.Count);
+        Assert.Equal("W29", weeks[0]);
+        Assert.Equal("W41", weeks[^1]);
+        Assert.Equal("--dashboard-timeline-weeks: 13", timeline.GetAttribute("style"));
+
+        Assert.Equal(
+            "Roadmap items overlapping the last 12 weeks",
+            timeline.QuerySelector("ol")!.GetAttribute("aria-label"));
+
+        var rows = timeline.QuerySelectorAll("[data-testid='dashboard-roadmap-row']");
         Assert.Equal(2, rows.Length);
+        Assert.Empty(timeline.QuerySelectorAll("tr"));
 
-        var onTrack = rows[0].QuerySelectorAll("td").Select(cell => Squashed(cell.TextContent)).ToList();
-        Assert.Equal(
-            ["Sync MVP", "14 Sep – 05 Oct", "backlog", "13 / 21 pts · 4 of 7 entries", "On track"],
-            onTrack);
-        Assert.Contains("badge--area-backlog", rows[0].QuerySelector(".badge--area")!.ClassList);
-        var onTrackBadge = rows[0].QuerySelector(".badge--outlook")!;
-        Assert.Contains("badge--outlook-on-track", onTrackBadge.ClassList);
-        Assert.Equal("Projected to end 02 Oct at 8 pts/week; planned to end 05 Oct.", onTrackBadge.GetAttribute("title"));
+        Assert.Equal("Sync MVP", rows[0].QuerySelector(".dashboard-timeline__name")!.TextContent);
+        Assert.Equal("13 / 21 pts · On track", Squashed(rows[0].QuerySelector(".dashboard-timeline__progress")!.TextContent));
 
-        // A plan-wide item: filed under no repository, and every scope keeps it.
-        var behind = rows[1].QuerySelectorAll("td").Select(cell => Squashed(cell.TextContent)).ToList();
+        // 14 Sep is the Monday of W38, the tenth week; 05 Oct is in W41, the last. The
+        // first grid column is the item's name, so week n sits in column n + 2.
+        var onTrack = rows[0].QuerySelector("[data-testid='dashboard-roadmap-bar']")!;
+        Assert.Equal("grid-column: 11 / 15", onTrack.GetAttribute("style"));
+        Assert.Equal(["dashboard-timeline__bar"], onTrack.ClassList);
+        Assert.Equal("Projected to end 02 Oct at 8 pts/week; planned to end 05 Oct.", onTrack.GetAttribute("title"));
+        Assert.Equal("img", onTrack.GetAttribute("role"));
+        Assert.Equal("Sync MVP, 14 Sep – 05 Oct", onTrack.GetAttribute("aria-label"));
+        Assert.Equal("width: 62%", onTrack.QuerySelector(".dashboard-timeline__fill")!.GetAttribute("style"));
+
+        // A plan-wide item, behind: drawn in the behind tone, a fifth of it filled.
+        Assert.Equal("Roadmap polish", rows[1].QuerySelector(".dashboard-timeline__name")!.TextContent);
+        Assert.Equal("2 / 10 pts · Behind", Squashed(rows[1].QuerySelector(".dashboard-timeline__progress")!.TextContent));
+        var behind = rows[1].QuerySelector("[data-testid='dashboard-roadmap-bar']")!;
+        Assert.Equal("grid-column: 9 / 14", behind.GetAttribute("style"));
+        Assert.Contains("dashboard-timeline__bar--behind", behind.ClassList);
+        Assert.Equal("Projected to end 12 Oct at 4 pts/week; planned to end 30 Sep.", behind.GetAttribute("title"));
+        Assert.Equal("width: 20%", behind.QuerySelector(".dashboard-timeline__fill")!.GetAttribute("style"));
+    }
+
+    /// <summary>
+    /// A bar is clipped to the window: an item that started before the first week the
+    /// window touches begins in the first column and says it was cut off there. A
+    /// finished item is drawn whole in the success tone, and an overdue one in the
+    /// behind tone, since both behind and overdue are work landing later than planned.
+    /// </summary>
+    [Fact]
+    public void A_bar_is_clipped_to_the_window_and_wears_the_tone_of_its_outlook()
+    {
+        var plan = new PlanInsight(
+            RoadmapEnabled: true,
+            new PlanPace(12m, PlanPaceBasis.LastFourWeeks),
+            [
+                new PlanItemInsight(
+                    PlanItem("Started long ago", new DateOnly(2026, 6, 1), new DateOnly(2026, 7, 24), total: 8, done: 8, finished: true),
+                    PlanOutlook.Finished,
+                    new DateOnly(2026, 7, 22)),
+                new PlanItemInsight(
+                    PlanItem("Runs past the window", new DateOnly(2026, 9, 28), new DateOnly(2026, 10, 30), total: 10, done: 3),
+                    PlanOutlook.Overdue,
+                    null)
+            ])
+        { WindowFrom = new DateOnly(2026, 7, 16), WindowTo = new DateOnly(2026, 10, 8) };
+        using var context = Context(configure: services =>
+            services.AddSingleton<ITaskInsights>(new ReadyPlanTaskInsights(plan)));
+
+        var pane = context.Render<DashboardPane>();
+
+        var bars = pane.FindAll("[data-testid='dashboard-roadmap-bar']");
+        Assert.Equal(2, bars.Count);
+
+        Assert.Equal("grid-column: 2 / 4", bars[0].GetAttribute("style"));
+        Assert.Contains("dashboard-timeline__bar--finished", bars[0].ClassList);
+        Assert.Contains("dashboard-timeline__bar--clipped-start", bars[0].ClassList);
+        Assert.DoesNotContain("dashboard-timeline__bar--clipped-end", bars[0].ClassList);
+        Assert.Equal("width: 100%", bars[0].QuerySelector(".dashboard-timeline__fill")!.GetAttribute("style"));
+
+        // 28 Sep is W40, the twelfth week; 30 Oct is past the last week, so the bar runs
+        // to the end of the grid and is cut off there.
+        Assert.Equal("grid-column: 13 / 15", bars[1].GetAttribute("style"));
+        Assert.Contains("dashboard-timeline__bar--behind", bars[1].ClassList);
+        Assert.Contains("dashboard-timeline__bar--clipped-end", bars[1].ClassList);
+        Assert.Equal("width: 30%", bars[1].QuerySelector(".dashboard-timeline__fill")!.GetAttribute("style"));
+    }
+
+    /// <summary>
+    /// The axis names ISO weeks, so a window that crosses the turn of the year runs
+    /// W52, W53, W01 — 2026 has 53 of them — and a bar across the turn spans them.
+    /// </summary>
+    [Fact]
+    public void The_timeline_axis_crosses_the_turn_of_the_year_in_iso_weeks()
+    {
+        var plan = new PlanInsight(
+            RoadmapEnabled: true,
+            new PlanPace(12m, PlanPaceBasis.LastFourWeeks),
+            [
+                new PlanItemInsight(
+                    PlanItem("Over the holidays", new DateOnly(2026, 12, 23), new DateOnly(2027, 1, 6), total: 6, done: 0),
+                    PlanOutlook.OnTrack,
+                    new DateOnly(2027, 1, 5))
+            ])
+        { WindowFrom = new DateOnly(2026, 12, 10), WindowTo = new DateOnly(2027, 1, 7) };
+        using var context = Context(configure: services =>
+            services.AddSingleton<ITaskInsights>(new ReadyPlanTaskInsights(plan)));
+
+        var pane = context.Render<DashboardPane>();
+
         Assert.Equal(
-            ["Roadmap polish", "01 Sep – 30 Sep", "—", "2 / 10 pts · 1 of 5 entries", "Behind"],
-            behind);
-        var behindBadge = rows[1].QuerySelector(".badge--outlook")!;
-        Assert.Contains("badge--outlook-behind", behindBadge.ClassList);
-        Assert.Equal("Projected to end 12 Oct at 4 pts/week; planned to end 30 Sep.", behindBadge.GetAttribute("title"));
+            ["W50", "W51", "W52", "W53", "W01"],
+            pane.FindAll("[data-testid='dashboard-roadmap-week']").Select(week => week.TextContent));
+        Assert.Equal("grid-column: 4 / 7", pane.Find("[data-testid='dashboard-roadmap-bar']").GetAttribute("style"));
+    }
+
+    /// <summary>
+    /// The Tasks tab leads with the roadmap — its tiles above its timeline — and lays
+    /// the two weekly task charts side by side under it.
+    /// </summary>
+    [Fact]
+    public void The_tasks_tab_puts_the_roadmap_first_and_the_two_task_charts_side_by_side_under_it()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ITaskInsights>(new ReadyPlanTaskInsights(Plan())));
+
+        var pane = context.Render<DashboardPane>();
+        var tab = pane.Find("[data-testid='dashboard-tasks-section']");
+
+        var children = tab.Children.ToList();
+        Assert.Equal(2, children.Count);
+        Assert.Equal("dashboard-roadmap", children[0].GetAttribute("data-testid"));
+        Assert.Contains("dashboard-section__split", children[1].ClassList);
+        Assert.Equal(
+            ["dashboard-tasks-completed", "dashboard-tasks-effort"],
+            children[1].Children.Select(part => part.GetAttribute("data-testid")));
+
+        var tiles = children[0].QuerySelector("[data-testid='dashboard-roadmap-tiles']")!;
+        var timeline = children[0].QuerySelector("[data-testid='dashboard-roadmap-timeline']")!;
+        Assert.Same(tiles.NextElementSibling, timeline);
+        Assert.NotNull(timeline.QuerySelector(".dashboard-timeline__scroll > .dashboard-timeline__grid"));
     }
 
     /// <summary>
@@ -2844,8 +2963,8 @@ public class DashboardPaneTests
 
         var pane = context.Render<DashboardPane>();
 
-        var badge = pane.Find("[data-testid='dashboard-roadmap-table'] .badge--outlook");
-        Assert.Equal("Projected to end 23 Oct at app 8, site 4 pts/week; planned to end 16 Oct.", badge.GetAttribute("title"));
+        var bar = pane.Find("[data-testid='dashboard-roadmap-bar']");
+        Assert.Equal("Projected to end 23 Oct at app 8, site 4 pts/week; planned to end 16 Oct.", bar.GetAttribute("title"));
     }
 
     /// <summary>
@@ -2874,7 +2993,7 @@ public class DashboardPaneTests
 
     /// <summary>Two items against the roadmap's pace: one on track and filed under a
     /// repository, one behind and plan-wide — with an unestimated entry, so the planned
-    /// effort has to say it is a floor.</summary>
+    /// effort has to say it is a floor — over a twelve-week window.</summary>
     private static PlanInsight Plan() =>
         new(
             RoadmapEnabled: true,
@@ -2916,10 +3035,34 @@ public class DashboardPaneTests
                         PlacedByEffort: false),
                     PlanOutlook.Behind,
                     new DateOnly(2026, 10, 12))
-            ]);
+            ])
+        {
+            // Twelve weeks back from 08 Oct, as the insight reads it.
+            WindowFrom = new DateOnly(2026, 7, 16),
+            WindowTo = new DateOnly(2026, 10, 8)
+        };
+
+    /// <summary>An item in one repository at one pace, for the tests that only care
+    /// where its bar sits and what tone it wears.</summary>
+    private static PlanItemProgress PlanItem(string title, DateOnly start, DateOnly end, int total, int done, bool finished = false) =>
+        new(
+            Guid.NewGuid(),
+            title,
+            start,
+            end,
+            ["backlog"],
+            GatheredCount: 4,
+            DoneCount: finished ? 4 : 1,
+            TotalEffort: total,
+            DoneEffort: done,
+            Unestimated: 0,
+            IsFinished: finished,
+            LastCompletedOn: finished ? end : null,
+            Parts: [new PlanPartProgress("backlog", total - done, 8m, [])],
+            PlacedByEffort: false);
 
     /// <summary>A roadmap that is on and answers, so the part's own rendering — tiles,
-    /// table and outlook — can be asserted rather than only its absence.</summary>
+    /// timeline and outlook — can be asserted rather than only its absence.</summary>
     private sealed class ReadyPlanTaskInsights(PlanInsight plan) : ITaskInsights
     {
         public Task<InsightResult<TaskThroughputInsight>> GetThroughputAsync(

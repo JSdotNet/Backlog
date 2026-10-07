@@ -158,14 +158,16 @@
             @* The backlog's side of the same question the productivity tab asks of
                GitHub, and the roadmap's plan held against it. The repository chips
                narrow all three; the machine filter does not, because neither a task
-               nor a plan records a machine — every part says so. *@
+               nor a plan records a machine — every part says so. The roadmap leads —
+               its tiles, then its timeline of the window's weeks — and the two
+               weekly task charts sit side by side under it, on the same weeks. *@
             <TabPanel Id="dashboard-tasks" Title="Tasks" Eager="true"
                       BaseClass="dashboard-tab" TabTestId="dashboard-tab-tasks" TestId="dashboard-tasks-section">
+                <RoadmapPart Scope="_scope" />
                 <div class="dashboard-section__split">
                     <CompletedTasksPart Scope="_scope" />
                     <TaskEffortPart Scope="_scope" />
                 </div>
-                <RoadmapPart Scope="_scope" />
             </TabPanel>
 
             <TabPanel Id="dashboard-sessions" Title="Sessions" Eager="true"
