@@ -5802,6 +5802,46 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The Productivity tab's middle row: the volume chart takes the room, the scores
+   keep their own width beside it, and the two stack where there is no room for both. */
+.dashboard-productivity__split {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-productivity__split > .dashboard-part--volume {
+    flex: 999 1 36rem;
+    min-width: 0;
+}
+
+.dashboard-productivity__split > .dashboard-part--score {
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+
+/* Rework after review: one grid of churn and sync tiles, the churn by repository
+   ranked beside it, stacking where there is no room for both. */
+.dashboard-rework {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-rework__tiles {
+    flex: 2 1 30rem;
+    min-width: 0;
+}
+
+.dashboard-rework__by-repository {
+    flex: 1 1 18rem;
+    min-width: 0;
+}
+
 .dashboard-part {
     display: grid;
     grid-template-rows: auto 1fr;
@@ -5827,6 +5867,22 @@ h1, h2, h3 {
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* A control on the heading's line, pushed against refresh. A header that carries
+   one wraps, so at phone width the control drops under the title rather than
+   pushing the card wider than the pane. */
+.dashboard-part__header:has(.dashboard-part__actions) {
+    flex-wrap: wrap;
+}
+
+.dashboard-part__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-left: auto;
     min-width: 0;
 }
 

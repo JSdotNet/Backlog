@@ -262,7 +262,22 @@ public sealed class ProductivityInsights(
         {
             Complete = scoped.Report.Complete,
             MedianCommitsPerPullRequest = MedianCommits(pullRequests),
-            PullRequestsWithCommitCount = pullRequests.Count(pr => pr.SizeKnown)
+            PullRequestsWithCommitCount = pullRequests.Count(pr => pr.SizeKnown),
+            CommitsPerWeek = WeekBuckets.Reduce(
+                scoped.Buckets,
+                pullRequests,
+                pr => pr.MergedAt,
+                bucket => bucket.Where(pr => pr.SizeKnown).Sum(pr => pr.Commits)),
+            ReviewTurnaroundPerWeek = WeekBuckets.Reduce(
+                scoped.Buckets,
+                pullRequests,
+                pr => pr.MergedAt,
+                bucket => MedianTurnaround(bucket) is { } median ? (decimal)median.TotalHours : 0m),
+            CommitsPerPullRequestPerWeek = WeekBuckets.Reduce(
+                scoped.Buckets,
+                pullRequests,
+                pr => pr.MergedAt,
+                bucket => MedianCommits(bucket) ?? 0m)
         };
     }
 

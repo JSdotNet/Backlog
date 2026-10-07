@@ -147,12 +147,15 @@
 
             <TabPanel Id="dashboard-productivity" Title="Productivity" Eager="true"
                       BaseClass="dashboard-tab" TabTestId="dashboard-tab-productivity" TestId="dashboard-productivity">
+                @* The throughput row, then the volume chart with the scores beside
+                   it — the chart taking the room, the scores their own width — then
+                   rework across the whole tab. *@
                 <HeadlinePart Scope="_scope" />
-                <TrendPart Scope="_scope" />
-                <div class="dashboard-section__split">
+                <div class="dashboard-productivity__split">
+                    <TrendPart Scope="_scope" />
                     <ScorePart Scope="_scope" />
-                    <ReworkPart Scope="_scope" />
                 </div>
+                <ReworkPart Scope="_scope" />
             </TabPanel>
 
             @* The backlog's side of the same question the productivity tab asks of
