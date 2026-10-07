@@ -169,6 +169,67 @@ public sealed class TaskEntryRewriteTests
             text);
     }
 
+    private static TaskPayload Slotted() => Trip() with { AgendaAt = "14:30", AgendaMinutes = 45 };
+
+    [Fact]
+    public void The_entry_text_carries_the_agenda_time_straight_after_the_my_day_date()
+    {
+        var text = TaskEntryRewrite.ToEntryText(Slotted());
+
+        Assert.Equal(
+            "# Plan the trip\n`!ready` `myday:2026-10-07` `at:14:30` `for:45m`\n\nBefore Friday.\n\n## Pack\n\n## Book the train\n",
+            text);
+    }
+
+    [Fact]
+    public void The_entry_text_leaves_the_agenda_time_off_a_task_with_no_my_day_date()
+    {
+        var text = TaskEntryRewrite.ToEntryText(Slotted() with { InMyDayOn = null });
+
+        Assert.DoesNotContain("at:", text);
+        Assert.DoesNotContain("for:", text);
+    }
+
+    [Fact]
+    public void Move_to_tomorrow_drops_the_agenda_time_from_the_text_and_the_document()
+    {
+        var task = Slotted();
+
+        var edited = TaskEntryRewrite.MoveToTomorrow(task, Today);
+
+        Assert.NotNull(edited);
+        Assert.Equal(Today.AddDays(1), edited.InMyDayOn);
+        Assert.Null(edited.AgendaAt);
+        Assert.Null(edited.AgendaMinutes);
+        Assert.DoesNotContain("at:", TaskEntryRewrite.ToEntryText(edited));
+        Assert.Equal(task with { InMyDayOn = Today.AddDays(1), AgendaAt = null, AgendaMinutes = null }, edited);
+    }
+
+    [Fact]
+    public void Move_to_tomorrow_drops_an_agenda_time_left_on_a_task_with_no_my_day_date()
+    {
+        var edited = TaskEntryRewrite.MoveToTomorrow(Slotted() with { InMyDayOn = null }, Today);
+
+        Assert.NotNull(edited);
+        Assert.Null(edited.AgendaAt);
+        Assert.Null(edited.AgendaMinutes);
+    }
+
+    [Fact]
+    public void Done_undone_and_a_step_tick_keep_the_agenda_time()
+    {
+        var done = TaskEntryRewrite.MarkDone(Slotted(), Today)!;
+        var undone = TaskEntryRewrite.MarkUndone(done)!;
+        var stepped = TaskEntryRewrite.SetStepDone(Slotted(), Book, done: true)!;
+
+        Assert.All([done, undone, stepped], edited =>
+        {
+            Assert.Equal("14:30", edited.AgendaAt);
+            Assert.Equal(45, edited.AgendaMinutes);
+            Assert.Contains("`at:14:30` `for:45m`", TaskEntryRewrite.ToEntryText(edited));
+        });
+    }
+
     [Fact]
     public void A_status_this_build_has_no_name_for_is_kept_by_an_edit_that_does_not_set_one()
     {

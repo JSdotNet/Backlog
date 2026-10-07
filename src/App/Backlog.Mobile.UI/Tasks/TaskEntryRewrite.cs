@@ -94,9 +94,12 @@ public static class TaskEntryRewrite
     /// Picks the task for the day after <paramref name="today"/>, taking it out of
     /// today's My Day.
     /// <para>
-    /// An agenda time is dropped by the move on the domain's rule
-    /// (<c>.devbook/domain/tasks/domain.md#agenda-time</c>); this build's document
-    /// carries none yet, so there is nothing here to drop.
+    /// The move drops the task's agenda time, on the domain's rule
+    /// (<c>.devbook/domain/tasks/domain.md#agenda-time</c>): the rewrite takes
+    /// <c>at:</c> and <c>for:</c> off the text with the old date, and the
+    /// document's two fields are cleared beside it. Both are needed because a
+    /// synced task is rebuilt from the incoming document, so the rule never
+    /// fires on the replica or the desktop — the document has to say so itself.
     /// </para>
     /// </summary>
     public static TaskPayload? MoveToTomorrow(TaskPayload task, DateOnly today)
@@ -104,13 +107,15 @@ public static class TaskEntryRewrite
         ArgumentNullException.ThrowIfNull(task);
 
         var raw = ToEntryText(task);
-        return Apply(task, raw, EntryTextParser.WithMyDay(raw, today.AddDays(1)));
+        return Apply(task, raw, EntryTextParser.WithMyDay(raw, today.AddDays(1))) is { } moved
+            ? moved with { AgendaAt = null, AgendaMinutes = null }
+            : null;
     }
 
     /// <summary>
     /// The entry text the edits rewrite: the title, a metadata line carrying the
-    /// tokens the edits read or write — status, the My Day pick, the tick — and
-    /// the body. Not the whole canonical line: the fields it leaves off are
+    /// tokens the edits read or write — status, the My Day pick and its agenda
+    /// time, the tick — and the body. Not the whole canonical line: the fields it leaves off are
     /// never read back, so they cannot be lost.
     /// </summary>
     public static string ToEntryText(TaskPayload task)
@@ -122,7 +127,18 @@ public static class TaskEntryRewrite
         // document's own token, and only a done edit writes one.
         var tokens = new List<string>();
         if (TryStatus(task.Status) is { } status) tokens.Add($"`!{EntryTextParser.StatusToken(status)}`");
-        if (task.InMyDayOn is { } inMyDayOn) tokens.Add($"`myday:{EntryTextParser.DateToken(inMyDayOn)}`");
+        if (task.InMyDayOn is { } inMyDayOn)
+        {
+            tokens.Add($"`myday:{EntryTextParser.DateToken(inMyDayOn)}`");
+
+            // Only beside the date, as the desktop writes it: an agenda time has
+            // no day of its own.
+            if (AgendaTime.FromWire(task.AgendaAt, task.AgendaMinutes) is { } agenda)
+            {
+                tokens.AddRange(EntryTextParser.AgendaTokens(agenda).Select(token => $"`{token}`"));
+            }
+        }
+
         if (task.CompletedOn is { } completedOn) tokens.Add($"`completed:{EntryTextParser.DateToken(completedOn)}`");
 
         // A line of one token at least, or the parse would read the body's first
@@ -141,7 +157,9 @@ public static class TaskEntryRewrite
 
     /// <summary>The fields an edit can move, read back off the rewritten text.
     /// The body is taken only when the rewrite changed it, so a metadata-only
-    /// edit leaves <see cref="TaskPayload.ContentMd"/> byte for byte.</summary>
+    /// edit leaves <see cref="TaskPayload.ContentMd"/> byte for byte. The agenda
+    /// time's two fields are never read back: only a move changes it, and
+    /// <see cref="MoveToTomorrow"/> clears them itself.</summary>
     private static TaskPayload? Apply(TaskPayload task, string raw, string rewritten)
     {
         if (string.Equals(raw, rewritten, StringComparison.Ordinal)) return null;

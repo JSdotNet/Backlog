@@ -48,7 +48,7 @@ public sealed class TaskEditsTests : IDisposable
 
     /// <summary>A task the desktop wrote an hour ago, in today's My Day, with
     /// one step — pulled into the view, the service then gone quiet.</summary>
-    private async Task<TaskChange> PulledTaskAsync()
+    private async Task<TaskChange> PulledTaskAsync(string? agendaAt = null, int? agendaMinutes = null)
     {
         var change = TestTasks.Task(
             "Plan the trip",
@@ -56,6 +56,7 @@ public sealed class TaskEditsTests : IDisposable
             inMyDayOn: Today,
             contentMd: "## Pack",
             subItems: [new SubItemPayload(Step, "Pack", "pending", null, 0)]);
+        change = change with { Task = change.Task with { AgendaAt = agendaAt, AgendaMinutes = agendaMinutes } };
 
         _service.Append(change);
         await _view.PullAsync(Cancellation);
@@ -126,6 +127,51 @@ public sealed class TaskEditsTests : IDisposable
         Assert.Equal(task.Id, Assert.Single(_view.MyDay(Today.AddDays(1))).Id);
         Assert.Equal(Today.AddDays(1), Assert.Single(_store.ReadRows(), kept => kept.Id == task.Id).Task.InMyDayOn);
         Assert.Equal(1, changed);
+    }
+
+    [Fact]
+    public async Task Move_to_tomorrow_queues_the_task_with_no_agenda_time_and_clears_it_on_the_row()
+    {
+        // A synced task is rebuilt from the document, so the domain's rule that
+        // a new My Day date drops the agenda time never fires on the replica or
+        // the desktop: the phone's document has to say so itself.
+        var task = await PulledTaskAsync(agendaAt: "14:30", agendaMinutes: 45);
+
+        var row = await _edits.MoveToTomorrowAsync(task.Id, Cancellation);
+        await _outbox.WhenIdleAsync();
+
+        var queued = TaskOutboxKind.Read(Assert.Single(_outbox.Entries));
+        Assert.Equal(Today.AddDays(1), queued.Task.InMyDayOn);
+        Assert.Null(queued.Task.AgendaAt);
+        Assert.Null(queued.Task.AgendaMinutes);
+
+        Assert.NotNull(row);
+        Assert.Null(row.Task.AgendaAt);
+        Assert.Null(row.Task.AgendaMinutes);
+        Assert.Null(row.AgendaTime);
+        Assert.Null(Assert.Single(_store.ReadRows(), kept => kept.Id == task.Id).Task.AgendaAt);
+    }
+
+    [Fact]
+    public async Task Done_and_a_step_tick_keep_the_agenda_time_in_the_queue_and_on_the_row()
+    {
+        var task = await PulledTaskAsync(agendaAt: "14:30", agendaMinutes: 45);
+
+        await _edits.SetStepDoneAsync(task.Id, Step, done: true, Cancellation);
+        var row = await _edits.MarkDoneAsync(task.Id, Cancellation);
+        await _outbox.WhenIdleAsync();
+
+        Assert.Equal(2, _outbox.Entries.Count);
+        Assert.All(_outbox.Entries, entry =>
+        {
+            var queued = TaskOutboxKind.Read(entry);
+            Assert.Equal("14:30", queued.Task.AgendaAt);
+            Assert.Equal(45, queued.Task.AgendaMinutes);
+        });
+
+        Assert.NotNull(row);
+        Assert.Equal("14:30", row.Task.AgendaAt);
+        Assert.Equal(45, row.Task.AgendaMinutes);
     }
 
     [Fact]
