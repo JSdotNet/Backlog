@@ -31,6 +31,7 @@ note the files.
 ```meta
 type: sub-feature
 status: draft
+related: [.devbook/domain/capture/requirements.md#one-tap-entry]
 ```
 
 Rapid title + body capture with optional tags and source context.
