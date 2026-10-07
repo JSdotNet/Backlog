@@ -179,6 +179,39 @@ public sealed record GitHubOpenPullRequest(
     /// or the token was refused them.</summary>
     public GitHubCheckCounts? CheckCounts { get; init; }
 
+    /// <summary>The head commit's checks one by one — every check run and commit
+    /// status, in the order GitHub lists them, up to
+    /// <see cref="GitHubClient.HeadCheckLimit"/>. Empty where it has none or the token
+    /// was refused them. <see cref="CheckCounts"/> still counts every check, so a commit
+    /// with more than the limit says how many are not listed here.</summary>
+    public IReadOnlyList<GitHubCheck> HeadChecks { get; init; } = [];
+
+    /// <summary>How many commits the base branch has that the head branch does not;
+    /// null where GitHub could not compare the two — a pull request from a fork, a
+    /// branch that is gone, or a token refused the comparison. Zero is up to date.
+    /// Read for every open pull request, not only one GitHub calls
+    /// <see cref="IsBehind"/>: that state is set only where the repository requires an
+    /// up-to-date branch.</summary>
+    public int? BehindBy { get; init; }
+
+    /// <summary>The head branch lives in another repository — a fork. Its distance from
+    /// the base is not read, because the base repository cannot name the fork's branch.</summary>
+    public bool IsCrossRepository { get; init; }
+
+    /// <summary>The GitHub Actions workflow runs behind the head commit's failed checks,
+    /// each once — what Re-run failed asks GitHub to run again.</summary>
+    public IReadOnlyList<long> FailedWorkflowRunIds =>
+        [.. HeadChecks
+            .Where(check => check.State == GitHubCheckState.Failing && check.WorkflowRunId is not null)
+            .Select(check => check.WorkflowRunId!.Value)
+            .Distinct()];
+
+    /// <summary>Re-run failed may be offered: the pull request is still open and at
+    /// least one of its failed checks is a GitHub Actions run — the only kind of check
+    /// this product can ask GitHub to run again.</summary>
+    public bool CanRerunFailed => IsOpen && HeadChecks.Any(check =>
+        check.State == GitHubCheckState.Failing && check.IsGitHubActions);
+
     /// <summary>What the reviewers decided.</summary>
     public GitHubReviewSummary Reviews { get; init; } = GitHubReviewSummary.None;
 
@@ -262,6 +295,35 @@ public sealed record GitHubIssueReference(string RepositoryFullName, int Number)
 public sealed record GitHubCheckCounts(int Passed, int Failed, int Pending)
 {
     public int Total => Passed + Failed + Pending;
+}
+
+/// <summary>
+/// One check on a head commit: a check run, or a commit status another service set.
+/// <para>
+/// The state is read the way <see cref="GitHubCheckCounts"/> counts: a run that has
+/// not completed is <see cref="GitHubCheckState.Pending"/>; one that succeeded, was
+/// neutral or was skipped is <see cref="GitHubCheckState.Passing"/>; one that failed,
+/// errored, timed out, was cancelled, wants action or never started is
+/// <see cref="GitHubCheckState.Failing"/>. Never <see cref="GitHubCheckState.None"/>.
+/// </para>
+/// </summary>
+/// <param name="Name">The check run's name, or the commit status's context.</param>
+/// <param name="Duration">From start to completion, for a check run that has completed;
+/// null for one still running and for a commit status, which records only when it was
+/// set.</param>
+/// <param name="Url">Where the check's own page is — the run's details, or the status's
+/// target — or null where it names none.</param>
+/// <param name="WorkflowRunId">The GitHub Actions workflow run the check run belongs to;
+/// null for a check run another app made and for every commit status.</param>
+public sealed record GitHubCheck(
+    string Name,
+    GitHubCheckState State,
+    TimeSpan? Duration,
+    string? Url,
+    long? WorkflowRunId)
+{
+    /// <summary>A GitHub Actions run, which GitHub can be asked to run again.</summary>
+    public bool IsGitHubActions => WorkflowRunId is not null;
 }
 
 /// <summary>GitHub's <c>reviewDecision</c>: what the reviewers' latest reviews add up

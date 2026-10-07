@@ -1041,19 +1041,33 @@ conflicted files, because GitHub reports no such count, and a number this produc
 up would be wrong in a way nobody could check. The failures come first so the reader sees
 the reason before the long list of passing checks.
 
+The list already reads what the panel needs. Each check on the head commit, a check run or
+a commit status, comes with its name, whether it passed, failed or is still running, and,
+for a check run that finished, how long it took; the first fifty are listed and the counts
+cover the rest. Each open pull request from the same repository also carries how many
+commits its base has that its branch does not. GitHub cannot compare a fork's branch from
+the base repository, so a pull request from a fork has no such count.
+
 ### Re-run failed
 
 ```meta
 type: sub-feature
-status: proposed
 ```
 
 Re-run failed is the one new act. It is offered when a failed check is a GitHub Actions
-run, and it starts the failed jobs of that run again. It covers the most common way a
-check goes red without anyone's code being wrong: a runner that flaked.
+run, and it starts the failed jobs of that run again, and the jobs that depend on them. It
+covers the most common way a check goes red without anyone's code being wrong: a runner
+that flaked.
+
+Where several checks failed, each workflow run behind them is asked once, however many of
+its jobs failed. Every run is asked even when GitHub refuses one, because the runs are
+independent; the refusal then says how many of the others did start again. Afterwards the
+pane reads that one repository again, as it does after every other act, so the row shows
+the checks running instead of failed.
 
 It is offered only for GitHub Actions because that is the only kind of check this product
-can ask GitHub to run again. A check from another service has to be re-run there.
+can ask GitHub to run again. A check from another service has to be re-run there. Until
+the detail panel lands, the act sits beside the row's other acts.
 
 There is no act that hands a pull request off to an agent. Starting a session is something
 a person does in their agent, with the context they choose. A button here would start work

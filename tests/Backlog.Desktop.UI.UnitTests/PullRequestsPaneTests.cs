@@ -246,6 +246,95 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
+    /// <summary>Re-run failed only where a failed check is a GitHub Actions run: a
+    /// failed check another service set, or an Actions run that passed, offers
+    /// nothing.</summary>
+    [Theory]
+    [InlineData(GitHubCheckState.Failing, 41L, true)]
+    [InlineData(GitHubCheckState.Failing, null, false)]
+    [InlineData(GitHubCheckState.Passing, 41L, false)]
+    [InlineData(GitHubCheckState.Pending, 41L, false)]
+    public void Re_run_failed_is_offered_only_for_a_failed_github_actions_run(GitHubCheckState state, long? run, bool offered)
+    {
+        var pull = Pull("JSdotNet/Backlog", 1) with { HeadChecks = [new GitHubCheck("build", state, null, null, run)] };
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", pull));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Single(RowKeys(pane));
+            Assert.Equal(offered, pane.FindAll("[data-testid='pull-request-rerun-failed']").Count == 1);
+        });
+    }
+
+    [Fact]
+    public void Re_run_failed_reruns_each_failed_actions_run_and_reads_that_repository_again()
+    {
+        var failing = Pull("JSdotNet/Backlog", 1) with
+        {
+            Checks = GitHubCheckState.Failing,
+            HeadChecks =
+            [
+                new GitHubCheck("build", GitHubCheckState.Failing, TimeSpan.FromMinutes(2), null, 41),
+                new GitHubCheck("lint", GitHubCheckState.Failing, TimeSpan.FromMinutes(1), null, 41),
+                new GitHubCheck("e2e", GitHubCheckState.Failing, TimeSpan.FromMinutes(8), null, 42),
+                new GitHubCheck("ci/external", GitHubCheckState.Failing, null, null, null)
+            ]
+        };
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", failing)
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='pull-request-rerun-failed']")));
+
+        // The re-read finds the runs going again.
+        client.Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1) with
+        {
+            Checks = GitHubCheckState.Pending,
+            HeadChecks = [new GitHubCheck("build", GitHubCheckState.Pending, null, null, 41)]
+        });
+
+        pane.Find("[data-testid='pull-request-rerun-failed']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["rerun JSdotNet/Backlog run 41", "rerun JSdotNet/Backlog run 42"], client.Acts);
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-rerun-failed']"));
+
+            // One more read, of the repository acted on and no other.
+            Assert.Equal(["JSdotNet/Backlog"], client.ListedAfterFirstRead);
+            Assert.Equal(2, RowKeys(pane).Count);
+
+            Assert.Contains(Toasts(context), toast => toast.Message == "Asked GitHub to re-run the failed checks of JSdotNet/Backlog#1.");
+        });
+    }
+
+    [Fact]
+    public void A_refused_re_run_is_said_and_the_repository_is_still_read_again()
+    {
+        var failing = Pull("JSdotNet/Backlog", 1) with
+        {
+            HeadChecks = [new GitHubCheck("build", GitHubCheckState.Failing, null, null, 41)]
+        };
+        var client = new StubClient().Lists("JSdotNet/Backlog", failing).RefusesActs("Something new GitHub started saying");
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='pull-request-rerun-failed']")));
+
+        pane.Find("[data-testid='pull-request-rerun-failed']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog"], client.ListedAfterFirstRead);
+            Assert.Contains(Toasts(context), toast =>
+                toast.Message == "Couldn't re-run the failed checks of JSdotNet/Backlog#1: Something new GitHub started saying");
+        });
+    }
+
     [Fact]
     public void Ready_for_review_takes_the_draft_out_of_draft()
     {
@@ -1611,6 +1700,9 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         public Task MarkReadyForReviewAsync(GitHubRepositoryRef repository, string pullRequestId, CancellationToken cancellationToken = default) =>
             Act($"ready {pullRequestId}");
+
+        public Task RerunFailedJobsAsync(GitHubRepositoryRef repository, long workflowRunId, CancellationToken cancellationToken = default) =>
+            Act($"rerun {repository.FullName} run {workflowRunId}");
 
         public Task MergePullRequestAsync(GitHubRepositoryRef repository, string pullRequestId, GitHubMergeMethod method, CancellationToken cancellationToken = default) =>
             Act($"merge {pullRequestId} {method}");
