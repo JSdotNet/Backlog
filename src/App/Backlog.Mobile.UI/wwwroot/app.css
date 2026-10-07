@@ -158,6 +158,27 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .today__capture:hover { background: var(--color-primary-light); color: var(--color-text-inverse); }
 .today__capture:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 3px; }
 
+/*
+  A task's own page. The library draws the detail; this file only keeps its
+  pinned footer clear of the tab bar and sets the line that says an edit is
+  still waiting to be sent. Colours are the library's tokens.
+*/
+.task-page { padding-top: .25rem; }
+/* Pinned above the tab bar, which is pinned to the bottom itself. */
+.task-page .task-detail__footer { bottom: calc(3rem + 1px + env(safe-area-inset-bottom)); }
+.task-page__waiting {
+    margin: .5rem 0 0;
+    color: var(--color-text-secondary);
+    font-size: .85rem;
+}
+.task-page__back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+}
+
 .error { color: var(--color-error-text); }
 
 /*

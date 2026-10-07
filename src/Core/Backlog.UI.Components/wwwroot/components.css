@@ -15962,6 +15962,228 @@ select.field__input {
     min-height: 44px;
 }
 
+/* --- Day: one task's detail --------------------------------------------- */
+/*
+  A task opened from the phone's day. One column, the footer pinned to the
+  bottom of whatever scrolls so Move to tomorrow and Mark done are always where
+  a thumb is. Every target keeps the 44px touch minimum of
+  accessibility.md#target-sizes-and-text. The time chip is the one chip in the
+  accent, because it is the one fact about today; the area stays a quiet
+  outline, as an area does everywhere in this library, and a ticked step is
+  struck through as well as checked (color-scheme.md: a colour is never the
+  sole carrier).
+*/
+
+.task-detail {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.task-detail__back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    justify-self: start;
+    min-height: 44px;
+    padding: 0 var(--spacing-sm) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+    text-decoration: none;
+}
+
+.task-detail__back svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.task-detail__back:hover {
+    color: var(--color-text-primary);
+}
+
+.task-detail__back:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-md);
+}
+
+.task-detail__head {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.task-detail__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.task-detail__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.task-detail__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-height: 1.875rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.task-detail__chip-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--border-radius-full);
+    background: currentColor;
+}
+
+.task-detail__chip--time {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-detail__focus {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    min-height: 3.25rem;
+    border-radius: var(--border-radius-lg);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+}
+
+.task-detail__focus svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+}
+
+.task-detail__section {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.task-detail__section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin: 0 var(--spacing-2xs);
+}
+
+.task-detail__section-title {
+    margin: 0 var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-size: .8125rem;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.task-detail__section-head .task-detail__section-title {
+    margin: 0;
+}
+
+.task-detail__count {
+    color: var(--color-text-secondary);
+    font-size: .8125rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.task-detail__steps {
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    list-style: none;
+}
+
+.task-detail__step + .task-detail__step {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+/* The whole line is the label, so the whole line is the target. */
+.task-detail__step-box {
+    display: flex;
+    width: 100%;
+    min-height: 3rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    box-sizing: border-box;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+}
+
+.task-detail__step-box .checkbox__input {
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: 0;
+    accent-color: var(--color-success-text);
+}
+
+.task-detail__step-box .checkbox__label {
+    overflow-wrap: anywhere;
+}
+
+.task-detail__step--done .checkbox__label {
+    color: var(--color-text-secondary);
+    text-decoration: line-through;
+}
+
+.task-detail__body {
+    padding-bottom: var(--spacing-sm);
+}
+
+.task-detail__footer {
+    position: sticky;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
+    border-top: var(--border-width) solid var(--color-border);
+    background: var(--color-background);
+    /* Full bleed: the bar's ground reaches past the host's side gutters, so
+       nothing scrolling under it shows at the edges. */
+    box-shadow: 0 0 0 100vmax var(--color-background);
+    clip-path: inset(0 -100vmax);
+}
+
+.task-detail__action {
+    min-height: 3rem;
+    border-radius: var(--border-radius-md);
+}
+
+.task-detail__action--done {
+    border: 0;
+    background: color-mix(in srgb, var(--color-success-text) 20%, var(--color-background));
+    color: var(--color-success-text);
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-detail__action--done:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success-text) 30%, var(--color-background));
+}
+
 /* --- Attachment strip ---------------------------------------------------- */
 /*
   The files on something being written, one tile per file. A tile is a full row

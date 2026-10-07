@@ -338,6 +338,16 @@ open timed tasks in time order, each showing its block as `10:45–11:30`.
 Day keeps them. **Done today** holds the tasks ticked off today. Every row
 ticks its task off or back on, and opens the task's own page.
 
+The task's own page has a way back to Today, the title, and chips for the
+task's area, its block as `Today · 10:45–11:30` when it has an agenda time
+today, and its effort as `3 points`. Below them sits **Focus on this** when the
+task has an agenda time today, then the task's steps as a checklist headed by
+how many are done, as `2 of 5`, and then the task's own text, read-only. At the
+bottom are **Move to tomorrow** and **Mark done**. Both return to Today. The
+steps, Move to tomorrow and Mark done change a task only while it is in today's
+My Day and not yet ticked off. Any other task is shown with its steps locked and
+without the two buttons or Focus.
+
 **Focus** exists only for a task with an agenda time today. In Focus the phone
 shows a countdown to the end of the task's block and the task's first open
 step. A task without an agenda time has no Focus.
