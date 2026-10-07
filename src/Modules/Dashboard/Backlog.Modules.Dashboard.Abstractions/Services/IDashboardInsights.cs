@@ -149,6 +149,11 @@ public interface ICostInsights
 
     Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Each provider's month-end projection against its monthly budget, read
+    /// from <see cref="ISpendBudgetSettings"/> on every call so a changed budget counts
+    /// without a refresh.</summary>
+    Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Drops whatever was cached, so the next call goes back to the providers.</summary>
     void Invalidate();
 }

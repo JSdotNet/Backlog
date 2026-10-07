@@ -207,7 +207,11 @@ Copilot and the Azure AI Foundry resource.
 Each provider has its own monthly budget, set in Dashboard settings. An empty budget
 means that provider has none. The dashboard projects each provider's month-end spend
 as its spend so far this month, plus its average daily spend over the last 7 days
-times the days left in the month.
+times the days left in the month. The 7 days include today and stay inside the
+month: with fewer than 7 days of the month gone, the average is over the days there
+are, so on the first of the month it is that day's spend. The days left are the days
+after today. A provider is projected past its budget only when it has a budget and
+the projection is above it.
 
 The Cost tab holds one card per provider. A card shows the spend so far out of the
 budget, with a marker where the projected month-end spend falls. Below the cards, a
