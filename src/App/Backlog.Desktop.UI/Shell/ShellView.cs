@@ -25,5 +25,10 @@ internal enum ShellView
 
     /// <summary>The Roadmap context's plans on a graduated axis, under its own
     /// Planning heading row. Offered while <c>RoadmapFeatures.Roadmap</c> is on.</summary>
-    Roadmap
+    Roadmap,
+
+    /// <summary>The filtered tasks on a month grid by their due date, under the
+    /// Tasks filter bar and beside the same detail panel. Its option sits after
+    /// Tasks and Board in the switch; the members' order is not the options'.</summary>
+    Calendar
 }
