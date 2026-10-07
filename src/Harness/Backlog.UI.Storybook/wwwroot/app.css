@@ -268,6 +268,19 @@ html, body {
     max-width: 100%;
 }
 
+/* A board sample: the whole width of the story, or a narrow box that makes the
+   board scroll sideways. */
+.sb-board {
+    width: 100%;
+    min-width: 0;
+}
+
+.sb-board--narrow {
+    width: 40rem;
+    max-width: 100%;
+    border: var(--border-width) dashed var(--color-border);
+}
+
 /* The calendar is a pane's content, so it gets a pane's room and its own scroll
    at a width narrower than its grid. */
 .sb-calendar {

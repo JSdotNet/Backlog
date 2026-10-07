@@ -1010,6 +1010,28 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ApplyFilter();
     }
 
+    /// <summary>
+    /// True while the status filter is set aside rather than applied — the Board
+    /// with its columns by status, where every status is a column and the
+    /// radiogroup is off the bar.
+    /// <para>
+    /// Set aside rather than cleared, so the list's choice survives a visit to the
+    /// Board: the reader who had narrowed the list to Ready finds it narrowed to
+    /// Ready again on the way back. Every other part of the filter still applies,
+    /// which is what lets the Board read <see cref="FilteredRows"/> unchanged.
+    /// </para>
+    /// </summary>
+    public bool StatusFilterSuspended { get; private set; }
+
+    public void SetStatusFilterSuspended(bool suspended)
+    {
+        if (StatusFilterSuspended == suspended) return;
+
+        StatusFilterSuspended = suspended;
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
     /// <summary>Scopes the backlog to one repository, replacing whatever the scope
     /// held — or to every repository, when handed nothing or an alias that is not
     /// configured. The plain press on a scope chip; <see cref="ToggleRepositoryInScope"/>
@@ -1225,20 +1247,28 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// entry with no <c>`repo:`</c> token already belongs to it, so a draft created
     /// under it stays in view without being told to.
     /// </para>
+    /// <para>
+    /// A <paramref name="status"/> seeds the entry in that status — the Board's
+    /// "+ New entry" at the foot of a status column, which creates the entry in
+    /// the column it was pressed in. Draft, or none, seeds nothing, because a
+    /// silent entry is a draft already.
+    /// </para>
     /// </summary>
-    public void NewRow()
+    public void NewRow(EntryStatus? status = null)
     {
         var row = new EntryRow();
 
         var seedRepository = AnchorRepositoryAlias.Length > 0 ? AnchorRepositoryAlias : null;
+        var seedStatus = status is { } wanted && wanted != EntryStatus.Draft ? wanted : (EntryStatus?)null;
 
-        if (seedRepository is not null || MyDayOn is not null)
+        if (seedRepository is not null || MyDayOn is not null || seedStatus is not null)
         {
             var tokens = "`task` `*medium` `!draft`";
             if (seedRepository is not null) tokens += $" `repo:{seedRepository}`";
 
             row.RawText = $"# \n{tokens}\n";
             if (MyDayOn is { } myDay) row.RawText = EntryTextParser.WithMyDay(row.RawText, myDay);
+            if (seedStatus is { } seeded) row.RawText = EntryTextParser.WithStatus(row.RawText, seeded);
             row.SeedText = row.RawText;
         }
 
@@ -4684,7 +4714,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         RebuildTagFilters(scopedRows);
         rows = scopedRows;
 
-        if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
+        if (!StatusFilterSuspended && !string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
         {
             rows = rows.Where(x => StatusWire(x.PreviewStatus) == SelectedStatusFilterWire);
         }

@@ -107,6 +107,27 @@
                        out of view behind the rows. Two presses with nothing
                        visibly happening on the first is not a hierarchy, it is a
                        key that looks stuck. *@
+                    @* The Board's own control, first on its bar because it decides
+                       what everything under the bar is: which columns there are.
+                       Not a filter — it narrows nothing — so its own group. The
+                       visible word is the label sighted readers scan for; the
+                       select carries the same name for a screen reader, so the
+                       word itself is hidden from one. *@
+                    @if (Layout == TasksLayout.Board)
+                    {
+                        <div class="filter-group filter-group--columns" data-testid="board-columns-group">
+                            <span class="filter-group__label" aria-hidden="true">Columns</span>
+                            <SelectField CurrentValue="@BoardGrouping.ToString()"
+                                         Options="@BoardGroupingOptions"
+                                         Label="Columns"
+                                         Id="board-columns"
+                                         TestId="board-columns"
+                                         BaseClass="board-columns"
+                                         SelectCssClass="board-columns__select"
+                                         OnChanged="OnBoardGroupingPickedAsync" />
+                        </div>
+                    }
+
                     <div class="filter-group filter-group--select" @onkeydown="OnSelectionChipKeyDown">
                         <ToggleButton BaseClass="chip chip--filter chip--scope"
                                       PressedCssClass="chip--active"
@@ -266,21 +287,28 @@
                         </AppButton>
                     }
 
-                    <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
-                        @foreach (var filter in State.StatusFilters)
-                        {
-                            <AppButton BaseClass="chip chip--filter"
-                                       Variant="ButtonVariant.None"
-                                       CssClass="@(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : null)"
-                                       id="@($"status-filter-{(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)}")"
-                                       TestId="status-filter-option"
-                                       role="radio"
-                                       aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
-                                       OnClick="() => OnFilterChanged(filter.Wire)">
-                                @filter.Label
-                            </AppButton>
-                        }
-                    </div>
+                    @* Off the bar on the Board while its columns are the statuses:
+                       every status is a column there, so narrowing to one would
+                       empty the other three. The list's choice is kept, set aside
+                       rather than cleared — see StatusFilterSuspended. *@
+                    @if (!StatusFilterHidden)
+                    {
+                        <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
+                            @foreach (var filter in State.StatusFilters)
+                            {
+                                <AppButton BaseClass="chip chip--filter"
+                                           Variant="ButtonVariant.None"
+                                           CssClass="@(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : null)"
+                                           id="@($"status-filter-{(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)}")"
+                                           TestId="status-filter-option"
+                                           role="radio"
+                                           aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
+                                           OnClick="() => OnFilterChanged(filter.Wire)">
+                                    @filter.Label
+                                </AppButton>
+                            }
+                        </div>
+                    }
 
                     @* Not a filter either, so its own group beside the statuses it
                        sorts by. It re-ranks only what the bar above leaves in view,
@@ -383,6 +411,44 @@
                                 <Skeleton Shape="SkeletonShape.Block" Width="@width" />
                             }
                         </div>
+                    }
+                    else if (Layout == TasksLayout.Board)
+                    {
+                        @* The Board view: the same filtered rows, in columns, under the
+                           same filter bar and beside the same detail panel. A card
+                           opens its entry the way a row does; a drop runs the same
+                           status change the row's status selector does. An empty
+                           filter result is a board of empty columns rather than the
+                           list's empty state — the columns still say what they are. *@
+                        <TaskBoard @ref="_board"
+                                   Columns="@BoardColumns()"
+                                   Draggable="@(BoardGrouping == TaskBoardGrouping.Status)"
+                                   DropRuleFor="@BoardDropRule"
+                                   OnDrop="OnBoardDropAsync"
+                                   OnSelected="OnEntrySelectedAsync"
+                                   OnTagSelected="OnRowTagSelected"
+                                   OnAdd="OnBoardAdd"
+                                   SelectedId="@SelectedTaskId"
+                                   AriaLabel="@($"Tasks by {BoardGroupingWord}")"
+                                   TestId="task-board">
+                            <Badges Context="task">
+                                @* The list row's badges, on the card's terms: what work
+                                   on the entry produced, and what it is about in the
+                                   Devbook. *@
+                                @if (EntryFor(task.Id) is { } entry)
+                                {
+                                    @if (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any())
+                                    {
+                                        @RenderRowWork(entry)
+                                    }
+
+                                    @if (entry.DevbookReferences.Count > 0)
+                                    {
+                                        @RenderRowDevbook(entry)
+                                    }
+                                }
+                            </Badges>
+                        </TaskBoard>
                     }
                     else if (Layout == TasksLayout.Calendar)
                     {
@@ -668,6 +734,8 @@
         $"#{DetailElementId}",
         "[data-testid='backlog-split-separator']",
         "#backlog-pane .task-item__copy",
+        // The open entry's own card on the Board, pressed again: it is the entry.
+        "#backlog-pane .task-card[aria-current='true']",
         // The calendar's month bar and a day's "+N more" move around the month and
         // say nothing about the open entry; the open entry's own chip or tray item
         // is the entry, pressed or picked up to move it.
@@ -830,13 +898,14 @@
 
     private async Task FocusSelectedRowAsync()
     {
-        if (Layout == TasksLayout.Calendar ? _calendar is null : _list is null) return;
+        if (Layout switch { TasksLayout.Board => _board is null, TasksLayout.Calendar => _calendar is null, _ => _list is null }) return;
 
         _focusingSelectedRow = true;
 
         try
         {
-            if (Layout == TasksLayout.Calendar) await _calendar!.FocusSelectedAsync();
+            if (Layout == TasksLayout.Board) await _board!.FocusSelectedAsync();
+            else if (Layout == TasksLayout.Calendar) await _calendar!.FocusSelectedAsync();
             else await _list!.FocusSelectedAsync();
         }
         finally
@@ -941,8 +1010,8 @@
     [Parameter]
     public EventCallback<string> OnOpenSession { get; set; }
 
-    /// <summary>How the entries under the filter bar are laid out — the list, or the
-    /// month calendar. The shell's view switch picks it.</summary>
+    /// <summary>How the entries under the filter bar are laid out — the list, the board
+    /// or the month calendar. The shell's view switch picks it.</summary>
     [Parameter]
     public TasksLayout Layout { get; set; } = TasksLayout.List;
 
@@ -4031,6 +4100,12 @@
     /// The same move Escape makes, minus the closing.</summary>
     private async Task MoveFocusToListAsync()
     {
+        if (Layout == TasksLayout.Board)
+        {
+            if (_board is not null) await _board.FocusSelectedAsync();
+            return;
+        }
+
         if (Layout == TasksLayout.Calendar)
         {
             if (_calendar is not null) await _calendar.FocusSelectedAsync();
@@ -4630,6 +4705,10 @@
     public async ValueTask DisposeAsync()
     {
         State.Changed -= HandleStateChanged;
+
+        // The Board set the status filter aside; whatever shows the rows next —
+        // the list, Ask AI's Tasks area — reads them with it applied again.
+        State.SetStatusFilterSuspended(false);
         Features.Changed -= HandleFeaturesChanged;
         if (_calendarPlans is not null) _calendarPlans.Changed -= HandleCalendarPlansChanged;
 

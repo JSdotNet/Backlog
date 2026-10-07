@@ -5191,6 +5191,195 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-secondary);
 }
 
+/* A card a board lets the reader pick up, and the one in their hand: left in
+   place, faded and dashed, so the column it came from still says where it was. */
+.task-card--draggable {
+    cursor: grab;
+}
+
+.task-card--dragging {
+    opacity: 0.4;
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+}
+
+/* --- Task board ---------------------------------------------------------- */
+/*
+   Columns of TaskCards, side by side. See TaskBoard.razor. The columns never
+   shrink below the width a card reads at; the board scrolls sideways instead,
+   which is what it does once the detail panel opens beside it.
+*/
+.task-board {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(17rem, 1fr);
+    gap: var(--spacing-md);
+    align-items: start;
+    min-width: 0;
+    overflow-x: auto;
+    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+}
+
+/* A card is dragged by pressing and moving, which is also how text is selected;
+   the same reason .task-list--dragging refuses a selection. */
+.task-board--dragging {
+    user-select: none;
+    cursor: grabbing;
+}
+
+.task-board--dragging .task-card {
+    cursor: grabbing;
+}
+
+.task-board__column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background);
+}
+
+/* A column the held card may go to: a dashed edge, solid under the pointer. */
+.task-board__column--target {
+    outline: var(--border-width-2) dashed var(--color-border-strong);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.task-board__column--target.task-board__column--over {
+    outline-color: var(--color-primary);
+    outline-style: solid;
+}
+
+/* One it may not: quiet, with the reason at its head. */
+.task-board__column--refused .task-board__cards,
+.task-board__column--refused .task-board__head,
+.task-board__column--refused .task-board__add {
+    opacity: 0.55;
+}
+
+/* Wraps rather than shrinks: in a narrow column the points drop under the
+   title instead of the title being cut to "Rea…". */
+.task-board__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    padding: var(--spacing-2xs) var(--spacing-2xs) var(--spacing-xs);
+    min-width: 0;
+}
+
+.task-board__dot {
+    flex: 0 0 auto;
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-border-strong);
+}
+
+.task-board__dot--draft { background: var(--color-text-disabled); }
+.task-board__dot--ready { background: var(--color-info); }
+.task-board__dot--in-progress { background: var(--color-primary); }
+.task-board__dot--done { background: var(--color-success-text); }
+.task-board__dot--critical { background: var(--color-error-text); }
+.task-board__dot--high { background: var(--color-warning); }
+.task-board__dot--medium { background: var(--color-text-secondary); }
+.task-board__dot--low { background: var(--color-text-disabled); }
+
+.task-board__title {
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-board__count {
+    flex: 0 0 auto;
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+}
+
+.task-board__points {
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.task-board__cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+/* Why the held card cannot go here: the error surface and ink, the pairing
+   color-scheme.md sanctions for a bare error statement. */
+.task-board__refusal {
+    margin: 0;
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-error);
+    color: var(--color-error-text);
+    font-size: var(--font-size-xs);
+}
+
+/* Where the held card lands, and what landing there does. */
+.task-board__slot {
+    display: flex;
+    align-items: center;
+    min-height: 3rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width-2) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.task-board__slot strong {
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-board__slot--over {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.task-board__add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    min-height: 2.75rem;
+    margin-top: var(--spacing-xs);
+    border: var(--border-width) dashed var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.task-board__add:hover {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.task-board__add:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
+}
+
 /* --- Task actions -------------------------------------------------------- */
 /*
    The rows in a task's detail pane. One shape for all of them, because "Remind

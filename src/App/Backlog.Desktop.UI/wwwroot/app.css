@@ -602,6 +602,48 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
+/* The Board's "Columns" picker: a visible word and a select, first on the bar.
+   Pinned like Select, because it decides what everything under the bar is. The
+   select is drawn as a chip so it sits level with the chips beside it. */
+.filter-group--columns {
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.board-columns {
+    display: inline-flex;
+}
+
+.board-columns__select {
+    font: inherit;
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    border: var(--border-width) solid var(--color-border);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    cursor: pointer;
+}
+
+.board-columns__select:hover {
+    border-color: var(--color-border-strong);
+}
+
+.board-columns__select:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* With the statuses off the bar — the Board by status — nothing carries the
+   acts after them to the right edge, so the first of those takes the margin
+   the status group's would have. */
+.filter-bar:not(:has(.filter-group--status)) .filter-group--arrange {
+    margin-left: auto;
+}
+
 /* Pinned against the pile, and free to wrap on a row of its own. It used to
    shrink with the tag pile, and a shrunk strip is a clipped one —
    `.filter-group { overflow: hidden }` — so a chip that was pressed could be the

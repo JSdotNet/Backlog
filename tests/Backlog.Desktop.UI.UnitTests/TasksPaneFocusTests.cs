@@ -248,6 +248,7 @@ public sealed class TasksPaneFocusTests
                 "#backlog-pane-detail",
                 "[data-testid='backlog-split-separator']",
                 "#backlog-pane .task-item__copy",
+                "#backlog-pane .task-card[aria-current='true']",
                 "#backlog-pane .task-calendar__bar",
                 "#backlog-pane .task-calendar__more",
                 "#backlog-pane [data-calendar-task][aria-current='true']"
