@@ -1,0 +1,23 @@
+@* One panel kept alive between two that are not, so a test can switch away from
+   it and back and see whether what was inside it is still the same component. *@
+
+<Tabs ActiveId="@ActiveId"
+      ActiveIdChanged="OnActiveIdChangedAsync"
+      AriaLabel="Sections">
+    <TabPanel Id="one" Title="One">First body</TabPanel>
+    <TabPanel Id="two" Title="Two" KeepAlive="true" TestId="kept-panel">
+        <StatefulProbe />
+    </TabPanel>
+    <TabPanel Id="three" Title="Three">Third body</TabPanel>
+</Tabs>
+
+@code {
+    [Parameter]
+    public string ActiveId { get; set; } = "one";
+
+    private Task OnActiveIdChangedAsync(string id)
+    {
+        ActiveId = id;
+        return Task.CompletedTask;
+    }
+}

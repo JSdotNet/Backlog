@@ -71,6 +71,24 @@
         <p class="sb-state" data-testid="pill-tabs-state">Active subpage: @_activePill</p>
     </Story>
 
+    <Story Name="A panel kept alive between visits"
+           Description="A panel's body is made when the panel opens and disposed when another tab does, so whatever lives inside it starts again on every visit. KeepAlive keeps the body once it has been opened — hidden while another tab is active — so a draft, a countdown or an answer already fetched is still there on the way back. It is still built on demand: nothing renders before the first opening.
+
+Type into both fields below, switch tabs, and come back: the kept panel's field holds what was typed, the plain one starts empty. Neither field is bound to the page, so what it holds lives only as long as the field does."
+           Code="@KeepAliveTabsCode">
+        <Tabs ActiveId="@_activeKept"
+              ActiveIdChanged="id => _activeKept = id"
+              AriaLabel="Kept and plain panels"
+              TestId="keep-alive-tabs">
+            <TabPanel Id="kept" Title="Kept alive" KeepAlive="true" TestId="keep-alive-panel-kept">
+                <TextField Label="A draft that outlives a switch" TestId="keep-alive-kept-field" />
+            </TabPanel>
+            <TabPanel Id="plain" Title="Plain" TestId="keep-alive-panel-plain">
+                <TextField Label="A draft that does not" TestId="keep-alive-plain-field" />
+            </TabPanel>
+        </Tabs>
+    </Story>
+
     <Story Name="Card"
            Description="A titled surface with an optional action area, and a compact variant for dense lists."
            Code="@CardCode">
@@ -277,6 +295,7 @@ Left and Right still describe the separator rather than the number, so here Left
 
     private string _activeTab = "read";
     private string _activePill = "backlog";
+    private string _activeKept = "kept";
     private string _body = "The editor and the read view are two tabs over the same text.";
     private bool _foldOpen = true;
     private bool _hostFoldOpen;
@@ -303,6 +322,17 @@ Left and Right still describe the separator rather than the number, so here Left
             <TabPanel Id="backlog" Element="section" BaseClass="setting" TabTestId="pill-tab">
                 <TitleContent><span>JSdotNet/Backlog</span></TitleContent>
                 <ChildContent>...</ChildContent>
+            </TabPanel>
+        </Tabs>
+        """;
+
+    private const string KeepAliveTabsCode = """
+        <Tabs ActiveId="@_activeKept" ActiveIdChanged="id => _activeKept = id" AriaLabel="Kept and plain panels">
+            <TabPanel Id="kept" Title="Kept alive" KeepAlive="true">
+                <TextField Label="A draft that outlives a switch" />
+            </TabPanel>
+            <TabPanel Id="plain" Title="Plain">
+                <TextField Label="A draft that does not" />
             </TabPanel>
         </Tabs>
         """;

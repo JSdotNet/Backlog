@@ -11,6 +11,7 @@ using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.UI;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Capture.Abstractions.Services;
@@ -42,6 +43,34 @@ public sealed class SettingsDevicesTests
         using var context = RenderSettings(syncEnabled: false);
 
         Assert.DoesNotContain("Devices", SettingsTabs(context.Component));
+    }
+
+    /// <summary>
+    /// The page is the Sync module's, not the shell's: the shell draws it only
+    /// because a host registered the section, and holds no copy of its own to fall
+    /// back on when none did.
+    /// </summary>
+    [Fact]
+    public void The_devices_tab_is_offered_only_when_the_sync_section_is_registered()
+    {
+        using var context = RenderSettings(syncEnabled: true, registerSection: false);
+
+        Assert.DoesNotContain("Devices", SettingsTabs(context.Component));
+        Assert.Empty(context.Component.FindComponents<DevicesSettings>());
+    }
+
+    [Fact]
+    public void The_devices_tab_renders_the_sync_modules_component()
+    {
+        using var context = RenderSettings(syncEnabled: true);
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var page = Assert.Single(context.Component.FindComponents<DevicesSettings>());
+            Assert.Single(page.FindAll("[data-testid='devices-status']"));
+        });
     }
 
     [Fact]
@@ -751,8 +780,80 @@ public sealed class SettingsDevicesTests
     private static string[] SettingsTabs(IRenderedComponent<Settings> component) =>
         component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim()).ToArray();
 
-    private static void OpenDevicesTab(IRenderedComponent<Settings> component) =>
-        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Devices").Click();
+    private static void OpenDevicesTab(IRenderedComponent<Settings> component) => OpenTab(component, "Devices");
+
+    private static void OpenTab(IRenderedComponent<Settings> component, string title) =>
+        component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == title).Click();
+
+    // --- Leaving the tab and coming back -------------------------------------
+
+    /// <summary>
+    /// A code is handed out to be typed on another device, which is exactly when
+    /// somebody wanders off to another tab. Coming back has to find the code and
+    /// its countdown still there, and the page has to be the same page - not one
+    /// made again that asks the service who this device is a second time.
+    /// </summary>
+    [Fact]
+    public void A_pairing_code_is_still_shown_after_visiting_another_tab()
+    {
+        using var context = RenderSettings(syncEnabled: true, paired: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-generate-code']")));
+
+        context.Component.Find("[data-testid='devices-generate']").Click();
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal("K7MN-9PQR", context.Component.Find("[data-testid='devices-code-display'] code").TextContent.Trim()));
+
+        OpenTab(context.Component, "Features");
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal("K7MN-9PQR", context.Component.Find("[data-testid='devices-code-display'] code").TextContent.Trim()));
+        Assert.Contains("Expires in", context.Component.Find("[data-testid='devices-code-expiry']").TextContent, StringComparison.Ordinal);
+        Assert.Single(context.Service.Paths, path => path.EndsWith("/devices/me", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_typed_device_name_survives_visiting_another_tab()
+    {
+        using var context = RenderSettings(syncEnabled: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-register']")));
+
+        context.Component.Find("[data-testid='devices-name']").Input("Workshop PC");
+
+        OpenTab(context.Component, "Features");
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal("Workshop PC", context.Component.Find("[data-testid='devices-name']").GetAttribute("value")));
+    }
+
+    /// <summary>The page lives as long as the settings screen and no longer: a
+    /// screen opened again starts with no code on it.</summary>
+    [Fact]
+    public void Opening_settings_again_starts_the_devices_page_afresh()
+    {
+        using var context = RenderSettings(syncEnabled: true, paired: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-generate-code']")));
+        context.Component.Find("[data-testid='devices-generate']").Click();
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-code-display']")));
+
+        var reopened = context.TestContext.Render<Settings>();
+        OpenDevicesTab(reopened);
+
+        reopened.WaitForAssertion(() =>
+            Assert.Single(reopened.FindAll("[data-testid='devices-generate-code']")));
+        Assert.Empty(reopened.FindAll("[data-testid='devices-code-display']"));
+    }
 
     /// <summary>The token answer, so a script that only covers the route under
     /// test still lets the authentication handler mint one.</summary>
@@ -908,7 +1009,8 @@ public sealed class SettingsDevicesTests
         bool sessionMissingItsStore = false,
         Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
         bool withTokenPipeline = false,
-        Dictionary<string, string>? environment = null)
+        Dictionary<string, string>? environment = null,
+        bool registerSection = true)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devices-tests", Guid.NewGuid().ToString("n"));
 
@@ -1059,6 +1161,10 @@ public sealed class SettingsDevicesTests
                 sessionSyncState,
                 new FakeTimeProvider()));
         }
+
+        // The page itself, the way the shared desktop composition registers it:
+        // the shell draws the Devices tab only because this section is here.
+        if (registerSection) testContext.Services.AddSyncSettings();
 
         var component = testContext.Render<Settings>();
         return new SettingsRenderContext(

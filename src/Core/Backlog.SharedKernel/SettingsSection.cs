@@ -16,13 +16,17 @@ namespace Backlog.SharedKernel;
 /// </summary>
 /// <param name="Id">The page's id in the settings tab strip. Stable and
 /// lower-case, and distinct from the shell's own page ids — <c>features</c>,
-/// <c>ai</c>, <c>storage</c>, <c>accounts</c>, <c>repositories</c> and
-/// <c>devices</c> — which win a collision.</param>
+/// <c>ai</c>, <c>storage</c>, <c>accounts</c> and <c>repositories</c> — which
+/// win a collision.</param>
 /// <param name="Title">The tab's label and the page's heading.</param>
 /// <param name="Order">Where the page sits among the registered sections, lowest
 /// first. Registered sections always follow the shell's own pages.</param>
 /// <param name="Component">The Razor component the page renders, with no
-/// parameters: it takes what it needs from the container.</param>
+/// parameters: it takes what it needs from the container. One instance lives
+/// from the page's first opening until the settings screen closes, so its state
+/// survives a switch to another tab. Switching the section's feature off takes
+/// the page off the strip and disposes it, so switching it back on starts a new
+/// instance.</param>
 /// <param name="FeatureKey">A feature the page is offered behind, or null for a
 /// page that is always offered. Checked by the shell, so a switched-off feature
 /// has no empty page left on the strip.</param>

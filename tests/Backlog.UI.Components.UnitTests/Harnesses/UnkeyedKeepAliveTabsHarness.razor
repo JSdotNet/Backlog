@@ -1,0 +1,33 @@
+@* One kept-alive panel per item and no @key, so removing an item in front hands
+   the surviving panel component the next item's id - the case a kept body must
+   not survive. *@
+
+<Tabs ActiveId="@ActiveId"
+      ActiveIdChanged="OnActiveIdChangedAsync"
+      AriaLabel="Items">
+    @foreach (var item in _items)
+    {
+        <TabPanel Id="@item" Title="@item" KeepAlive="true">
+            <StatefulProbe />
+        </TabPanel>
+    }
+</Tabs>
+
+@code {
+    private readonly List<string> _items = ["a", "b", "c"];
+
+    [Parameter]
+    public string ActiveId { get; set; } = "a";
+
+    public void Remove(string item)
+    {
+        _items.Remove(item);
+        StateHasChanged();
+    }
+
+    private Task OnActiveIdChangedAsync(string id)
+    {
+        ActiveId = id;
+        return Task.CompletedTask;
+    }
+}

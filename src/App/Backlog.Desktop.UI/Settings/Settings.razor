@@ -32,7 +32,6 @@
 @namespace Backlog.Desktop.UI.Shell
 @using System.Globalization
 @using Backlog.Infrastructure.FileSystem
-@using Backlog.Infrastructure.FileSystem.Logging
 @using Backlog.Infrastructure.Claude
 @using Backlog.SharedKernel
 @using Backlog.SharedKernel.Results
@@ -44,12 +43,6 @@
    reaching into a context. The devbook-source control is Devbook's, and
    this screen offers the same one its pane does rather than a second copy. *@
 @using Backlog.Desktop.UI.Devbook
-@* Sync's published surface, for the feature key the Devices tab is gated on
-   and the pairing-code format the panel displays a code in. *@
-@using Backlog.Modules.Sync.Abstractions
-@using Backlog.Modules.Sync.Abstractions.DataTransferObjects
-@using Backlog.Infrastructure.Sync
-@using Backlog.Infrastructure.Sync.Sessions
 @* Capture's published surface, for the Capture tab: the vocabulary of sources
    and the settings port the tab writes. *@
 @using Backlog.Modules.Capture.Abstractions
@@ -59,8 +52,8 @@
    see the note at the top of the file. SelectField is what the account binding
    below is drawn with. *@
 @using Backlog.UI.Components.Selects
-@* For the optional logger the Devices panel writes an unexpected failure to,
-   rather than putting the exception's own words on screen. *@
+@* For the optional logger the Storage page notes a missing backup worker in,
+   rather than failing the screen over it. *@
 @using Microsoft.Extensions.Logging
 @inject WorkspaceSettingsStore Store
 @inject GitHubIntegration GitHub
@@ -71,8 +64,9 @@
 @inject ClaudeSettingsStore Claude
 @inject IDevbookFolderSource DevbookFolders
 @inject DevbookSourceSelection DevbookSource
-@* The two sync collaborators are read off this rather than injected; see the
-   Devices section of the code block for why. *@
+@* The optional collaborators - the backup worker and the activity caches - are
+   read off this rather than injected, so a host that composes none of them can
+   still render the screen. *@
 @inject IServiceProvider Services
 @* The pages the modules bring, each registered by its own .UI project; empty in
    a host that registers none, and then only the app-wide pages are drawn. *@
@@ -1814,361 +1808,17 @@
 
         </TabPanel>
 
-    @if (IsSettingsPageAvailable(SettingsPage.Devices))
-    {
-        <TabPanel Id="devices" Title="Devices" Element="section" BaseClass="setting" aria-label="Device settings">
-            @* Where the cards below send their traffic. First, because when it is
-               wrong nothing under it works and the only other sign is a DNS error
-               naming a host called "sync". Under the AppHost the field stays blank
-               and the line says so; the installed app has no AppHost and needs
-               the URL from here or from the environment. *@
-            @if (_syncService is not null && _syncServiceEndpoint is not null)
-            {
-                <section class="setting" data-testid="sync-service-settings" aria-label="Sync service">
-                    <h2 class="setting__title">Sync service</h2>
-                    <p class="setting__body">
-                        The service this device pairs through and replicates to. Leave it
-                        blank when the app is started from the Aspire AppHost, which finds
-                        that run's own service by itself.
-                    </p>
-
-                    <TextField Bare="true"
-                               LabelCssClass="setting__label"
-                               InputCssClass="setting__input"
-                               Label="Service URL"
-                               Id="sync-service-url"
-                               data-testid="sync-service-url-input"
-                               Type="url"
-                               spellcheck="false"
-                               autocomplete="off"
-                               Placeholder="https://backlog-sync.example.azurecontainerapps.io"
-                               Value="@_draftSyncServiceUrl"
-                               ValueChanged="value => _draftSyncServiceUrl = value"
-                               @onchange="ApplySyncServiceUrlAsync"
-                               @onkeydown="OnSyncServiceKeyDownAsync" />
-
-                    <p class="setting__status @(_syncServiceFailed ? "setting__status--error" : null)"
-                       data-testid="sync-service-status"
-                       role="@(_syncServiceFailed ? "alert" : "status")">
-                        @if (_syncServiceMessage is not null)
-                        {
-                            <span>@_syncServiceMessage</span>
-                        }
-                        else
-                        {
-                            <span>@SyncServiceStatusLine</span>
-                        }
-                    </p>
-
-                    <p class="setting__note">
-                        Kept in <code>@_syncService.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
-                        <code>@SyncServiceEndpoint.EnvironmentVariable</code> in the environment is used when this is blank.
-                    </p>
-                </section>
-            }
-
-            @* A device is in one of two states and each has exactly one thing to do
-               next, so the cards come in pairs: unpaired offers register and redeem,
-               paired offers the code that lets the next device in. *@
-            <div class="setting-columns">
-                <section class="setting" data-testid="devices-status" aria-label="This device">
-                    <h2 class="setting__title">This device</h2>
-
-                    @if (_devicesBusy)
-                    {
-                        <Spinner Label="Talking to the sync service" TestId="devices-busy" />
-                    }
-                    else if (StoredDevice is { } stored)
-                    {
-                        @* The service has said, in as many words, that it has no
-                           record of this device. Said before the identity rather
-                           than after it, because everything below is describing a
-                           credential that no longer opens anything. *@
-                        @if (DeviceNoLongerRegistered)
-                        {
-                            <Alert Message="The sync service no longer recognises this device. Its credential is still on this machine, but nothing will accept it - register this device again, pair it with one that is already in, or forget the credential."
-                                   TestId="devices-unregistered"
-                                   Role="alert"
-                                   BaseClass="setting__status"
-                                   CssClass="setting__status--error" />
-                        }
-
-                        <p class="setting__body" data-testid="devices-paired">
-                            @if (DeviceNoLongerRegistered)
-                            {
-                                <text>This device still holds a credential for <strong>@stored.DeviceName</strong>.</text>
-                            }
-                            else
-                            {
-                                <text>Paired as <strong>@stored.DeviceName</strong>.</text>
-                            }
-                        </p>
-                        <p class="setting__status" data-testid="devices-identity">
-                            Owner <code>@stored.OwnerId</code>, device <code>@stored.DeviceId</code>.
-                            @if (_deviceStatus is { } status)
-                            {
-                                <text>@PairedDeviceSummary(status.PairedDeviceCount)</text>
-                            }
-                        </p>
-
-                        @* The one way back that needs nothing from the service.
-                           A credential can go stale for reasons nobody will ever
-                           be told - a service that moved, or is not coming back -
-                           and deleting the file by hand was the only cure. *@
-                        <div class="setting__actions">
-                            <AppButton Variant="ButtonVariant.Danger"
-                                       TestId="devices-forget"
-                                       Busy="@_devicesBusy"
-                                       OnClick="@(() => _forgettingDevice = true)">
-                                Forget this device
-                            </AppButton>
-                        </div>
-                    }
-                    else
-                    {
-                        <EmptyState TestId="devices-empty"
-                                    Title="This device is not paired"
-                                    Description="Register it to start an owner of your own, or pair it with a device that is already in." />
-                    }
-
-                    <p class="setting__note">
-                        The registration credential is kept in <code>@CredentialStorePath</code> - outside the backlog folder, so it is never synced or committed with entries.
-                    </p>
-                </section>
-
-                @* Only for a device that is already one: an unpaired device has no
-                   owner to replicate under, and nothing to sync. And only where a
-                   host composed the loop at all - a head that registered no
-                   sync-state store hides this rather than offering a button that
-                   cannot work.
-
-                   Withheld as well from a device the service has stopped
-                   recognising, for the same reason as the pairing-code card
-                   below it: a credential nothing will accept cannot replicate
-                   anything, and the button would fail every time it was pressed.
-                   The panel offers the way back instead. *@
-                @if (SyncEnabled && _taskSync is not null && StoredDevice is not null && !DeviceNoLongerRegistered)
-                {
-                    <section class="setting" data-testid="devices-sync" aria-label="Sync tasks">
-                        <h2 class="setting__title">Sync tasks</h2>
-                        <p class="setting__body">
-                            Runs on its own every few minutes. Sends what changed on this machine and brings back what changed on the others - whole tasks, latest edit wins, so a task edited on both machines keeps one of the two versions rather than a blend of them.
-                        </p>
-
-                        <div class="setting__actions">
-                            <AppButton TestId="devices-sync-now"
-                                       Busy="@_taskSync.IsSyncing"
-                                       OnClick="SyncTasks">
-                                Sync now
-                            </AppButton>
-                        </div>
-
-                        @* One line, and it is here so there is something to read
-                           rather than because this is a sync UI. Pulled and applied
-                           are separate numbers on purpose: this device's own echo
-                           comes back and changes nothing, so "pulled 40, applied 0"
-                           is a healthy answer. *@
-                        <p class="setting__status" data-testid="devices-sync-result">@TaskSyncSummaryLine</p>
-
-                        @* Kept in its own block, below the line that says what the
-                           loop has been doing, because these two are for when that
-                           line stops being believable. Neither loses anything a
-                           device still holds - the machine is the copy that
-                           matters, and both of these are ways of saying so to a
-                           replica that has drifted or been rebuilt. *@
-                        <p class="setting__note">
-                            Start over, if the two ever disagree:
-                        </p>
-
-                        <div class="setting__actions">
-                            <AppButton TestId="devices-sync-republish"
-                                       Disabled="@_taskSync.IsSyncing"
-                                       OnClick="() => _syncResetPending = SyncReset.Republish">
-                                Republish everything
-                            </AppButton>
-                            <AppButton TestId="devices-sync-rehydrate"
-                                       Disabled="@_taskSync.IsSyncing"
-                                       OnClick="() => _syncResetPending = SyncReset.Rehydrate">
-                                Rehydrate from scratch
-                            </AppButton>
-                        </div>
-
-                        <p class="setting__note" data-testid="devices-sync-state-path">
-                            How far this device has got is kept in <code>@_taskSync.StorePath</code>.
-                            @if (_logs is not null)
-                            {
-                                <text>A cycle that failed for a reason the sentence above does not give is written out in full under <code>@_logs.Directory</code>.</text>
-                            }
-                        </p>
-                    </section>
-                }
-
-                @* The session loop's card, shown on the same terms as the task
-                   loop's. It has less to offer - session records merge by identity
-                   on the way in, so there is no rehydrate to ask for - and one thing
-                   it must: a way to send every record again. A device that registered
-                   again used to keep the old owner's watermark and never re-send what
-                   that owner already had, and the only cure was a file to delete by
-                   hand. The exchange resets itself across that line now; the button
-                   is for the person whose second machine still shows nothing. *@
-                @if (SyncEnabled && _sessionSync is not null && StoredDevice is not null && !DeviceNoLongerRegistered)
-                {
-                    <section class="setting" data-testid="devices-session-sync" aria-label="Sync sessions">
-                        <h2 class="setting__title">Sync sessions</h2>
-                        <p class="setting__body">
-                            Runs on its own every few minutes. Sends this machine's Claude and Copilot session records and brings back what the other devices reported. Only the metadata: never a prompt, a transcript, a working folder, or a session's title.
-                        </p>
-
-                        <div class="setting__actions">
-                            <AppButton TestId="devices-session-sync-now"
-                                       Busy="@_sessionSync.IsSyncing"
-                                       OnClick="SyncSessions">
-                                Sync now
-                            </AppButton>
-                        </div>
-
-                        <p class="setting__status" data-testid="devices-session-sync-result">@SessionSyncSummaryLine</p>
-
-                        <p class="setting__note">
-                            Start over, if another device shows none of this machine's sessions:
-                        </p>
-
-                        <div class="setting__actions">
-                            <AppButton TestId="devices-session-sync-republish"
-                                       Disabled="@_sessionSync.IsSyncing"
-                                       OnClick="() => _syncResetPending = SyncReset.RepublishSessions">
-                                Republish every session
-                            </AppButton>
-                        </div>
-
-                        <p class="setting__note" data-testid="devices-session-sync-state-path">
-                            How far this device has got is kept in <code>@_sessionSync.StorePath</code>.
-                        </p>
-                    </section>
-                }
-
-                @if (StoredDevice is null || DeviceNoLongerRegistered)
-                {
-                    <section class="setting" data-testid="devices-register" aria-label="Register this device">
-                        <h2 class="setting__title">Register this device</h2>
-                        <p class="setting__body">
-                            Claims an owner of its own. Do this on the first device only - every device after it pairs instead, or it ends up with an owner nobody else can see.
-                        </p>
-
-                        <TextField Bare="true"
-                                   LabelCssClass="setting__label"
-                                   InputCssClass="setting__input"
-                                   Label="Device name"
-                                   Id="devices-name"
-                                   TestId="devices-name"
-                                   spellcheck="false"
-                                   autocomplete="off"
-                                   Value="@_draftDeviceName"
-                                   ValueChanged="value => _draftDeviceName = value" />
-
-                        <div class="setting__actions">
-                            <AppButton Variant="ButtonVariant.Primary"
-                                       TestId="devices-register-button"
-                                       Busy="@_devicesBusy"
-                                       OnClick="RegisterDeviceAsync">
-                                Register
-                            </AppButton>
-                        </div>
-                    </section>
-
-                    <section class="setting" data-testid="devices-pair" aria-label="Pair with another device">
-                        <h2 class="setting__title">Pair with another device</h2>
-                        <p class="setting__body">
-                            Type the code the other device is showing. It is single-use and expires in minutes, so it is permission to make a credential rather than a credential.
-                        </p>
-
-                        <TextField Bare="true"
-                                   LabelCssClass="setting__label"
-                                   InputCssClass="setting__input"
-                                   Label="Pairing code"
-                                   Id="devices-code-input"
-                                   TestId="devices-code"
-                                   spellcheck="false"
-                                   autocomplete="off"
-                                   Placeholder="XXXX-XXXX"
-                                   Value="@_draftPairingCode"
-                                   ValueChanged="value => _draftPairingCode = value" />
-
-                        <div class="setting__actions">
-                            <AppButton Variant="ButtonVariant.Primary"
-                                       TestId="devices-pair-button"
-                                       Busy="@_devicesBusy"
-                                       OnClick="PairDeviceAsync">
-                                Pair
-                            </AppButton>
-                        </div>
-                    </section>
-                }
-                else
-                {
-                    <section class="setting" data-testid="devices-generate-code" aria-label="Let another device in">
-                        <h2 class="setting__title">Let another device in</h2>
-                        <p class="setting__body">
-                            Generate a code and read it out on the other device. Nothing travels between the two - carrying the code is what pairs them.
-                        </p>
-
-                        <div class="setting__actions">
-                            <AppButton TestId="devices-generate"
-                                       Busy="@_devicesBusy"
-                                       OnClick="IssuePairingCodeAsync">
-                                Generate a code
-                            </AppButton>
-                        </div>
-
-                        @if (_issuedCode is { } issued)
-                        {
-                            <p class="setting__status" data-testid="devices-code-display">
-                                <code>@PairingCodeFormat.Display(issued.Code)</code>
-                                <CopyButton Text="@issued.Code" Label="Copy the pairing code" TestId="devices-code-copy" />
-                            </p>
-                            @* Refreshed by a timer rather than only on the next click:
-                               the whole value of the line is that it counts down while
-                               somebody is still typing the code out. *@
-                            <p class="setting__note" data-testid="devices-code-expiry">@PairingCodeExpiry(issued)</p>
-                        }
-                    </section>
-                }
-            </div>
-
-            @if (_devicesMessage is not null)
-            {
-                <Alert Message="@_devicesMessage"
-                       TestId="devices-message"
-                       Role="@(_devicesFailed ? "alert" : "status")"
-                       BaseClass="setting__status"
-                       CssClass="@(_devicesFailed ? "setting__status--error" : "setting__status--ok")" />
-            }
-
-            @* Escape and the backdrop both arrive on OnCancel, which is the only
-               path that has to put the flag back. OpenChanged is deliberately
-               unbound: it is raised before OnConfirm, so a handler that closed
-               the dialog there would close it a moment before the confirm ran. *@
-            <ConfirmDialog Open="@_forgettingDevice"
-                           Title="Forget this device?"
-                           Message="@ForgetDeviceMessage"
-                           ConfirmText="Forget it"
-                           Destructive="true"
-                           TestId="devices-forget-dialog"
-                           ConfirmTestId="devices-forget-confirm"
-                           CancelTestId="devices-forget-cancel"
-                           OnConfirm="ForgetDevice"
-                           OnCancel="@(() => _forgettingDevice = false)" />
-        </TabPanel>
-    }
-
     @* The modules' own pages, after the app-wide ones and in their registered
        order. The shell knows each only as a title and a component: what is on
-       the page, and what it writes, is the module's. *@
+       the page, and what it writes, is the module's. Kept alive, so a section's
+       state lives as long as the settings screen, as it did when the shell held
+       it, instead of resetting on every tab switch. *@
     @foreach (var section in OfferedSections)
     {
         <TabPanel @key="section.Id"
                   Id="@section.Id"
                   Title="@section.Title"
+                  KeepAlive="true"
                   Element="section"
                   BaseClass="setting"
                   aria-label="@($"{section.Title} settings")">
@@ -2179,22 +1829,6 @@
     </Tabs>
 </div>
 
-@* Consequential rather than destructive: neither of these loses anything, and
-   both cost a long exchange and a lot of it over somebody's connection. Asked
-   the way every other question with a cost on this screen is - the shared
-   dialog, cancel as the default, and copy that says what will happen rather
-   than what it is called. No OpenChanged binding, for the reason ToolsPane
-   gives: the dialog raises it before OnConfirm, so a handler clearing the
-   subject there would clear it a moment before the confirm needed it. *@
-<ConfirmDialog Open="@(_syncResetPending is not null)"
-               Title="@SyncResetTitle"
-               Message="@SyncResetMessage"
-               ConfirmText="@SyncResetConfirm"
-               TestId="devices-sync-reset-dialog"
-               ConfirmTestId="devices-sync-reset-confirm"
-               CancelTestId="devices-sync-reset-cancel"
-               OnConfirm="ConfirmSyncReset"
-               OnCancel="() => _syncResetPending = null" />
 @code {
     private string _draftPath = string.Empty;
     private string? _error;
@@ -2276,7 +1910,6 @@
         Storage,
         Accounts,
         Repositories,
-        Devices,
     }
 
     // The strip speaks in ids; the page still thinks in the enum.
@@ -2336,7 +1969,6 @@
         // usage reports. With neither on there is nothing for the panel to say, so
         // it is not offered rather than offered empty.
         SettingsPage.Accounts => Features.IsEnabled(TasksFeatures.GitHubIntegration) || UsageMetricsEnabled,
-        SettingsPage.Devices => SyncEnabled,
         _ => false
     };
 
@@ -2768,41 +2400,21 @@
 
     protected override Task OnInitializedAsync()
     {
-        _devicePairing = Services.GetService<DevicePairingClient>();
-        _deviceCredentials = Services.GetService<IDeviceCredentialStore>();
-        // Optional the way the pairing client is: a head that composes the sync
-        // clients against a fixed address has no URL to offer and hides the field.
-        _syncService = Services.GetService<SyncServiceSettingsStore>();
-        _syncServiceEndpoint = Services.GetService<SyncServiceEndpoint>();
-        _draftSyncServiceUrl = _syncService?.Current.ServiceUrl ?? string.Empty;
-        _deviceLog = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
-        _deviceTokens = Services.GetService<SyncTokenProvider>();
+        _log = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
         _activityCache = Services.GetService<IPullRequestDetailCache>();
         _listingCache = Services.GetService<IActivityListingCache>();
-        _taskSync = ResolveTaskSync();
-        _sessionSync = ResolveSessionSync();
         _backup = ResolveBackup();
-        _logs = Services.GetService<AppLogLocation>();
 
-        // The loop outlives this screen, so what it did while nobody was here is
-        // already on it - and what it does while somebody is here has to reach
-        // the page, because otherwise the line below the button never moves.
-        if (_taskSync is not null) _taskSync.Changed += OnTaskSyncChanged;
-        if (_sessionSync is not null) _sessionSync.Changed += OnSessionSyncChanged;
+        // The worker outlives this screen, and what it does while somebody is
+        // here has to reach the page, because otherwise the line below the
+        // button never moves.
         if (_backup is not null) _backup.Changed += OnBackupChanged;
-
-        // A background sync is what usually hears the refusal first, on a thread
-        // that is not this one - hence the marshal in the handler. That
-        // background sync is now the loop above, which is what made the refusal
-        // reachable without anybody pressing anything.
-        if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged += OnCredentialRejectedChanged;
 
         // A branch snapshot fetched in the background lands on a thread that is
         // not this one, and the section rows above are what show "fetching"
         // until it does - hence the marshal, and hence subscribing at all.
         DevbookFolders.Changed += OnDevbookFoldersChanged;
 
-        _draftDeviceName = StoredDevice?.DeviceName ?? Environment.MachineName;
         _draftPath = Store.RootDirectory;
         _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
 
@@ -2831,15 +2443,6 @@
         if (Features.IsEnabled(TasksFeatures.GitHubIntegration))
         {
             await LoadCliAccountsAsync();
-        }
-
-        // Same reasoning: asking the sync service who this device is goes over
-        // the network, so the panel draws from what is stored and fills the
-        // device count in when the answer arrives.
-        if (SyncEnabled && StoredDevice is not null)
-        {
-            await RefreshDeviceStatusAsync();
-            StateHasChanged();
         }
     }
 
@@ -2936,9 +2539,12 @@
 
     // ---- Backup schedule ---------------------------------------------------
 
-    /// <summary>The worker, or null in a host that composes none — the same
-    /// arrangement as <see cref="_taskSync"/>, resolved the same way.</summary>
+    /// <summary>The worker, or null in a host that composes none.</summary>
     private BackupWorker? _backup;
+
+    /// <summary>Optional, like the worker: a test rendering this screen should not
+    /// have to compose a logging stack to reach a page it never opens.</summary>
+    private ILogger? _log;
 
     private static readonly IReadOnlyList<SelectorOption> BackupCadenceOptions =
     [
@@ -2990,9 +2596,10 @@
     }
 
     /// <summary>Asks the worker for a backup now, and returns. Not awaited, for
-    /// the reason <see cref="SyncTasks"/> is not: copying the database and
-    /// uploading it is work a click handler should not hold the render loop
-    /// for, and what happened arrives through the worker's <c>Changed</c>.</summary>
+    /// the reason the Devices page's Sync now button is not: copying the
+    /// database and uploading it is work a click handler should not hold the
+    /// render loop for, and what happened arrives through the worker's
+    /// <c>Changed</c>.</summary>
     private void BackUpNow() => _backup?.RequestBackup();
 
     private bool BackupStatusIsFailure =>
@@ -3034,9 +2641,10 @@
         }
     }
 
-    /// <summary>Resolved the way <see cref="ResolveTaskSync"/> resolves its
-    /// worker, and for the same reason: both desktop heads compose one, a test
-    /// rendering this page does not have to.</summary>
+    /// <summary>Resolved rather than injected, and resolved this way rather than
+    /// with a plain <c>GetService</c>: both desktop heads compose one, a test
+    /// rendering this page does not have to, and a worker that is registered but
+    /// cannot be built throws rather than answering null.</summary>
     private BackupWorker? ResolveBackup()
     {
         try
@@ -3045,7 +2653,7 @@
         }
         catch (InvalidOperationException ex)
         {
-            _deviceLog?.LogInformation(ex, "Backup is not composed in this host, so the backup controls are not offered.");
+            _log?.LogInformation(ex, "Backup is not composed in this host, so the backup controls are not offered.");
             return null;
         }
     }
@@ -3981,713 +3589,19 @@
     }
 
 
-    // --- Devices ---------------------------------------------------------
-    //
-    // The two sync collaborators are resolved rather than injected, and that is
-    // the decision rather than a shortcut. Every host registers them, but seven
-    // test files render this screen to ask about storage, repositories, accounts
-    // and AI, and a required inject would make every one of them compose a sync
-    // client to reach a panel they never open. AppFooter reads its optional
-    // collaborators the same way, for the same reason.
-
-    /// <summary>What a person is told when something nobody planned for went
-    /// wrong. An exception message is written for whoever reads the log, and
-    /// putting one on screen either says nothing usable or says too much — a
-    /// path, a header, the shape of the service. The detail goes to
-    /// <see cref="_deviceLog"/>; the sentence goes here.</summary>
-    private const string DeviceUnexpectedFailure = "The sync service could not be reached. Try again in a moment.";
-
-    private DevicePairingClient? _devicePairing;
-    private SyncServiceSettingsStore? _syncService;
-    private SyncServiceEndpoint? _syncServiceEndpoint;
-    private string _draftSyncServiceUrl = string.Empty;
-    private string? _syncServiceMessage;
-    private bool _syncServiceFailed;
-
-    /// <summary>Optional on purpose: the panel works without it, and the unit
-    /// tests that predate the credential-rejected state compose the pairing
-    /// client without a token pipeline at all. When it is there, it is the only
-    /// thing that can tell a refused credential from an unreachable service.</summary>
-    private SyncTokenProvider? _deviceTokens;
-    private IDeviceCredentialStore? _deviceCredentials;
-
-    /// <summary>Optional for the reason the pairing client is: a host that has
-    /// not registered an <c>ITaskSyncStateStore</c> - which every host must do
-    /// for itself, because a shared one would collapse two devices into one -
-    /// cannot compose the loop, and a settings screen that failed at startup
-    /// over a panel nobody opened would be the worse answer. Absent hides the
-    /// section.
-    /// <para>
-    /// The worker rather than the session, because the exchange is no longer this
-    /// screen's to run: the loop runs it on a schedule whether or not anybody is
-    /// on this tab, and what is left here is a way to ask for one now and a place
-    /// to read what the last one did.
-    /// </para></summary>
-    private TaskSyncWorker? _taskSync;
-
-    /// <summary>The session loop, on the same terms as <see cref="_taskSync"/>:
-    /// null on a head that composed none, and hidden with it.</summary>
-    private SessionSyncWorker? _sessionSync;
-
-    /// <summary>Where the desktop head writes its log file, so the Sync tasks
-    /// card can point at it: the worker's sentence for an unplanned failure
-    /// names no cause, and the file is where the cause went. Optional because
-    /// only a host that keeps a file registers it.</summary>
-    private AppLogLocation? _logs;
-
-    /// <summary>Optional, like the two above and for the same reason: a test
-    /// rendering this screen to ask about storage should not have to compose a
-    /// logging stack to reach a panel it never opens.</summary>
-    private ILogger? _deviceLog;
-    private DeviceStatusResponse? _deviceStatus;
-    private PairingCodeResponse? _issuedCode;
-
-    /// <summary>Which of the two starting-over questions is on screen, or null
-    /// when neither is. One field rather than two flags: the dialog is one, and
-    /// two of them could otherwise both be open.</summary>
-    private SyncReset? _syncResetPending;
-
-    /// <summary>The two ways of telling a replica that has drifted to forget
-    /// where it thought this device had got to.</summary>
-    private enum SyncReset
-    {
-        /// <summary>Forget how far this device has pushed its session records,
-        /// and send every one of them again.</summary>
-        RepublishSessions,
-
-        /// <summary>Forget how far this device has pushed, and send everything
-        /// again.</summary>
-        Republish,
-
-        /// <summary>Forget the feed position, and read the owner's changes from
-        /// the beginning.</summary>
-        Rehydrate
-    }
-    private string _draftDeviceName = string.Empty;
-    private string _draftPairingCode = string.Empty;
-    private string? _devicesMessage;
-    private bool _devicesFailed;
-    private bool _devicesBusy;
-
-    /// <summary>Set when the status call came back with the service's own code
-    /// for it. Separate from the token provider's verdict because they are two
-    /// different answers to the same question, and either one is enough.</summary>
-    private bool _deviceStatusRejected;
-    private bool _forgettingDevice;
-
-    /// <summary>Redraws the expiry line while a code is on screen. Disposed with
-    /// the screen, so a settings page left behind does not go on ticking.</summary>
-    private System.Threading.Timer? _pairingCodeCountdown;
-
-    private bool SyncEnabled => Features.IsEnabled(SyncFeatures.Sync);
-
-    /// <summary>
-    /// What the last exchange did, or an invitation when there has not been one.
-    /// Never a failure - those go to the shared devices alert, which is where
-    /// every other thing that went wrong on this tab already is.
-    /// <para>
-    /// The skipped count is only mentioned when it is non-zero, and it is
-    /// mentioned at all because the alternative is silence: a document this build
-    /// cannot read is dropped so that one bad row cannot stop the device syncing
-    /// for ever, and a drop nobody is told about looks exactly like a task that
-    /// was never sent.
-    /// </para>
-    /// <para>
-    /// Read off the worker rather than off a field of this screen's own, because
-    /// most exchanges now happen while nobody is looking at this tab: a summary
-    /// kept here would start at "has not synced yet" every time the page was
-    /// opened, however long the loop had been running.
-    /// </para>
-    /// </summary>
-    private string TaskSyncSummaryLine => _taskSync?.LastSummary is { } summary
-        ? $"Sent {summary.Pushed}, received {summary.Pulled}, applied {summary.Applied}."
-            + (summary.Skipped > 0 ? $" {summary.Skipped} could not be read by this build." : string.Empty)
-        : "This device has not synced yet.";
-
-    private string SessionSyncSummaryLine => _sessionSync?.LastSummary is { } summary
-        ? $"Sent {summary.Pushed}, received {summary.Pulled}, kept {summary.Applied}."
-        : "This device has not synced its sessions yet.";
-
-    private string SyncResetTitle => _syncResetPending switch
-    {
-        SyncReset.Republish => "Republish everything?",
-        SyncReset.Rehydrate => "Rehydrate from scratch?",
-        SyncReset.RepublishSessions => "Republish every session?",
-        _ => string.Empty
-    };
-
-    /// <summary>Plainly what will happen, and how long it will take to say it.
-    /// Neither of these loses anything, so neither is worded as a warning - what
-    /// they cost is one long exchange, and that is what the sentence is for.</summary>
-    private string SyncResetMessage => _syncResetPending switch
-    {
-        SyncReset.Republish =>
-            "Every task on this machine, deleted ones included, will be sent to the cloud again. Nothing is lost: the other devices keep whichever version was edited last. It may take a while on a slow connection.",
-        SyncReset.Rehydrate =>
-            "This device will read every change the other devices have ever made, from the beginning, and apply the ones it does not already have. Nothing on this machine is deleted. It may take a while on a slow connection.",
-        SyncReset.RepublishSessions =>
-            "Every Claude and Copilot session record on this machine will be sent to the cloud again - the metadata only, as always. Nothing is lost: the other devices keep one record per session. It may take a while on a slow connection.",
-        _ => string.Empty
-    };
-
-    private string SyncResetConfirm => _syncResetPending switch
-    {
-        SyncReset.Republish => "Republish",
-        SyncReset.Rehydrate => "Rehydrate",
-        SyncReset.RepublishSessions => "Republish",
-        _ => "Confirm"
-    };
-
-    private DeviceCredential? StoredDevice => _deviceCredentials?.Current;
-
-    /// <summary>
-    /// The service has said it has no record of this device, from either of the
-    /// two places that can say it conclusively: the token endpoint refusing the
-    /// credential, or the status call answering with
-    /// <see cref="SyncErrorCodes.DeviceCredentialInvalid"/>.
-    /// <para>
-    /// What is deliberately not in here is everything else - a timeout, an
-    /// unreachable service, a bare 401 with no code. None of those is a verdict
-    /// on the credential, and treating them as one would unpair a device every
-    /// time a laptop woke up on a dead network.
-    /// </para>
-    /// </summary>
-    private bool DeviceNoLongerRegistered =>
-        StoredDevice is not null && (_deviceStatusRejected || _deviceTokens?.CredentialRejected == true);
-
-    private string ForgetDeviceMessage =>
-        StoredDevice is { } stored
-            ? $"This machine will forget the credential it holds for {stored.DeviceName}. Nothing on the sync service is deleted, and the entries in this backlog are untouched - but pairing again means registering or redeeming a code."
-            : "This machine will forget the credential it holds.";
-
-    private string CredentialStorePath =>
-        _deviceCredentials?.StorePath ?? "nowhere - cloud sync is not configured in this build";
-
-    private static string PairedDeviceSummary(int count) => count switch
-    {
-        <= 1 => "No other device is paired yet.",
-        2 => "One other device is paired.",
-        _ => $"{count - 1} other devices are paired."
-    };
-
-    /// <summary>
-    /// Whole minutes, rounded up. The number is read while somebody types eight
-    /// characters on another device, so "expires in 4 minutes" is the useful
-    /// shape and a ticking second count is not.
-    /// </summary>
-    private static string PairingCodeExpiry(PairingCodeResponse code)
-    {
-        var remaining = code.ExpiresAt - DateTimeOffset.UtcNow;
-
-        if (remaining <= TimeSpan.Zero) return "This code has expired. Generate another one.";
-
-        var minutes = (int)Math.Ceiling(remaining.TotalMinutes);
-        return minutes == 1 ? "Expires in 1 minute." : $"Expires in {minutes} minutes.";
-    }
-
-    private async Task RegisterDeviceAsync()
-    {
-        if (_devicePairing is null)
-        {
-            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
-            return;
-        }
-
-        _devicesBusy = true;
-        _devicesMessage = null;
-
-        try
-        {
-            var result = await _devicePairing.RegisterAsync(_draftDeviceName);
-
-            if (result.IsFailure)
-            {
-                ReportDeviceOutcome(result.Error.Message, failed: true);
-                return;
-            }
-
-            ReportDeviceOutcome($"Registered as {result.Value.DeviceName}.", failed: false);
-            await RefreshDeviceStatusAsync();
-        }
-        catch (Exception ex)
-        {
-            // The client answers its expected failures with a result, so anything
-            // arriving here is unexpected - and it still has to reach the screen,
-            // because an exception swallowed in an event handler leaves the panel
-            // looking like nothing happened at all. What reaches the screen is a
-            // sentence; what the exception itself said goes to the log.
-            _deviceLog?.LogError(ex, "Registering this device with the sync service failed unexpectedly.");
-            ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
-        }
-        finally
-        {
-            _devicesBusy = false;
-        }
-    }
-
-    private async Task PairDeviceAsync()
-    {
-        if (_devicePairing is null)
-        {
-            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
-            return;
-        }
-
-        _devicesBusy = true;
-        _devicesMessage = null;
-
-        try
-        {
-            var result = await _devicePairing.PairAsync(_draftPairingCode, _draftDeviceName);
-
-            if (result.IsFailure)
-            {
-                ReportDeviceOutcome(result.Error.Message, failed: true);
-                return;
-            }
-
-            _draftPairingCode = string.Empty;
-            ReportDeviceOutcome($"Paired as {result.Value.DeviceName}.", failed: false);
-            await RefreshDeviceStatusAsync();
-        }
-        catch (Exception ex)
-        {
-            _deviceLog?.LogError(ex, "Pairing this device with the sync service failed unexpectedly.");
-            ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
-        }
-        finally
-        {
-            _devicesBusy = false;
-        }
-    }
-
-    private async Task IssuePairingCodeAsync()
-    {
-        if (_devicePairing is null)
-        {
-            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
-            return;
-        }
-
-        _devicesBusy = true;
-        _devicesMessage = null;
-
-        try
-        {
-            var result = await _devicePairing.IssuePairingCodeAsync();
-
-            if (result.IsFailure)
-            {
-                _issuedCode = null;
-                ReportDeviceOutcome(result.Error.Message, failed: true);
-                return;
-            }
-
-            _issuedCode = result.Value;
-            StartPairingCodeCountdown();
-            ReportDeviceOutcome("Read this code out on the other device.", failed: false);
-        }
-        catch (Exception ex)
-        {
-            _issuedCode = null;
-            _deviceLog?.LogError(ex, "Asking the sync service for a pairing code failed unexpectedly.");
-            ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
-        }
-        finally
-        {
-            _devicesBusy = false;
-        }
-    }
-
-    /// <summary>
-    /// The background sync loop, where this host composed one.
-    /// <para>
-    /// Not a plain <c>GetService</c>, because a missing registration is not the
-    /// only way a host declines this. A head that called <c>AddTaskSyncClient</c>
-    /// has the worker registered, and that call deliberately registers no
-    /// <c>ITaskSyncStateStore</c> - which store is right is the one thing only the
-    /// host knows - so on a head that has not chosen one the worker is registered
-    /// and unconstructable, and asking for it throws rather than answering null.
-    /// </para>
-    /// <para>
-    /// A head that has not opted in gets the section hidden. It is not swallowed:
-    /// what it means goes to the log, because "the sync panel is missing" is a
-    /// question somebody will eventually ask, and a settings screen that failed
-    /// to open over a panel nobody asked for is the worse of the two answers.
-    /// </para>
-    /// <para>
-    /// Resolving it here does not start it. Both desktop heads ask for it once
-    /// after <c>Build()</c>, because a loop that only existed while somebody had
-    /// this tab open would be a loop that runs when it is least needed.
-    /// </para></summary>
-    /// <inheritdoc cref="ResolveTaskSync"/>
-    private SessionSyncWorker? ResolveSessionSync()
-    {
-        try
-        {
-            return Services.GetService<SessionSyncWorker>();
-        }
-        catch (InvalidOperationException ex)
-        {
-            _deviceLog?.LogWarning(ex, "The session sync loop is registered but could not be built; the sessions card is hidden.");
-            return null;
-        }
-    }
-
-    private TaskSyncWorker? ResolveTaskSync()
-    {
-        try
-        {
-            return Services.GetService<TaskSyncWorker>();
-        }
-        catch (InvalidOperationException ex)
-        {
-            _deviceLog?.LogInformation(
-                ex, "Task sync is not composed in this host, so the sync section is not offered.");
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Asks the loop for an exchange now, and returns.
-    /// <para>
-    /// There is a schedule and a background loop, so this is no longer where a
-    /// sync happens - it is a way of not waiting for the next tick. Deliberately
-    /// not awaited and deliberately not <c>async</c>: an exchange is a network
-    /// call over an unknown connection, and awaiting one inside a click handler
-    /// is what made this button hold the render loop for as long as the replica
-    /// took to answer. What the exchange did comes back through the worker's
-    /// <c>Changed</c>, the same way a tick's does.
-    /// </para>
-    /// </summary>
-    private void SyncTasks()
-    {
-        if (_taskSync is null)
-        {
-            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
-            return;
-        }
-
-        _devicesMessage = null;
-        _taskSync.RequestSync();
-    }
-
-    /// <inheritdoc cref="SyncTasks"/>
-    private void SyncSessions()
-    {
-        if (_sessionSync is null)
-        {
-            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
-            return;
-        }
-
-        _devicesMessage = null;
-        _sessionSync.RequestSync();
-    }
-
-    /// <summary>Carries out whichever starting-over question was answered yes.
-    /// Both are one call on the worker: the reset is written to the state file
-    /// and a cycle is asked for, so a request that lands during an exchange still
-    /// takes effect on the next one.</summary>
-    private void ConfirmSyncReset()
-    {
-        var pending = _syncResetPending;
-        _syncResetPending = null;
-
-        if (pending is null) return;
-
-        switch (pending)
-        {
-            case SyncReset.Republish when _taskSync is not null:
-                _taskSync.RepublishEverything();
-                ReportDeviceOutcome("Republishing every task on this machine.", failed: false);
-                break;
-
-            case SyncReset.Rehydrate when _taskSync is not null:
-                _taskSync.RehydrateFromScratch();
-                ReportDeviceOutcome("Reading every change from the beginning.", failed: false);
-                break;
-
-            case SyncReset.RepublishSessions when _sessionSync is not null:
-                _sessionSync.RepublishEverything();
-                ReportDeviceOutcome("Republishing every session record on this machine.", failed: false);
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    /// <summary>
-    /// Redraws when the loop starts or finishes an exchange, and says so when one
-    /// failed.
-    /// <para>
-    /// It arrives on a thread pool thread rather than the renderer's, so it is
-    /// marshalled - and the failure goes to the shared devices alert, which is
-    /// where every other thing that went wrong on this tab already is.
-    /// </para>
-    /// <para>
-    /// The failure is only read at the end of a cycle. The worker raises at both
-    /// ends so the button can go busy, and reporting on the opening raise would
-    /// put the previous cycle's failure back on screen the instant somebody
-    /// pressed the button to try again.
-    /// </para>
-    /// </summary>
-    /// <inheritdoc cref="OnTaskSyncChanged"/>
-    private void OnSessionSyncChanged() => _ = InvokeAsync(() =>
-    {
-        if (_sessionSync is { IsSyncing: false, LastError: { } failure })
-        {
-            ReportDeviceOutcome(failure, failed: true);
-        }
-
-        StateHasChanged();
-    });
-
-    private void OnTaskSyncChanged() => _ = InvokeAsync(() =>
-    {
-        if (_taskSync is { IsSyncing: false, LastError: { } failure })
-        {
-            ReportDeviceOutcome(failure, failed: true);
-        }
-
-        StateHasChanged();
-    });
-
-    /// <summary>One sentence for where the sync traffic goes and why there,
-    /// so "No such host is known" has its explanation next to the fix.</summary>
-    private string SyncServiceStatusLine
-    {
-        get
-        {
-            if (_syncServiceEndpoint is null) return string.Empty;
-
-            var resolved = _syncServiceEndpoint.Resolve();
-            return resolved.Source switch
-            {
-                SyncServiceAddressSource.Settings => $"Talking to {resolved.Address} - the URL entered here.",
-                SyncServiceAddressSource.EnvironmentVariable => $"Talking to {resolved.Address} - from {SyncServiceEndpoint.EnvironmentVariable}.",
-                SyncServiceAddressSource.ServiceDiscovery => "Started from the Aspire AppHost: talking to this run's own sync service.",
-                _ => $"No sync service is configured. Enter its URL above, or set {SyncServiceEndpoint.EnvironmentVariable} before starting the app."
-            };
-        }
-    }
-
-    private async Task ApplySyncServiceUrlAsync()
-    {
-        if (_syncService is null) return;
-
-        // Enter arrives twice - once as the key and once as the change the
-        // browser commits behind it - so an unchanged draft is a no-op rather
-        // than a second save and a second status call. A refused value is the
-        // exception: it stays in the field with its message, so the second
-        // arrival repeats the same refusal instead of clearing it.
-        var stored = _syncService.Current.ServiceUrl ?? string.Empty;
-        if (_syncServiceMessage is null && string.Equals(_draftSyncServiceUrl, stored, StringComparison.Ordinal)) return;
-
-        var error = _syncService.SetServiceUrl(_draftSyncServiceUrl);
-        _syncServiceFailed = error is not null;
-        _syncServiceMessage = error;
-        if (error is not null) return;
-
-        _draftSyncServiceUrl = _syncService.Current.ServiceUrl ?? string.Empty;
-
-        // The next client the factory hands out already points at the new
-        // address - but the one this page resolved when it opened does not, its
-        // HttpClient was configured then. So ask for a fresh one (typed clients
-        // are transient) before asking the card above to check again, which is
-        // how a person finds out they typed it right.
-        _devicePairing = Services.GetService<DevicePairingClient>();
-        _devicesMessage = null;
-        await RefreshDeviceStatusAsync();
-    }
-
-    private async Task OnSyncServiceKeyDownAsync(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter") await ApplySyncServiceUrlAsync();
-        else if (e.Key == "Escape")
-        {
-            _draftSyncServiceUrl = _syncService?.Current.ServiceUrl ?? string.Empty;
-            _syncServiceMessage = null;
-            _syncServiceFailed = false;
-        }
-    }
-
-    /// <summary>Who the service says this device is, which is where the count of
-    /// paired devices comes from. An ordinary failure is still not reported: the
-    /// card has the stored identity to show, and an unreachable service saying so
-    /// twice on one screen is noise.
-    /// <para>
-    /// One failure is not ordinary. A 401 carrying
-    /// <see cref="SyncErrorCodes.DeviceCredentialInvalid"/> is the service saying
-    /// it has no record of this device, and that is the whole state the panel
-    /// needs in order to offer a way back. Any other failure leaves the verdict
-    /// where it was rather than clearing it, because it is not an answer to the
-    /// same question.
-    /// </para>
-    /// <para>
-    /// And when the failure carried no answer at all, the panel goes and asks.
-    /// See <see cref="AskWhetherTheCredentialStillWorksAsync"/> for why that is
-    /// a question rather than a retry - and for the one case in which the answer
-    /// is then used: a service that has just minted a token for this credential
-    /// has said the device is still in, so the count it refused a moment ago is
-    /// asked for once more, with that token. Without this, the first load after
-    /// the service restarted said "Paired as" and nothing about the other devices
-    /// until the tab was opened again.
-    /// </para>
-    /// </summary>
-    private async Task RefreshDeviceStatusAsync()
-    {
-        if (_devicePairing is null || StoredDevice is null)
-        {
-            _deviceStatus = null;
-            return;
-        }
-
-        try
-        {
-            if (RecordDeviceStatus(await _devicePairing.GetStatusAsync())) return;
-
-            if (!await AskWhetherTheCredentialStillWorksAsync()) return;
-
-            // Once, and only here: the token endpoint has just answered that the
-            // credential is good, and the provider is holding the token it was
-            // answered with, so this call goes out with it rather than minting
-            // another. Whatever it says is taken as final - a second bare 401
-            // is not asked about again.
-            _ = RecordDeviceStatus(await _devicePairing.GetStatusAsync());
-        }
-        catch (Exception)
-        {
-            _deviceStatus = null;
-        }
-    }
-
-    /// <summary>Takes a status answer onto the card. <c>true</c> when it was an
-    /// answer - a status, or the service saying the device is gone - and
-    /// <c>false</c> when it said nothing that settles the question.</summary>
-    private bool RecordDeviceStatus(Result<DeviceStatusResponse> result)
-    {
-        _deviceStatus = result.IsSuccess ? result.Value : null;
-
-        if (result.IsSuccess)
-        {
-            _deviceStatusRejected = false;
-            return true;
-        }
-
-        if (string.Equals(result.Error.Code, SyncErrorCodes.DeviceCredentialInvalid, StringComparison.Ordinal))
-        {
-            _deviceStatusRejected = true;
-            return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// The status call failed without saying why, and this device holds a
-    /// credential. Asking the token endpoint for a token is the one way to find
-    /// out whether that credential still means anything, because it is the only
-    /// endpoint whose 401 is unambiguous - it is anonymous, so the credential in
-    /// the body is the only thing it can be refusing.
-    /// <para>
-    /// This is a question, not a retry: the status call that failed is not sent
-    /// again with the token it was refused for. Nothing is hammered either - the
-    /// failed request has already dropped that token, so this is one call, and a
-    /// service that is merely down answers it with nothing and leaves the device
-    /// paired. What the caller does with a <c>true</c> is the one bounded
-    /// exception: the count that the refused call was for is asked for again,
-    /// once, because the service has just said the credential is good and there
-    /// is now a token it will accept.
-    /// </para>
-    /// <para>
-    /// Costs nothing when all is well, because a status call that succeeded
-    /// never gets here.
-    /// </para>
-    /// </summary>
-    /// <returns><c>true</c> when the service issued a token for this credential;
-    /// <c>false</c> when it refused, was unreachable, or could not be asked.</returns>
-    private async Task<bool> AskWhetherTheCredentialStillWorksAsync()
-    {
-        if (_deviceTokens is null || StoredDevice is null) return false;
-
-        // The verdict is the point; the token itself is of no interest here -
-        // the provider keeps it for the call that follows.
-        return await _deviceTokens.GetAccessTokenAsync() is not null;
-    }
-
-    /// <summary>
-    /// Forgets the credential this machine holds. The service keeps its own
-    /// record - this head simply stops claiming to be that device - so the way
-    /// back is registering or redeeming a code, which the panel now offers
-    /// because <see cref="StoredDevice"/> has gone.
-    /// <para>
-    /// Clearing the store raises its <c>Changed</c> event, which is what drops
-    /// the cached token and any standing rejection verdict with it.
-    /// </para>
-    /// </summary>
-    private void ForgetDevice()
-    {
-        _forgettingDevice = false;
-
-        if (_deviceCredentials is null)
-        {
-            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
-            return;
-        }
-
-        _deviceCredentials.Clear();
-
-        // Everything on the panel described the credential that has just gone.
-        _deviceStatus = null;
-        _deviceStatusRejected = false;
-        _issuedCode = null;
-        _pairingCodeCountdown?.Dispose();
-        _pairingCodeCountdown = null;
-
-        ReportDeviceOutcome(
-            "This device has been forgotten. Register it again, or pair it with a device that is already in.",
-            failed: false);
-    }
-
-    /// <summary>The verdict moved, and it usually moved on a background thread.</summary>
-    private void OnCredentialRejectedChanged() => _ = InvokeAsync(StateHasChanged);
-
-    private void ReportDeviceOutcome(string message, bool failed)
-    {
-        _devicesMessage = message;
-        _devicesFailed = failed;
-    }
-
-    private void StartPairingCodeCountdown()
-    {
-        _pairingCodeCountdown?.Dispose();
-        _pairingCodeCountdown = new System.Threading.Timer(
-            _ => _ = InvokeAsync(StateHasChanged),
-            state: null,
-            dueTime: TimeSpan.FromSeconds(15),
-            period: TimeSpan.FromSeconds(15));
-    }
-
     /// <summary>
     /// Lets go of everything that outlives a render.
     /// <para>
-    /// Neither the worker nor the token provider is disposed here - both are
-    /// singletons, and the worker goes on syncing after this page closes, which
-    /// is the whole point of it. What is let go of is the subscriptions: a screen
-    /// still on a singleton's event would be kept alive by it and would call
-    /// <c>StateHasChanged</c> on a renderer that is gone.
+    /// The backup worker is not disposed here - it is a singleton, and it goes on
+    /// running after this page closes, which is the whole point of it. What is let
+    /// go of is the subscriptions: a screen still on a singleton's event would be
+    /// kept alive by it and would call <c>StateHasChanged</c> on a renderer that is
+    /// gone.
     /// </para>
     /// </summary>
     public void Dispose()
     {
-        _pairingCodeCountdown?.Dispose();
-
-        if (_taskSync is not null) _taskSync.Changed -= OnTaskSyncChanged;
-        if (_sessionSync is not null) _sessionSync.Changed -= OnSessionSyncChanged;
         if (_backup is not null) _backup.Changed -= OnBackupChanged;
-        if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged -= OnCredentialRejectedChanged;
         DevbookFolders.Changed -= OnDevbookFoldersChanged;
     }
 

@@ -14,6 +14,76 @@ public sealed class TabsTests
         Assert.DoesNotContain("Third body", tabs.Markup, StringComparison.Ordinal);
     }
 
+    /// <summary>A kept-alive panel is still built on demand: nothing inside it
+    /// exists until it is first opened.</summary>
+    [Fact]
+    public void A_keep_alive_panel_renders_nothing_before_its_first_visit()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<KeepAliveTabsHarness>();
+
+        Assert.Empty(tabs.FindComponents<StatefulProbe>());
+        Assert.True(tabs.Find("[data-testid='kept-panel']").HasAttribute("hidden"));
+    }
+
+    /// <summary>
+    /// Once opened, a kept-alive panel's body outlives a switch to another tab:
+    /// the same component instance is there on the way back, with its state, and
+    /// meanwhile the panel is hidden rather than gone.
+    /// </summary>
+    [Fact]
+    public void A_keep_alive_panel_keeps_its_body_across_a_switch_and_hides_it_meanwhile()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<KeepAliveTabsHarness>();
+
+        tabs.FindAll("[role='tab']")[1].Click();
+        tabs.Find("[data-testid='probe-count']").Click();
+        var probe = Assert.Single(tabs.FindComponents<StatefulProbe>()).Instance;
+        Assert.Equal(1, probe.Count);
+
+        tabs.FindAll("[role='tab']")[0].Click();
+
+        Assert.Same(probe, Assert.Single(tabs.FindComponents<StatefulProbe>()).Instance);
+        Assert.True(tabs.Find("[data-testid='kept-panel']").HasAttribute("hidden"));
+        Assert.Contains("First body", tabs.Markup, StringComparison.Ordinal);
+
+        tabs.FindAll("[role='tab']")[1].Click();
+
+        Assert.Same(probe, Assert.Single(tabs.FindComponents<StatefulProbe>()).Instance);
+        Assert.Equal("Count 1", tabs.Find("[data-testid='probe-count']").TextContent.Trim());
+        Assert.False(tabs.Find("[data-testid='kept-panel']").HasAttribute("hidden"));
+
+        // The plain panel beside it in the same strip was opened and left, and
+        // is gone again: KeepAlive is the panel's choice, not the strip's.
+        Assert.DoesNotContain("First body", tabs.Markup, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Without a key, removing an item in front hands the surviving panel
+    /// component the next item's id. The body it kept was opened for the item
+    /// that went, so it is dropped rather than shown under the new id.
+    /// </summary>
+    [Fact]
+    public void A_keep_alive_panel_handed_another_id_drops_the_body_it_kept()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<UnkeyedKeepAliveTabsHarness>();
+
+        var opened = Assert.Single(tabs.FindComponents<StatefulProbe>()).Instance;
+        tabs.FindAll("[role='tab']")[2].Click();
+        Assert.Equal(2, tabs.FindComponents<StatefulProbe>().Count);
+
+        tabs.InvokeAsync(() => tabs.Instance.Remove("a"));
+
+        var b = tabs.FindComponents<TabPanel>().Single(panel => panel.Instance.Id == "b");
+        Assert.Empty(b.FindComponents<StatefulProbe>());
+        Assert.DoesNotContain(tabs.FindComponents<StatefulProbe>(), probe => ReferenceEquals(probe.Instance, opened));
+    }
+
     [Fact]
     public void The_strip_is_a_tablist_of_tabs_pointing_at_their_panels()
     {

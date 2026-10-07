@@ -54,6 +54,7 @@ public sealed partial class DesktopCompositionTests
         "AddToolsAiContentSource",
         "AddSessionsAiContentSource",
         "AddInboxSettings",
+        "AddSyncSettings",
         "AddSyncClient",
         "AddTaskSyncClient",
         "AddSessionSyncClient",

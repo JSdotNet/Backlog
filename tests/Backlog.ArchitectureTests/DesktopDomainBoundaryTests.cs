@@ -43,7 +43,7 @@ public class DesktopDomainBoundaryTests
 
     /// <summary>The desktop's contexts, keyed by their module folder under
     /// <c>src/Modules</c> and valued by the <c>.UI</c> project that holds their
-    /// screens. A module with no screens — Sync — is not one.</summary>
+    /// screens. A module with no screens is not one.</summary>
     private static readonly Dictionary<string, string> ContextProjects = ModuleUiProjects()
         .ToDictionary(
             project => project.Directory!.Parent!.Name,

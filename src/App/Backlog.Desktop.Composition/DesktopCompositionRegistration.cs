@@ -28,6 +28,7 @@ using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
+using Backlog.Modules.Sync.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.SharedKernel;
@@ -254,6 +255,9 @@ public static class DesktopCompositionRegistration
         // syncs. Drawn from the connectors' descriptors, so it needs no change when
         // one is added.
         services.AddTaskConnectorSettings();
+        // The Devices page: register or pair this device, where the sync service
+        // is, and the task and session loops. Offered behind the sync switch.
+        services.AddSyncSettings();
         // The band under every route reads the backlog's save state through the
         // library's interface, and the toast tray in MainLayout reads the channel a
         // screen puts a message in; concrete type and interface resolve the same one.

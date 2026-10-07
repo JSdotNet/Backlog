@@ -412,4 +412,22 @@ public class WebHarnessHostTests
         var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
         Assert.Single(sections, section => section.Id == "working-week" && section.Title == "Working week" && section.FeatureKey is null);
     }
+
+    /// <summary>
+    /// The Devices page is the Sync module's section now, and the desktop harness
+    /// carries it through the shared composition's <c>AddSyncSettings()</c>, behind
+    /// the sync switch the shell used to check for itself.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_registers_the_devices_settings_section_through_the_shared_composition()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using var scope = harness.Services.CreateScope();
+
+        var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
+        Assert.Single(sections, section => section.Id == "devices"
+            && section.Title == "Devices"
+            && section.FeatureKey == Backlog.Modules.Sync.Abstractions.SyncFeatures.Sync);
+    }
 }

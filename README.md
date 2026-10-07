@@ -153,6 +153,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Sync/Backlog.Modules.Sync` | Sync module — device pairing, the push and pull features for each replica, the replica, device, pairing-code and attachment-store ports, and in-memory adapters for them |
 | `src/Modules/Sync/Backlog.Modules.Sync.Abstractions` | The Sync module's published surface — the wire contracts, routes, claims and error codes the client and the service share |
 | `src/Modules/Sync/Backlog.Modules.Sync.Api` | Sync module's API — thin ASP.NET Core sync service, deployed to Azure |
+| `src/Modules/Sync/Backlog.Modules.Sync.UI` | Sync module's desktop face — the Devices page on the settings screen: registering and pairing this device, the sync service address, and the task and session sync loops |
 | `src/Harness/Backlog.Desktop.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Desktop.UI` for Aspire/Playwright |
 | `src/Harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
 | `src/Harness/Backlog.UI.Storybook` | **Test harness, not shipped** — the shared control library rendered on its own, with each page's governing `.devbook/design` rule beside it |
