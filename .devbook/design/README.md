@@ -105,6 +105,7 @@ Page map — each file here and the storybook pages that show it:
 | `content-editing.md` | *Markdown*, *Markdown document*, *Rich text editing*, *File view*, *Code*, *Entry edit*, *Section comparison*; `#ai-proposals-in-a-document` → *Integrations* → **AI in the document** |
 | `accessibility.md` | every page — components carry their own roles, labels and focus styles; *Foundations* reports contrast |
 | `component-libraries.md` | *Diagrams*, *Diagrams in markdown*, *Graph explorer* and *Graph atlas* (Mermaid, the first-party canvas renderer), plus the library itself |
+| `effort-and-mode-chips.md` | None yet. The chips are not yet materialized in the library, as its *Materialization* chapter says. |
 
 The storybook's own order is a rule of its own: **nothing is shown before its
 parts.** Its groups run parts (input and action, structure, feedback, content,
@@ -170,6 +171,7 @@ Rules:
 | [`content-editing.md`](content-editing.md) | Direct Markdown editing where Markdown is canonical, and what AI may propose against a document. |
 | [`accessibility.md`](accessibility.md) | WCAG AA target, keyboard nav, screen-reader announcements, focus visibility, reduced motion, target sizes. |
 | [`component-libraries.md`](component-libraries.md) | Per-channel component-library research and recommendation. |
+| [`effort-and-mode-chips.md`](effort-and-mode-chips.md) | The effort ladder, the four mode shapes, the not-as-configured and inferred marks, and the legend of a delivery run's stage list. |
 
 ## Provenance
 
