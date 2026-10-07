@@ -275,6 +275,15 @@ html, body {
     min-width: 0;
 }
 
+/* A pane's worth of height that scrolls, the way the desktop Board's pane does:
+   a long column runs below its foot, and a short column's cards scroll out of
+   view above while the reader works at the foot of the long one. */
+.sb-board--scroller {
+    height: 28rem;
+    overflow-y: auto;
+    border: var(--border-width) dashed var(--color-border);
+}
+
 .sb-board--narrow {
     width: 40rem;
     max-width: 100%;
