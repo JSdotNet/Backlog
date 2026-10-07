@@ -720,6 +720,62 @@ public class DashboardPaneTests
     }
 
     /// <summary>
+    /// The Sessions tab's board: the six figures as one joined strip, the chart and the
+    /// grid in a column with the longest sessions beside them — each row naming the
+    /// session, its time, and what the record says about it, missing parts left out
+    /// rather than printed as placeholders — and a link to every session only when the
+    /// shell is listening.
+    /// </summary>
+    [Fact]
+    public void The_sessions_tab_lists_the_longest_sessions_beside_the_chart_and_links_to_all_of_them()
+    {
+        var insight = Insight() with
+        {
+            LongestSessions =
+            [
+                new LongestSession("a", "Token store", "backlog", "opus", 31, TimeSpan.FromHours(3), DateTimeOffset.UnixEpoch),
+                new LongestSession("b", null, null, null, null, TimeSpan.FromMinutes(45), DateTimeOffset.UnixEpoch)
+            ]
+        };
+        var opened = 0;
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(insight)));
+
+        var pane = context.Render<DashboardPane>(parameters => parameters
+            .Add(p => p.OnOpenSessions, () => opened++));
+
+        Assert.Contains("dashboard-sessions__figures", pane.Find("[data-testid='dashboard-sessions-tiles']").ClassName, StringComparison.Ordinal);
+
+        var longest = pane.Find("[data-testid='dashboard-sessions-longest']");
+        Assert.NotNull(longest.Closest(".dashboard-sessions__layout"));
+        Assert.NotNull(pane.Find(".dashboard-sessions__main [data-testid='dashboard-sessions-hours']"));
+
+        var rows = longest.QuerySelectorAll(".metric-ranking__item");
+        Assert.Equal(2, rows.Length);
+        Assert.Equal("Token store", rows[0].QuerySelector(".metric-ranking__name")!.TextContent);
+        Assert.Equal("backlog · opus · 31 prompts", rows[0].QuerySelector(".metric-ranking__detail")!.TextContent);
+        Assert.Contains("3h", rows[0].QuerySelector(".metric-ranking__value")!.TextContent, StringComparison.Ordinal);
+        Assert.Equal("Untitled session", rows[1].QuerySelector(".metric-ranking__name")!.TextContent);
+        Assert.Null(rows[1].QuerySelector(".metric-ranking__detail"));
+
+        pane.Find("[data-testid='dashboard-sessions-all']").Click();
+        Assert.Equal(1, opened);
+    }
+
+    [Fact]
+    public void Without_a_listener_the_sessions_tab_offers_no_link_to_all_sessions()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-all']"));
+        Assert.NotNull(pane.Find("[data-testid='dashboard-sessions-longest']"));
+    }
+
+    /// <summary>
     /// A session whose start was never recorded is counted and adds no time, and the
     /// tile says so. An active time quietly lower than the session count implies is the
     /// figure a reader would take at face value and be wrong about.

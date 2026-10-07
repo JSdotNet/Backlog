@@ -170,7 +170,7 @@
 
             <TabPanel Id="dashboard-sessions" Title="Sessions" Eager="true"
                       BaseClass="dashboard-tab" TabTestId="dashboard-tab-sessions" TestId="dashboard-sessions-section">
-                <SessionsPart Scope="_scope" RepositoryColour="@RepositoryColour" />
+                <SessionsPart Scope="_scope" RepositoryColour="@RepositoryColour" OnOpenSessions="@OnOpenSessions" />
                 @* The person's own hours, read from the same sessions' prompts and split
                    by office hours (local ADR 0019, §7). Beside the sessions because it is
                    their record, after them because it answers a second question. *@
@@ -276,6 +276,11 @@
     /// decision — the pane only reports that the ✕ was pressed.</summary>
     [Parameter]
     public EventCallback OnClose { get; set; }
+
+    /// <summary>Raised by the Sessions tab's link to every session. Opening the Sessions
+    /// pane is the shell's move; with nobody listening the tab draws no link.</summary>
+    [Parameter]
+    public EventCallback OnOpenSessions { get; set; }
 
     /// <summary>
     /// Which identity hue a repository alias wears, or null while the hues are switched

@@ -5790,6 +5790,118 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The sessions part's figures as one joined strip rather than six cards. Each tile
+   draws its own outline as a shadow and the gap is one border wide, so neighbours
+   share a single rule and a wrapped last row leaves its empty cells empty — a border
+   on the grid itself would fill them in. No clipping on the strip: a tile's hinted
+   footnote hangs below it and must not be cut off. */
+.dashboard-sessions__figures {
+    gap: var(--border-width);
+    padding: var(--border-width);
+}
+
+.dashboard-sessions__figures > .metric-tile {
+    border: 0;
+    border-radius: 0;
+    box-shadow: 0 0 0 var(--border-width) var(--color-border);
+}
+
+/* The hero figure keeps its left rule inside the strip: drawn as an inset shadow,
+   because the strip's own rule above takes the border away. */
+.dashboard-sessions__figures > .metric-tile--emphasis {
+    box-shadow:
+        inset var(--border-width-4) 0 0 var(--chart-series),
+        0 0 0 var(--border-width) var(--color-border);
+}
+
+/* The chart and the grid in a wide column, the longest sessions in a narrow one
+   beside them; the narrow one drops underneath where the part has no room for both.
+   Flex rather than a grid of fixed tracks, because the part's width is the panel's
+   and the panel's is the window's. */
+.dashboard-sessions__layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-sessions__main {
+    flex: 999 1 32rem;
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* A window with no week and no grid leaves the column empty; it takes no room then. */
+.dashboard-sessions__main:not(:has(*)) {
+    display: none;
+}
+
+.dashboard-sessions__longest {
+    flex: 1 1 18rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    min-width: 0;
+}
+
+.dashboard-sessions__longest-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+}
+
+/* A row reads title and time on the first line, what the session was on the second,
+   the bar under both — the ranking's own figures box is unwrapped so its two parts
+   can take a line each. */
+.dashboard-sessions__longest .metric-ranking__list {
+    gap: var(--spacing-sm);
+}
+
+.dashboard-sessions__longest .metric-ranking__item {
+    grid-template-areas:
+        "name value"
+        "detail detail"
+        "track track";
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.dashboard-sessions__longest .metric-ranking__name {
+    grid-area: name;
+    font-weight: 600;
+}
+
+.dashboard-sessions__longest .metric-ranking__figures {
+    display: contents;
+}
+
+.dashboard-sessions__longest .metric-ranking__value {
+    grid-area: value;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    text-align: right;
+}
+
+.dashboard-sessions__longest .metric-ranking__detail {
+    grid-area: detail;
+    overflow: hidden;
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-sessions__longest .metric-ranking__track {
+    grid-area: track;
+}
+
+.dashboard-sessions__all {
+    justify-self: start;
+}
+
 /* Two parts side by side where there is room for them, one above the other where
    there is not. auto-fit rather than a media query, because what decides this is
    the panel's own width and the panel is inside a takeover whose width is the
