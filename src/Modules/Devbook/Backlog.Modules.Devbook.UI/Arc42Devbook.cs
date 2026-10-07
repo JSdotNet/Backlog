@@ -213,7 +213,7 @@ public static class Arc42DevbookReader
     /// documents keep the last-segment spelling the resolver already reads.
     /// </para>
     /// </summary>
-    private static string ResolveRoot(string arc42Directory, string? repositoryRoot)
+    internal static string ResolveRoot(string arc42Directory, string? repositoryRoot)
     {
         var parent = Directory.GetParent(arc42Directory)?.FullName ?? arc42Directory;
         if (string.IsNullOrWhiteSpace(repositoryRoot)) return parent;
@@ -307,7 +307,7 @@ public static class Arc42DevbookReader
     /// dot-prefixed file counts as hidden on Unix, and these folders are named
     /// <c>.arc42</c>, so leaving the default in place would drop chapters on one
     /// platform and keep them on another.</para></summary>
-    private static readonly EnumerationOptions Recursive = new()
+    internal static readonly EnumerationOptions Recursive = new()
     {
         RecurseSubdirectories = true,
         IgnoreInaccessible = true,
@@ -318,7 +318,7 @@ public static class Arc42DevbookReader
     /// <summary>Whether any segment of a folder-relative path is one the menu hides.
     /// Checked against the folder rather than the repository, so a clone that itself
     /// sits under an underscored directory does not hide every chapter in it.</summary>
-    private static bool IsUnderscored(string relativePath) =>
+    internal static bool IsUnderscored(string relativePath) =>
         relativePath.Split('/', '\\').Any(segment => segment.StartsWith('_'));
 }
 
