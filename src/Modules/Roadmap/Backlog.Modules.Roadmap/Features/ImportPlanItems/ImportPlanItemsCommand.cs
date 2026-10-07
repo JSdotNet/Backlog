@@ -259,7 +259,11 @@ public sealed class ImportPlanItemsCommandHandler(
     /// </para>
     /// <para>
     /// A <paramref name="start"/> a person chose raises the floor to it; one before today
-    /// leaves it at today, because open work is placed from today.
+    /// leaves it at today, because open work is placed from today. A chosen start also wins
+    /// over work that has already begun: the window opens on the floor it set — the chosen
+    /// day, or today for a day already past — rather than the day the work began, its open
+    /// points forecast from there. The Calendar shelf says "Drag onto a day to start its
+    /// window there".
     /// </para>
     /// </summary>
     private static (PlannedWindow Window, ImportPlacement Placement) Place(
@@ -276,6 +280,10 @@ public sealed class ImportPlanItemsCommandHandler(
         var floor = after > today ? after : today;
         if (start is { } chosen && chosen > floor) floor = chosen;
 
+        // A chosen day holds back begun work too — on the day itself, or on the floor when
+        // that is later — so even a plan dropped on today opens today.
+        DateOnly? startsOn = start is null ? null : floor;
+
         // Nothing gathered is counted at this pace: an end the effort does not decide is
         // one working week, whatever the pace.
         var (window, placement) = ImportedPlanPlacement.Place(floor, due, gatheredEffort: 0, paces.Global, paces.Week);
@@ -288,7 +296,7 @@ public sealed class ImportPlanItemsCommandHandler(
             PlacedByImport = ImportPlacement.Effort
         };
 
-        var (_, layout) = RoadmapProjection.One(sized, gathered.GetValueOrDefault(item.Id), paces, today, floor);
+        var (_, layout) = RoadmapProjection.One(sized, gathered.GetValueOrDefault(item.Id), paces, today, floor, startsOn: startsOn);
 
         return layout.Placement is PartsPlacement.Stored
             ? (window, placement)

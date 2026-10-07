@@ -844,7 +844,10 @@ The Tasks [Calendar](../tasks/features.md#calendar-view) offers the same shelf a
 **Plans without a window**, and there a plan is dropped on a day instead. The same
 import places it, with one difference: the window opens on the first worked day on
 or after the day it was dropped on — today, for a day already past — and its end
-is counted from there as it would be from today. Because a person chose that day,
+is counted from there as it would be from today. That holds when some of the plan's
+work has already begun: the window still opens on the day it was dropped on, and its
+end is counted from there for the points still open, not from the day the work
+began. Because a person chose that day,
 the window is theirs from then on, as one dragged on the timeline is: the
 [keep-up projection](#placing-a-plan-in-time) no longer lays it out again from
 today, and a later import does not move it.

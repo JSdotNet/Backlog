@@ -356,6 +356,40 @@ public class RoadmapItemPartsTests
         Assert.Equal(part.End, part.Forecast);
     }
 
+    /// <summary>A start a person has just chosen — a shelf plan dropped on a later day,
+    /// which the importer places — holds a begun part back to it, its open points forecast
+    /// from there rather than from the day the work began.</summary>
+    [Fact]
+    public void AChosenStartAfterTheWorkBegan_DrawsTheBegunPartFromThatStart()
+    {
+        var item = Item(repositories: ["docs"]);
+
+        var layout = RoadmapItemParts.Of(
+            item,
+            Gathers(Work("d1", 8, ["docs"], progress: RoadmapProgress.InProgress, started: new(2026, 10, 8))),
+            Paces,
+            Today,
+            floor: Monday19,
+            startsOn: Monday19);
+
+        var part = Assert.Single(layout.Parts);
+        Assert.True(part.Begun);
+        Assert.Equal(Monday19, part.OpenFrom);
+        Assert.Equal((Monday19, Friday30), (part.Start, part.End)); // 8 points at 4 a week
+    }
+
+    /// <summary>Without a chosen start the same part is drawn from the day its work began,
+    /// a hand-placed item's later stored start notwithstanding (ADR 0013, 2026-10-07).</summary>
+    [Fact]
+    public void WithoutAChosenStart_AHandPlacedBegunPartIsStillDrawnFromWhenItsWorkBegan()
+    {
+        var item = Item(placement: null, start: Monday19, end: Friday30, repositories: ["docs"]);
+
+        var layout = Lay(item, Gathers(Work("d1", 8, ["docs"], progress: RoadmapProgress.InProgress, started: new(2026, 10, 8))));
+
+        Assert.Equal(new DateOnly(2026, 10, 8), Assert.Single(layout.Parts).Start);
+    }
+
     /// <summary>In a hand-over, a part whose tasks are all done is drawn where that work
     /// ran, and the open part after it is placed from today at its own pace.</summary>
     [Fact]
