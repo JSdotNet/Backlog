@@ -800,6 +800,15 @@ The receiving end is built. The desktop app takes Claude Code's OpenTelemetry lo
 Code** page with the endpoint and the `settings.json` block to paste into Claude Code.
 The run and stage views that would show the cost are not built yet.
 
+A session sends these events only when its Claude Code settings say to. The person
+merges that page's block into the `env` of their user-level `~/.claude/settings.json`:
+telemetry on, the OTLP logs exporter, the logs protocol, the endpoint, and the bearer
+token as a header. They add `OTEL_LOG_TOOL_DETAILS=1` so each request names the sub-agent
+and the skill it ran under. They never turn on the prompt or response events, which would
+only send what the session said. A new session, started after the change, is the first
+to report. The exact keys and the check that the rows arrived are in
+`.claude/skills/run-backlog/SKILL.md`, under Claude Code telemetry.
+
 ### A price table for runs without telemetry
 
 ```meta
