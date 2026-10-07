@@ -16401,3 +16401,158 @@ select.field__input {
     border-top-right-radius: var(--border-radius-sm);
     pointer-events: none;
 }
+
+/* --- Notes ----------------------------------------------------------------- */
+/*
+  A note row is one link: the title and its time on the first line, the
+  opening of the body clamped to two lines under them. The editor is the page:
+  title and body wear no box, so the note reads as a note while it is written,
+  and each keeps the focus ring every field has.
+*/
+
+.note-row {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-height: 2.75rem;
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.note-row:hover {
+    color: var(--color-text-primary);
+}
+
+.note-row:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.note-row__head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.note-row__title {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.note-row__when {
+    flex: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.note-row__snippet {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    overflow-wrap: anywhere;
+}
+
+.note-editor {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.note-editor__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    min-height: 2.75rem;
+}
+
+.note-editor__back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    min-height: 2.75rem;
+    padding-right: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+}
+
+.note-editor__back:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-md);
+}
+
+.note-editor .note-editor__title-input {
+    width: 100%;
+    min-width: 0;
+    padding: var(--spacing-2xs) 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.note-editor .note-editor__title-input::placeholder {
+    color: var(--color-text-disabled);
+}
+
+.note-editor .note-editor__title-input:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-sm);
+}
+
+.note-editor__when {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.note-editor__body .field__grow {
+    padding: var(--spacing-2xs) 0;
+    border: 0;
+    background: transparent;
+}
+
+/* A note is prose, so its body reads in the body face rather than the source
+   face a Markdown field wears elsewhere. Set on the grow wrapper, never on the
+   textarea: the replica beside it has to measure the same text. */
+.note-editor__body .grow-wrap {
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-base);
+}
+
+.note-editor__body .field__grow:focus-within {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-sm);
+}
+
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the ring
+   belongs to the box that grows with the body, drawn by the :focus-within rule above in
+   --color-border-focus at --border-width-2 — an outline, so High Contrast keeps it. A
+   second ring on the textarea inside it would sit a few pixels inside the first. */
+.note-editor__body .field__input:focus-visible {
+    outline: none;
+}
+
+.note-editor__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}

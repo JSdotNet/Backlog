@@ -65,14 +65,24 @@ public sealed class TalkNoteComposer(TalkNoteFiles files, DeviceOutbox outbox, T
         var attachments = new List<AttachmentMetadata>();
         foreach (var picked in staged)
         {
-            attachments.Add(await PrepareOneAsync(picked, sendOriginals, cancellationToken));
+            attachments.Add(await PrepareAsync(picked, sendOriginals, cancellationToken));
         }
 
         return attachments;
     }
 
-    private async Task<AttachmentMetadata> PrepareOneAsync(DraftAttachment picked, bool sendOriginals, CancellationToken cancellationToken)
+    /// <summary>
+    /// Readies one file on the strip to go: downscaled unless kept original, moved
+    /// into the outbox folder under its id, and described by the size and digest
+    /// of the bytes that will actually be uploaded. The Notes editor hands what
+    /// this returns to <see cref="Notes.NoteViewProjection"/>, whose outbox entry
+    /// uploads it from there.
+    /// </summary>
+    public async Task<AttachmentMetadata> PrepareAsync(DraftAttachment picked, bool sendOriginals, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(picked);
+        Directory.CreateDirectory(files.OutboxFolder);
+
         var target = files.OutboxPath(picked.Id);
         var name = picked.Name;
         var contentType = picked.ContentType;

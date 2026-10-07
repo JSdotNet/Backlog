@@ -1,0 +1,56 @@
+@*
+    One note in a list of notes, as a phone draws it: the title and when it last
+    changed on one line, and the opening of its body under them, clamped to two
+    lines. The whole row is one link to the note, because a note has one thing
+    to do with it — open it — and a thumb should not have to aim.
+
+    The snippet is the host's to make: the row draws the words it is given and
+    knows nothing of Markdown. Left out when empty, so a note that is only a
+    title is a one-line row.
+*@
+
+<a class="@ClassValue" href="@Href" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <span class="note-row__head">
+        <span class="note-row__title" data-testid="@PartTestId("title")">@Title</span>
+        @if (!string.IsNullOrWhiteSpace(When))
+        {
+            <span class="note-row__when" data-testid="@PartTestId("when")">@When</span>
+        }
+    </span>
+    @if (!string.IsNullOrWhiteSpace(Snippet))
+    {
+        <span class="note-row__snippet" data-testid="@PartTestId("snippet")">@Snippet</span>
+    }
+</a>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>When it last changed, already worded: "09:50", "Yesterday", "2 Oct".</summary>
+    [Parameter]
+    public string? When { get; set; }
+
+    /// <summary>The body as one line of prose. Two lines of it show.</summary>
+    [Parameter]
+    public string? Snippet { get; set; }
+
+    /// <summary>Where the row opens: the note's own page.</summary>
+    [Parameter, EditorRequired]
+    public string Href { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The test id on the row. Its parts get <c>{TestId}-title</c>,
+    /// <c>-when</c> and <c>-snippet</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "note-row" : $"note-row {CssClass}";
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+}

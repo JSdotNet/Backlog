@@ -415,6 +415,16 @@ internal static class StorybookIndex
             new("markdown-document", "Markdown document", "MarkdownDocument and every option a read view takes: a way into the editor, a copy button, comments inline and comments in the margin."),
             new("folder-view", "Folder view", "FolderView with all of its options: a folder's header, and what is in it as a tree."),
             new("entry-edit", "Entry edit", "The same markdown being written: source beside read view, auto-save, task toggling, sub-items."),
+
+            // After Entry edit: a note being written on a phone is the same
+            // auto-save without a save button, at a phone's width and with a
+            // phone's tools. Its own page because a list a search narrows and an
+            // editor whose only word on saving is one line are a convention of
+            // their own. It draws its own two components and the SearchBox,
+            // EmptyState, SaveIndicator, ToggleButton, AppButton and
+            // AttachmentStrip pages above introduce — which is why it is here and
+            // not beside Today, above Feedback.
+            new("notes", "Notes", "NoteRow and NoteEditor: a list of notes newest first that a search narrows, and one note being written that saves on its own."),
             new("compare", "Section comparison",
                 "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it — aligned by heading, never by line.")
         ])

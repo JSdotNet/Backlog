@@ -510,9 +510,8 @@ A note is an Inbox Item the person keeps and edits, rather than a thought
 waiting to be sorted. Its `Content Kind` is `note`. Every note reaches the
 phone, whichever device made it, and an edit on either side reaches the other.
 The phone and the desktop each keep the edit with the later `updated_at`, the
-same rule the task feed uses. The sync both ways and the desktop half are built.
-The phone keeps every note and can create and edit one, but has no screen for
-notes yet: plan `phone-app-redesign` builds the Notes tab next.
+same rule the task feed uses. The sync both ways, the desktop half and the
+phone's Notes tab are built.
 
 ### Notes on the phone
 
@@ -522,13 +521,28 @@ status: draft
 related: [.devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
 ```
 
-The phone's Notes tab lists every note, newest first, and searches their titles
-and bodies on the phone itself. **New note** opens the editor, and a tap on a
-note opens it in the same editor. The editor holds a title, a Markdown body
-that dictation appends to, and attached photos and files. It is the talk note's
-editor, kept whole. A note made or changed on the phone is kept on the phone
-first and sent through the outbox, so it works with no signal. A note the
-desktop archives or deletes leaves the phone's list on the next pull.
+The phone's Notes tab lists every note, newest change first. Each row shows the
+title, when the note last changed — the time for today, "Yesterday", the
+weekday within the week, then the date — and the opening of its body as two
+lines of plain text. A search field narrows the list on the phone itself: a
+note stays when every word typed is in its title or its body. With no notes the
+tab says how to start one; with no match it repeats the words searched for.
+**New note** opens an empty editor, and a tap on a note opens it in the same
+editor.
+
+The editor holds a title, a Markdown body that dictation appends to, and
+attached photos and files — the talk note's tools
+(`.devbook/domain/capture/features.md#talk-note`). It has no save button. A
+second after typing stops the note is saved; leaving a field or the editor saves
+at once, and so does picking a file. A new note is created on its first save
+with something in it, so an editor opened and left empty makes nothing. The
+line at the top says **Saving...**, then **Saved**, or **Waiting to sync**
+while the outbox still holds the note. A note made or changed on the phone is
+kept on the phone first and sent through the outbox, so it works with no
+signal. A note the desktop archives or deletes leaves the phone's list on the
+next pull, and an editor still open on it says its changes are no longer kept.
+Pinning, a linked task, a formatting toolbar and turning a line into an Inbox
+item are not part of the phone's Notes tab.
 
 ### Notes on the desktop
 

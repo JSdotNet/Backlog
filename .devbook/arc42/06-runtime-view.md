@@ -578,9 +578,8 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/feature
 A note (`.devbook/domain/inbox/domain.md#note`) is the one Inbox item that
 syncs both ways. The phone pulls every note, whichever device made it, and pushes the notes
 it creates and edits. The desktop pushes its own note edits back, and a
-tombstone when it archives or deletes one. The sync is built. The phone's Notes
-tab, which will read `note_view`, is not built yet: plan `phone-app-redesign`
-builds it next.
+tombstone when it archives or deletes one. The sync and the phone's Notes tab,
+which reads `note_view`, are built.
 
 ```mermaid
 sequenceDiagram

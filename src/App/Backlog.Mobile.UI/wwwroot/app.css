@@ -200,25 +200,40 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .capture__status { overflow-wrap: anywhere; }
 
 /*
-  The talk note. One column at phone width: the fields stack, the mic sits beside
-  the body it fills, and the attach buttons wrap rather than shrink below a
-  thumb. Colours are the library's tokens, as above.
+  Notes. The library draws the rows and the editor; this file lays the list out
+  under its heading and search, and pins "New note" above the tab bar where the
+  capture button sits on Today. Colours are the library's tokens.
 */
-.talk-note { display: grid; gap: .75rem; }
+.notes-heading { display: grid; gap: .125rem; margin-bottom: .75rem; }
+.notes-heading__kicker { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.notes-heading h1 { margin: 0; font-family: var(--font-family-heading); }
 
-.talk-note__body { display: flex; align-items: flex-start; gap: .5rem; }
+.notes__search { margin-bottom: 1rem; }
 
-.talk-note__body .talk-note__field { flex: 1; min-width: 0; }
+.notes__list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
 
-.talk-note__mic { flex: 0 0 auto; margin-top: 1.5rem; }
+/* Clear of "New note", so the last row is never under it. */
+.notes { padding-bottom: 5rem; }
 
-.talk-note__attach { display: flex; flex-wrap: wrap; gap: .5rem; }
-
-.talk-note__status {
+.notes__new {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 5rem;
+    z-index: 2;
     display: flex;
     align-items: center;
     gap: .5rem;
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: .85rem;
+    min-height: 3.5rem;
+    padding: 0 1.25rem 0 1rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+    box-shadow: var(--shadow-lg);
 }
+.notes__new:hover { background: var(--color-primary-light); color: var(--color-text-inverse); }
+.notes__new:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 3px; }
+
+/* The editor's dictation and attach buttons, and what they leave under the body. */
+.note-page__attached { display: grid; gap: .5rem; }

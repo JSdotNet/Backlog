@@ -117,38 +117,32 @@ related: [".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/
 ```
 
 A note taken during a conference talk — what was said, the slide photo, the
-handout — that lands in the desktop Inbox as one ordinary capture. It is called
-a talk note, never a session note: Sessions is a bounded context of its own.
+handout. It is called a talk note, never a session note: Sessions is a bounded
+context of its own.
 
-The talk note is becoming a note (`.devbook/domain/inbox/domain.md#note`).
-The phone's Note tab becomes the Notes tab: a list of every note plus an editor, described in
-`.devbook/domain/inbox/features.md#notes-on-the-phone`. The editor keeps
-everything below, dictation and attachments included. What changes is where a
-note goes after it is sent. A talk note is a `text` capture the phone forgets
-once the desktop takes it in. A note is an item of kind `note` that stays on
-the phone, and either side may edit it. Plan `phone-app-redesign` makes this
-change, and until it lands the talk note works as written here.
+The talk note is now a note (`.devbook/domain/inbox/domain.md#note`), written
+in the phone's Notes tab (`.devbook/domain/inbox/features.md#notes-on-the-phone`),
+which replaced the Note tab. The Notes editor kept the talk note's tools:
+dictation into the body, and photos taken with the camera and pictures and files
+chosen from the phone, several to a note. What changed is where the note goes.
+A talk note was a `text` capture the phone forgot once the desktop took it in.
+A note is an item of kind `note` that stays on the phone, and either side may
+edit it. A note carries no speaker and no tags, and it has no send button: it
+saves on its own. A talk note an earlier build left waiting in the outbox is
+still sent as the capture it was.
 
-The Note tab holds a title, a Markdown body that dictation appends to, the
-speaker as one `@name`, tags, and the files attached to it: photos taken with
-the camera, pictures and files chosen from the phone, several to a note. Each
-file shows its name, type and size. A file cloud sync would not take — over the
-per-file limit, or not a picture, PDF, text or Office file — stays on the strip
-with the reason written under it, and the note is not sent until it is taken
-off. The note being written survives a switch to another tab and the app going
-to the background.
+Each attached file shows its name, type and size. A file cloud sync would not
+take — over the per-file limit, or not a picture, PDF, text or Office file —
+stays off the note, with the reason written under it, until it is taken off the
+list of files not attached.
 
 Pictures are made smaller before they leave: at most 1600 pixels on the longest
 side, as JPEG, with the location, camera and time details removed and only the
-way-up kept. A note can keep its pictures as taken instead. Files go as they
-are.
-
-Sending the note keeps it on the phone first, like any capture, and it appears
-in the Inbox list marked waiting. Each file is uploaded before the capture that
+way-up kept. Files go as they are. Each file is uploaded before the note that
 names it; a file that already went is never sent again, and a failed one is
-retried on its own. The note says where it stands — waiting, uploading 2 of 3,
-synced. A note sent without a title is named for the first line of its body,
-or "Photo · <date>" when a picture is attached, or else the first file's name.
+retried on its own. A note saved without a title is named for the first line of
+its body, or "Photo · <date>" when a picture is attached, or else the first
+file's name.
 
 ### Share-sheet and shortcuts
 

@@ -381,8 +381,10 @@ three tabs along the bottom, withheld until the device is paired:
   thought sent to the Inbox as a capture, created as a note through the note
   view, or added to today through `task_view`, with dictation and a photo; a
   sheet over the screen it was opened from rather than a tab.
-- **Note** — the talk note: a title, a dictated Markdown body, the speaker, tags
-  and attached pictures and files, sent as one capture.
+- **Notes** — every note in `note_view`, newest first, searched on the phone,
+  and an editor for one: a title, a dictated Markdown body and attached pictures
+  and files, saved on its own a second after typing stops and sent as outbox
+  kind `note`.
 - **Tasks** — My Day, read from `task_view`, and the writes the phone makes to
   tasks: adding a task picked for today, and marking a task in today's My Day
   done or undone, ticking one of its steps, or moving it to tomorrow.
@@ -404,7 +406,7 @@ graph TB
     Shell["Shell\n(sync status, pairing gate)"]
     InboxTab["Inbox tab\n(quick capture, own captures, sync state)"]
     CaptureSheet["Capture sheet\n(Inbox, Note or Today)"]
-    NoteTab["Note tab\n(talk note)"]
+    NoteTab["Notes tab\n(list, search, editor)"]
     TasksTab["Today tab\n(My Day grouped, tick, open)"]
   end
 
