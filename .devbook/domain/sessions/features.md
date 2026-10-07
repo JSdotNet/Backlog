@@ -980,23 +980,36 @@ status: proposed
 Each pull request that is still open gets exactly one readiness verdict. Where several
 apply, the first in this table wins:
 
-| Precedence | Verdict | Lane |
-| --- | --- | --- |
-| 1 | Conflicts | Needs you |
-| 2 | Failing checks | Needs you |
-| 3 | Changes requested | Needs you |
-| 4 | Behind | Needs you |
-| 5 | Draft | Drafts |
-| 6 | Checks running | Waiting |
-| 7 | Review required | Waiting |
-| 8 | Ready | Ready to merge |
+| Precedence | Verdict | Lane | Tone | Act | Second act |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Conflicts | Needs you | fault | Open on GitHub | — |
+| 2 | Failing checks | Needs you | fault | Re-run failed, when a failed check is a GitHub Actions run; else Open on GitHub | Open on GitHub, after Re-run failed |
+| 3 | Changes requested | Needs you | fault | Open review on GitHub | — |
+| 4 | Behind | Needs you | alert | Update branch | Merge when ready |
+| 5 | Draft | Drafts | quiet | Ready for review | — |
+| 6 | Checks running | Waiting | live | Merge when ready | — |
+| 7 | Review required | Waiting | live | Merge when ready | — |
+| 8 | Ready | Ready to merge | settled | Merge | — |
 
 One verdict rather than a row of badges, because a reader acts on one thing at a time. The
 order puts first what blocks the most: a conflict has to be resolved before checks or
 review mean anything, and a failing check before a review is worth asking for. Behind is
 in Needs you because it waits on nobody else: the reader brings the branch up to date
-with the act the banner offers, and it can merge. A merged or
-closed pull request has no verdict, since there is nothing left to get ready.
+with the act the banner offers, and it can merge. The tones are the badge tone scale of
+`.devbook/design/color-scheme.md`, so the verdict chip reads like every other badge.
+
+Each verdict carries a label for its chip, a headline and a one-sentence reason for the
+banner, and the acts above. A few rules sit beside the table:
+
+- A failed check decides even while others still run, and a reviewer who asked for
+  changes counts even where the repository asks for no review.
+- Ready offers Merge when ready instead of Merge when GitHub still reports the pull
+  request not mergeable, because a merge now would be refused.
+- A stacked pull request's reason names the pull request it waits on. It is offered no
+  merge act, because merged now it would land on its parent's branch rather than where
+  the stack is going; its other acts stay.
+- A merged pull request reads as Merged, in the settled tone, with no act. A pull request
+  closed without merging has no verdict, since there is nothing left to get ready.
 
 ### The detail panel of a pull request
 
