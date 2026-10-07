@@ -28,7 +28,7 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// </summary>
 public sealed class RoadmapItemRollupService : IRoadmapItemRollup
 {
-    private readonly ITaskItems _entries;
+    private readonly Func<ITaskItems> _entries;
     private readonly Func<string> _rootDirectory;
     private readonly IAgentSessionSource? _sessions;
     private readonly TimeProvider _time;
@@ -45,6 +45,22 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
         Func<string> rootDirectory,
         IAgentSessionSource? sessions = null,
         TimeProvider? time = null)
+        : this(Pinned(entries), rootDirectory, sessions, time)
+    {
+    }
+
+    /// <param name="entries">The backlog port, resolved per call: the backlog's plan
+    /// import reaches the roadmap importer, which gathers through this, so a host that
+    /// took the backlog in the constructor would build a loop its scope cannot finish.</param>
+    /// <param name="rootDirectory">Where the storage root is right now.</param>
+    /// <param name="sessions">Where the sessions linked to an entry are read from, or
+    /// null in a host that has none.</param>
+    /// <param name="time">The clock the session horizon is measured from.</param>
+    public RoadmapItemRollupService(
+        Func<ITaskItems> entries,
+        Func<string> rootDirectory,
+        IAgentSessionSource? sessions = null,
+        TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(rootDirectory);
@@ -54,11 +70,17 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
         _time = time ?? TimeProvider.System;
     }
 
+    private static Func<ITaskItems> Pinned(ITaskItems entries)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        return () => entries;
+    }
+
     public async Task<RoadmapItemRollupDto> GatherAsync(RoadmapItemDto item, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(item);
 
-        var backlog = await _entries.ListAsync(cancellationToken).ConfigureAwait(false);
+        var backlog = await _entries().ListAsync(cancellationToken).ConfigureAwait(false);
         var knowledge = ReadGraphNodes();
         var sessions = await ReadSessionsAsync(
             backlog.Where(entry => RoadmapItemRollupBuilder.Gathers(item, entry)),
@@ -80,7 +102,7 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
     {
         ArgumentNullException.ThrowIfNull(plan);
 
-        var backlog = await _entries.ListAsync(cancellationToken).ConfigureAwait(false);
+        var backlog = await _entries().ListAsync(cancellationToken).ConfigureAwait(false);
         var knowledge = ReadGraphNodes();
         var sessions = await ReadSessionsAsync(
             backlog.Where(entry => plan.Items.Any(item => RoadmapItemRollupBuilder.Gathers(item, entry))),

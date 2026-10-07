@@ -6,7 +6,8 @@ namespace Backlog.Modules.Roadmap.UnitTests;
 
 /// <summary>
 /// A pace the test sets: one global figure, and optionally one per repository alias,
-/// resolved by the same <see cref="PacesInUseDto.For"/> placement uses — so a handler
+/// resolved by the same <see cref="PacesInUseDto.AliasOf"/> and
+/// <see cref="PacesInUseDto.PaceOf"/> placement uses — so a handler
 /// under test is asked the question the real service answers, and nothing else.
 /// </summary>
 internal sealed class FixedVelocity(decimal storyPointsPerWeek) : IPlanningVelocity
@@ -37,7 +38,10 @@ internal sealed class FixedVelocity(decimal storyPointsPerWeek) : IPlanningVeloc
     }
 
     public async Task<decimal> GetStoryPointsPerWeekAsync(
-        IReadOnlyCollection<string> repositoryAliases,
-        CancellationToken cancellationToken = default) =>
-        (await ReadPacesInUseAsync(cancellationToken)).For(repositoryAliases);
+        string? repository = null,
+        CancellationToken cancellationToken = default)
+    {
+        var paces = await ReadPacesInUseAsync(cancellationToken);
+        return paces.PaceOf(paces.AliasOf(repository));
+    }
 }

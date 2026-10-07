@@ -582,6 +582,7 @@ related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
 ```meta
 type: requirement
 status: draft
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapBandPartsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.ImportPlanAcrossRoadmapTests.A_plan_waiting_on_a_plan_imported_with_it_starts_the_worked_day_after_it_ends, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemPartsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.RoadmapPlanViewTests.OneRepositorysSliceOfALargePlan_SpansOnlyThatRepositorysWork]
 ```
 
 The system SHALL lay out a plan sized by its effort as one part per repository, each counting the full points of the tasks filed there at that repository's pace from the day after what it waits on ends, and SHALL end the plan's window on the latest part end.

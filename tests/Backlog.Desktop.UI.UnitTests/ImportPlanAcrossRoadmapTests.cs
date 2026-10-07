@@ -156,6 +156,27 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         Assert.Equal(2, (await TaskIdsAsync()).Count);
     }
 
+    /// <summary>AC3 through the intake: the importer reads each plan's work back through
+    /// the real gathering, sizes each by it, and starts the plan that waits on another the
+    /// worked day after that one ends — all in the one document's import.</summary>
+    [Fact]
+    public async Task A_plan_waiting_on_a_plan_imported_with_it_starts_the_worked_day_after_it_ends()
+    {
+        await ImportAsync(
+            "# Plan a\n`plan` `+plan-a`\n\n"
+            + "# Plan b\n`plan` `+plan-b` `after:plan-a`\n\n"
+            + "# A step\n`prompt` `+plan-a` `id:a-step` `effort:12`\n\n"
+            + "# B step\n`prompt` `+plan-b` `id:b-step` `effort:3`\n");
+
+        var items = (await PlanAsync()).Items;
+        var a = Assert.Single(items, item => item.Tag == "plan-a");
+        var b = Assert.Single(items, item => item.Tag == "plan-b");
+
+        Assert.Equal(EffortWindow.EndFrom(a.Start, 12, 7m, WorkingHours.Default), a.End);
+        Assert.Equal(EffortWindow.FirstWorkedDay(a.End.AddDays(1), WorkingHours.Default), b.Start);
+        Assert.Equal(EffortWindow.EndFrom(b.Start, 3, 7m, WorkingHours.Default), b.End);
+    }
+
     [Fact]
     public async Task Lay_out_on_the_roadmap_creates_the_item_a_task_document_names()
     {

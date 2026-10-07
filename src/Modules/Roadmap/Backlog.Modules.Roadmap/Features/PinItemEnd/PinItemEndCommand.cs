@@ -15,7 +15,7 @@ namespace Backlog.Modules.Roadmap.Features.PinItemEnd;
 /// </summary>
 public sealed record PinItemEndCommand(Guid ItemId, DateOnly End);
 
-public sealed class PinItemEndCommandHandler(IRoadmapPlanRepository plans)
+public sealed class PinItemEndCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
     : ICommandHandler<PinItemEndCommand, Result<RoadmapItemDto>>
 {
     public async Task<Result<RoadmapItemDto>> Handle(
@@ -24,6 +24,7 @@ public sealed class PinItemEndCommandHandler(IRoadmapPlanRepository plans)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var pinned = plan.PinEnd(command.ItemId, command.End);
         if (pinned.IsFailure) return Result.Failure<RoadmapItemDto>(pinned.Error);

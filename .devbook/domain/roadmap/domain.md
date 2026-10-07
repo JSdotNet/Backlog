@@ -107,8 +107,9 @@ window that still carries it. While it is still `effort` and its work is not
 finished, the item **keeps up with its work** without being asked. Its window is
 re-projected from the effort not yet done (the total registered effort less the
 finished effort), laid out from today over the reader's
-[Working Week](#working-week) (ADR 0019). The start is kept
-once any of its work has begun. An item whose work has not begun starts on the
+[Working Week](#working-week) (ADR 0019). Once any of its work
+has begun, the start is the day that work began, the earliest start among its
+begun parts. An item whose work has not begun starts on the
 later of today and the day after its latest predecessor ends, so an unstarted
 item follows the item it waits on. The value stays `effort`, because the window
 is still the importer's rule applied, not a hand move. An item carrying

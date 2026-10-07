@@ -164,28 +164,22 @@ public interface IRoadmapPlanning
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// The window an item's tasks would make now, when that is worth offering: null
-    /// when there is no such item, when its window is not sized by effort, or when the
-    /// effort makes the window it already has.
+    /// Lays every item the import sized by its effort out again from its unfinished work,
+    /// part by part from <paramref name="today"/>, and stores each window that moved — the
+    /// keep-up projection (ADR 0013, ruling 5 as amended on 2026-09-27 and 2026-10-07).
+    /// <para>
+    /// Asked for when the roadmap opens and when a task changes; never on a pace change or
+    /// a plan pulled from another PC, which redraw through the same rule and store nothing
+    /// (local ADR 0018). A due-date, hand-placed, pinned or finished item is never written.
+    /// Idempotent within a day: when nothing moved nothing is saved and
+    /// <see cref="Changed"/> is not raised; otherwise it is raised once.
+    /// </para>
     /// </summary>
-    /// <param name="gatheredEffort">What the item gathers now — the rollup total the
-    /// person is reading.</param>
-    Task<RoadmapRelengthProposalDto?> ProposeWindowFromEffortAsync(
-        Guid itemId,
-        int gatheredEffort,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Re-lengthens an item from what its tasks register now, on a person's say-so:
-    /// the start is kept, the end recomputed at the reader's pace, and the window stays
-    /// the importer's (ADR 0013, ruling 5). Refused for an item a person placed or one
-    /// placed by its due date. Nothing that waits on it moves; what now overlaps it is
-    /// named in the result.
-    /// </summary>
-    /// <param name="gatheredEffort">What the item gathers now — the rollup total the
-    /// person is reading.</param>
-    Task<Result<RoadmapRelengthResultDto>> RelengthenFromEffortAsync(
-        Guid itemId,
-        int gatheredEffort,
+    /// <param name="today">The day open work is placed from — the caller's own, so what is
+    /// stored and what it draws agree.</param>
+    /// <returns>Each window it moved, carrying the window it replaced; empty when nothing
+    /// moved.</returns>
+    Task<IReadOnlyList<RoadmapItemScheduledDto>> KeepUpWithWorkAsync(
+        DateOnly today,
         CancellationToken cancellationToken = default);
 }

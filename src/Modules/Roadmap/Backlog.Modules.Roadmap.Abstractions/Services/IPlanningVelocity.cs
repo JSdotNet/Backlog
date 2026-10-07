@@ -17,8 +17,9 @@ namespace Backlog.Modules.Roadmap.Abstractions.Services;
 /// <para>
 /// Kept per repository, because productivity differs from one project to the next
 /// (ADR 0013, ruling 4 as amended on 2026-09-26). A plan filed under one configured
-/// repository is placed at that repository's pace; one filed under several, at the
-/// lowest of theirs, which draws the longest bar; one filed under none, or under a
+/// repository is placed at that repository's pace; one filed under several is laid out
+/// one part per repository, each part at its own repository's pace (ruling 4 as amended
+/// on 2026-10-07; <see cref="RoadmapItemParts"/>); one filed under none, or under a
 /// repository nobody configured, at the global pace.
 /// </para>
 /// </summary>
@@ -30,12 +31,14 @@ public interface IPlanningVelocity
     /// </summary>
     Task<PacesInUseDto> ReadPacesInUseAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>The pace an item filed under <paramref name="repositoryAliases"/> is
-    /// placed at: the global pace for none, otherwise the lowest in use among them.
+    /// <summary>The pace work filed under one repository is placed at — by alias or by
+    /// <c>owner/name</c> id — or the global pace for <c>null</c> and for a repository
+    /// nobody configured. One repository only: an item filed under several has no one
+    /// pace, but a part per repository, each at its own (<see cref="RoadmapItemParts"/>).
     /// Always positive, so a caller may divide by it without guarding. The reader
     /// having chosen nothing reads as 7 a working week.</summary>
     Task<decimal> GetStoryPointsPerWeekAsync(
-        IReadOnlyCollection<string> repositoryAliases,
+        string? repository = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -199,6 +202,13 @@ public interface IRoadmapCompletedWork
     /// measured for. A plan filed under an alias outside this list is placed at the
     /// global pace.</summary>
     IReadOnlyList<string> Repositories { get; }
+
+    /// <summary>The configured repositories' stored <c>owner/name</c> ids, each to its
+    /// alias in <see cref="Repositories"/> — what a gathered task's repository names
+    /// are resolved through to the alias its pace is kept under
+    /// (<see cref="PacesInUseDto.AliasesById"/>). Empty for a reader that knows no ids,
+    /// where an alias still resolves to itself.</summary>
+    IReadOnlyDictionary<string, string> AliasesById => new Dictionary<string, string>();
 
     /// <summary>Entries finished on or after <paramref name="since"/> that carry an
     /// estimate, each with the repositories it was filed under. An entry with none

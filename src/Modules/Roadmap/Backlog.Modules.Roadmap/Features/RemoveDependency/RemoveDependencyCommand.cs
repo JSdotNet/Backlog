@@ -1,3 +1,4 @@
+using Backlog.Modules.Roadmap.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -6,13 +7,14 @@ namespace Backlog.Modules.Roadmap.Features.RemoveDependency;
 /// <summary>Takes a dependency back out of the plan.</summary>
 public sealed record RemoveDependencyCommand(Guid NodeId, Guid DependsOnId);
 
-public sealed class RemoveDependencyCommandHandler(IRoadmapPlanRepository plans)
+public sealed class RemoveDependencyCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
     : ICommandHandler<RemoveDependencyCommand, Result>
 {
     public async Task<Result> Handle(RemoveDependencyCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var removed = plan.RemoveDependency(command.NodeId, command.DependsOnId);
 

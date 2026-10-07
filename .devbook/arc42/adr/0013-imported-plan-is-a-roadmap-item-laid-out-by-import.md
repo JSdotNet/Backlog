@@ -1,7 +1,7 @@
 # ADR 0013: An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it
 
 ```meta
-related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering", ".devbook/domain/roadmap/features.md#laying-out-imported-plans", ".devbook/domain/roadmap/features.md#placing-a-plan-in-time", ".devbook/domain/roadmap/features.md#sequencing-work-into-tracks", ".devbook/domain/roadmap/dependencies.md", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#re-importing-an-updated-plan", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
+related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering", ".devbook/domain/roadmap/features.md#laying-out-imported-plans", ".devbook/domain/roadmap/features.md#placing-a-plan-in-time", ".devbook/domain/roadmap/features.md#forecasting-work-in-flight", ".devbook/domain/roadmap/features.md#sequencing-work-into-tracks", ".devbook/domain/roadmap/dependencies.md", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#re-importing-an-updated-plan", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
 ```
 
 ## Status
@@ -528,10 +528,13 @@ proportional share-out of the item's window between phases. A cycle among parts
 is released at the earliest waiter, as a cycle among gathered tasks is. A
 repository the item names but that holds none of its tasks draws an empty part
 over the item's window. A part with only unestimated tasks takes one working
-week. The rule applies to `effort`-placed items alone. A `due-date` or
-hand-placed item draws every part over its one stored window. Dragging a part
-moves the item, which then stops being `effort`-placed, so its parts collapse
-onto the stored window. The chapter that states the rule in full is
+week. The rule places `effort`-placed items. It also forecasts any item whose
+work is in flight, part by part, as
+[Forecasting work in flight](../../domain/roadmap/features.md#forecasting-work-in-flight)
+says. A `due-date` or hand-placed item whose work has not begun draws every
+part over its one stored window. Dragging a part moves the item, which then
+stops being `effort`-placed. Until its work begins, its parts collapse onto the
+stored window. The chapter that states the rule in full is
 [Placing a plan in time](../../domain/roadmap/features.md#placing-a-plan-in-time).
 
 **What waits on it follows it, when nothing has started there.** Items are
@@ -737,11 +740,37 @@ Changed on the owner's request, on 2026-10-07:
   latest part end. Parts are derived on every projection and draw, and nothing
   new is stored. A hand-over segment is placed at its own pace after what it
   waits on, replacing the proportional share-out between phases. A `due-date`
-  or hand-placed item still draws every part over its stored window. Dragging a
-  part moves the item and ends its effort placement, so its parts then collapse
-  onto that window; the owner accepted that collapse. The code is not built yet:
-  `PlanningPacesDto.For` still returns the lowest pace among several
-  repositories, and its five callers change with it.
+  or hand-placed item whose work has not begun still draws every part over its
+  stored window. Dragging a part moves the item and ends its effort placement,
+  so its parts then collapse onto that window; the owner accepted that collapse.
+
+  Built on 2026-10-07. `RoadmapItemParts` lays out the parts, and
+  `RoadmapProjection` places the plan from them. Both live in
+  `Backlog.Modules.Roadmap.Abstractions`. The importer, the bands, every
+  `EffortWindow` reader and the dashboard's outlook all go through them, and
+  `PacesInUseDto.For` is deleted. The owner settled five questions when the
+  change was built:
+
+  - **The projection is stored.** `Features/KeepUpWithWork` runs when the
+    roadmap opens and when a task changes, heard through
+    `IRoadmapWorkChanges`. It pulls the plan first and writes only a window
+    that moved. A pace change, or a plan pulled from another device, redraws
+    through the same rule and stores nothing until the next open or task
+    change. `Features/RelengthenItem` and the editor's "Update from tasks"
+    offer are removed.
+  - **A pinned end** on work in flight moves only the part that ends latest,
+    and every part tied for that end. The other parts keep their forecasts.
+    Pulling an earlier part's end pins the item's end as many days later.
+  - **The dashboard's plan outlook** projects each part's estimated work left
+    at its own repository's pace, after the parts it waits on. It judges the
+    item on the latest part end.
+  - **A task filed in two repositories inside a hand-over** belongs to a
+    segment in each, and its waits apply to both.
+  - **A begun part is drawn from the day its work began**, even when that is
+    later than its planned start. The owner decided this on 2026-10-07.
+    Ruling 5's `part start = kept, from its earliest task start` line already
+    states it. A hand-placed plan in flight therefore starts on its first
+    task's start rather than on its stored start.
 
 ## Consequences
 

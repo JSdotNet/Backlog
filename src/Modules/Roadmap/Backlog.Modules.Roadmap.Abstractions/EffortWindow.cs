@@ -25,13 +25,17 @@ namespace Backlog.Modules.Roadmap.Abstractions;
 /// abstractions and cannot reach the module's own code.
 /// </para>
 /// <para>
-/// <b>Read, not stored.</b> An item the import placed by its effort keeps the start the
-/// plan stores, and its end is derived each time it is read, from the effort its tasks
-/// register now, the pace in use now and the week the pace is counted in (local ADR
-/// 0018, 0019). A pace or week change therefore moves every such bar without writing the
-/// plan — a plan write would carry a newer stamp to the other PCs and overwrite an edit
-/// made there in the same interval — and a PC that pulls the pace draws the bars the PC
-/// that set it draws.
+/// <b>Shared, and stored on opening.</b> An item the import placed by its effort is laid
+/// out again from today by the keep-up projection (<see cref="RoadmapProjection"/>): part
+/// by part, from the effort its tasks register now, at the pace in use now, counted in the
+/// week the pace is counted in (ADR 0013, ruling 5 as amended on 2026-09-27 and
+/// 2026-10-07; local ADR 0018, 0019). The roadmap stores the window it moves when it opens
+/// and when a task changes — a projection that moves nothing writes nothing — and every
+/// reader here applies the same rule, so one that has not opened the roadmap today still
+/// reports the dates it would store. A pace or week change never writes: it redraws every
+/// such window, and the stored one catches up at the next opening or task change, because
+/// a plan write carries a newer stamp to the other PCs and would overwrite an edit made
+/// there in the same interval.
 /// </para>
 /// </summary>
 public static class EffortWindow
@@ -108,69 +112,100 @@ public static class EffortWindow
     }
 
     /// <summary>
-    /// <paramref name="item"/> as it reads now: when it is sized by its effort, gathers
-    /// work and is not finished, its stored start — moved to the next worked day when it
-    /// is not one — and an end derived from the effort gathered at the pace in use for
-    /// its repositories, counted in the paces' working week — the window the import's own
-    /// placement would store. Anything else is handed back as stored: a due date or a
-    /// window a person placed is theirs, an item that gathers nothing has no effort to
-    /// read, and a finished one is history.
+    /// <paramref name="item"/> as it reads on <paramref name="today"/>: when the projection
+    /// keeps it up — sized by its effort, its end not pinned, work gathered and not all done
+    /// — laid out part by part from the later of today and <paramref name="floor"/>, its
+    /// window the parts' envelope (<see cref="RoadmapProjection.One"/>). Anything else is
+    /// handed back as stored: a due date or a window a person placed is theirs, an item that
+    /// gathers nothing has no effort to read, and a finished one is history.
     /// </summary>
-    public static RoadmapItemDto Derive(RoadmapItemDto item, RoadmapItemRollupDto? rollup, PacesInUseDto paces)
-    {
-        ArgumentNullException.ThrowIfNull(item);
-        ArgumentNullException.ThrowIfNull(paces);
+    /// <param name="floor">The day after the item's latest predecessor ends; today when not
+    /// given. A reader holding the whole plan reads it through
+    /// <see cref="RoadmapProjection.Project"/> instead, which works the floors out.</param>
+    public static RoadmapItemDto Derive(
+        RoadmapItemDto item,
+        RoadmapItemRollupDto? rollup,
+        PacesInUseDto paces,
+        DateOnly today,
+        DateOnly? floor = null) =>
+        RoadmapProjection.One(item, rollup, paces, today, floor).Item;
 
-        if (!IsDerived(item)) return item;
-        if (rollup is null || rollup.BacklogEntries.Count == 0 || rollup.IsFinished) return item;
-
-        var pace = paces.For(item.RepositoryAliases);
-        if (pace <= 0) return item;
-
-        var start = FirstWorkedDay(item.Start, paces.Week);
-        var end = EndFrom(start, Math.Max(0, rollup.TotalEffort), pace, paces.Week);
-        return start == item.Start && end == item.End ? item : item with { Start = start, End = end };
-    }
-
-    /// <summary>Every item of <paramref name="items"/> as it reads now; see
-    /// <see cref="Derive(RoadmapItemDto, RoadmapItemRollupDto?, PacesInUseDto)"/>.</summary>
+    /// <summary>Every item of <paramref name="items"/> as it reads on
+    /// <paramref name="today"/>, each after what it waits on as that now stands
+    /// (<see cref="RoadmapProjection.Project"/>).</summary>
     public static IReadOnlyList<RoadmapItemDto> Derive(
-        IEnumerable<RoadmapItemDto> items,
+        IReadOnlyList<RoadmapItemDto> items,
         IReadOnlyDictionary<Guid, RoadmapItemRollupDto> rollups,
-        PacesInUseDto paces)
-    {
-        ArgumentNullException.ThrowIfNull(items);
-        ArgumentNullException.ThrowIfNull(rollups);
-
-        return [.. items.Select(item => Derive(item, rollups.GetValueOrDefault(item.Id), paces))];
-    }
+        PacesInUseDto paces,
+        DateOnly today,
+        IReadOnlyList<RoadmapMilestoneDto>? milestones = null) =>
+        RoadmapProjection.Project(items, rollups, paces, today, milestones);
 
     /// <summary>
-    /// The plan with every window sized by its effort read as it stands now — for a
-    /// reader that reports the plan rather than draws it. Only the items sized by
-    /// their effort are gathered, because gathering walks the backlog per item, and
-    /// the paces are read once; a plan with none reads nothing more.
+    /// The plan with every window sized by its effort read as the projection lays it out on
+    /// <paramref name="today"/> — for a reader that reports the plan rather than draws it.
+    /// Only the items sized by their effort are gathered, because gathering walks the
+    /// backlog per item, and the paces are read once; a plan with none reads nothing more.
     /// <para>
     /// The contradictions are left as the plan worked them out, over the stored
-    /// windows — the same the roadmap draws.
+    /// windows.
     /// </para>
+    /// </summary>
+    public static Task<RoadmapPlanDto> WithDerivedWindowsAsync(
+        this RoadmapPlanDto plan,
+        IRoadmapItemRollup rollups,
+        IPlanningVelocity velocity,
+        DateOnly today,
+        CancellationToken cancellationToken = default) =>
+        plan.WithDerivedWindowsAsync(rollups, velocity, today, _ => true, cancellationToken);
+
+    /// <summary>
+    /// The plan with the windows of the items <paramref name="reading"/> picks read as the
+    /// projection lays them out on <paramref name="today"/> — for a reader that reports one
+    /// slice of the plan. Each is still read after what it waits on: the predecessors it
+    /// reaches are projected with it, and only the items sized by their effort among them
+    /// are gathered. Every other item is handed back as stored.
     /// </summary>
     public static async Task<RoadmapPlanDto> WithDerivedWindowsAsync(
         this RoadmapPlanDto plan,
         IRoadmapItemRollup rollups,
         IPlanningVelocity velocity,
+        DateOnly today,
+        Func<RoadmapItemDto, bool> reading,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(rollups);
         ArgumentNullException.ThrowIfNull(velocity);
+        ArgumentNullException.ThrowIfNull(reading);
 
-        var sized = plan.Items.Where(IsDerived).ToList();
+        var reached = Reached(plan.Items, reading);
+        var sized = reached.Where(IsDerived).ToList();
         if (sized.Count == 0) return plan;
 
         var gathered = await rollups.GatherPlanAsync(plan with { Items = sized }, cancellationToken).ConfigureAwait(false);
         var paces = await velocity.ReadPacesInUseAsync(cancellationToken).ConfigureAwait(false);
 
-        return plan with { Items = Derive(plan.Items, gathered, paces) };
+        var read = Derive(reached, gathered, paces, today, plan.Milestones).ToDictionary(item => item.Id);
+        return plan with { Items = [.. plan.Items.Select(item => read.GetValueOrDefault(item.Id, item))] };
+    }
+
+    /// <summary>The items <paramref name="reading"/> picks and every item they wait on,
+    /// directly or not, in the plan's order.</summary>
+    private static List<RoadmapItemDto> Reached(IReadOnlyList<RoadmapItemDto> items, Func<RoadmapItemDto, bool> reading)
+    {
+        var byId = items.DistinctBy(item => item.Id).ToDictionary(item => item.Id);
+        var reached = new HashSet<Guid>();
+        var pending = new Stack<Guid>(items.Where(reading).Select(item => item.Id));
+
+        while (pending.Count > 0)
+        {
+            var id = pending.Pop();
+            if (!reached.Add(id)) continue;
+
+            foreach (var waited in byId[id].DependsOn.Where(byId.ContainsKey)) pending.Push(waited);
+        }
+
+        return [.. items.Where(item => reached.Contains(item.Id)).DistinctBy(item => item.Id)];
     }
 }

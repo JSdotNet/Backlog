@@ -10,10 +10,10 @@ public enum PlanOutlook
     /// <summary>Every backlog entry it gathered is done.</summary>
     Finished,
 
-    /// <summary>The effort left, at the item's pace from today, lands by its end.</summary>
+    /// <summary>The effort left, each part at its own pace from today, lands by its end.</summary>
     OnTrack,
 
-    /// <summary>The effort left, at the item's pace from today, lands after its end.</summary>
+    /// <summary>The effort left, each part at its own pace from today, lands after its end.</summary>
     Behind,
 
     /// <summary>Its end has passed with work still open.</summary>

@@ -156,6 +156,13 @@ public sealed class RoadmapBandShelfTests : RoadmapBandHarness
     {
         Configure("JSdotNet/Backlog");
 
+        // The shelf row's tasks, in the backlog the import gathers the item's work from:
+        // eight points, and one task nobody sized.
+        var written = await TasksTestHost.EntriesFor(Settings).ImportPlanAsync(
+            "# One\n`prompt` `+shelf` `effort:5`\n\n# Two\n`prompt` `+shelf` `effort:3`\n\n# Three\n`prompt` `+shelf`\n",
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(written.IsSuccess);
+
         using var context = ContextWith(Shelf, Release);
         var band = Loaded(context);
 

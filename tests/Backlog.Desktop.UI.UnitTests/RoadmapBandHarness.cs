@@ -274,6 +274,14 @@ public abstract class RoadmapBandHarness : IDisposable
         public IReadOnlyList<string> Repositories =>
             [.. configured.Current.Repositories.Select(repository => repository.Alias)];
 
+        /// <summary>Each configured repository's <c>owner/name</c> to its alias, as the real
+        /// adapter answers it, so a task filed by id is placed in the part — and at the
+        /// pace — of the band the view draws it in.</summary>
+        public IReadOnlyDictionary<string, string> AliasesById =>
+            configured.Current.Repositories
+                .GroupBy(repository => repository.FullName, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First().Alias, StringComparer.OrdinalIgnoreCase);
+
         public async Task<IReadOnlyList<CompletedEffortDto>> CompletedSinceAsync(
             DateOnly since,
             CancellationToken cancellationToken = default)

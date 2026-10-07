@@ -128,26 +128,48 @@ public sealed record PacesInUseDto(decimal Global, IReadOnlyDictionary<string, d
     } = WorkingHours.Default;
 
     /// <summary>
-    /// The pace an item filed under <paramref name="repositoryAliases"/> is placed at.
-    /// <para>
-    /// No alias is the global pace. Otherwise each alias stands for its repository's
-    /// pace — or the global one, for an alias no configured repository answers to — and
-    /// the lowest wins: work that has to land in several repositories goes at the pace
-    /// of the slowest, which is the longest bar and the honest one.
-    /// </para>
+    /// Per configured repository, its stored <c>owner/name</c> id to its alias, compared
+    /// without regard to case as GitHub compares it. A gathered task names its
+    /// repositories by the id the backlog stores and a pace is kept under the alias, so
+    /// this is the way from one to the other (<see cref="AliasOf"/>). Empty when the
+    /// reader knows no ids — an alias still resolves to itself.
     /// </summary>
-    public decimal For(IEnumerable<string>? repositoryAliases)
+    public IReadOnlyDictionary<string, string> AliasesById
     {
-        decimal? lowest = null;
+        get;
+        init => field = new Dictionary<string, string>(value ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
+    } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var alias in repositoryAliases ?? [])
+    /// <summary>
+    /// The configured alias a stored repository name stands for — the name of an item or
+    /// of one of its tasks, by alias or by <c>owner/name</c> id — or <c>null</c> for a name
+    /// no configured repository answers to. The band a part of a plan is drawn in and the
+    /// pace it is placed at both read it, so the two never disagree.
+    /// </summary>
+    public string? AliasOf(string? repository)
+    {
+        if (string.IsNullOrWhiteSpace(repository)) return null;
+
+        var name = repository.Trim();
+        var alias = ByRepository.Keys.FirstOrDefault(known => string.Equals(known, name, StringComparison.OrdinalIgnoreCase));
+        if (alias is not null) return alias;
+
+        return AliasesById.TryGetValue(name, out var byId) ? AliasOf(byId) ?? byId : null;
+    }
+
+    /// <summary>The pace in use for one configured repository alias: its own, or the
+    /// global pace for <c>null</c> and for an alias no configured repository answers to.
+    /// Always positive.</summary>
+    public decimal PaceOf(string? alias)
+    {
+        if (string.IsNullOrWhiteSpace(alias)) return Global;
+
+        var name = alias.Trim();
+        foreach (var (known, pace) in ByRepository)
         {
-            if (string.IsNullOrWhiteSpace(alias)) continue;
-
-            var pace = ByRepository.TryGetValue(alias.Trim(), out var own) ? own : Global;
-            lowest = lowest is { } known ? Math.Min(known, pace) : pace;
+            if (string.Equals(known, name, StringComparison.OrdinalIgnoreCase)) return pace;
         }
 
-        return lowest ?? Global;
+        return Global;
     }
 }

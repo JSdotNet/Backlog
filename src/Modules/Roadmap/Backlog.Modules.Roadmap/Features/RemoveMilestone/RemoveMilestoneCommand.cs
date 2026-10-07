@@ -1,3 +1,4 @@
+using Backlog.Modules.Roadmap.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -7,13 +8,14 @@ namespace Backlog.Modules.Roadmap.Features.RemoveMilestone;
 /// it.</summary>
 public sealed record RemoveMilestoneCommand(Guid MilestoneId);
 
-public sealed class RemoveMilestoneCommandHandler(IRoadmapPlanRepository plans)
+public sealed class RemoveMilestoneCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
     : ICommandHandler<RemoveMilestoneCommand, Result>
 {
     public async Task<Result> Handle(RemoveMilestoneCommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var removed = plan.RemoveMilestone(command.MilestoneId);
 

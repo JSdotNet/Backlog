@@ -182,7 +182,7 @@ public class PlanningPaceTests
         var finished = new Finished([new(Today, 14), new(Today.AddDays(-60), 100)]);
         var pace = new PlanningPace(settings, finished, new FakeTimeProvider(Noon));
 
-        Assert.Equal(7m, await pace.GetStoryPointsPerWeekAsync([], TestContext.Current.CancellationToken)); // 14 over 2 weeks
+        Assert.Equal(7m, await pace.GetStoryPointsPerWeekAsync(cancellationToken: TestContext.Current.CancellationToken)); // 14 over 2 weeks
 
         // One read covers the longest stretch, so nothing older is asked for.
         Assert.Equal(Today.AddDays(-55), finished.AskedSince);
@@ -334,7 +334,7 @@ public class PlanningPaceTests
         var paces = await pace.ReadAsync("backlog", TestContext.Current.CancellationToken);
 
         Assert.Equal(3m, paces.Manual);
-        Assert.Equal(3m, await pace.GetStoryPointsPerWeekAsync(["backlog"], TestContext.Current.CancellationToken));
+        Assert.Equal(3m, await pace.GetStoryPointsPerWeekAsync("backlog", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -363,11 +363,15 @@ public class PlanningPaceTests
 
         // The global paces: measured over all finished work, "gone"'s included.
         Assert.Equal(3m, paces.Manual);
-        Assert.Equal(14m, await pace.GetStoryPointsPerWeekAsync(["gone"], TestContext.Current.CancellationToken));
+        Assert.Equal(14m, await pace.GetStoryPointsPerWeekAsync("gone", TestContext.Current.CancellationToken));
     }
 
+    /// <summary>Each repository places at its own pace in use; one nobody configured, at
+    /// the global one. There is no pace for several repositories at once: an item filed
+    /// under several is laid out one part per repository, each at its own
+    /// (<see cref="RoadmapItemParts"/>; ADR 0013, ruling 4 as amended on 2026-10-07).</summary>
     [Fact]
-    public async Task SeveralRepositoriesPlaceAtTheLowestPaceInUseAmongThem()
+    public async Task EachRepositoryPlacesAtItsOwnPaceInUse()
     {
         var settings = new Settings(7m, PaceSource.Manual);
         var finished = new Finished(
@@ -378,10 +382,10 @@ public class PlanningPaceTests
             "backlog", "site", "docs");
         var pace = new PlanningPace(settings, finished, new FakeTimeProvider(Noon));
 
-        Assert.Equal(3m, await pace.GetStoryPointsPerWeekAsync(["backlog", "site"], TestContext.Current.CancellationToken));
-        Assert.Equal(7m, await pace.GetStoryPointsPerWeekAsync(["backlog", "docs"], TestContext.Current.CancellationToken)); // docs measured nothing: the typed 7
-        Assert.Equal(14m, await pace.GetStoryPointsPerWeekAsync(["backlog"], TestContext.Current.CancellationToken));
-        Assert.Equal(14m, await pace.GetStoryPointsPerWeekAsync(["unknown", "backlog"], TestContext.Current.CancellationToken)); // not configured: the global 17
+        Assert.Equal(14m, await pace.GetStoryPointsPerWeekAsync("backlog", TestContext.Current.CancellationToken));
+        Assert.Equal(3m, await pace.GetStoryPointsPerWeekAsync("SITE", TestContext.Current.CancellationToken));
+        Assert.Equal(7m, await pace.GetStoryPointsPerWeekAsync("docs", TestContext.Current.CancellationToken)); // docs measured nothing: the typed 7
+        Assert.Equal(17m, await pace.GetStoryPointsPerWeekAsync("unknown", TestContext.Current.CancellationToken)); // not configured: the global 34 over 2 weeks
     }
 
     [Fact]
@@ -391,7 +395,7 @@ public class PlanningPaceTests
         settings.Own["backlog"] = (1m, PaceSource.Manual);
         var pace = new PlanningPace(settings, new Finished([], "backlog"), new FakeTimeProvider(Noon));
 
-        Assert.Equal(5m, await pace.GetStoryPointsPerWeekAsync([], TestContext.Current.CancellationToken));
+        Assert.Equal(5m, await pace.GetStoryPointsPerWeekAsync(cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -404,6 +408,31 @@ public class PlanningPaceTests
 
         Assert.Equal(1, finished.Reads);
         Assert.Equal(["backlog", "docs", "site"], paces.ByRepository.Keys.Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>A gathered task names its repositories by the <c>owner/name</c> id the
+    /// backlog stores, and a pace is kept under the alias — so the paces in use carry the
+    /// way from one to the other, and a part of a plan is placed at its repository's own
+    /// pace whichever name its tasks wrote.</summary>
+    [Fact]
+    public async Task ARepositoryIdOrAliasResolvesToTheConfiguredAliasAndItsPace()
+    {
+        var settings = new Settings(7m, PaceSource.Manual);
+        settings.Own["backlog"] = (14m, PaceSource.Set);
+        var finished = new Finished([], "backlog", "site")
+        {
+            AliasesById = new Dictionary<string, string> { ["JSdotNet/Backlog"] = "backlog", ["JSdotNet/Site"] = "site" }
+        };
+        var pace = new PlanningPace(settings, finished, new FakeTimeProvider(Noon));
+
+        var paces = await pace.ReadPacesInUseAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("backlog", paces.AliasOf("jsdotnet/backlog")); // the id, matched as GitHub matches it
+        Assert.Equal("site", paces.AliasOf("Site"));                 // the alias itself
+        Assert.Null(paces.AliasOf("someone/else"));                  // nobody configured it
+        Assert.Equal(14m, paces.PaceOf(paces.AliasOf("JSdotNet/Backlog")));
+        Assert.Equal(7m, paces.PaceOf(null));                        // no repository: the global pace
+        Assert.Equal(7m, paces.PaceOf("someone/else"));              // not configured: the global pace
     }
 
     [Fact]
@@ -504,18 +533,22 @@ public class PlanningPaceTests
         Assert.Equal(4.5m, global.InUse);
     }
 
+    /// <summary>A lane's pace set by hand is the pace that lane places at, and leaves every
+    /// other lane's measured pace alone — an item in both lanes draws each part at its own.</summary>
     [Fact]
-    public async Task AnItemInTwoLanesStillUsesTheLowestPaceEvenWhenOneWasSetByHand()
+    public async Task ALanesPaceSetByHandPlacesThatLaneAndLeavesTheOtherAlone()
     {
         var settings = new Settings(7m, PaceSource.Manual);
         var finished = new Finished([new(Today, 28) { RepositoryAliases = ["backlog"] }], "backlog", "site");
         var pace = new PlanningPace(settings, finished, new FakeTimeProvider(Noon));
 
         Assert.Null(pace.SetOwn(2m, "site"));
-        Assert.Equal(2m, await pace.GetStoryPointsPerWeekAsync(["backlog", "site"], TestContext.Current.CancellationToken));
+        Assert.Equal(2m, await pace.GetStoryPointsPerWeekAsync("site", TestContext.Current.CancellationToken));
+        Assert.Equal(14m, await pace.GetStoryPointsPerWeekAsync("backlog", TestContext.Current.CancellationToken));
 
         Assert.Null(pace.SetOwn(30m, "site"));
-        Assert.Equal(14m, await pace.GetStoryPointsPerWeekAsync(["backlog", "site"], TestContext.Current.CancellationToken));
+        Assert.Equal(30m, await pace.GetStoryPointsPerWeekAsync("site", TestContext.Current.CancellationToken));
+        Assert.Equal(14m, await pace.GetStoryPointsPerWeekAsync("backlog", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -631,6 +664,8 @@ public class PlanningPaceTests
         public int Reads { get; private set; }
 
         public IReadOnlyList<string> Repositories => repositories;
+
+        public IReadOnlyDictionary<string, string> AliasesById { get; init; } = new Dictionary<string, string>();
 
         public Task<IReadOnlyList<CompletedEffortDto>> CompletedSinceAsync(
             DateOnly since,

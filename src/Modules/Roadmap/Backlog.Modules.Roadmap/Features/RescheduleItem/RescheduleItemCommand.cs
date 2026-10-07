@@ -19,7 +19,7 @@ namespace Backlog.Modules.Roadmap.Features.RescheduleItem;
 /// must not silently refile it.</param>
 public sealed record RescheduleItemCommand(Guid ItemId, DateOnly Start, DateOnly End, string? Lane = null);
 
-public sealed class RescheduleItemCommandHandler(IRoadmapPlanRepository plans)
+public sealed class RescheduleItemCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
     : ICommandHandler<RescheduleItemCommand, Result<RoadmapItemDto>>
 {
     public async Task<Result<RoadmapItemDto>> Handle(
@@ -31,6 +31,7 @@ public sealed class RescheduleItemCommandHandler(IRoadmapPlanRepository plans)
         var window = PlannedWindow.Create(command.Start, command.End);
         if (window.IsFailure) return Result.Failure<RoadmapItemDto>(window.Error);
 
+        using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var lane = command.Lane is null ? null : PlanningLane.Of(command.Lane);
         var rescheduled = plan.Reschedule(command.ItemId, window.Value, lane);

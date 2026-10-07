@@ -186,7 +186,7 @@
     {
         var item = row.Item;
         var planned = DashboardFormat.Date(item.End);
-        var pace = MetricFormat.Score(item.PacePointsPerWeek);
+        var pace = Paces(item);
 
         return row.Outlook switch
         {
@@ -204,6 +204,26 @@
                 $"Its window is still the one the importer sized from effort, so it moves with the pace and is not judged against itself. Planned to end {planned}.",
             _ => $"Planned to end {planned}."
         };
+    }
+
+    /// <summary>
+    /// The pace the projection counted at, ahead of "pts/week": one figure when every part
+    /// with work left runs at the same pace, else each repository's — "app 8, site 4" — since
+    /// every part is projected at its own repository's pace.
+    /// </summary>
+    private static string Paces(PlanItemProgress item)
+    {
+        var counted = item.Parts.Where(part => part.RemainingEffort > 0 && part.PacePointsPerWeek > 0).ToList();
+        if (counted.Count == 0) counted = [.. item.Parts];
+
+        var distinct = counted.Select(part => part.PacePointsPerWeek).Distinct().ToList();
+        if (distinct.Count <= 1) return MetricFormat.Score(distinct.FirstOrDefault());
+
+        return string.Join(
+            ", ",
+            counted
+                .GroupBy(part => part.Alias ?? "unfiled", StringComparer.OrdinalIgnoreCase)
+                .Select(group => $"{group.Key} {MetricFormat.Score(group.First().PacePointsPerWeek)}"));
     }
 
     protected override Task<InsightResult<PlanInsight>> FetchAsync(CancellationToken cancellationToken) =>

@@ -110,32 +110,37 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
     }
 
     /// <summary>
-    /// How an item's work stands: the effort left, at the item's own pace, laid out from
-    /// today and judged against its planned end.
+    /// How an item's work stands: the effort left in each of its parts, at that part's own
+    /// pace, laid out from today after the parts it waits on, and the latest part end
+    /// judged against the item's planned end.
     /// </summary>
     /// <remarks>
     /// The projection is the roadmap's own arithmetic for a window drawn from its work —
-    /// the effort left at points a working week, counted through the working week's
-    /// hours from today (local ADR 0019), never under a day nor over ten years, the pace
-    /// read per item — so a dashboard that says behind never contradicts the bar
-    /// drawn past its end. It departs in one place: an open entry nobody estimated counts
-    /// nothing here where the bar counts it a point, because the section reports it as
-    /// unestimated and a figure that also guessed at it would count it twice. An item
-    /// placed by effort is not judged at all: its end is not a date anybody set but one
-    /// read off the plan each time — its whole gathered effort at its pace in use, from
-    /// its planned start (ADR 0013 rulings 4 and 5 as amended; local ADR 0018) — so there
-    /// is no promised end for it to be behind. Once its work has begun the roadmap draws
-    /// it from the work instead; this section reports the effort-sized end either way.
+    /// one part per repository, each part's effort left at its repository's points a
+    /// working week, counted through the working week's hours (local ADR 0019) from the
+    /// later of today and the day after the parts it waits on end, never under a day nor
+    /// over ten years (ADR 0013, ruling 4 as amended on 2026-10-07) — so a dashboard that
+    /// says behind never contradicts the bars drawn past its end. The parts come from the
+    /// roadmap, the one place they are formed; this module may not name its types
+    /// (guideline ADR 0005), so it chains the rows it is handed. It departs in one place:
+    /// an open entry nobody estimated counts nothing here where the bar counts it a point,
+    /// because the section reports it as unestimated and a figure that also guessed at it
+    /// would count it twice. An item placed by effort is not judged at all: its end is not
+    /// a date anybody set but the one the keep-up projection lays out each day — each
+    /// part's gathered effort left at its repository's pace in use, from today (ADR 0013,
+    /// ruling 5 as amended; local ADR 0018) — so there is no promised end for it to be
+    /// behind; this section reports that end.
     /// </remarks>
     private static PlanItemInsight Outlook(PlanItemProgress item, DateOnly today, WorkingHours week)
     {
         if (item.IsFinished) return new(item, PlanOutlook.Finished, item.LastCompletedOn);
         if (item.PlacedByEffort) return new(item, PlanOutlook.PlacedByEffort, item.End);
         if (item.TotalEffort == 0) return new(item, PlanOutlook.Unsized, null);
-        if (item.PacePointsPerWeek <= 0) return new(item, PlanOutlook.NoPace, null);
 
-        var remaining = Math.Max(0, item.TotalEffort - item.DoneEffort);
-        var counted = remaining <= 0 ? week.FirstWorkedDay(today) : week.LastDayOf(today, remaining, item.PacePointsPerWeek);
+        var left = item.Parts.Where(part => part.RemainingEffort > 0).ToList();
+        if (left.Count > 0 && left.All(part => part.PacePointsPerWeek <= 0)) return new(item, PlanOutlook.NoPace, null);
+
+        var counted = PartsEnd(item.Parts, today, week) ?? week.FirstWorkedDay(today);
         var latest = today.AddDays(LongestProjectionDays - 1);
         var projected = counted > latest ? latest : counted;
 
@@ -144,6 +149,48 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
             : projected <= item.End ? PlanOutlook.OnTrack : PlanOutlook.Behind;
 
         return new(item, outlook, projected);
+    }
+
+    /// <summary>
+    /// The day the last part's work lands, each part's estimated work left laid out at its
+    /// own pace from the later of today and the day after the parts it waits on end — or
+    /// <c>null</c> when no part has work left to lay out.
+    /// </summary>
+    /// <remarks>
+    /// A part with nothing left, or with no pace to count at, takes no time: it ends where
+    /// the parts it waits on end, so what waits on it still waits on them. The parts come
+    /// in the roadmap's order, each after the parts it waits on, so one pass sees every
+    /// wait's end first; a position that does not point earlier in the list is ignored.
+    /// </remarks>
+    private static DateOnly? PartsEnd(IReadOnlyList<PlanPartProgress> parts, DateOnly today, WorkingHours week)
+    {
+        var ends = new DateOnly?[parts.Count];
+        DateOnly? last = null;
+
+        for (var index = 0; index < parts.Count; index++)
+        {
+            var part = parts[index];
+            DateOnly? waited = null;
+            foreach (var position in part.WaitsOn)
+            {
+                if (position < 0 || position >= index || ends[position] is not { } end) continue;
+                if (waited is null || end > waited) waited = end;
+            }
+
+            if (part.RemainingEffort <= 0 || part.PacePointsPerWeek <= 0)
+            {
+                ends[index] = waited;
+                continue;
+            }
+
+            var from = waited is { } after && after >= today ? after.AddDays(1) : today;
+            var landed = week.LastDayOf(from, part.RemainingEffort, part.PacePointsPerWeek);
+
+            ends[index] = landed;
+            if (last is null || landed > last) last = landed;
+        }
+
+        return last;
     }
 
     /// <summary>Ten years: the longest a projection runs, as the roadmap's forecast.</summary>

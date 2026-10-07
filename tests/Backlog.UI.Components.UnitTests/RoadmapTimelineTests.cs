@@ -982,6 +982,35 @@ public sealed class RoadmapTimelineTests
         Assert.Contains("Dropped Alpha", Announcement(view), StringComparison.Ordinal);
     }
 
+    /// <summary>A bar that is one part of something larger lands that larger thing somewhere
+    /// else than its own dates; the host says where, and that is what is read out.</summary>
+    [Fact]
+    public void A_drop_is_announced_at_the_dates_the_host_says_it_lands_on()
+    {
+        using var context = new BunitContext();
+        RoadmapChange? asked = null;
+
+        var view = Chart(context, extra: parameters => parameters.Add(
+            timeline => timeline.DroppedAt,
+            (Func<RoadmapChange, (DateOnly Start, DateOnly End)>)(change =>
+            {
+                asked = change;
+                return (On(1, 5), On(2, 27));
+            })));
+
+        var bar = view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body");
+
+        bar.KeyDown(new KeyboardEventArgs { Key = " " });
+        bar.KeyDown(new KeyboardEventArgs { Key = "ArrowRight" });
+        bar.KeyDown(new KeyboardEventArgs { Key = " " });
+
+        Assert.NotNull(asked);
+        Assert.Equal(On(1, 12), asked.Start);
+        Assert.Equal(
+            $"Dropped Alpha at {On(1, 5).ToString("d MMM yyyy", CultureInfo.CurrentCulture)} to {On(2, 27).ToString("d MMM yyyy", CultureInfo.CurrentCulture)}.",
+            Announcement(view));
+    }
+
     [Fact]
     public void Escape_puts_the_bar_back_and_tells_the_host_nothing()
     {

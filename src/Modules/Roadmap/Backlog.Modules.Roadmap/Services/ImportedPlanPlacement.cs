@@ -22,14 +22,11 @@ public static class ImportedPlanPlacement
 {
     /// <summary>The day after the latest of <paramref name="predecessorEnds"/>, or
     /// <paramref name="today"/> when the item waits on nothing. Not yet moved to a
-    /// worked day: <see cref="Place"/> does that, for every caller alike.</summary>
-    public static DateOnly StartAfter(IEnumerable<DateOnly> predecessorEnds, DateOnly today)
-    {
-        ArgumentNullException.ThrowIfNull(predecessorEnds);
-
-        var ends = predecessorEnds.ToList();
-        return ends.Count == 0 ? today : ends.Max().AddDays(1);
-    }
+    /// worked day: <see cref="Place"/> does that, for every caller alike. The keep-up
+    /// projection's own rule (<see cref="RoadmapProjection.StartAfter"/>), so the import
+    /// and the projection floor an item alike.</summary>
+    public static DateOnly StartAfter(IEnumerable<DateOnly> predecessorEnds, DateOnly today) =>
+        RoadmapProjection.StartAfter(predecessorEnds, today);
 
     /// <summary>
     /// The window from <paramref name="start"/>, and the rule that placed it.

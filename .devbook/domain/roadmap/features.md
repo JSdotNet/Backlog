@@ -467,8 +467,8 @@ before the work left could, is the hope again rather than the reading.
 
 A plan in flight is forecast one repository part at a time, the same parts
 [Placing a plan in time](#placing-a-plan-in-time) lays out. A part whose work has
-begun is drawn from the day that work began, when that was earlier than planned.
-That day is the earliest start of the part's begun tasks: a task's own started
+begun is drawn from the day that work began, earlier or later than the plan's
+planned start. That holds for a plan placed by hand too. That day is the earliest start of the part's begun tasks: a task's own started
 date, else the start of the session linked to it, else the day the task was
 created. The part's end is a forecast of when its open work will be done. Its open
 points, with an unestimated task counted as one, are spent at its own repository's
@@ -481,9 +481,12 @@ same way every other window is counted
 
 The bar is locked like a finished one: its dates are read off the work, so a drag
 would change nothing the next reading keeps. A pinned end is a person's date and
-outranks the forecast, but it never ends the bar before the first day open work can
-be drawn on. The forecast still shows in the bar's detail, with the pace it was
-read at, so pinning does not hide what the pace says.
+outranks the forecast, but only on the part that ends latest. Every part tied for
+that end ends on the pin, and every other part keeps its own forecast. The pin
+never ends that part before the first day its open work can be drawn on. Pulling
+the end of an earlier part pins the plan's end as many days later as the pull
+moved it. The forecast still shows in the detail of the part the pin moved, with
+the pace it was read at, so pinning does not hide what the pace says.
 
 When the plan hands work over between repositories, a part whose tasks are all
 done is drawn where that work ran. Every open part is placed after the parts it
@@ -491,8 +494,11 @@ waits on, at its own repository's pace, so no open part is given a share of the
 window by its size. A done part stretched over a slice of the future would draw
 finished work that has not happened yet.
 
-Nothing is stored. The plan keeps its [planned window](domain.md#planned-window),
-and the forecast is read off the work at every draw, like the totals it comes from.
+The parts are never stored. A plan placed by hand or by its due date keeps its
+[planned window](domain.md#planned-window), and its forecast is read off the work
+at every draw, like the totals it comes from. A plan whose window is still sized by
+its effort stores the window its parts make, as
+[Placing a plan in time](#placing-a-plan-in-time) says.
 
 ### Telling one project from another at a glance
 

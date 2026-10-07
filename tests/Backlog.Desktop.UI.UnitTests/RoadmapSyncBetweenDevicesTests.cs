@@ -156,11 +156,11 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         Assert.Equal(PaceSource.LastFourWeeks, b.Pace.Source);
         Assert.Equal(3.5m, b.Pace.StoryPointsPerWeekFor("backlog"));
         Assert.Equal(
-            await a.Velocity(velocity => velocity.GetStoryPointsPerWeekAsync(["backlog"])),
-            await b.Velocity(velocity => velocity.GetStoryPointsPerWeekAsync(["backlog"])));
+            await a.Velocity(velocity => velocity.GetStoryPointsPerWeekAsync("backlog")),
+            await b.Velocity(velocity => velocity.GetStoryPointsPerWeekAsync("backlog")));
         Assert.Equal(
-            await a.Velocity(velocity => velocity.GetStoryPointsPerWeekAsync([])),
-            await b.Velocity(velocity => velocity.GetStoryPointsPerWeekAsync([])));
+            await a.Velocity(velocity => velocity.GetStoryPointsPerWeekAsync()),
+            await b.Velocity(velocity => velocity.GetStoryPointsPerWeekAsync()));
 
         // And B's plan edit reached A, rather than being lost to A's pace change.
         Assert.Equal("Edited on B meanwhile", Assert.Single((await a.Planning(planning => planning.GetPlanAsync())).Items).Title);
