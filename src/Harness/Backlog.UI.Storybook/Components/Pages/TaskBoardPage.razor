@@ -55,12 +55,27 @@
                        TestId="task-board-narrow" />
         </div>
     </Story>
+
+    <Story Name="A long column"
+           Description="Every column is as tall as the tallest one, so the space beside a long column's foot belongs to the short column next to it. Scroll this box down to the foot of Ready, pick up one of its last cards and carry it straight across to In progress: the drop lands even though In progress's own cards are scrolled out of view above. Dragging near the box's top or bottom edge scrolls it, as `interaction-guidelines.md#autoscroll` asks."
+           Code="@LongCode">
+        <div class="sb-board sb-board--scroller" data-testid="task-board-long-sample">
+            <TaskBoard Columns="@StatusColumns(_long)"
+                       Draggable="true"
+                       DropRuleFor="@((taskId, columnKey) => StatusRule(_long, taskId, columnKey))"
+                       OnDrop="LongDrop"
+                       AriaLabel="Tasks by status, one long column"
+                       TestId="task-board-long" />
+        </div>
+        <p class="sb-state" data-testid="task-board-long-state">@(_longAct ?? "Nothing moved yet.")</p>
+    </Story>
 </StoryPage>
 
 @code {
     private static readonly DesignGuideline[] Rules =
     [
         new("interaction-guidelines.md#task-rows", "What a task states and what goes quiet — the card states the row's facts."),
+        new("interaction-guidelines.md#reliable-drop-targets-items", "Each column is a drop target as tall as the board, so a card from low in a long column can reach a short one."),
         new("interaction-guidelines.md#autoscroll", "The drag scrolls the board from its edges, at a bounded speed."),
         new("color-scheme.md#the-identity-edge", "The 4px repository edge on each card, and that it is never the only thing naming the repository."),
         new("accessibility.md#iconography-accessibility", "Each column is named with its count and points; a drop is announced.")
@@ -104,6 +119,17 @@
         ["Done"] = ["InProgress"]
     };
 
+    /// <summary>The long-column sample: ten cards waiting in Ready and one in
+    /// progress, so Ready runs far below the foot of In progress.</summary>
+    private readonly List<Sample> _long =
+    [
+        .. Enumerable.Range(1, 10).Select(n => new Sample(
+            new TaskRow($"long-{n}", $"Ready card {n}", Tags: ["+task-views"], Kind: TaskKinds.Task), "Ready", "Medium", "backlog", n % 3 + 1, 1)),
+        new(new TaskRow("long-started", "The one card in progress", Tags: ["+task-views"], Kind: TaskKinds.Task), "InProgress", "High", "backlog", 3, 1)
+    ];
+
+    private string? _longAct;
+
     private string _grouping = Plan;
 
     private string? _opened;
@@ -118,12 +144,14 @@
         new(sample.Task, Priority: sample.Priority, Repository: sample.Repository, Effort: sample.Effort,
             Overdue: sample.Overdue, Finished: sample.Finished, CssClass: Mark(sample.Colour));
 
-    private IReadOnlyList<TaskBoardColumn> StatusColumns() =>
+    private IReadOnlyList<TaskBoardColumn> StatusColumns() => StatusColumns(_samples);
+
+    private IReadOnlyList<TaskBoardColumn> StatusColumns(List<Sample> samples) =>
     [
         .. Statuses.Select(status => new TaskBoardColumn(
             status.Key,
             status.Title,
-            [.. _samples.Where(sample => sample.Status == status.Key).Select(CardOf)],
+            [.. samples.Where(sample => sample.Status == status.Key).Select(CardOf)],
             $"task-board__dot--{(status.Key == "InProgress" ? "in-progress" : status.Key.ToLowerInvariant())}",
             CanAdd: true))
     ];
@@ -149,13 +177,15 @@
             $"task-board__dot--{priority.ToLowerInvariant()}"))
     ];
 
-    private string StatusOf(string taskId) => _samples.First(sample => sample.Task.Id == taskId).Status;
+    private static string StatusOf(List<Sample> samples, string taskId) => samples.First(sample => sample.Task.Id == taskId).Status;
 
     private static string TitleOf(string key) => Statuses.First(status => status.Key == key).Title;
 
-    private TaskBoardDropRule? StatusRule(string taskId, string columnKey)
+    private TaskBoardDropRule? StatusRule(string taskId, string columnKey) => StatusRule(_samples, taskId, columnKey);
+
+    private static TaskBoardDropRule? StatusRule(List<Sample> samples, string taskId, string columnKey)
     {
-        var from = StatusOf(taskId);
+        var from = StatusOf(samples, taskId);
         if (Next[from].Contains(columnKey))
         {
             return new TaskBoardDropRule(true, columnKey switch
@@ -183,15 +213,19 @@
         return new TaskBoardDropRule(false, $"{TitleOf(from)} can't move straight to {TitleOf(columnKey)} — {reason}");
     }
 
-    private void OnDrop(TaskBoardDrop drop)
+    private void OnDrop(TaskBoardDrop drop) => _lastAct = MoveSample(_samples, drop);
+
+    private void LongDrop(TaskBoardDrop drop) => _longAct = MoveSample(_long, drop);
+
+    private static string MoveSample(List<Sample> samples, TaskBoardDrop drop)
     {
-        var index = _samples.FindIndex(sample => sample.Task.Id == drop.TaskId);
-        var moved = _samples[index] with { Status = drop.ColumnKey };
+        var index = samples.FindIndex(sample => sample.Task.Id == drop.TaskId);
+        var moved = samples[index] with { Status = drop.ColumnKey };
         if (drop.ColumnKey == "Done") moved = moved with { Task = moved.Task with { Done = true }, Finished = "Today" };
         else if (moved.Task.Done) moved = moved with { Task = moved.Task with { Done = false }, Finished = null };
 
-        _samples[index] = moved;
-        _lastAct = $"Moved {drop.TaskId} to {TitleOf(drop.ColumnKey)}.";
+        samples[index] = moved;
+        return $"Moved {drop.TaskId} to {TitleOf(drop.ColumnKey)}.";
     }
 
     private void Open(string id)
@@ -240,5 +274,11 @@
     private const string NarrowCode = """
         @* The board is its own horizontal scroller; columns are minmax(17rem, 1fr). *@
         <div style="width: 40rem"><TaskBoard Columns="@columns" /></div>
+        """;
+
+    private const string LongCode = """
+        @* Each column is stretched to the board's row, the tallest column's height,
+           so a drop beside a long column's foot lands on the short column there. *@
+        <div style="height: 28rem; overflow-y: auto"><TaskBoard Columns="@columns" Draggable="true" /></div>
         """;
 }
