@@ -167,7 +167,7 @@ flowchart TB
 ## Desktop App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md"]
+related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/domain/tasks/features.md#pairing-a-device"]
 ```
 
 Local-first Windows client. Serves Capture, Inbox, Tasks, Roadmap Planning, Devbook, Monitoring, Technology Stack, Dev PC Management, Sessions, and Repository Management. It runs in two seamless modes,
@@ -189,6 +189,7 @@ graph TB
       CaptureUI["Backlog.Modules.Capture.UI"]
       ToolsUI["Backlog.Modules.DevPc.UI\n(Tools)"]
       SessionsUI["Backlog.Modules.Sessions.UI"]
+      SyncUI["Backlog.Modules.Sync.UI\n(Devices settings)"]
     end
 
     subgraph "Modules"
@@ -226,7 +227,7 @@ graph TB
   Sources["YouTube, websites / feeds,\nimport manifests"]
   FoundryApi["Azure AI Foundry"]
 
-  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & DashboardUI & CaptureUI & ToolsUI & SessionsUI
+  Shell --> TasksUI & InboxUI & RoadmapUI & DevbookUI & DashboardUI & CaptureUI & ToolsUI & SessionsUI & SyncUI
   Shell --> Foundry & Claude & GitHubInfra & FileSystem & SyncClient & Mcp
 
   TasksUI -->|Abstractions| Tasks
@@ -236,6 +237,7 @@ graph TB
   CaptureUI -->|Abstractions| Capture
   ToolsUI -->|DevPc.Abstractions| DevPcInfra
   SessionsUI -->|Sessions.Abstractions| SessionsInfra
+  SyncUI -->|pairing, sync loops| SyncClient
 
   TasksUI --> Copilot & GitHubInfra
   RoadmapUI --> GitHubInfra
@@ -349,6 +351,15 @@ entry on the desktop. The id-keyed idempotency `IInboxIntake` already gives the
 sync path — a known id is a replay, not a duplicate — is what makes a second
 press of Capture free, with no seen-store of its own. See
 `.devbook/domain/context-map.md#strategic-rules`.
+
+**Devices settings** belong to `Backlog.Modules.Sync.UI`, the Sync module's
+only UI. Its Devices page registers a device and pairs it, counts down the
+pairing code, and forgets a device. It also holds the sync service address and
+drives the task and session sync loops through the Sync Client.
+`SyncSettingsRegistration.AddSyncSettings` registers the page as a
+`SettingsSection` from `Backlog.SharedKernel`, and the desktop composition
+calls it. The shell knows a section only as a title and a component. It offers
+the page while the Sync feature is on and keeps it alive across tab switches.
 
 ## Mobile App
 
