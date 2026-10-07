@@ -383,6 +383,25 @@
                             }
                         </div>
                     }
+                    else if (Layout == TasksLayout.Calendar)
+                    {
+                        @* The Calendar view: the same filtered rows, placed by due date,
+                           under the same filter bar and beside the same detail panel. A
+                           chip opens its entry the way a row does; a drop writes the
+                           due date the way the detail panel's Due row does. An empty
+                           filter result is an empty month and an empty tray rather
+                           than the list's empty state — the month bar is still the
+                           thing to use. *@
+                        <TaskCalendar @ref="_calendar"
+                                      Tasks="@CalendarTasks()"
+                                      Today="@Today"
+                                      MyDayCount="@MyDayCount"
+                                      SelectedId="@SelectedTaskId"
+                                      OnOpen="OnEntrySelectedAsync"
+                                      OnDueChanged="OnCalendarDueChangedAsync"
+                                      AriaLabel="Tasks by due date"
+                                      TestId="task-calendar" />
+                    }
                     else if (State.FilteredRows.Count == 0)
                     {
                         @* "You have written nothing" and "your filters match nothing" are
@@ -599,6 +618,10 @@
     /// only honest way to reach one.</summary>
     private TaskListView? _list;
 
+    /// <summary>The month calendar while the pane is in its Calendar layout; the
+    /// focus goes back to its selected chip where it would go back to a row.</summary>
+    private TaskCalendar? _calendar;
+
     /// <summary>The open entry's panel, held for the same reason and in the other
     /// direction: it is where the focus goes when the reader tabs off the selected
     /// row. The panel names its own controls, so it is asked to focus itself rather
@@ -636,7 +659,13 @@
     [
         $"#{DetailElementId}",
         "[data-testid='backlog-split-separator']",
-        "#backlog-pane .task-item__copy"
+        "#backlog-pane .task-item__copy",
+        // The calendar's month bar and a day's "+N more" move around the month and
+        // say nothing about the open entry; the open entry's own chip or tray item
+        // is the entry, pressed or picked up to move it.
+        "#backlog-pane .task-calendar__bar",
+        "#backlog-pane .task-calendar__more",
+        "#backlog-pane [data-calendar-task][aria-current='true']"
     ];
 
     /// <summary>Which of the selected entry's scheduling rows currently has its
@@ -790,13 +819,14 @@
 
     private async Task FocusSelectedRowAsync()
     {
-        if (_list is null) return;
+        if (Layout == TasksLayout.Calendar ? _calendar is null : _list is null) return;
 
         _focusingSelectedRow = true;
 
         try
         {
-            await _list.FocusSelectedAsync();
+            if (Layout == TasksLayout.Calendar) await _calendar!.FocusSelectedAsync();
+            else await _list!.FocusSelectedAsync();
         }
         finally
         {
@@ -889,6 +919,49 @@
     /// </summary>
     [Parameter]
     public EventCallback<string> OnOpenSession { get; set; }
+
+    /// <summary>How the entries under the filter bar are laid out — the list, or the
+    /// month calendar. The shell's view switch picks it.</summary>
+    [Parameter]
+    public TasksLayout Layout { get; set; } = TasksLayout.List;
+
+    /// <summary>
+    /// The filtered entries, as the month calendar needs them: by due date, with the
+    /// lifecycle behind the status dot and the repository mark — which
+    /// <c>RepositoryMarkClass</c> already withholds while the colours are hidden.
+    /// A recurring entry is placed on its due date alone; the next occurrence is
+    /// written when this one is ticked off, so there is no series to draw.
+    /// </summary>
+    private IReadOnlyList<CalendarTask> CalendarTasks() =>
+        [.. State.FilteredRows.Select(row => new CalendarTask(
+            EntryTaskId(row),
+            EntryDisplayTitle(row),
+            row.PreviewDueOn,
+            CalendarStateOf(row),
+            Repeats: row.PreviewRecurrence is not null,
+            CssClass: State.RepositoryMarkClass(row),
+            Effort: FormatEffort(row.PreviewEffort)))];
+
+    /// <summary>The tick wins over the lifecycle, as it does on the list: an entry
+    /// ticked off is done whatever status its text still names.</summary>
+    private static CalendarTaskState CalendarStateOf(EntryRow row) =>
+        row.IsPreviewCompleted
+            ? CalendarTaskState.Done
+            : row.PreviewStatus switch
+            {
+                EntryStatus.Ready => CalendarTaskState.Ready,
+                EntryStatus.InProgress => CalendarTaskState.InProgress,
+                EntryStatus.Done => CalendarTaskState.Done,
+                EntryStatus.Archived => CalendarTaskState.Archived,
+                _ => CalendarTaskState.Draft
+            };
+
+    /// <summary>A task dropped on a day: that day becomes its due date, through the
+    /// same write the detail panel's Due row makes.</summary>
+    private async Task OnCalendarDueChangedAsync(CalendarDueChange change)
+    {
+        if (EntryFor(change.TaskId) is { } row) await State.ChangeDueAsync(row, change.DueOn);
+    }
 
     private Task OpenSessionAsync(IntegrationLinkRef link) => OnOpenSession.InvokeAsync(link.Id);
 
@@ -3765,6 +3838,12 @@
     /// The same move Escape makes, minus the closing.</summary>
     private async Task MoveFocusToListAsync()
     {
+        if (Layout == TasksLayout.Calendar)
+        {
+            if (_calendar is not null) await _calendar.FocusSelectedAsync();
+            return;
+        }
+
         if (_list is null) return;
 
         await _list.FocusSelectedAsync();

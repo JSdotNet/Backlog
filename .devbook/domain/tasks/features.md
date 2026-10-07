@@ -453,6 +453,30 @@ Hand-sequence tasks within the backlog by dragging them into a preferred
 order, independent of recency or priority. A task that has never been
 manually ranked falls back to recency.
 
+### Calendar view
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/features.md#my-day]
+```
+
+The same filtered tasks laid out on a month by their
+[Due Date](domain.md#due-date), under the same filters and beside the same open
+task. The month runs Monday to Sunday in whole weeks, so its first and last
+rows reach into the neighbouring months; those days are dimmed and weekends are
+shaded. Today is marked and says how many tasks are in [My Day](#my-day).
+
+Each day lists its tasks with where each one is in its lifecycle: an open task
+past its due date stands out as overdue, a finished one is struck through, and
+past two a day folds the rest behind a count that opens the whole day. A
+recurring task shows on its due date only — the next occurrence is written when
+this one is finished, so there is no series to place. The open tasks with no due
+date wait beside the month; dragging one onto a day gives it that due date, and
+dragging a task to another day moves it. Opening a task from the month opens it
+as the list would. Only the due date places a task here, and the range is a
+month.
+
 ## Prompt features
 
 ```meta

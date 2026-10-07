@@ -358,7 +358,10 @@ internal static class StorybookIndex
             // stacked for a board column, so it is read once the row is known.
             new("task-list/card", "Task card", "TaskCard: one task as a card in a board column — the row's facts stacked, a raised priority as a small chevron, what it waits on, one line of repository, sub-items, date, work badges and effort, and the whole card one control that opens the task."),
             new("task-list/panel", "Task side panel", "TaskPanel, TaskActionPane and TaskAction: the whole of one task beside its list — a title you can tick and retitle, tags, the detail rows in two columns, then its sub-items or its markdown."),
-            new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order — derived, edited, and wired by dragging.")
+            new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order — derived, edited, and wired by dragging."),
+            // Last in the group: a second layout of the tasks the pages above
+            // introduce, read once a task and its states are known.
+            new("task-list/calendar", "Task calendar", "TaskCalendar: a month of tasks by due date — Monday-first whole weeks, today ringed with its My Day count, two chips a day and the rest behind +N more, overdue and done drawn apart, and a tray of undated tasks to drag onto a day.")
         ]),
 
         // Its own chapter for the same reason Task list is: two components, one

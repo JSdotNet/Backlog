@@ -211,6 +211,18 @@
                         Tasks
                     </ToggleButton>
 
+                    @* The Calendar: the Tasks pane's filtered rows on a month by due
+                       date. Board sits between it and Tasks. *@
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="ViewOptionPressed(ShellView.Calendar)"
+                                  id="calendar-view-option"
+                                  TestId="calendar-view-option"
+                                  aria-controls="backlog-pane"
+                                  OnClick="() => ShowView(ShellView.Calendar)">
+                        Calendar
+                    </ToggleButton>
+
                     @if (RoadmapViewOffered)
                     {
                         <ToggleButton BaseClass="header-group__option"
@@ -601,7 +613,7 @@
                 }
                 else
                 {
-                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" />
+                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" Layout="@TasksPaneLayout" />
                 }
 
                 @if (DevbookPaneVisible)
@@ -904,11 +916,15 @@
     /// choice itself is kept, so switching the feature back on shows it again.</summary>
     private ShellView EffectiveView => _view == ShellView.Roadmap && !RoadmapViewOffered ? ShellView.Tasks : _view;
 
-    /// <summary>Whether the task list is in front of the reader — the Tasks view on
-    /// screen in the workspace, not merely chosen underneath a takeover. The GitHub
-    /// check acts on the list and is offered on this answer; so is the Tasks area of
-    /// Ask AI.</summary>
-    private bool TasksListOnScreen => WorkspaceVisible && EffectiveView == ShellView.Tasks;
+    /// <summary>Whether the task list is in front of the reader — the Tasks view, or
+    /// the Calendar laying out the same filtered rows, on screen in the workspace,
+    /// not merely chosen underneath a takeover. The GitHub check acts on the list and
+    /// is offered on this answer; so is the Tasks area of Ask AI.</summary>
+    private bool TasksListOnScreen => WorkspaceVisible && EffectiveView is ShellView.Tasks or ShellView.Calendar;
+
+    /// <summary>How the Tasks pane lays out its filtered rows: the month calendar
+    /// on the Calendar view, the list otherwise.</summary>
+    private TasksLayout TasksPaneLayout => EffectiveView == ShellView.Calendar ? TasksLayout.Calendar : TasksLayout.List;
 
     /// <summary>Whether what is on screen can show several repositories at once:
     /// the task list, the Dashboard, the session list, or the pull requests list.
@@ -1002,6 +1018,7 @@
     private static string AiScopeFor(ShellView view) => view switch
     {
         ShellView.Tasks => "tasks",
+        ShellView.Calendar => "tasks",
         ShellView.Roadmap => "roadmap",
         _ => throw new ArgumentOutOfRangeException(nameof(view), view, "No Ask AI area is defined for this view.")
     };
@@ -1978,8 +1995,9 @@
     private void RefreshTasksAfterRouting() => _ = InvokeAsync(async () =>
     {
         // The entries are on the task list, so that is the view the workspace
-        // shows; the Inbox stays open beside it.
-        if (EffectiveView != ShellView.Tasks) SetView(ShellView.Tasks);
+        // shows, unless the Calendar is already laying the same rows out;
+        // the Inbox stays open beside it.
+        if (EffectiveView is not (ShellView.Tasks or ShellView.Calendar)) SetView(ShellView.Tasks);
 
         try
         {
