@@ -4481,6 +4481,10 @@
     //
     // Mouse and pen only. A finger on a chip is how the calendar is scrolled, and
     // the detail panel a tap opens sets the due date as well.
+    //
+    // A plan on the tray's "Plans without a window" is dragged the same way: it
+    // carries `data-calendar-plan` rather than `data-calendar-task`, and its drop is
+    // reported as `DropPlanOnDay` — the day its window opens on.
     const calendarRefs = new Map();
     let calendarDrag = null;
     let calendarClickBlockedUntil = 0;
@@ -4488,10 +4492,14 @@
     const CALENDAR_DRAG_THRESHOLD_PX = 4;
     const CALENDAR_DRAG_CLICK_GRACE_MS = 300;
 
+    // Every element under the pointer, not only the top one: a plan bar is drawn
+    // over the days it spans, and a drop on the bar is a drop on the day beneath.
     function calendarDayAt(root, x, y) {
-        const hit = document.elementFromPoint(x, y);
-        const day = hit?.closest?.('[data-calendar-day]');
-        return day && root.contains(day) ? day : null;
+        for (const hit of document.elementsFromPoint(x, y)) {
+            const day = hit?.closest?.('[data-calendar-day]');
+            if (day && root.contains(day)) return day;
+        }
+        return null;
     }
 
     function calendarMarkDay(day) {
@@ -4528,13 +4536,14 @@
         if (event.pointerType === 'touch') return;
 
         const target = event.target instanceof Element ? event.target : null;
-        const item = target?.closest('[data-calendar-task]');
+        const item = target?.closest('[data-calendar-task], [data-calendar-plan]');
         if (!item) return;
 
         const root = item.closest('[data-calendar-owner]');
         const ownerId = root?.getAttribute('data-calendar-owner');
         const registration = ownerId ? calendarRefs.get(ownerId) : null;
-        const taskId = item.getAttribute('data-calendar-task');
+        const plan = item.getAttribute('data-calendar-plan');
+        const taskId = plan ?? item.getAttribute('data-calendar-task');
         if (!registration || !taskId) return;
 
         calendarDrag = {
@@ -4543,6 +4552,7 @@
             item,
             ref: registration.ref,
             taskId,
+            method: plan ? 'DropPlanOnDay' : 'DropOnDay',
             pointerId: event.pointerId,
             startX: event.clientX,
             startY: event.clientY,
@@ -4577,7 +4587,7 @@
     document.addEventListener('pointerup', (event) => {
         if (!calendarDrag || event.pointerId !== calendarDrag.pointerId) return;
 
-        const { ref, taskId, active, root } = calendarDrag;
+        const { ref, taskId, method, active, root } = calendarDrag;
         const day = active ? calendarDayAt(root, event.clientX, event.clientY) : null;
         endCalendarDrag();
 
@@ -4588,7 +4598,7 @@
         const iso = day?.getAttribute('data-calendar-day');
         if (!iso) return;
 
-        ref.invokeMethodAsync('DropOnDay', taskId, iso).catch(() => {
+        ref.invokeMethodAsync(method, taskId, iso).catch(() => {
         });
     });
 

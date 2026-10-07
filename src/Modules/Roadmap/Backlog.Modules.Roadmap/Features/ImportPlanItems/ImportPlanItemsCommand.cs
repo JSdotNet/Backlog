@@ -145,10 +145,19 @@ public sealed class ImportPlanItemsCommandHandler(
             var item = current.Item;
             if (item.PlacedByImport is null) continue; // moved by hand: kept, dates and all
 
-            var (window, placement) = Place(plan, item, current.Entry.Due, gathered, paces, today);
+            var (window, placement) = Place(plan, item, current.Entry.Due, gathered, paces, today, current.Entry.Start);
 
             var placed = plan.PlaceByImport(item.Id, window, placement);
             if (placed.IsFailure) return Result.Failure<PlanImportResultDto>(placed.Error);
+
+            // A start a person chose makes the window theirs, as dragging a bar does: the
+            // keep-up projection would otherwise slide it back to today the next time the
+            // roadmap opens.
+            if (current.Entry.Start is not null)
+            {
+                var kept = plan.KeepAsPlaced(item.Id);
+                if (kept.IsFailure) return Result.Failure<PlanImportResultDto>(kept.Error);
+            }
 
             if (current.Previous is null || current.Previous != item.Window)
             {
@@ -248,6 +257,10 @@ public sealed class ImportPlanItemsCommandHandler(
     /// An item whose parts place nothing — it gathers no work — takes one working week from
     /// the floor.
     /// </para>
+    /// <para>
+    /// A <paramref name="start"/> a person chose raises the floor to it; one before today
+    /// leaves it at today, because open work is placed from today.
+    /// </para>
     /// </summary>
     private static (PlannedWindow Window, ImportPlacement Placement) Place(
         RoadmapPlan plan,
@@ -255,11 +268,13 @@ public sealed class ImportPlanItemsCommandHandler(
         DateOnly? due,
         IReadOnlyDictionary<Guid, RoadmapItemRollupDto> gathered,
         PacesInUseDto paces,
-        DateOnly today)
+        DateOnly today,
+        DateOnly? start = null)
     {
         var closes = plan.Nodes().ToDictionary(node => node.Id, node => node.Closes);
         var after = ImportedPlanPlacement.StartAfter(item.Dependencies.All.Select(id => closes[id]), today);
         var floor = after > today ? after : today;
+        if (start is { } chosen && chosen > floor) floor = chosen;
 
         // Nothing gathered is counted at this pace: an end the effort does not decide is
         // one working week, whatever the pace.

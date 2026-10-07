@@ -15994,7 +15994,16 @@ select.field__input {
     overflow: hidden;
 }
 
+/* Positioned, for the plan layer laid over it; --task-calendar-lanes is how many
+   rows of plan bars the week needs. The day's top padding, its gap and the head's
+   height are named here because the plan layer is placed below the head by them. */
 .task-calendar__week {
+    --task-calendar-day-top: var(--spacing-xs);
+    --task-calendar-day-gap: 3px;
+    --task-calendar-head-height: 1.75rem;
+    --task-calendar-plan-height: 1.25rem;
+    --task-calendar-plan-gap: 2px;
+    position: relative;
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
 }
@@ -16022,10 +16031,10 @@ select.field__input {
 .task-calendar__day {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--task-calendar-day-gap);
     min-width: 0;
     min-height: 7rem;
-    padding: var(--spacing-xs) var(--spacing-sm) var(--spacing-sm);
+    padding: var(--task-calendar-day-top) var(--spacing-sm) var(--spacing-sm);
     background: var(--color-background);
 }
 
@@ -16059,7 +16068,10 @@ select.field__input {
     align-items: center;
     gap: var(--spacing-xs);
     min-width: 0;
-    min-height: 1.75rem;
+    min-height: var(--task-calendar-head-height);
+    /* Room under the number for the week's plan lanes, so the chips start below the
+       last bar. */
+    margin-bottom: calc(var(--task-calendar-lanes, 0) * (var(--task-calendar-plan-height) + var(--task-calendar-plan-gap)));
 }
 
 .task-calendar__day-number {
@@ -16302,4 +16314,143 @@ select.field__input {
 
 .task-calendar__item--dragging {
     opacity: 0.4;
+}
+
+/* ----- Plans on the calendar ---------------------------------------------
+   The roadmap's windows as bars under the day numbers and above the chips. The
+   bars sit in a layer of their own laid over the week — a seven-column grid, one
+   row per lane — and every day head keeps room for the week's lanes beneath it,
+   so the chips start below the last bar. The week says how many lanes it needs
+   through --task-calendar-lanes. */
+.task-calendar__show-plans {
+    margin-left: auto;
+}
+
+/* Below the day head: the day's top padding, the head's height and the day's gap. A
+   head that wraps — today's My Day count on a narrow column — grows past that height,
+   so the head holds its count to one line while the week carries plans. */
+.task-calendar__plans {
+    position: absolute;
+    top: calc(var(--task-calendar-day-top) + var(--task-calendar-head-height) + var(--task-calendar-day-gap));
+    right: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-auto-rows: var(--task-calendar-plan-height);
+    row-gap: var(--task-calendar-plan-gap);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    pointer-events: none;
+}
+
+.task-calendar__week--plans .task-calendar__day-head {
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+
+/* The roadmap's own 24% mix of the band colour, so a plan wears the same tint here
+   as on its chart; neutral grey while the repository colours are hidden. */
+.task-calendar__plan {
+    --task-calendar-plan-color: var(--color-border-strong);
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin: 0 var(--spacing-xs);
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid color-mix(in srgb, var(--task-calendar-plan-color) 60%, var(--color-border));
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--task-calendar-plan-color) 24%, var(--color-background-alt));
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    pointer-events: auto;
+}
+
+.task-calendar__plan--continues-before {
+    margin-left: 0;
+    border-left-width: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.task-calendar__plan--continues-after {
+    margin-right: 0;
+    border-right-width: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.task-calendar__plan--band-1 { --task-calendar-plan-color: var(--color-band-1); }
+.task-calendar__plan--band-2 { --task-calendar-plan-color: var(--color-band-2); }
+.task-calendar__plan--band-3 { --task-calendar-plan-color: var(--color-band-3); }
+.task-calendar__plan--band-4 { --task-calendar-plan-color: var(--color-band-4); }
+.task-calendar__plan--band-5 { --task-calendar-plan-color: var(--color-band-5); }
+
+.task-calendar__plan-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* A milestone: a diamond, a shape and not only a colour, then its title. */
+.task-calendar__milestone {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    padding: 1px var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+}
+
+.task-calendar__diamond {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin: 0 0.125rem;
+    background: var(--color-primary);
+    transform: rotate(45deg);
+}
+
+.task-calendar__milestone-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.task-calendar__tray-head--plans {
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-background-raised);
+}
+
+/* A plan's tag is often one long word, so its card keeps the title to one line and
+   puts the size under it rather than squeezing the two side by side. */
+.task-calendar__shelf-item {
+    flex-wrap: wrap;
+    row-gap: 2px;
+}
+
+.task-calendar__shelf-item .task-calendar__tray-text {
+    white-space: nowrap;
+}
+
+.task-calendar__shelf-item .task-calendar__tray-effort {
+    flex-basis: 100%;
+    padding-left: calc(0.875rem + var(--spacing-sm));
+}
+
+/* A plan on the shelf has no lifecycle dot: a bar's own outline stands in for it. */
+.task-calendar__shelf-mark {
+    flex: none;
+    width: 0.875rem;
+    height: 0.5rem;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--color-border-strong) 24%, var(--color-background-alt));
 }
