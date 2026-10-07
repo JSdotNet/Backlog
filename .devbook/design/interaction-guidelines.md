@@ -6,8 +6,9 @@ related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-every
 
 > Binding interaction rules for the Backlog product: auto-save (there are no save
 > buttons), drag-and-drop reordering of both items and chapters with mandatory
-> keyboard equivalents, feedback/toasts, motion and reduced-motion, and the
-> empty/loading/error state patterns. Motion tokens and interaction patterns were
+> keyboard equivalents, feedback/toasts, motion and reduced-motion, the
+> empty/loading/error state patterns, and the desktop shell's header, panes and
+> group shapes. Motion tokens and interaction patterns were
 > adapted from the JSdotNet design style guide (`04-motion-and-interaction`,
 > `09-interaction-patterns`); conflict handling aligns with the last-write-wins
 > rule in `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`. Token names are
@@ -296,7 +297,7 @@ related: [".devbook/design/accessibility.md#focus-visibility", ".devbook/design/
 | Selection distinct from focus | Selected list items use `color-border-focus` border + optional `color-primary` accent strip; selection MUST be visually distinct from hover and from focus. |
 | Multi-select | Bulk selection shows a bulk-action bar with a live count ("3 items selected") and a clear-selection control; "Select all" uses the indeterminate state for partial selection. |
 | Entering a multi-select | A list that supports bulk selection MUST NOT put a selection control on a row until the reader has asked for one — by pressing the toggle that enters the mode, such as a Select chip — and hover or focus alone is not asking. The controls leave again with the mode. A reader who came to scan a list is not offered a selection they did not ask for, and selection never shares a paint with hover or focus (*Selection distinct from focus*). This is the argument of `design-principles.md#low-chrome-content-first` one level down: the bulk-action bar is not on screen until something is picked, and the row's checkbox is not on screen until selecting is; here it overrides that chapter's *Progressive disclosure* allowance for hover and focus. |
-| Modifier-click scope | A scope strip of pressable chips is single-select on a plain press (this one, or none when it was already alone) and additive with Ctrl (Cmd on macOS) held — the file-manager convention. When one consumer of the scope can take only one value (the Devbook pane reads one repository), it follows the **anchor**: the first chip taken, which stays put while others join. The anchor carries `aria-current="true"` and a layout-neutral mark, only while a second chip is pressed; the chip's tooltip names the modifier, since nothing else on screen does. A plural scope exists only while a surface that can show several values is on screen: when that surface leaves (the Tasks pane closes or is trimmed by width), the scope collapses to the anchor and the modifier stops applying. |
+| Modifier-click scope | A scope strip of pressable chips is single-select on a plain press (this one, or none when it was already alone) and additive with Ctrl (Cmd on macOS) held — the file-manager convention. When one consumer of the scope can take only one value (the Devbook pane reads one repository), it follows the **anchor**: the first chip taken, which stays put while others join. The anchor carries `aria-current="true"` and a layout-neutral mark, only while a second chip is pressed; the chip's tooltip names the modifier, since nothing else on screen does. A plural scope exists only while a surface that can show several values is on screen — in the desktop shell the Tasks, Board, Calendar and In progress views and the Dashboard, Sessions and Pull requests takeovers: when the screen turns to one that reads a single value (the Roadmap view, Tools), the scope collapses to the anchor and the modifier stops applying. |
 | Reorder focus retention | After a keyboard reorder, focus MUST stay on the moved item's handle. |
 | Leaving a multi-select | Escape MUST leave the mode from the surfaces that are only ever about the selection — the toggle that entered it, the bulk-action bar, and any row's own line while the mode is on, whether or not that row is picked — and MUST NOT leave it from a control that owns Escape for something of its own. Where a bar holds both a group trigger and the controls that group opens, the trigger answers the key and the controls keep theirs. |
 
@@ -383,53 +384,87 @@ line of a list that may be hundreds long.
 
 Review surface: storybook → *Task list*, and *Task list* → **Prompt tasks**.
 
-## Workspace Panes
+## Shell Header
 
 ```meta
-related: [".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/design/design-principles.md#low-chrome-content-first"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first"]
 ```
 
-The desktop shell's header switches between a small set of panes — Inbox,
-Tasks, Devbook — through one option per pane in a fused strip. Several panes
-can be on screen at once, and the strip says so with its shape (see
-`#group-shape-says-cardinality`); the reader asks for a second one with the
-modifier, the same convention as the repository scope beside it (the
-*Modifier-click scope* row in `#focus-and-selection`). Each pane used to carry
-a pin, railed along its
-option's top edge, that held it through a switch. The pin was a second control
-on every option for what one modifier on the option itself says, and it is gone.
-The roadmap band is not a pane: its toggle stands beside the strip, loose, and
-follows none of the rules below — it is on or off, and no pane press touches it.
+The desktop shell's header is four regions in reading order, each answering one
+question. Below it the workspace shows exactly one **main view**, with the side
+panes beside it, unless a **takeover** has the screen (local ADR 0022).
+
+| Region | Answers | Holds |
+|---|---|---|
+| Identity | Over which repositories? | The repository scope, a fused group of chips (see `#focus-and-selection`, *Modifier-click scope*), and the **Colors** switch beside it. Both render only while a repository is configured. |
+| Navigation | What am I looking at? | Left to right: the **Inbox** toggle, the view switch, the **Devbook** toggle, the work in progress group, then the remaining takeovers. |
+| Status | How is the workspace doing? | The GitHub check, only while a task view is on screen. Ambient, the quietest region; its auto margin carries it and the utilities to the right edge. |
+| Utilities | What cuts across all of it? | **Ask AI**, the one accented control in the header, while an area with something to ask about is on screen; then the settings link. |
+
+The navigation region holds three kinds of control, and each MUST look and act
+as its kind:
+
+| Control | Members | Behaves as |
+|---|---|---|
+| View switch | `Tasks`, `Board`, `Calendar`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows. Pressing the pressed option changes nothing. A view is never closed and Escape never leaves it. |
+| Side-pane toggle | `Inbox` before the view switch, `Devbook` after it | An on-or-off of its own that opens the pane beside whichever view is showing. See `#workspace-panes`. |
+| Work in progress group | `In progress` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the Sessions context's work. In progress acts as a view option does; Sessions and Pull requests act as takeovers. Renders while Sessions or Pull requests is offered. |
+| Remaining takeovers | `Dashboard`, `Tools` | A loose group, each under its own flag. Renders while one of them is offered. |
 
 | Rule | Requirement |
 |---|---|
-| Switching is exclusive | A plain press on a closed pane MUST open it and close every other open pane. |
-| Beside, with the modifier | A press on a closed pane with Ctrl (Cmd on macOS) held MUST open it beside the open panes. Where the viewport cannot hold one more, the pane asked for MUST open and only as many panes as it needs room for MUST close — the first open ones in the strip's stable order — rather than the request being refused or turned into a switch. |
-| A press on an open pane closes it | With or without the modifier: "this one too" has no meaning for a pane already on screen. |
-| At least one pane stays open | The shell MUST NOT render with zero panes open; the sole remaining pane's own option is disabled rather than left clickable and refused. |
-| The modifier is named where it works | The option's tooltip MUST name the modifier while the viewport fits a second pane, since nothing else on screen does, and MUST NOT name it in a window that fits one — a modifier press there is the switch a plain press would be, and offering it would be a control lying about itself. |
-| Narrowing trims in the stable order | When the viewport loses room, panes MUST close first-in-order first, so the same arrangement always narrows the same way. |
+| The workspace cluster sits close | The Inbox toggle, the view switch and the Devbook toggle MUST sit at the tighter `spacing-xs` gap and the groups after them at the wider navigation gap, so the panes read as belonging to the views they open beside. |
+| A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view and the open side panes underneath; closing it shows them as they were. |
+| Every way back works | A takeover MUST close on Escape, on its own close button and on a second press of its option. Pressing a view option or a side-pane toggle during a takeover MUST close it and show the workspace, with that view or that pane on screen. |
+| Nothing reads pressed under a takeover | During a takeover no view option and no side-pane toggle reads pressed, since nothing of the workspace is on screen. |
+| Takeovers are exclusive | Opening a takeover MUST replace any other takeover; a group of pressed states, not `aria-expanded`, says so. Ask AI keeps `aria-expanded`, because it is a disclosure. |
+| A switched-off view falls back | A view whose flag goes off MUST show Tasks in its place, and MUST come back when the flag does. |
+| The filter bar is the task views' | The Tasks filter bar MUST show on the Tasks, Board and Calendar views — the same filtered rows read three ways — and on no other screen. The Board adds its **Columns** choice first on the bar. The Roadmap view carries its own Planning heading row instead, and In progress carries its own choices. |
+| A control acts on what is on screen | A header control whose target is off screen MUST NOT render: the GitHub check only beside a task view, Ask AI only with an area to ask about. The view switch, the side-pane toggles, the takeover groups and the identity region stay on every screen, since they are the way to everything else. |
+| The shell reopens where it was left | The main view, the open side panes and any open takeover MUST be restored on a fresh shell instance, including after Settings and back. |
 
-No review surface: the header strip is application chrome specific to the
-desktop shell, not a shared-library component, so it carries no storybook page.
+Review surface: storybook → *App shell* → **Desktop header navigation**.
+
+## Workspace Panes
+
+```meta
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/design/design-principles.md#low-chrome-content-first"]
+```
+
+The desktop shell has two side panes, the Inbox and the Devbook, and each opens
+beside whichever main view is showing (see `#shell-header`). The task list is
+not a pane: it is the Tasks view, which is never closed. That is why no pane has
+to stay open, and why the old pane strip's rules — an exclusive plain press, a
+Ctrl-press to add one beside, a disabled last option, a pin on every option —
+are gone with it.
+
+| Rule | Requirement |
+|---|---|
+| A toggle of its own | A press on a closed side pane MUST open it beside the view, and a press on an open one MUST close it. No modifier changes what a press does. |
+| No pane is an ordinary state | The shell MUST render with no side pane open, and a side-pane toggle MUST NOT be disabled. |
+| The tooltip says what the press will do | "Open Inbox beside Tasks", "Close Inbox", or during a takeover "Back to the workspace with Inbox open". |
+| The Inbox opens before the view | The Inbox MUST render before the main view and the Devbook after it, as their toggles stand in the header. |
+| A full window trims in the stable order | The viewport sets how many panes fit, the main view included, and leaves at least one side slot. A pane that opens into a full set MUST close the first open side pane in the stable order (Inbox, then Devbook), and a narrowed window MUST trim the same way, so one arrangement always narrows one way. |
+| The edge is the handle | The Devbook's width MUST be set by dragging the pane edge, with arrow keys on the same separator as the keyboard equivalent. |
 
 ## Group Shape Says Cardinality
 
 ```meta
-related: [".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#focus-and-selection"]
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#focus-and-selection"]
 ```
 
 A group of pressable options in application chrome is drawn in one of two
-shapes, and the shape is how many of its options can be on at once — the one
-thing about a group a reader can see before pressing anything.
+shapes, and the shape says how its options belong together — the one thing about
+a group a reader can see before pressing anything. How many are on at once is
+the pressed state's to say, not the shape's.
 
 | Rule | Requirement |
 |---|---|
-| Fused means several | A group whose options can be on together — the desktop header's repository scope, its panes strip — MUST draw its members flush inside one border with hairlines between them. |
-| Loose means one | A group whose options are exclusive — the desktop header's surface switcher — MUST draw its members as standalone bordered controls with a gap between them, and MUST NOT fuse them. |
-| Not one of a set at all | A control that is simply on or off and belongs to no set — the desktop header's roadmap band toggle — MUST stand alone in the loose shape rather than sit fused among options it does not switch with. Inside a fused strip it would read as one more of them and behave as none of them. |
+| Fused means one set | A group whose options are siblings read as one control MUST draw its members flush inside one border with hairlines between them: the desktop header's repository scope (several on with Ctrl), the view switch (exactly one on), and the work in progress group (one context's view and two lists). |
+| Loose means related only by kind | A group whose options merely share a kind MUST draw them as standalone bordered controls with a gap between them, and MUST NOT fuse them: the desktop header's Dashboard and Tools, two takeovers from two contexts. |
+| Not one of a set at all | A control that is simply on or off and belongs to no set — the desktop header's Inbox and Devbook toggles — MUST stand alone in the loose option shape, outside every group. Inside a fused group it would read as one more of its options and behave as none of them. |
 | Still one group | A loose group is still one `role="group"` with one label and one tab sequence; only the drawing changes. |
-| Selected on the edge it has | A fused option carries its selected state on the strip's shared bottom edge (an underline beside the tint); a loose option, having no strip, carries it on its own border. Neither is colour alone. |
+| Selected on the edge it has | A fused option carries its selected state on the group's shared bottom edge (an underline beside the tint); a loose option, having no group edge, carries it on its own border. Neither is colour alone. |
 
 ## Action Density and Overflow
 

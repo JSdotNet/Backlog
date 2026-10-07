@@ -17,6 +17,13 @@ related: [.devbook/domain/sessions/domain.md#session-log]
 Answer "what have my agents been doing here" as one list: every session the
 environment has a record of, most recently active first, whichever agent ran it.
 
+The list opens from **Sessions** in the header's work in progress group, between
+[In progress](#in-progress-by-task) and **Pull requests**, the open pull requests
+the sessions shipped. Each of the two lists takes the whole screen while it is
+open, and Escape, its close button or a second press of its option returns to the
+view and the side panes that were showing before. In progress, first in the group,
+is a view instead: it sits with the two lists because it summarises them.
+
 One list rather than one per agent, because the question is about the work and not
 about the vendor. A person who has both agents installed does not think in two
 inventories.

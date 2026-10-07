@@ -431,16 +431,27 @@ umbrella step, as the connected target's setting says.
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/devbook/features.md#bi-directional-linking]
+related: [.devbook/domain/devbook/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it]
 ```
 
 Search across title, body, tags, and linked knowledge notes; filter by area
 (a self-chosen grouping such as "repos", "projects", or "inbox"), repo, type,
 status, priority, and recency; grouped views; and inline embedding of
 Devbook content. The repository scope can hold several repositories at once while
-the list is on screen — the list shows work filed against any of them — and
-narrows back to one when the list is not, since the list is the only surface
-that can show more than one.
+a screen that can show several is in front of the reader — the task views, In
+progress, the Dashboard, the session list and the pull requests list — and
+narrows back to one on the roadmap and on Tools, which read one repository or
+none.
+
+The filtered tasks can be read three ways, picked in the header's view switch:
+**Tasks**, the list with the open task beside it; the
+[Board](#board-view); and the [Calendar](#calendar-view). The three share one
+filter bar, one open task and one selection, so switching between them never
+loses what the reader narrowed to or was looking at. The filter bar belongs to
+these three and to nothing else in the shell. The view last chosen is the one the
+app reopens on, and Tasks when nothing was remembered. The Inbox and the Devbook
+open beside any of them.
 
 ### Manual ordering
 
