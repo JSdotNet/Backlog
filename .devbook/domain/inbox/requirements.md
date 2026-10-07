@@ -9,6 +9,143 @@ related: [.devbook/domain/inbox/features.md]
 > What this context's features guarantee, one chapter per feature. Each
 > requirement is one SHALL sentence with the scenarios that prove it.
 
+## Columns
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#incoming-queue, .devbook/domain/inbox/features.md#add-by-hand, .devbook/domain/inbox/features.md#filter-by-content-kind, .devbook/domain/inbox/features.md#per-item-triage-actions]
+```
+
+> The requirements of the Inbox pane's three columns: the header's capture
+> field, the rows, the kind pills and the detail's decisions.
+
+### Requirement: Enter files the capture field's title
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL file the text in the header's capture field as the title of a new unfiled item when the reader presses Enter, and empty the field.
+
+#### Scenario: A thought typed at the desk
+
+- **Given** the Inbox pane is open
+- **When** the reader types "Ask about the Cosmos emulator" in the capture field and presses Enter
+- **Then** an item titled "Ask about the Cosmos emulator" lands in the queue with no notes, and the field is empty
+
+### Requirement: Shift+Enter opens the notes editor
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL open a notes editor under the capture field when the reader presses Shift+Enter in it, and file nothing.
+
+#### Scenario: Adding notes to a thought
+
+- **Given** the reader has typed a title in the capture field
+- **When** they press Shift+Enter
+- **Then** a notes editor opens under the field, the title stays, and no item is filed
+
+### Requirement: Ctrl+Enter files the title and the notes
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL file the capture field's title together with the notes editor's text as one new item when the reader presses Ctrl+Enter, and empty and close both.
+
+#### Scenario: A thought with notes
+
+- **Given** the capture field holds a title and the notes editor holds two lines
+- **When** the reader presses Ctrl+Enter
+- **Then** one item is filed with that title and those two lines as its notes, and the notes editor closes
+
+### Requirement: Escape closes the notes editor
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL close the notes editor when the reader presses Escape in it, keeping the title in the capture field and filing nothing.
+
+#### Scenario: Changing one's mind about notes
+
+- **Given** the notes editor is open under a typed title
+- **When** the reader presses Escape
+- **Then** the notes editor closes, the title is still in the field, and no item is filed
+
+### Requirement: Rows are grouped by age
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL group the rows under the headings Today, This week and Older than a week by capture time, each with its count, and SHALL not show a heading with no rows.
+
+#### Scenario: A mixed slice
+
+- **Given** a slice with two items captured today, one four days ago and one nine days ago
+- **When** the pane shows it
+- **Then** the rows read "Today · 2", "This week · 1" and "Older than a week · 1"
+
+#### Scenario: Nothing older than a week
+
+- **Given** every item in the slice was captured this week
+- **When** the pane shows it
+- **Then** no "Older than a week" heading is shown
+
+### Requirement: Kind pills are led by All
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show the kind filters as pills led by an All pill carrying the slice's count, pressed while no kind is, and SHALL clear every kind filter when All is pressed.
+
+#### Scenario: Back to everything
+
+- **Given** the Video pill is pressed and only videos are shown
+- **When** the reader presses All
+- **Then** every row of the slice is shown and All is the pressed pill
+
+### Requirement: The decisions stay at the foot of the detail
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show Move to backlog, Move to list, Defer and Archive in a bar fixed at the foot of the detail, each naming its key, that stays in view however far the detail scrolls.
+
+#### Scenario: A long article
+
+- **Given** an item whose notes run past the bottom of the detail
+- **When** the reader scrolls to the end of the notes
+- **Then** the four decisions are still in view at the foot of the detail
+
+### Requirement: Sources open from the header
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL open the watched sources from a Sources button in the pane's header.
+
+#### Scenario: Checking what is watched
+
+- **Given** the Inbox pane is open
+- **When** the reader presses Sources in the header
+- **Then** the sources and their settings are shown
+
 ## Act on several at once
 
 ```meta
@@ -146,7 +283,7 @@ The system SHALL keep picked items picked across a refresh of the pane while the
 ```meta
 type: requirements
 status: draft
-related: [.devbook/domain/inbox/features.md#quick-triage-shortcuts]
+related: [.devbook/domain/inbox/features.md#quick-triage-shortcuts, .devbook/domain/inbox/features.md#triage-mode]
 ```
 
 > The requirements of triaging the Inbox from the keyboard and one item at a
@@ -203,9 +340,9 @@ The system SHALL, in triage mode, show one item with its place among the rows sh
 
 #### Scenario: Archiving the first of three
 
-- **Given** triage mode is open on the first of three items, reading "1 of 3"
+- **Given** triage mode is open on the first of three items
 - **When** the reader archives it
-- **Then** the second item is shown, reading "1 of 2"
+- **Then** the second item is shown
 
 #### Scenario: Deciding the last row
 
@@ -228,6 +365,405 @@ The system SHALL return from triage mode to the rows with the item the session s
 - **Given** triage mode shows the second of three items
 - **When** the reader presses Escape
 - **Then** the list is shown with the second item chosen and focused
+
+### Requirement: T starts triage, G goes to the tags, U undoes
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL start triage mode on t, move the focus to the chosen item's tags on g, and undo the session's latest decision on u, leaving every other triage key as it was.
+
+#### Scenario: Starting triage
+
+- **Given** the list is shown with an unprocessed item chosen
+- **When** the reader presses t
+- **Then** triage mode opens on that item
+
+#### Scenario: Tagging
+
+- **Given** an unprocessed item is chosen
+- **When** the reader presses g
+- **Then** the focus is in the item's tag field, and pressing t there types the letter
+
+#### Scenario: Undoing by key
+
+- **Given** the reader archived an item a moment ago
+- **When** they press u
+- **Then** the item is open again
+
+### Requirement: Triage counts the session
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show over triage mode a progress bar and the line "n of total · m decided this session", where total is the number of items in the slice when triage began, n the place of the item shown among them, and m the decisions taken since the app opened.
+
+#### Scenario: Halfway through
+
+- **Given** triage began on a slice of 23 items and the reader has decided 11 of them
+- **When** the twelfth item is shown
+- **Then** the line reads "12 of 23 · 11 decided this session" and the bar is a little short of half full
+
+### Requirement: AI cards come first and the suggestions are numbered after them
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL number the AI cards shown in triage 1 and 2, at most two of them, and number the rule-based suggestions after the last card shown.
+
+#### Scenario: Two cards and three suggestions
+
+- **Given** triage shows an item with a duplicate card, a plan card and three suggestions
+- **When** the reader presses 3
+- **Then** the first suggestion is taken
+
+#### Scenario: No cards
+
+- **Given** no AI card is shown for the item
+- **When** the reader presses 1
+- **Then** the first suggestion is taken
+
+### Requirement: Several repositories are picked at once
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL offer in triage a repository picker with one box per configured repository, any number of which can be ticked, and SHALL move the item to the backlog in every ticked repository.
+
+#### Scenario: Two repositories
+
+- **Given** triage shows an item and the reader ticks Backlog and backlog-sync
+- **When** they press r
+- **Then** the item is moved to the backlog as one task in each of the two repositories
+
+### Requirement: Triage shows the four decisions as buttons
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show in triage mode four decision buttons — Move to backlog, Move to list, Defer and Archive — each naming its key and doing what that key does.
+
+#### Scenario: Deferring by button
+
+- **Given** triage mode shows an unprocessed item
+- **When** the reader presses the Defer button
+- **Then** the review dates to defer to are offered, as d offers them
+
+### Requirement: Up next shows what follows
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL list beside the item in triage mode the items that follow it in the slice, in the order triage will show them.
+
+#### Scenario: After a decision
+
+- **Given** Up next lists B and C under item A
+- **When** the reader archives A
+- **Then** B is shown and Up next lists C first
+
+### Requirement: The last decision is shown with Undo
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show in triage mode the session's latest decision, naming the item and what was done with it, with an Undo button that takes it back.
+
+#### Scenario: Filing in a list
+
+- **Given** the reader filed ".NET 11 performance" in Reading
+- **When** the next item is shown
+- **Then** the last decision reads ".NET 11 performance → Reading" with Undo beside it
+
+## AI triage
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#ai-triage-cards, .devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md]
+```
+
+> The requirements of the model reading an item in triage. What is sent, and
+> why, is settled in local ADR 0023; this says what the reader can count on.
+
+### Requirement: The model is asked only when an item is opened in triage
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL send an item to the Foundry model for its cards only when the reader opens that item in triage mode, at most once per item until the app closes, and never on intake, on a timer or while the list is browsed.
+
+#### Scenario: Browsing the list
+
+- **Given** Foundry is configured
+- **When** the reader moves through ten rows in the list with j
+- **Then** no item is sent to the model
+
+#### Scenario: Going back an item
+
+- **Given** triage showed item A, with its cards, and moved on to B
+- **When** the reader presses k
+- **Then** A is shown with the same cards and no new call is made
+
+### Requirement: Only the settled fields are sent
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL send for the item only its title, link, notes, kind, source, person, tags and repository ids, and for matching only the titles, ids, repositories and statuses of the open backlog tasks and of the other unprocessed inbox items and the names of the configured repositories and inbox lists.
+
+#### Scenario: An item with a photo
+
+- **Given** an unprocessed item with notes and an attached photo
+- **When** it is opened in triage
+- **Then** the request carries its notes and no attachment, and no closed task or archived item is in it
+
+### Requirement: Without Foundry no AI surface is shown
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show no AI card and no Let AI propose the rest when Foundry is not configured, and SHALL show the rule-based suggestions as it does with Foundry.
+
+#### Scenario: No deployment configured
+
+- **Given** Foundry is not configured
+- **When** the reader opens an item in triage
+- **Then** no AI card and no Let AI propose the rest are shown, and the item's suggestions are numbered from 1
+
+### Requirement: A failed call hides the cards
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show no AI card for an item whose model call failed and SHALL leave triage of that item otherwise unchanged.
+
+#### Scenario: The endpoint cannot be reached
+
+- **Given** Foundry is configured and its endpoint cannot be reached
+- **When** the reader opens an item in triage
+- **Then** the item is shown with its suggestions and four decisions, and with no AI card
+
+## Merge into a task
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#merge-into-a-task]
+```
+
+> The requirements of folding a capture into the backlog task it repeats.
+
+### Requirement: Merging comments on the task and archives the capture
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL add the capture's title, link and notes to the backlog task as a comment and archive the capture with its DuplicateOf naming that task.
+
+#### Scenario: Merging a duplicate
+
+- **Given** a capture "Scroll jumps to top when phone edits an entry" with a link and notes, and the card proposes the task "Tasks list re-keys on remote change"
+- **When** the reader takes Merge into the task
+- **Then** the task carries a comment with the capture's title, link and notes, and the capture is archived as a duplicate of the task
+
+## Undo a decision
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#undo-a-decision]
+```
+
+> The requirements of taking back a decision of this session.
+
+### Requirement: Every decision of the session can be undone, newest first
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL undo the session's newest decision not yet undone — an archive, a deferral, a move to a list, a move to the backlog or a merge — and return the item to the state it had before it, until the app closes.
+
+#### Scenario: Two decisions undone
+
+- **Given** the reader deferred item A and then archived item B
+- **When** they undo twice
+- **Then** B is open again first, then A, each as it was before its decision
+
+#### Scenario: After a restart
+
+- **Given** the reader archived an item and closed the app
+- **When** the app opens again
+- **Then** there is no decision to undo
+
+### Requirement: Undoing a move to the backlog deletes only unstarted tasks
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL undo a move to the backlog by deleting the tasks it made only while none of them has started, and otherwise SHALL refuse the undo with a sentence naming the started task and change nothing.
+
+#### Scenario: Nothing started
+
+- **Given** an item was moved to the backlog as two tasks, neither started
+- **When** the reader undoes the move
+- **Then** both tasks are deleted and the item is open again
+
+#### Scenario: One task started
+
+- **Given** an item was moved to the backlog as two tasks and one of them, "Fix the scroll jump", has started
+- **When** the reader undoes the move
+- **Then** the undo is refused with a sentence naming "Fix the scroll jump", and both tasks and the item stay as they are
+
+### Requirement: Undoing a merge keeps the comment
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL undo a merge by restoring the capture to the state it had before it and SHALL leave the comment the merge added on the task.
+
+#### Scenario: Merged by mistake
+
+- **Given** a capture was merged into a task
+- **When** the reader undoes the merge
+- **Then** the capture is open again with no DuplicateOf, and the task still carries the comment
+
+## Inbox zero
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#inbox-zero]
+```
+
+> The requirements of what the pane shows once the session has emptied it.
+
+### Requirement: An emptied slice reports the session
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL, when the open slice is empty after decisions this session, show the session's count per decision, the deferred items with a review date coming back soonest first and at most five, and links to the fullest list and to Deferred.
+
+#### Scenario: The last item decided
+
+- **Given** the reader moved 9 items to the backlog, filed 7, deferred 3 and archived 4 this session, and seven deferred items have a review date
+- **When** the last open item of the slice is decided
+- **Then** the pane shows those four counts, the five deferred items coming back soonest, and links to the fullest list and to Deferred
+
+#### Scenario: A slice that was already empty
+
+- **Given** a list with no open items and no decisions this session
+- **When** the reader opens it
+- **Then** the plain empty state is shown, with no counts
+
+## AI triage pass
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#ai-triage-pass, .devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md]
+```
+
+> The requirements of the review screen the AI triage pass opens.
+
+### Requirement: The pass proposes a decision with a reason for every item
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show on the review screen, for every unprocessed item of the slice the model placed, a proposed plan, duplicate, single route, list filing or archive, each with its reason.
+
+#### Scenario: Twelve items waiting
+
+- **Given** twelve unprocessed items and the model places ten of them
+- **When** the reader asks for the pass
+- **Then** the screen shows the ten proposals grouped as plans, duplicates, single routes, filings and archives, each with its reason
+
+### Requirement: Low-confidence proposals start unaccepted
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL start a proposal whose confidence is below 0.6 unaccepted and every other proposal accepted.
+
+#### Scenario: A doubtful plan
+
+- **Given** the pass proposes one plan at confidence 0.9 and another at 0.4
+- **When** the review screen opens
+- **Then** the first plan reads Accepted and the second reads Accept
+
+### Requirement: Nothing changes until Apply
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL change no item, task or list until the reader presses Apply, and SHALL then take every accepted proposal and no other.
+
+#### Scenario: Discarding
+
+- **Given** the review screen shows ten accepted proposals
+- **When** the reader presses Discard
+- **Then** every item is as it was before the pass
+
+#### Scenario: Applying
+
+- **Given** ten proposals are shown and the reader turns two of them off
+- **When** they press Apply
+- **Then** the eight accepted proposals are taken and the two others' items are unchanged
+
+### Requirement: Items the model could not place go back to triage
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL leave every item the model could not place unprocessed and offer it to triage from the review screen.
+
+#### Scenario: Two left over
+
+- **Given** the pass placed ten of twelve items
+- **When** the reader looks at the review screen
+- **Then** it says two items are left for them, and Triage them opens triage on those two
 
 ## Capture attachments
 
@@ -529,33 +1065,32 @@ The system SHALL treat a capture it deleted and has not yet acknowledged as alre
 ```meta
 type: requirements
 status: draft
-related: [.devbook/domain/inbox/features.md#queue-health-strip]
+related: [.devbook/domain/inbox/features.md#queue-health-bar]
 ```
 
-> The requirements of the Inbox's queue health strip. What Monitoring shows of
+> The requirements of the Inbox's queue health bar. What Monitoring shows of
 > the same numbers is Monitoring's to promise.
 
-### Requirement: The strip reads the whole unprocessed queue
+### Requirement: The bar splits the whole unprocessed queue by age
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_queue_health_strip_counts_every_unprocessed_item_and_calls_out_the_stale_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_queue_health_strip_has_no_chip_when_nothing_has_waited_too_long, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.An_empty_queue_says_nothing_is_waiting]
 ```
 
-The system SHALL show above the queue the number of unprocessed items in every list, how long ago the oldest of them was captured, and, only when there are any, how many were captured more than fourteen days ago — leaving deferred, routed and archived items out.
+The system SHALL show in the side menu the number of unprocessed items in every list and a bar in three parts counting those captured under 3 days ago, from 3 days up to the fourteen-day stale threshold, and over it with the oldest one's age — leaving deferred, routed and archived items out.
 
 #### Scenario: A mixed queue
 
-- **Given** three unprocessed items captured two hours, fifteen days and twenty days ago, one of them filed in a list, and a deferred and an archived item older than all three
+- **Given** four unprocessed items captured two hours, five days, fifteen days and twenty days ago, one of them filed in a list, and a deferred and an archived item older than all four
 - **When** the pane opens
-- **Then** the strip reads "3 unprocessed items", "oldest captured 20d ago" and "2 over 14 days"
+- **Then** the side menu reads "4 open", "1 under 3 days", "1 from 3 to 14 days" and "2 over 14 days — oldest 20 days"
 
 #### Scenario: Nothing waiting
 
 - **Given** no unprocessed items
 - **When** the pane opens
-- **Then** the strip reads "Nothing waiting" and shows no age and no chip
+- **Then** the side menu reads "Nothing waiting" and shows no bar
 
 ## Classification and enrichment
 
@@ -668,6 +1203,37 @@ The system SHALL keep the routing rules typed on the Repositories page only when
 - **Given** one rule in use
 - **When** the reader adds a second line with no `=>`
 - **Then** the page names line 2 and the one rule stays in use
+
+## Route to Tasks
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#route-to-tasks]
+```
+
+> The requirements of moving one item to the backlog.
+
+### Requirement: Sibling tasks name each other and share a tag
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL make one task per repository for an item assigned to several, give each task the body line "Same capture in: <repository> — <title>" for every other task it made, and tag all of them with `#from-inbox-` followed by the last eight hex digits of the item's id.
+
+#### Scenario: Two repositories
+
+- **Given** an item whose id ends in `9c41d07e`, assigned to Backlog and backlog-sync
+- **When** it is moved to the backlog
+- **Then** two tasks are made, each carrying a "Same capture in:" line naming the other's repository and title, and both are tagged `#from-inbox-9c41d07e`
+
+#### Scenario: One repository
+
+- **Given** an item assigned to one repository
+- **When** it is moved to the backlog
+- **Then** one task is made, with no "Same capture in:" line and no `#from-inbox-` tag
 
 ## Route a batch to Tasks
 
