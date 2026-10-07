@@ -18,7 +18,7 @@ states:
 - It talks to the outside world only through ports: the two repository ports
   declared in this project (`IInboxItemRepository`, `IInboxOrganizerRepository`)
   and the outward ports declared in Abstractions (`IInboxBacklogTarget`,
-  `IInboxPlanDrafter`, and the `IBacklogTagSource` and `IInboxRoutingRules`
+  `IInboxPlanDrafter`, `IInboxTriageAdvisor`, and the `IBacklogTagSource` and `IInboxRoutingRules`
   that Classification reads). Adapters live in `src/Infrastructure`.
 - It does not call another slice. Shared behaviour moves down into
   `DomainModels/` or into `Services/`.

@@ -93,6 +93,19 @@ public static class InboxErrors
         "inbox.plan.failed",
         detail);
 
+    /// <summary>No triage advisor, or one that says it cannot run. Every AI
+    /// surface is hidden in this case (local ADR 0023 §4), so the message is
+    /// for a log or a test rather than the pane.</summary>
+    public static readonly Error TriageNotConfigured = Error.Validation(
+        "inbox.triage.not_configured",
+        "No triage advisor is configured.");
+
+    /// <summary>Transport, a non-2xx answer, or one that could not be read. A
+    /// plain failure: nothing the reader did caused it.</summary>
+    public static Error TriageFailed(string detail) => new(
+        "inbox.triage.failed",
+        detail);
+
     public static readonly Error PlanEmpty = Error.Validation(
         "inbox.plan.empty",
         "The AI answer was not a plan.");
