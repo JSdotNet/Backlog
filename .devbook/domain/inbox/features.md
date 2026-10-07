@@ -518,7 +518,7 @@ phone's Notes tab are built.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
+related: [.devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync, .devbook/domain/inbox/requirements.md#notes-on-the-phone]
 ```
 
 The phone's Notes tab lists every note, newest change first. Each row shows the
@@ -549,7 +549,7 @@ item are not part of the phone's Notes tab.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/features.md#filter-by-content-kind]
+related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/features.md#filter-by-content-kind, .devbook/domain/inbox/requirements.md#notes-on-the-desktop]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
@@ -566,7 +566,7 @@ the phone. Archiving or deleting a note removes it from the phone.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/inbox/domain.md#triage, .devbook/domain/capture/features.md#offline-first-sync]
+related: [.devbook/domain/inbox/domain.md#triage, .devbook/domain/capture/features.md#offline-first-sync, .devbook/domain/inbox/requirements.md#triage-stays-on-the-desktop]
 ```
 
 The phone never triages. It does not route, defer, accept or archive any Inbox
