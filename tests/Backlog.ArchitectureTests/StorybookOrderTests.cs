@@ -47,6 +47,7 @@ public class StorybookOrderTests
     {
         ["Badges"] = ["badges"],
         ["Buttons"] = ["buttons"],
+        ["Capture"] = ["capture"],
         ["Code"] = ["code"],
         ["Compare"] = ["compare"],
         ["Data"] = ["data-table"],

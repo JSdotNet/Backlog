@@ -7,15 +7,26 @@
 @inject SyncStatusTracker Status
 @inject AppLifecycle Lifecycle
 @inject TimeProvider Clock
-@inject ISpeechTranscriber Speech
 @inject SharedContentCapture SharedCapture
 @inject IJSRuntime Js
 @implements IAsyncDisposable
 
 <PageTitle>Inbox</PageTitle>
 
-<div class="inbox-heading">
-    <h1>Inbox</h1>
+@*
+    The phone's Inbox: the captures this phone made, each with where it stands
+    on its way to the desktop, until the desktop takes it in. A row opens the
+    whole capture and offers nothing else — no Today, Later, To note or delete:
+    triage stays on the desktop (.devbook/domain/inbox/features.md#triage-stays-on-the-desktop).
+    Dictation, notes and photos are the capture sheet's; this field is the
+    quick one-liner.
+*@
+
+<header class="inbox-heading">
+    <div class="inbox-heading__titles">
+        <span class="inbox-heading__lede" data-testid="inbox-count">@CountLabel</span>
+        <h1>Inbox</h1>
+    </div>
     @* The pull gesture's twin, for a pointer, a keyboard and a screen reader —
        none of which can pull. *@
     <IconButton AriaLabel="Refresh the inbox" Title="Refresh the inbox" Disabled="_refreshing"
@@ -26,31 +37,18 @@
             <path d="M13.25 2.75v2.5h-2.5" />
         </svg>
     </IconButton>
-</div>
+</header>
 
 <div class="capture">
-    <TextField @bind-Value="Draft.Text" AriaLabel="Quick capture" Placeholder="Quick capture…"
+    <TextField @bind-Value="Draft.Text" AriaLabel="Add to inbox" Placeholder="Add to inbox…"
                CssClass="capture__field" TestId="capture-field" />
-    @* Speech only ever fills this field. Capture is still the one thing that
-       syncs, so nothing reaches the cloud that the person has not read first. *@
-    <ToggleButton Pressed="_listening"
-                  PressedChanged="OnSpeechToggledAsync"
-                  Disabled="@(_speechSupported != true)"
-                  AriaLabel="@(_listening ? "Stop dictating" : "Dictate a capture")"
-                  Title="@(_listening ? "Stop dictating" : "Dictate a capture")"
-                  CssClass="capture__mic"
-                  TestId="speech-toggle">
-        @* Drawn rather than fetched, for the same reason CopyButton draws its
-           clipboard: a WebView with no egress still has to show the button. *@
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
-             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <rect x="6" y="1.75" width="4" height="7.5" rx="2" />
-            <path d="M3.75 7.25v.75a4.25 4.25 0 0 0 8.5 0v-.75" />
-            <path d="M8 12.25v2" />
+    <IconButton AriaLabel="Add to inbox" Title="Add to inbox" Disabled="@string.IsNullOrWhiteSpace(Draft.Text)"
+                OnClick="CaptureAsync" CssClass="capture__add" TestId="capture-submit">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4"
+             stroke-linecap="round" aria-hidden="true" focusable="false">
+            <path d="M12 5v14M5 12h14" />
         </svg>
-    </ToggleButton>
-    <AppButton Variant="ButtonVariant.Primary" Disabled="@string.IsNullOrWhiteSpace(Draft.Text)"
-               OnClick="CaptureAsync" TestId="capture-submit">Capture</AppButton>
+    </IconButton>
 </div>
 
 @if (SharedCapture.Status is { } shareStatus)
@@ -61,34 +59,11 @@
     <Alert Message="@shareStatus" Role="status" BaseClass="capture__notice" TestId="share-status" />
 }
 
-@if (_speechSupported == false)
-{
-    <Alert Message="Speech recognition is not available on this device — type your capture instead."
-           Role="status" BaseClass="capture__notice" TestId="speech-unavailable" />
-}
-
-@if (_speechStatus is not null)
-{
-    @* role="status" rather than "alert": this is the running commentary on a
-       thing the person just started, not an interruption. *@
-    <Alert Message="@_speechStatus" Role="status" BaseClass="capture__status" TestId="speech-status" />
-}
-
-@if (_speechError is not null)
-{
-    <Alert Message="@_speechError" BaseClass="error" TestId="speech-error" />
-}
-
 @if (_pullNotice is not null)
 {
     @* A calm line, not an error: the list below is still the last one the phone
        saw, and a capture made now is kept and sent later. *@
     <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="inbox-pull-notice" />
-}
-
-@if (_actionError is not null)
-{
-    <Alert Message="@_actionError" BaseClass="error" TestId="inbox-action-error" />
 }
 
 <section class="inbox" @ref="_listElement" aria-label="Captures">
@@ -98,7 +73,7 @@
     }
     else if (Rows.Count == 0)
     {
-        <EmptyState Title="Inbox is empty" />
+        <EmptyState Title="Inbox clear" Description="Everything has a place." TestId="inbox-empty" />
     }
     else
     {
@@ -106,39 +81,13 @@
             @foreach (var row in Rows)
             {
                 var item = row.Item;
-                var preview = PreviewLine(item.BodyMd);
 
-                <li class="inbox__row" data-testid="inbox-row" data-waiting="@(row.Pending is null ? "false" : "true")" @key="item.Id">
-                    <AppButton BaseClass="inbox__open" id="@RowId(item.Id)" aria-label="@($"Open {item.Title}")"
-                               OnClick="() => Open(row)" TestId="inbox-open">
-                        <span class="inbox__meta">
-                            <CaptureKindMarker Value="@CaptureKindGuess.Of(item.Title, item.BodyMd)" />
-                            <span class="inbox__time" data-testid="inbox-time">@Ago(item.CapturedAt)</span>
-                        </span>
-                        <span class="inbox__title">@item.Title</span>
-                        @if (preview is not null)
-                        {
-                            <span class="inbox__preview" data-testid="inbox-preview">@preview</span>
-                        }
-                    </AppButton>
-
-                    @if (row.Pending is { IsParked: true } parked)
-                    {
-                        <AppButton Size="ButtonSize.Small" aria-label="@($"Waiting — tap to retry {item.Title}")"
-                                   title="@parked.LastError" OnClick="() => RetryAsync(parked.Id)"
-                                   CssClass="inbox__action" TestId="inbox-retry">Waiting — tap to retry</AppButton>
-                    }
-                    else if (row.Pending is not null)
-                    {
-                        <Badge Kind="sync" Slug="waiting" Title="Kept on this phone until cloud sync takes it"
-                               CssClass="inbox__action" TestId="inbox-waiting">Waiting</Badge>
-                    }
-                    else
-                    {
-                        <AppButton Size="ButtonSize.Small" aria-label="@($"Dismiss {item.Title}")"
-                                   OnClick="() => DismissAsync(item.Id)" CssClass="inbox__action"
-                                   TestId="inbox-dismiss">Dismiss</AppButton>
-                    }
+                <li @key="item.Id">
+                    <CaptureRow Title="@item.Title" Kind="@CaptureKindGuess.Of(item.Title, item.BodyMd)"
+                                Time="@Ago(item.CapturedAt)" Preview="@PreviewLine(item.BodyMd)"
+                                State="StateOf(row)" StuckReason="@row.Pending?.LastError"
+                                Id="@RowId(item.Id)" OnOpen="() => Open(row)"
+                                OnRetry="() => RetryAsync(item.Id)" TestId="inbox-row" />
                 </li>
             }
         </ul>
@@ -192,8 +141,6 @@
 </DetailSheet>
 
 @code {
-    private const string Listening = "Listening…";
-
     /// <summary>One line of the list: what the service has, or a capture still in
     /// the outbox — in which case <see cref="Pending"/> is its entry.</summary>
     private sealed record Row(InboxItem Item, OutboxEntry? Pending);
@@ -205,7 +152,6 @@
 
     private DateTimeOffset? _pulledAt;
     private string? _pullNotice;
-    private string? _actionError;
     private bool _refreshing;
     private bool _refreshAgain;
     private Row? _selected;
@@ -219,15 +165,6 @@
     /// </summary>
     private readonly Dictionary<Guid, (InboxItem Item, long Delivery)> _delivered = [];
     private long _deliveries;
-
-    /// <summary>Null until the recogniser has been asked. Neither "yes" nor "no"
-    /// is true during the first render, and claiming either would flash a
-    /// message or an enabled button that the answer then contradicts.</summary>
-    private bool? _speechSupported;
-
-    private bool _listening;
-    private string? _speechStatus;
-    private string? _speechError;
 
     private ElementReference _listElement;
     private IJSObjectReference? _pullModule;
@@ -252,7 +189,7 @@
                 .ToList();
 
             var shown = pending.Select(row => row.Item.Id).ToHashSet();
-            var pulled = (_items ?? []).Where(item => shown.Add(item.Id)).Select(item => new Row(item, null)).ToList();
+            var pulled = (_items ?? []).Where(IsThisPhones).Where(item => shown.Add(item.Id)).Select(item => new Row(item, null)).ToList();
             var delivered = _delivered.Values.Where(sent => shown.Add(sent.Item.Id)).Select(sent => new Row(sent.Item, null));
 
             return
@@ -264,6 +201,29 @@
             ];
         }
     }
+
+    /// <summary>
+    /// The service answers with every capture the desktop has not taken in yet,
+    /// from wherever it came. The tab is the phone's own captures, so a pulled
+    /// one is listed when it came from the phone channel.
+    /// </summary>
+    private static bool IsThisPhones(InboxItem item) =>
+        string.Equals(item.Source, CaptureOutboxKind.Source, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>"3 items to sort", "1 item to sort", "Nothing to sort".</summary>
+    private string CountLabel => Rows.Count switch
+    {
+        0 => "Nothing to sort",
+        1 => "1 item to sort",
+        var n => $"{n} items to sort"
+    };
+
+    private static CaptureSyncState StateOf(Row row) => row.Pending switch
+    {
+        null => CaptureSyncState.Sent,
+        { IsParked: true } => CaptureSyncState.Stuck,
+        _ => CaptureSyncState.Waiting
+    };
 
     private static bool IsCapture(OutboxEntry entry) =>
         entry.Kind is CaptureOutboxKind.Token or TalkNoteOutboxKind.Token;
@@ -334,19 +294,15 @@
     private void OnShareStatusChanged() => _ = InvokeAsync(StateHasChanged);
 
     /// <summary>
-    /// The support question is asked after the first render, not before it: in
+    /// The pull gesture is attached after the first render, not before it: in
     /// the browser harness the component prerenders on the server, where there
-    /// is no browser to ask and the honest answer would be a misleading "no".
-    /// The pull gesture is attached then too, for the same reason.
+    /// is no browser to attach it to.
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
         await AttachPullGestureAsync();
-
-        _speechSupported = await Speech.IsSupportedAsync();
-        StateHasChanged();
     }
 
     private async Task AttachPullGestureAsync()
@@ -380,72 +336,6 @@
         StateHasChanged();
         return RefreshAsync();
     });
-
-    private async Task OnSpeechToggledAsync(bool pressed)
-    {
-        if (!pressed)
-        {
-            // Stop only asks; the words arrive on the listening turn below.
-            await Speech.StopAsync();
-            return;
-        }
-
-        _listening = true;
-        _speechError = null;
-        _speechStatus = Listening;
-
-        // ListenAsync does not complete until recognition ends, so it is
-        // deliberately not awaited here: this handler has to return for the
-        // pressed state and the "Listening…" line to reach the screen at all.
-        _ = ListenAsync();
-    }
-
-    private async Task ListenAsync()
-    {
-        SpeechTranscript result;
-
-        try
-        {
-            result = await Speech.ListenAsync();
-        }
-        catch (Exception ex)
-        {
-            // The transcribers report their failures as results; anything that
-            // still arrives as an exception is unexpected, and swallowing it
-            // would leave the button stuck on.
-            result = SpeechTranscript.Failed(ex.Message);
-        }
-
-        _listening = false;
-
-        if (result.IsError)
-        {
-            _speechStatus = null;
-            _speechError = result.Error;
-        }
-        else if (result.Text.Length == 0)
-        {
-            _speechStatus = "Nothing was heard.";
-        }
-        else
-        {
-            _speechStatus = $"Heard: {result.Text}";
-            Draft.Text = Append(Draft.Text, result.Text);
-        }
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    /// <summary>
-    /// Dictation extends what is in the field rather than replacing it — a second
-    /// sentence added to a half-written note is the ordinary case, and
-    /// overwriting would lose the first one with no way back.
-    /// </summary>
-    private static string Append(string draft, string addition)
-    {
-        var existing = draft.TrimEnd();
-        return existing.Length == 0 ? addition : $"{existing} {addition}";
-    }
 
     /// <summary>
     /// Pulls the inbox and keeps it as this device's cached copy. A failure keeps
@@ -543,36 +433,10 @@
         await Outbox.EnqueueAsync(CaptureOutboxKind.Token, capture.Id!.Value, CaptureOutboxKind.Write(capture));
 
         Draft.Text = string.Empty;
-        _speechStatus = null;
         SharedCapture.ClearStatus();
     }
 
-    private Task RetryAsync(Guid id)
-    {
-        _actionError = null;
-        return Outbox.RetryAsync(id);
-    }
-
-    /// <summary>The phone acknowledges; it does not triage. Dismissing takes the
-    /// capture out of the inbox here and leaves deciding what it becomes to the
-    /// desktop, which has already pulled it.</summary>
-    private async Task DismissAsync(Guid id)
-    {
-        _actionError = null;
-
-        try
-        {
-            await Sync.AcknowledgeAsync(id);
-        }
-        catch (Exception ex)
-        {
-            _actionError = $"Couldn't dismiss it: {ex.Message}";
-            return;
-        }
-
-        if (_selected?.Item.Id == id) _selected = null;
-        await RefreshAsync();
-    }
+    private Task RetryAsync(Guid id) => Outbox.RetryAsync(id);
 
     private void Open(Row row) => _selected = row;
 

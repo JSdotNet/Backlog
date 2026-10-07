@@ -109,9 +109,9 @@ when the service answers.
 - **Only the phone's own captures.** The Inbox tab lists the captures this phone
   made, until the desktop takes each in. The phone sends no acknowledgement and
   no other decision about an item: triage stays on the desktop
-  (`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`). The phone's
-  Dismiss, which posts `POST /inbox/{id}/ack`, is built today and is retired by
-  plan `phone-app-redesign`.
+  (`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`). The service
+  answers with every capture the desktop has not taken in, so the tab keeps the
+  ones whose source is the phone channel, `mobile`.
 - **Notes come back.** Notes are the one kind of Inbox item the phone pulls as
   well as sends. They travel on the task feed, not on the inbox listing, and
   **Mobile Note Sync** below describes them.
