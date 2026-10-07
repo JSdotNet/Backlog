@@ -1,3 +1,4 @@
+using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.TalkNotes;
 using Backlog.Mobile.UI.Tasks;
@@ -71,6 +72,13 @@ public static class MobileShellServiceCollectionExtensions
         // The three edits to a task already in My Day, the one service the
         // Tasks tab's screens call. Stateless over the projection and the outbox.
         services.AddSingleton<TaskEdits>();
+
+        // The notes the phone keeps and edits (.devbook/arc42/06-runtime-view.md#mobile-note-sync):
+        // their own view and cursor over the task feed, and their own outbox kind,
+        // whose files wait in the talk notes' outbox folder.
+        services.AddSingleton<INoteViewStore>(_ => new SqliteNoteViewStore(databasePath));
+        services.AddSingleton<NoteViewProjection>();
+        services.AddSingleton<IOutboxKind, NoteOutboxKind>();
 
         return services;
     }

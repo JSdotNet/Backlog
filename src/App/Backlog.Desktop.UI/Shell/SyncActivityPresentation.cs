@@ -127,6 +127,7 @@ public static class SyncActivityPresentation
         SyncItemKind.Session => "Session",
         SyncItemKind.Roadmap => "Roadmap",
         SyncItemKind.GitHubSettings => "GitHub settings",
+        SyncItemKind.Note => "Note",
         _ => kind.ToString(),
     };
 

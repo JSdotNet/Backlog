@@ -345,6 +345,7 @@ public sealed class SettingsRepositoryRenameTests
         public Task<Result> SetTagsAsync(Guid id, IReadOnlyList<string> tags, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> AssignRepositoriesAsync(Guid id, IReadOnlyList<string> repoIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> MoveToListAsync(Guid id, Guid? listId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result> EditNoteAsync(Guid id, string title, string? bodyMd, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> ArchiveAsDuplicateAsync(Guid id, Guid duplicateOf, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> LinkToTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default) => throw new NotSupportedException();

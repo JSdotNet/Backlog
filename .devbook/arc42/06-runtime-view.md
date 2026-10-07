@@ -578,8 +578,9 @@ related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/feature
 A note (`.devbook/domain/inbox/domain.md#note`) is the one Inbox item that
 syncs both ways. The phone pulls every note, whichever device made it, and pushes the notes
 it creates and edits. The desktop pushes its own note edits back, and a
-tombstone when it archives or deletes one. This section is specified and not
-built: plan `phone-app-redesign` builds it.
+tombstone when it archives or deletes one. The sync is built. The phone's Notes
+tab, which will read `note_view`, is not built yet: plan `phone-app-redesign`
+builds it next.
 
 ```mermaid
 sequenceDiagram
@@ -617,18 +618,33 @@ sequenceDiagram
 - **Pulled with the task feed.** The phone already pages through
   `GET /api/sync/tasks?since=` for My Day. It folds every `note`-type document
   into a local `note_view` table the way it folds tasks into `task_view`. The
-  later `UpdatedAt` wins, and a `DeletedAt` hides the row. The Notes tab reads
-  `note_view` and searches it on the phone.
+  later `UpdatedAt` wins, an equal stamp goes to the higher server timestamp, and
+  a `DeletedAt` hides the row. The note pull keeps its own cursor beside
+  `task_view`'s, so neither view's progress depends on the other's. The task fold
+  skips `note` documents. The Notes tab reads `note_view` and searches it on the
+  phone.
 - **Pushed through the outbox.** A note the phone creates or edits is written
   into `note_view` at once, then queued as outbox kind `note` and posted whole to
   `POST /api/sync/tasks`. It keeps the order, backoff and waiting marker of every
   other outbox entry. A retry sends the same id, so the replica's whole-document
-  upsert makes it idempotent.
+  upsert makes it idempotent. Each edit is an entry of its own, so two edits made
+  offline go out in order. An edit is never stamped earlier than the copy it
+  replaces, so a phone clock behind the desktop's cannot undo it.
 - **The desktop owns triage.** The desktop's merge hands each `note` document to
-  the Inbox intake, which creates the item or applies the later edit. The
-  desktop pushes its own edits as note documents. When it archives or deletes a
-  note it pushes the note's tombstone, and the phone drops the row on its next
-  pull. The phone never pushes a tombstone, because it never archives an item.
+  the Inbox's note port, which creates the item or applies the later edit by the
+  note's own `edited_at`. On every push the desktop sends each live note it
+  changed itself and has not pushed yet, as a note document. That is a flag on
+  the note rather than a watermark, because a note's stamp may come from the
+  phone's clock. A note it only pulled is never sent back. A change made here is
+  stamped after the copy it replaces, whatever the two clocks say. When the desktop
+  archives or deletes a note, the acknowledgement outbox pushes the note's
+  tombstone as a `note` document, and the phone drops the row on its next pull. A
+  phone edit that arrives after the archive or the deletion leaves it standing
+  and owes the tombstone again, under a later stamp, so the phone drops the note
+  anyway. A deleted note's id is kept, so no later copy makes it again.
+  The phone never pushes a tombstone, because it never archives an item.
 - **Files keep their own path.** A note's photos and files travel as
   **Capture Attachments** describes: each is uploaded before the note document
-  that names it, and the desktop fetches it from the attachment store.
+  that names it, and the desktop fetches it from the attachment store. An edit
+  uploads only the files it added. The service releases a note's files when it
+  takes the note's tombstone, as it does a capture's.
