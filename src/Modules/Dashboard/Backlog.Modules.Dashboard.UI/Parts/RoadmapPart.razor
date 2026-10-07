@@ -1,24 +1,29 @@
 @*
     What the roadmap planned into the window and how that work stands: the pace the
     roadmap places work at, the items whose own stretch overlaps the window, the effort
-    gathered under each and how much of it is ticked off.
+    gathered under each and how much of it is ticked off — drawn as a timeline of the
+    window's weeks, one bar per item.
 
-    Not the timeline. The roadmap surface keeps the bars; this part answers the one
-    question the tasks section beside it cannot — whether the work that was planned is
-    landing where it was planned to — and answers it in the roadmap's own terms, so a
-    figure here can be found again on the roadmap. The pace is the one the roadmap
-    quotes for the repositories in scope, and the stretch it was measured over is said
-    with it, because a measured pace and a typed one are different claims.
+    The bars answer the one question the task charts below them cannot — whether the
+    work that was planned is landing where it was planned to — in the roadmap's own
+    terms, so a figure here can be found again on the roadmap. It is not the roadmap's
+    timeline: nothing here is dragged or opened, a bar spans whole weeks rather than
+    days, and it is clipped to the window rather than scrolling into the future. The
+    pace is the one the roadmap quotes for the repositories in scope, and the stretch it
+    was measured over is said with it, because a measured pace and a typed one are
+    different claims.
 
-    An outlook is text on a tone, never a colour alone: the word is printed in the badge
-    and the projection behind it is in the badge's title, so a reader who cannot tell
-    the tones apart loses nothing.
+    An outlook is text on a tone, never a colour alone: the word is printed under the
+    item's name, and the projection behind it is the bar's title — which a screen
+    reader announces as the description of a bar labelled with the item and its
+    stretch — so a reader who cannot tell the tones apart loses nothing.
 
     Nothing at all while the roadmap is switched off. The roadmap sits behind a feature
     flag, and a frame announcing a switched-off surface would be this dashboard
     advertising it. An unavailable answer still draws the frame with its reason: the
     roadmap is on and could not be read, which is news.
 *@
+@using System.Globalization
 @inherits DashboardPartBase<PlanInsight>
 @inject ITaskInsights Insights
 
@@ -31,6 +36,7 @@
                TestId="dashboard-roadmap">
         @if (IsReady)
         {
+            var weeks = Weeks;
             <div class="dashboard-part__stack">
                 <MetricGrid Label="The roadmap over the selected window" TestId="dashboard-roadmap-tiles">
                     <MetricTile Label="Pace in use"
@@ -58,39 +64,61 @@
                                 TestId="dashboard-roadmap-done" />
                 </MetricGrid>
 
-                <DataTable TItem="PlanItemInsight"
-                           Columns="@Columns"
-                           Items="@Value!.Items"
-                           RowKey="@(row => row.Item.Id)"
-                           AriaLabel="@($"Roadmap items overlapping the last {Scope.Weeks} weeks")"
-                           RowNoun="item"
-                           TestId="dashboard-roadmap-table">
-                    <Row Context="row">
-                        <td>@row.Item.Title</td>
-                        <td>@DashboardFormat.Span(row.Item.Start, row.Item.End)</td>
-                        <td>
-                            @if (row.Item.RepositoryAliases.Count == 0)
-                            {
-                                @* Plan-wide: filed under no repository, which every
-                                   repository scope keeps. *@
-                                <text>—</text>
-                            }
-                            else
-                            {
-                                @foreach (var alias in row.Item.RepositoryAliases)
+                @* The timeline: one column per ISO week of the window, one row per item,
+                   and a bar from the week the item starts in to the week it ends in,
+                   clipped to the window. The weeks are the window the insight was read
+                   for, so a bar never contradicts which items the window kept. It
+                   scrolls sideways inside the card rather than squeezing the weeks
+                   below the width a label fits in. *@
+                <div class="dashboard-timeline"
+                     style="@($"--dashboard-timeline-weeks: {weeks.Count}")"
+                     data-testid="dashboard-roadmap-timeline">
+                    <div class="dashboard-timeline__legend" aria-hidden="true">
+                        <span class="dashboard-timeline__key"><span class="dashboard-timeline__swatch dashboard-timeline__swatch--done"></span>Done</span>
+                        <span class="dashboard-timeline__key"><span class="dashboard-timeline__swatch dashboard-timeline__swatch--planned"></span>Planned</span>
+                        <span class="dashboard-timeline__key"><span class="dashboard-timeline__swatch dashboard-timeline__swatch--behind"></span>Behind or overdue</span>
+                        <span class="dashboard-timeline__key"><span class="dashboard-timeline__swatch dashboard-timeline__swatch--finished"></span>Finished</span>
+                    </div>
+                    <div class="dashboard-timeline__scroll">
+                        <div class="dashboard-timeline__grid">
+                            @* The axis is for the eye. A screen reader gets each bar's
+                               stretch in its label instead of a row of week numbers it
+                               would have to line up by itself. *@
+                            <div class="dashboard-timeline__row dashboard-timeline__axis" aria-hidden="true">
+                                <span class="dashboard-timeline__corner">Item</span>
+                                @foreach (var week in weeks)
                                 {
-                                    <Badge Kind="area" Slug="@alias">@alias</Badge>
+                                    <span class="dashboard-timeline__week" data-testid="dashboard-roadmap-week">@WeekLabel(week)</span>
                                 }
-                            }
-                        </td>
-                        <td>@Progress(row.Item)</td>
-                        <td>
-                            <Badge Kind="outlook"
-                                   Slug="@Slug(row.Outlook)"
-                                   Title="@Sentence(row)">@Word(row.Outlook)</Badge>
-                        </td>
-                    </Row>
-                </DataTable>
+                            </div>
+                            <ol class="dashboard-timeline__rows"
+                                aria-label="@($"Roadmap items overlapping the last {Scope.Weeks} weeks")">
+                                @foreach (var row in Value!.Items)
+                                {
+                                    var bar = Place(row.Item, weeks);
+                                    <li @key="row.Item.Id" class="dashboard-timeline__row" data-testid="dashboard-roadmap-row">
+                                        <span class="dashboard-timeline__item">
+                                            <span class="dashboard-timeline__name">@row.Item.Title</span>
+                                            <span class="dashboard-timeline__progress">@Progress(row)</span>
+                                        </span>
+                                        @if (bar is { } placed)
+                                        {
+                                            <span class="@BarClass(row, placed)"
+                                                  style="@($"grid-column: {placed.First + 2} / {placed.Last + 3}")"
+                                                  role="img"
+                                                  aria-label="@($"{row.Item.Title}, {DashboardFormat.Span(row.Item.Start, row.Item.End)}")"
+                                                  title="@Sentence(row)"
+                                                  data-testid="dashboard-roadmap-bar">
+                                                <span class="dashboard-timeline__fill"
+                                                      style="@($"width: {DoneShare(row).ToString(CultureInfo.InvariantCulture)}%")"></span>
+                                            </span>
+                                        }
+                                    </li>
+                                }
+                            </ol>
+                        </div>
+                    </div>
+                </div>
             </div>
         }
         else
@@ -115,15 +143,6 @@
         + "(ADR 0013). The repository chips narrow it; the machine filter does not apply, because a "
         + "plan records no machine.";
 
-    private static readonly IReadOnlyList<DataTableColumn> Columns =
-    [
-        new("Item"),
-        new("Window"),
-        new("Repositories"),
-        new("Done"),
-        new("Outlook")
-    ];
-
     /// <summary>The stretch the pace was measured over, in words — or that nothing was
     /// measured and the figure is the one typed on the roadmap.</summary>
     private static string Basis(PlanPaceBasis basis) => basis switch
@@ -144,14 +163,97 @@
             : null;
 
     /// <summary>
-    /// The effort done against the effort gathered, and the entries behind both. An
-    /// item nothing it gathered is estimated on has no points to compare, so it says
-    /// the count and that it is unsized rather than "0 / 0 pts".
+    /// The line under an item's name: the effort done against the effort gathered, and
+    /// the outlook in words. An item nothing it gathered is estimated on has no points
+    /// to compare, so it says the count of entries instead of "0 / 0 pts".
     /// </summary>
-    private static string Progress(PlanItemProgress item) =>
-        item.TotalEffort == 0
-            ? $"{item.DoneCount} of {item.GatheredCount} entries · unsized"
-            : $"{item.DoneEffort} / {item.TotalEffort} pts · {item.DoneCount} of {item.GatheredCount} entries";
+    private static string Progress(PlanItemInsight row) =>
+        row.Item.TotalEffort == 0
+            ? $"{row.Item.DoneCount} of {row.Item.GatheredCount} entries · {Word(row.Outlook)}"
+            : $"{row.Item.DoneEffort} / {row.Item.TotalEffort} pts · {Word(row.Outlook)}";
+
+    /// <summary>
+    /// The Monday of every ISO week the window touches, oldest first — the same weeks
+    /// the task charts below bucket into, so a bar and a bar of those charts name the
+    /// same week. An insight built without a window falls back to the items' own stretch.
+    /// </summary>
+    private IReadOnlyList<DateOnly> Weeks
+    {
+        get
+        {
+            if (!IsReady) return [];
+
+            var (from, to) = Value!.WindowFrom != default
+                ? (Value!.WindowFrom, Value!.WindowTo)
+                : Value!.Items.Count == 0
+                    ? (default, default)
+                    : (Value!.Items.Min(row => row.Item.Start), Value!.Items.Max(row => row.Item.End));
+            if (from == default || to < from) return [];
+
+            var weeks = new List<DateOnly>();
+            var last = Monday(to);
+
+            // Bounded rather than trusted: a window is twelve weeks at most, and an
+            // absurd fallback stretch should draw a wide axis, not hang the pane.
+            for (var cursor = Monday(from); cursor <= last && weeks.Count < 104; cursor = cursor.AddDays(7))
+            {
+                weeks.Add(cursor);
+            }
+
+            return weeks;
+        }
+    }
+
+    private static DateOnly Monday(DateOnly day) =>
+        day.AddDays(-(((int)day.DayOfWeek + 6) % 7));
+
+    /// <summary>An axis label as the task charts write one: <c>W41</c>.</summary>
+    private static string WeekLabel(DateOnly monday) =>
+        "W" + ISOWeek.GetWeekOfYear(monday.ToDateTime(TimeOnly.MinValue)).ToString("00", CultureInfo.InvariantCulture);
+
+    /// <summary>Where an item's bar sits, as week indexes into <see cref="Weeks"/>, and
+    /// whether either end was cut off by the window. Null when the item falls outside
+    /// the axis altogether, which a window-narrowed reading never hands over.</summary>
+    private readonly record struct Placement(int First, int Last, bool ClippedStart, bool ClippedEnd);
+
+    private static Placement? Place(PlanItemProgress item, IReadOnlyList<DateOnly> weeks)
+    {
+        if (weeks.Count == 0) return null;
+
+        var axisStart = weeks[0];
+        var axisEnd = weeks[^1].AddDays(6);
+        if (item.End < axisStart || item.Start > axisEnd) return null;
+
+        var first = (Monday(item.Start < axisStart ? axisStart : item.Start).DayNumber - axisStart.DayNumber) / 7;
+        var last = (Monday(item.End > axisEnd ? axisEnd : item.End).DayNumber - axisStart.DayNumber) / 7;
+
+        return new Placement(first, Math.Max(first, last), item.Start < axisStart, item.End > axisEnd);
+    }
+
+    /// <summary>The tone the bar is drawn in. Behind and overdue share the behind tone —
+    /// both are work landing later than planned — and a finished item the success one.</summary>
+    private static string BarClass(PlanItemInsight row, Placement placed)
+    {
+        var tone = row.Outlook switch
+        {
+            PlanOutlook.Behind or PlanOutlook.Overdue => " dashboard-timeline__bar--behind",
+            PlanOutlook.Finished => " dashboard-timeline__bar--finished",
+            _ => null
+        };
+
+        return "dashboard-timeline__bar" + tone
+            + (placed.ClippedStart ? " dashboard-timeline__bar--clipped-start" : null)
+            + (placed.ClippedEnd ? " dashboard-timeline__bar--clipped-end" : null);
+    }
+
+    /// <summary>The share of the bar the done effort fills, as a whole percentage. A
+    /// finished item fills it whatever it was estimated at; an unsized one fills none.</summary>
+    private static int DoneShare(PlanItemInsight row) =>
+        row.Outlook == PlanOutlook.Finished
+            ? 100
+            : row.Item.TotalEffort <= 0
+                ? 0
+                : Math.Clamp((int)Math.Round(100m * row.Item.DoneEffort / row.Item.TotalEffort, MidpointRounding.AwayFromZero), 0, 100);
 
     private static string Word(PlanOutlook outlook) => outlook switch
     {
@@ -164,23 +266,11 @@
         _ => "Placed by effort"
     };
 
-    /// <summary>The class modifier the outlook badge family is keyed on.</summary>
-    private static string Slug(PlanOutlook outlook) => outlook switch
-    {
-        PlanOutlook.Finished => "finished",
-        PlanOutlook.OnTrack => "on-track",
-        PlanOutlook.Behind => "behind",
-        PlanOutlook.Overdue => "overdue",
-        PlanOutlook.Unsized => "unsized",
-        PlanOutlook.NoPace => "no-pace",
-        _ => "placed-by-effort"
-    };
-
     /// <summary>
     /// What the word stands on: the projected end and the pace it was projected at
     /// beside the planned end, where there is a projection — or why there is none. The
-    /// badge's title rather than another column, so the table stays five columns wide
-    /// and the reasoning is one pointer away from the word it explains.
+    /// bar's title rather than more text in the row, so the row stays two
+    /// lines tall and the reasoning is one pointer away from the bar it explains.
     /// </summary>
     private static string Sentence(PlanItemInsight row)
     {

@@ -102,6 +102,17 @@ public class TaskInsightsTests
     }
 
     [Fact]
+    public async Task The_plan_carries_the_window_it_was_read_for_so_the_timeline_draws_its_weeks()
+    {
+        var plan = new StubPlanSource(Item("Sync MVP"));
+
+        var result = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.Equal(new DateOnly(2026, 8, 27), result.Value!.WindowFrom);
+        Assert.Equal(new DateOnly(2026, 9, 24), result.Value.WindowTo);
+    }
+
+    [Fact]
     public async Task All_repositories_asks_the_plan_source_for_no_repository()
     {
         var plan = new StubPlanSource();
