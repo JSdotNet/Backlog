@@ -214,6 +214,16 @@ internal sealed class TasksPaneHost : IDisposable
     /// created is recorded so a test can assert the push actually happened.</summary>
     internal sealed class FakeGitHubClient : IGitHubClient
     {
+        /// <summary>What the open pull requests read answers, across every repository;
+        /// each repository is answered its own.</summary>
+        public List<GitHubOpenPullRequest> OpenPullRequests { get; } = [];
+
+        public Task<IReadOnlyList<GitHubOpenPullRequest>> ListOpenPullRequestsAsync(
+            GitHubRepositoryRef repository,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<GitHubOpenPullRequest>>(
+                [.. OpenPullRequests.Where(pull => string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))]);
+
         public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
         public string? CreatedRepository { get; private set; }

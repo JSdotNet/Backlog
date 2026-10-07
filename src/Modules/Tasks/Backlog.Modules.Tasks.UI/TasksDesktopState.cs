@@ -518,6 +518,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </summary>
     public string? RepositoryAliasFor(string? repository) => _gitHub.Settings.Current.Find(repository)?.Alias;
 
+    /// <summary>The <c>owner/name</c> of a repository registered here, named by its
+    /// full name or its alias, or null for one this workspace does not know: the
+    /// check the Backlog server makes before it records a link.</summary>
+    public string? RegisteredRepository(string? repository) => _gitHub.Settings.Current.Find(repository)?.FullName;
+
     /// <summary>Whether the repository identity hues are being drawn. The shell's header
     /// carries the control, so the shell has to be able to read the state it is
     /// showing.</summary>
@@ -3458,6 +3463,102 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// makes a whole-list sync worth offering.</summary>
     public bool HasLinkedRows => Rows.Any(r => r.IssueLink is not null || r.PullRequestLinks.Count > 0);
 
+    /// <summary>
+    /// Links an AI session or a pull request to an entry, by hand — the In progress
+    /// view's "Link to a task…" and the detail panel's "Link a session or pull
+    /// request…" — through the same use case the Backlog server's <c>link_session</c>
+    /// and <c>link_change</c> write through, so a link made here and one an agent
+    /// made are one kind of record.
+    /// <para>
+    /// A link the entry already holds is answered as done and not written again: the
+    /// session tool is idempotent on the same grounds, and a pull request recorded
+    /// twice would draw twice. Returns null on success, else the sentence to show.
+    /// </para>
+    /// </summary>
+    /// <param name="repository">The repository as <c>owner/name</c>.</param>
+    /// <param name="externalId">The session id, or the pull request number.</param>
+    /// <param name="targetType"><see cref="EntryProjectionDto.SessionTargetType"/> or
+    /// <see cref="EntryProjectionDto.PullRequestTargetType"/>.</param>
+    public async Task<string?> LinkWorkAsync(EntryRow row, string repository, string externalId, string targetType)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (row.Id is not { } id) return "Save the entry before linking work to it.";
+
+        var key = (externalId ?? string.Empty).Trim();
+        var repo = (repository ?? string.Empty).Trim();
+        if (key.Length == 0 || repo.Length == 0) return "There is nothing to link.";
+
+        var already = string.Equals(targetType, EntryProjectionDto.SessionTargetType, StringComparison.OrdinalIgnoreCase)
+            ? row.SessionLinks.Any(link => string.Equals(link.SessionId, key, StringComparison.OrdinalIgnoreCase))
+            : row.PullRequestLinks.Any(link =>
+                string.Equals(link.Repository, repo, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(link.Number.ToString(System.Globalization.CultureInfo.InvariantCulture), key, StringComparison.Ordinal));
+        if (already) return null;
+
+        // Whatever is typed into the entry and not yet saved goes first: the link
+        // rewrites the row's text from the store, and an edit still waiting on its
+        // debounce would otherwise be replaced by the text from before it.
+        bool pending;
+        lock (_debounceTimers)
+        {
+            pending = _debounceTimers.ContainsKey(row.Key);
+        }
+
+        if (pending)
+        {
+            CancelDebounce(row);
+            var saved = await SaveRowAsync(row, isFlush: true);
+
+            // A refused save keeps the text on screen; linking now would replace it
+            // with the stored text, which is the loss the flush is here to prevent.
+            if (!saved.IsSuccess)
+            {
+                return string.IsNullOrWhiteSpace(saved.Error.Message)
+                    ? "Save the entry before linking work to it."
+                    : saved.Error.Message;
+            }
+        }
+
+        Result<TaskItemDto> linked;
+        try
+        {
+            linked = await _entryUseCases.LinkToIssueAsync(id, repo, key, targetType, _untilDisposed);
+        }
+        catch (Exception) when (!_untilDisposed.IsCancellationRequested)
+        {
+            const string failed = "Couldn't link it to the entry.";
+            AnnounceRowFailure(row, failed, WorkLinkFailureTestId);
+            return failed;
+        }
+
+        if (!linked.TryGetValue(out var updated))
+        {
+            var message = string.IsNullOrWhiteSpace(linked.Error.Message) ? "Couldn't link it to the entry." : linked.Error.Message;
+            AnnounceRowFailure(row, message, WorkLinkFailureTestId);
+            return message;
+        }
+
+        _entries[id] = updated;
+
+        // LinkToIssueAsync may have added the repository to the entry's `repo:`
+        // tokens, off to the side of the parse-and-save path — the same catch-up
+        // PushToGitHubAsync makes, for the same reason.
+        RefreshRowFromEntry(row, updated, rewriteText: true);
+        SetSaveState(AppSaveState.Saved);
+        ApplyFilter();
+        Changed?.Invoke();
+
+        if (string.Equals(targetType, EntryProjectionDto.SessionTargetType, StringComparison.OrdinalIgnoreCase))
+        {
+            _ = ReadSessionStatesAsync();
+        }
+
+        return null;
+    }
+
+    private const string WorkLinkFailureTestId = "tasks-work-link-failed";
+
     public bool GitHubSyncing { get; private set; }
 
     /// <summary>Creates the GitHub issue for an entry and remembers the link on
@@ -5337,6 +5438,13 @@ public sealed class EntryRow
     public DateOnly? PreviewDueOn
     {
         get { Render(); return _parsed!.DueOn; }
+    }
+
+    /// <summary>The day work on the entry started, from its <c>started:</c> token, or
+    /// null where the text carries none.</summary>
+    public DateOnly? PreviewStartedOn
+    {
+        get { Render(); return _parsed!.StartedOn; }
     }
 
     public DateTime? PreviewRemindAt

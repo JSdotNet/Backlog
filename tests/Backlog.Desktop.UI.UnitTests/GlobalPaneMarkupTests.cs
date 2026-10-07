@@ -232,7 +232,7 @@ public sealed class GlobalPaneMarkupTests
             home,
             StringComparison.Ordinal);
         Assert.Contains(
-            "private ShellView EffectiveView => _view == ShellView.Roadmap && !RoadmapViewOffered ? ShellView.Tasks : _view;",
+            "ShellView.Roadmap when !RoadmapViewOffered => ShellView.Tasks,",
             home,
             StringComparison.Ordinal);
 
@@ -563,7 +563,7 @@ public sealed class GlobalPaneMarkupTests
         var layout = home.IndexOf("data-testid=\"devbook-layout\"", StringComparison.Ordinal);
         var inbox = home.IndexOf("@InboxPaneContent", layout, StringComparison.Ordinal);
         var roadmap = home.IndexOf("@if (RoadmapViewVisible)", layout, StringComparison.Ordinal);
-        var tasks = home.IndexOf("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" />", StringComparison.Ordinal);
+        var tasks = home.IndexOf("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" LinkedWork=\"LinkedWorkFor\" />", StringComparison.Ordinal);
         var devbook = home.IndexOf("<DevbookPane ", layout, StringComparison.Ordinal);
 
         Assert.True(inbox > layout);
@@ -832,7 +832,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("<CaptureSourcesPanel OnImported=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
-        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" />", home, StringComparison.Ordinal);
+        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" LinkedWork=\"LinkedWorkFor\" />", home, StringComparison.Ordinal);
         Assert.Contains("<DevbookPane RepositoryAlias=", home, StringComparison.Ordinal);
 
         // The roadmap and the dashboard are composed on the same terms. Their content

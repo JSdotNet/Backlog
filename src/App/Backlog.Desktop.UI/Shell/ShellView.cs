@@ -36,5 +36,12 @@ internal enum ShellView
     /// repository or priority — under the Tasks filter bar and beside the same
     /// detail panel. Its option sits right after Tasks in the switch; the
     /// members' order is not the options'.</summary>
-    Board
+    Board,
+
+    /// <summary>Every entry in progress with the sessions and pull requests linked to
+    /// it, by what needs the person. Offered while the Sessions or the Pull requests
+    /// feature is on, as the first option of the work in progress group rather than
+    /// of the task views' switch: it answers "what is moving", which is that group's
+    /// question. Appended, because the name is stored.</summary>
+    InProgress
 }

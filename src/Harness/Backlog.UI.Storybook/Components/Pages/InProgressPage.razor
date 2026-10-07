@@ -1,0 +1,97 @@
+@page "/task-list/in-progress"
+
+<PageTitle>In progress — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="In progress"
+           Summary="`InProgressBoard`: every task in progress as a card — its status, plan, repository, sub-items, start, due date and effort — with the sessions and pull requests linked to it beside it, in sections. Needs you first, then Moving, and last the live sessions and open pull requests no task links, each with `Link to a task…`. The section rules are `InProgressSections`'; the toggles are the host's state."
+           Guidelines="@Rules">
+
+    <Story Name="Needs you first"
+           Description="With `Needs you first` on, a task whose linked session has gone quiet, or whose linked pull request has a failing check or requested changes, is under **Needs you**; the rest are under **Moving**. Each section keeps the host's order. Off, the tasks are one **In progress** section in the host's order. `Include finished today` adds the tasks done today in a section of their own. The summary counts what is drawn."
+           Code="@BoardCode">
+        <InProgressBoard Tasks="@IntegrationFixtures.InProgressTasks"
+                         Loose="@IntegrationFixtures.InProgressLoose"
+                         NeedsYouFirst="_needsYouFirst"
+                         NeedsYouFirstChanged="value => _needsYouFirst = value"
+                         IncludeFinishedToday="_includeFinished"
+                         IncludeFinishedTodayChanged="value => _includeFinished = value"
+                         OnOpenTask="OpenTask"
+                         OnOpenSession="OpenSession"
+                         OnOpenPullRequest="OpenPullRequest"
+                         OnLink="ChooseTask"
+                         TestId="in-progress-board-sample" />
+        <WorkLinkPicker Open="_linking is not null"
+                        OpenChanged="open => { if (!open) _linking = null; }"
+                        Title="Link to a task"
+                        Options="@IntegrationFixtures.LinkTaskOptions"
+                        OnChosen="Link" />
+        <p class="sb-state" data-testid="in-progress-last-press">@(_last ?? "Nothing pressed yet.")</p>
+    </Story>
+
+    <Story Name="The repository identity edge"
+           Description="The edge is the host's, through each task's `Colour`: the desktop app passes the repository's hue while its colours are showing and null while they are hidden. The card never decides. The switch below plays the host."
+           Code="@EdgeCode">
+        <label class="sb-row">
+            <input type="checkbox" checked="@_colours" @onchange="e => _colours = e.Value is true" data-testid="in-progress-colours" />
+            Repository colours
+        </label>
+        <InProgressBoard Tasks="@(_colours ? IntegrationFixtures.InProgressTasks : WithoutColours)"
+                         TestId="in-progress-board-edge" />
+    </Story>
+
+    <Story Name="Nothing in progress"
+           Description="With no task in progress and nothing loose, the view says so and what will show there."
+           Code="@EmptyCode">
+        <InProgressBoard TestId="in-progress-board-empty" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#task-rows", "What a task states and what goes quiet — the card states the row's facts."),
+        new("color-scheme.md#the-identity-edge", "The 4px repository edge, and that it is never the only thing naming the repository."),
+        new("color-scheme.md#integration-roles", "The tone each session and pull request state is drawn in."),
+        new("typography-and-layout.md#metadata-lines", "How the start, due date, sub-items and effort are set under a title.")
+    ];
+
+    private bool _needsYouFirst = true;
+    private bool _includeFinished;
+    private bool _colours = true;
+    private string? _last;
+    private InProgressLoose? _linking;
+
+    private void OpenTask(InProgressTask task) => _last = $"Opened task {task.Id}.";
+
+    private void OpenSession(WorkSession session) => _last = $"Opened session {session.Id}.";
+
+    private void OpenPullRequest(WorkPullRequest pull) => _last = $"Opened {pull.Key}.";
+
+    private void ChooseTask(InProgressLoose loose) => _linking = loose;
+
+    private void Link(WorkLinkOption option) => _last = $"Linked {_linking?.Key} to {option.Id}.";
+
+    private static readonly IReadOnlyList<InProgressTask> WithoutColours =
+        [.. IntegrationFixtures.InProgressTasks.Select(task => task with { Colour = null })];
+
+    private const string BoardCode = """
+        <InProgressBoard Tasks="@tasks"
+                         Loose="@loose"
+                         NeedsYouFirst="_needsYouFirst"
+                         NeedsYouFirstChanged="value => _needsYouFirst = value"
+                         IncludeFinishedToday="_includeFinished"
+                         IncludeFinishedTodayChanged="value => _includeFinished = value"
+                         OnOpenTask="OpenTask"
+                         OnOpenSession="OpenSession"
+                         OnOpenPullRequest="OpenPullRequest"
+                         OnLink="ChooseTask" />
+        """;
+
+    private const string EdgeCode = """
+        <InProgressBoard Tasks="@tasks.Select(task => task with { Colour = coloursShowing ? task.Colour : null })" />
+        """;
+
+    private const string EmptyCode = """
+        <InProgressBoard Tasks="@([])" />
+        """;
+}

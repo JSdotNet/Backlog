@@ -16643,3 +16643,467 @@ select.field__input {
     border-radius: 2px;
     background: color-mix(in srgb, var(--color-border-strong) 24%, var(--color-background-alt));
 }
+
+/* --- Work cards ----------------------------------------------------------------
+   A session or a pull request as a card beside the work it ran or shipped —
+   WorkSessionCard and WorkPullRequestCard, in two columns under WorkLinks. The
+   raised surface over the task's own, so a card reads as a thing sitting on the
+   task rather than a stripe across it. The two states that ask for the person
+   wear an edge: the primary one for a quiet or waiting session, the error one for
+   a failing check or requested changes. The words always say why. */
+.work-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+}
+
+.work-card--opens {
+    cursor: pointer;
+}
+
+.work-card--opens:hover {
+    border-color: var(--color-border-strong);
+}
+
+.work-card--opens:focus-visible {
+    border-color: var(--color-border-focus);
+    outline: var(--border-width) solid var(--color-border-focus);
+    outline-offset: 0;
+}
+
+.work-card--needs-you {
+    border-color: var(--color-primary);
+}
+
+.work-card--fault {
+    border-color: var(--color-error);
+}
+
+.work-card__line {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.work-card__dot {
+    flex: none;
+    width: var(--spacing-sm);
+    height: var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-text-disabled);
+}
+
+.work-card--session-running .work-card__dot {
+    background: var(--color-success-text);
+}
+
+.work-card--session-stalled .work-card__dot,
+.work-card--session-waiting .work-card__dot {
+    background: var(--color-primary);
+}
+
+.work-card__title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: var(--font-weight-semibold);
+}
+
+.work-card__state {
+    flex: none;
+    margin-left: auto;
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.work-card--session-running .work-card__state {
+    color: var(--color-success-text);
+}
+
+.work-card--session-stalled .work-card__state,
+.work-card--session-waiting .work-card__state {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.work-card__number {
+    flex: none;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+}
+
+.work-card__detail {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.work-card__facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+}
+
+.work-card__fact {
+    color: var(--color-text-secondary);
+}
+
+.work-card__fact--fault {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+}
+
+.work-card__fact--settled {
+    color: var(--color-success-text);
+    font-weight: var(--font-weight-semibold);
+}
+
+.work-card__fact--mono {
+    font-family: var(--font-family-mono);
+}
+
+/* The two columns: Sessions, then Pull requests, side by side while there is room
+   and under each other where there is not. Stacked puts them under each other
+   always, for a host as narrow as a side panel. */
+.work-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md) var(--spacing-lg);
+    min-width: 0;
+}
+
+.work-links__column {
+    display: flex;
+    flex: 1 1 16rem;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.work-links--stacked {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.work-links--stacked .work-links__column {
+    flex: none;
+}
+
+.work-links__heading {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.work-links__none {
+    color: var(--color-text-disabled);
+    font-size: var(--font-size-sm);
+}
+
+/* The side panel section: the heading with "Open in In progress" beside it, the
+   two columns stacked, and the link action under them. */
+.work-links-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.work-links-panel__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.work-links-panel__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.work-links-panel__open {
+    margin-left: auto;
+}
+
+.work-links-panel__link {
+    align-self: flex-start;
+}
+
+/* The picker behind "Link to a task…": one full-width button per choice, the
+   label over a quiet line of detail. */
+.work-link-picker__description {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.work-link-picker__options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 24rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.work-link-picker__option {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.work-link-picker__option:hover {
+    border-color: var(--color-border-strong);
+}
+
+.work-link-picker__option:focus-visible {
+    border-color: var(--color-border-focus);
+    outline: var(--border-width) solid var(--color-border-focus);
+    outline-offset: 0;
+}
+
+.work-link-picker__label {
+    font-weight: var(--font-weight-semibold);
+}
+
+.work-link-picker__detail {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* --- In progress, by task -------------------------------------------------------
+   InProgressBoard: the header with its two toggles, then one section per rule —
+   Needs you, Moving, and last Not linked to a task — each a dot, a name, a count
+   and a hint over its cards. A task card is the facts on the left and its
+   WorkLinks on the right, wrapping under each other where the view is narrow. */
+.in-progress-board {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.in-progress-board__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.in-progress-board__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.in-progress-board__summary {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.in-progress-board__spacer {
+    flex: 1 1 2.5rem;
+}
+
+.in-progress-board__toggles {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.in-progress-board__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.in-progress-board__section-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.in-progress-board__dot {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-text-disabled);
+}
+
+.in-progress-board__section--needs-you .in-progress-board__dot {
+    background: var(--color-primary);
+}
+
+.in-progress-board__section--moving .in-progress-board__dot,
+.in-progress-board__section--all .in-progress-board__dot {
+    background: var(--color-success-text);
+}
+
+.in-progress-board__section-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.in-progress-board__count {
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    font-size: var(--font-size-xs);
+}
+
+.in-progress-board__hint,
+.in-progress-board__nothing {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.in-progress-task {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md) var(--spacing-lg);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.in-progress-task.repo-mark {
+    padding-left: calc(var(--spacing-md) + var(--border-width-4));
+}
+
+.in-progress-task--loose {
+    border-style: dashed;
+    background: transparent;
+}
+
+.in-progress-task__facts {
+    display: flex;
+    flex: 1 1 18rem;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.in-progress-task__links {
+    flex: 2 1 32rem;
+}
+
+.in-progress-task__top,
+.in-progress-task__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.in-progress-task__status {
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.in-progress-task--finished .in-progress-task__status {
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+}
+
+.in-progress-task__plan {
+    color: var(--color-primary-light);
+    font-family: var(--font-family-mono);
+}
+
+.in-progress-task__effort {
+    font-family: var(--font-family-mono);
+}
+
+.in-progress-task__title {
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.in-progress-task__title--opens {
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.in-progress-task__title--opens:hover {
+    text-decoration: underline;
+}
+
+.in-progress-task__title--opens:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width-2);
+}
+
+.in-progress-task__due--overdue {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+}
+
+.in-progress-loose__text {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+}
+
+.in-progress-loose__link {
+    align-self: flex-start;
+}
+
+.in-progress-loose__item {
+    display: flex;
+    flex: 2 1 32rem;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}

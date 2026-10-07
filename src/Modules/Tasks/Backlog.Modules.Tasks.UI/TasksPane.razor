@@ -1187,6 +1187,16 @@
     [Parameter]
     public EventCallback<DevbookReferenceRequest> OnOpenDevbookReference { get; set; }
 
+    /// <summary>
+    /// The "Sessions and pull requests" section of the detail pane, drawn by the
+    /// host for the selected entry above its body. The host's because the cards
+    /// carry what the Sessions context and GitHub say about the work — titles, last
+    /// activity, checks — and this pane may reach neither. Unset, the pane draws no
+    /// section and the footer's work badges are the record, as before.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<EntryRow>? LinkedWork { get; set; }
+
     /// <summary>The session opener handed to the link, or none when the host wired
     /// nothing, so an unopenable session is inert text.</summary>
     private EventCallback<IntegrationLinkRef> SessionOpener =>
@@ -2916,6 +2926,12 @@
                     @RenderEntrySchedule(row)
                 </Details>
                 <Body>
+                    @* Above the body, under the fields: the work on the entry is read
+                       before its text and acted on from here — opened, or linked. *@
+                    @if (LinkedWork is not null && row.IsPersisted)
+                    {
+                        @LinkedWork(row)
+                    }
                     @RenderBodyViews(row)
                 </Body>
                 <Footer>

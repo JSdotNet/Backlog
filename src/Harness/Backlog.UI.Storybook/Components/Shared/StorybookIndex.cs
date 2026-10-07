@@ -328,6 +328,9 @@ internal static class StorybookIndex
             new("integrations", "Availability and lifecycle", "Whether the product can perform an outward act at all, and if not why, plus the five states one act moves through. The substrate the other four pages are built on.", Exact: true),
             new("integrations/actions", "Actions", "The six acts the product performs on an external tool, the two hand-offs to an agent session, and which of them wear a provider mark."),
             new("integrations/references", "References", "Issues, pull requests and agent sessions that live outside the product: their state, their drift against local truth, and when it was last read."),
+            // After the references: a work card is a session or a pull request with
+            // more said about it, beside the task it worked on.
+            new("integrations/work", "Work cards", "WorkSessionCard, WorkPullRequestCard, WorkLinks, WorkLinksPanel and WorkLinkPicker: a session or a pull request as a card beside its task, the two columns that say None yet, the side panel section, and the picker behind linking one to a task."),
             new("integrations/density", "Density and overflow", "The same acts as a header toolbar, an inline row, an icon-only cluster and a set of menu items, and how the budget decides which."),
             new("integrations/ai", "AI in the document", "Rewriting a block and resolving a comment, attached to the comment model that already exists."),
 
@@ -363,7 +366,10 @@ internal static class StorybookIndex
             new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order — derived, edited, and wired by dragging."),
             // Last in the group: a second layout of the tasks the pages above
             // introduce, read once a task and its states are known.
-            new("task-list/calendar", "Task calendar", "TaskCalendar: a month of tasks by due date — Monday-first whole weeks, today ringed with its My Day count, two chips a day and the rest behind +N more, overdue and done drawn apart, and a tray of undated tasks to drag onto a day.")
+            new("task-list/calendar", "Task calendar", "TaskCalendar: a month of tasks by due date — Monday-first whole weeks, today ringed with its My Day count, two chips a day and the rest behind +N more, overdue and done drawn apart, and a tray of undated tasks to drag onto a day."),
+            // After the calendar: a view of tasks with their work cards, which the Integrations
+            // chapter introduced above.
+            new("task-list/in-progress", "In progress", "InProgressBoard: every task in progress with the sessions and pull requests linked to it, in sections by what needs the person, and the work no task links yet.")
         ]),
 
         // Its own chapter for the same reason Task list is: two components, one

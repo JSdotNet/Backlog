@@ -1,0 +1,77 @@
+@*
+    A task's sessions and pull requests as a section of its side panel: a small
+    heading, "Open in In progress" beside it, the same cards the In progress view
+    draws, and "Link a session or pull request…" under them.
+
+    The section is always drawn for a saved task, empty or not: the link action is
+    how a task with nothing on it gets something, and "None yet" says the task was
+    looked at rather than that the panel forgot to ask.
+
+    Each control is offered only while the host listens for it, on the rule the
+    cards follow.
+*@
+<section class="@ClassValue" aria-labelledby="@_headingId" data-testid="@TestId">
+    <div class="work-links-panel__header">
+        <h3 class="work-links-panel__heading" id="@_headingId">Sessions and pull requests</h3>
+        @if (OnOpenInProgress.HasDelegate)
+        {
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       CssClass="work-links-panel__open"
+                       TestId="work-links-open-in-progress"
+                       OnClick="() => OnOpenInProgress.InvokeAsync()">Open in In progress</AppButton>
+        }
+    </div>
+
+    <WorkLinks Sessions="Sessions"
+               PullRequests="PullRequests"
+               OnOpenSession="OnOpenSession"
+               OnOpenPullRequest="OnOpenPullRequest"
+               Stacked="true" />
+
+    @if (OnLink.HasDelegate)
+    {
+        <AppButton Variant="ButtonVariant.Secondary"
+                   Size="ButtonSize.Small"
+                   CssClass="work-links-panel__link"
+                   TestId="work-links-link"
+                   Busy="Busy"
+                   OnClick="() => OnLink.InvokeAsync()">Link a session or pull request…</AppButton>
+    }
+</section>
+
+@code {
+    private readonly string _headingId = "work-links-" + Guid.NewGuid().ToString("N")[..8];
+
+    [Parameter]
+    public IReadOnlyList<WorkSession> Sessions { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<WorkPullRequest> PullRequests { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<WorkSession> OnOpenSession { get; set; }
+
+    [Parameter]
+    public EventCallback<WorkPullRequest> OnOpenPullRequest { get; set; }
+
+    /// <summary>"Open in In progress": the host's view of every task's work.</summary>
+    [Parameter]
+    public EventCallback OnOpenInProgress { get; set; }
+
+    /// <summary>"Link a session or pull request…": the host opens its picker.</summary>
+    [Parameter]
+    public EventCallback OnLink { get; set; }
+
+    /// <summary>While a link the host started is still being written.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "work-links-panel";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "work-links-panel" : $"work-links-panel {CssClass}";
+}

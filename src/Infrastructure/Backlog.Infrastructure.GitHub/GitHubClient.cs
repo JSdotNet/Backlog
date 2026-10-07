@@ -417,6 +417,8 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 title
                 url
                 isDraft
+                additions
+                deletions
                 headRefName
                 headRefOid
                 baseRefName
@@ -1149,9 +1151,18 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             Labels = ReadConnectionLabelNames(pull),
             CheckCounts = ReadCheckCounts(pull),
             Reviews = ReadReviews(pull),
-            ClosingIssues = ReadClosingIssues(pull)
+            ClosingIssues = ReadClosingIssues(pull),
+            Additions = Count(pull, "additions"),
+            Deletions = Count(pull, "deletions")
         };
     }
+
+    /// <summary>A non-negative whole number under <paramref name="name"/>, or null
+    /// where it is absent or not one.</summary>
+    private static int? Count(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.TryGetInt32(out var count) && count >= 0
+            ? count
+            : null;
 
     /// <summary>A GraphQL <c>labels { nodes { name } }</c>, as names; absent or
     /// refused is none.</summary>
