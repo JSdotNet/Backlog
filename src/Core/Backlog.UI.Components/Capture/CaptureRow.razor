@@ -1,0 +1,119 @@
+@*
+    One of the phone's own captures on its Inbox tab: a card that opens the
+    whole capture, and where it stands on its way to the desktop.
+
+    It offers no act on the capture. The phone never triages — no Today, Later,
+    To note or delete here: deciding what a capture becomes is the desktop's job
+    (.devbook/domain/inbox/features.md#triage-stays-on-the-desktop). The one
+    button a row can carry is Retry, on a capture the outbox has stopped
+    retrying by itself, and retrying sends it rather than deciding anything.
+
+    The state is said in words on a badge, never by colour alone: Waiting while
+    the phone still holds it, "Waiting — tap to retry" once it has given up on
+    its own, Sent once cloud sync has it.
+*@
+
+<article class="@ClassValue" data-testid="@TestId" data-state="@StateSlug" @attributes="AdditionalAttributes">
+    <AppButton BaseClass="capture-row__open" Variant="ButtonVariant.None" id="@Id"
+               aria-label="@($"Open {Title}")" OnClick="OpenAsync" Disabled="@(!OnOpen.HasDelegate)"
+               TestId="@PartTestId("open")">
+        <span class="capture-row__title" data-testid="@PartTestId("title")">@Title</span>
+        @if (!string.IsNullOrWhiteSpace(Preview))
+        {
+            <span class="capture-row__preview" data-testid="@PartTestId("preview")">@Preview</span>
+        }
+        <span class="capture-row__meta">
+            @if (CaptureKinds.IsRecognised(Kind))
+            {
+                <CaptureKindMarker Value="@Kind" />
+                <span>@CaptureKinds.Label(Kind!)</span>
+                <span aria-hidden="true">·</span>
+            }
+            <span data-testid="@PartTestId("time")">@Time</span>
+        </span>
+    </AppButton>
+
+    <div class="capture-row__state">
+        @if (State == CaptureSyncState.Stuck)
+        {
+            <AppButton Size="ButtonSize.Small" CssClass="capture-row__retry"
+                       aria-label="@($"Waiting — tap to retry {Title}")" title="@StuckReason"
+                       OnClick="RetryAsync" TestId="@PartTestId("retry")">Waiting — tap to retry</AppButton>
+        }
+        else if (State == CaptureSyncState.Waiting)
+        {
+            <Badge Kind="sync" Slug="waiting" Title="Kept on this phone until cloud sync takes it"
+                   TestId="@PartTestId("state")">Waiting</Badge>
+        }
+        else
+        {
+            <Badge Kind="sync" Slug="sync" Title="Cloud sync has it; the desktop takes it in from there"
+                   TestId="@PartTestId("state")">Sent</Badge>
+        }
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>The capture kind token (<see cref="CaptureKinds"/>). A value the
+    /// marker does not know draws no mark and no word.</summary>
+    [Parameter]
+    public string? Kind { get; set; }
+
+    /// <summary>When it was captured, as the host words it: "3m ago".</summary>
+    [Parameter]
+    public string? Time { get; set; }
+
+    /// <summary>The first line of its body. Left out when empty.</summary>
+    [Parameter]
+    public string? Preview { get; set; }
+
+    [Parameter]
+    public CaptureSyncState State { get; set; } = CaptureSyncState.Sent;
+
+    /// <summary>Why the last send failed, as the retry button's tooltip.</summary>
+    [Parameter]
+    public string? StuckReason { get; set; }
+
+    [Parameter]
+    public EventCallback OnOpen { get; set; }
+
+    [Parameter]
+    public EventCallback OnRetry { get; set; }
+
+    /// <summary>The id on the open button, so a sheet opened from it can give
+    /// focus back.</summary>
+    [Parameter]
+    public string? Id { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The test id on the row. Its parts get <c>{TestId}-open</c>,
+    /// <c>-title</c>, <c>-preview</c>, <c>-time</c>, <c>-state</c> and <c>-retry</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string StateSlug => State.ToString().ToLowerInvariant();
+
+    private string ClassValue
+    {
+        get
+        {
+            var state = $" capture-row--{StateSlug}";
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"capture-row{state}{extra}";
+        }
+    }
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+
+    private Task OpenAsync() => OnOpen.InvokeAsync();
+
+    private Task RetryAsync() => OnRetry.InvokeAsync();
+}

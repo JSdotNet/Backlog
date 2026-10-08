@@ -1,0 +1,129 @@
+@*
+    One note being written on a phone: the way back to the list and the line
+    saying whether the note has landed along the top, then the title, when it
+    last changed, and the Markdown body — the page is the note, so neither field
+    wears a box or a visible label, and each is named for a screen reader.
+
+    There is no save button (interaction-guidelines.md#auto-save-no-save-buttons):
+    the host saves on its own and says so through State. A saved note the phone
+    has not handed to sync yet says "Waiting to sync" rather than "Saved", in the
+    same place and the same quiet colour, because both mean the words are safe
+    here.
+
+    Tools holds the host's ways of adding to the note — dictation, a photo, a
+    file — under the body where a thumb reaches them; ChildContent holds what
+    those produce, such as the files attached, and any message about them.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <div class="note-editor__bar">
+        <a class="note-editor__back" href="@BackHref" aria-label="@($"Back to {BackLabel}")" data-testid="@PartTestId("back")">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <path d="M15 6l-6 6 6 6" />
+            </svg>
+            <span>@BackLabel</span>
+        </a>
+        <SaveIndicator State="State" SavedText="@(Waiting ? WaitingText : SavedText)"
+                       CssClass="note-editor__save" data-waiting="@(Waiting ? "true" : "false")"
+                       TestId="@PartTestId("save")" />
+    </div>
+
+    <TextField Value="@Title" ValueChanged="TitleChanged" AriaLabel="Title" Placeholder="@TitlePlaceholder"
+               CssClass="note-editor__title" InputCssClass="note-editor__title-input" Disabled="Disabled"
+               @onblur="BlurAsync" TestId="@PartTestId("title")" />
+
+    @if (!string.IsNullOrWhiteSpace(When))
+    {
+        <span class="note-editor__when" data-testid="@PartTestId("when")">@When</span>
+    }
+
+    <TextArea Value="@Body" ValueChanged="BodyChanged" AriaLabel="Note" Placeholder="@BodyPlaceholder" Rows="8"
+              CssClass="note-editor__body" Disabled="Disabled" @onblur="BlurAsync" TestId="@PartTestId("body")" />
+
+    @if (Tools is not null)
+    {
+        <div class="note-editor__tools" role="group" aria-label="Add to the note" data-testid="@PartTestId("tools")">
+            @Tools
+        </div>
+    }
+
+    @ChildContent
+</div>
+
+@code {
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public EventCallback<string> TitleChanged { get; set; }
+
+    /// <summary>Markdown.</summary>
+    [Parameter]
+    public string? Body { get; set; }
+
+    [Parameter]
+    public EventCallback<string> BodyChanged { get; set; }
+
+    /// <summary>When the note last changed, already worded. Left out for a note
+    /// that has not been saved yet.</summary>
+    [Parameter]
+    public string? When { get; set; }
+
+    [Parameter]
+    public SaveState State { get; set; } = SaveState.Idle;
+
+    /// <summary>Saved here and not yet taken by sync. Changes the Saved line's
+    /// words, never its place.</summary>
+    [Parameter]
+    public bool Waiting { get; set; }
+
+    [Parameter]
+    public string SavedText { get; set; } = "Saved";
+
+    [Parameter]
+    public string WaitingText { get; set; } = "Waiting to sync";
+
+    [Parameter]
+    public string BackHref { get; set; } = "notes";
+
+    [Parameter]
+    public string BackLabel { get; set; } = "Notes";
+
+    [Parameter]
+    public string TitlePlaceholder { get; set; } = "Title";
+
+    [Parameter]
+    public string BodyPlaceholder { get; set; } = "Write — Markdown works";
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>Raised when the title or the body loses focus: the moment a host
+    /// flushes a pending save rather than waiting out its debounce.</summary>
+    [Parameter]
+    public EventCallback OnBlur { get; set; }
+
+    [Parameter]
+    public RenderFragment? Tools { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The test id on the editor. Its parts get <c>{TestId}-back</c>,
+    /// <c>-save</c>, <c>-title</c>, <c>-when</c>, <c>-body</c> and <c>-tools</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "note-editor" : $"note-editor {CssClass}";
+
+    private Task BlurAsync() => OnBlur.InvokeAsync();
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+}

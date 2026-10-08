@@ -150,7 +150,29 @@ internal static class StorybookIndex
             // tabs along the bottom and the sync line in the title bar. It draws
             // nothing but its own two components, so it could sit anywhere after
             // Buttons; it sits with navigation because the tab bar is navigation.
-            new("app-shell", "App shell", "TabBar and SyncStatusLine: the destinations along the bottom of the phone, and where its sync stands.")
+            new("app-shell", "App shell", "TabBar and SyncStatusLine: the destinations along the bottom of the phone, and where its sync stands."),
+
+            // After App shell: the parts of the page the phone opens on, inside
+            // that chrome. Its own page and not a row on Task list, because a day
+            // read at a glance — a share, the task on now, a row that ticks and
+            // opens as two targets — is a convention of its own. It draws only its
+            // own three components and the Badge a row's trailing slot holds,
+            // which Badges introduced above.
+            new("today", "Today", "DayProgress, NowCard and DayTaskRow: how far through the day the person is, the task the day is on, and every other task picked for it."),
+
+            // After Today, because it is where a Today row and the card's Details
+            // lead. Its own page rather than more stories on Today: a task read
+            // whole, with its steps as a checklist and the footer's two edits, is
+            // a different subject from a day read at a glance. It draws only its
+            // own component.
+            new("task-detail", "Task detail", "DayTaskDetail: one task opened from the phone's day — its chips, its steps as a checklist, its own text, Move to tomorrow and Mark done."),
+
+            // After Task detail, because its Focus on this is the way in. Its own
+            // page rather than another story there: a countdown to the end of a
+            // block, worked through a step at a time, is a subject of its own. It
+            // draws only its own component; DayStep, its input, was introduced
+            // with Task detail above.
+            new("focus", "Focus", "DayFocus: one timed task worked on now — a ring counting down to the end of its block, the current step, and Step done or Complete task.")
         ]),
 
         // Ahead of Content because Content composes it: a document that saves says
@@ -160,7 +182,14 @@ internal static class StorybookIndex
         new("Feedback",
         [
             new("feedback", "Feedback", "Alert, EmptyState, SetupSteps, FlowSteps, Spinner, Skeleton, SaveIndicator, Toast, ToastTray."),
-            new("overlays", "Overlays", "Modal and ConfirmDialog.")
+            new("overlays", "Overlays", "Modal and ConfirmDialog."),
+
+            // After Overlays: the phone's capture sheet is a sheet over the
+            // screen it was opened from, and the row beside it is how what it
+            // sent reads on the Inbox tab. Its own page, not a story on Today,
+            // because it draws an Alert and the AttachmentStrip a host fills it
+            // with, and Alert is introduced on Feedback just above.
+            new("capture", "Capture", "CaptureSheet and CaptureRow: one thought sent to the Inbox, kept as a note or added to today, and how one of the phone's own captures reads while it makes its way to the desktop.")
         ]),
 
         // The base content items — what a snippet, a table, a diagram and a block
@@ -393,6 +422,16 @@ internal static class StorybookIndex
             new("markdown-document", "Markdown document", "MarkdownDocument and every option a read view takes: a way into the editor, a copy button, comments inline and comments in the margin."),
             new("folder-view", "Folder view", "FolderView with all of its options: a folder's header, and what is in it as a tree."),
             new("entry-edit", "Entry edit", "The same markdown being written: source beside read view, auto-save, task toggling, sub-items."),
+
+            // After Entry edit: a note being written on a phone is the same
+            // auto-save without a save button, at a phone's width and with a
+            // phone's tools. Its own page because a list a search narrows and an
+            // editor whose only word on saving is one line are a convention of
+            // their own. It draws its own two components and the SearchBox,
+            // EmptyState, SaveIndicator, ToggleButton, AppButton and
+            // AttachmentStrip pages above introduce — which is why it is here and
+            // not beside Today, above Feedback.
+            new("notes", "Notes", "NoteRow and NoteEditor: a list of notes newest first that a search narrows, and one note being written that saves on its own."),
             new("compare", "Section comparison",
                 "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it — aligned by heading, never by line.")
         ])

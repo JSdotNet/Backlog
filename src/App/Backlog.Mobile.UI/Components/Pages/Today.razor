@@ -1,0 +1,244 @@
+@page "/"
+@using System.Globalization
+@using Backlog.Mobile.UI.Tasks
+@inject TaskViewProjection View
+@inject TaskEdits Edits
+@inject DeviceOutbox Outbox
+@inject SyncStatusTracker Status
+@inject AppLifecycle Lifecycle
+@inject TimeProvider Clock
+@implements IDisposable
+
+@*
+    Today: the day at a glance, and what the app opens on. Today's My Day split
+    the way .devbook/domain/tasks/features.md#my-day splits it — the task on now
+    (or next), then Agenda, Anytime today and Done today — under a line saying
+    how far through it the person is.
+
+    Each row ticks itself off and back on through TaskEdits, and opens the task's
+    own page. Nothing else about a task is changed here. Adding is the capture
+    button's, which opens the capture sheet over this screen.
+*@
+
+<PageTitle>Today</PageTitle>
+
+<header class="today-heading">
+    <div class="today-heading__titles">
+        <span class="today-heading__date" data-testid="today-date">@DateLabel</span>
+        <h1>Today</h1>
+    </div>
+    <IconButton AriaLabel="Refresh Today" Title="Refresh Today" Disabled="_refreshing"
+                OnClick="RefreshAsync" CssClass="today-heading__refresh" TestId="tasks-refresh">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M13.25 8a5.25 5.25 0 1 1-1.54-3.71" />
+            <path d="M13.25 2.75v2.5h-2.5" />
+        </svg>
+    </IconButton>
+</header>
+
+@if (_pullNotice is not null)
+{
+    <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="tasks-pull-notice" />
+}
+
+@{
+    var plan = Plan;
+}
+
+<div class="today" data-testid="today">
+
+@if (plan.Total == 0)
+{
+    <EmptyState Title="Nothing picked for today"
+                Description="Pick tasks for today on the desktop, or add one with the capture button."
+                TestId="tasks-empty" />
+}
+else
+{
+    <DayProgress Done="plan.Done.Count" Total="plan.Total" CssClass="today__progress" TestId="today-progress" />
+
+    @if (plan.Card is { } card)
+    {
+        var steps = Steps(card.Task.Task);
+
+        <NowCard Kicker="@CardKicker(card)" Current="card.IsNow" Title="@card.Task.Task.Title"
+                 NextStep="@NextStep(steps)" StepsDone="@DoneCount(steps)" StepsTotal="@steps.Count"
+                 DetailsHref="@TaskHref(card.Task.Id)" FocusHref="@($"{TaskHref(card.Task.Id)}/focus")"
+                 CssClass="today__card" TestId="today-card" />
+    }
+
+    @Group("Agenda", "agenda", plan.Agenda)
+    @Group("Anytime today", "anytime", plan.Anytime)
+    @Group("Done today", "done", plan.Done)
+}
+</div>
+
+<a class="today__capture" href="capture" aria-label="Capture" data-testid="today-capture">
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.4"
+         stroke-linecap="round" aria-hidden="true" focusable="false">
+        <path d="M12 5v14M5 12h14" />
+    </svg>
+</a>
+
+@code {
+    private string? _pullNotice;
+    private bool _refreshing;
+    private ITimer? _tick;
+
+    /// <summary>Read afresh each render, so a pick that lapsed at midnight is gone
+    /// and the card moves on when a block ends, without anything having to notice.</summary>
+    private TodayPlan Plan
+    {
+        get
+        {
+            var now = Clock.GetLocalNow();
+            return TodayPlan.For(View.Day(View.Today), TimeOnly.FromDateTime(now.DateTime));
+        }
+    }
+
+    /// <summary>The phone's own date, as the person reads it: "Wednesday 7 October".</summary>
+    private string DateLabel => Clock.GetLocalNow().ToString("dddd d MMMM", CultureInfo.CurrentCulture);
+
+    protected override Task OnInitializedAsync()
+    {
+        View.Changed += OnChanged;
+        Outbox.Changed += OnChanged;
+        Outbox.Delivered += OnDelivered;
+        Lifecycle.Resumed += OnResumed;
+
+        // Now moves on its own. Drawn again every half minute so the card follows
+        // the clock to the minute its kicker shows.
+        _tick = Clock.CreateTimer(_ => OnChanged(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+
+        return RefreshAsync();
+    }
+
+    public void Dispose()
+    {
+        View.Changed -= OnChanged;
+        Outbox.Changed -= OnChanged;
+        Outbox.Delivered -= OnDelivered;
+        Lifecycle.Resumed -= OnResumed;
+        _tick?.Dispose();
+    }
+
+    private RenderFragment Group(string title, string slug, IReadOnlyList<TaskViewRow> rows) => __builder =>
+    {
+        if (rows.Count == 0) return;
+
+        <section class="today__group" aria-labelledby="@($"today-{slug}")" data-testid="@($"today-{slug}")">
+            <h2 class="today__group-title" id="@($"today-{slug}")">@title</h2>
+            <ul class="today__list">
+                @foreach (var row in rows)
+                {
+                    var task = row.Task;
+                    var pending = Edits.Pending(row.Id);
+
+                    <li @key="row.Id">
+                        <DayTaskRow Title="@task.Title" Meta="@Meta(row)" Done="@TodayPlan.IsTicked(row)"
+                                    Href="@TaskHref(row.Id)" OnToggle="done => ToggleAsync(row.Id, done)"
+                                    data-waiting="@(pending is null ? "false" : "true")" TestId="task-row">
+                            <Trailing>
+                                @if (pending is { IsParked: true } parked)
+                                {
+                                    <AppButton Size="ButtonSize.Small" aria-label="@($"Waiting — tap to retry {task.Title}")"
+                                               title="@parked.LastError" OnClick="() => Outbox.RetryAsync(parked.Id)"
+                                               TestId="task-retry">Retry</AppButton>
+                                }
+                                else if (pending is not null)
+                                {
+                                    <Badge Kind="sync" Slug="waiting" Title="Kept on this phone until cloud sync takes it"
+                                           TestId="task-waiting">Waiting</Badge>
+                                }
+                            </Trailing>
+                        </DayTaskRow>
+                    </li>
+                }
+            </ul>
+        </section>
+    };
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnResumed() => _ = InvokeAsync(RefreshAsync);
+
+    /// <summary>The replica has the write now; the pull brings back its own copy,
+    /// which replaces the one this phone wrote.</summary>
+    private void OnDelivered(OutboxEntry entry)
+    {
+        if (entry.Kind == TaskOutboxKind.Token) _ = InvokeAsync(RefreshAsync);
+    }
+
+    /// <summary>
+    /// Pulls what changed since the last pull. A failure keeps the day on screen
+    /// and says why in one line — the fold is still what the phone last heard, and
+    /// a tick made now is kept and sent when the service answers.
+    /// </summary>
+    private async Task RefreshAsync()
+    {
+        if (_refreshing) return;
+        _refreshing = true;
+
+        try
+        {
+            await View.PullAsync();
+            _pullNotice = null;
+            Status.RecordSynced();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var reason = ex is SyncUnavailableException { Code: "sync.replica_unavailable" }
+                ? "Cloud sync is still starting up."
+                : "Cloud sync can't be reached.";
+
+            _pullNotice = $"{reason} Showing today as this phone last saw it. Changes are kept here and sent when it answers.";
+            Status.RecordUnreachable();
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private Task ToggleAsync(Guid id, bool done) =>
+        done ? Edits.MarkDoneAsync(id) : Edits.MarkUndoneAsync(id);
+
+    private static string TaskHref(Guid id) => $"tasks/{id}";
+
+    private static string CardKicker(TodayCard card) =>
+        card.IsNow ? $"Now · until {Clock24(card.Time.End)}" : $"Next · {Clock24(card.Time.Start)}";
+
+    /// <summary>
+    /// The row's one line of facts, in the order a metadata line keeps them
+    /// (<c>.devbook/design/typography-and-layout.md#metadata-lines</c>): the area
+    /// it belongs to, how far through its steps it is, then when it runs.
+    /// </summary>
+    private static string? Meta(TaskViewRow row)
+    {
+        var parts = new List<string>(3);
+
+        if (!string.IsNullOrWhiteSpace(row.Task.Area)) parts.Add(row.Task.Area);
+
+        var steps = Steps(row.Task);
+        if (steps.Count > 0) parts.Add($"{DoneCount(steps)} of {steps.Count} steps");
+
+        if (row.AgendaTime is { } time) parts.Add($"{Clock24(time.Start)}–{Clock24(time.End)}");
+
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
+
+    private static string Clock24(TimeOnly time) => time.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    private static IReadOnlyList<SubItemPayload> Steps(TaskPayload task) =>
+        [.. (task.SubItems ?? []).OrderBy(step => step.Order)];
+
+    private static string? NextStep(IReadOnlyList<SubItemPayload> steps) =>
+        steps.FirstOrDefault(step => !IsDone(step.Status))?.Title;
+
+    private static bool IsDone(string? status) => string.Equals(status, "done", StringComparison.OrdinalIgnoreCase);
+
+    private static int DoneCount(IReadOnlyList<SubItemPayload> steps) => steps.Count(step => IsDone(step.Status));
+}

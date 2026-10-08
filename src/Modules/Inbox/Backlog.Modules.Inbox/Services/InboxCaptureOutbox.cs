@@ -20,8 +20,12 @@ internal sealed class InboxCaptureOutbox(IInboxItemRepository items) : IInboxCap
         return
         [
             .. pending
-                .Select(item => new InboxCaptureAckDto(item.Id, item.Title, item.CapturedAt, item.UpdatedAt))
-                .Concat(deleted.Select(capture => new InboxCaptureAckDto(capture.Id, capture.Title, capture.CapturedAt, capture.DeletedAt)))
+                // A note's tombstone carries the note's own stamp, the one its
+                // live copy went out under, so it is the later of the two.
+                .Select(item => new InboxCaptureAckDto(
+                    item.Id, item.Title, item.CapturedAt, item.IsNote ? item.EditedAt : item.UpdatedAt, item.KindSlug))
+                .Concat(deleted.Select(capture => new InboxCaptureAckDto(
+                    capture.Id, capture.Title, capture.CapturedAt, capture.DeletedAt, capture.Kind)))
                 .OrderBy(ack => ack.AcknowledgedAt),
         ];
     }

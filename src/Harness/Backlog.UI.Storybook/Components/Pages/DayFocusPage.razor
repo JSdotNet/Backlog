@@ -1,0 +1,103 @@
+@page "/focus"
+
+<PageTitle>Focus — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Focus"
+           Summary="DayFocus: one timed task worked on now — a ring counting down to the end of its agenda block, the step being worked on, the steps in order, and the one thing to do next."
+           Guidelines="@Rules">
+
+    <Story Name="Block running"
+           Description="Twenty-eight minutes left of a 45-minute block, so the ring is a little under two-thirds full. The current step is the first one not ticked. The steps are live here: Step done ticks the current one and the next becomes current; once none is left the button reads Complete task.
+
+The host reads the clock and hands in what is left; on the phone the time and the ring move every second."
+           Code="@RunningCode">
+        <div class="sb-phone">
+            <DayFocus Title="Write sync conflict tests" HeadingLevel="3" BackHref="#block-running" DetailsHref="#block-running"
+                      Area="Sync" Until="11:30" Remaining="@(TimeSpan.FromSeconds(28 * 60 + 40))" Left="@(1720d / 2700d)"
+                      Steps="_steps" OnStepDone="StepDone" OnComplete="() => _steps = [.. Steps]"
+                      CaptureHref="#block-running" TestId="story-focus-running" />
+        </div>
+    </Story>
+
+    <Story Name="Over time"
+           Description="The block ended three minutes ago and the step is not done. The ring turns to the error foreground and the middle reads Over by 03:12 — the words say it, the colour only repeats it. Nothing stops: the task is still the person's to finish."
+           Code="@OverCode">
+        <div class="sb-phone">
+            <DayFocus Title="Write sync conflict tests" HeadingLevel="3" BackHref="#over-time" DetailsHref="#over-time"
+                      Area="Sync" Until="11:30" Remaining="@(TimeSpan.FromSeconds(-192))" Left="0"
+                      Steps="OverSteps" OnStepDone="_ => { }" OnComplete="() => { }"
+                      CaptureHref="#over-time" TestId="story-focus-over" />
+        </div>
+    </Story>
+
+    <Story Name="Every step done"
+           Description="No step is left, so the primary action is Complete task, which on the phone marks the task done and goes back to Today. A task with no steps at all shows the same button and no step list."
+           Code="@DoneCode">
+        <div class="sb-phone">
+            <DayFocus Title="Prepare the sprint review" HeadingLevel="3" BackHref="#every-step-done" DetailsHref="#every-step-done"
+                      Area="Planning" Until="14:45" Remaining="@(TimeSpan.FromMinutes(12))" Left="@(12d / 45d)"
+                      Steps="AllDoneSteps" OnStepDone="_ => { }" OnComplete="() => { }"
+                      CaptureHref="#every-step-done" TestId="story-focus-done" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly IReadOnlyList<DayStep> Steps =
+    [
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000101"), "List the conflict cases from the spec", true),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000102"), "Cover the offline-edit case", false),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000103"), "Cover two devices editing one task", false),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000104"), "Cover delete versus edit", false),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000105"), "Run the suite and push", false)
+    ];
+
+    private List<DayStep> _steps = [.. Steps];
+
+    private static readonly IReadOnlyList<DayStep> OverSteps =
+    [
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000111"), "List the conflict cases from the spec", true),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000112"), "Cover the offline-edit case", true),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000113"), "Cover two devices editing one task", false)
+    ];
+
+    private static readonly IReadOnlyList<DayStep> AllDoneSteps =
+    [
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000121"), "Collect the merged pull requests", true),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000122"), "Draft the demo order", true),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000123"), "Send the agenda", true)
+    ];
+
+    private void StepDone(DayStep changed) =>
+        _steps = [.. _steps.Select(step => step.Id == changed.Id ? changed : step)];
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("accessibility.md#target-sizes-and-text", "How large Back, Task details, the primary action and Capture have to be under a thumb."),
+        new("interaction-guidelines.md#task-rows", "What ticking a step does, and why the phone changes so little of a task."),
+        new("interaction-guidelines.md#optimistic-ui", "Why a ticked step shows at once, before cloud sync has it."),
+        new("color-scheme.md#badge-and-chip-tones", "Why the ring and the current step wear the accent, and a ticked step the success foreground.")
+    ];
+
+    private const string RunningCode = """
+        <DayFocus Title="Write sync conflict tests" BackHref="" DetailsHref="tasks/{id}"
+                  Area="Sync" Until="11:30" Remaining="remaining" Left="left"
+                  Steps="steps" OnStepDone="StepDoneAsync" OnComplete="CompleteAsync"
+                  CaptureHref="capture?from=tasks%2F{id}%2Ffocus" />
+        """;
+
+    private const string OverCode = """
+        <DayFocus Title="Write sync conflict tests" BackHref="" DetailsHref="tasks/{id}"
+                  Area="Sync" Until="11:30" Remaining="TimeSpan.FromSeconds(-192)" Left="0"
+                  Steps="steps" OnStepDone="StepDoneAsync" OnComplete="CompleteAsync"
+                  CaptureHref="capture?from=tasks%2F{id}%2Ffocus" />
+        """;
+
+    private const string DoneCode = """
+        <DayFocus Title="Prepare the sprint review" BackHref="" DetailsHref="tasks/{id}"
+                  Area="Planning" Until="14:45" Remaining="remaining" Left="left"
+                  Steps="steps" OnStepDone="StepDoneAsync" OnComplete="CompleteAsync"
+                  CaptureHref="capture?from=tasks%2F{id}%2Ffocus" />
+        """;
+}

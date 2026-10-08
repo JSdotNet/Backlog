@@ -1,0 +1,462 @@
+@page "/capture"
+@using System.Reflection
+@using Backlog.Mobile.UI.Notes
+@using Backlog.Mobile.UI.Tasks
+@using Backlog.Mobile.UI.TalkNotes
+@inject DeviceOutbox Outbox
+@inject NoteViewProjection Notes
+@inject TaskViewProjection Tasks
+@inject TalkNoteFiles Files
+@inject TalkNoteComposer Composer
+@inject IAttachmentPicker Picker
+@inject ISpeechTranscriber Speech
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+@*
+    Quick capture: one thought, sent to the Inbox (the default), kept as a
+    note, or added to today — over the screen it was opened from, which is
+    drawn behind the sheet and is where Cancel, a tap outside or Escape go back
+    to. The opener names itself in `from` by its route ("" for Today, "inbox",
+    "tasks/{id}/focus"); anything that is not one of this app's own pages —
+    a route with an id must match one of the app's own templates, the id
+    included — goes back to Today.
+
+    Each choice goes through the path that already exists for it, so the sheet
+    adds no way of sending anything: the Inbox through the outbox's quick
+    capture — a talk-note entry when a photo goes with it, since that is the
+    capture kind that uploads files first — a note through NoteViewProjection,
+    and Today through TaskViewProjection's My Day add.
+
+    A save keeps the sheet open and clears it, and the status line says where
+    the last one went. The choice stays: the next thought is usually the same
+    kind as the last. Focus is the exception: a thought caught while working on
+    one task is set down and the task taken up again, so a save from Focus goes
+    back to Focus.
+*@
+
+<PageTitle>Capture</PageTitle>
+
+<CaptureSheet Target="_target" TargetChanged="OnTargetChanged"
+              @bind-Text="_text" @bind-Text:after="OnTextChanged"
+              DictationAvailable="@(_speechSupported == true)" Listening="_listening" OnDictate="OnDictateAsync"
+              PhotoAvailable="@(_target != CaptureTarget.Today)" PhotoBusy="@(_picking || _saving)" OnPhoto="PhotoAsync"
+              CanSave="CanSave" Saving="_saving" OnSave="SaveAsync" OnCancel="Leave"
+              SavedAs="_savedAs" TestId="capture-sheet">
+    @if (Picker is WebAttachmentPicker web)
+    {
+        <WebAttachmentInputs Picker="web" />
+    }
+
+    <AttachmentStrip Tiles="Tiles" OnRemove="RemoveAsync" Disabled="_saving" AriaLabel="Going with this capture"
+                     TestId="capture-sheet-attachments" />
+
+    @if (_target == CaptureTarget.Today && _photos.Count > 0)
+    {
+        <Alert Message="A task for today takes text only. Remove the photo, or save it to the Inbox or as a note."
+               Role="status" BaseClass="capture__notice" TestId="capture-sheet-photo-notice" />
+    }
+
+    @if (_speechSupported == false)
+    {
+        <Alert Message="Speech recognition is not available on this device — type instead."
+               Role="status" BaseClass="capture__notice" TestId="capture-sheet-speech-unavailable" />
+    }
+
+    @if (_speechStatus is not null)
+    {
+        <Alert Message="@_speechStatus" Role="status" BaseClass="capture__status" TestId="capture-sheet-speech-status" />
+    }
+
+    @if (_speechError is not null)
+    {
+        <Alert Message="@_speechError" BaseClass="error" TestId="capture-sheet-speech-error" />
+    }
+
+    @if (_error is not null)
+    {
+        <Alert Message="@_error" BaseClass="error" TestId="capture-sheet-error" />
+    }
+</CaptureSheet>
+
+@if (Behind is { } behind)
+{
+    @* The screen the sheet was opened over, live but out of reach: inert keeps
+       it out of the tab order and off the accessibility tree while the sheet is
+       up. After the sheet in the markup, so the sheet's heading is the first
+       one on the page and the one focus lands on. *@
+    <div class="capture-behind" inert aria-hidden="true" data-testid="capture-behind">
+        <DynamicComponent Type="behind.Page" Parameters="behind.Parameters" />
+    </div>
+}
+
+@code {
+    private const string Listening = "Listening…";
+
+    /// <summary>The route templates this app's own pages answer on, split into
+    /// segments, so a `from` that is not one of them goes nowhere but Today.
+    /// Templates without a parameter first: a literal segment wins over an id.</summary>
+    private static readonly IReadOnlyList<(string[] Segments, Type Page)> Pages = typeof(Capture).Assembly
+        .GetTypes()
+        .Where(type => type != typeof(Capture) && typeof(IComponent).IsAssignableFrom(type))
+        .SelectMany(type => type.GetCustomAttributes<RouteAttribute>().Select(route => (Segments: route.Template.Trim('/').Split('/'), Page: type)))
+        .OrderBy(page => page.Segments.Any(IsParameter))
+        .ToList();
+
+    private CaptureTarget _target = CaptureTarget.Inbox;
+    private string _text = string.Empty;
+    private CaptureTarget? _savedAs;
+    private bool _saving;
+    private string? _error;
+
+    private readonly List<DraftAttachment> _photos = [];
+    private bool _picking;
+    private bool _canTakePhoto;
+
+    private bool? _speechSupported;
+    private bool _listening;
+    private string? _speechStatus;
+    private string? _speechError;
+    private bool _disposed;
+
+    /// <summary>The page the sheet was opened from, by its route: "" is Today.</summary>
+    [SupplyParameterFromQuery(Name = "from")]
+    public string? From { get; set; }
+
+    /// <summary>The page the sheet was opened over and goes back to: Today, the
+    /// root route, for a `from` that names none of the app's pages.</summary>
+    private Opener Behind => Match(From) ?? Match(null)!;
+
+    /// <summary>Focus is one task being worked on now: a thought caught there
+    /// is set down and the task taken up again, so a save goes back.</summary>
+    private bool LeavesAfterSave => Behind.Page == typeof(FocusPage);
+
+    private bool CanSave =>
+        !_saving && _photos.All(photo => photo.Refusal is null) && _target switch
+        {
+            CaptureTarget.Today => _text.Trim().Length > 0 && _photos.Count == 0,
+            _ => _text.Trim().Length > 0 || _photos.Count > 0
+        };
+
+    private IReadOnlyList<AttachmentTile> Tiles =>
+    [
+        .. _photos.Select(photo => new AttachmentTile(
+            photo.Id.ToString("N"),
+            photo.Name,
+            AttachmentRules.Describe(photo.ContentType),
+            AttachmentRules.DescribeSize(photo.SizeBytes),
+            photo.IsPicture,
+            photo.Refusal))
+    ];
+
+    protected override void OnInitialized()
+    {
+        if (Picker is WebAttachmentPicker web) web.Unrequested += OnUnrequestedAsync;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        if (Picker is WebAttachmentPicker web) web.Unrequested -= OnUnrequestedAsync;
+
+        // Leaving while dictating must not leave the microphone on.
+        if (_listening) await Speech.StopAsync();
+
+        // A photo staged and never saved has nothing left to go with.
+        foreach (var photo in _photos) TalkNoteFiles.Discard(photo);
+    }
+
+    /// <summary>Asked after the first render, as the Inbox and the talk note
+    /// ask: prerendered on the server there is no browser to ask, and "no"
+    /// would be a lie.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _canTakePhoto = await Picker.CanTakePhotoAsync();
+        _speechSupported = await Speech.IsSupportedAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>A new choice is a new capture: the line about the last save
+    /// would now describe something else.</summary>
+    private void OnTargetChanged(CaptureTarget target)
+    {
+        _target = target;
+        _savedAs = null;
+    }
+
+    /// <summary>New words are a new capture: the line about the last save
+    /// goes, so the next save's line is news again — on screen and to a reader.</summary>
+    private void OnTextChanged()
+    {
+        if (_text.Length > 0) _savedAs = null;
+    }
+
+    private void Leave() => Navigation.NavigateTo(Behind.Route);
+
+    private async Task SaveAsync()
+    {
+        if (!CanSave) return;
+
+        // Taken before the first await: the choice and the photos are what the
+        // person saved, whatever is tapped while the save is on its way.
+        var target = _target;
+        var text = _text.Trim();
+        var photos = _photos.ToList();
+
+        _saving = true;
+        _error = null;
+
+        try
+        {
+            switch (target)
+            {
+                case CaptureTarget.Note:
+                    await SaveNoteAsync(text, photos);
+                    break;
+
+                case CaptureTarget.Today:
+                    await Tasks.AddAsync(text);
+                    break;
+
+                default:
+                    await SendToInboxAsync(text, photos);
+                    break;
+            }
+
+            _savedAs = target;
+            _text = string.Empty;
+            _photos.RemoveAll(photos.Contains);
+            _speechStatus = null;
+            _speechError = null;
+
+            if (LeavesAfterSave) Leave();
+        }
+        catch (Exception ex)
+        {
+            // Anything a projection or the outbox throws is said on the sheet:
+            // the text is still in the field, and the person can try again.
+            _error = $"Couldn't save it: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    /// <summary>
+    /// The photos are moved into the outbox folder before the note is queued,
+    /// since the note names them. If queuing fails after that, the moved files
+    /// are let go and the photos leave the sheet with them: their staged copies
+    /// are gone, and a retry that pointed at them would fail for good.
+    /// </summary>
+    private async Task SaveNoteAsync(string text, IReadOnlyList<DraftAttachment> photos)
+    {
+        var files = await Composer.PrepareAsync(photos, sendOriginals: false);
+
+        try
+        {
+            await Notes.CreateAsync(title: null, body: text, files);
+        }
+        catch
+        {
+            foreach (var file in files) Files.Release(file.Id);
+            _photos.RemoveAll(photos.Contains);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Text alone is the quick capture the Inbox's own field sends. With a photo
+    /// it is a talk-note entry, which uploads the file before the capture that
+    /// names it — the one outbox kind that carries files to the Inbox.
+    /// </summary>
+    private async Task SendToInboxAsync(string text, IReadOnlyList<DraftAttachment> photos)
+    {
+        if (photos.Count == 0)
+        {
+            var capture = CaptureOutboxKind.Create(text);
+            await Outbox.EnqueueAsync(CaptureOutboxKind.Token, capture.Id!.Value, CaptureOutboxKind.Write(capture));
+            return;
+        }
+
+        var draft = new TalkNoteDraft { Title = text };
+        draft.Attachments.AddRange(photos);
+        await Composer.SaveAsync(draft);
+    }
+
+    private async Task PhotoAsync()
+    {
+        _picking = true;
+        _error = null;
+
+        try
+        {
+            await AddAsync(_canTakePhoto ? await Picker.TakePhotoAsync() : await Picker.PickPicturesAsync());
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _error = $"Couldn't attach a photo: {ex.Message}";
+        }
+        finally
+        {
+            _picking = false;
+        }
+    }
+
+    /// <summary>Files set on the harness's input without a button press —
+    /// Playwright's way in — are taken like any other pick.</summary>
+    private Task OnUnrequestedAsync(AttachmentPick pick) => InvokeAsync(async () =>
+    {
+        await AddAsync(pick);
+        StateHasChanged();
+    });
+
+    private async Task AddAsync(AttachmentPick pick)
+    {
+        if (pick.IsError)
+        {
+            _error = pick.Error;
+            return;
+        }
+
+        foreach (var file in pick.Files)
+        {
+            try
+            {
+                _photos.Add(await Files.StageAsync(file, _photos.Count));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _error = $"Couldn't attach {file.Name}: {ex.Message}";
+            }
+        }
+
+        _savedAs = null;
+    }
+
+    private Task RemoveAsync(AttachmentTile tile)
+    {
+        var photo = _photos.Find(candidate => candidate.Id.ToString("N") == tile.Key);
+        if (photo is not null)
+        {
+            _photos.Remove(photo);
+            TalkNoteFiles.Discard(photo);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task OnDictateAsync(bool listen)
+    {
+        if (!listen)
+        {
+            // Stop only asks; the words arrive on the listening turn below.
+            await Speech.StopAsync();
+            return;
+        }
+
+        _listening = true;
+        _speechError = null;
+        _speechStatus = Listening;
+
+        // Not awaited: ListenAsync ends when recognition does, and the pressed
+        // state has to reach the screen before that.
+        _ = ListenAsync();
+    }
+
+    private async Task ListenAsync()
+    {
+        SpeechTranscript result;
+
+        try
+        {
+            result = await Speech.ListenAsync();
+        }
+        catch (Exception ex)
+        {
+            // The transcribers report failures as results; anything still
+            // thrown would otherwise leave the mic stuck on.
+            result = SpeechTranscript.Failed(ex.Message);
+        }
+
+        _listening = false;
+        if (_disposed) return;
+
+        if (result.IsError)
+        {
+            // An error, not a status: it is announced as one and drawn as one.
+            _speechStatus = null;
+            _speechError = result.Error;
+        }
+        else if (result.Text.Length == 0)
+        {
+            _speechStatus = "Nothing was heard.";
+        }
+        else
+        {
+            // Dictation extends what is in the field: a second sentence added to
+            // a half-written thought is the ordinary case.
+            _speechStatus = $"Heard: {result.Text}";
+            var existing = _text.TrimEnd();
+            _text = existing.Length == 0 ? result.Text : $"{existing} {result.Text}";
+            _savedAs = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>A page of this app, by the route it was reached on — rebuilt
+    /// from its template, never echoed from `from` — and the parameters its
+    /// route gave it.</summary>
+    private sealed record Opener(string Route, Type Page, IDictionary<string, object> Parameters);
+
+    /// <summary>
+    /// The app's own page `from` names, or null. Every segment must match its
+    /// template's: a literal one exactly, ignoring case, and a parameter one only
+    /// as a guid for a `{Name:guid}` parameter — the only kind the app's routes
+    /// use, so any other template is no match. Nothing but the app's own routes,
+    /// with an id where they take one, can come out: no other host, no query.
+    /// </summary>
+    private static Opener? Match(string? from)
+    {
+        var segments = (from ?? string.Empty).Trim('/').Split('/');
+
+        foreach (var (template, page) in Pages)
+        {
+            if (template.Length != segments.Length) continue;
+
+            var route = new string[template.Length];
+            var parameters = new Dictionary<string, object>();
+            var matched = true;
+
+            for (var i = 0; i < template.Length && matched; i++)
+            {
+                if (!IsParameter(template[i]))
+                {
+                    matched = string.Equals(template[i], segments[i], StringComparison.OrdinalIgnoreCase);
+                    route[i] = template[i];
+                    continue;
+                }
+
+                if (template[i][1..^1].Split(':') is [var name, "guid"] && Guid.TryParseExact(segments[i], "D", out var id))
+                {
+                    parameters[name] = id;
+                    route[i] = id.ToString("D");
+                }
+                else
+                {
+                    matched = false;
+                }
+            }
+
+            if (matched) return new Opener(string.Join('/', route), page, parameters);
+        }
+
+        return null;
+    }
+
+    private static bool IsParameter(string segment) =>
+        segment.StartsWith('{') && segment.EndsWith('}');
+}

@@ -1,0 +1,298 @@
+@using System.Globalization
+@*
+    One timed task, worked on now: what it is filed under and when its block
+    ends, the title, a ring counting down to that end, the step being worked on,
+    the steps in order, and the one thing to do next — tick the step, or, with
+    none left, complete the task.
+
+    Every fact is handed in already worked out. The component reads no clock and
+    decides nothing about the day: how long is left, how much of the block that
+    is, and where Back, Task details and Capture lead are the host's, so the same
+    markup serves the phone and the storybook.
+
+    The ring is decoration; its words are in the middle of it, "28:40" over
+    "left in this block", and once the block has ended "Over by 03:12". The time
+    is a timer, which assistive technology does not announce on every tick.
+
+    There is no Pause: the countdown is the agenda block itself, which runs
+    whether or not anyone is looking at it.
+*@
+
+<article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <header class="focus__bar">
+        <a class="focus__back" href="@BackHref" data-testid="@PartTestId("back")">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+                <path d="M15 6l-6 6 6 6" />
+            </svg>
+            <span>@BackLabel</span>
+        </a>
+        @if (!string.IsNullOrWhiteSpace(DetailsHref))
+        {
+            <a class="focus__details" href="@DetailsHref" data-testid="@PartTestId("details")">Task details</a>
+        }
+    </header>
+
+    <div class="focus__head">
+        <span class="focus__kicker" data-testid="@PartTestId("kicker")">
+            @if (!string.IsNullOrWhiteSpace(Area))
+            {
+                <span class="focus__area-dot" aria-hidden="true"></span>@Area<span aria-hidden="true"> · </span><span class="sr-only">, </span>
+            }
+            until @Until
+        </span>
+        @switch (HeadingLevel)
+        {
+            case 1:
+                <h1 class="focus__title" data-testid="@PartTestId("title")">@Title</h1>
+                break;
+            case 2:
+                <h2 class="focus__title" data-testid="@PartTestId("title")">@Title</h2>
+                break;
+            default:
+                <h3 class="focus__title" data-testid="@PartTestId("title")">@Title</h3>
+                break;
+        }
+    </div>
+
+    <div class="@RingClass" data-over="@(IsOver ? "true" : "false")" data-testid="@PartTestId("ring")">
+        <svg viewBox="0 0 196 196" aria-hidden="true" focusable="false">
+            <circle class="focus__ring-track" cx="98" cy="98" r="@RingRadius" />
+            <circle class="focus__ring-fill" cx="98" cy="98" r="@RingRadius"
+                    stroke-dasharray="@Number(Circumference)" stroke-dashoffset="@Number(RingOffset)"
+                    transform="rotate(-90 98 98)" data-testid="@PartTestId("ring-fill")" />
+        </svg>
+        <div class="focus__clock">
+            <span class="focus__time" role="timer" data-testid="@PartTestId("time")">@TimeText</span>
+            @if (!IsOver)
+            {
+                <span class="focus__time-label">left in this block</span>
+            }
+        </div>
+    </div>
+
+    @if (Steps.Count > 0)
+    {
+        <section class="focus__current" aria-label="Current step" data-testid="@PartTestId("current")">
+            @if (CurrentIndex is { } index)
+            {
+                <span class="focus__current-kicker" data-testid="@PartTestId("step-number")">Step @(index + 1) of @Steps.Count · now</span>
+                <span class="focus__current-title" data-testid="@PartTestId("step-title")">@Steps[index].Title</span>
+            }
+            else
+            {
+                <span class="focus__current-kicker" data-testid="@PartTestId("step-number")">All @Steps.Count steps done</span>
+                <span class="focus__current-title" data-testid="@PartTestId("step-title")">Complete the task to finish it.</span>
+            }
+        </section>
+
+        <ol class="focus__steps" aria-label="Steps" data-testid="@PartTestId("steps")">
+            @for (var i = 0; i < Steps.Count; i++)
+            {
+                var step = Steps[i];
+                var state = StepState(i);
+
+                <li @key="step.Id" class="@($"focus__step focus__step--{state}")" data-state="@state" data-testid="@PartTestId("step")">
+                    @StepGlyph(state)
+                    <span class="sr-only">@StateWords(state): </span><span class="focus__step-title">@step.Title</span>
+                </li>
+            }
+        </ol>
+    }
+
+    <footer class="focus__footer" data-testid="@PartTestId("footer")">
+        @if (CurrentIndex is not null)
+        {
+            <AppButton Variant="ButtonVariant.Primary" CssClass="focus__primary" Disabled="@(Busy || !OnStepDone.HasDelegate)"
+                       OnClick="StepDoneAsync" TestId="@PartTestId("step-done")">Step done — next</AppButton>
+        }
+        else
+        {
+            <AppButton Variant="ButtonVariant.Primary" CssClass="focus__primary" Disabled="@(Busy || !OnComplete.HasDelegate)"
+                       OnClick="() => OnComplete.InvokeAsync()" TestId="@PartTestId("complete")">Complete task</AppButton>
+        }
+        @if (!string.IsNullOrWhiteSpace(CaptureHref))
+        {
+            <a class="btn btn--secondary focus__capture" href="@CaptureHref" data-testid="@PartTestId("capture")">
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+                    <path d="M12 5v14M5 12h14" />
+                </svg>
+                Capture a thought
+            </a>
+        }
+    </footer>
+</article>
+
+@code {
+    private const int RingRadius = 88;
+    private static readonly double Circumference = 2 * Math.PI * RingRadius;
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>The heading level the title takes — 1 where Focus is the page,
+    /// as on the phone; lower where it sits inside another page.</summary>
+    [Parameter]
+    public int HeadingLevel { get; set; } = 1;
+
+    /// <summary>Where Back leads: the day the task was opened from.</summary>
+    [Parameter]
+    public string BackHref { get; set; } = string.Empty;
+
+    /// <summary>Back's words — the name of the screen it returns to.</summary>
+    [Parameter]
+    public string BackLabel { get; set; } = "Today";
+
+    /// <summary>The task's own page, or null for no Task details link.</summary>
+    [Parameter]
+    public string? DetailsHref { get; set; }
+
+    /// <summary>The area the task is filed under, or null for none.</summary>
+    [Parameter]
+    public string? Area { get; set; }
+
+    /// <summary>When the block ends, as the clock reads it: <c>11:30</c>.</summary>
+    [Parameter, EditorRequired]
+    public string Until { get; set; } = string.Empty;
+
+    /// <summary>How long is left until the block ends; negative once it has
+    /// ended, by how far it is over.</summary>
+    [Parameter]
+    public TimeSpan Remaining { get; set; }
+
+    /// <summary>How much of the block is still to run, from 1 (all of it) to 0
+    /// (none) — what the ring shows. Clamped to that range.</summary>
+    [Parameter]
+    public double Left { get; set; } = 1;
+
+    /// <summary>The task's steps in order. The current one is the first not
+    /// ticked; none, or every one ticked, and the primary action completes the
+    /// task.</summary>
+    [Parameter]
+    public IReadOnlyList<DayStep> Steps { get; set; } = [];
+
+    /// <summary>The current step ticked off, handed back with <c>Done</c> set.
+    /// With no callback, Step done is shown and cannot be pressed.</summary>
+    [Parameter]
+    public EventCallback<DayStep> OnStepDone { get; set; }
+
+    /// <summary>Complete task pressed: no step is left. With no callback the
+    /// button is shown and cannot be pressed.</summary>
+    [Parameter]
+    public EventCallback OnComplete { get; set; }
+
+    /// <summary>Where Capture a thought leads, or null for no capture link.</summary>
+    [Parameter]
+    public string? CaptureHref { get; set; }
+
+    /// <summary>An edit is under way: the primary action waits for it.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The test id on the screen. Its parts get <c>{TestId}-back</c>,
+    /// <c>-details</c>, <c>-kicker</c>, <c>-title</c>, <c>-ring</c>,
+    /// <c>-ring-fill</c>, <c>-time</c>, <c>-current</c>, <c>-step-number</c>,
+    /// <c>-step-title</c>, <c>-steps</c>, <c>-step</c>, <c>-footer</c>,
+    /// <c>-step-done</c>, <c>-complete</c> and <c>-capture</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool IsOver => Remaining <= TimeSpan.Zero;
+
+    /// <summary>The first step not ticked, or null when every step is.</summary>
+    private int? CurrentIndex
+    {
+        get
+        {
+            for (var i = 0; i < Steps.Count; i++)
+            {
+                if (!Steps[i].Done) return i;
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>"28:40" while the block runs, "1:05:00" for an hour or more, and
+    /// "Over by 03:12" once it has ended. Time left is rounded up and time over
+    /// down, so a running block never reads 00:00 and the overrun counts whole
+    /// seconds past the end.</summary>
+    private string TimeText => IsOver
+        ? $"Over by {Clock((long)Math.Floor(-Remaining.TotalSeconds))}"
+        : Clock((long)Math.Ceiling(Remaining.TotalSeconds));
+
+    private static string Clock(long seconds)
+    {
+        var hours = seconds / 3600;
+        var minutes = seconds % 3600 / 60;
+        var rest = seconds % 60;
+
+        return hours > 0
+            ? string.Create(CultureInfo.InvariantCulture, $"{hours}:{minutes:00}:{rest:00}")
+            : string.Create(CultureInfo.InvariantCulture, $"{minutes:00}:{rest:00}");
+    }
+
+    private double RingOffset => IsOver ? Circumference : Circumference * (1 - Math.Clamp(Left, 0, 1));
+
+    private static string Number(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private string RingClass => IsOver ? "focus__ring focus__ring--over" : "focus__ring";
+
+    private string StepState(int index) => Steps[index].Done ? "done" : index == CurrentIndex ? "current" : "todo";
+
+    private static string StateWords(string state) => state switch
+    {
+        "done" => "Done",
+        "current" => "Now",
+        _ => "To do"
+    };
+
+    private static RenderFragment StepGlyph(string state) => builder =>
+    {
+        builder.OpenElement(0, "svg");
+        builder.AddAttribute(1, "class", "focus__step-glyph");
+        builder.AddAttribute(2, "viewBox", "0 0 24 24");
+        builder.AddAttribute(3, "width", "20");
+        builder.AddAttribute(4, "height", "20");
+        builder.AddAttribute(5, "aria-hidden", "true");
+        builder.AddAttribute(6, "focusable", "false");
+        builder.OpenElement(7, "circle");
+        builder.AddAttribute(8, "class", "focus__step-ring");
+        builder.AddAttribute(9, "cx", "12");
+        builder.AddAttribute(10, "cy", "12");
+        builder.AddAttribute(11, "r", "10");
+        builder.CloseElement();
+
+        if (state == "done")
+        {
+            builder.OpenElement(12, "path");
+            builder.AddAttribute(13, "class", "focus__step-tick");
+            builder.AddAttribute(14, "d", "M7.5 12.5l3 3 6-6.5");
+            builder.CloseElement();
+        }
+        else if (state == "current")
+        {
+            builder.OpenElement(15, "circle");
+            builder.AddAttribute(16, "class", "focus__step-dot");
+            builder.AddAttribute(17, "cx", "12");
+            builder.AddAttribute(18, "cy", "12");
+            builder.AddAttribute(19, "r", "4.5");
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+
+    private Task StepDoneAsync() =>
+        CurrentIndex is { } index ? OnStepDone.InvokeAsync(Steps[index] with { Done = true }) : Task.CompletedTask;
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? "focus" : "focus " + CssClass;
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+}
