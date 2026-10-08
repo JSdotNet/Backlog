@@ -293,7 +293,12 @@ Rules:
 related: [".devbook/design/README.md#living-reference-the-ui-storybook"]
 ```
 
-Not yet materialized. No component in `src/Core/Backlog.UI.Components` draws these
-chips, and no storybook page shows them. The page that will show them is decided
-when the component is built, and is added to the page map in `README.md` in that
-change.
+The effort chip is materialized as `EffortChip` in
+`src/Core/Backlog.UI.Components/Badges/`, drawn by the `effort-chip` rules in
+`components.css`, and shown on the storybook's Session list page (`/session-list`)
+beside `StageStrip`, the compact stage strip a session row draws its run with. The
+Sessions pane wears it on every row after the model and among the detail panel's
+facts.
+
+The mode chips, the stage marks and the legend are not materialized yet: they belong
+to the stage list of a delivery run, which is built separately.

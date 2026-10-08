@@ -42,7 +42,7 @@ public sealed class SessionsPaneLoadStatesTests
         pane.WaitForAssertion(() =>
         {
             Assert.Empty(pane.FindAll("[data-testid='sessions-loading']"));
-            Assert.Single(pane.FindAll(".data-table__row"));
+            Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
         });
     }
 
@@ -82,7 +82,7 @@ public sealed class SessionsPaneLoadStatesTests
             Assert.Equal(2, sessions.Reads);
             Assert.Equal(2, runs.Reads);
             Assert.Empty(pane.FindAll("[data-testid='sessions-unreadable']"));
-            Assert.Single(pane.FindAll(".data-table__row"));
+            Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
         });
     }
 
