@@ -5882,6 +5882,157 @@ h1, h2, h3 {
     background: color-mix(in srgb, var(--color-error) 12%, transparent);
 }
 
+/* The last verdict per unit as one stacked bar, the legend under it carrying the
+   counts. Each verdict keeps the tone its badge wears (components.css,
+   .badge--sync-verdict-*) except spec-ahead, which takes info so the two "ahead"
+   verdicts stay apart in a bar where a badge's word is not there to tell them. */
+.dashboard-drift__verdicts {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-drift__verdict-track {
+    display: flex;
+    gap: 2px;
+    height: 1rem;
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+}
+
+.dashboard-drift__verdict-segment {
+    flex: 0 1 0;
+    min-width: 2px;
+}
+
+.dashboard-drift__verdict--aligned { background: var(--color-success); }
+.dashboard-drift__verdict--code-ahead { background: var(--color-warning); }
+.dashboard-drift__verdict--spec-ahead { background: var(--color-info); }
+.dashboard-drift__verdict--conflict { background: var(--color-error); }
+.dashboard-drift__verdict--unresolved { background: var(--color-text-disabled); }
+.dashboard-drift__verdict--unknown { background: var(--color-border-strong); }
+
+.dashboard-drift__verdict-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-drift__verdict-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.dashboard-drift__verdict-swatch {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: var(--border-radius-sm);
+}
+
+.dashboard-drift__verdict-count {
+    font-variant-numeric: tabular-nums;
+}
+
+/* The units beside the open issues where the part is wide enough, the issues under
+   them where it is not - flex rather than a grid so the units take the room. */
+.dashboard-drift__body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-drift__units {
+    flex: 999 1 32rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-drift__units-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+}
+
+.dashboard-drift__heading {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.dashboard-drift__aligned-note {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* A link's look on a button: it changes what the table shows, it goes nowhere. */
+.dashboard-drift__show-all {
+    margin-left: var(--spacing-xs);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.dashboard-drift__issues {
+    flex: 1 1 18rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    min-width: 0;
+}
+
+.dashboard-drift__issues-empty-text {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.dashboard-drift__issue-list {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-drift__issue {
+    display: grid;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    overflow-wrap: anywhere;
+    min-width: 0;
+}
+
+.dashboard-drift__issue--failed {
+    background: color-mix(in srgb, var(--color-error) 12%, var(--color-background-raised));
+}
+
+.dashboard-drift__issue-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: center;
+    justify-content: space-between;
+}
+
+
 /* The sessions takeover. The same frame as the dashboard's — a takeover is a
    takeover, and two different-looking full-screen panels would read as two
    different applications — but its own block rather than a shared one, because
