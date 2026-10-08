@@ -17,7 +17,9 @@ using Backlog.Modules.Inbox.Features.LinkToTask;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
+using Backlog.Modules.Inbox.Features.AdviseTriage;
 using Backlog.Modules.Inbox.Features.InferBatchOrder;
+using Backlog.Modules.Inbox.Features.ProposeTriagePass;
 using Backlog.Modules.Inbox.Features.ProposeBatch;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.ReceiveCapture;
@@ -45,13 +47,15 @@ namespace Backlog.Modules.Inbox.Extensions;
 /// case the Inbox context offers; it never registers a handler itself, and
 /// never sees the aggregate.
 /// <para>
-/// Four things are deliberately not registered here. The two repository ports
+/// Five things are deliberately not registered here. The two repository ports
 /// (<see cref="IInboxItemRepository"/>, <see cref="IInboxOrganizerRepository"/>)
 /// are internal ports whose adapter is the host's decision, as Tasks' is. The
-/// two outward ports (<see cref="IInboxBacklogTarget"/>,
-/// <see cref="IInboxPlanDrafter"/>) are answered by adapters that see other
-/// contexts, which only a host may compose — and the drafter may be left out
-/// altogether, in which case the handlers answer <c>inbox.plan.not_configured</c>.
+/// three outward ports (<see cref="IInboxBacklogTarget"/>,
+/// <see cref="IInboxPlanDrafter"/>, <see cref="IInboxTriageAdvisor"/>) are
+/// answered by adapters that see other contexts, which only a host may compose
+/// — and the drafter and the advisor may be left out altogether, in which case
+/// the handlers answer <c>inbox.plan.not_configured</c> or
+/// <c>inbox.triage.not_configured</c>.
 /// </para>
 /// </summary>
 public static class InboxModuleRegistration
@@ -87,6 +91,12 @@ public static class InboxModuleRegistration
         // Its opt-in third tier: the plan drafter's order for the batch. The
         // drafter is optional here as it is for Create plan.
         services.AddScoped<IQueryHandler<InferBatchOrderQuery, Result<IReadOnlyList<ProposedDependency>>>, InferBatchOrderQueryHandler>();
+        // The AI triage of local ADR 0023: the cards over one item, and the
+        // pass over a slice. The advisor is optional, as the drafter is, and so
+        // are the task references the context reads: a host without an advisor
+        // answers inbox.triage.not_configured and the pane shows no AI surface.
+        services.AddScoped<IQueryHandler<AdviseTriageQuery, Result<InboxTriageAdviceDto>>, AdviseTriageQueryHandler>();
+        services.AddScoped<IQueryHandler<ProposeTriagePassQuery, Result<InboxTriagePassDto>>, ProposeTriagePassQueryHandler>();
         services.AddScoped<ICommandHandler<CreateListCommand, Result<InboxListDto>>, CreateListCommandHandler>();
         services.AddScoped<ICommandHandler<RenameListCommand, Result>, RenameListCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteListCommand, Result>, DeleteListCommandHandler>();
