@@ -40,7 +40,7 @@ public sealed class RoadmapCalendarPlans : ICalendarPlans, IDisposable
     private readonly ShellNavigationStore? _store;
     private readonly IRoadmapWorkChanges? _work;
     private readonly IPlanningPace? _pace;
-    private bool _shown = true;
+    private bool _shown;
 
     public RoadmapCalendarPlans(
         IRoadmapPlanning planning,

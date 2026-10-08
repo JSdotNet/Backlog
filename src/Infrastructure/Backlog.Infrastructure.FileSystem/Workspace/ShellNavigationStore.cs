@@ -93,7 +93,7 @@ public sealed class ShellNavigationStore
         RoadmapHoursShown = dto?.RoadmapHoursShown ?? true;
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
-        CalendarPlansShown = dto?.CalendarPlansShown ?? true;
+        CalendarPlansShown = dto?.CalendarPlansShown ?? false;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -137,7 +137,9 @@ public sealed class ShellNavigationStore
     public string BoardColumns { get; private set; }
 
     /// <summary>Whether the Tasks Calendar draws the roadmap's plans — its "Show plans"
-    /// box: on until the reader turns it off on this device.</summary>
+    /// box: off until the reader turns it on on this device. A file that carries no
+    /// choice reads as off; one that says <c>false</c>, as a file from when the box
+    /// was on by default does once it was turned off, reads as off too.</summary>
     public bool CalendarPlansShown { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
@@ -236,8 +238,8 @@ public sealed class ShellNavigationStore
                 RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups],
                 // Likewise left out while the columns are the default ones.
                 BoardColumns = BoardColumns == DefaultBoardColumns ? null : BoardColumns,
-                // Left out while on, as the Hours switch is.
-                CalendarPlansShown = CalendarPlansShown ? null : false
+                // Left out while off, the default, so only turning it on writes a key.
+                CalendarPlansShown = CalendarPlansShown ? true : null
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

@@ -109,14 +109,16 @@
                        key that looks stuck. *@
                     @* The Board's own control, first on its bar because it decides
                        what everything under the bar is: which columns there are.
-                       Not a filter — it narrows nothing — so its own group. The
-                       visible word is the label sighted readers scan for; the
-                       select carries the same name for a screen reader, so the
-                       word itself is hidden from one. *@
+                       Not a filter — it narrows nothing — so its own group. No
+                       visible word in front of it: the select shows Status, Plan,
+                       Repository or Priority, and that answer says what the
+                       columns are on its own — a "Columns" label beside it was a
+                       second word for the same thing, found in the sign-off.
+                       The name stays for anything that cannot see the value,
+                       as the select's aria-label and its tooltip. *@
                     @if (Layout == TasksLayout.Board)
                     {
                         <div class="filter-group filter-group--columns" data-testid="board-columns-group">
-                            <span class="filter-group__label" aria-hidden="true">Columns</span>
                             <SelectField CurrentValue="@BoardGrouping.ToString()"
                                          Options="@BoardGroupingOptions"
                                          Label="Columns"
@@ -223,6 +225,31 @@
                                               Title="@(State.SelectedSource == source.Value ? "Show every source again" : $"Show only {source.Label} tasks")"
                                               PressedChanged="pressed => State.SetSourceFilter(pressed ? source.Value : null)">
                                     @source.Label<span class="chip__count">@source.Count</span>
+                                </ToggleButton>
+                            }
+                        </div>
+                    }
+
+                    @* What kind of task it is — prompt, task, idea or test. The source
+                       group's shape and for its reason: a task has exactly one type,
+                       so pressing another lets go of the first, and with nothing
+                       pressed the list is already every type. Only the types in view
+                       get a chip, and none at all while there is just one of them.
+                       It narrows the rows every view reads, so the Board and the
+                       Calendar's month and its tray of undated tasks follow it too. *@
+                    @if (State.TypeFilters.Count > 0)
+                    {
+                        <div class="filter-group filter-group--type" role="group" aria-label="Filter by type">
+                            @foreach (var type in State.TypeFilters)
+                            {
+                                <ToggleButton BaseClass="chip chip--filter"
+                                              PressedCssClass="chip--active"
+                                              Pressed="@(State.SelectedType == type.Value)"
+                                              TestId="type-filter-option"
+                                              data-type="@EntryTextParser.TypeToken(type.Value)"
+                                              Title="@(State.SelectedType == type.Value ? "Show every type again" : $"Show only {type.Label.ToLowerInvariant()}s")"
+                                              PressedChanged="pressed => State.SetTypeFilter(pressed ? type.Value : null)">
+                                    @type.Label<span class="chip__count">@type.Count</span>
                                 </ToggleButton>
                             }
                         </div>
@@ -419,9 +446,13 @@
                            opens its entry the way a row does; a drop runs the same
                            status change the row's status selector does. An empty
                            filter result is a board of empty columns rather than the
-                           list's empty state — the columns still say what they are. *@
+                           list's empty state — the columns still say what they are.
+                           A card copies what the entry's row copies, through the same
+                           EntryCopyText, so a brief pasted from the Board is the brief
+                           pasted from the list. *@
                         <TaskBoard @ref="_board"
                                    Columns="@BoardColumns()"
+                                   CardCopyValue="@EntryCopyText"
                                    Draggable="@(BoardGrouping == TaskBoardGrouping.Status)"
                                    DropRuleFor="@BoardDropRule"
                                    OnDrop="OnBoardDropAsync"

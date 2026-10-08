@@ -602,9 +602,11 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
-/* The Board's "Columns" picker: a visible word and a select, first on the bar.
-   Pinned like Select, because it decides what everything under the bar is. The
-   select is drawn as a chip so it sits level with the chips beside it. */
+/* The Board's "Columns" picker: a lone select, first on the bar — the grouping
+   it shows says what the columns are, so no word stands beside it, and its name
+   is the select's aria-label. Pinned like Select, because it decides what
+   everything under the bar is. The select is drawn as a chip so it sits level
+   with the chips beside it. */
 .filter-group--columns {
     flex: 0 0 auto;
     align-items: center;

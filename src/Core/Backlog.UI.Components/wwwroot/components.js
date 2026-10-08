@@ -721,6 +721,8 @@
         // A board card's badge slot is the row's, on the row's terms: links to
         // follow, never a place to pick the card up from.
         '.task-card__badges,' +
+        // Its copy button is the row's copy button: a press there copies.
+        '.task-card__copy,' +
         // The whole gutter and not just the input inside it. The box is padded
         // out to a comfortable target, and a press landing on that padding would
         // start dragging the row a reader was trying to tick.
@@ -734,15 +736,159 @@
     let taskDrag = null;
     let taskDragClickBlockedUntil = 0;
 
-    function endTaskDrag() {
+    // `landed` is what the drop is waiting on — the PointerDragEnd call, whose
+    // answer is the board with the card in its new place — and absent for every
+    // way a gesture ends without one, which puts a lifted card back where it was.
+    function endTaskDrag(landed) {
         // Before the drag is forgotten, because clearing the line needs to know
         // which list's overlay to clear. Every way a gesture can end comes through
         // here — dropped, cancelled, Escape, the window losing focus — so there is
         // one place the line has to be taken away and it is this one.
         taskLinkClear();
         dragScrollRelease(taskDrag);
+        if (taskDrag) boardLiftSettle(taskDrag, landed);
 
         taskDrag = null;
+    }
+
+    // ----- The card in the reader's hand ----------------------------------
+    //
+    // A board drag lifts the card: a copy of it, `.task-card--lifted`, follows
+    // the pointer while the card itself stays faded in its column, and the slot
+    // in the column under the pointer opens to the card's height. On release the
+    // copy glides into the card's new place — or back into its old one, when the
+    // drop was refused, cancelled or made off the board — and goes. The task
+    // list's drag shows the order a drop would make; a board's columns have no
+    // order to preview, so what they show instead is the card on its way.
+    //
+    // Here, for the reason the link line is: a position per frame is geometry,
+    // and a circuit round trip per frame would leave the card trailing the hand.
+    // What the drop means is still TaskBoard's, read off the DOM it renders.
+    //
+    // The copy is on the document body rather than inside the board, because the
+    // board's children are Blazor's to diff and a node it did not render is one
+    // it can trip over. It is stripped of ids, test ids and its task id, and
+    // hidden from assistive technology: it is a picture of the card, not a card.
+    //
+    // Under prefers-reduced-motion the copy still follows the pointer — that is
+    // the reader's own hand, not an animation — but it is not tilted, the slot
+    // does not grow, and on release the copy is simply taken away.
+    function boardReducedMotion() {
+        return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    function boardLiftStart(drag) {
+        const card = drag.row;
+        const box = card.getBoundingClientRect();
+        const copy = card.cloneNode(true);
+
+        for (const node of [copy, ...copy.querySelectorAll('*')]) {
+            node.removeAttribute('id');
+            node.removeAttribute('data-testid');
+            node.removeAttribute('tabindex');
+        }
+
+        copy.removeAttribute('data-task-id');
+        copy.removeAttribute('data-draggable');
+        copy.removeAttribute('aria-current');
+        copy.removeAttribute('aria-label');
+        copy.classList.remove('task-card--dragging', 'task-card--selected');
+        copy.classList.add('task-card--lifted');
+        copy.setAttribute('aria-hidden', 'true');
+        copy.inert = true;
+        copy.style.width = `${box.width}px`;
+
+        drag.lift = {
+            element: copy,
+            offsetX: drag.startX - box.left,
+            offsetY: drag.startY - box.top
+        };
+
+        boardLiftMove(drag);
+        document.body.appendChild(copy);
+
+        drag.sideways?.style.setProperty('--task-board-lift-height', `${box.height}px`);
+    }
+
+    function boardLiftMove(drag) {
+        const lift = drag.lift;
+        if (!lift) return;
+
+        lift.element.style.setProperty('--lift-x', `${drag.x - lift.offsetX}px`);
+        lift.element.style.setProperty('--lift-y', `${drag.y - lift.offsetY}px`);
+    }
+
+    // The card the copy settles onto: the task's card in the column it was
+    // dropped on, when the drop put it there, else wherever the task's card is
+    // now — the column it came from, for a drop that wrote nothing.
+    function boardLandingCard(drag) {
+        const board = drag.sideways;
+        if (!board || !board.isConnected) return null;
+
+        const id = CSS.escape(drag.taskId);
+        const column = drag.lastOverId
+            ? board.querySelector(`[data-board-column="${CSS.escape(drag.lastOverId)}"]`)
+            : null;
+
+        return column?.querySelector(`.task-card[data-task-id="${id}"]`)
+            ?? board.querySelector(`.task-card[data-task-id="${id}"]`);
+    }
+
+    async function boardLiftSettle(drag, landed) {
+        const lift = drag.lift;
+        drag.lift = null;
+        drag.sideways?.style.removeProperty('--task-board-lift-height');
+        if (!lift) return;
+
+        const copy = lift.element;
+
+        if (boardReducedMotion()) {
+            copy.remove();
+            return;
+        }
+
+        // Never longer than a beat: a circuit that is reconnecting can leave the
+        // call pending, and the copy must not hang over the board meanwhile.
+        try {
+            await Promise.race([landed, new Promise(resolve => setTimeout(resolve, 600))]);
+        } catch {
+            // The circuit is gone; settling onto whatever is left is still right.
+        }
+
+        // Two frames: the render that answers the drop lands after the call
+        // returns, and the card has to be in its new column to be measured there.
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+        const card = boardLandingCard(drag);
+        if (!card) {
+            copy.remove();
+            return;
+        }
+
+        // Its column scrolls its own cards, so the card may have landed below
+        // the column's fold; bring it into view so the copy settles somewhere
+        // the reader can see.
+        card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+
+        const box = card.getBoundingClientRect();
+        card.classList.add('task-card--landing');
+        copy.classList.add('task-card--settling');
+        copy.style.width = `${box.width}px`;
+        copy.style.setProperty('--lift-x', `${box.left}px`);
+        copy.style.setProperty('--lift-y', `${box.top}px`);
+
+        let done = false;
+        const finish = () => {
+            if (done) return;
+            done = true;
+            copy.remove();
+            card.classList.remove('task-card--landing');
+        };
+
+        copy.addEventListener('transitionend', finish, { once: true });
+        // A transition that never runs — the copy already in place, a tab in the
+        // background — sends no transitionend, and the card must not stay hidden.
+        setTimeout(finish, 400);
     }
 
     // ----- Scrolling the list from its edges ------------------------------
@@ -890,7 +1036,10 @@
         // band without moving, because the rows scroll under it.
         taskScrollTick();
 
-        const scroller = drag.scroller ??= taskScrollerFor(drag.anchor);
+        // A drag that says where its vertical scroller is under the pointer asks
+        // every frame — a board, whose columns each scroll their own cards — and
+        // any other finds it once, from its anchor.
+        const scroller = drag.scrollerAt?.(drag) ?? (drag.scroller ??= taskScrollerFor(drag.anchor));
         const box = taskScrollerBox(scroller);
         const y = drag.y;
 
@@ -1280,11 +1429,32 @@
             // `dragScrollTarget`. A board scrolls sideways as well as down.
             anchor: row,
             sideways: row.classList.contains('task-card') ? row.closest('.task-board') : null,
+            // A board's columns each scroll their own cards, so the scroller to
+            // move is the one under the pointer, not the one the card came from.
+            scrollerAt: row.classList.contains('task-card') ? boardScrollerAt : null,
             onScrolled: () => {
                 if (taskDrag) taskReportOver(taskDrag.x, taskDrag.y);
-            }
+            },
+            // The lifted copy of a board card, once the press is a drag.
+            lift: null
         };
     });
+
+    // The vertical scroller under the pointer during a board drag: the card stack
+    // of the column there, when it has cards to scroll, and otherwise whatever
+    // the board itself sits in — a board in a box with no height is scrolled by
+    // that box, and its columns never scroll.
+    function boardScrollerAt(drag) {
+        if (!drag.sideways) return null;
+
+        const element = document.elementFromPoint(drag.x, drag.y);
+        const column = element instanceof Element ? element.closest('[data-board-column]') : null;
+        const cards = column && drag.sideways.contains(column) ? column.querySelector('.task-board__cards') : null;
+
+        if (cards && cards.scrollHeight > cards.clientHeight) return cards;
+
+        return drag.boardScroller ??= taskScrollerFor(drag.sideways);
+    }
 
     // Which row the pointer is over, reported to C# only when the answer changes.
     // A pointer crossing a list produces a move event per frame, and each one is
@@ -1349,6 +1519,9 @@
             // little; a card is a block of text, so the start is taken back here.
             if (taskDrag.board) window.getSelection()?.removeAllRanges();
 
+            // A card leaves the board's surface for the reader's hand.
+            if (taskDrag.board) boardLiftStart(taskDrag);
+
             // From here until the gesture ends, the list scrolls itself when the
             // pointer nears an edge. Started with the drag rather than on entering
             // a band, so that the rows scrolling under a still pointer are seen.
@@ -1373,6 +1546,8 @@
         // the row under the pointer has changed.
         if (taskDrag.link) taskLinkQueue(event.clientX, event.clientY);
 
+        boardLiftMove(taskDrag);
+
         taskReportOver(event.clientX, event.clientY);
     });
 
@@ -1380,16 +1555,22 @@
         if (!taskDrag || event.pointerId !== taskDrag.pointerId) return;
 
         const { ref, active } = taskDrag;
-        endTaskDrag();
 
         // Never travelled, so it was a click: the row keeps it, and nothing was
         // started that needs settling.
-        if (!active) return;
+        if (!active) {
+            endTaskDrag();
+            return;
+        }
 
         taskDragClickBlockedUntil = performance.now() + TASK_DRAG_CLICK_GRACE_MS;
 
-        ref.invokeMethodAsync('PointerDragEnd').catch(() => {
+        // The drop's answer is what a lifted card settles onto, so the call is
+        // made first and handed to the end of the gesture.
+        const landed = ref.invokeMethodAsync('PointerDragEnd').catch(() => {
         });
+
+        endTaskDrag(landed);
     });
 
     // The gesture was taken away rather than finished — the platform cancelling the

@@ -325,4 +325,101 @@ public sealed class TaskCardTests
         Assert.Contains("My Day", top.QuerySelector("[data-testid='card-my-day']")!.TextContent);
         Assert.NotNull(top.QuerySelector(".sun-icon"));
     }
+
+    private static BunitContext CopyContext()
+    {
+        var context = new BunitContext();
+        context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+        return context;
+    }
+
+    private static string Copied(BunitContext context) =>
+        (string)Assert.Single(context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]!;
+
+    /// <summary>The row's copy button, on the card's top line, named for the task
+    /// it copies — and only when the host turns it on: a card standing alone, the
+    /// In progress view's, is a summary rather than something to paste.</summary>
+    [Fact]
+    public void The_copy_button_sits_on_the_top_line_named_for_the_task_and_only_when_allowed()
+    {
+        using var context = CopyContext();
+
+        Assert.Empty(Render(context, Card).FindAll("[data-testid='card-copy']"));
+
+        var card = Render(context, Card, p => p.Add(c => c.AllowCopy, true));
+        var button = card.Find(".task-card__top [data-testid='card-copy']");
+
+        Assert.Equal("Copy Extract TaskCard from the TaskItem row", button.GetAttribute("aria-label"));
+        Assert.NotNull(button.Closest(".task-card__copy"));
+    }
+
+    /// <summary>Unset, a card copies what a row would: the title, and the body
+    /// under it after a blank line when there is one. Set, the host's text wins.</summary>
+    [Fact]
+    public void A_card_copies_the_rows_text_unless_the_host_says_what_it_copies()
+    {
+        using (var context = CopyContext())
+        {
+            Render(context, Card with { Body = "  The card is the row, stacked.  " }, p => p.Add(c => c.AllowCopy, true))
+                .Find("[data-testid='card-copy']").Click();
+
+            Assert.Equal("Extract TaskCard from the TaskItem row\n\nThe card is the row, stacked.", Copied(context));
+        }
+
+        using (var context = CopyContext())
+        {
+            Render(context, Card, p => p.Add(c => c.AllowCopy, true).Add(c => c.CopyValue, "the host's brief"))
+                .Find("[data-testid='card-copy']").Click();
+
+            Assert.Equal("the host's brief", Copied(context));
+        }
+    }
+
+    /// <summary>The badges' rule: a press, a click or a key on the copy button is
+    /// the button's, and never opens the card under it.</summary>
+    [Fact]
+    public void Copying_a_card_never_opens_it()
+    {
+        using var context = CopyContext();
+        var opened = 0;
+
+        var card = Render(context, Card, p => p
+            .Add(c => c.AllowCopy, true)
+            .Add(c => c.OnSelected, (string _) => opened++));
+
+        card.Find("[data-testid='card-copy']").Click();
+
+        Assert.Single(context.JSInterop.Invocations["backlogClipboard.copy"]);
+        Assert.Equal(0, opened);
+
+        // The control: the card itself still opens, so the zero is the slot.
+        card.Find(".task-card__title").Click();
+        Assert.Equal(1, opened);
+    }
+
+    /// <summary>A card marked blocked refuses the copy the way its row does: the
+    /// button stays, disabled, and says why.</summary>
+    [Fact]
+    public void A_card_marked_blocked_refuses_the_copy_and_says_why()
+    {
+        using var context = CopyContext();
+
+        var button = Render(context, Card with { MarkedBlocked = true }, p => p.Add(c => c.AllowCopy, true))
+            .Find("[data-testid='card-copy']");
+
+        Assert.True(button.HasAttribute("disabled"));
+        Assert.Equal("Blocked — unblock to copy", button.GetAttribute("title"));
+    }
+
+    /// <summary>taskListDrag never picks a card up from its copy button.</summary>
+    [Fact]
+    public void The_drag_script_leaves_a_press_on_the_copy_button_to_the_button()
+    {
+        var script = File.ReadAllText(RepositoryRoot.File(
+            "src", "Core", "Backlog.UI.Components", "wwwroot", "components.js"));
+        var excluded = script[script.IndexOf("const TASK_DRAG_EXCLUDED", StringComparison.Ordinal)..];
+        excluded = excluded[..excluded.IndexOf(';')];
+
+        Assert.Contains("'.task-card__copy,'", excluded, StringComparison.Ordinal);
+    }
 }

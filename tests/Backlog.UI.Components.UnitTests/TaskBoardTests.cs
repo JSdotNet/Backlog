@@ -250,4 +250,42 @@ public sealed class TaskBoardTests
             ["Draft", "Ready", "InProgress", "Done"],
             board.FindAll("[data-board-column]").Select(column => column.GetAttribute("data-board-column")));
     }
+
+    /// <summary>Each card carries the row's copy button, on by default as a list
+    /// row's is, and copies what the host's <see cref="TaskBoard.CardCopyValue"/>
+    /// answers for it — a null answer leaving the card's own default.</summary>
+    [Fact]
+    public void Every_card_copies_what_the_host_answers_for_it()
+    {
+        using var context = NewContext();
+        context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+
+        var board = context.Render<TaskBoard>(parameters => parameters
+            .Add(b => b.Columns, StatusColumns())
+            .Add(b => b.CardCopyValue, task => task.Id == "r1" ? "brief for r1" : null));
+
+        Assert.Equal(
+            board.FindAll("[data-testid='board-card']").Count,
+            board.FindAll("[data-testid='board-card-copy']").Count);
+
+        Column(board, "Ready").QuerySelectorAll("[data-testid='board-card-copy']")[0].Click();
+        Column(board, "Ready").QuerySelectorAll("[data-testid='board-card-copy']")[1].Click();
+
+        Assert.Equal(
+            ["brief for r1", "Task r2"],
+            context.JSInterop.Invocations["backlogClipboard.copy"].Select(call => (string)call.Arguments[0]!));
+    }
+
+    /// <summary>A host with nowhere to paste turns the cards' copy off.</summary>
+    [Fact]
+    public void A_board_that_does_not_allow_copy_draws_no_copy_buttons()
+    {
+        using var context = NewContext();
+
+        var board = context.Render<TaskBoard>(parameters => parameters
+            .Add(b => b.Columns, StatusColumns())
+            .Add(b => b.AllowCopy, false));
+
+        Assert.Empty(board.FindAll("[data-testid='board-card-copy']"));
+    }
 }
