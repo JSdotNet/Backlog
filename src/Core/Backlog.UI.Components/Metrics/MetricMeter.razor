@@ -43,6 +43,19 @@
                   style="@($"left: {Invariant(ThresholdPercent.Value)}%")"
                   aria-hidden="true"></span>
         }
+
+        @if (MarkerPercent is not null)
+        {
+            @* Where the reading is heading — a month-end projection against a monthly
+               budget. Decoration for the same reason as the threshold: the host says
+               the figure in words, in the caption or beside the meter. Clamped at the
+               track's end, where a projection past the cap stands at the cap and the
+               words say by how much. *@
+            <span class="@(Part("marker"))"
+                  style="@($"left: {Invariant(MarkerPercent.Value)}%")"
+                  title="@MarkerLabel"
+                  aria-hidden="true"></span>
+        }
     </div>
 
     @if (!string.IsNullOrWhiteSpace(CaptionText))
@@ -67,6 +80,16 @@
     /// which is clearer at the call site than a bare 0.8.</summary>
     [Parameter]
     public decimal? Threshold { get; set; }
+
+    /// <summary>A second reading drawn as a mark across the track — where the value is
+    /// heading, such as a projected month-end spend. On the same scale as
+    /// <see cref="Value"/>; null draws no mark.</summary>
+    [Parameter]
+    public decimal? Marker { get; set; }
+
+    /// <summary>What the mark is, as its tooltip: "Projected $266".</summary>
+    [Parameter]
+    public string? MarkerLabel { get; set; }
 
     [Parameter]
     public string? Label { get; set; }
@@ -116,6 +139,10 @@
     private decimal? ThresholdPercent => Threshold is null || Max <= 0m || Threshold <= 0m || Threshold >= Max
         ? null
         : Threshold.Value / Max * 100m;
+
+    private decimal? MarkerPercent => Marker is null || Max <= 0m
+        ? null
+        : Math.Clamp(Marker.Value / Max, 0m, 1m) * 100m;
 
     private bool IsOverCap => Max > 0m && Reading > Max;
 

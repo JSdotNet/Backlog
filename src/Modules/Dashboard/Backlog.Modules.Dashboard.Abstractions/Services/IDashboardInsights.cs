@@ -154,6 +154,11 @@ public interface ICostInsights
     /// without a refresh.</summary>
     Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>This calendar month day by day: the days so far as reported, the days
+    /// after today projected from the same seven-day average as
+    /// <see cref="GetProjectionAsync"/>, and the sum of the providers' budgets.</summary>
+    Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Drops whatever was cached, so the next call goes back to the providers.</summary>
     void Invalidate();
 }

@@ -154,7 +154,11 @@ internal sealed class ClaudeSpendSource(
                 day,
                 model.Model,
                 model.Tokens.TotalTokens,
-                new DashboardMoney(model.EstimatedCost, model.Currency)))
+                new DashboardMoney(model.EstimatedCost, model.Currency))
+            {
+                InputTokens = model.Tokens.TotalInputTokens,
+                OutputTokens = model.Tokens.OutputTokens
+            })
         ];
     }
 

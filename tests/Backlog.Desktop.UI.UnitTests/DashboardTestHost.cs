@@ -165,6 +165,9 @@ internal static class DashboardTestHost
         public Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendProjectionInsight>.Unavailable(UnavailableReason));
 
+        public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByDayInsight>.Unavailable(UnavailableReason));
+
         public void Invalidate()
         {
         }

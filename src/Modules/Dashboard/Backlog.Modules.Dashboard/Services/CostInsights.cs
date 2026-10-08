@@ -66,6 +66,14 @@ public sealed class CostInsights(
         CancellationToken cancellationToken = default) =>
         DeriveAsync("month", MonthWindow(), Projection, cancellationToken);
 
+    /// <summary>
+    /// Reads the same month as <see cref="GetThisMonthAsync"/> and shares that cached
+    /// read. The budgets are read at derivation, as <see cref="GetProjectionAsync"/> reads
+    /// them.
+    /// </summary>
+    public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
+        DeriveAsync("month", MonthWindow(), ByDay, cancellationToken);
+
     public void Invalidate() => _cache.Clear();
 
     /// <summary>Today's calendar month so far. Not a rolling thirty days: a bill
@@ -202,6 +210,69 @@ public sealed class CostInsights(
             window.To,
             budgets?.BudgetFor(pair.Provider)))]);
 
+    /// <summary>
+    /// The month day by day, across the providers that answered.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A day up to today is what the providers reported for it, added up. A day after
+    /// today is the providers' average daily spend added up — the same average
+    /// <see cref="SpendProjections"/> projects the month-end from, so the last
+    /// cumulative bar lands on the sum of the cards' projections.
+    /// </para>
+    /// <para>
+    /// The adding goes through <see cref="DashboardMoney"/>, which refuses two
+    /// currencies; the refusal reaches the part as its reason, as it does for every
+    /// other cost figure that would otherwise have to pick one.
+    /// </para>
+    /// </remarks>
+    private SpendByDayInsight ByDay(
+        IReadOnlyList<SpendAnswer> answers,
+        (DateOnly From, DateOnly To) window)
+    {
+        var answered = Answered(answers).ToList();
+        var currency = CurrencyOf(answers);
+        var monthEnd = window.From.AddMonths(1).AddDays(-1);
+
+        // A provider that answered with nothing has no currency of its own — its
+        // projection falls back to the default one — so it is put in the month's, rather
+        // than a quiet provider making the others' total refuse over a currency it never
+        // reported in.
+        var projections = answered
+            .Select(pair => SpendProjections.Project(pair.Provider, pair.Report, window.To, budgets?.BudgetFor(pair.Provider)))
+            .Select(projection => answered.First(pair => pair.Provider == projection.Provider).Report.Entries.Count > 0
+                ? projection
+                : projection with
+                {
+                    AverageDaily = DashboardMoney.Zero(currency),
+                    Budget = projection.Budget is { } quiet ? new DashboardMoney(quiet.Amount, currency) : null
+                })
+            .ToList();
+
+        var spentOn = answered
+            .SelectMany(pair => pair.Report.Entries)
+            .Where(entry => entry.Date >= window.From && entry.Date <= window.To)
+            .GroupBy(entry => entry.Date)
+            .ToDictionary(group => group.Key, group => Total([.. group]));
+
+        var averageDaily = projections.Aggregate(DashboardMoney.Zero(currency), (sum, projection) => sum + projection.AverageDaily);
+
+        var days = new List<SpendDay>();
+        for (var day = window.From; day <= monthEnd; day = day.AddDays(1))
+        {
+            days.Add(day <= window.To
+                ? new SpendDay(day, spentOn.TryGetValue(day, out var spent) ? spent.Amount : 0m, IsProjected: false)
+                : new SpendDay(day, averageDaily.Amount, IsProjected: true));
+        }
+
+        var withBudget = projections.Where(projection => projection.Budget is not null).ToList();
+        var budget = withBudget.Count == 0
+            ? null
+            : withBudget.Skip(1).Aggregate(withBudget[0].Budget!, (sum, projection) => sum + projection.Budget!);
+
+        return new SpendByDayInsight(days, currency, budget, answered.Any(pair => pair.Report.IsEstimate));
+    }
+
     /// <summary>The provider's name as the parts print it. Here rather than in
     /// each part because the trend's series and the model table's detail column
     /// have to say the same word for the same tile.</summary>
@@ -283,7 +354,13 @@ public sealed class CostInsights(
                     // tokens: an em dash says "not reported", a zero says "none".
                     group.Any(entry => entry.Tokens is not null) ? group.Sum(entry => entry.Tokens ?? 0) : null,
                     Total(group.ToList()),
-                    provider)));
+                    provider)
+                {
+                    // Null for a provider that does not split its tokens by direction,
+                    // for the same reason as the total above.
+                    InputTokens = group.Any(entry => entry.InputTokens is not null) ? group.Sum(entry => entry.InputTokens ?? 0) : null,
+                    OutputTokens = group.Any(entry => entry.OutputTokens is not null) ? group.Sum(entry => entry.OutputTokens ?? 0) : null
+                }));
         }
     }
 

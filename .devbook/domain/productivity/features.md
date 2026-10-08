@@ -214,16 +214,24 @@ after today. A provider is projected past its budget only when it has a budget a
 the projection is above it.
 
 The Cost tab holds one card per provider. A card shows the spend so far out of the
-budget, with a marker where the projected month-end spend falls. Below the cards, a
-chart draws spend over time, either cumulative or per day. It draws the budget line,
-and it draws the projected days to the end of the month faded, so a projection never
-reads as spend that happened. The tab ends with spend by model: each model's share,
-its input and output tokens, and its spend.
+budget, with a marker where the projected month-end spend falls, and a chip that says
+"Will pass budget" or "Within budget". For a provider that reports what its plan
+already covered, the card says what was charged against what was consumed. A provider
+with no budget shows its spend and its projection, without a meter or a chip.
 
-Each provider's spend stays on its own and is never summed into one total. The
-figures differ in kind, because one provider calls its figure an estimate and another
-reports what it charged, and they may be in different currencies. No provider reports
-spend per repository, so the repository chips do not narrow spend.
+Below the cards, a chart draws spend over time for every day of the month, either
+cumulative or per day. A day after today is projected at the providers' average daily
+spend, and drawn faded, so a projection never reads as spend that happened. The
+cumulative view draws the budget line, which is the sum of the providers' budgets.
+The tab ends with spend by model: each model's share, its input and output tokens,
+and its spend. A provider that reports no tokens shows a dash in the token columns.
+
+Each card keeps its provider's spend on its own. The figures differ in kind, because
+one provider calls its figure an estimate and another reports what it charged, and
+they may be in different currencies. The chart is the one place the providers are
+added up, because the budget line it draws is a sum. When the providers report in
+different currencies, the chart says it cannot add them and draws nothing. No
+provider reports spend per repository, so the repository chips do not narrow spend.
 
 ### The weekly brief
 
