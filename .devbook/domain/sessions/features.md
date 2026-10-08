@@ -242,8 +242,10 @@ type: feature
 related: [.devbook/domain/sessions/domain.md#session-grouping]
 ```
 
-Carve the same list up by the two things that separate sessions from each other in
-practice, without removing any of them.
+Carve the same list up by the things that separate sessions from each other in
+practice — when they ran, which repository they were in, which machine ran them —
+without removing any of them. The list opens grouped by When, which puts the live
+sessions on top and the rest under the day they were last active.
 
 ### Group by environment
 
@@ -276,10 +278,13 @@ row.
 
 ```meta
 type: sub-feature
+status: deprecated
 ```
 
-A section per agent, so Claude's sessions and Copilot's can be read separately
-without the two being separate lists.
+A section per agent, so Claude's sessions and Copilot's could be read separately
+without the two being separate lists. The session list no longer offers it: every row
+wears its agent's mark, and When, Repository and Machine are the three ways the
+redesigned list is read. The grouping itself remains in the domain.
 
 ### Grouping never hides a session
 
@@ -614,7 +619,6 @@ figures with what the run and each stage cost in money.
 
 ```meta
 type: feature
-status: proposed
 depends-on: [.devbook/domain/sessions/features.md#session-inventory]
 related: [.devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/features.md#session-grouping, .devbook/domain/sessions/features.md#delivery-runs-beside-their-sessions, .devbook/design/effort-and-mode-chips.md#effort-chips]
 ```
@@ -633,23 +637,26 @@ grouping, and nothing shown that the agent or the dashboard did not record.
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#narrow-to-one-machine, .devbook/domain/sessions/features.md#only-the-rows-with-a-run]
 ```
 
-The controls that narrow the list sit together in one filter bar above it. These are the
-live view, the machine filter and the toggle for rows with a run. One bar, because a
-reader who wonders why a session is missing should find every reason in one place.
+The controls that narrow the list sit together in one filter bar above it, in the order
+they apply: Show — Live or All — then With delivery runs, then Machine; Group by beside
+them; and Update records and Refresh at the end. One bar, because a reader who wonders
+why a session is missing should find every reason in one place.
+
+Live carries how many rows it would show under the other filters, so pressing it is
+never a guess. Every filter comes back to its first option on every opening, and Group
+by comes back to When.
 
 The count beside the title keeps its promise from
 [Grouping never hides a session](#grouping-never-hides-a-session). It names both numbers
-whenever the bar leaves rows out.
+whenever the bar leaves rows out. The heading reads "Running now" while Show is on Live.
 
 ### Grouped rows that show how each session ran
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/sessions/features.md#session-grouping, .devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran, .devbook/design/effort-and-mode-chips.md#effort-chips]
 ```
 
@@ -662,11 +669,24 @@ session costs and how well it does. A reader comparing two sessions should not h
 open both to learn that one ran on a smaller model. A session whose agent recorded no
 effort shows none, rather than a default that would claim a choice nobody made.
 
+The list is grouped by When, Repository or Machine — see
+[Session Grouping](domain.md#session-grouping) — and each row reads, in three lines:
+
+- the agent's mark, the session's title and its state chip;
+- the repository wearing its identity edge, the machine, when it was last active, how
+  long it went on, the model with its effort chip, and its output tokens;
+- the stage strip of the run it last drove, with one line saying where that run
+  stands: every stage done, the stage it failed or was parked at, or the stage it is on
+  and how far along that is.
+
+The row is one control: pressing it shows the session in the detail panel. The pull
+requests and the task it led to are in the panel rather than on the row, because a
+link inside a control is markup no browser agrees on.
+
 ### The detail of one session
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/sessions/features.md#what-a-session-cost-and-what-it-shipped, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/sessions/features.md#the-detail-panel-of-a-pull-request]
 ```
 
@@ -680,6 +700,27 @@ A panel beside the list, because the reader is usually moving down the rows. A p
 keeps their place, where a page of its own would lose it. The pull request card and the
 task card are the same cards the pull requests pane and the task list draw, so one piece
 of work looks the same wherever it appears.
+
+The panel shows the row the reader pressed, and until they press one, the first row the
+list draws. A filter that hides the pressed row moves the panel to the first row drawn,
+because a panel about a session the list does not show would contradict the list. At a
+narrow width the panel drops under the list.
+
+- **The facts**: repository, machine, model, effort, started, duration, output, branch,
+  and — on a row whose folder is this machine's — the working folder. A model or an
+  effort nobody recorded reads "not recorded".
+- **Where the record came from**, in a quiet note under the title: a replicated record
+  names the machine that recorded it and says its folder and transcript stayed there; a
+  row the runs alone account for says which dashboard recorded it and under which key,
+  or for a schedule's row how many runs it holds; a row answered from this machine's own
+  record says the transcript is gone; and a Copilot row says its state is read from
+  silence, because Copilot leaves no liveness marker.
+- **The run card**: every run on the row, latest first, each the run's line as the list
+  has always drawn it. A session with no run says so in its place.
+- **What it produced**: a pull request card for each pull request, wearing the readiness
+  verdict of [One verdict per pull request](#one-verdict-per-pull-request) as read for
+  it, and the task card for the Backlog entry it was worked for. A pull request whose
+  verdict could not be read wears no chip rather than a guess.
 
 ## How each stage of a run ran
 
@@ -799,6 +840,15 @@ The receiving end is built. The desktop app takes Claude Code's OpenTelemetry lo
 [Claude API Request Log](domain.md#claude-api-request-log). Settings has a **Claude
 Code** page with the endpoint and the `settings.json` block to paste into Claude Code.
 The run and stage views that would show the cost are not built yet.
+
+A session sends these events only when its Claude Code settings say to. The person
+merges that page's block into the `env` of their user-level `~/.claude/settings.json`:
+telemetry on, the OTLP logs exporter, the logs protocol, the endpoint, and the bearer
+token as a header. They add `OTEL_LOG_TOOL_DETAILS=1` so each request names the sub-agent
+and the skill it ran under. They never turn on the prompt or response events, which would
+only send what the session said. A new session, started after the change, is the first
+to report. The exact keys and the check that the rows arrived are in
+`.claude/skills/run-backlog/SKILL.md`, under Claude Code telemetry.
 
 ### A price table for runs without telemetry
 

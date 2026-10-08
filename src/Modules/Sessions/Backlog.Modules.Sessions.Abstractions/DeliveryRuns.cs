@@ -603,6 +603,48 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
 
     /// <summary>Whether the row is a run the list holds no session for.</summary>
     public bool RunOnly => Session is null;
+
+    /// <summary>
+    /// How long the row's work went on: from its start to its last activity, or null
+    /// where nothing dated the start.
+    /// </summary>
+    public TimeSpan? Duration => StartedAt is { } started && LastActivityAt >= started
+        ? LastActivityAt - started
+        : null;
+
+    /// <summary>
+    /// The model the row's work mostly ran on, verbatim, or null where nothing
+    /// recorded one.
+    /// <para>
+    /// The session's own usage first — the model it spent the most output on, since a
+    /// session that called a small model for a few lookups still ran on the large one
+    /// — and otherwise the first model the row's runs observed. Never a default: a
+    /// row with no recorded model says so rather than borrowing the usual one.
+    /// </para>
+    /// </summary>
+    public string? Model =>
+        Session?.ModelUsage is { Count: > 0 } usage
+            ? usage.OrderByDescending(model => model.OutputTokens).First().Model
+            : Runs.SelectMany(run => run.TokenUsage?.Models ?? []).FirstOrDefault(model => !string.IsNullOrWhiteSpace(model));
+
+    /// <summary>
+    /// The output tokens the row's work spent: the session's own, summed over its
+    /// models, or — for a row with none — its runs' totals. Null where neither side
+    /// recorded any, which is never the same as zero.
+    /// </summary>
+    public long? OutputTokens =>
+        Session?.ModelUsage is { Count: > 0 } usage
+            ? usage.Sum(model => model.OutputTokens)
+            : Runs.Any(run => run.TokenUsage is not null)
+                ? Runs.Sum(run => run.TokenUsage?.Total.OutputTokens ?? 0)
+                : null;
+
+    /// <summary>
+    /// The reasoning effort the owner session ran at, as a run on this row recorded
+    /// it, or null where none did — see <see cref="DeliveryRunExecutions.OwnerEffort"/>.
+    /// The most recently updated run that recorded one wins.
+    /// </summary>
+    public string? Effort => Runs.Select(DeliveryRunExecutions.OwnerEffort).FirstOrDefault(effort => effort is not null);
 }
 
 /// <summary>

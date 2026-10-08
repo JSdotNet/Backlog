@@ -1299,6 +1299,17 @@ button.badge:hover {
 .badge--gh-closed { border-color: var(--color-border-strong); color: var(--color-text-secondary); text-decoration: line-through; }
 .badge--gh-unknown { border-color: var(--color-border-strong); color: var(--color-text-secondary); border-style: dashed; }
 
+/* The tone scale itself as a family, for a value that already arrives classed by
+   its tone — a pull request's readiness verdict carries its tone with it, so the
+   chip draws the tone rather than re-deriving it from the label. Filled for the
+   three a reader acts on, outlined for the two that are information. */
+.badge--tone-quiet { background: var(--color-background-alt); color: var(--color-secondary); border-color: var(--color-border-strong); }
+.badge--tone-live { border-color: var(--color-primary-dark); color: var(--color-primary-light); }
+.badge--tone-alert { background: var(--color-warning); border-color: var(--color-border-strong); color: var(--color-text-primary); }
+.badge--tone-fault { background: var(--color-error); border-color: var(--color-border-strong); color: var(--color-text-primary); }
+.badge--tone-settled { background: var(--color-success); border-color: var(--color-border-strong); color: var(--color-text-primary); }
+.badge--tone-archived { border-color: var(--color-border-strong); color: var(--color-text-secondary); }
+
 .tag-chip {
     display: inline-flex;
     align-items: center;
@@ -6947,6 +6958,87 @@ button.tag-chip__label {
     font-family: var(--font-family-mono);
     color: var(--color-text-secondary);
     overflow-wrap: anywhere;
+}
+
+/*
+   StageStrip: the compact form of FlowSteps for a list row — one short mark per
+   step in the step's tone, then a one-line summary. Done is the success ink,
+   active the brand gold, blocked the error ink; pending is an empty slot drawn as
+   an outline, and skipped a dashed one, so the five differ by more than hue.
+*/
+.stage-strip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    max-width: 100%;
+}
+
+.stage-strip__marks {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: 3px;
+}
+
+.stage-strip__mark {
+    width: 12px;
+    height: 6px;
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.stage-strip__mark--done { background: var(--color-success-text); box-shadow: none; }
+.stage-strip__mark--active { background: var(--color-primary); box-shadow: none; }
+.stage-strip__mark--blocked { background: var(--color-error-text); box-shadow: none; }
+.stage-strip__mark--skipped { box-shadow: none; outline: var(--border-width) dashed var(--color-border-strong); outline-offset: -1px; }
+
+.stage-strip__summary {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/*
+   EffortChip: .devbook/design/effort-and-mode-chips.md#effort-chips. One gold
+   ladder, never the badge tone scale: effort is a magnitude, not a state. Low and
+   medium share the grey outline (color-border-strong, which clears 3:1 where the
+   drawn color-border did not); high takes gold ink and outline; xhigh adds a tint
+   mixed against color-background so it is one colour on every surface; max is
+   solid gold. A value off the ladder draws as low. Outlines are inset rings, so
+   no step changes the chip's box.
+*/
+.effort-chip {
+    display: inline-block;
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-tight);
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--color-text-secondary);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.effort-chip--high {
+    color: var(--color-primary-light);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-primary-dark);
+}
+
+.effort-chip--xhigh {
+    color: var(--color-primary-light);
+    background: color-mix(in srgb, var(--color-primary) 18%, var(--color-background));
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.effort-chip--max {
+    color: var(--color-text-inverse);
+    background: var(--color-primary);
+    box-shadow: none;
+    font-weight: var(--font-weight-semibold);
 }
 
 /* --- Toasts -------------------------------------------------------------- */

@@ -207,6 +207,17 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
         </div>
     </Story>
 
+    <Story Name="EffortChip"
+           Description="The reasoning effort something ran at, on one ladder of the brand gold rather than the tone scale: low and medium share a grey outline, high is gold ink in a gold outline, xhigh adds a tint, max is solid gold. The word is always the text. No recorded effort draws nothing; the Session list page shows it in use."
+           Code="@EffortCode">
+        <div class="sb-row" data-testid="badges-effort-chip">
+            @foreach (var step in EffortChip.Ladder)
+            {
+                <EffortChip Effort="@step" TestId="@($"badges-effort-{step}")" />
+            }
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -215,8 +226,14 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
         new("color-scheme.md#badge-and-chip-tones", "What each badge family and each value tone means."),
         new("color-scheme.md#contrast-rules-wcag-aa-minimum", "The ratio a badge's small text has to clear."),
         new("typography-and-layout.md#metadata-lines", "How small a chip is set, and how it sits beside prose."),
-        new("accessibility.md#iconography-accessibility", "Why a glyph never carries the meaning on its own.")
+        new("accessibility.md#iconography-accessibility", "Why a glyph never carries the meaning on its own."),
+        new("effort-and-mode-chips.md#effort-chips", "Why effort rises along one gold ladder rather than the tone scale.")
     ];
+
+    private const string EffortCode = """
+        <EffortChip Effort="xhigh" />
+        <EffortChip Effort="@row.Effort" />   @* null draws nothing *@
+        """;
 
     private static readonly string[] Kinds = ["status", "priority", "type"];
     private static readonly string[] Slugs = ["draft", "ready", "active", "blocked", "done"];

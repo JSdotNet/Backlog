@@ -5982,131 +5982,303 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
-/* The name column is the one that may take the width it needs; every other column
-   is a date, a chip or a short string. */
-.sessions-table__session {
-    white-space: normal;
-    /* Room for a run line: the glyph, a skill id, a title, a tracker reference and
-       the outcome, on one line at the widths this pane is used at. Below this the
-       eight-column table already scrolls sideways, so the floor costs nothing the
-       table was not paying. */
-    min-width: 26rem;
-}
-
-.sessions-table__title {
-    color: var(--color-text-primary);
-    font-weight: 500;
-}
-
-/* The second line of a row that arrived from another machine: which machine
-   recorded the session, and that its folder and transcript stayed there.
-
-   One declaration, and the absence of the rest is the design. It inherits
-   `.data-table__detail` whole — the same secondary ink, size and weight the folder
-   line has — because it is the same kind of detail and a quieter or louder one
-   would say something about the record that is not true: nothing is wrong with it,
-   and nothing about it is unavailable. It stays out of the mono family the folder
-   line wears, for the same reason that line wears it — the family follows the
-   content, and this is a sentence rather than a path.
-
-   The clamping itself is `data-table__clamp`'s, in the markup, so this line fails
-   the way a long path already fails: an ellipsis and the full text in the title,
-   rather than running out of the cell into the Type column. This rule widens that
-   clamp and does nothing else. A path is clamped at 22rem to stop it setting the
-   table's width; this is a sentence with a machine name in the middle of it, and at
-   22rem the sentence alone very nearly fills the cap, so almost every replicated row
-   would show an ellipsis and none would read whole. 26rem is what the longest
-   hostnames here need, and it is still bounded — uncapped, the column that would pay
-   is State at the far right, the one a reader scanning this list came for. */
-.sessions-table__origin {
-    max-width: 26rem;
-}
-
-/* The mark and its badge read as one thing, on one line. Positioned because the
-   cell holds the agent's word for a screen reader, and the absolute sr-only span
-   needs a positioned cell to stay inside the table. */
-.sessions-table__kind {
-    display: table-cell;
-    position: relative;
-    white-space: nowrap;
-}
-
-/* Inline, against the library's block mark: as a block it took a line of its own
-   and stacked the cell into two, mark above "Claude desktop". */
-.sessions-table__kind .sessions-table__mark {
-    display: inline-block;
-}
-
-.sessions-table__mark {
-    margin-right: var(--spacing-2xs);
-    vertical-align: text-bottom;
-}
-
-/* Where the agent was run from — "desktop", "cli" — after the type's word. The
-   library's outlined kind badge at detail size: it qualifies the type and must not
-   compete with it. */
-.sessions-table__entrypoint {
-    margin-left: var(--spacing-xs);
-    font-size: var(--font-size-xs);
-    vertical-align: baseline;
-}
-
-/* The pull requests a session linked, on one line under its name, the way a run's
-   references sit on its own line. They wrap rather than clamp: each is a short
-   "PR #n" and cutting one in half would leave a number nobody can read. */
-.sessions-table__pull-requests {
+/* The list and the panel beside it. Side by side while both fit, the panel a
+   little wider because it carries the run; under a width where they do not, the
+   panel drops under the list rather than squeezing either. */
+.sessions-layout {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-xs);
-}
-
-.sessions-table__pull-request {
+    align-items: flex-start;
+    gap: var(--spacing-lg);
     min-width: 0;
 }
 
-/* The session a task opened the pane on. The accent rule down its leading edge
-   and the selection tint say "this one" without moving anything; the row keeps
-   its place in whatever grouping is chosen. Focus lands on it too, so the
-   outline is the row's own focus ring. The inbox's selected row, in a table. */
-.sessions-table__row--focused > td {
-    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+.sessions-list {
+    display: flex;
+    flex: 1 1 28rem;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: 0;
 }
 
-.sessions-table__row--focused > td:first-child {
-    box-shadow: inset 3px 0 0 var(--color-primary);
+.sessions-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
 }
 
-.sessions-table__row--focused:focus-visible {
+.sessions-group__heading {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+    margin: 0 0 var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.sessions-group__size {
+    color: var(--color-secondary);
+    font-weight: 500;
+}
+
+.sessions-group__rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* One row: a pressable card of three lines. The pressed row is the one the panel
+   shows, and it wears the raised surface inside the strong edge, so the selection
+   survives greyscale. */
+.sessions-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 0;
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sessions-row:hover {
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.sessions-row:focus-visible {
     outline: 2px solid var(--color-border-focus);
-    outline-offset: -2px;
+    outline-offset: 2px;
 }
 
-/* Two short figures, read across rather than wrapped. */
-.sessions-table__tokens {
+.sessions-row--selected {
+    background: var(--color-background-raised);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+/* The session a task opened the pane on: the accent rule down its leading edge
+   says "this one" without moving it in whatever grouping is chosen. */
+.sessions-row--focused {
+    box-shadow: inset 3px 0 0 var(--color-primary), inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.sessions-row__line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+    min-width: 0;
+    width: 100%;
+}
+
+.sessions-row__kind {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+}
+
+.sessions-row__title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
+    font-weight: 500;
+}
+
+.sessions-row__facts {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sessions-row__model {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+    white-space: nowrap;
+}
+
+.sessions-row__spacer {
+    flex: 1 1 0;
+}
+
+.sessions-row__tokens {
+    font-family: var(--font-family-mono);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
-/* Two more columns allowed to be cut short, and narrower than the library's
-   default because there are two of them in every row. A branch name here is a
-   slug with a hash on the end and a repository is owner/name: both are
-   recognisable from their first characters, and neither is worth the state column
-   falling off the right edge of the table. */
-.sessions-table__repository {
-    max-width: 12rem;
+/* The repository with its identity edge, as a small tag: the edge is the shared
+   repo-mark utility, and the name is right there, so the hue is never the only
+   carrier. */
+.sessions-repository {
+    display: inline-block;
+    max-width: 14rem;
+    padding: 0 var(--spacing-sm) 0 calc(var(--spacing-sm) + 2px);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
 }
 
-/* A repository the product placed the session in — its working folder lies inside
-   a registered clone — rather than one the agent recorded. The cell's title says so
-   in words; this is the glance-level hint, a leading approximation glyph, so a
-   resolved value never reads as a recorded one. Colour stays the identity hue's. */
-.sessions-table__repository--resolved::before {
+/* A repository the product placed the session in rather than one the agent
+   recorded: the leading approximation glyph, and the title says so in words. */
+.sessions-repository--resolved::before {
     content: "≈ ";
     color: var(--color-text-secondary);
 }
 
-.sessions-table__branch {
-    max-width: 16rem;
+.sessions-filter__tally {
+    margin-left: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-weight: 400;
+}
+
+/* The detail panel. */
+.sessions-detail {
+    display: flex;
+    flex: 1.35 1 32rem;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.sessions-detail__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.sessions-detail__provider {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sessions-detail__entrypoint {
+    font-size: var(--font-size-xs);
+}
+
+.sessions-detail__when {
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sessions-detail__title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+/* Where the record came from: the quiet register, because nothing is wrong. */
+.sessions-detail__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.sessions-detail__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: var(--spacing-md) var(--spacing-lg);
+    margin: 0;
+}
+
+.sessions-fact {
+    min-width: 0;
+}
+
+.sessions-fact--wide {
+    grid-column: 1 / -1;
+}
+
+.sessions-fact dt {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sessions-fact dd {
+    margin: var(--spacing-2xs) 0 0;
+    overflow-wrap: anywhere;
+}
+
+.sessions-detail__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    margin: 0;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.sessions-detail__card-title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.sessions-detail__section-title {
+    margin: 0 0 var(--spacing-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.sessions-detail__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--spacing-md);
+}
+
+.sessions-detail__card-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sessions-detail__work {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: baseline;
+    min-width: 0;
+}
+
+.sessions-detail__work-title {
+    flex: 1 1 8rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.sessions-detail__none {
+    color: var(--color-text-secondary);
 }
 
 /* The pull requests takeover. The session list's frame, for the reason that one
@@ -6852,35 +7024,6 @@ a.pull-request-detail-checks__name:hover {
 /* Folded by default; the grid above would otherwise outrank the hidden attribute. */
 .sessions-runs[hidden] {
     display: none;
-}
-
-/* The Pull request and Task columns, sized as the Pull requests pane sizes its own. */
-.sessions-table__reference .integration-link {
-    max-width: 12rem;
-}
-
-.sessions-table__reference .integration-link__label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-}
-
-/* On one line, so two pull requests do not make the row twice as tall. */
-.sessions-table__reference .sessions-table__pull-requests {
-    flex-wrap: nowrap;
-    align-items: baseline;
-}
-
-/* The pull requests past the column's cap, counted; the title names them. */
-.sessions-table__more {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-/* The row's run count, as a quiet second line under the session's name. */
-.sessions-table__runs-fold .fold__trigger {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
 }
 
 .sessions-run__reference {

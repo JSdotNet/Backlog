@@ -1,0 +1,135 @@
+@page "/session-list"
+
+<PageTitle>Session list — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Session list"
+           Summary="EffortChip and StageStrip: the two parts the Sessions pane's list rows and detail panel are drawn with that no other page shows — the reasoning effort a session ran at, on one gold ladder, and how far its delivery run got, as one mark per stage and a line of words."
+           Guidelines="@Rules">
+
+    <Story Name="Effort ladder"
+           Description="One chip per step, rising in emphasis along one ladder of the brand gold: low and medium share a grey outline, high is gold ink in a gold outline, xhigh adds a gold tint, max is solid gold. Low and medium look alike on purpose — the word is the chip's text, and the title says it again for a screen reader."
+           Code="@LadderCode">
+        <div class="sb-row" data-testid="effort-ladder">
+            @foreach (var step in EffortChip.Ladder)
+            {
+                <EffortChip Effort="@step" TestId="@($"effort-{step}")" />
+            }
+        </div>
+    </Story>
+
+    <Story Name="Effort not recorded"
+           Description="No effort, no chip: a null or blank value draws nothing at all, so a host hands it whatever the run recorded and says &quot;not recorded&quot; in its own words. A value the ladder does not list is drawn verbatim in the low treatment, and its title names the steps the ladder expects — flagged, not styled."
+           Code="@AbsentCode">
+        <div class="sb-row" data-testid="effort-absent">
+            <span class="sb-label">Opus 5.5</span>
+            <EffortChip Effort="@null" />
+            <span class="sb-label">not recorded</span>
+            <span class="sb-label">· off the ladder:</span>
+            <EffortChip Effort="turbo" TestId="effort-unknown" />
+        </div>
+    </Story>
+
+    <Story Name="Stage strip"
+           Description="How far a delivery run got, compact enough for a list row: one short mark per stage in FlowSteps' five tones — done, active, blocked, skipped, pending — and the one-line summary beside it. The marks are an image whose name counts the stages done, each mark's title names its stage and status, and the summary says the same in words, so colour is never the only carrier."
+           Code="@StripCode">
+        <div class="sb-stack" data-testid="stage-strip-states">
+            <StageStrip Steps="@Running" Summary="flow-code · Verify (6 of 12)" />
+            <StageStrip Steps="@Failed" Summary="@FailedSummary" />
+            <StageStrip Steps="@Finished" Summary="flow-code · all 12 stages done" />
+            <StageStrip Steps="@Skipped" Summary="flow-spec · Ready (5 of 9)" />
+        </div>
+    </Story>
+
+    <Story Name="A run with no stages"
+           Description="An older dashboard wrote no stages. With nothing to picture the marks go and the summary stands alone; with neither, the strip draws nothing."
+           Code="@NoStagesCode">
+        <div class="sb-row" data-testid="stage-strip-no-stages">
+            <StageStrip Steps="@NoSteps" Summary="orch-feature · Done" />
+        </div>
+    </Story>
+
+    <Story Name="On a session row"
+           Description="How the Sessions pane composes them on a row's second and third lines: the model with its effort chip after it, then the run's strip and summary. The row itself — the pressable card, the repository edge, the detail panel beside the list — is the pane's own markup and is reviewed in the running application."
+           Code="@RowCode">
+        <div class="sb-stack" data-testid="session-row-composition">
+            <div class="sb-row">
+                <ProviderMark Provider="IntegrationProvider.Claude" Size="20" />
+                <strong>PR &amp; session pages redesign</strong>
+                <IntegrationStateChip Session="IntegrationSessionState.Running" />
+            </div>
+            <div class="sb-row">
+                <span>DESKTOP-JS · just now · 38 min ·</span>
+                <span>Opus 5.5</span>
+                <EffortChip Effort="xhigh" />
+                <span>· 182k out</span>
+            </div>
+            <StageStrip Steps="@Running" Summary="flow-code · Verify (6 of 12)" />
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("effort-and-mode-chips.md#effort-chips", "Why effort rises along one gold ladder rather than the badge tone scale, and the outline low and medium take."),
+        new("effort-and-mode-chips.md#requirement-no-chip-without-a-recorded-effort", "Why an effort nobody recorded draws no chip at all."),
+        new("accessibility.md#iconography-accessibility", "Why a stage's mark never carries its status on its own.")
+    ];
+
+    private static readonly string[] StageNames =
+    [
+        "Update Base", "Scope", "Implement", "Review", "Build & Test", "Verify",
+        "Spec Check", "Ready", "Personal Validation", "Create Pull Request", "Report Back", "Summary"
+    ];
+
+    private static IReadOnlyList<FlowStep> Steps(Func<int, FlowStepTone> tone) =>
+        [.. StageNames.Select((name, index) => new FlowStep(name, tone(index), tone(index) switch
+        {
+            FlowStepTone.Done => "Done",
+            FlowStepTone.Active => "In progress",
+            FlowStepTone.Blocked => "Failed",
+            FlowStepTone.Skipped => "Skipped",
+            _ => "Pending"
+        }))];
+
+    private static readonly IReadOnlyList<FlowStep> Running = Steps(index => index < 5 ? FlowStepTone.Done : index == 5 ? FlowStepTone.Active : FlowStepTone.Pending);
+
+    private static readonly IReadOnlyList<FlowStep> Failed = Steps(index => index < 4 ? FlowStepTone.Done : index == 4 ? FlowStepTone.Blocked : FlowStepTone.Pending);
+
+    private static readonly IReadOnlyList<FlowStep> Finished = Steps(_ => FlowStepTone.Done);
+
+    private static readonly IReadOnlyList<FlowStep> Skipped =
+        [.. Steps(index => index < 4 ? FlowStepTone.Done : index == 4 ? FlowStepTone.Active : FlowStepTone.Pending).Take(9)
+            .Select((step, index) => index == 2 ? step with { Tone = FlowStepTone.Skipped, Status = "Skipped" } : step)];
+
+    private static readonly IReadOnlyList<FlowStep> NoSteps = [];
+
+    private const string FailedSummary = "flow-code · Build & Test failed";
+
+    private const string LadderCode = """
+        <EffortChip Effort="low" />
+        <EffortChip Effort="medium" />
+        <EffortChip Effort="high" />
+        <EffortChip Effort="xhigh" />
+        <EffortChip Effort="max" />
+        """;
+
+    private const string AbsentCode = """
+        <EffortChip Effort="@row.Effort" />   @* null draws nothing *@
+        <EffortChip Effort="turbo" />         @* off the ladder: low treatment, titled *@
+        """;
+
+    private const string StripCode = """
+        <StageStrip Steps="@stages" Summary="flow-code · Verify (6 of 12)" />
+        """;
+
+    private const string NoStagesCode = """
+        <StageStrip Steps="@([])" Summary="orch-feature · Done" />
+        """;
+
+    private const string RowCode = """
+        <span>Opus 5.5</span>
+        <EffortChip Effort="@row.Effort" />
+        <StageStrip Steps="@DeliveryRunProgress.Steps(run)" Summary="@DeliveryRunProgress.Summary(run)" />
+        """;
+}
