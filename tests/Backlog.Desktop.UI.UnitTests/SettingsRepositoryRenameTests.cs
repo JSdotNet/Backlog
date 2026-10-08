@@ -82,6 +82,31 @@ public sealed class SettingsRepositoryRenameTests
         Assert.Equal(["Rename", "Remove repository"], buttons.Select(button => button.TextContent.Trim()));
     }
 
+    /// <summary>
+    /// A registry that arrives with two rows sharing an alias — a placeholder a plan
+    /// registered beside the real repository — still opens the tab. Each subpage is
+    /// keyed by its alias, so a shared one threw Blazor's duplicate-key exception and
+    /// the whole page showed the unhandled-error banner.
+    /// </summary>
+    [Fact]
+    public void A_registry_with_a_shared_alias_opens_the_tab_with_a_card_each()
+    {
+        using var settings = RenderSettings(registry: """
+            {
+              "repositories": [
+                { "id": "finance/finance", "alias": "finance" },
+                { "id": "JSdotNet/finance", "alias": "finance" }
+              ]
+            }
+            """);
+
+        OpenRepositoriesTab(settings.Component);
+
+        Assert.Equal(
+            ["finance/finance", "JSdotNet/finance"],
+            settings.Component.FindAll("[data-testid='repo-subpage-tab']").Select(tab => tab.TextContent.Trim()));
+    }
+
     /// <summary>A refusal from the store is the form's to show and leaves the
     /// form open with nothing renamed: a name to correct, not a rename that
     /// half happened.</summary>
@@ -244,9 +269,16 @@ public sealed class SettingsRepositoryRenameTests
     private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
         component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Repositories").Click();
 
-    private static SettingsRenderContext RenderSettings(int entriesMoved = 0, int itemsMoved = 0, bool tasksRefuse = false)
+    private static SettingsRenderContext RenderSettings(int entriesMoved = 0, int itemsMoved = 0, bool tasksRefuse = false, string? registry = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-rename-tests", Guid.NewGuid().ToString("n"));
+
+        if (registry is not null)
+        {
+            var registryPath = Path.Combine(root, "workspace", GitHubSettingsStore.RegistryFolderName, "repos.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(registryPath)!);
+            File.WriteAllText(registryPath, registry);
+        }
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -255,9 +287,12 @@ public sealed class SettingsRepositoryRenameTests
         _ = features.SetEnabled(AppFeatures.UsageMetrics, false);
 
         var githubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"), () => Path.Combine(root, "workspace"));
-        var (repositories, errors) = GitHubSettings.ParseText("backlog = JSdotNet/Backlog\ndocs = JSdotNet/Docs");
-        Assert.Empty(errors);
-        Assert.Null(githubSettings.SetRepositories(repositories));
+        if (registry is null)
+        {
+            var (repositories, errors) = GitHubSettings.ParseText("backlog = JSdotNet/Backlog\ndocs = JSdotNet/Docs");
+            Assert.Empty(errors);
+            Assert.Null(githubSettings.SetRepositories(repositories));
+        }
 
         var tasks = new RecordingTaskItems(entriesMoved, tasksRefuse);
         var inbox = new RecordingInboxItems(itemsMoved);
