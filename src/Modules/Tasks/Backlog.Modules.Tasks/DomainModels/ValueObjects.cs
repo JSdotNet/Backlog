@@ -113,3 +113,46 @@ public sealed record TaskDevbookReference
 
     public override string ToString() => Value;
 }
+
+/// <summary>
+/// Hours the person has set aside for a task on one day — a date and a number of
+/// hours, never a start or an end. Equality is by value.
+/// <para>
+/// The person's own plan for the Calendar and nothing else: it is no estimate and
+/// no measure, so the roadmap's pace and windows never read it. More than zero and
+/// at most a whole day, in quarters of an hour, so a typed 2.4 is one the person
+/// sees again as 2.5 rather than as a figure the editor cannot show.
+/// </para>
+/// </summary>
+public sealed record PlannedHoursBlock
+{
+    /// <summary>The most one block can hold: the whole day.</summary>
+    public const decimal MaxHours = 24m;
+
+    private PlannedHoursBlock(DateOnly on, decimal hours)
+    {
+        On = on;
+        Hours = hours;
+    }
+
+    /// <summary>The day the hours are set aside on.</summary>
+    public DateOnly On { get; }
+
+    /// <summary>How many hours, in quarters of an hour.</summary>
+    public decimal Hours { get; }
+
+    /// <summary>A block of <paramref name="hours"/> on <paramref name="on"/>, rounded to
+    /// the nearest quarter of an hour, or null when that is no more than zero or more
+    /// than <see cref="MaxHours"/>.</summary>
+    public static PlannedHoursBlock? TryCreate(DateOnly on, decimal hours)
+    {
+        var rounded = Math.Round(hours * 4m, MidpointRounding.AwayFromZero) / 4m;
+        return rounded is <= 0m or > MaxHours ? null : new PlannedHoursBlock(on, rounded);
+    }
+
+    /// <summary>As <see cref="TryCreate"/>, refusing a value out of range with an
+    /// <see cref="ArgumentOutOfRangeException"/>.</summary>
+    public static PlannedHoursBlock Create(DateOnly on, decimal hours) =>
+        TryCreate(on, hours)
+        ?? throw new ArgumentOutOfRangeException(nameof(hours), hours, $"Planned hours are more than 0 and at most {MaxHours}.");
+}

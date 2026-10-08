@@ -101,6 +101,12 @@ public static class RoadmapCrossContextAdapterRegistration
         // is live without a restart.
         services.AddSingleton<IPlanningVelocitySettings, PlanningVelocitySource>();
 
+        // The hours a Calendar day is set against: the roadmap's working week and days
+        // off, read through the settings port above and never written. A singleton over
+        // that singleton. Planned hours go nowhere the other way.
+        services.AddSingleton<ICalendarCapacity>(sp =>
+            new RoadmapCalendarCapacity(sp.GetRequiredService<IPlanningVelocitySettings>()));
+
         // The same file is the pace document that travels between devices (local ADR
         // 0018): Roadmap's replication port reads and writes it through its store
         // port. A singleton over the singleton store, for the reason the line above is.

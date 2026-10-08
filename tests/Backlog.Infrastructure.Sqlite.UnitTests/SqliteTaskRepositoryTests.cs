@@ -189,6 +189,100 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Empty((await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.DevbookReferences);
     }
 
+    /// <summary>The planned hours are one JSON column of their own: they come back in
+    /// date order, are replaced whole and clear, and the body is untouched.</summary>
+    [Fact]
+    public async Task Planned_hours_are_set_replaced_and_cleared()
+    {
+        var monday = new DateOnly(2026, 10, 12);
+        var task = new TaskItem("Refactor sync", "The body.", EntryType.Task);
+        task.SetPlannedHours([PlannedHoursBlock.Create(monday.AddDays(1), 2.5m), PlannedHoursBlock.Create(monday, 3m)]);
+
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(
+            [PlannedHoursBlock.Create(monday, 3m), PlannedHoursBlock.Create(monday.AddDays(1), 2.5m)],
+            loaded.PlannedHours);
+        Assert.Equal("The body.", loaded.ContentMd);
+
+        loaded.SetPlannedHours([PlannedHoursBlock.Create(monday.AddDays(3), 1m)]);
+        await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
+        Assert.Equal(
+            [PlannedHoursBlock.Create(monday.AddDays(3), 1m)],
+            (await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.PlannedHours);
+
+        loaded.SetPlannedHours([]);
+        await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
+        Assert.Empty((await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.PlannedHours);
+    }
+
+    /// <summary>
+    /// The migration for the <c>planned_hours</c> column: a file written by the build
+    /// before it — every column up to and including <c>source_ref</c> — opens, reads its
+    /// rows as having no hours planned, and takes a block on the next save.
+    /// </summary>
+    [Fact]
+    public async Task A_database_written_before_the_planned_hours_column_still_opens_and_reads()
+    {
+        var id = Guid.NewGuid();
+        var createdAt = new DateTimeOffset(2026, 9, 1, 9, 0, 0, TimeSpan.Zero);
+
+        Directory.CreateDirectory(_root);
+
+        await using (var seed = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = _repository.DatabasePath }.ToString()))
+        {
+            await seed.OpenAsync(TestContext.Current.CancellationToken);
+
+            await using var create = seed.CreateCommand();
+            create.CommandText = """
+                CREATE TABLE tasks (
+                    id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, content_md TEXT NOT NULL DEFAULT '',
+                    type TEXT NOT NULL, status TEXT NOT NULL, priority TEXT NOT NULL,
+                    sort_order INTEGER NOT NULL DEFAULT 0, area TEXT NULL, created_at TEXT NOT NULL,
+                    source_inbox_id TEXT NULL, recurrence_source_id TEXT NULL, due_on TEXT NULL,
+                    remind_at TEXT NULL, recurrence TEXT NULL, in_my_day_on TEXT NULL, view TEXT NULL,
+                    tags TEXT NOT NULL DEFAULT '[]', repo_ids TEXT NOT NULL DEFAULT '[]',
+                    depends_on TEXT NOT NULL DEFAULT '[]', sub_items TEXT NOT NULL DEFAULT '[]',
+                    usage_events TEXT NOT NULL DEFAULT '[]', projections TEXT NOT NULL DEFAULT '[]',
+                    effort INTEGER NULL, import_plan_id TEXT NULL, import_item_id TEXT NULL,
+                    updated_at TEXT NULL, deleted_at TEXT NULL, attachment_path TEXT NULL,
+                    completed_on TEXT NULL, started_on TEXT NULL, devbook_refs TEXT NOT NULL DEFAULT '[]',
+                    blocked_since TEXT NULL, source_ref TEXT NULL
+                );
+                """;
+            await create.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+
+            await using var insert = seed.CreateCommand();
+            insert.CommandText = """
+                INSERT INTO tasks (id, title, type, status, priority, created_at, updated_at)
+                VALUES ($id, $title, 'task', 'ready', 'high', $created_at, $created_at);
+                """;
+            insert.Parameters.AddWithValue("$id", id.ToString());
+            insert.Parameters.AddWithValue("$title", "Written before planned hours existed");
+            insert.Parameters.AddWithValue(
+                "$created_at",
+                createdAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            await insert.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        var loaded = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal("Written before planned hours existed", loaded.Title);
+        Assert.Empty(loaded.PlannedHours);
+
+        loaded.SetPlannedHours([PlannedHoursBlock.Create(new DateOnly(2026, 10, 12), 4m)]);
+        await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
+        var again = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
+
+        Assert.Equal([PlannedHoursBlock.Create(new DateOnly(2026, 10, 12), 4m)], again!.PlannedHours);
+    }
+
     /// <summary>A linked task's source reference is one JSON column: it comes back
     /// equal, flags and all, without the load restamping the task — and a task with
     /// none reads as local work.</summary>

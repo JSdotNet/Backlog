@@ -324,7 +324,10 @@ public sealed class TaskReplicaMerge(
                     source.WriteBackRefusal)
                 : null,
             AgendaAt: task.AgendaTime?.StartToken,
-            AgendaMinutes: task.AgendaTime?.DurationMinutes);
+            AgendaMinutes: task.AgendaTime?.DurationMinutes,
+            PlannedHours: task.PlannedHours.Count == 0
+                ? null
+                : [.. task.PlannedHours.Select(block => new PlannedHoursPayload(block.On, block.Hours))]);
     }
 
     /// <summary>The source reference a document carries, or null. One that names no
@@ -410,6 +413,10 @@ public sealed class TaskReplicaMerge(
         task.SetImportItemId(payload.ImportItemId);
         task.SetAttachment(Attachment.From(payload.AttachmentPath));
         task.SetSourceRef(ToSourceRef(payload.SourceRef));
+        // Filtered for the same reason: one block out of range costs that block.
+        task.SetPlannedHours((payload.PlannedHours ?? [])
+            .Select(block => PlannedHoursBlock.TryCreate(block.On, block.Hours))
+            .OfType<PlannedHoursBlock>());
 
         foreach (var subItem in payload.SubItems.OrderBy(s => s.Order))
         {

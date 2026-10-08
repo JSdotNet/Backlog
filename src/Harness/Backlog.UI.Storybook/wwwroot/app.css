@@ -301,6 +301,16 @@ html, body {
     border-radius: var(--border-radius-md);
 }
 
+/* A detail panel's width, for a section of the Tasks panel shown on its own. */
+.sb-panel {
+    width: 26rem;
+    max-width: 100%;
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-md);
+}
+
 .sb-stack {
     display: flex;
     flex-direction: column;

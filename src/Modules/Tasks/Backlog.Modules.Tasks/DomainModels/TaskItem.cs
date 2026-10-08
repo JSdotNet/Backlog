@@ -17,6 +17,7 @@ public sealed class TaskItem
     private readonly List<string> _tags = new();
     private readonly List<string> _dependsOn = new();
     private readonly List<string> _devbookReferences = new();
+    private readonly List<PlannedHoursBlock> _plannedHours = new();
 
     /// <summary>Creates a new, manually authored entry. It starts at
     /// <see cref="EntryStatus.Draft"/> with no source inbox id.</summary>
@@ -260,6 +261,15 @@ public sealed class TaskItem
     /// has since been renamed.
     /// </para></summary>
     public IReadOnlyList<string> DevbookReferences => _devbookReferences;
+
+    /// <summary>The hours the person set aside for this task on given days, one block
+    /// per day, in date order. The task's own field and never text in it, as
+    /// <see cref="DevbookReferences"/> are, so the text save leaves them as they are.
+    /// <para>
+    /// The person's plan for the Calendar alone: nothing the roadmap counts — its pace,
+    /// its windows, what an item gathered — reads these.
+    /// </para></summary>
+    public IReadOnlyList<PlannedHoursBlock> PlannedHours => _plannedHours;
 
     public IReadOnlyList<SubItem> SubItems => _subItems;
 
@@ -580,6 +590,24 @@ public sealed class TaskItem
 
         _devbookReferences.Clear();
         _devbookReferences.AddRange(normalised);
+
+        Touch();
+    }
+
+    /// <summary>Replaces the whole list of planned-hours blocks. A later block on a day
+    /// an earlier one names wins, so a day holds one block; the list is kept in date
+    /// order. Null and empty both clear it.</summary>
+    public void SetPlannedHours(IEnumerable<PlannedHoursBlock>? blocks)
+    {
+        var byDay = new SortedDictionary<DateOnly, PlannedHoursBlock>();
+        foreach (var block in blocks ?? [])
+        {
+            ArgumentNullException.ThrowIfNull(block);
+            byDay[block.On] = block;
+        }
+
+        _plannedHours.Clear();
+        _plannedHours.AddRange(byDay.Values);
 
         Touch();
     }

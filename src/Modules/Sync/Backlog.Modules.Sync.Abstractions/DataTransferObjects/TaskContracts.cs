@@ -91,7 +91,12 @@ public sealed record TaskPayload(
     // having none, and a service built before them passes them through in
     // Unrecognised.
     string? AgendaAt = null,
-    int? AgendaMinutes = null)
+    int? AgendaMinutes = null,
+    // The hours the person set aside for the task on given days, the Calendar's
+    // planned hours. Last and defaulted for the same reason, and null rather than
+    // empty on a task with none, so its document serialises as it did before; the
+    // service never reads one.
+    IReadOnlyList<PlannedHoursPayload>? PlannedHours = null)
 {
     /// <summary>
     /// Every property the document carried that this build has no member for,
@@ -112,6 +117,16 @@ public sealed record TaskPayload(
     /// compares and serialises as it did before.
     /// </para>
     /// </summary>
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? Unrecognised { get; init; }
+}
+
+/// <summary>One block of a task's planned hours: a day and how many hours, never a
+/// time of day.</summary>
+public sealed record PlannedHoursPayload(DateOnly On, decimal Hours)
+{
+    /// <summary>What this build has no member for, carried through as it
+    /// arrived — see <see cref="TaskPayload.Unrecognised"/>.</summary>
     [JsonExtensionData]
     public IDictionary<string, JsonElement>? Unrecognised { get; init; }
 }
