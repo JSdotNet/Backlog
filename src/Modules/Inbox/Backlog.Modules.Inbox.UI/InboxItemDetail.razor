@@ -660,6 +660,8 @@
 
     private string StateLine(InboxItemDto item) => item switch
     {
+        { Status: InboxStatus.Archived, DuplicateOf: not null, DuplicateOfTask: true } =>
+            "Merged into a backlog task and archived.",
         { Status: InboxStatus.Archived, DuplicateOf: { } original } =>
             State.Items.FirstOrDefault(other => other.Id == original) is { } kept
                 ? $"Archived as a duplicate of “{Title(kept)}”."

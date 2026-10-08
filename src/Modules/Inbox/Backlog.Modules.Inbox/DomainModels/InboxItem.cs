@@ -167,11 +167,17 @@ public sealed class InboxItem
     /// synced, so the stamp is bookkeeping rather than a tie-break.</summary>
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    /// <summary>The item this one was archived as a duplicate of, or null. Set
-    /// only by <see cref="Archive(DateTimeOffset, Guid?)"/> with an item named,
-    /// and never cleared: an archived item stays archived, and so does what it
-    /// was archived as.</summary>
+    /// <summary>What this item was archived as a duplicate of, or null: another
+    /// inbox item, or — when <see cref="DuplicateOfTask"/> — the backlog task it
+    /// was merged into. Set only by <see cref="Archive(DateTimeOffset, Guid?, bool)"/>
+    /// with something named, and never cleared: an archived item stays archived,
+    /// and so does what it was archived as.</summary>
     public Guid? DuplicateOf { get; private set; }
+
+    /// <summary>Whether <see cref="DuplicateOf"/> names a backlog task rather
+    /// than an inbox item — the capture was merged into a task it repeats.
+    /// False whenever <see cref="DuplicateOf"/> is null.</summary>
+    public bool DuplicateOfTask { get; private set; }
 
     /// <summary>"Routed" as <c>flow.md</c> defines it: triaged, with a target.</summary>
     public bool IsRouted => Routing is not null;
@@ -479,8 +485,13 @@ public sealed class InboxItem
     /// item named may be in any state; whether it still exists is the handler's
     /// to check, since the aggregate cannot see another item.
     /// </para>
+    /// <para>
+    /// With <paramref name="task"/> the id is a backlog task's — the item was
+    /// merged into a task it repeats — under the same two rules. The aggregate
+    /// cannot see a task either, so whether it exists is the handler's too.
+    /// </para>
     /// </summary>
-    public void Archive(DateTimeOffset now, Guid? duplicateOf = null)
+    public void Archive(DateTimeOffset now, Guid? duplicateOf = null, bool task = false)
     {
         if (IsRouted || Status is InboxStatus.Archived)
             throw new InvalidInboxTransitionException(Status, "archived");
@@ -491,6 +502,7 @@ public sealed class InboxItem
             if (!IsOpen) throw new InvalidInboxTransitionException(Status, "archived as a duplicate");
 
             DuplicateOf = original;
+            DuplicateOfTask = task;
         }
 
         Status = InboxStatus.Archived;
@@ -609,10 +621,12 @@ public sealed class InboxItem
         RoutingTarget? routing,
         bool replicaAckPending,
         DateTimeOffset updatedAt,
-        Guid? duplicateOf = null)
+        Guid? duplicateOf = null,
+        bool duplicateOfTask = false)
     {
         Status = status;
         DuplicateOf = duplicateOf;
+        DuplicateOfTask = duplicateOf is not null && duplicateOfTask;
         DeferredUntil = deferredUntil;
         Routing = routing;
         ReplicaAckPending = replicaAckPending;

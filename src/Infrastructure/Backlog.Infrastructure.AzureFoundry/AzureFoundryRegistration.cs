@@ -47,6 +47,11 @@ public static class AzureFoundryRegistration
         services.AddTransient<IAzureFoundryConnectionProbe>(sp =>
             (IAzureFoundryConnectionProbe)sp.GetRequiredService<IAzureFoundryChatClient>());
 
+        // The Inbox's triage advisor asks over the same client and pipeline, for
+        // the probe's reason: one endpoint, one budget, one set of failures.
+        services.AddTransient<IAzureFoundryTriageClient>(sp =>
+            (IAzureFoundryTriageClient)sp.GetRequiredService<IAzureFoundryChatClient>());
+
         // The experimental attribute on RemoveAllResilienceHandlers is a
         // warning about the API's shape, not its behaviour; it is the one
         // published way to take the host's default pipeline off a client.

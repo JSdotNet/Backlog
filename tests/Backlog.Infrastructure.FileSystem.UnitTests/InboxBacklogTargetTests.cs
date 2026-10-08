@@ -346,8 +346,8 @@ public sealed class InboxBacklogTargetTests
         Assert.Equal(["JSdotNet/Backlog"], parsed[0].RepoIds);
         Assert.Equal(["JSdotNet/Other"], parsed[1].RepoIds);
         Assert.Empty(parsed[2].RepoIds ?? []);
-        Assert.Equal(["deploy", BatchTag], parsed[0].Tags);
-        Assert.Equal("Notes.", parsed[0].Body.Trim());
+        Assert.Equal(["deploy", SiblingTag, BatchTag], parsed[0].Tags);
+        Assert.EndsWith("Notes.", parsed[0].Body.Trim(), StringComparison.Ordinal);
         Assert.Equal("Read the contract", parsed[2].Title);
         Assert.Equal(folder, parsed[2].Attachment?.Path);
     }
@@ -589,6 +589,143 @@ public sealed class InboxBacklogTargetTests
         var entry = EntryTextParser.Parse(Assert.Single(tasks.Imports).RawText);
         Assert.Empty(entry.DependsOn ?? []);
         Assert.DoesNotContain("after:", Assert.Single(tasks.Imports).RawText, StringComparison.Ordinal);
+    }
+
+    /// <summary>The general tag the siblings of <see cref="Item"/> share: its id
+    /// ends in <c>3d2c5e6f7a8b</c>.</summary>
+    private const string SiblingTag = "from-inbox-5e6f7a8b";
+
+    /// <summary>The "Same capture in:" lines of one entry, in order.</summary>
+    private static List<string> SameCaptureLines(string rawText) =>
+        [.. rawText.Split('\n').Where(line => line.StartsWith("Same capture in:", StringComparison.Ordinal))];
+
+    /// <summary>Two repositories make two siblings: each names the other and
+    /// never itself, both carry the shared <c>#</c> tag beside the item's own,
+    /// and the person's notes follow the line untouched.</summary>
+    [Fact]
+    public async Task Two_repositories_make_siblings_that_name_each_other_and_share_a_general_tag()
+    {
+        var tasks = new RecordingTaskItems(existing: 0);
+        var request = new InboxRouteRequestDto(Item, "Ship the thing", "Notes.", null, ["deploy"], ["JSdotNet/Backlog", "JSdotNet/Other"]);
+
+        var result = await new InboxBacklogTarget(tasks, Known()).CreateTasksAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, tasks.Saves.Count);
+
+        Assert.Equal(["Same capture in: JSdotNet/Other — Ship the thing"], SameCaptureLines(tasks.Saves[0].RawText));
+        Assert.Equal(["Same capture in: JSdotNet/Backlog — Ship the thing"], SameCaptureLines(tasks.Saves[1].RawText));
+
+        Assert.All(tasks.Saves, save =>
+        {
+            var parsed = EntryTextParser.Parse(save.RawText);
+            Assert.Equal(["deploy", SiblingTag], parsed.MetadataTags);
+            Assert.Contains($"`#{SiblingTag}`", save.RawText, StringComparison.Ordinal);
+            Assert.DoesNotContain($"+{SiblingTag}", save.RawText, StringComparison.Ordinal);
+            Assert.Empty(parsed.SubItems);
+            Assert.Empty(parsed.Unreadable ?? []);
+            Assert.EndsWith("Notes.", parsed.Body.Trim(), StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>Three repositories: each sibling names the other two, in the
+    /// item's order, and all three share one tag.</summary>
+    [Fact]
+    public async Task Three_repositories_make_siblings_that_each_name_the_other_two()
+    {
+        var tasks = new RecordingTaskItems(existing: 0);
+        var request = new InboxRouteRequestDto(Item, "Ship the thing", string.Empty, null, [], ["JSdotNet/Backlog", "JSdotNet/Other", "a/one"]);
+
+        await new InboxBacklogTarget(tasks, Known()).CreateTasksAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, tasks.Saves.Count);
+        Assert.Equal(
+            ["Same capture in: JSdotNet/Other — Ship the thing", "Same capture in: a/one — Ship the thing"],
+            SameCaptureLines(tasks.Saves[0].RawText));
+        Assert.Equal(
+            ["Same capture in: JSdotNet/Backlog — Ship the thing", "Same capture in: a/one — Ship the thing"],
+            SameCaptureLines(tasks.Saves[1].RawText));
+        Assert.Equal(
+            ["Same capture in: JSdotNet/Backlog — Ship the thing", "Same capture in: JSdotNet/Other — Ship the thing"],
+            SameCaptureLines(tasks.Saves[2].RawText));
+        Assert.All(tasks.Saves, save => Assert.Equal([SiblingTag], EntryTextParser.Parse(save.RawText).MetadataTags));
+    }
+
+    /// <summary>A single repository, like no repository, has no siblings: no
+    /// line and no tag.</summary>
+    [Fact]
+    public async Task One_repository_writes_no_sibling_line_and_no_sibling_tag()
+    {
+        var tasks = new RecordingTaskItems(existing: 0);
+        var request = new InboxRouteRequestDto(Item, "Ship the thing", "Notes.", null, ["deploy"], ["JSdotNet/Backlog"]);
+
+        await new InboxBacklogTarget(tasks, Known()).CreateTasksAsync(request, TestContext.Current.CancellationToken);
+
+        var raw = Assert.Single(tasks.Saves).RawText;
+        Assert.DoesNotContain("Same capture in:", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("from-inbox-", raw, StringComparison.Ordinal);
+        Assert.Equal(["deploy"], EntryTextParser.Parse(raw).MetadataTags);
+    }
+
+    /// <summary>The lines are written ahead of the notes, so notes that end in
+    /// a <c>##</c> chapter or an open fence cannot swallow them: they stay the
+    /// entry's own prose, never a sub-item's note or fenced text.</summary>
+    [Theory]
+    [InlineData("Intro.\n\n## A chapter\n\nIts note.")]
+    [InlineData("Intro.\n\n```\nnever closed")]
+    public void Sibling_lines_stay_the_entrys_own_prose_whatever_the_notes_hold(string body)
+    {
+        var request = new InboxRouteRequestDto(Item, "Ship the thing", body, null, [], ["JSdotNet/Backlog", "JSdotNet/Other"]);
+
+        var text = InboxBacklogTarget.Compose(request, "JSdotNet/Backlog");
+        var parent = EntryTextParser.GetParentText(text);
+
+        Assert.Contains("Same capture in: JSdotNet/Other — Ship the thing", parent, StringComparison.Ordinal);
+        Assert.True(
+            text.IndexOf("Same capture in:", StringComparison.Ordinal) < text.IndexOf("Intro.", StringComparison.Ordinal),
+            "The sibling line goes ahead of the notes.");
+        Assert.All(EntryTextParser.Parse(text).SubItems, subItem => Assert.DoesNotContain("Same capture in:", subItem.Title, StringComparison.Ordinal));
+    }
+
+    /// <summary>A batch writes siblings the same way: each of a two- and a
+    /// three-repository item's entries names its others and carries its own
+    /// item's general tag beside the batch's plan tag, and a one-repository
+    /// item in the same batch gets neither.</summary>
+    [Fact]
+    public async Task A_batch_links_the_siblings_of_each_item_and_only_its_own()
+    {
+        var tasks = new RecordingTaskItems(existing: 0);
+        var request = new InboxBatchRouteRequestDto(
+            [
+                new InboxRouteRequestDto(Item, "Ship the thing", "Notes.", null, [], ["JSdotNet/Backlog", "JSdotNet/Other"]),
+                new InboxRouteRequestDto(Other, "Read the contract", string.Empty, null, [], ["JSdotNet/Backlog", "JSdotNet/Other", "a/one"]),
+                new InboxRouteRequestDto(Third, "Call the dentist", string.Empty, null, [], ["a/two"]),
+            ],
+            BatchTag);
+
+        var result = await new InboxBacklogTarget(tasks, Known()).CreateBatchTasksAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Null(result.DocumentRefused);
+        Assert.Empty(result.Refused);
+
+        var segments = EntryTextParser.SplitSegments(Assert.Single(tasks.Imports).RawText);
+        Assert.Equal(6, segments.Count);
+        var parsed = segments.Select(EntryTextParser.Parse).ToList();
+        Assert.All(parsed, entry => Assert.Empty(entry.Unreadable ?? []));
+
+        Assert.Equal(["Same capture in: JSdotNet/Other — Ship the thing"], SameCaptureLines(segments[0]));
+        Assert.Equal(["Same capture in: JSdotNet/Backlog — Ship the thing"], SameCaptureLines(segments[1]));
+        Assert.Equal([SiblingTag, BatchTag], parsed[0].MetadataTags);
+        Assert.Equal([SiblingTag, BatchTag], parsed[1].MetadataTags);
+
+        Assert.Equal(
+            ["Same capture in: JSdotNet/Backlog — Read the contract", "Same capture in: a/one — Read the contract"],
+            SameCaptureLines(segments[3]));
+        Assert.All(parsed.Skip(2).Take(3), entry => Assert.Equal(["from-inbox-00000002", BatchTag], entry.MetadataTags));
+        Assert.All(segments.Skip(2).Take(3), segment => Assert.Equal(2, SameCaptureLines(segment).Count));
+
+        Assert.Empty(SameCaptureLines(segments[5]));
+        Assert.Equal([BatchTag], parsed[5].MetadataTags);
     }
 
     /// <summary>The workspace's repository registry, as Tasks' port shows it:

@@ -1227,6 +1227,7 @@ related: [.devbook/domain/inbox/features.md#route-to-tasks]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Two_repositories_make_siblings_that_name_each_other_and_share_a_general_tag, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Three_repositories_make_siblings_that_each_name_the_other_two, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.One_repository_writes_no_sibling_line_and_no_sibling_tag, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Sibling_lines_stay_the_entrys_own_prose_whatever_the_notes_hold, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_batch_links_the_siblings_of_each_item_and_only_its_own, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests.Three_repositories_go_to_the_target_as_one_request_so_the_siblings_can_name_each_other, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.Two_and_three_repository_items_go_whole_so_their_siblings_can_name_each_other]
 ```
 
 The system SHALL make one task per repository for an item assigned to several, give each task the body line "Same capture in: <repository> — <title>" for every other task it made, and tag all of them with `#from-inbox-` followed by the last eight hex digits of the item's id.

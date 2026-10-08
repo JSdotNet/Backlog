@@ -69,6 +69,16 @@ public interface IInboxItems
     /// <c>inbox.link.task_not_found</c> for a task the backlog no longer has.</summary>
     Task<Result> LinkToTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default);
 
+    /// <summary>Folds the item into the backlog task <paramref name="taskId"/> it
+    /// repeats — "Merge into a task": the item's title, then its link when it has
+    /// one, then its notes are written on the task as one comment, and the item is
+    /// archived as a duplicate of the task (<c>DuplicateOf</c> names it,
+    /// <c>DuplicateOfTask</c> says so). Only an open item. Fails with
+    /// <c>inbox.merge.task_not_found</c> for a task the backlog no longer has,
+    /// and with Tasks' <c>comment.not_prose</c> when a line of the item would
+    /// become structure on the task; either way nothing is written.</summary>
+    Task<Result> MergeIntoTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default);
+
     /// <summary>What the item already has to do with the rest of the backlog:
     /// the other items that look like the same capture and the tasks that carry
     /// it, each with the reason, and the open tasks "Link to task…" can offer.
@@ -250,6 +260,31 @@ public interface IInboxItems
     /// Read by the pane on render so the control is shown disabled with its
     /// reason rather than hidden — unavailability never hides an act.</summary>
     (bool Available, string? Reason) PlanDrafterAvailability { get; }
+
+    /// <summary>Whether a triage advisor is registered and can run. Unlike
+    /// <see cref="PlanDrafterAvailability"/> there is no reason to show: while it
+    /// is false every AI triage surface is hidden, not disabled (local ADR 0023 §4).</summary>
+    bool TriageAdvisorAvailable { get; }
+
+    /// <summary>The AI cards for one unprocessed item opened in triage: at most
+    /// one duplicate and one plan grouping, and the repositories it would go
+    /// to, held to what the inbox and the backlog hold. <paramref name="repositories"/>
+    /// are the ones configured in Settings. One model call per ask. Fails with
+    /// <c>inbox.triage.not_configured</c> when <see cref="TriageAdvisorAvailable"/>
+    /// is false and <c>inbox.triage.failed</c> when the advisor could not answer.</summary>
+    Task<Result<InboxTriageAdviceDto>> AdviseTriageAsync(
+        Guid id,
+        IReadOnlyList<string>? repositories = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The AI triage pass over the unprocessed items of
+    /// <paramref name="ids"/>: plans, duplicate pairs, single routes, list
+    /// filings, archives, and the items it could not place. A proposal only —
+    /// nothing changes. Fails as <see cref="AdviseTriageAsync"/> does.</summary>
+    Task<Result<InboxTriagePassDto>> ProposeTriagePassAsync(
+        IReadOnlyList<Guid> ids,
+        IReadOnlyList<string>? repositories = null,
+        CancellationToken cancellationToken = default);
 
     Task<Result<InboxListDto>> CreateListAsync(string name, Guid? groupId = null, CancellationToken cancellationToken = default);
 
