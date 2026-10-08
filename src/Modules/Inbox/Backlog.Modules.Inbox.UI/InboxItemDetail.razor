@@ -1,15 +1,17 @@
 @*
     The right column: one item, read by its kind, and the acts on it.
 
-    The header is the library's SectionHeader with the acts in its Actions slot:
-    file it, dismiss it, send it to the backlog, have a plan drafted about it,
-    or delete it. Five acts is one over the toolbar budget in
-    .devbook/design/interaction-guidelines.md#action-density-and-overflow, and
-    "one item never gets a menu", so all five stay on screen — and "Create plan"
-    stays when it cannot run, disabled with its reason on the title, because
-    unavailability never hides an act. Once an item has been routed or archived
-    the triage acts go except "Move to list", filing being allowed in every
-    state, and "Delete", which removes an item whatever became of it.
+    The four decisions — Move to backlog, Move to list, Defer, Archive — sit in
+    a bar fixed at the foot of the column, each naming its key, so a long
+    article never scrolls them out of reach. Only the item's body scrolls; the
+    bar stays. Once an item has been routed or archived the decisions go except
+    "Move to list", filing being allowed in every state.
+
+    The header is the library's SectionHeader with the two acts that are not
+    the decision the item is waiting for in its Actions slot: have a plan
+    drafted about it, or delete it. "Create plan" stays when it cannot run,
+    disabled with its reason on the title, because unavailability never hides
+    an act; "Delete" removes an item whatever became of it.
 
     What the body shows depends on the kind. A video gets its thumbnail and the
     link; an article or a link gets the link and whatever excerpt was captured;
@@ -29,8 +31,8 @@
     item it duplicates on its state line.
 
     Above the pickers sit the suggestions: the tags, repositories and destination
-    Classification proposes, each a chip the reader takes with the digit drawn
-    on it, with Enter, or with a click, and turns down with its ×. Nothing is
+    Classification proposes, each a numbered row the reader takes with the digit
+    drawn on it, with Enter, or with a click, and turns down with its ×. Nothing is
     applied until then, and a chip turned down is recorded by the module and
     not offered for this item again. The digits are read here and on the list —
     wherever the reader's focus is while deciding. The article takes focus
@@ -62,6 +64,7 @@
         var open = item.Status is InboxStatus.Unprocessed or InboxStatus.Deferred;
         var repos = item.RepoIds.Count;
 
+        @* Only the article scrolls; the decisions bar below it stays put. *@
         <article class="inbox-pane__detail"
                  aria-labelledby="inbox-detail-title"
                  data-inbox-kind="@item.KindSlug"
@@ -80,25 +83,10 @@
                            TestId="inbox-detail-header">
                 <Actions>
                     <ButtonGroup AriaLabel="Item actions" CssClass="inbox-pane__action-row" TestId="inbox-detail-action-row">
-                        <AppButton Size="ButtonSize.Small"
-                                   Disabled="@Busy"
-                                   OnClick="() => _moveOpen = true"
-                                   TestId="inbox-move-to-list">Move to list…</AppButton>
                         @if (open)
                         {
                             <AppButton Size="ButtonSize.Small"
-                                       Disabled="@Busy"
-                                       OnClick="State.ArchiveAsync"
-                                       TestId="inbox-archive">Archive</AppButton>
-                            <AppButton Size="ButtonSize.Small"
-                                       Variant="ButtonVariant.Primary"
-                                       Disabled="@(State.PlanRunning || State.BulkRunning)"
-                                       Busy="@State.RouteRunning"
-                                       BusyLabel="Moving to backlog"
-                                       Title="@RouteTitle(repos)"
-                                       OnClick="State.RouteToBacklogAsync"
-                                       TestId="inbox-move-to-backlog">@RouteLabel(repos)</AppButton>
-                            <AppButton Size="ButtonSize.Small"
+                                       Variant="ButtonVariant.Ghost"
                                        Disabled="@(!Availability.Available || State.RouteRunning || State.BulkRunning)"
                                        Busy="@State.PlanRunning"
                                        BusyLabel="Drafting a plan"
@@ -220,27 +208,55 @@
 
             @if (open && State.Suggestions.Count > 0)
             {
+                @* Numbered rows, the digit first: the number is how a reader who
+                   has just read the item takes one without reaching for the
+                   mouse. A suggestion no key takes — one that cannot be taken
+                   yet — has no number and no button, and says why. *@
                 <section class="inbox-pane__suggestions" aria-labelledby="inbox-detail-suggestions-title" data-testid="inbox-detail-suggestions">
-                    <h4 class="inbox-pane__suggestions-title" id="inbox-detail-suggestions-title">Suggested</h4>
-                    <div class="inbox-pane__suggestion-chips" role="list">
+                    <div class="inbox-pane__suggestions-head">
+                        <h4 class="inbox-pane__suggestions-title" id="inbox-detail-suggestions-title">Suggested next step</h4>
+                        <span class="inbox-pane__hint">press the number to take it</span>
+                    </div>
+                    <ol class="inbox-pane__suggestion-list">
                         @foreach (var suggestion in State.Suggestions)
                         {
                             var chip = suggestion;
-                            <TagChip Text="@SuggestionText(chip)"
-                                     Suggested="true"
-                                     Shortcut="@State.ShortcutFor(chip)"
-                                     Label="@SuggestionLabel(chip)"
-                                     OnClick="@AcceptCallback(chip)"
-                                     Disabled="@Busy"
-                                     Removable="true"
-                                     RemoveLabel="@($"Dismiss {SuggestionText(chip)}")"
-                                     OnRemove="() => State.DismissSuggestionAsync(chip)"
-                                     title="@SuggestionLabel(chip)"
-                                     role="listitem"
-                                     data-suggestion-key="@chip.Key"
-                                     TestId="@($"inbox-suggestion-{SuggestionTestId(chip)}")" />
+                            var shortcut = State.ShortcutFor(chip);
+                            <li class="inbox-pane__suggestion"
+                                @key="chip.Key"
+                                title="@SuggestionLabel(chip)"
+                                data-suggestion-key="@chip.Key"
+                                data-testid="@($"inbox-suggestion-{SuggestionTestId(chip)}")">
+                                @if (chip.Available)
+                                {
+                                    <AppButton Variant="ButtonVariant.None"
+                                               BaseClass="inbox-pane__suggestion-take"
+                                               Disabled="@Busy"
+                                               aria-label="@SuggestionLabel(chip)"
+                                               aria-keyshortcuts="@shortcut"
+                                               OnClick="() => State.AcceptSuggestionAsync(chip)">
+                                        @if (shortcut is not null)
+                                        {
+                                            <kbd class="inbox-pane__key inbox-pane__suggestion-key" aria-hidden="true">@shortcut</kbd>
+                                        }
+                                        <span class="inbox-pane__suggestion-text">@SuggestionText(chip)</span>
+                                        <span class="inbox-pane__suggestion-reason">@chip.Reason</span>
+                                    </AppButton>
+                                }
+                                else
+                                {
+                                    <span class="inbox-pane__suggestion-take inbox-pane__suggestion-take--unavailable">
+                                        <span class="inbox-pane__suggestion-text">@SuggestionText(chip)</span>
+                                        <span class="inbox-pane__suggestion-reason">@chip.UnavailableReason</span>
+                                    </span>
+                                }
+                                <IconButton AriaLabel="@($"Dismiss {SuggestionText(chip)}")"
+                                            Title="@($"Dismiss {SuggestionText(chip)}")"
+                                            BaseClass="btn btn--ghost btn--icon inbox-pane__suggestion-dismiss"
+                                            OnClick="() => State.DismissSuggestionAsync(chip)">×</IconButton>
+                            </li>
                         }
-                    </div>
+                    </ol>
                 </section>
             }
 
@@ -336,9 +352,9 @@
                                TestId="inbox-detail-no-repos" />
                     }
 
-                    @* Deferral sits with the pickers rather than in the header: the
-                       header's four acts are the toolbar budget, and a date is a
-                       field before it is an act. *@
+                    @* A particular review date sits with the pickers: a date is a
+                       field before it is an act. The decisions bar's Defer offers
+                       the quick dates. *@
                     <div class="inbox-pane__defer" data-testid="inbox-detail-defer">
                         <TextField Label="Review on"
                                    Type="date"
@@ -380,6 +396,38 @@
                 }
             </div>
         </article>
+
+        @* The four decisions, fixed at the foot of the column, each naming its
+           key. A decided item keeps only Move to list, which is allowed in
+           every state. *@
+        <footer class="inbox-pane__decide" role="group" aria-label="Decide" data-testid="inbox-detail-decisions">
+            @if (open)
+            {
+                <AppButton Variant="ButtonVariant.Primary"
+                           Disabled="@(State.PlanRunning || State.BulkRunning)"
+                           Busy="@State.RouteRunning"
+                           BusyLabel="Moving to backlog"
+                           Title="@($"{RouteTitle(repos)} (r)")"
+                           OnClick="State.RouteToBacklogAsync"
+                           TestId="inbox-move-to-backlog"><span class="inbox-pane__decision-label">@RouteLabel(repos)</span> <kbd class="inbox-pane__key inbox-pane__key--on-primary" aria-hidden="true">R</kbd></AppButton>
+            }
+            <AppButton Disabled="@Busy"
+                       Title="File it in one of your lists (l)"
+                       OnClick="() => _moveOpen = true"
+                       TestId="inbox-move-to-list"><span class="inbox-pane__decision-label">Move to list</span> <kbd class="inbox-pane__key" aria-hidden="true">L</kbd></AppButton>
+            @if (open)
+            {
+                <AppButton Disabled="@Busy"
+                           Title="Put it aside until a review date (d)"
+                           OnClick="OpenDefer"
+                           TestId="inbox-decide-defer"><span class="inbox-pane__decision-label">Defer</span> <kbd class="inbox-pane__key" aria-hidden="true">D</kbd></AppButton>
+                <AppButton Disabled="@Busy"
+                           Title="Dismiss it, findable later (a)"
+                           OnClick="State.ArchiveAsync"
+                           TestId="inbox-archive"><span class="inbox-pane__decision-label">Archive</span> <kbd class="inbox-pane__key" aria-hidden="true">A</kbd></AppButton>
+            }
+            <span class="inbox-pane__hint inbox-pane__decide-hint"><kbd class="inbox-pane__key">J</kbd> <kbd class="inbox-pane__key">K</kbd> to browse</span>
+        </footer>
 
         <Modal Open="@_moveOpen"
                OpenChanged="open => _moveOpen = open"
@@ -547,14 +595,6 @@
     /// modifier held the key is somebody else's shortcut.</summary>
     private Task OnShortcutKeyAsync(KeyboardEventArgs e) =>
         e.CtrlKey || e.AltKey || e.MetaKey || e.ShiftKey ? Task.CompletedTask : State.AcceptShortcutAsync(e.Key);
-
-    /// <summary>The label's press takes the suggestion; a suggestion that cannot
-    /// be taken gets no callback, so the chip draws its label as text rather than
-    /// as a button that does nothing.</summary>
-    private EventCallback<MouseEventArgs> AcceptCallback(InboxSuggestionDto suggestion) =>
-        suggestion.Available
-            ? EventCallback.Factory.Create<MouseEventArgs>(this, () => State.AcceptSuggestionAsync(suggestion))
-            : default;
 
     /// <summary>What the chip says: the tag as a tag, the repository by the alias
     /// Settings gives it, the destination as the act it would be.</summary>
@@ -925,11 +965,11 @@
 
     // --- Opened from the keyboard -------------------------------------------
 
-    /// <summary>The tag field's input, which the pane focuses for <c>t</c>.</summary>
+    /// <summary>The tag field's input, which the pane focuses for <c>g</c>.</summary>
     public const string TagsInputId = "inbox-detail-tags-input";
 
     /// <summary>Whether the item on screen can still be decided on — the acts
-    /// a shortcut reaches are the ones the header offers.</summary>
+    /// a shortcut reaches are the ones the decisions bar offers.</summary>
     public bool CanDecide => State.SelectedItem is { Status: InboxStatus.Unprocessed or InboxStatus.Deferred } && !Busy;
 
     /// <summary>Opens "Move to list", as <c>l</c> does. Filing is allowed in

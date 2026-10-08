@@ -186,6 +186,7 @@ public sealed class BatchTests
             readAttachment: null!,
             openAttachment: null!,
             suggest: null!,
+            suggestMany: null!,
             dismissSuggestion: null!,
             related: null!,
             linkToTask: null!,

@@ -20,8 +20,14 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class SectionHeaderAdoptionTests
 {
+    /// <summary>The Inbox header was redrawn as one line — the title with the
+    /// queue's short health beside it, then the capture field and the acts —
+    /// so it no longer keeps the eyebrow-title-subtitle stack the other panes
+    /// share. It is still the library's SectionHeader under the pane's own
+    /// names, the heading still carries the id the landmark points at, and the
+    /// actions still sit in the pane's own wrapper.</summary>
     [Fact]
-    public void The_inbox_pane_header_keeps_the_shape_it_hand_rolled()
+    public void The_inbox_pane_header_is_the_library_header_under_the_panes_names()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -36,11 +42,21 @@ public sealed class SectionHeaderAdoptionTests
 
         var header = pane.Find(".inbox-pane__header");
 
-        AssertPaneHeader(header, "inbox-pane", "inbox-pane-title");
+        Assert.Equal("HEADER", header.TagName);
+        Assert.Equal("inbox-pane__header", header.GetAttribute("class"));
 
-        // Add and Capture live in the actions slot under the pane's own name, the
-        // same shape the tools, sessions and dashboard panes keep.
+        // The title and, once the queue has been read, the short health; no eyebrow.
+        var text = header.Children[0];
+        Assert.Equal("inbox-pane__heading", text.GetAttribute("class"));
+        Assert.Equal("H2", text.Children[0].TagName);
+        Assert.Equal("inbox-pane__title", text.Children[0].GetAttribute("class"));
+        Assert.Equal("inbox-pane-title", text.Children[0].GetAttribute("id"));
+        Assert.Empty(text.QuerySelectorAll(".inbox-pane__eyebrow"));
+
+        // The capture field and the acts live in the actions slot under the
+        // pane's own name, the same shape the tools, sessions and dashboard panes keep.
         AssertPaneHeaderActions(header, "inbox-pane");
+        Assert.NotNull(header.Children[1].QuerySelector("[data-testid='inbox-pane-capture-field']"));
     }
 
     [Fact]
