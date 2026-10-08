@@ -171,6 +171,14 @@
             </div>
         }
 
+        @* How each stage ran, under the picture of where it stands: the mode, the
+           model and effort, whether it ran as configured, and one panel at a time
+           with the whole of it. *@
+        @if (Run.Stages.Count > 0)
+        {
+            <DeliveryRunStages Run="Run" />
+        }
+
         @* Groups rather than one long list, so the grid can set them side by side:
            each is a term and what it says, and a narrow pane stacks them. *@
         <dl class="sessions-run__details">

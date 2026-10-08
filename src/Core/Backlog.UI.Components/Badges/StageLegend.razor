@@ -1,0 +1,32 @@
+@*
+    The key to a stage list's chips and marks: the four modes, then the two marks,
+    each drawn exactly as a row draws it. .devbook/design/effort-and-mode-chips.md#legend
+    is the rule. It sits above the stages and lists no effort step — the effort chip
+    prints its own word.
+*@
+<ul class="@ClassValue" aria-label="Legend" data-testid="@TestId">
+    @foreach (var mode in ModeChip.Modes)
+    {
+        <li class="stage-legend__entry">
+            <ModeChip Mode="@mode" TestId="@($"stage-legend-{mode}")" />
+        </li>
+    }
+    <li class="stage-legend__entry">
+        <StageMark Kind="StageMarkKind.Inferred" TestId="stage-legend-inferred" />
+        <span class="stage-legend__label">inferred</span>
+    </li>
+    <li class="stage-legend__entry">
+        <StageMark Kind="StageMarkKind.Drift" TestId="stage-legend-drift" />
+        <span class="stage-legend__label">not as configured</span>
+    </li>
+</ul>
+
+@code {
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "stage-legend";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "stage-legend" : $"stage-legend {CssClass}";
+}

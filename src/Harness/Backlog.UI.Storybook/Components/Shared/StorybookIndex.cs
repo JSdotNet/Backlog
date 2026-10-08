@@ -107,7 +107,7 @@ internal static class StorybookIndex
             // StatusBadge a picked value renders as. A badge is a value with a
             // class on it, sitting on the rows, headers and pickers this group is
             // about, which is why it is here and not in Content.
-            new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge, EffortChip: a value, and the class that says what kind of value it is.", Exact: true),
+            new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge, EffortChip, ModeChip, StageMark, StageLegend: a value, and the class that says what kind of value it is.", Exact: true),
 
             // Under Badges because a kind is a value with a class on it, drawn
             // as a mark instead of a word — and the row it leads is made of the

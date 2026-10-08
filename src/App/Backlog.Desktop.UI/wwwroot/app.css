@@ -6647,6 +6647,125 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
 }
 
+/* How each stage ran: the legend, then one row per stage on the alt surface the
+   chip guideline measures against, with one panel open under its row. */
+.sessions-stages {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.sessions-stages__list {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sessions-stage {
+    min-width: 0;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+}
+
+.sessions-stage .fold__label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.sessions-stage__name {
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+/* The library's status badge is sized for a table column, a fixed 7.5rem; on a
+   stage row it is one fact among the chips, so it takes only the width of its word. */
+.sessions-stage .sessions-stage__status {
+    width: auto;
+    min-width: 0;
+    height: auto;
+    margin-left: 0;
+    font-size: var(--font-size-xs);
+}
+
+.sessions-stage__figures {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.sessions-stage__model {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-primary);
+}
+
+/* The panel: the open stage's whole execution, on the panel surface so the chips
+   inside it sit on the second surface the guideline measures. */
+.sessions-stage__panel {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-xs) 0 var(--spacing-2xs);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    font-size: var(--font-size-sm);
+}
+
+.sessions-stage__fact {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.sessions-stage__fact dt {
+    font-weight: 500;
+    color: var(--color-text-secondary);
+}
+
+.sessions-stage__fact dd {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    min-width: 0;
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.sessions-stage__note {
+    color: var(--color-primary-light);
+}
+
+.sessions-stage__none {
+    color: var(--color-text-secondary);
+}
+
+.sessions-stage__workers {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sessions-stage__worker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.sessions-stage__worker-facts {
+    color: var(--color-text-secondary);
+}
+
 /* The figures under the diagram, in as many columns as fit — the run's identity and
    context, its tokens, its tool calls and its servers side by side on a wide pane,
    stacked on a narrow one. */

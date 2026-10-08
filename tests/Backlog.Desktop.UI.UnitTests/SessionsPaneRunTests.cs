@@ -951,8 +951,8 @@ public sealed class SessionsPaneRunTests
             Assert.NotNull(view.QuerySelector("[data-testid='diagram-view-artifact']"));
             Assert.Null(panel.QuerySelector("[data-testid='sessions-run-stages']"));
 
-            // Picture first, figures under it.
-            Assert.Equal(["sessions-run__diagram", "sessions-run__details"], panel.Children.Select(child => child.ClassName));
+            // Picture first, then how each stage ran, then the figures.
+            Assert.Equal(["sessions-run__diagram", "sessions-stages", "sessions-run__details"], panel.Children.Select(child => child.ClassName));
         });
 
         var request = Assert.Single(diagrams.Requests);

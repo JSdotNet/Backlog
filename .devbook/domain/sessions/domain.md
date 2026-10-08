@@ -315,7 +315,9 @@ kind.
 Holds what the file states: which dashboard wrote it, the worktree key it was filed
 under, the skill, the title, the status word verbatim, the change kind, the
 `Delivery Run Reference`s it names, when it started and was last updated, its stages with their status, duration
-and how many times each was marked done, its token usage in total, for delegated
+and how many times each was marked done, each stage's own record of how it ran, every
+sub-agent call its insights saw in each stage — with that call's time, tokens and tool
+calls where recorded — and how many tool calls each stage made, its token usage in total, for delegated
 agents and per stage with the models seen, the owner session's context gauge with its
 peak, and its tool activity summed by category and by MCP server. It also carries the
 environment its file was read on, stamped by the source the way a session's is: a
@@ -450,9 +452,55 @@ once — including a message written as several lines, which repeats its usage o
 A session first seen mid-way starts at the end of what is written: a gap is lost
 rather than a whole conversation counted as the run's.
 
+**A delegated agent carries what its call reported.** The Agent call's response states
+the tokens the sub-agent moved and the tool calls it made; both are kept on the
+agent's record, under the names the dashboard writes them, and a response that states
+neither adds nothing rather than a zero.
+
 **Best effort, and never the session's problem.** An event that cannot be attributed,
 or a transcript that cannot be read, records nothing and raises nothing: the reporter
 is a hook that must never fail the tool call it reports on.
+
+### Stage Resolution
+
+```meta
+type: domain-service
+related: [.devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran]
+aliases: [DeliveryRunStageResolution, stage execution]
+```
+
+How each stage of a `Delivery Run` ran, read off the run: the stage's own record of how
+it ran, the sub-agents seen in it, and the phase map the run resolved before it ran. It
+is the port of the delivery engine's own run view, so this product and that view say the
+same thing about one run.
+
+**Mode.** Personal Validation is always the gate, whatever the run recorded for it. A
+mode the run recorded wins; `delegated` and `forked` are read as `delegate` and `fork`.
+A stage with no recorded mode that a sub-agent worked in was delegated, and the rest ran
+inline. A mode found that way is inferred, and says so.
+
+**Worker.** The agent that did a delegated stage's work is the bound agent where it ran,
+or the agent behind a `delivery:runner-<effort>` effort runner — the configured agent, or
+`general-purpose` where none is — else the longest-running call. A stage that recorded
+running inline with no agent ran in the owner session, whatever was configured.
+
+**Model and effort.** What the stage recorded running, then the runner's, then the
+configuration's.
+
+**Configured against ran.** The phase map's entry for the stage — under the qualifier it
+ran under, then under any name its title goes by — is what was configured, and where it
+came from: the entry's own origin, else the team default with the overlays the run
+context lists merged over it. A stage is compared on its agent, its model's family and its
+effort, only once it is past pending, and never the gate; an effort only where the run
+recorded what ran. A configured agent that did not resolve is a difference too.
+
+**Inferred.** Where the run records no resolved phases, mode and agent are inferred from
+what was seen, and the stage says so rather than presenting a guess as a record.
+
+**Sub-agent calls.** Each call the insights saw, with its own time, tokens, tool calls and
+outcome; where they saw none, each call the stage's record lists, the owner's own slices
+excepted; then each agent the stage declared that neither shows running. A call under the
+gate is a revise round's.
 
 ### Claude API Request Log
 

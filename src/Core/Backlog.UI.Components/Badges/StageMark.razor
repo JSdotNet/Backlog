@@ -1,0 +1,48 @@
+@*
+    The one mark a stage may carry after its chips: ≠ where it ran other than as
+    configured, ? where a value on it was inferred rather than recorded.
+    .devbook/design/effort-and-mode-chips.md#stage-marks is the rule; this is its drawing.
+
+    A glyph with no box. The glyph is hidden from assistive technology and the title
+    is read in its place, so ≠ is announced as the differences it stands for rather
+    than as "not equal to". A host passes those differences as the title; without
+    one the mark says what it means in general.
+
+    At most one mark per stage, and ≠ wins: a host with both passes the drift.
+*@
+@if (Kind is StageMarkKind.Drift or StageMarkKind.Inferred)
+{
+    <span class="@ClassValue"
+          role="img"
+          title="@TitleValue"
+          aria-label="@TitleValue"
+          data-testid="@TestId"
+          data-mark="@Slug"><span aria-hidden="true">@Glyph</span></span>
+}
+
+@code {
+    /// <summary>Which mark. <see cref="StageMarkKind.None"/> draws nothing.</summary>
+    [Parameter]
+    public StageMarkKind Kind { get; set; }
+
+    /// <summary>What the mark stands for on this stage — every difference, for the
+    /// drift mark. Null uses the mark's general meaning.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "stage-mark";
+
+    private string Slug => Kind is StageMarkKind.Drift ? "drift" : "inferred";
+
+    private string Glyph => Kind is StageMarkKind.Drift ? "≠" : "?";
+
+    private string TitleValue => !string.IsNullOrWhiteSpace(Title)
+        ? Title
+        : Kind is StageMarkKind.Drift ? "Not as configured" : "Inferred, not recorded by the run";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? $"stage-mark stage-mark--{Slug}" : $"stage-mark stage-mark--{Slug} {CssClass}";
+}

@@ -7026,6 +7026,84 @@ button.tag-chip__label {
     font-weight: var(--font-weight-semibold);
 }
 
+/*
+   ModeChip: .devbook/design/effort-and-mode-chips.md#mode-chips. Four modes, four
+   shapes — inline plain text, delegate a solid outline, fork a dashed one, gate the
+   only filled box — so a mode reads with every colour removed. Delegate and fork
+   share the edge token; the line style is the difference. A dashed line cannot be an
+   inset ring, so fork draws a real border and gives its width back in padding.
+*/
+.mode-chip {
+    display: inline-block;
+    padding: 0;
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-tight);
+    font-weight: 400;
+    white-space: nowrap;
+    color: var(--color-secondary);
+}
+
+.mode-chip--delegate {
+    padding: 0 var(--spacing-sm);
+    color: var(--color-text-primary);
+    border-radius: var(--border-radius-full);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.mode-chip--fork {
+    color: var(--color-text-primary);
+    border-radius: var(--border-radius-full);
+    border: var(--border-width) dashed var(--color-border-strong);
+    padding: 0 calc(var(--spacing-sm) - var(--border-width));
+}
+
+.mode-chip--gate {
+    padding: 0 var(--spacing-sm);
+    color: var(--color-text-primary);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-secondary);
+    font-weight: var(--font-weight-semibold);
+}
+
+/*
+   StageMark: .devbook/design/effort-and-mode-chips.md#stage-marks. One bold glyph,
+   no box; the title is what a screen reader reads in its place.
+*/
+.stage-mark {
+    display: inline-block;
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-tight);
+    font-weight: 700;
+}
+
+.stage-mark--drift {
+    color: var(--color-primary-light);
+}
+
+.stage-mark--inferred {
+    color: var(--color-secondary);
+}
+
+/* StageLegend: the four modes then the two marks, above the stage list. */
+.stage-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.stage-legend__entry {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
 /* --- Toasts -------------------------------------------------------------- */
 /*
   The host is the live region and stays in the DOM whether or not it holds
