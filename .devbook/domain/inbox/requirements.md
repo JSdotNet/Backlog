@@ -379,6 +379,7 @@ The system SHALL return from triage mode to the rows with the item the session s
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.T_starts_triage_on_the_chosen_item, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.G_focuses_the_tag_field_and_x_picks_the_chosen_item, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.U_in_the_pane_undoes_and_the_shortcuts_dialog_lists_it]
 ```
 
 The system SHALL start triage mode on t, move the focus to the chosen item's tags on g, and undo the session's latest decision on u, leaving every other triage key as it was.
@@ -406,6 +407,7 @@ The system SHALL start triage mode on t, move the focus to the chosen item's tag
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_header_counts_the_session_against_the_rows_triage_began_with_and_k_and_j_step, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_bar_fills_with_the_rows_decided_since_triage_began_not_the_session_count]
 ```
 
 The system SHALL show over triage mode a progress bar and the line "n of total · m decided this session", where total is the number of items in the slice when triage began, n the place of the item shown among them, and m the decisions taken since the app opened.
@@ -421,6 +423,7 @@ The system SHALL show over triage mode a progress bar and the line "n of total �
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.With_two_cards_the_suggestions_number_from_three_and_one_takes_the_duplicate, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Not_a_duplicate_hides_the_card_and_the_suggestions_renumber_from_one]
 ```
 
 The system SHALL number the AI cards shown in triage 1 and 2, at most two of them, and number the rule-based suggestions after the last card shown.
@@ -442,6 +445,7 @@ The system SHALL number the AI cards shown in triage 1 and 2, at most two of the
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Two_ticked_repositories_and_r_make_one_task_in_each, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Ticking_writes_the_repositories_and_the_hint_counts_the_entries]
 ```
 
 The system SHALL offer in triage a repository picker with one box per configured repository, any number of which can be ticked, and SHALL move the item to the backlog in every ticked repository.
@@ -457,6 +461,7 @@ The system SHALL offer in triage a repository picker with one box per configured
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_defer_button_offers_the_review_dates_as_d_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.The_triage_decisions_name_r_l_d_and_a_and_g_reaches_the_tags]
 ```
 
 The system SHALL show in triage mode four decision buttons — Move to backlog, Move to list, Defer and Archive — each naming its key and doing what that key does.
@@ -472,6 +477,7 @@ The system SHALL show in triage mode four decision buttons — Move to backlog, 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Up_next_lists_the_next_four_and_moves_on_after_a_decision, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.On_the_last_row_up_next_lists_the_items_skipped_on_the_way]
 ```
 
 The system SHALL list beside the item in triage mode the items that follow it in the slice, in the order triage will show them.
@@ -487,6 +493,7 @@ The system SHALL list beside the item in triage mode the items that follow it in
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Just_decided_names_the_item_and_the_list_and_undo_takes_it_back]
 ```
 
 The system SHALL show in triage mode the session's latest decision, naming the item and what was done with it, with an Undo button that takes it back.
@@ -549,6 +556,7 @@ The system SHALL send for the item only its title, link, notes, kind, source, pe
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Without_the_advisor_no_ai_surface_is_drawn_and_the_suggestions_number_from_one]
 ```
 
 The system SHALL show no AI card and no Let AI propose the rest when Foundry is not configured, and SHALL show the rule-based suggestions as it does with Foundry.

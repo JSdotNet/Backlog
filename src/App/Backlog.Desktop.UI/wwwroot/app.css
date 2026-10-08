@@ -3848,14 +3848,339 @@ h1, h2, h3 {
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
-.inbox-pane__triage-leave {
-    margin-left: auto;
-}
-
-.inbox-pane__triage > .inbox-pane__column--detail {
+/* Triage's own screen (InboxTriage.razor, artboard B): it scrolls as one,
+   inside the pane's column, so a long item never pushes the decisions out of
+   reach of the scrollbar. */
+.inbox-triage {
+    display: flex;
     flex: 1 1 0;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
     min-height: 0;
     overflow: auto;
+}
+
+.inbox-triage:focus {
+    outline: none;
+}
+
+/* The way back, the session's progress and the two steps, wrapping onto a
+   second line rather than squeezing the progress line. */
+.inbox-triage__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.inbox-triage__progress {
+    display: flex;
+    flex: 1 1 16rem;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.inbox-triage__progress-line {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-triage__slice {
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__position {
+    color: var(--color-text-secondary);
+}
+
+.inbox-triage__position strong {
+    color: var(--color-text-primary);
+}
+
+.inbox-triage__bar {
+    height: var(--spacing-2xs);
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+}
+
+.inbox-triage__bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-primary);
+}
+
+.inbox-triage__nav {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+/* The item and its acts beside Up next; the aside drops under the item when
+   the pane is too narrow for both. */
+.inbox-triage__main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+    min-width: 0;
+}
+
+.inbox-triage__body {
+    display: flex;
+    flex: 1 1 560px;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    max-width: 780px;
+}
+
+.inbox-triage__aside {
+    display: flex;
+    flex: 0 1 300px;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.inbox-triage__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-triage__kind {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__title {
+    margin: var(--spacing-xs) 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.inbox-triage__notes {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.inbox-triage__tags {
+    margin-top: var(--spacing-sm);
+}
+
+.inbox-triage__ai,
+.inbox-triage__repos,
+.inbox-triage__aside-part {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.inbox-triage__section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.inbox-triage__section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__section-hint {
+    color: var(--color-text-secondary);
+    font-weight: normal;
+}
+
+.inbox-triage__ai-icon {
+    color: var(--color-primary);
+}
+
+/* An AI card: the primary edge marks it as the model's, the label in its
+   heading says so in words (design-principles.md#ai-first-surfaces). */
+.inbox-triage__card {
+    border-color: var(--color-primary-dark);
+}
+
+.inbox-triage__card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-triage__card-title {
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__card-reason {
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-triage__sides,
+.inbox-triage__compare {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm) 0;
+}
+
+.inbox-triage__side,
+.inbox-triage__compare-side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.inbox-triage__side-label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: normal;
+}
+
+.inbox-triage__side-title {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.inbox-triage__side-note {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-triage__members {
+    margin: var(--spacing-xs) 0;
+    padding-left: var(--spacing-lg);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-triage__card-acts {
+    flex-wrap: wrap;
+}
+
+/* One box per repository, wrapping; the identity edge (`repo-mark`) sits on
+   the box's leading edge, so the padding leaves room for it. */
+.inbox-triage__repo-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.inbox-triage__repo {
+    min-height: var(--spacing-xl);
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.inbox-triage__ai-mark {
+    margin-left: var(--spacing-2xs);
+}
+
+.inbox-triage__footnote {
+    margin: 0;
+}
+
+/* The four decisions: large, one row where there is room and two or four
+   where there is not. */
+.inbox-triage__decisions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.inbox-triage__decision {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: var(--spacing-2xs);
+    height: auto;
+    min-height: 6rem;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-lg);
+    text-align: left;
+    white-space: normal;
+}
+
+.inbox-triage__decision-label {
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__decision-hint {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+}
+
+.inbox-triage__next-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-triage__next {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.inbox-triage__next-title {
+    overflow-wrap: anywhere;
+}
+
+.inbox-triage__next-meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-triage__decided {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-triage__decided-line {
+    flex: 1 1 10rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--font-size-sm);
 }
 
 /* The shortcuts dialog: the key in a fixed column, what it does beside it. */
