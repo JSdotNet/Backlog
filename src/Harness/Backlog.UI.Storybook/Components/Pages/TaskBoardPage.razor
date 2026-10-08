@@ -7,7 +7,7 @@
            Guidelines="@Rules">
 
     <Story Name="Columns by status, dragged along the lifecycle"
-           Description="The desktop Board's default grouping. Pick a card up and move it: the columns `DropRuleFor` allows are marked with a dashed edge and say what a drop does, and the others go quiet and say why not — Ready can't jump to Done, it has to be started first. A drop on a refused column, on its own column or off the board writes nothing; Escape cancels. The gesture is `taskListDrag`'s pointer drag, the one the task list uses, because a native drag is aborted in the desktop head's WebView2. `+ New entry` at the foot of a column creates a task in it."
+           Description="The desktop Board's default grouping. Pick a card up and move it: the columns `DropRuleFor` allows are marked with a dashed edge and say what a drop does, and the others go quiet and say why not — Ready can't jump to Done, it has to be started first. A drop on a refused column, on its own column or off the board writes nothing; Escape cancels. While a card is held a lifted copy of it follows the pointer, tilted and shadowed, and the slot in the column under the pointer opens to the card's height; on release the copy settles into the card's new place, or back into its old one. Under `prefers-reduced-motion` the copy still follows the pointer but is not tilted, nothing unfolds, and it is simply taken away on release. Each card carries the row's copy button at the end of its top line, copying what `CardCopyValue` answers — the same question `TaskListView.RowCopyValue` asks — and pressing it never opens the card or picks it up. The gesture is `taskListDrag`'s pointer drag, the one the task list uses, because a native drag is aborted in the desktop head's WebView2. `+ New entry` at the foot of a column creates a task in it."
            Code="@StatusCode">
         <div class="sb-board" data-testid="task-board-status-sample">
             <TaskBoard Columns="@StatusColumns()"
@@ -57,7 +57,7 @@
     </Story>
 
     <Story Name="A long column"
-           Description="Every column is as tall as the tallest one, so the space beside a long column's foot belongs to the short column next to it. Scroll this box down to the foot of Ready, pick up one of its last cards and carry it straight across to In progress: the drop lands even though In progress's own cards are scrolled out of view above. Dragging near the box's top or bottom edge scrolls it, as `interaction-guidelines.md#autoscroll` asks."
+           Description="A box with a height, the way the desktop Board's pane is one: the board fills it and scrolls sideways only, and Ready scrolls its own cards inside its column — one vertical scrollbar, the column's, and none on the board or the box. Every column is as tall as the board, so the space beside a long column's foot belongs to the short column next to it. Scroll Ready down to its foot, pick up one of its last cards and carry it straight across to In progress: the drop lands there. Holding a card near the foot or the head of a column scrolls that column, as `interaction-guidelines.md#autoscroll` asks."
            Code="@LongCode">
         <div class="sb-board sb-board--scroller" data-testid="task-board-long-sample">
             <TaskBoard Columns="@StatusColumns(_long)"
@@ -76,7 +76,9 @@
     [
         new("interaction-guidelines.md#task-rows", "What a task states and what goes quiet — the card states the row's facts."),
         new("interaction-guidelines.md#reliable-drop-targets-items", "Each column is a drop target as tall as the board, so a card from low in a long column can reach a short one."),
-        new("interaction-guidelines.md#autoscroll", "The drag scrolls the board from its edges, at a bounded speed."),
+        new("interaction-guidelines.md#autoscroll", "The drag scrolls the board from its edges, and a column from its head and foot, at a bounded speed."),
+        new("interaction-guidelines.md#drag-affordances", "The held card lifts with shadow-lg and follows the pointer; the rest of the board dims."),
+        new("interaction-guidelines.md#motion-and-reduced-motion", "The drop settles on transition-base ease-out; under reduced motion nothing tilts, unfolds or glides."),
         new("color-scheme.md#the-identity-edge", "The 4px repository edge on each card, and that it is never the only thing naming the repository."),
         new("accessibility.md#iconography-accessibility", "Each column is named with its count and points; a drop is announced.")
     ];
@@ -277,8 +279,12 @@
         """;
 
     private const string LongCode = """
-        @* Each column is stretched to the board's row, the tallest column's height,
-           so a drop beside a long column's foot lands on the short column there. *@
-        <div style="height: 28rem; overflow-y: auto"><TaskBoard Columns="@columns" Draggable="true" /></div>
+        @* In a flex column with a height — the Tasks pane's scroller — the board
+           fills it, scrolls sideways only, and each column scrolls its own cards.
+           Every column is the board's height, so a drop beside a long column's
+           foot lands on the short column there. *@
+        <div style="display: flex; flex-direction: column; height: 28rem; overflow-y: auto">
+            <TaskBoard Columns="@columns" Draggable="true" />
+        </div>
         """;
 }

@@ -275,10 +275,12 @@ html, body {
     min-width: 0;
 }
 
-/* A pane's worth of height that scrolls, the way the desktop Board's pane does:
-   a long column runs below its foot, and a short column's cards scroll out of
-   view above while the reader works at the foot of the long one. */
+/* A pane's worth of height, in the shape the desktop Board's pane has: a flex
+   column that scrolls, so the board is handed a height to fill exactly as it is
+   in .backlog-list__scroll, and a long column scrolls inside itself. */
 .sb-board--scroller {
+    display: flex;
+    flex-direction: column;
     height: 28rem;
     overflow-y: auto;
     border: var(--border-width) dashed var(--color-border);

@@ -109,14 +109,16 @@
                        key that looks stuck. *@
                     @* The Board's own control, first on its bar because it decides
                        what everything under the bar is: which columns there are.
-                       Not a filter — it narrows nothing — so its own group. The
-                       visible word is the label sighted readers scan for; the
-                       select carries the same name for a screen reader, so the
-                       word itself is hidden from one. *@
+                       Not a filter — it narrows nothing — so its own group. No
+                       visible word in front of it: the select shows Status, Plan,
+                       Repository or Priority, and that answer says what the
+                       columns are on its own — a "Columns" label beside it was a
+                       second word for the same thing, found in the sign-off.
+                       The name stays for anything that cannot see the value,
+                       as the select's aria-label and its tooltip. *@
                     @if (Layout == TasksLayout.Board)
                     {
                         <div class="filter-group filter-group--columns" data-testid="board-columns-group">
-                            <span class="filter-group__label" aria-hidden="true">Columns</span>
                             <SelectField CurrentValue="@BoardGrouping.ToString()"
                                          Options="@BoardGroupingOptions"
                                          Label="Columns"
@@ -419,9 +421,13 @@
                            opens its entry the way a row does; a drop runs the same
                            status change the row's status selector does. An empty
                            filter result is a board of empty columns rather than the
-                           list's empty state — the columns still say what they are. *@
+                           list's empty state — the columns still say what they are.
+                           A card copies what the entry's row copies, through the same
+                           EntryCopyText, so a brief pasted from the Board is the brief
+                           pasted from the list. *@
                         <TaskBoard @ref="_board"
                                    Columns="@BoardColumns()"
+                                   CardCopyValue="@EntryCopyText"
                                    Draggable="@(BoardGrouping == TaskBoardGrouping.Status)"
                                    DropRuleFor="@BoardDropRule"
                                    OnDrop="OnBoardDropAsync"

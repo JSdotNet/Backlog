@@ -370,4 +370,55 @@ public sealed class TasksPaneBoardTests
         Assert.False(host.State.StatusFilterSuspended);
         Assert.NotEmpty(pane.FindAll("[data-testid='entry-list']"));
     }
+
+    /// <summary>The grouping select stands on its own: the value it shows — Status,
+    /// Plan, Repository, Priority — says what the columns are, so no "Columns"
+    /// word is drawn beside it. The name stays for anything that cannot see the
+    /// value: the select's aria-label, and its tooltip.</summary>
+    [Fact]
+    public async Task The_columns_picker_draws_no_label_and_keeps_its_accessible_name()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Build the board\n`task` `!ready`\n");
+
+        var pane = RenderBoard(host);
+        var group = pane.Find("[data-testid='board-columns-group']");
+
+        Assert.Empty(group.QuerySelectorAll(".filter-group__label"));
+        Assert.DoesNotContain(
+            group.QuerySelectorAll("*").Where(element => !element.ClassList.Contains("sr-only") && element.Children.Length == 0 && element.LocalName != "option"),
+            element => element.TextContent.Contains("Columns", StringComparison.Ordinal));
+
+        var select = pane.Find("#board-columns");
+        Assert.Equal("select", select.LocalName);
+        Assert.Equal("Columns", select.GetAttribute("aria-label"));
+        Assert.Equal("Columns", select.GetAttribute("title"));
+    }
+
+    /// <summary>A card copies what the entry's row in the list copies — the run
+    /// command, the title, everything under the metadata line — through the same
+    /// path, and copying it does not open the entry.</summary>
+    [Fact]
+    public async Task Copying_a_card_hands_over_the_rows_text_without_opening_the_entry()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        host.Context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+        var ready = await host.WriteEntryAsync("# Build the board\n`task` `!ready`\n\nColumns of cards.\n");
+        await host.State.SelectAsync(null);
+
+        var pane = RenderBoard(host);
+        pane.Find($"[data-board-column='Ready'] [data-task-id='{ready.TaskId}'] [data-testid='board-card-copy']").Click();
+
+        var fromCard = (string)Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]!;
+        Assert.Equal($"/backlog-tools:run-plan-item entry `{ready.Id}`:\nBuild the board\n\nColumns of cards.", fromCard);
+        Assert.Empty(pane.FindAll("[data-testid='entry-detail']"));
+        Assert.Null(host.State.SelectedRow);
+
+        // The row in the list copies the same text.
+        pane.Render(parameters => parameters.Add(p => p.Layout, TasksLayout.List));
+        pane.Find($"[data-testid='entry-list-{ready.TaskId}-copy']").Click();
+
+        var fromRow = (string)host.Context.JSInterop.Invocations["backlogClipboard.copy"][1].Arguments[0]!;
+        Assert.Equal(fromRow, fromCard);
+    }
 }

@@ -132,7 +132,7 @@ affordance language and both with mandatory keyboard equivalents:
 |---|---|
 | Visible handle | Each reorderable row/section MUST expose a drag handle using the `grip-vertical` icon at `icon-md`. On dense rows the handle MAY appear on hover/focus but MUST be reachable by keyboard. |
 | Cursor | Pointer over a handle uses a grab/grabbing cursor. |
-| Lift feedback | On drag start, the dragged item lifts with `shadow-lg` and a subtle `color-background-alt` tint; the rest dims slightly. |
+| Lift feedback | On drag start, the dragged item lifts with `shadow-lg` and a subtle `color-background-alt` tint; the rest dims slightly. A board card lifts as a copy of itself that follows the pointer, slightly tilted, while the card stays faded in its column; the slot in the column under the pointer opens to the card's height, and on release the copy settles into the card's new place — or back into its old one — on the *Drop settle* motion. Under reduced motion the copy still follows the pointer, untilted, and nothing unfolds or glides. |
 | Handle target | The handle MUST meet the ≥ 44 × 44 px target (see `accessibility.md#target-sizes-and-text`). |
 
 ### Drop Indicators
@@ -160,7 +160,8 @@ affordance language and both with mandatory keyboard equivalents:
 |---|---|
 | Handle starts the drag only | The visible handle is the pointer-down / `dragstart` origin; it is not required to also be the drop target. |
 | Drop target covers the row | While a drag is in progress, each candidate row/card MUST expose a drop target spanning its own full width, split into a "before" and "after" half by height — releasing anywhere over the row commits to the nearer half, not just to the handle's footprint. |
-| Drop target covers the column | Where a whole column is the drop target — a board's status column — it MUST span the full height of the board's tallest column, not only the height of its own cards. A card carried sideways from low in a long column arrives beside a short column's foot, and that space MUST still belong to the short column; otherwise the drop silently writes nothing. |
+| One scroller per column | A board scrolls sideways only. Given a bounded height it fills it, and each column scrolls its own cards inside itself; a long column MUST show exactly one vertical scrollbar, never one of its own beside the board's or the pane's. |
+| Drop target covers the column | Where a whole column is the drop target — a board's status column — it MUST span the full height of the board — the box the board is given when that has a height, else the tallest column — not only the height of its own cards. A card carried sideways from low in a long column arrives beside a short column's foot, and that space MUST still belong to the short column; otherwise the drop silently writes nothing. |
 | Cancel both dragenter and dragover | A drop target MUST prevent default on both `dragenter` and `dragover`. A `drop` only fires where the immediately preceding `dragover` was cancelled, and a target that only appears once dragging has started needs its `dragenter` cancelled too, or the first `dragover` over it can be missed. |
 | Handle target size still applies | The ≥ 44 × 44 px minimum in `#drag-affordances` (see `accessibility.md#target-sizes-and-text`) governs the handle as an independent pointer/keyboard-focus target, regardless of how large the drop target is. |
 
@@ -187,7 +188,7 @@ both items and chapters.
 
 | Rule | Requirement |
 |---|---|
-| Edge autoscroll | Dragging near the top/bottom edge of a scrollable container MUST autoscroll toward that edge at a bounded speed. |
+| Edge autoscroll | Dragging near the top/bottom edge of a scrollable container MUST autoscroll toward that edge at a bounded speed. On a board whose columns scroll their own cards, the container is the column under the pointer, not the one the card came from. |
 | Reduced motion | Autoscroll MUST remain functional but MUST NOT add parallax/decorative motion under `prefers-reduced-motion`. |
 | Keyboard scroll | Keyboard moves MUST keep the moving item scrolled into view. |
 
@@ -397,10 +398,11 @@ and short. The rows above hold for the facts; these rules hold for the stack.
 
 | Rule | Requirement |
 |---|---|
-| Line order | Top to bottom, and nothing absent drawn as a gap: the kind, with the priority mark and the **My Day** marker beside it; the title; `Waits on …` when the chain says the task cannot start, naming what it waits on rather than counting it; the tags; then one quiet line — the repository, the sub-items done of total, the one date that matters (when it is due on an open task, when it was finished on a done one), the work badges — the task's source and the host's — and the effort on the far end. |
+| Line order | Top to bottom, and nothing absent drawn as a gap: the kind, with the priority mark and the **My Day** marker beside it, and the copy button on that line's far end when the host offers it; the title; `Waits on …` when the chain says the task cannot start, naming what it waits on rather than counting it; the tags; then one quiet line — the repository, the sub-items done of total, the one date that matters (when it is due on an open task, when it was finished on a done one), the work badges — the task's source and the host's — and the effort on the far end. |
 | Effort is always stated | The effort is the one fact a card draws when it is absent: `Not estimated`, because a column that sums its points makes an unestimated card worth stating. |
 | Quiet priority | Only **High** and **Critical** draw a mark — a small up-chevron, named as its priority to a tooltip and to a screen reader, never only a shape. **Medium** and **Low** draw nothing: priority is barely used, and a mark on every card is a mark nobody reads. |
-| One control | The whole card is one focusable control that opens the entry, on a click or on Enter or Space, and it is a control only while the host is listening — per *No inert controls* above. |
+| One control | The whole card is one focusable control that opens the entry, on a click or on Enter or Space, and it is a control only while the host is listening — per *No inert controls* above. The controls inside it — the copy button, a pressable tag, the badges — are their own tab stops and never open it. |
+| Copy on the card | A card a board lays out carries the row's copy button at the far end of its top line, copying exactly what the task's row copies, and refused the same way on a task marked blocked. Copying is not opening: the button's slot stops the press, the click and the key as the badge slot does, and a drag never starts from it. |
 | Badges are not the card | The work badges are facts to follow, usually links, and following one is not opening the card. Their slot MUST stop the press, the click and the key before the card hears them, as the row's badge slot does; a tag the host is listening to is a control of its own and stops them the same way. |
 | The identity edge is the host's | The repository edge is drawn only when the host passes it, on the seam a list row takes it through, so a card and the row for the same entry cannot disagree about it (see `color-scheme.md#the-identity-edge`). |
 
@@ -441,7 +443,7 @@ as its kind:
 | Nothing reads pressed under a takeover | During a takeover no view option and no side-pane toggle reads pressed, since nothing of the workspace is on screen. |
 | Takeovers are exclusive | Opening a takeover MUST replace any other takeover; a group of pressed states, not `aria-expanded`, says so. Ask AI keeps `aria-expanded`, because it is a disclosure. |
 | A switched-off view falls back | A view whose flag goes off MUST show Tasks in its place, and MUST come back when the flag does. |
-| The filter bar is the task views' | The Tasks filter bar MUST show on the Tasks, Board and Calendar views — the same filtered rows read three ways — and on no other screen. The Board adds its **Columns** choice first on the bar. The Roadmap view carries its own Planning heading row instead, and In progress carries its own choices. |
+| The filter bar is the task views' | The Tasks filter bar MUST show on the Tasks, Board and Calendar views — the same filtered rows read three ways — and on no other screen. The Board adds its **Columns** choice first on the bar, a select with no visible word beside it — the grouping it shows says what the columns are — named `Columns` to assistive technology and in its tooltip. The Roadmap view carries its own Planning heading row instead, and In progress carries its own choices. |
 | A control acts on what is on screen | A header control whose target is off screen MUST NOT render: the GitHub check only beside a task view, Ask AI only with an area to ask about. The view switch, the side-pane toggles, the takeover groups and the identity region stay on every screen, since they are the way to everything else. |
 | The shell reopens where it was left | The main view, the open side panes and any open takeover MUST be restored on a fresh shell instance, including after Settings and back. |
 

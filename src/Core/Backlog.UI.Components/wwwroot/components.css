@@ -5203,26 +5203,128 @@ button.task-panel__check:focus-visible {
     border-color: var(--color-border-strong);
 }
 
+/* The card in the reader's hand: a copy of the held card that taskListDrag puts
+   on the page and moves with the pointer, raised off the board by a shadow and
+   a slight tilt so it reads as picked up rather than as one more card. Fixed,
+   because it follows the pointer in the viewport whatever scrolls under it, and
+   never a target, so the column under it is what the hit test finds. */
+.task-card--lifted {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    margin: 0;
+    pointer-events: none;
+    border-color: var(--color-border-strong);
+    /* The identity edge travels with the card: .repo-mark's inset shadow would
+       otherwise be replaced by this one. */
+    box-shadow:
+        inset var(--border-width-4) 0 0 0 var(--repo-mark-color, transparent),
+        var(--shadow-lg),
+        0 0 0 var(--border-width) var(--color-border);
+    transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0) rotate(2deg);
+    will-change: transform;
+}
+
+/* Released: the copy glides from the pointer into the card's place and the
+   tilt comes off on the way — the drop settle, transition-base on ease-out. */
+.task-card--lifted.task-card--settling {
+    transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0);
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+    box-shadow: inset var(--border-width-4) 0 0 0 var(--repo-mark-color, transparent);
+}
+
+/* The card in its new place while the copy settles onto it: there, holding its
+   room, but not yet visible, so the reader sees one card arrive rather than two. */
+.task-card--landing {
+    visibility: hidden;
+}
+
+/* The card's copy button: the row's, quiet until the card is hovered or the
+   button focused, on the far end of the top line. After My Day when there is
+   one, which already holds the far end. */
+.task-card__copy {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.task-card__my-day + .task-card__copy {
+    margin-left: 0;
+}
+
+.task-card__copy-wrap {
+    display: inline-flex;
+    align-items: center;
+}
+
+.task-card__copy-button {
+    color: var(--color-text-disabled);
+}
+
+.task-card:hover .task-card__copy-button,
+.task-card__copy-button:hover,
+.task-card__copy-button:focus-visible {
+    color: var(--color-text-primary);
+}
+
+.task-card:hover .task-card__copy-button:disabled,
+.task-card__copy .task-card__copy-button:disabled {
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+}
+
+.task-card__copy .copy-button__glyphs[data-copied="true"] {
+    color: var(--color-primary);
+}
+
+/* Announced, not drawn, for the row's reason: a card's top line does not
+   reflow because someone copied it. */
+.task-card__copy-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
 /* --- Task board ---------------------------------------------------------- */
 /*
    Columns of TaskCards, side by side. See TaskBoard.razor. The columns never
    shrink below the width a card reads at; the board scrolls sideways instead,
    which is what it does once the detail panel opens beside it.
 
-   Every column is as tall as the tallest one. A column is where a held card
-   is dropped, and one only as tall as its cards left the space beside a long
+   Every column is as tall as the board. A column is where a held card is
+   dropped, and one only as tall as its cards left the space beside a long
    column's foot belonging to nobody: a card picked up low in a long Ready
    column and carried across to a short In progress column was released over
    the board itself, and the drop did nothing.
+
+   The board scrolls sideways only, and each column scrolls its own cards. The
+   one row is minmax(0, 1fr): in a box with a height — the Tasks pane's
+   scroller, a flex column — the board fills the box and a long column scrolls
+   inside itself, and in a box without one the row is as tall as the tallest
+   column and the box scrolls instead. Before this, overflow-x: auto made the
+   board a vertical scroller as well, which in the pane's flex column shrank it
+   to the pane's height: the board's own scrollbar stood beside the pane's,
+   two for one column (task-views sign-off).
 */
 .task-board {
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: minmax(17rem, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: var(--spacing-md);
     align-items: stretch;
+    flex: 1 1 auto;
     min-width: 0;
+    /* A floor, so a short pane scrolls to the board's foot rather than clipping
+       a column's head and "+ New entry": room for those and a card or two. */
+    min-height: 16rem;
     overflow-x: auto;
+    overflow-y: hidden;
     padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
 }
 
@@ -5237,15 +5339,29 @@ button.task-panel__check:focus-visible {
     cursor: grabbing;
 }
 
+/* The rest of the board steps back while one card is in the reader's hand, as
+   the list's rows do: a state, not an animation, so it holds under reduced
+   motion too. */
+.task-board--dragging .task-card:not(.task-card--dragging) {
+    opacity: 0.8;
+}
+
 .task-board__column {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
     min-width: 0;
+    min-height: 0;
     padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-background-raised);
     border-radius: var(--border-radius-lg);
     background: var(--color-background);
+}
+
+/* Everything in a column but its cards keeps its size; only the cards give way
+   when the column runs out of room, and they scroll. */
+.task-board__column > :not(.task-board__cards) {
+    flex: none;
 }
 
 /* A column the held card may go to: a dashed edge, solid under the pointer. */
@@ -5321,11 +5437,21 @@ button.task-panel__check:focus-visible {
     white-space: nowrap;
 }
 
+/* The column's one vertical scroller. Shrinks only when the column has a height
+   to fit — as tall as its cards otherwise, so "+ New entry" sits under the last
+   card rather than at the column's foot. The padding is the room a card's focus
+   ring draws in, which a scroller would otherwise clip; the margin gives it back. */
 .task-board__cards {
     display: flex;
     flex-direction: column;
+    flex: 0 1 auto;
     gap: var(--spacing-sm);
     min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: calc(-1 * var(--border-width-2));
+    padding: var(--border-width-2);
 }
 
 /* Why the held card cannot go here: the error surface and ink, the pairing
@@ -5352,6 +5478,12 @@ button.task-panel__check:focus-visible {
     border-radius: var(--border-radius-md);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+    transform-origin: top center;
+    transition:
+        border-color var(--transition-fast),
+        color var(--transition-fast);
+    /* transition-base is the ease-out pairing: the slot is an entering element. */
+    animation: task-board-slot-open var(--transition-base);
 }
 
 .task-board__slot strong {
@@ -5363,9 +5495,39 @@ button.task-panel__check:focus-visible {
     font-size: var(--font-size-xs);
 }
 
+/* Under the pointer the slot opens to the held card's height — taskListDrag puts
+   it on the board as --task-board-lift-height — so the column shows the room the
+   card will take before the reader lets go. The height is a state and changes at
+   once, since motion here animates transform and opacity and never a layout
+   property; what moves is the slot fading and unfolding in from its top edge
+   when a card is picked up (on .task-board__slot above). None of that travel
+   runs under reduced motion. */
 .task-board__slot--over {
+    min-height: var(--task-board-lift-height, 3rem);
     border-color: var(--color-primary);
     color: var(--color-text-primary);
+}
+
+@keyframes task-board-slot-open {
+    from {
+        opacity: 0;
+        transform: scaleY(0.6);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .task-board__slot {
+        transition: none;
+        animation: none;
+    }
+
+    .task-card--lifted {
+        transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0);
+    }
+
+    .task-card--lifted.task-card--settling {
+        transition: none;
+    }
 }
 
 .task-board__add {
