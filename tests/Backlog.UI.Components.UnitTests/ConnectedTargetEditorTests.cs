@@ -34,6 +34,39 @@ public sealed class ConnectedTargetEditorTests
         Assert.Equal("Not synced yet", card.Find("[data-testid='t-synced']").TextContent.Trim());
     }
 
+    /// <summary>A target that stopped syncing says why on its own card, with when,
+    /// until a sync succeeds — and a card with nothing wrong says nothing.</summary>
+    [Fact]
+    public void A_last_sync_that_failed_is_shown_on_the_card_with_when()
+    {
+        using var context = new BunitContext();
+
+        var failed = context.Render<ConnectedTargetEditor>(p => p
+            .Add(c => c.Options, Target with { LastSyncError = "GitHub cannot find JSdotNet/Backlog.", LastSyncFailed = "7 Oct 2026 21:53" })
+            .Add(c => c.TestId, "t"));
+        var fine = context.Render<ConnectedTargetEditor>(p => p.Add(c => c.Options, Target).Add(c => c.TestId, "t"));
+
+        Assert.Equal(
+            "Last sync failed 7 Oct 2026 21:53: GitHub cannot find JSdotNet/Backlog.",
+            failed.Find("[data-testid='t-error']").TextContent);
+        Assert.Empty(fine.FindAll("[data-testid='t-error']"));
+    }
+
+    [Fact]
+    public void The_hosts_answer_to_sync_now_is_shown_on_the_card()
+    {
+        using var context = new BunitContext();
+
+        var answered = context.Render<ConnectedTargetEditor>(p => p
+            .Add(c => c.Options, Target)
+            .Add(c => c.SyncMessage, "Synced JSdotNet/Backlog: 2 new.")
+            .Add(c => c.TestId, "t"));
+        var quiet = context.Render<ConnectedTargetEditor>(p => p.Add(c => c.Options, Target).Add(c => c.TestId, "t"));
+
+        Assert.Equal("Synced JSdotNet/Backlog: 2 new.", answered.Find("[data-testid='t-sync-message']").TextContent);
+        Assert.Empty(quiet.FindAll("[data-testid='t-sync-message']"));
+    }
+
     [Fact]
     public async Task A_switch_reports_the_whole_record_with_that_one_option_changed()
     {

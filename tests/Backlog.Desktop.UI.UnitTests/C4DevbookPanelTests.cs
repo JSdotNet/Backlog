@@ -76,6 +76,12 @@ public sealed class C4DevbookPanelTests : IDisposable
         { "views": {} }
         """;
 
+    /// <summary>A chapter carrying a C4 fence of its own — what a repository that
+    /// never wrote a <c>.dsl</c> has, and what the C4 tab falls back to.</summary>
+    private const string FencedChapter =
+        "# 05. Building Block View\n\n```meta\nstatus: active\n```\n\n" +
+        "```mermaid\nC4Context\n    title Finance context\n    Person(me, \"ME\")\n    System(finance, \"Finance\")\n    Rel(me, finance, \"Uses\")\n```\n";
+
     private readonly List<string> _roots = [];
 
     // ---- the feature key -----------------------------------------------------
@@ -416,19 +422,204 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='c4-problems']"));
     }
 
+    // ---- the model drawn from the chapters ------------------------------------
+
+    /// <summary>
+    /// A folder with C4 fences and no workspace still gets the tab. The fences are a
+    /// model already, and offering nothing until somebody authors a <c>.dsl</c> hid the
+    /// one picture such a repository has — while saying, in the tab, where the picture
+    /// came from and what a fuller one would take.
+    /// </summary>
+    [Fact]
+    public async Task A_chapters_C4_fence_with_no_workspace_offers_a_C4_tab_drawn_from_it()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter);
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
+
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-derived']"));
+        Assert.Single(component.FindAll("[data-testid='c4-view-option']"));
+        Assert.Contains("Finance context", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>A derived view documents the chapter its fence is in, so the footer
+    /// names it rather than asking for a <c>references.json</c> nobody needs to
+    /// write.</summary>
+    [Fact]
+    public async Task A_derived_view_names_the_chapter_its_fence_came_from()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter);
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
+
+        Assert.NotEmpty(component.FindAll("[data-testid='c4-breadcrumb']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-c4-view-unreferenced']"));
+        Assert.NotEmpty(component.FindAll($"[data-testid='arc42-c4-view-references'] [title='{ChapterPath}']"));
+    }
+
+    [Fact]
+    public async Task A_chapter_lists_the_view_drawn_from_its_fence_and_following_it_opens_that_view()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter);
+
+        var component = harness.Render(ChapterPath);
+        harness.Settle(component);
+
+        var link = Assert.Single(component.FindAll("[data-testid='arc42-chapter-c4-view']"));
+        await link.QuerySelector("button")!.ClickAsync(new());
+
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
+        Assert.Contains("Finance context", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>An authored workspace is the model. The chapters' fences are not
+    /// derived beside it — two models of one architecture would be a choice nobody
+    /// asked the reader to make.</summary>
+    [Fact]
+    public async Task With_an_authored_workspace_the_chapters_fences_are_not_drawn_as_a_second_model()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, chapter: FencedChapter);
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
+
+        Assert.NotEmpty(component.FindAll("[data-testid='c4-breadcrumb']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-c4-derived']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-c4-workspaces']"));
+        Assert.Equal(2, component.FindAll("[data-testid='c4-view-option']").Count);
+    }
+
+    /// <summary>A folder that never had a <c>_c4/</c> at all — the finance case —
+    /// is the same as one with an empty one.</summary>
+    [Fact]
+    public async Task With_no_workspace_folder_at_all_the_chapters_fences_still_give_a_C4_tab()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter, createWorkspaceDirectory: false);
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
+
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-derived']"));
+        Assert.Single(component.FindAll("[data-testid='c4-view-option']"));
+    }
+
+    /// <summary>Underscored folders are not chapters — the chapter list skips them on
+    /// the same rule — so a fence in one is no part of the model.</summary>
+    [Fact]
+    public async Task A_fence_in_an_underscored_folder_is_not_read()
+    {
+        await using var harness = CreateHarness(
+            c4Enabled: true,
+            writeWorkspace: false,
+            extraFiles: new Dictionary<string, string> { ["_drafts/03-context.md"] = FencedChapter });
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapters-tab']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-c4-tab']"));
+    }
+
+    /// <summary>A review note quoting a C4 fence opens with four backticks so the
+    /// quote can sit inside it. The quote is a sample in a note, not a diagram of the
+    /// architecture.</summary>
+    [Fact]
+    public async Task A_C4_fence_quoted_inside_a_four_backtick_fence_is_not_read()
+    {
+        const string quoting =
+            "# 05. Building Block View\n\n```meta\nstatus: active\n```\n\n" +
+            "````annotation\nTry this:\n```mermaid\nC4Context\n    System(x, \"X\")\n```\n````\n";
+
+        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: quoting);
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        Assert.Empty(component.FindAll("[data-testid='arc42-c4-tab']"));
+    }
+
+    [Fact]
+    public async Task A_mermaid_fence_that_is_not_C4_gives_no_C4_tab()
+    {
+        const string flowchart =
+            "# 05. Building Block View\n\n```meta\nstatus: active\n```\n\n```mermaid\nflowchart LR\n    a --> b\n```\n";
+
+        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: flowchart);
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        Assert.Empty(component.FindAll("[data-testid='arc42-c4-tab']"));
+    }
+
+    /// <summary>
+    /// A chapter edited in the app redraws the model drawn from it. The store caches
+    /// its catalog, and nothing on disk announces a save the app itself made — so
+    /// without the save telling the store, the C4 tab kept the fence as it was before
+    /// the edit until something else moved the folder.
+    /// </summary>
+    [Fact]
+    public async Task Saving_a_chapter_in_the_app_redraws_the_model_drawn_from_it()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter);
+        var chapterFile = Path.Combine(harness.Arc42, "05-building-block-view.md");
+
+        var component = harness.Render(ChapterPath);
+        harness.Settle(component);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-edit']")));
+
+        await component.Find("[data-testid='arc42-chapter-file-edit']").ClickAsync(new());
+        component.WaitForElement("textarea").Input(FencedChapter.Replace("Finance context", "Renamed context", StringComparison.Ordinal));
+
+        component.WaitForAssertion(
+            () => Assert.Contains("Renamed context", File.ReadAllText(chapterFile), StringComparison.Ordinal),
+            TimeSpan.FromSeconds(5));
+
+        // The re-read that follows the save is what asks the store again.
+        component.WaitForAssertion(
+            () => Assert.Contains("Renamed context", component.Find("[data-testid='arc42-chapter-c4-views']").TextContent, StringComparison.Ordinal),
+            TimeSpan.FromSeconds(5));
+    }
+
     private Harness CreateHarness(
         bool c4Enabled,
         bool registerStore = true,
         string? workspace = null,
         string? references = null,
-        bool writeWorkspace = true)
+        bool writeWorkspace = true,
+        string? chapter = null,
+        bool createWorkspaceDirectory = true,
+        IReadOnlyDictionary<string, string>? extraFiles = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-c4-" + Guid.NewGuid().ToString("N"));
         _roots.Add(root);
 
         var arc42 = Path.Combine(root, ".arc42");
-        Directory.CreateDirectory(Path.Combine(arc42, C4DevbookStore.WorkspaceDirectory));
-        File.WriteAllText(Path.Combine(arc42, "05-building-block-view.md"), Chapter);
+        Directory.CreateDirectory(arc42);
+        if (createWorkspaceDirectory || writeWorkspace || references is not null)
+        {
+            Directory.CreateDirectory(Path.Combine(arc42, C4DevbookStore.WorkspaceDirectory));
+        }
+
+        File.WriteAllText(Path.Combine(arc42, "05-building-block-view.md"), chapter ?? Chapter);
+
+        foreach (var (relative, content) in extraFiles ?? new Dictionary<string, string>())
+        {
+            var path = Path.Combine(arc42, relative.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, content);
+        }
 
         if (writeWorkspace)
         {
@@ -478,10 +669,10 @@ public sealed class C4DevbookPanelTests : IDisposable
 
         if (registerStore) context.Services.AddSingleton<C4DevbookStore>();
 
-        return new Harness(context, repository.Alias);
+        return new Harness(context, repository.Alias, arc42);
     }
 
-    private sealed record Harness(BunitContext Context, string RepositoryAlias) : IAsyncDisposable
+    private sealed record Harness(BunitContext Context, string RepositoryAlias, string Arc42) : IAsyncDisposable
     {
         public IRenderedComponent<Arc42DevbookPanel> Render(string? selectedPath, List<DevbookChapterLink>? asked = null) =>
             Context.Render<Arc42DevbookPanel>(parameters =>

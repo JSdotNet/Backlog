@@ -81,6 +81,109 @@ public sealed class LinkedTaskSyncWorkerTests
         Assert.Equal(["a", "b"], _handler.Commands.Select(command => command.Target));
     }
 
+    /// <summary>A card's "Sync now" syncs that card's target and no other, and says
+    /// what it did.</summary>
+    [Fact]
+    public async Task A_request_for_one_target_syncs_only_it_and_says_so()
+    {
+        var targets = new InMemoryConnectedTargets(new ConnectedTarget("stub", "a"), new ConnectedTarget("stub", "b"));
+        using var worker = Worker(targets);
+
+        var outcome = await worker.RequestSync("stub", "b");
+
+        Assert.Equal(["b"], _handler.Commands.Select(command => command.Target));
+        Assert.True(outcome.Succeeded);
+        Assert.Null(outcome.ErrorCode);
+        Assert.StartsWith("Synced b", outcome.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The defect this answers: the page said "Synced." over a sync that
+    /// had failed. The failure comes back as the sync's own sentence.</summary>
+    [Fact]
+    public async Task A_request_for_one_target_whose_sync_failed_answers_the_failure()
+    {
+        var targets = new InMemoryConnectedTargets(new ConnectedTarget("stub", "down"));
+        _handler.Failing.Add("down");
+        using var worker = Worker(targets);
+
+        var outcome = await worker.RequestSync("stub", "down");
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal("linked_tasks.fetch_failed", outcome.ErrorCode);
+        Assert.Equal("down", outcome.Message);
+    }
+
+    /// <summary>A card's Sync now that arrives while the timer's run is in flight is
+    /// not skipped, the way a second tick is: it waits for that run, then runs.</summary>
+    [Fact]
+    public async Task A_request_for_one_target_during_a_timer_run_waits_for_it_then_runs()
+    {
+        var targets = new InMemoryConnectedTargets(
+            new ConnectedTarget("stub", "a"),
+            new ConnectedTarget("stub", "b") { LastSyncedAt = Now });
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _handler.Holding["a"] = release.Task;
+        using var worker = Worker(targets);
+
+        var tick = worker.TickAsync();
+        var request = worker.RequestSync("stub", "b");
+
+        Assert.False(request.IsCompleted);
+        Assert.Equal(["a"], _handler.Commands.Select(command => command.Target));
+
+        release.SetResult();
+        await tick.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        var outcome = await request.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.True(outcome.Succeeded);
+        Assert.Equal(["a", "b"], _handler.Commands.Select(command => command.Target));
+    }
+
+    /// <summary>The refusals the handler gives before it fetches name no target, so
+    /// the one-target answer says which it was about.</summary>
+    [Theory]
+    [InlineData("linked_tasks.target_not_found")]
+    [InlineData("linked_tasks.target_disabled")]
+    public async Task A_request_for_one_target_the_sync_refuses_names_the_target(string code)
+    {
+        var targets = new InMemoryConnectedTargets(new ConnectedTarget("stub", "owner/repo"));
+        _handler.Refusing["owner/repo"] = code == SyncLinkedTasksCommandHandler.TargetNotFound.Code
+            ? SyncLinkedTasksCommandHandler.TargetNotFound
+            : SyncLinkedTasksCommandHandler.TargetDisabled;
+        using var worker = Worker(targets);
+
+        var outcome = await worker.RequestSync("stub", "owner/repo");
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(code, outcome.ErrorCode);
+        Assert.Contains("owner/repo", outcome.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_request_for_a_target_whose_connector_is_not_installed_names_the_target()
+    {
+        using var worker = Worker(new InMemoryConnectedTargets(new ConnectedTarget("jira", "PROJ")));
+
+        var outcome = await worker.RequestSync("jira", "PROJ");
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(SyncLinkedTasksCommandHandler.ConnectorNotFound.Code, outcome.ErrorCode);
+        Assert.Contains("PROJ", outcome.Message, StringComparison.Ordinal);
+        Assert.Empty(_handler.Commands);
+    }
+
+    [Fact]
+    public async Task A_request_for_one_target_after_the_worker_stopped_answers_that_nothing_ran()
+    {
+        var worker = Worker(new InMemoryConnectedTargets(new ConnectedTarget("stub", "a")));
+        worker.Dispose();
+
+        var outcome = await worker.RequestSync("stub", "a");
+
+        Assert.False(outcome.Succeeded);
+        Assert.Empty(_handler.Commands);
+    }
+
     [Fact]
     public void With_a_connector_the_timer_ticks_every_minute()
     {

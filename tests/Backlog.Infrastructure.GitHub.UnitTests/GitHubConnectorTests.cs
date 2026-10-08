@@ -29,6 +29,18 @@ public sealed class GitHubConnectorTests
         Assert.True(connector.Capabilities.CanComplete);
     }
 
+    /// <summary>A GitHub target is a repository: the settings page asks for one in
+    /// its own spelling, and the sync files each task under it.</summary>
+    [Fact]
+    public void Its_targets_are_repositories_typed_owner_slash_name()
+    {
+        var connector = Connector(new StubClient());
+
+        Assert.Equal("Repository", connector.Descriptor.TargetLabel);
+        Assert.Equal("owner/repository", connector.Descriptor.TargetPlaceholder);
+        Assert.True(connector.Capabilities.TargetIsRepository);
+    }
+
     /// <summary>Issue search lags behind a close. An issue closed just before the
     /// last sync — by the write-back that asked for it — can have read as open to
     /// that sync, so the closed query reaches back before it, or the issue would be
@@ -283,10 +295,61 @@ public sealed class GitHubConnectorTests
     }
 
     [Fact]
-    public async Task A_target_that_is_not_a_configured_repository_is_refused()
+    public async Task A_target_that_is_not_a_configured_repository_is_refused_as_not_configured()
     {
-        await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
+        var failure = await Assert.ThrowsAsync<TaskConnectorFetchException>(() =>
             Connector(new StubClient()).FetchAsync("someone/else", Since, TestContext.Current.CancellationToken));
+
+        Assert.Equal(TaskConnectorFetchFailure.NotConfigured, failure.Kind);
+        Assert.Contains("someone/else", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Issue search answers a repository the account cannot see with a 422
+    /// rather than a 404, and a 403 for one it may not read. Neither is GitHub
+    /// being down: each says so, and says which account to change.</summary>
+    [Theory]
+    [InlineData(System.Net.HttpStatusCode.UnprocessableEntity, TaskConnectorFetchFailure.NotFound)]
+    [InlineData(System.Net.HttpStatusCode.NotFound, TaskConnectorFetchFailure.NotFound)]
+    [InlineData(System.Net.HttpStatusCode.Forbidden, TaskConnectorFetchFailure.NoAccess)]
+    public async Task A_repository_the_account_cannot_see_says_to_pick_the_account(
+        System.Net.HttpStatusCode status, TaskConnectorFetchFailure expected)
+    {
+        var client = new StubClient { SearchFailure = new GitHubException("Validation Failed") { Status = status } };
+
+        var failure = await Assert.ThrowsAsync<TaskConnectorFetchException>(() =>
+            Connector(client).FetchAsync(Target, Since, TestContext.Current.CancellationToken));
+
+        Assert.Equal(expected, failure.Kind);
+        Assert.Contains(Target, failure.Message, StringComparison.Ordinal);
+        Assert.Contains("account", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Settings → GitHub", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task No_way_to_sign_in_fails_the_fetch_as_sign_in_required(bool unauthorized)
+    {
+        Exception thrown = unauthorized
+            ? new GitHubException("Bad credentials") { Status = System.Net.HttpStatusCode.Unauthorized }
+            : new GitHubNotConfiguredException("No way to reach GitHub. Sign in with `gh auth login`.");
+        var client = new StubClient { SearchFailure = thrown };
+
+        var failure = await Assert.ThrowsAsync<TaskConnectorFetchException>(() =>
+            Connector(client).FetchAsync(Target, Since, TestContext.Current.CancellationToken));
+
+        Assert.Equal(TaskConnectorFetchFailure.SignInRequired, failure.Kind);
+    }
+
+    /// <summary>A failure with no status is the network, which the sync reports as
+    /// GitHub not being reached; it is left as it was thrown.</summary>
+    [Fact]
+    public async Task A_failure_with_no_status_is_left_unclassified()
+    {
+        var client = new StubClient { SearchFailure = new GitHubException("No such host is known.") };
+
+        await Assert.ThrowsAsync<GitHubException>(() =>
+            Connector(client).FetchAsync(Target, Since, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -308,6 +371,35 @@ public sealed class GitHubConnectorTests
         var targets = await Connector(new StubClient(), settings: settings).ListTargetsAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(["JSdotNet/Backlog", "octo/cat"], targets);
+    }
+
+    /// <summary>The settings page picks a GitHub target from the configured
+    /// repositories, each named by its <c>owner/name</c>.</summary>
+    [Fact]
+    public async Task The_choices_are_the_configured_repositories_named_owner_slash_name()
+    {
+        var settings = new GitHubSettings { Repositories = [Repository, new("other", "octo", "cat")] };
+        ITaskConnector connector = Connector(new StubClient(), settings: settings);
+
+        var choices = await connector.ListTargetChoicesAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [new ConnectorTargetChoice("JSdotNet/Backlog", "JSdotNet/Backlog"), new ConnectorTargetChoice("octo/cat", "octo/cat")],
+            choices.Choices);
+        Assert.Null(choices.CannotList);
+    }
+
+    /// <summary>With nothing configured there is nothing to pick, and the page says
+    /// where a repository is added rather than offering an empty list.</summary>
+    [Fact]
+    public async Task With_no_repository_configured_it_says_where_to_add_one()
+    {
+        ITaskConnector connector = Connector(new StubClient(), settings: new GitHubSettings());
+
+        var choices = await connector.ListTargetChoicesAsync(TestContext.Current.CancellationToken);
+
+        Assert.Empty(choices.Choices);
+        Assert.Contains("Settings → GitHub", choices.CannotList, StringComparison.Ordinal);
     }
 
     private static GitHubConnector Connector(
@@ -349,6 +441,9 @@ public sealed class GitHubConnectorTests
     {
         public bool Truncated { get; init; }
 
+        /// <summary>Thrown by every search instead of answering, when set.</summary>
+        public Exception? SearchFailure { get; init; }
+
         public GitHubRepositoryRef? Repository { get; private set; }
 
         public DateTimeOffset? ClosedSince { get; private set; }
@@ -360,6 +455,7 @@ public sealed class GitHubConnectorTests
         {
             Repository = repository;
             ClosedSince = closedSince;
+            if (SearchFailure is not null) return Task.FromException<GitHubIssueSearchRead>(SearchFailure);
             return Task.FromResult(new GitHubIssueSearchRead(issues, Truncated));
         }
 

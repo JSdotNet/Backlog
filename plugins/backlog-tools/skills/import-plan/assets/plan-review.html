@@ -691,8 +691,10 @@
   let timer = null;
   raw.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => render(raw.value), 250); });
 
-  // Boot: the plan text is embedded verbatim by the import-plan skill.
-  const source = (document.getElementById('plan-source').textContent || '').replace(/^\n/, '');
+  // Boot: the import-plan skill embeds the plan with one backslash added after the `<` of
+  // every closing script tag and comment opener, so neither can end the element above.
+  const source = (document.getElementById('plan-source').textContent || '')
+    .replace(/^\n/, '').replace(/<(\\*)\\(\/script|!--)/gi, '<$1$2');
   raw.value = source;
   const t = document.title && !/\{\{/.test(document.title) ? document.title : null;
   if (t) document.getElementById('plan-name').textContent = t;

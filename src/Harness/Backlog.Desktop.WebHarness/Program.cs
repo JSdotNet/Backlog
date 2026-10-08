@@ -163,7 +163,9 @@ builder.Services.AddTaskConnector<HarnessTaskConnector>();
 // answer different questions and only one of them is the installed app's.
 //
 // Origin is here because the tools are the same tools and the workspace under
-// them is the real one: this harness composes %LOCALAPPDATA%\Backlog.Debug, and
+// them is the real one: this harness composes the per-user workspace —
+// %LOCALAPPDATA%\Backlog.Debug in a Debug build, and the real %LOCALAPPDATA%\Backlog
+// in a Release one, which LocalDataReset in the AppHost supports on purpose — and
 // a repository configured there points its devbook folders at a clone on this
 // machine. QA has to turn the feature on to test it, and a harness left running
 // afterwards is reachable from any browser page on the machine by DNS rebinding
@@ -311,22 +313,26 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
         return settings;
     }
 
-    // A seed, not somebody removing what the shared workspace held before, so
-    // nothing it replaces is recorded as removed.
-    const string alias = "backlog";
-    settings.SetRepositories(
-    [
-        new GitHubRepositoryRef(alias, "JSdotNet", "Backlog")
+    // Ensured rather than set. The registry is the workspace's shared one and
+    // travels to every paired device (local ADR 0021), so a seed that replaced the
+    // list dropped every other repository and its account binding on each start,
+    // and reset the folder choices of the row it kept. Upserting adds this
+    // checkout when it is missing, moves only its clone directory when it is not,
+    // and leaves everything else as somebody configured it. When another
+    // repository already has the "backlog" alias, this one takes a free alias, so
+    // nothing below may assume the alias — the clone directory finds the row.
+    //
+    // A refusal is reported rather than thrown: the harness still starts, without
+    // its seed, and a host that cannot be started cannot show why. No logger
+    // exists yet at this point, so it goes to standard error, which Aspire shows
+    // in the resource's console log.
+    if (settings.EnsureRepository(new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")
         {
             CloneDirectory = repositoryRoot,
             DevbookFolders = DevbookFolderSetting.Defaults()
-        }
-    ],
-    rememberRemovals: false);
-
-    foreach (var folder in DevbookFolderSetting.Defaults())
+        }) is { } error)
     {
-        settings.SetDevbookFolder(alias, folder.Key, enabled: true, path: null);
+        Console.Error.WriteLine($"The harness could not seed JSdotNet/Backlog into the repository registry at {settings.RegistryPath}: {error}");
     }
 
     return settings;

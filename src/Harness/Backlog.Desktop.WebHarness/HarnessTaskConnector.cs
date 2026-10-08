@@ -25,6 +25,19 @@ namespace Backlog.Desktop.WebHarness;
 /// the write-back asks for brings the source's Done in — except item 5, which is
 /// always refused, so the refusal flag can be seen on its task.
 /// </para>
+/// <para>
+/// <b>A failing target.</b> A target whose name contains <c>fail</c> fails every
+/// fetch as a target the source does not have, so the card's last-sync error and
+/// "Sync now"'s failure message can be seen. The field's label and placeholder are
+/// left at the descriptor's neutral defaults.
+/// </para>
+/// <para>
+/// <b>Picking a target.</b> The harness offers three targets to pick, named apart
+/// from their stored spelling as a spec-manager product's name is from its slug —
+/// the last of them the failing one. The installed GitHub and spec-manager
+/// connectors show the typed fallback: GitHub with no repository configured, and
+/// spec-manager signed out.
+/// </para>
 /// </summary>
 internal sealed class HarnessTaskConnector : ITaskConnector
 {
@@ -38,12 +51,30 @@ internal sealed class HarnessTaskConnector : ITaskConnector
     /// restarted harness has every item open again.</summary>
     private readonly ConcurrentDictionary<string, bool> _completed = new(StringComparer.Ordinal);
 
-    public TaskConnectorDescriptor Descriptor { get; } = new("harness", "Harness", "harness", "color-primary-light");
+    public TaskConnectorDescriptor Descriptor { get; } = new("harness", "Harness", "harness", "color-primary-light")
+    {
+        TargetHelp = "Any name. One containing \"fail\" fails every sync.",
+    };
 
     public TaskConnectorCapabilities Capabilities { get; } = new(CanComplete: true);
 
+    public Task<ConnectorTargetChoices> ListTargetChoicesAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(new ConnectorTargetChoices(
+        [
+            new("harness-alpha", "Harness alpha"),
+            new("harness-beta", "Harness beta"),
+            new("harness-fail", "Fails every sync"),
+        ]));
+
     public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken)
     {
+        if (target.Contains("fail", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new TaskConnectorFetchException(
+                TaskConnectorFetchFailure.NotFound,
+                $"The harness source has no target named {target}. Connect one whose name does not contain \"fail\".");
+        }
+
         var updated = new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero);
         var slug = Uri.EscapeDataString(target);
 

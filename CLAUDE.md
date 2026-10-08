@@ -50,8 +50,9 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. None of its five skills changes the
-paragraph above. `import-plan` and `import-inbox` are user-invoked
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its five skills, nor its hooks,
+changes the paragraph above; the plan-progress band and pane (`hooks/register.tsx`) only read the
+calls an `execute-plan` run makes. `import-plan` and `import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
 app, so neither is a flow and neither goes through the gate. `run-plan-item` is
 model-invoked when a plan item is pasted in, but it runs the item's instructions *through*
