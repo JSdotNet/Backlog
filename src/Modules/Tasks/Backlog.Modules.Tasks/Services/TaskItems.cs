@@ -10,6 +10,7 @@ using Backlog.Modules.Tasks.Features.RecordTaskUsage;
 using Backlog.Modules.Tasks.Features.ReorderTasks;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
 using Backlog.Modules.Tasks.Features.SetDevbookReferences;
+using Backlog.Modules.Tasks.Features.SetPlannedHours;
 using Backlog.Modules.Tasks.Features.UnlinkTaskFromIssue;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -27,6 +28,7 @@ internal sealed class TaskItems(
     ICommandHandler<LinkTaskToIssueCommand, Result<TaskItemDto>> link,
     ICommandHandler<UnlinkTaskFromIssueCommand, Result<TaskItemDto>> unlink,
     ICommandHandler<SetDevbookReferencesCommand, Result<TaskItemDto>> setDevbookReferences,
+    ICommandHandler<SetPlannedHoursCommand, Result<TaskItemDto>> setPlannedHours,
     ICommandHandler<DeleteTaskCommand> delete,
     ICommandHandler<ReorderTasksCommand> reorder,
     ICommandHandler<RecordTaskUsageCommand> recordUsage,
@@ -72,6 +74,12 @@ internal sealed class TaskItems(
         IReadOnlyList<string> references,
         CancellationToken cancellationToken = default) =>
         setDevbookReferences.Handle(new SetDevbookReferencesCommand(id, references), cancellationToken);
+
+    public Task<Result<TaskItemDto>> SetPlannedHoursAsync(
+        Guid id,
+        IReadOnlyList<PlannedHoursDto> blocks,
+        CancellationToken cancellationToken = default) =>
+        setPlannedHours.Handle(new SetPlannedHoursCommand(id, blocks), cancellationToken);
 
     public Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default) =>
         recordUsage.Handle(new RecordTaskUsageCommand(id, action), cancellationToken);

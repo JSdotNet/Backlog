@@ -3,7 +3,7 @@
 <PageTitle>Task calendar — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Task calendar"
-           Summary="`TaskCalendar`: a month of tasks placed by their due date, Monday-first and in whole weeks, with the open tasks that have no due date in a tray beside it. A chip or a tray item opens its task; dragging one onto a day gives it that due date. The roadmap's plans can be drawn over it: each window a bar across its days, each milestone a diamond, and the plans with no window yet in the tray. The Tasks pane that hands it the filtered rows is not this page's subject."
+           Summary="`TaskCalendar`: a month of tasks placed by their due date, Monday-first and in whole weeks, with the open tasks that have no due date in a tray beside it. A chip or a tray item opens its task; dragging one onto a day gives it that due date. The roadmap's plans can be drawn over it: each window a bar across its days, each milestone a diamond, and the plans with no window yet in the tray. Hours the person sets aside for a task on a day are chips of their own, added up against the day's working hours. The Tasks pane that hands it the filtered rows is not this page's subject."
            Guidelines="@Rules">
 
     <Story Name="A month of tasks"
@@ -64,6 +64,32 @@ The tray's second section, **Plans without a window**, lists the `ShelfPlans`. D
                           TestId="plans" />
         </div>
         <p class="sb-state" data-testid="task-calendar-plans-state">@(_planEvent ?? "No plan started yet.")</p>
+    </Story>
+
+    <Story Name="Planned hours"
+           Description="With `HoursAvailable` the person can set hours aside for a task on a day — a date and a number of hours, never a time of day. Each `CalendarHoursBlock` is a chip on its day, **Title · 3h**, dashed and tinted with a bar for a mark, apart from the solid due-date chips. The day head adds the day's blocks up against what `CapacityOn` says the day has — **3h / 8h** — and a day holding more is drawn in the error colour, its tooltip naming the numbers: the 12th here, and the Saturday with no working hours.
+
+Make a block from a day's **Add hours…** (it shows while the day is pointed at or focused), or drag a chip or a tray item onto a day with **Shift** held. Either opens the day's editor; press a block's chip to change or remove it. The calendar reports `OnHoursChanged` and writes nothing — here the host keeps the blocks in memory. The roadmap never reads them.
+
+Under it, `PlannedHoursEditor`: the same blocks for one task, as the Tasks detail panel's **Planned hours** section edits them."
+           Code="@HoursCode">
+        <div class="sb-calendar" data-testid="task-calendar-hours">
+            <TaskCalendar Tasks="@_tasks"
+                          Today="@Today"
+                          MyDayCount="2"
+                          HoursAvailable="true"
+                          HoursBlocks="@HoursBlocks"
+                          CapacityOn="CapacityOn"
+                          OnHoursChanged="ChangeHours"
+                          TestId="hours" />
+        </div>
+        <p class="sb-state" data-testid="task-calendar-hours-state">@(_hoursEvent ?? "No hours planned or changed yet.")</p>
+        <div class="sb-panel" data-testid="planned-hours-panel">
+            <PlannedHoursEditor Blocks="@PanelBlocks"
+                                DefaultDay="@Today"
+                                OnChanged="change => ChangeHours(new CalendarHoursChange(PanelTaskId, change.On, change.Hours))"
+                                TestId="planned-hours" />
+        </div>
     </Story>
 
     <Story Name="An empty tray"
@@ -176,6 +202,72 @@ The tray's second section, **Plans without a window**, lists the `ShelfPlans`. D
         _tasks = [.. _tasks];
         _lastEvent = $"Moved {Title(change.TaskId)} to {change.DueOn:yyyy-MM-dd}.";
     }
+
+    // --- Planned hours ------------------------------------------------------------
+
+    private const string PanelTaskId = "card";
+
+    private string? _hoursEvent;
+
+    private List<(string TaskId, DateOnly On, decimal Hours)> _hours =
+    [
+        ("card", new DateOnly(2026, 10, 7), 3m),
+        ("switch", new DateOnly(2026, 10, 7), 2m),
+        ("card", new DateOnly(2026, 10, 12), 5m),
+        ("columns", new DateOnly(2026, 10, 12), 4m),
+        ("persist", new DateOnly(2026, 10, 10), 1.5m),
+        ("review", new DateOnly(2026, 10, 14), 0.5m)
+    ];
+
+    private IReadOnlyList<CalendarHoursBlock> HoursBlocks =>
+    [
+        .. _hours.Select(held => new CalendarHoursBlock(
+            held.TaskId,
+            Title(held.TaskId),
+            held.On,
+            held.Hours,
+            _tasks.FirstOrDefault(task => task.Id == held.TaskId)?.CssClass))
+    ];
+
+    private IReadOnlyList<PlannedHoursDay> PanelBlocks =>
+        [.. _hours.Where(held => held.TaskId == PanelTaskId).OrderBy(held => held.On).Select(held => new PlannedHoursDay(held.On, held.Hours))];
+
+    /// <summary>Plays the roadmap's working week: eight hours Monday to Friday, none at
+    /// the weekend, and a half day on the 13th.</summary>
+    private static decimal? CapacityOn(DateOnly day) =>
+        day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday ? 0m
+        : day == new DateOnly(2026, 10, 13) ? 4m
+        : 8m;
+
+    private void ChangeHours(CalendarHoursChange change)
+    {
+        _hours = [.. _hours.Where(held => !(held.TaskId == change.TaskId && held.On == change.On))];
+        if (change.Hours is { } hours) _hours.Add((change.TaskId, change.On, hours));
+        _hoursEvent = change.Hours is { } figure
+            ? $"Planned {figure}h for {Title(change.TaskId)} on {change.On:yyyy-MM-dd}."
+            : $"Removed the hours for {Title(change.TaskId)} on {change.On:yyyy-MM-dd}.";
+    }
+
+    private const string HoursCode = """
+        <TaskCalendar Tasks="@tasks"
+                      Today="@today"
+                      HoursAvailable="true"
+                      HoursBlocks="@blocks"
+                      CapacityOn="day => workingWeek.HoursOn(day)"
+                      OnHoursChanged="change => backlog.SetPlannedHoursAsync(change.TaskId, change.On, change.Hours)" />
+
+        <PlannedHoursEditor Blocks="@blocksOfOneTask"
+                            DefaultDay="@today"
+                            OnChanged="change => backlog.SetPlannedHoursAsync(taskId, change.On, change.Hours)" />
+
+        @code {
+            // A day and a number of hours; null hours on a change removes the day's block.
+            IReadOnlyList<CalendarHoursBlock> blocks =
+            [
+                new("card", "Extract TaskCard from TaskItem", new DateOnly(2026, 10, 7), 3m)
+            ];
+        }
+        """;
 
     private string Title(string id) => _tasks.FirstOrDefault(task => task.Id == id)?.Title ?? id;
 

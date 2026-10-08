@@ -90,6 +90,28 @@ public interface ITaskItems
         IReadOnlyList<string> references,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Replaces the hours set aside for an entry on given days with
+    /// <paramref name="blocks"/> — one block a day, the last given for a day winning;
+    /// an empty list clears them. Answers the entry as it now stands.
+    /// <para>
+    /// Written outside the text, as the Devbook references are: the blocks are the
+    /// entry's own and never tokens in it, so <see cref="SaveFromTextAsync"/> leaves
+    /// them alone. Hours of zero or less, or more than a day, fail the whole call as a
+    /// validation error and write nothing. The person's own plan for the Calendar —
+    /// the roadmap never reads it.
+    /// </para>
+    /// <para>
+    /// Implemented by default as a refusal, so a host or a test double that keeps no
+    /// planned hours still composes; the module's own port overrides it.
+    /// </para></summary>
+    Task<Result<TaskItemDto>> SetPlannedHoursAsync(
+        Guid id,
+        IReadOnlyList<PlannedHoursDto> blocks,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<Result<TaskItemDto>>(Error.Validation(
+            "entry.planned_hours_unavailable",
+            "Planned hours cannot be kept here."));
+
     /// <summary>Notes that an entry was actually used for something.</summary>
     Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default);
 
