@@ -359,18 +359,24 @@ related: [.devbook/domain/inbox/requirements.md#inbox-zero, .devbook/domain/inbo
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
-When the open slice is empty after decisions this session, the pane says the
-inbox is clear and shows what the session did, instead of an empty list:
+When nothing in the Inbox — the unfiled slice — is still waiting and this
+session has decided something, the pane says the inbox is clear and shows what
+the session did in place of the list and the detail; the side menu stays:
 
-- the session's count per decision — moved to backlog, filed in lists,
-  deferred, archived, merged;
+- how many items the session decided, and its count per decision — moved to
+  backlog, filed in lists, deferred, archived, merged — a kind with no
+  decisions left out. A link to a task counts in the total only, because it
+  leaves the item where it was;
 - **Coming back**: the deferred items whose review date is set, soonest first,
-  at most five, each with when it comes back;
-- a link to the fullest of the reader's lists, with its count, and a link to
-  **Deferred**.
+  at most five, each with when it comes back — today, tomorrow, a weekday
+  within the week, else the date;
+- **Open *list* · *n***, the list with the most items still waiting, left out
+  when no list has any, and **Open Deferred**.
 
-A slice that was already empty when it was opened shows the plain empty state;
-there is no session to report on.
+The counts are the undo history's, so a decision taken back stops counting, and
+undoing the last one brings the item back into the list. With no decision this
+session the plain first-use empty state stays: there is no session to report
+on. A list, or Deferred, that is empty shows its own empty state.
 
 ### AI triage pass
 
