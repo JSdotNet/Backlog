@@ -1623,7 +1623,9 @@ public sealed class InboxDesktopState
     public int TriagePosition => SelectedItemId is { } id ? IndexOf(VisibleItems, id) : -1;
 
     /// <summary>Opens or leaves triage mode. Opening it on nothing, or on an
-    /// item no longer in the rows, starts at the first row.</summary>
+    /// item no longer in the rows, starts at the first row still waiting for a
+    /// decision; opening it on a routed row starts at the first waiting row
+    /// after it — triage reads only what is still open.</summary>
     public void SetTriageMode(bool on)
     {
         if (TriageMode == on) return;
@@ -1633,9 +1635,11 @@ public sealed class InboxDesktopState
         // The pass, and its review, belong to the triage it was asked from.
         if (!on) ForgetTriagePassForNewRows();
 
-        if (on && TriagePosition < 0)
+        if (on && (TriagePosition < 0 || SelectedItem is { } chosen && !IsOpen(chosen)))
         {
-            SelectedItemId = VisibleItems.Count > 0 ? VisibleItems[0].Id : null;
+            var rows = VisibleItems;
+            var from = Math.Max(TriagePosition, 0);
+            SelectedItemId = (rows.Skip(from).FirstOrDefault(IsOpen) ?? rows.FirstOrDefault(IsOpen))?.Id;
             RememberPosition();
         }
 
@@ -1667,14 +1671,16 @@ public sealed class InboxDesktopState
             new(item.Status, item.Routing is not null, item.ListId, item.DeferredUntil);
     }
 
-    /// <summary>Counts every row on screen not counted yet, after the ones that
-    /// are: an arrival gets the next number and grows the total, so no two
-    /// items share a number and none reads "0 of N".</summary>
+    /// <summary>Counts every open row on screen not counted yet, after the ones
+    /// that are: an arrival gets the next number and grows the total, so no two
+    /// items share a number and none reads "0 of N". A row already routed when it
+    /// is first seen is not counted: triage never lands on it, so a total that
+    /// held it could never be reached. A counted row that is decided stays counted.</summary>
     private void TakeInTriageArrivals()
     {
         foreach (var item in VisibleItems)
         {
-            if (_triageStartedAs.ContainsKey(item.Id)) continue;
+            if (_triageStartedAs.ContainsKey(item.Id) || !IsOpen(item)) continue;
 
             _triageStartedWith.Add(item.Id);
             _triageStartedAs[item.Id] = TriageRowState.Of(item);
@@ -1702,8 +1708,10 @@ public sealed class InboxDesktopState
     /// <summary>The AI cards turned down this app session, by item and kind.</summary>
     private readonly HashSet<(Guid ItemId, InboxTriageCardKind Kind)> _dismissedTriageCards = [];
 
-    /// <summary>How many items the slice held when triage began — the "total"
-    /// of "n of total" (requirements.md, "Triage counts the session").</summary>
+    /// <summary>How many items the slice held still waiting for a decision when
+    /// triage began, plus any that arrived since — the "total" of "n of total"
+    /// (requirements.md, "Triage counts the session"). A row already routed is
+    /// not counted: triage never lands on it.</summary>
     public int TriageTotal => _triageStartedWith.Count;
 
     /// <summary>The one-based place of the item shown among the rows triage
@@ -1943,8 +1951,9 @@ public sealed class InboxDesktopState
     }
 
     /// <summary>"Up next", at most four, in the order triage will show them:
-    /// the rows after the item shown, then — the way a decision past the last
-    /// row goes back to the first item still waiting — the open rows above it.</summary>
+    /// the open rows after the item shown, then — the way a decision past the
+    /// last row goes back to the first item still waiting — the open rows above
+    /// it. A routed row stays in the slice but is never shown in triage.</summary>
     public IReadOnlyList<InboxItemDto> TriageUpNext
     {
         get
@@ -1952,7 +1961,7 @@ public sealed class InboxDesktopState
             var rows = VisibleItems;
             var at = TriagePosition;
 
-            var after = at >= 0 ? rows.Skip(at + 1) : rows.Where(row => row.Id != SelectedItemId);
+            var after = (at >= 0 ? rows.Skip(at + 1) : rows.Where(row => row.Id != SelectedItemId)).Where(IsOpen);
             var before = at >= 0 ? rows.Take(at).Where(IsOpen) : [];
 
             return [.. after.Concat(before).Take(UpNextCount)];
@@ -1998,7 +2007,9 @@ public sealed class InboxDesktopState
     /// one (-1), stopping at either end rather than wrapping — a reader who
     /// pressed past the last row has read them all, and landing back on the first
     /// would hide that. From an item that has just left the rows, next is the row
-    /// now in its place and previous the one above it.</summary>
+    /// now in its place and previous the one above it. In triage a routed row is
+    /// stepped over, as if it were not there; with no open row left that way,
+    /// the reader stays where they are.</summary>
     public void Step(int delta)
     {
         var order = VisibleItems;
@@ -2009,7 +2020,37 @@ public sealed class InboxDesktopState
             ? at + delta
             : delta > 0 ? _lastPosition : _lastPosition - 1;
 
-        SelectItem(order[Math.Clamp(next, 0, order.Count - 1)].Id);
+        if (!TriageMode)
+        {
+            SelectItem(order[Math.Clamp(next, 0, order.Count - 1)].Id);
+            return;
+        }
+
+        if (at < 0) next = Math.Clamp(next, 0, order.Count - 1);
+
+        var direction = Math.Sign(delta);
+        for (var index = next; index >= 0 && index < order.Count; index += direction)
+        {
+            if (IsOpen(order[index]))
+            {
+                SelectItem(order[index].Id);
+                return;
+            }
+        }
+
+        // Nothing open that way. An item that has left the rows still needs a
+        // successor, so take the nearest open row the other way.
+        if (at < 0)
+        {
+            for (var index = next - direction; index >= 0 && index < order.Count; index -= direction)
+            {
+                if (IsOpen(order[index]))
+                {
+                    SelectItem(order[index].Id);
+                    return;
+                }
+            }
+        }
     }
 
     private void RememberPosition()
@@ -2036,21 +2077,22 @@ public sealed class InboxDesktopState
     }
 
     /// <summary>Selects what comes after <paramref name="decided"/> in the rows as
-    /// they were before the decision — the first of them still on screen, so an
-    /// item that left the rows is not landed on. Past the last row it goes back
+    /// they were before the decision — the first of them still on screen and
+    /// still open, so neither an item that left the rows nor a routed one that
+    /// stays in them is landed on. Past the last row it goes back
     /// to the first item still waiting for a decision, which is where a reader
     /// who skipped some with j left them; with none left, nothing is selected
     /// and the mode says the queue is done.</summary>
     private void AdvancePast(IReadOnlyList<InboxItemDto> before, Guid decided)
     {
         var now = VisibleItems;
-        var onScreen = now.Select(item => item.Id).ToHashSet();
+        var open = now.Where(IsOpen).Select(item => item.Id).ToHashSet();
         var at = IndexOf(before, decided);
 
         Guid? next = null;
         for (var index = at + 1; at >= 0 && index < before.Count && next is null; index++)
         {
-            if (onScreen.Contains(before[index].Id)) next = before[index].Id;
+            if (open.Contains(before[index].Id)) next = before[index].Id;
         }
 
         next ??= now.FirstOrDefault(item => item.Id != decided && IsOpen(item))?.Id;
