@@ -1193,6 +1193,77 @@ public class SessionInsightsTests
     }
 
     /// <summary>
+    /// Four weeks opens at midnight on 22 July, so the four before it run from 24 June
+    /// to that midnight. A run across the edge is split at it, an hour to each side, on
+    /// the same clipping every other figure here uses — and nothing is read again: the
+    /// twelve weeks already in hand cover both windows.
+    /// </summary>
+    [Fact]
+    public async Task Four_weeks_carries_the_agent_active_time_of_the_four_before_it()
+    {
+        var earlier = (new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero));
+        var across = (new DateTimeOffset(2026, 7, 21, 23, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 7, 22, 1, 0, 0, TimeSpan.Zero));
+        var tooEarly = (new DateTimeOffset(2026, 6, 23, 10, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 6, 23, 15, 0, 0, TimeSpan.Zero));
+        var recent = (Now.AddDays(-1), Now.AddDays(-1).AddHours(1));
+
+        var activity = Activity(
+            Ran("earlier", Tower, "Claude", earlier),
+            Ran("across", Tower, "Claude", across),
+            Ran("too-early", Tower, "Claude", tooEarly),
+            Ran("recent", Tower, "Claude", recent));
+
+        var source = new StubAssistantSessionSource();
+        var insights = Insights(source, activity);
+
+        var four = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
+
+        Assert.Equal(TimeSpan.FromHours(2), four.ActiveTime);
+        Assert.Equal(TimeSpan.FromHours(3), four.PreviousActiveTime);
+        Assert.Equal(1, activity.Calls);
+        Assert.Equal(1, source.Calls);
+    }
+
+    /// <summary>The previous window follows the machine filter exactly as the tile
+    /// beside it does, or the comparison would set one machine against all of them.</summary>
+    [Fact]
+    public async Task The_previous_agent_active_time_follows_the_machine_filter()
+    {
+        var earlier = (new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero));
+
+        var insights = Insights(
+            new StubAssistantSessionSource(),
+            Activity(
+                Ran("tower", Tower, "Claude", earlier),
+                Ran("laptop", Laptop, "Claude", earlier)));
+
+        var all = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        var tower = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks, MachineId: Tower));
+
+        Assert.Equal(TimeSpan.FromHours(4), all.PreviousActiveTime);
+        Assert.Equal(TimeSpan.FromHours(2), tower.PreviousActiveTime);
+    }
+
+    /// <summary>
+    /// Twelve weeks' previous twelve lie wholly before the horizon the sources were read
+    /// to, so there is no figure — not a zero, which would read as an agent that never
+    /// worked, and not a second read, which would parse every transcript again for one
+    /// comparison.
+    /// </summary>
+    [Fact]
+    public async Task Twelve_weeks_has_no_previous_agent_active_time_because_it_was_never_read()
+    {
+        var older = (Now.AddDays(-100), Now.AddDays(-100).AddHours(1));
+        var activity = Activity(Ran("old", Tower, "Claude", older));
+
+        var twelve = await ValueOf(
+            Insights(new StubAssistantSessionSource(), activity),
+            new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+
+        Assert.Null(twelve.PreviousActiveTime);
+        Assert.Equal(1, activity.Calls);
+    }
+
+    /// <summary>
     /// The property the horizon exists for. Moving the period control derives again over
     /// the reading already in hand; it does not send the expensive source back to the
     /// disk, which is the whole reason the horizon is a constant rather than the scope's
@@ -2789,6 +2860,105 @@ public class SessionInsightsTests
         Assert.Equal(1, hits.OnOverage);
         Assert.Equal([new LimitWall("org_spend_cap_reached", 2), new LimitWall("rejected", 1)], hits.Walled);
         Assert.Equal(1, hits.OverageUnrecorded);
+    }
+
+    /// <summary>
+    /// The longest-sessions list: ranked on each session's own producing time clipped to
+    /// the window, at most six, each row carrying what the record says about it — title,
+    /// the repository by its alias or its recorded name, the model it spent most on, and
+    /// the prompt count — and a session with no activity record left out rather than
+    /// listed at zero.
+    /// </summary>
+    [Fact]
+    public async Task The_longest_sessions_are_the_six_with_the_most_agent_active_time_in_the_window()
+    {
+        var scope = new DashboardScope(Period: DashboardPeriod.FourWeeks);
+        var (from, _) = scope.Window(Now);
+
+        // "edge" began five hours before the window and ran three into it: it ranks on
+        // its three, not its eight.
+        var sessions = new List<AssistantSession>
+        {
+            Session(Tower, "Claude", from.AddHours(-5), from.AddHours(3), "edge") with { Title = "Edge" },
+            Session(Tower, "Claude", Now.AddHours(-9), Now.AddHours(-1), "long") with
+            {
+                Title = "Token store",
+                Repository = "acme/backlog",
+                Prompts = 31,
+                ModelUsage = [Usage("sonnet", output: 100), Usage("opus", output: 900)]
+            },
+            Session(Tower, "Copilot", Now.AddHours(-20), Now.AddHours(-16), "other") with { Repository = "someone/else" },
+            Session(Tower, "Claude", Now.AddHours(-30), Now.AddHours(-30), "unmeasured") with { Title = "No transcript" }
+        };
+        var activity = new List<AssistantActivitySession>
+        {
+            Ran("edge", Tower, "Claude", (from.AddHours(-5), from.AddHours(3))),
+            Ran("long", Tower, "Claude", (Now.AddHours(-9), Now.AddHours(-5)), (Now.AddHours(-3), Now.AddHours(-1))),
+            Ran("other", Tower, "Copilot", (Now.AddHours(-20), Now.AddHours(-16)))
+        };
+
+        // Five short ones, so the list has more to choose from than it shows.
+        for (var index = 0; index < 5; index++)
+        {
+            var end = Now.AddDays(-2 - index);
+            sessions.Add(Session(Tower, "Claude", end.AddMinutes(-10 - index), end, $"short{index}"));
+            activity.Add(Ran($"short{index}", Tower, "Claude", (end.AddMinutes(-10 - index), end)));
+        }
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report([.. sessions]) },
+            Activity([.. activity]));
+
+        var value = await ValueOf(insights, scope);
+
+        Assert.Equal(AssistantSessionsInsight.LongestSessionsLimit, value.LongestSessions.Count);
+        Assert.Equal(
+            ["long", "other", "edge", "short4", "short3", "short2"],
+            value.LongestSessions.Select(row => row.Id));
+
+        var longest = value.LongestSessions[0];
+        Assert.Equal(
+            new LongestSession("long", "Token store", "backlog", "opus", 31, TimeSpan.FromHours(6), Now.AddHours(-1)),
+            longest);
+
+        var other = value.LongestSessions[1];
+        Assert.Equal(("someone/else", (string?)null, (int?)null, (string?)null), (other.Repository, other.Model, other.Prompts, other.Title));
+
+        Assert.Equal(TimeSpan.FromHours(3), value.LongestSessions[2].ActiveTime);
+        Assert.Null(value.LongestSessions[2].Repository);
+        Assert.DoesNotContain(value.LongestSessions, row => row.Id == "unmeasured");
+
+        // Never more than the tile it sits beside.
+        Assert.True(longest.ActiveTime <= value.ActiveTime);
+    }
+
+    /// <summary>
+    /// Follows the machine filter the way the tiles do: a session on another machine is
+    /// not one of this machine's longest.
+    /// </summary>
+    [Fact]
+    public async Task The_longest_sessions_follow_the_machine_filter()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-4), Now.AddHours(-1), "same"),
+                    Session(Laptop, "Claude", Now.AddHours(-9), Now.AddHours(-1), "same"))
+            },
+            Activity(
+                Ran("same", Tower, "Claude", (Now.AddHours(-4), Now.AddHours(-1))),
+                Ran("same", Laptop, "Claude", (Now.AddHours(-9), Now.AddHours(-1)))));
+
+        var all = await ValueOf(insights, DashboardScope.Default);
+        var tower = await ValueOf(insights, DashboardScope.Default with { MachineId = Tower });
+
+        // Two machines' sessions that happen to share an id are two rows, each with its
+        // own time, never one row holding both machines' time.
+        Assert.Equal(
+            [TimeSpan.FromHours(8), TimeSpan.FromHours(3)],
+            all.LongestSessions.Select(row => row.ActiveTime));
+        Assert.Equal([TimeSpan.FromHours(3)], tower.LongestSessions.Select(row => row.ActiveTime));
     }
 
     private static AssistantModelUsage Usage(string model, long output, long input = 0, long cacheRead = 0, long cacheWrite = 0) =>

@@ -44,14 +44,115 @@ public class TaskInsightsTests
         Assert.Equal(1, result.Value.Unestimated);
     }
 
+    /// <summary>
+    /// Back past the window's own first Monday, 24 August, by as many days as the
+    /// figure counts — 24 August to today, Thursday 24 September, is 32 — so to 23 July.
+    /// The previous window is compared, so it has to have been read. One read for both,
+    /// because the source is one local query either way.
+    /// </summary>
     [Fact]
-    public async Task The_source_is_asked_from_the_monday_the_first_week_starts_on()
+    public async Task The_source_is_asked_from_the_day_the_previous_window_starts_on()
     {
         var source = new StubSource();
 
         _ = await Insights(source).GetThroughputAsync(FourWeeks, TestContext.Current.CancellationToken);
 
-        Assert.Equal(new DateOnly(2026, 8, 24), source.Since);
+        Assert.Equal(new DateOnly(2026, 7, 23), source.Since);
+    }
+
+    /// <summary>
+    /// The 32 days before the first column, 23 July to Sunday 23 August — as many days
+    /// as the figure counts from that Monday through today, and none of them the
+    /// first column's own. A task either side of those edges is out.
+    /// </summary>
+    [Fact]
+    public async Task The_previous_effort_is_the_same_number_of_days_before_the_first_column()
+    {
+        var source = new StubSource(
+            Ticked(2026, 7, 22, 100),
+            Ticked(2026, 7, 23, 3),
+            Ticked(2026, 8, 10, null),
+            Ticked(2026, 8, 23, 2),
+            Ticked(2026, 8, 24, 7),
+            Ticked(2026, 8, 28, 8));
+
+        var result = await Insights(source).GetThroughputAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.True(result.HasValue);
+        Assert.Equal(5m, result.Value!.PreviousEffort);
+
+        // And the window itself is what it was before the read reached further back:
+        // the same columns, the same total, and no unestimated task from last month.
+        Assert.Equal(["W35", "W36", "W37", "W38", "W39"], result.Value.EffortPerWeek.Select(point => point.Label));
+        Assert.Equal([15m, 0m, 0m, 0m, 0m], result.Value.EffortPerWeek.Select(point => point.Value));
+        Assert.Equal(2, result.Value.Completed);
+        Assert.Equal(0, result.Value.Unestimated);
+    }
+
+    [Fact]
+    public async Task The_previous_effort_is_narrowed_by_the_same_repository_scope()
+    {
+        var source = new StubSource(
+            Ticked(2026, 8, 3, 1, "backlog"),
+            Ticked(2026, 8, 3, 2, "backlog-ide", "backlog"),
+            Ticked(2026, 8, 3, 4),
+            Ticked(2026, 8, 3, 8, "other"));
+
+        var narrowed = await Insights(source).GetThroughputAsync(
+            FourWeeks with { Repositories = RepositoryFocus.Of("BACKLOG") },
+            TestContext.Current.CancellationToken);
+        var all = await Insights(source).GetThroughputAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3m, narrowed.Value!.PreviousEffort);
+        Assert.Equal(15m, all.Value!.PreviousEffort);
+    }
+
+    /// <summary>Nothing ticked off before is a reading, and it reads as zero: the source
+    /// answered for those weeks, so there is a figure to compare against.</summary>
+    [Fact]
+    public async Task A_quiet_previous_window_is_a_zero_rather_than_no_figure()
+    {
+        var source = new StubSource(Ticked(2026, 9, 21, 3));
+
+        var result = await Insights(source).GetThroughputAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0m, result.Value!.PreviousEffort);
+    }
+
+    /// <summary>
+    /// A steady pace reads as no change. One point a day, every day, gives the two
+    /// windows the same figure only when they are the same length — which is the point:
+    /// a previous window shorter than the span the figure counts would show a steady
+    /// pace as growth.
+    /// </summary>
+    [Fact]
+    public async Task A_steady_pace_gives_the_same_figure_on_both_sides()
+    {
+        var days = Enumerable.Range(0, 120)
+            .Select(back => new DateOnly(2026, 9, 24).AddDays(-back))
+            .Select(day => new CompletedTask(day, 1, []))
+            .ToArray();
+
+        var result = await Insights(new StubSource(days)).GetThroughputAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.Equal(32m, result.Value!.Effort);
+        Assert.Equal(32m, result.Value.PreviousEffort);
+    }
+
+    /// <summary>Twelve weeks counts 88 days from its first Monday, 29 June, through
+    /// today, so the previous window is the 88 before it: from 2 April.</summary>
+    [Fact]
+    public async Task Twelve_weeks_reads_back_the_same_number_of_days_before_the_first_column()
+    {
+        var source = new StubSource(Ticked(2026, 4, 1, 13), Ticked(2026, 4, 2, 5), Ticked(2026, 6, 28, 3), Ticked(2026, 6, 29, 8));
+
+        var result = await Insights(source).GetThroughputAsync(
+            new DashboardScope(Period: DashboardPeriod.TwelveWeeks),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(new DateOnly(2026, 4, 2), source.Since);
+        Assert.Equal(8m, result.Value!.PreviousEffort);
+        Assert.Equal(8m, result.Value.Effort);
     }
 
     [Fact]
@@ -99,6 +200,17 @@ public class TaskInsightsTests
         Assert.Equal(new DateOnly(2026, 8, 27), plan.From);
         Assert.Equal(new DateOnly(2026, 9, 24), plan.To);
         Assert.Equal(["backlog", "backlog-ide"], plan.Aliases);
+    }
+
+    [Fact]
+    public async Task The_plan_carries_the_window_it_was_read_for_so_the_timeline_draws_its_weeks()
+    {
+        var plan = new StubPlanSource(Item("Sync MVP"));
+
+        var result = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.Equal(new DateOnly(2026, 8, 27), result.Value!.WindowFrom);
+        Assert.Equal(new DateOnly(2026, 9, 24), result.Value.WindowTo);
     }
 
     [Fact]

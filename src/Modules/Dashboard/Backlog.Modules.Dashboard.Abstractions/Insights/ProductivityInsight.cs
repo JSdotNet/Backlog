@@ -73,6 +73,44 @@ public sealed record ProductivityHeadline(
     /// <summary>How many merged pull requests the median above was taken over.</summary>
     public int PullRequestsWithCommitCount { get; init; }
 
+    /// <summary>
+    /// How many pull requests were merged in the window of the same length just before
+    /// this one — or null when that could not be counted.
+    /// <para>
+    /// Counted by the baseline source rather than by the activity read, because it is a
+    /// count and nothing else: the tile compares two numbers, and walking a second
+    /// window's pull requests one by one to produce the second number would spend the
+    /// churn budget on detail nobody looks at.
+    /// </para>
+    /// <para>
+    /// Null rather than zero when the baseline refused or failed, and that difference
+    /// is the whole reason it is nullable. A zero would draw "up 41 against nothing" on
+    /// the tile, which is a claim that the earlier window was empty; null draws no
+    /// comparison, which is the honest answer to a question that went unanswered.
+    /// </para>
+    /// </summary>
+    public int? PreviousPullRequestsMerged { get; init; }
+
+    /// <summary>
+    /// Commits on the merged pull requests, summed by the week each one merged — the
+    /// Commits measure of the volume chart. A pull request whose detail was not read
+    /// adds nothing, so a week holding one is a floor.
+    /// </summary>
+    public IReadOnlyList<InsightPoint> CommitsPerWeek { get; init; } = [];
+
+    /// <summary>
+    /// The median first-review turnaround of each week's merges, in hours, on
+    /// <see cref="MedianReviewTurnaround"/>'s rule; zero for a week with no reviewed
+    /// merge, so the week stays on the axis.
+    /// </summary>
+    public IReadOnlyList<InsightPoint> ReviewTurnaroundPerWeek { get; init; } = [];
+
+    /// <summary>
+    /// The median commit count of each week's merges whose detail was read, on
+    /// <see cref="MedianCommitsPerPullRequest"/>'s rule; zero for a week with none.
+    /// </summary>
+    public IReadOnlyList<InsightPoint> CommitsPerPullRequestPerWeek { get; init; } = [];
+
     public static ProductivityHeadline Empty { get; } = new(0, 0, 0m, null, [], [], []);
 }
 

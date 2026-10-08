@@ -18,6 +18,10 @@
     set in Dashboard settings; a provider with none shows its spend and projection
     and no meter, because a meter needs a ceiling and nobody published one.
 
+    Each tile is compared with the same days of last month rather than the whole of
+    it, because this month is not over, and spend going up is the worse direction.
+    Copilot reports a month as one entry and so has no comparison.
+
     Charged against consumed is a caption, and only for a provider that reported
     a discount — today Copilot: GitHub says how much of the month's consumption
     the plan already covered. Anthropic and Azure report no allowance, so for them
@@ -40,6 +44,7 @@
                     <MetricTile Label="@Name(provider.Provider)"
                                 Value="@MetricFormat.Money(new MoneyAmount(provider.Spend.Amount, provider.Spend.Currency))"
                                 Emphasis="@(provider.Provider == SpendProvider.Claude)"
+                                Delta="@DashboardFormat.ShareDelta(provider.Spend.Amount, provider.PreviousSpend?.Amount, "same days last month", higherIsBetter: false)"
                                 Footnote="@Footnote(provider)"
                                 TestId="@($"dashboard-spend-month-{Slug(provider.Provider)}")"
                                 Unit="@OfBudget(provider)"

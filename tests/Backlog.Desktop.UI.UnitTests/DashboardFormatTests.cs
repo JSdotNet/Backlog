@@ -1,4 +1,5 @@
 using Backlog.Modules.Dashboard.UI.Parts;
+using Backlog.UI.Components.Metrics;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -41,6 +42,44 @@ public sealed class DashboardFormatTests
     {
         Assert.Equal("—", DashboardFormat.Duration(null));
         Assert.NotEqual(DashboardFormat.Duration(null), DashboardFormat.Duration(TimeSpan.Zero));
+    }
+
+    /// <summary>A count compares as the count it moved by, in either direction, and says
+    /// which way up is good as the caller told it.</summary>
+    [Fact]
+    public void A_count_delta_is_the_difference()
+    {
+        var up = DashboardFormat.CountDelta(11m, 8m, DashboardFormat.PreviousWeeks(4));
+        var down = DashboardFormat.CountDelta(5m, 9m, "previous 12 weeks", higherIsBetter: false);
+
+        Assert.Equal(new MetricDelta(3m, MetricDeltaUnit.Absolute, "previous 4 weeks"), up);
+        Assert.Equal(new MetricDelta(-4m, MetricDeltaUnit.Absolute, "previous 12 weeks", false), down);
+    }
+
+    /// <summary>A share is a fraction of the earlier figure, the shape the tile reads
+    /// as a percentage — 0.25 is "up 25%".</summary>
+    [Fact]
+    public void A_share_delta_is_a_fraction_of_the_earlier_figure()
+    {
+        Assert.Equal(
+            new MetricDelta(0.25m, MetricDeltaUnit.Percent, "previous 4 weeks"),
+            DashboardFormat.ShareDelta(TimeSpan.FromHours(5), TimeSpan.FromHours(4), "previous 4 weeks"));
+        Assert.Equal(
+            new MetricDelta(-0.5m, MetricDeltaUnit.Percent, "same days last month", false),
+            DashboardFormat.ShareDelta(4m, 8m, "same days last month", higherIsBetter: false));
+    }
+
+    /// <summary>No earlier figure is no delta, for both shapes; and a share of nothing is
+    /// no delta either, because "up from nothing" is not a percentage. A count of
+    /// nothing is still a count, so that one compares.</summary>
+    [Fact]
+    public void No_earlier_figure_and_a_share_of_nothing_are_no_delta()
+    {
+        Assert.Null(DashboardFormat.CountDelta(3m, null, "previous 4 weeks"));
+        Assert.Null(DashboardFormat.ShareDelta(3m, null, "previous 4 weeks"));
+        Assert.Null(DashboardFormat.ShareDelta(TimeSpan.FromHours(1), null, "previous 4 weeks"));
+        Assert.Null(DashboardFormat.ShareDelta(3m, 0m, "previous 4 weeks"));
+        Assert.Equal(3m, DashboardFormat.CountDelta(3m, 0m, "previous 4 weeks")!.Value);
     }
 
     /// <summary>Both halves: the weekday is what the question is about, and the date is

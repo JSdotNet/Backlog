@@ -80,6 +80,10 @@ public sealed class AgentSessionAssistantSessionSource(IAgentSessionSource sessi
             // nothing rather than one that fails.
             Id = session.Id,
 
+            // Sessions' own title, unchanged: the longest-sessions list names a session
+            // the way the Sessions pane does, so a reader finds it there by the same words.
+            Title = string.IsNullOrWhiteSpace(session.Title) ? null : session.Title,
+
             // A turn is one prompt the person sent — that is how Sessions defines it,
             // and the Dashboard says "prompts" because that is the word a reader has.
             // Null crosses as null: the source already refuses to write 0 for a

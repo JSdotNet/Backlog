@@ -124,11 +124,21 @@ The pane holds six tabs, in this order:
 | Tab | What it answers | What it holds |
 | --- | --- | --- |
 | Overview | How is it going, and what needs me? | The headline tiles, the main charts and [What needs you](#what-needs-you) |
-| Productivity | How much did I ship, and how much came back? | Pull requests merged and issues closed over time, and rework after review |
+| Productivity | How much did I ship, and how much came back? | The throughput tiles, volume over time, the Volume and Quality scores, and rework after review |
 | Tasks | Is the planned work getting done, and will each plan land? | The task figures, the [roadmap timeline](#whether-each-plan-will-land-in-its-window), and tasks and story points completed per week |
 | Sessions | When and how long did the agents work? | Sessions and agent-active hours per week, the hour grid, the longest sessions, and [what the sessions cost and shipped](#what-the-sessions-cost-and-shipped) |
 | Devbook | Which devbook units have drifted from their code? | [Drift at a glance](#drift-at-a-glance) |
 | Cost | What are my assistants costing this month? | [Spend against a monthly budget](#spend-against-a-monthly-budget) |
+
+The Productivity tab opens with five throughput tiles in one row: pull requests
+merged, issues closed, the share that came back after review, how long a first
+review took, and commits per pull request. Each tile draws its own weeks as a
+sparkline. Below them, the volume chart draws one measure per week, and the person
+switches it between pull requests, issues and commits. The tab opens on pull
+requests and does not remember the choice. Beside the chart, the Volume and Quality
+scores show each of their inputs as a labelled bar, with its reading and its weight
+printed under it. Last comes rework after review: the churn and base-sync figures
+as one grid, with the churn ranked by repository beside it.
 
 The task figures on the Tasks tab are tasks completed, story points done, the pace
 in use, the items in the window, the planned effort, and the work still to do.
@@ -143,9 +153,30 @@ header. The Machine select and the Window toggle sit in the pane header, because
 the dashboard reads them. The Devbook tab says that the window and the machine do not
 apply to it.
 
-Each headline figure carries a delta against the previous window of the same length.
-A figure over a window of N weeks is compared with the N weeks just before it, so the
-person sees which way it moved without choosing a second period.
+A headline figure carries a delta against the previous window of the same length. A
+figure over a window of N weeks is compared with the N weeks just before it, so the
+person sees which way it moved without choosing a second period. Pull requests merged
+and story points done show the difference as a count. Agent-active time shows it as a
+share of the earlier figure.
+
+Story points are counted in whole weeks. The earlier window therefore ends on the day
+before the first week shown, and it is as long as the current one, so no day is counted
+twice.
+
+Spend this month is a calendar month, so it is compared with the same days of last
+month. When last month was shorter, the comparison runs to its last day. Only Claude and
+Azure report spend by day, so only they carry this delta. Copilot reports a whole month
+at once, and its tile shows no delta.
+
+A delta is left out when there is no honest earlier figure to compare with:
+
+- Devbook drift issues open has no delta. The issue source reads only the issues open
+  now, so it cannot say how many were open when the window began.
+- Agent-active time has no delta over twelve weeks. Session history goes back
+  84 days, which covers only the current twelve weeks.
+- Pull requests merged has no delta while either window's count is incomplete. An
+  incomplete count is only a floor, so a delta built on it would show a change that may
+  not have happened.
 
 ### What needs you
 
@@ -271,6 +302,29 @@ The limit-hits tile says what overage did about each refusal: fell back to overa
 wall for the reason the assistant gave ("org spend cap reached"), or nothing said.
 And a Claude session now sits in the band of the registered clone its folder lies in,
 rather than in "No repository recorded" with every other Claude session.
+
+### The longest sessions
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers]
+```
+
+The Sessions tab opens on its six figures as one joined row: sessions, agent-active
+time, waiting for a prompt, prompts per session, limit hits and last activity. Under
+them the weekly chart with its cut toggle and the hour grid with office hours marked
+sit in a wide column, and the **longest sessions** sit beside them. Hours worked
+follows below.
+
+The list holds the six sessions in which an agent produced longest inside the window,
+longest first. Each row names the session as the Sessions pane does, its agent-active
+time, its repository, the model it spent most on and how many prompts the person sent,
+with a bar against the longest. A part the session did not record is left out of its
+row rather than shown as a placeholder. The time is the same measure the agent-active
+figure sums, so the first row never exceeds it, and the list follows the window and
+the machine like the figures do. A session that left no activity to measure is not
+listed. A link under the list opens the Sessions pane.
 
 ### Hours worked
 

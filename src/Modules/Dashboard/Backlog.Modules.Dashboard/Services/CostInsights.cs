@@ -47,9 +47,22 @@ public sealed class CostInsights(
 
     private readonly InsightCache _cache = new();
 
-    public Task<InsightResult<SpendThisMonthInsight>> GetThisMonthAsync(
-        CancellationToken cancellationToken = default) =>
-        DeriveAsync("month", MonthWindow(), ThisMonth, cancellationToken);
+    public async Task<InsightResult<SpendThisMonthInsight>> GetThisMonthAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var window = MonthWindow();
+
+        // This month first, and last month only once there is a figure to compare it
+        // with: a part that is going to say why it has no number has no use for a
+        // comparison, and asking the providers for one would be calls made for nothing.
+        var current = await DeriveAsync("month", window, ThisMonth, cancellationToken).ConfigureAwait(false);
+        if (!current.HasValue) return current;
+
+        var previous = await LastMonthAsync(LastMonthWindow(window), cancellationToken).ConfigureAwait(false);
+
+        return InsightResult<SpendThisMonthInsight>.Ready(new SpendThisMonthInsight(
+            [.. current.Value!.Providers.Select(provider => provider with { PreviousSpend = PreviousOf(provider, previous) })]));
+    }
 
     public Task<InsightResult<SpendTrendInsight>> GetTrendAsync(CancellationToken cancellationToken = default) =>
         DeriveAsync("trend", TrendWindow(), Trend, cancellationToken);
@@ -83,6 +96,20 @@ public sealed class CostInsights(
     {
         var today = DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime);
         return (new DateOnly(today.Year, today.Month, 1), today);
+    }
+
+    /// <summary>
+    /// The same days of last month: its first day up to the same day of the month as
+    /// today, or up to its own last day when it was shorter — the thirty-first of March
+    /// is compared with the whole of February, which is every day February had.
+    /// </summary>
+    private static (DateOnly From, DateOnly To) LastMonthWindow((DateOnly From, DateOnly To) month)
+    {
+        var start = month.From.AddMonths(-1);
+        var sameDay = start.AddDays(month.To.Day - 1);
+        var lastDay = month.From.AddDays(-1);
+
+        return (start, sameDay < lastDay ? sameDay : lastDay);
     }
 
     private (DateOnly From, DateOnly To) TrendWindow()
@@ -172,6 +199,67 @@ public sealed class CostInsights(
         {
             return new SpendAnswer(provider, null, exception.Message);
         }
+    }
+
+    /// <summary>
+    /// Last month's reports for the providers that report by the day — Claude and Azure
+    /// Foundry — under a cache key of their own.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Copilot is not asked. Its billing reports a month as one entry, so the first
+    /// nineteen days of last month are not something it can answer, and a whole month
+    /// set beside nineteen days would be a comparison of two different things.
+    /// </para>
+    /// <para>
+    /// Its own key rather than the month key with an earlier window, though the shape is
+    /// the same: the prefix says what the entry is for, and the month parts and this one
+    /// are cleared together by <see cref="Invalidate"/> either way. A provider failing
+    /// here is an answer with no report, exactly as in <see cref="DeriveAsync{T}"/>,
+    /// and that costs the comparison and nothing else.
+    /// </para>
+    /// </remarks>
+    private Task<IReadOnlyList<SpendAnswer>> LastMonthAsync(
+        (DateOnly From, DateOnly To) window,
+        CancellationToken cancellationToken)
+    {
+        var key = "previous-month|" + window.From.ToString("O", CultureInfo.InvariantCulture)
+            + "|" + window.To.ToString("O", CultureInfo.InvariantCulture);
+
+        return _cache.GetOrAddAsync(key, async shared =>
+        {
+            var reads = new[]
+            {
+                ReadAsync(SpendProvider.Claude, claude.GetAvailabilityAsync,
+                    token => claude.GetSpendAsync(window.From, window.To, token), shared),
+                ReadAsync(SpendProvider.AzureFoundry, azureFoundry.GetAvailabilityAsync,
+                    token => azureFoundry.GetSpendAsync(window.From, window.To, token), shared)
+            };
+
+            return (IReadOnlyList<SpendAnswer>)await Task.WhenAll(reads).ConfigureAwait(false);
+        }, cancellationToken);
+    }
+
+    /// <summary>
+    /// What a provider spent over the same days of last month, in this month's currency,
+    /// or null when there is no like-for-like figure: a provider not asked, one that did
+    /// not answer, or one whose answer was in another currency or mixed two. Nothing
+    /// spent is a zero in this month's currency rather than in the default one, so an
+    /// empty month never reads as a currency change.
+    /// </summary>
+    private static DashboardMoney? PreviousOf(MonthlySpend provider, IReadOnlyList<SpendAnswer> previous)
+    {
+        if (previous.FirstOrDefault(answer => answer.Provider == provider.Provider)?.Report is not { } report) return null;
+
+        if (report.Entries.Count == 0) return DashboardMoney.Zero(provider.Spend.Currency);
+
+        if (report.Entries.Any(entry =>
+                !string.Equals(entry.Cost.Currency, provider.Spend.Currency, StringComparison.OrdinalIgnoreCase)))
+        {
+            return null;
+        }
+
+        return Total(report.Entries);
     }
 
     private static string Reasons(IReadOnlyList<SpendAnswer> answers)
