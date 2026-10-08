@@ -295,6 +295,29 @@ wall for the reason the assistant gave ("org spend cap reached"), or nothing sai
 And a Claude session now sits in the band of the registered clone its folder lies in,
 rather than in "No repository recorded" with every other Claude session.
 
+### The longest sessions
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers]
+```
+
+The Sessions tab opens on its six figures as one joined row: sessions, agent-active
+time, waiting for a prompt, prompts per session, limit hits and last activity. Under
+them the weekly chart with its cut toggle and the hour grid with office hours marked
+sit in a wide column, and the **longest sessions** sit beside them. Hours worked
+follows below.
+
+The list holds the six sessions in which an agent produced longest inside the window,
+longest first. Each row names the session as the Sessions pane does, its agent-active
+time, its repository, the model it spent most on and how many prompts the person sent,
+with a bar against the longest. A part the session did not record is left out of its
+row rather than shown as a placeholder. The time is the same measure the agent-active
+figure sums, so the first row never exceeds it, and the list follows the window and
+the machine like the figures do. A session that left no activity to measure is not
+listed. A link under the list opens the Sessions pane.
+
 ### Hours worked
 
 ```meta
