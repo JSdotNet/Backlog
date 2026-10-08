@@ -153,4 +153,63 @@ public sealed class DeliveryRunStagesTests
         Assert.Equal("revise round", gate.QuerySelector("[data-testid='sessions-stage-revise']")!.TextContent.Trim());
         Assert.Equal("Your approval", gate.QuerySelector("[data-testid='sessions-stage-ran']")!.TextContent.Trim());
     }
+
+    [Fact]
+    public void Each_stage_row_and_each_sub_agent_row_shows_its_cost_and_marks_an_estimate()
+    {
+        using var context = new BunitContext();
+
+        IReadOnlyList<DeliveryRunStageCost> costs =
+        [
+            new(new CostFigure(1_250_000, CostSource.Reported), [new CostFigure(1_000_000, CostSource.Reported)]),
+            new(new CostFigure(420_000, CostSource.Estimated), []),
+            DeliveryRunStageCost.None(1),
+            DeliveryRunStageCost.None(0)
+        ];
+
+        var list = context.Render<DeliveryRunStages>(parameters => parameters
+            .Add(p => p.Run, Run())
+            .Add(p => p.Costs, costs));
+        var stages = list.FindAll("[data-testid='sessions-stage']");
+
+        var reported = stages[0].QuerySelector("[data-testid='sessions-stage-cost']")!;
+        Assert.Equal("$1.25", reported.TextContent.Trim());
+        Assert.Equal("reported", reported.GetAttribute("data-source"));
+
+        var estimated = stages[1].QuerySelector("[data-testid='sessions-stage-cost']")!;
+        Assert.Equal("estimated", estimated.GetAttribute("data-source"));
+        Assert.Contains("$0.42", estimated.TextContent);
+        Assert.Equal("estimated from tokens", estimated.QuerySelector("abbr")!.GetAttribute("title"));
+
+        // With neither source there is no cost on the row, not a zero.
+        Assert.Null(stages[2].QuerySelector("[data-testid='sessions-stage-cost']"));
+        Assert.Null(stages[3].QuerySelector("[data-testid='sessions-stage-cost']"));
+
+        // The sub-agent row says what its call cost.
+        stages[0].QuerySelector("[data-testid='sessions-stage-toggle']")!.Click();
+        var worker = list.Find("[data-testid='sessions-stage-worker']");
+        Assert.Contains("$1.00 reported", worker.TextContent);
+        Assert.Contains("$1.25 reported", list.Find("[data-testid='sessions-stage-ran']").TextContent);
+    }
+
+    [Fact]
+    public void An_estimated_sub_agent_cost_says_so_and_an_unpriced_one_says_nothing()
+    {
+        Assert.Contains(
+            "$0.0042 estimated from tokens",
+            DeliveryRunStages.WorkerFacts(new DeliveryRunStageWorker("Explore", "claude-sonnet-5", null, null, 1_000, 10, 1, false, false, false, true), new CostFigure(4_200, CostSource.Estimated)));
+
+        var none = DeliveryRunStages.WorkerFacts(new DeliveryRunStageWorker("Explore", "claude-sonnet-5", null, null, 1_000, 10, 1, false, false, false, true));
+        Assert.DoesNotContain("$", none);
+    }
+
+    [Fact]
+    public void Without_costs_no_stage_shows_one()
+    {
+        using var context = new BunitContext();
+
+        var list = context.Render<DeliveryRunStages>(parameters => parameters.Add(p => p.Run, Run()));
+
+        Assert.Empty(list.FindAll("[data-testid='sessions-stage-cost']"));
+    }
 }

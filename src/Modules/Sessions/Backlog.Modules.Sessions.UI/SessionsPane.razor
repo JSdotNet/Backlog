@@ -420,6 +420,23 @@
                     <dt>Output</dt>
                     <dd data-testid="sessions-fact-output" title="@TokensTitle(row.Session?.ModelUsage)">@TokensCell(row.Session?.ModelUsage, row.OutputTokens)</dd>
                 </div>
+                @* What the session cost: Claude Code's reported figure, or estimated
+                   from its runs' tokens at the Settings prices and marked so. With
+                   neither there is no fact at all — a zero nobody measured would
+                   read as free. *@
+                @if (CostsOf(row)?.Session is { } cost)
+                {
+                    <div class="sessions-fact">
+                        <dt>Cost</dt>
+                        <dd data-testid="sessions-fact-cost" data-source="@(cost.Estimated ? "estimated" : "reported")" title="@DeliveryRunStages.CostTitle(cost)">
+                            @cost.Label
+                            @if (cost.Estimated)
+                            {
+                                <span class="sessions-fact__note">@CostFigure.EstimatedNote</span>
+                            }
+                        </dd>
+                    </div>
+                }
                 <div class="sessions-fact">
                     <dt>Branch</dt>
                     <dd class="data-table__mono" data-testid="sessions-branch">@Or(row.Branch)</dd>
@@ -443,7 +460,7 @@
                     <div class="sessions-runs" data-testid="sessions-runs">
                         @foreach (var run in row.Runs)
                         {
-                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" OnOpenTask="OnOpenTask" />
+                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" Costs="@CostsOf(row)?.StagesOf(run)" OnOpenTask="OnOpenTask" />
                         }
                     </div>
                 </section>
@@ -729,6 +746,99 @@
 
     public void Dispose() => _disposed = true;
 
+    /// <summary>What one row cost, worked out once its requests are in.</summary>
+    private sealed record RowCosts(CostFigure? Session, IReadOnlyDictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>> Stages)
+    {
+        public IReadOnlyList<DeliveryRunStageCost>? StagesOf(DeliveryRun run) => Stages.TryGetValue(run, out var costs) ? costs : null;
+    }
+
+    private IClaudeApiRequestStore? _requestStore;
+
+    private IModelPriceStore? _priceStore;
+
+    private ModelPriceTable _prices = ModelPriceTable.Empty;
+
+    /// <summary>Each row's costs, by row key, once worked out; cleared by a refresh,
+    /// which also reads the prices again.</summary>
+    private readonly Dictionary<string, RowCosts> _costs = new(StringComparer.Ordinal);
+
+    private readonly HashSet<string> _costAsked = new(StringComparer.Ordinal);
+
+    private RowCosts? CostsOf(SessionRow row) => _costs.TryGetValue(row.Key, out var costs) ? costs : null;
+
+    /// <summary>The sessions whose requests a row's costs are read from: its own, and
+    /// every one its runs name.</summary>
+    private static IReadOnlyList<string> CostSessionsOf(SessionRow row) =>
+        [.. new[] { row.Session?.Id }.Concat(row.Runs.SelectMany(run => run.SessionIds)).OfType<string>().Where(id => id.Length > 0).Distinct(StringComparer.Ordinal)];
+
+    /// <summary>Works out the selected row's costs, reading its sessions' requests from
+    /// the store where the host keeps one. A store that fails leaves the row on the
+    /// estimate alone rather than failing the pane.</summary>
+    private void AskAboutCosts()
+    {
+        if (Selected is not { } row || !_costAsked.Add(row.Key)) return;
+
+        _ = WorkOutCostsAsync(row, _statusGeneration);
+    }
+
+    private async Task WorkOutCostsAsync(SessionRow row, int generation)
+    {
+        var requests = new List<ClaudeApiRequest>();
+
+        if (_requestStore is { } store)
+        {
+            try
+            {
+                foreach (var id in CostSessionsOf(row)) requests.AddRange(await store.ListAsync(id));
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                requests.Clear();
+            }
+        }
+
+        if (_disposed || generation != _statusGeneration) return;
+
+        var sessionId = row.Session?.Id ?? row.Runs.SelectMany(run => run.SessionIds).FirstOrDefault();
+        var stages = new Dictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>>(ReferenceEqualityComparer.Instance);
+        CostFigure? session;
+
+        try
+        {
+            foreach (var run in row.Runs)
+            {
+                stages[run] = DeliveryRunCosts.Of(run, requests, _prices, sessionId, row.Model);
+            }
+
+            session = DeliveryRunCosts.Session(sessionId, requests, row.Runs, _prices, row.Model, row.Session?.ModelUsage);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // A run file shaped in a way the attribution did not expect costs that row
+            // its figures, not the pane: the row shows no cost, which is the honest
+            // answer to a question nothing could answer.
+            stages.Clear();
+            session = null;
+        }
+
+        _costs[row.Key] = new RowCosts(session, stages);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ReadPricesAsync()
+    {
+        if (_priceStore is not { } store) return;
+
+        try
+        {
+            _prices = await store.GetAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _prices = ModelPriceTable.Empty;
+        }
+    }
+
     private static readonly string[] Tones = ["quiet", "live", "alert", "fault", "settled", "archived"];
 
     /// <summary>The tone's slug, or quiet for a word the scale does not hold.</summary>
@@ -861,6 +971,8 @@
     protected override async Task OnInitializedAsync()
     {
         _keeper = Services.GetService<ISessionRecordKeeper>();
+        _requestStore = Services.GetService<IClaudeApiRequestStore>();
+        _priceStore = Services.GetService<IModelPriceStore>();
 
         await RefreshAsync();
 
@@ -936,6 +1048,7 @@
 
             _catalog = await sessions;
             _runs = await runs;
+            await ReadPricesAsync();
             _rows = SessionRows.Of(_catalog.Sessions, _runs.Runs);
             _read = true;
             _readAt = DateTimeOffset.UtcNow;
@@ -948,9 +1061,12 @@
                 _environmentId = null;
             }
 
-            // A fresh reading may hold newer verdicts too.
+            // A fresh reading may hold newer verdicts too, newer requests, and prices
+            // somebody changed in Settings since.
             _statuses.Clear();
             _asked.Clear();
+            _costs.Clear();
+            _costAsked.Clear();
             _statusGeneration++;
         }
         finally
@@ -1035,6 +1151,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         AskAboutPullRequests();
+        AskAboutCosts();
 
         if (!_focusPending || _loading) return;
 

@@ -1,0 +1,263 @@
+@*
+    The Model prices page on the settings screen: the rates, per model, that price a
+    delivery run Claude Code reported no cost for. Such a run's stages and sub-agent
+    calls are worked out from the tokens the run counted, and every figure that comes
+    from here says "estimated from tokens" wherever it is shown.
+
+    Empty until the person fills it in. This product ships no price list: one it
+    shipped would be wrong the day a price changed, and a wrong figure that looks
+    measured is worse than none. With no row for a model, a run on it shows no cost.
+
+    Commits on change, with no save button - the rule the rest of the settings screen
+    follows. A rate that does not read as a number is refused with a message and
+    nothing is saved until it does; an empty rate is unknown, never free.
+*@
+@namespace Backlog.Modules.Sessions.UI
+@using System.Globalization
+@using global::Backlog.UI.Components.Inputs
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceProvider Services
+
+<div class="repo-card__section" data-testid="model-price-settings">
+    <h3 class="setting__subtitle" id="model-prices-title">Model prices</h3>
+    <p class="setting__body">
+        What a delivery run cost comes from Claude Code where its telemetry reached this app.
+        A run it never reported on is worked out from the tokens the run counted, at the rates
+        you enter here, in US dollars per million tokens - and is marked "estimated from tokens"
+        wherever it is shown. A run on a model with no row here shows no cost at all.
+    </p>
+
+    @if (_store is null)
+    {
+        <p class="setting__note" data-testid="model-prices-unavailable">This host keeps no prices.</p>
+    }
+    else
+    {
+        @if (_rows.Count == 0)
+        {
+            <p class="setting__note" data-testid="model-prices-empty">
+                No prices yet. Add a model to estimate the runs Claude Code did not report a cost for.
+            </p>
+        }
+        else
+        {
+            <div class="model-prices" role="table" aria-labelledby="model-prices-title" data-testid="model-prices">
+                <div class="model-prices__row model-prices__row--head" role="row">
+                    <span role="columnheader">Model</span>
+                    @foreach (var rate in Rates)
+                    {
+                        <span role="columnheader">@rate.Label</span>
+                    }
+                    <span role="columnheader"><span class="sr-only">Remove</span></span>
+                </div>
+                @for (var index = 0; index < _rows.Count; index++)
+                {
+                    var position = index;
+                    var row = _rows[position];
+
+                    <div class="model-prices__row" role="row" data-testid="model-price-row">
+                        <TextField Bare="true"
+                                   InputCssClass="setting__input"
+                                   AriaLabel="@($"Model, row {position + 1}")"
+                                   Placeholder="claude-opus-5-5"
+                                   autocomplete="off"
+                                   data-testid="model-price-model"
+                                   Value="@row.Model"
+                                   @onchange="e => Change(position, 0, e)" />
+                        @for (var r = 0; r < Rates.Length; r++)
+                        {
+                            var field = r + 1;
+                            var rate = Rates[r];
+
+                            <TextField Bare="true"
+                                       InputCssClass="setting__input model-prices__rate"
+                                       AriaLabel="@($"{rate.Label} per million tokens, row {position + 1}")"
+                                       Placeholder="@($"{rate.Label}, $/MTok")"
+                                       inputmode="decimal"
+                                       autocomplete="off"
+                                       data-testid="@($"model-price-{rate.Slug}")"
+                                       Value="@row.Values[field]"
+                                       @onchange="e => Change(position, field, e)" />
+                        }
+                        <DeleteButton Bare="true"
+                                      AriaLabel="@($"Remove the prices for {(string.IsNullOrWhiteSpace(row.Model) ? $"row {position + 1}" : row.Model)}")"
+                                      TestId="model-price-remove"
+                                      OnClick="() => RemoveAsync(position)" />
+                    </div>
+                }
+            </div>
+        }
+
+        <p class="setting__status" role="status" data-testid="model-prices-status">
+            @if (_error is not null)
+            {
+                <span class="setting__status--error">@_error</span>
+            }
+            else if (_saved)
+            {
+                <span>Saved.</span>
+            }
+        </p>
+
+        <div class="setting__actions">
+            <AppButton Variant="ButtonVariant.None" TestId="model-price-add" OnClick="Add">Add a model</AppButton>
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly (string Label, string Slug)[] Rates =
+    [
+        ("Input", "input"),
+        ("Output", "output"),
+        ("Cache read", "cache-read"),
+        ("Cache write", "cache-write")
+    ];
+
+    private sealed class Draft
+    {
+        /// <summary>The model, then the four rates, as typed.</summary>
+        public string?[] Values { get; } = new string?[5];
+
+        public string? Model => Values[0];
+    }
+
+    private readonly List<Draft> _rows = [];
+
+    private IModelPriceStore? _store;
+
+    private string? _error;
+
+    private bool _saved;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _store = Services.GetService<IModelPriceStore>();
+
+        if (_store is null) return;
+
+        ModelPriceTable table;
+
+        try
+        {
+            table = await _store.GetAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _error = $"The prices could not be read: {exception.Message}";
+            return;
+        }
+
+        foreach (var price in table.Prices)
+        {
+            var draft = new Draft();
+            draft.Values[0] = price.Model;
+            draft.Values[1] = Shown(price.InputPerMTok);
+            draft.Values[2] = Shown(price.OutputPerMTok);
+            draft.Values[3] = Shown(price.CacheReadPerMTok);
+            draft.Values[4] = Shown(price.CacheWritePerMTok);
+            _rows.Add(draft);
+        }
+    }
+
+    private static string? Shown(decimal? rate) => rate?.ToString(CultureInfo.InvariantCulture);
+
+    private void Add()
+    {
+        _rows.Add(new Draft());
+        _saved = false;
+    }
+
+    private async Task Change(int row, int field, ChangeEventArgs change)
+    {
+        if (row >= _rows.Count) return;
+
+        _rows[row].Values[field] = change.Value?.ToString();
+
+        await SaveAsync();
+    }
+
+    private async Task RemoveAsync(int row)
+    {
+        if (row >= _rows.Count) return;
+
+        _rows.RemoveAt(row);
+
+        await SaveAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        _saved = false;
+
+        if (_store is null) return;
+
+        if (Parse(_rows, out var table) is { } error)
+        {
+            _error = error;
+            return;
+        }
+
+        try
+        {
+            await _store.SaveAsync(table);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _error = $"The prices could not be saved: {exception.Message}";
+            return;
+        }
+
+        _error = null;
+        _saved = true;
+    }
+
+    /// <summary>
+    /// The drafts as a table, or why they are not one yet: a rate that is not a
+    /// non-negative number. A row with no model is left out rather than refused — it
+    /// is the row somebody has just added and not filled in.
+    /// </summary>
+    private static string? Parse(IReadOnlyList<Draft> rows, out ModelPriceTable table)
+    {
+        var prices = new List<ModelPrice>();
+        table = ModelPriceTable.Empty;
+
+        for (var index = 0; index < rows.Count; index++)
+        {
+            var row = rows[index];
+            var rates = new decimal?[4];
+
+            for (var r = 0; r < 4; r++)
+            {
+                var text = row.Values[r + 1]?.Trim().TrimStart('$').Trim();
+
+                if (string.IsNullOrEmpty(text)) continue;
+
+                // A point and nothing else: a comma is a decimal mark in half the
+                // world and a thousands separator in the other, and "0,30" read the
+                // second way is a price a hundred times too high.
+                if (!decimal.TryParse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var rate))
+                {
+                    var model = string.IsNullOrWhiteSpace(row.Model) ? $"row {index + 1}" : row.Model.Trim();
+                    return $"The {Rates[r].Label.ToLowerInvariant()} rate for {model} is not a price: write it as a number of dollars per million tokens with a point, such as 0.30. Nothing was saved.";
+                }
+
+                rates[r] = rate;
+            }
+
+            if (string.IsNullOrWhiteSpace(row.Model)) continue;
+
+            if (prices.Any(price => string.Equals(price.Model, row.Model.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                return $"{row.Model.Trim()} has two rows. Remove one; nothing was saved.";
+            }
+
+            prices.Add(new ModelPrice(row.Model.Trim(), rates[0], rates[1], rates[2], rates[3]));
+        }
+
+        table = new ModelPriceTable(prices);
+
+        return null;
+    }
+}
