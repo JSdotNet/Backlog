@@ -1299,17 +1299,6 @@ button.badge:hover {
 .badge--gh-closed { border-color: var(--color-border-strong); color: var(--color-text-secondary); text-decoration: line-through; }
 .badge--gh-unknown { border-color: var(--color-border-strong); color: var(--color-text-secondary); border-style: dashed; }
 
-/* The tone scale itself as a family, for a value that already arrives classed by
-   its tone — a pull request's readiness verdict carries its tone with it, so the
-   chip draws the tone rather than re-deriving it from the label. Filled for the
-   three a reader acts on, outlined for the two that are information. */
-.badge--tone-quiet { background: var(--color-background-alt); color: var(--color-secondary); border-color: var(--color-border-strong); }
-.badge--tone-live { border-color: var(--color-primary-dark); color: var(--color-primary-light); }
-.badge--tone-alert { background: var(--color-warning); border-color: var(--color-border-strong); color: var(--color-text-primary); }
-.badge--tone-fault { background: var(--color-error); border-color: var(--color-border-strong); color: var(--color-text-primary); }
-.badge--tone-settled { background: var(--color-success); border-color: var(--color-border-strong); color: var(--color-text-primary); }
-.badge--tone-archived { border-color: var(--color-border-strong); color: var(--color-text-secondary); }
-
 .tag-chip {
     display: inline-flex;
     align-items: center;
