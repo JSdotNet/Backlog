@@ -26,7 +26,19 @@
 
     The board scrolls sideways on its own when the space it is given is narrower
     than its columns — the detail panel opening beside it is the usual cause — so
-    a column is never squeezed below the width a card reads at.
+    a column is never squeezed below the width a card reads at. It scrolls
+    sideways only. Given a bounded height — the Tasks pane's — it fills it, and
+    each column's cards scroll inside that column, so a long column has one
+    vertical scrollbar and the board none; the drag's edge scroll follows the
+    column under the pointer. Given no bound, the columns are as tall as the
+    tallest one and whatever holds the board scrolls it.
+
+    While a card is held, a lifted copy of it follows the pointer and the slot
+    in the column under it opens to the card's height; on release the copy
+    settles into the card's new place, or back into its old one. That motion is
+    taskListDrag's — geometry per frame, which a circuit round trip cannot be —
+    and none of it runs under prefers-reduced-motion beyond the copy tracking
+    the pointer, which is the reader's own hand rather than an animation.
 *@
 <div class="@ClassValue"
      data-testid="@TestId"
@@ -77,6 +89,8 @@
                               Overdue="@card.Overdue"
                               Finished="@card.Finished"
                               Badges="@Badges"
+                              AllowCopy="@AllowCopy"
+                              CopyValue="@CardCopyValue?.Invoke(card.Task)"
                               OnSelected="@OnSelected"
                               OnTagSelected="@OnTagSelected"
                               Selected="@(SelectedId is not null && string.Equals(SelectedId, card.Task.Id, StringComparison.Ordinal))"
@@ -157,6 +171,19 @@
     /// <see cref="TaskCard.Badges"/> and <see cref="TaskListView.RowBadges"/> are.</summary>
     [Parameter]
     public RenderFragment<TaskRow>? Badges { get; set; }
+
+    /// <summary>Whether each card offers to copy its task. On by default, as
+    /// <see cref="TaskListView.AllowCopy"/> is: a board is the same tasks as the
+    /// list, laid out differently, and what a reader can do to a row they can do
+    /// to its card.</summary>
+    [Parameter]
+    public bool AllowCopy { get; set; } = true;
+
+    /// <summary>What a card copies, asked per card — <see cref="TaskListView.RowCopyValue"/>'s
+    /// question, so a host hands both the same answer. Null, or an answer of null,
+    /// leaves the card copying its title, and its body under it when it has one.</summary>
+    [Parameter]
+    public Func<TaskRow, string?>? CardCopyValue { get; set; }
 
     /// <summary>The task open beside the board, whose card is drawn selected.</summary>
     [Parameter]

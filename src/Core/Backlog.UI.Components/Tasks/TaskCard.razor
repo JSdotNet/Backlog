@@ -21,7 +21,8 @@
     badges inside it are usually links, and following one is not opening the card,
     so the slot stops the press, the click and the key before the card hears them,
     exactly as task-item__badges does on the row. A tag a host is listening to is a
-    control of its own and stops them the same way.
+    control of its own and stops them the same way, and so does the copy button a
+    board turns on — the row's, copying what the row copies.
 
     The repository identity edge is the host's, through CssClass, on the same seam
     TaskListView hands a row through RowCssClass: the host passes the shared
@@ -64,6 +65,32 @@
             <span class="task-card__my-day" data-testid="@Suffix("my-day")">
                 <SunIcon Size="14" />
                 My Day
+            </span>
+        }
+
+        @if (AllowCopy)
+        {
+            @* The row's copy button, on the row's terms: the same text, the same
+               refusal on a task marked blocked, the confirmation held for a
+               minute. Copying a card is not opening it, so the slot stops the
+               press, the click and the key before the card hears them — the rule
+               the badge slot follows — and taskListDrag never picks the card up
+               from it. On the top line's far end, where a reader who has read
+               the card reaches for it last. *@
+            <span class="task-card__copy"
+                  @onmousedown:stopPropagation="true"
+                  @onclick:stopPropagation="true"
+                  @onkeydown:stopPropagation="true">
+                <CopyButton Text="@CopyText"
+                            Label="@($"Copy {Task.Title}")"
+                            Disabled="@Task.MarkedBlocked"
+                            DisabledReason="Blocked — unblock to copy"
+                            CssClass="task-card__copy-wrap"
+                            ButtonCssClass="task-card__copy-button"
+                            StatusCssClass="task-card__copy-status"
+                            ConfirmationDuration="@TimeSpan.FromMinutes(1)"
+                            ButtonTestId="@Suffix("copy")"
+                            StatusTestId="@Suffix("copy-status")" />
             </span>
         }
     </div>
@@ -188,6 +215,19 @@
     [Parameter]
     public RenderFragment<TaskRow>? Badges { get; set; }
 
+    /// <summary>Whether the card offers to copy its task, as a row does. Off by
+    /// default, unlike the row: a card standing on its own is a summary of work
+    /// somewhere else — the In progress view's — and TaskBoard turns it on for the
+    /// cards it lays out.</summary>
+    [Parameter]
+    public bool AllowCopy { get; set; }
+
+    /// <summary>What lands on the clipboard, on <see cref="TaskItem.CopyValue"/>'s
+    /// terms: set, it wins outright; unset, the title, with the body under it when
+    /// the task has one.</summary>
+    [Parameter]
+    public string? CopyValue { get; set; }
+
     /// <summary>Raised with the task's id when the card is pressed, or Enter or
     /// Space is pressed on it. Without it the card is not a control.</summary>
     [Parameter]
@@ -229,6 +269,12 @@
     public string? ElementId { get; set; }
 
     private bool Opens => OnSelected.HasDelegate;
+
+    /// <summary>The row's clipboard text, worked out the row's way.</summary>
+    private string CopyText =>
+        !string.IsNullOrWhiteSpace(CopyValue) ? CopyValue
+        : Task.HasBody ? $"{Task.Title}\n\n{Task.Body!.Trim()}"
+        : Task.Title;
 
     private bool Blocked => Status is { Readiness: TaskReadiness.Blocked };
 
