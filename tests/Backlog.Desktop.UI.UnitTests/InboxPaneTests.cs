@@ -471,6 +471,60 @@ public sealed class InboxPaneTests
         Assert.Contains("A summary.", pane.Find("[data-testid='inbox-detail-body']").TextContent);
     }
 
+    // --- Notes (.devbook/domain/inbox/features.md#notes-on-the-desktop) -----------
+
+    [Fact]
+    public async Task A_note_shows_its_kind_on_the_row_and_is_filtered_like_any_kind()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("Standup notes", ContentKind.Note, channel: "mobile", bodyMd: "- shipped");
+        harness.Inbox.Seed("A passing thought");
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal(
+            ["inbox-kind-all", "inbox-kind-text", "inbox-kind-note"],
+            pane.FindAll("[data-testid='inbox-pane-filters'] [aria-pressed]").Select(chip => chip.GetAttribute("data-testid")));
+        Assert.Contains("Note", pane.Find("[data-testid='inbox-kind-note']").TextContent);
+
+        await pane.Find("[data-testid='inbox-kind-note']").ClickAsync(new());
+
+        Assert.Equal(["Standup notes"], Titles(pane));
+    }
+
+    [Fact]
+    public async Task A_note_is_edited_in_place_and_the_edit_is_saved_through_the_module()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Standup", ContentKind.Note, channel: "mobile", bodyMd: "first");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        Assert.Contains("first", pane.Find("[data-testid='inbox-detail-body']").TextContent);
+        await pane.Find("[data-testid='inbox-note-edit']").ClickAsync(new());
+
+        pane.Find("[data-testid='inbox-note-title'] input").Input("Standup (desk)");
+        pane.Find("[data-testid='inbox-note-body'] textarea").Input("first\nsecond");
+        await pane.Find("[data-testid='inbox-note-save']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-note-editor']")));
+        Assert.Equal([(item.Id, "Standup (desk)", (string?)"first\nsecond")], harness.Inbox.NoteEdits);
+        Assert.Contains("second", pane.Find("[data-testid='inbox-detail-body']").TextContent);
+    }
+
+    [Fact]
+    public async Task Only_a_note_offers_Edit_note()
+    {
+        using var harness = Harness.Create();
+        var text = harness.Inbox.Seed("A passing thought", bodyMd: "words");
+
+        var pane = await harness.RenderAsync();
+
+        await harness.SelectAsync(pane, text.Id);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-note-edit']"));
+    }
+
     [Fact]
     public async Task A_code_capture_shows_a_code_block()
     {

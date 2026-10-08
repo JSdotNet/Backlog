@@ -2631,6 +2631,31 @@ h1, h2, h3 {
     margin-top: var(--spacing-lg);
 }
 
+/* A disconnected source that left tasks behind: who it was, how many tasks, and
+   its delete, on one line that wraps on a narrow window. */
+.task-connectors__disconnected {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.task-connectors__disconnected-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.task-connectors__disconnected-connector {
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-connectors__disconnected-count {
+    margin-right: auto;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
 .setting__note {
     margin: var(--spacing-md) 0 0;
     font-size: var(--font-size-sm);
@@ -5155,6 +5180,12 @@ h1, h2, h3 {
 
 .inbox-pane__facts dt {
     color: var(--color-text-secondary);
+}
+
+/* A note edited in place: its title, its body and the two acts, stacked. */
+.inbox-pane__note-editor {
+    display: grid;
+    gap: var(--spacing-sm);
 }
 
 .inbox-pane__facts dd {

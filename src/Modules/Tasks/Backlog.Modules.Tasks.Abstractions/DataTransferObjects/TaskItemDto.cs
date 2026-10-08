@@ -109,7 +109,8 @@ public sealed record TaskItemDto(
     string? SourceInboxId = null,
     IReadOnlyList<string>? DevbookReferences = null,
     DateOnly? BlockedSince = null,
-    SourceRef? SourceRef = null)
+    SourceRef? SourceRef = null,
+    AgendaTime? AgendaTime = null)
 {
     /// <summary>The Devbook pages and chapters the entry is about, as normalised
     /// references (<c>path</c> or <c>path#anchor</c>), in order. Published on

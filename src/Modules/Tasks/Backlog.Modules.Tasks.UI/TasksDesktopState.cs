@@ -2328,6 +2328,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     public async Task ChangeMyDayAsync(EntryRow row, DateOnly? inMyDayOn) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithMyDay(row.RawText, inMyDayOn));
 
+    /// <summary>Places the entry at a time within its My Day, or clears the agenda
+    /// time with null. Written the way <see cref="ChangeMyDayAsync"/> is — the
+    /// metadata line, then the save — and only meaningful beside a <c>myday:</c>
+    /// date: <see cref="EntryTextParser.WithAgendaTime"/> writes nothing for an
+    /// entry without one (<c>.devbook/domain/tasks/domain.md#agenda-time</c>).</summary>
+    public async Task ChangeAgendaTimeAsync(EntryRow row, AgendaTime? agendaTime) =>
+        await RewriteMetadataAsync(row, EntryTextParser.WithAgendaTime(row.RawText, agendaTime));
+
     /// <summary>
     /// Marks the entry blocked by hand as of <paramref name="today"/>, or
     /// unblocks it.
@@ -5260,6 +5268,14 @@ public sealed class EntryRow
         get { Render(); return _parsed!.InMyDayOn; }
     }
 
+    /// <summary>Where the entry sits in its My Day, or null. Null too while the
+    /// text has no <c>myday:</c> date, whatever <c>at:</c> says: the task holds
+    /// an agenda time only beside its day, and a save drops the tokens.</summary>
+    public AgendaTime? PreviewAgendaTime
+    {
+        get { Render(); return _parsed!.InMyDayOn is null ? null : _parsed.AgendaTime; }
+    }
+
     /// <summary>The day the entry was ticked off, or null while it is still on
     /// the list. A preview like the scheduling fields: the token is in the text
     /// and a reader can type one.</summary>
@@ -5423,6 +5439,17 @@ public sealed class EntryRow
             if (PreviewInMyDayOn is { } myDay)
             {
                 readings.Add(new MetaReading("my day", EntryTextParser.DateToken(myDay), true));
+
+                // Beside the day it borrows its date from, and only there: an
+                // agenda time with no My Day date is not saved, so it is not read
+                // back as if it would be.
+                if (_parsed!.AgendaTime is { } agenda)
+                {
+                    readings.Add(new MetaReading(
+                        "agenda",
+                        $"{agenda.StartToken} for {AgendaTime.DurationToken(agenda.DurationMinutes)}",
+                        true));
+                }
             }
 
             // Beside My Day, because both are something a person said about the
@@ -5486,6 +5513,7 @@ public sealed class EntryRow
     {
         "remind" => "reminder",
         "myday" => "my day",
+        "at" or "for" => "agenda",
         _ => tokenName
     };
 

@@ -26,6 +26,11 @@ public static class InboxEnumMap
     /// value that says an item has no replica behind it.</summary>
     public const string ManualChannel = "manual";
 
+    /// <summary>The slug of <see cref="ContentKind.Note"/>, which is also the kind
+    /// token a note document carries on the task feed
+    /// (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>).</summary>
+    public const string NoteKind = "note";
+
     private static readonly WireTokenMap<InboxStatus> Statuses = new("inbox status", new Dictionary<InboxStatus, string>
     {
         [InboxStatus.Unprocessed] = "unprocessed",
@@ -45,7 +50,8 @@ public static class InboxEnumMap
         [ContentKind.Email] = "email",
         [ContentKind.Code] = "code",
         [ContentKind.Voice] = "voice",
-        [ContentKind.ClaudeArtifact] = "claude-artifact"
+        [ContentKind.ClaudeArtifact] = "claude-artifact",
+        [ContentKind.Note] = NoteKind
     });
 
     private static readonly WireTokenMap<RoutingDomain> RoutingDomains = new(

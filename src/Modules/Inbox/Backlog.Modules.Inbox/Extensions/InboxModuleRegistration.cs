@@ -11,6 +11,7 @@ using Backlog.Modules.Inbox.Features.DeferItem;
 using Backlog.Modules.Inbox.Features.DeleteItem;
 using Backlog.Modules.Inbox.Features.DeleteList;
 using Backlog.Modules.Inbox.Features.DismissSuggestion;
+using Backlog.Modules.Inbox.Features.EditNote;
 using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.LinkToTask;
@@ -24,6 +25,8 @@ using Backlog.Modules.Inbox.Features.ProposeTriagePass;
 using Backlog.Modules.Inbox.Features.ProposeBatch;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.ReceiveCapture;
+using Backlog.Modules.Inbox.Features.ReceiveNote;
+using Backlog.Modules.Inbox.Features.ListPendingNotes;
 using Backlog.Modules.Inbox.Features.Related;
 using Backlog.Modules.Inbox.Features.RenameGroup;
 using Backlog.Modules.Inbox.Features.RenameList;
@@ -134,6 +137,7 @@ public static class InboxModuleRegistration
         services.AddScoped<IQueryHandler<RelatedQuery, Result<InboxRelationsDto>>, RelatedQueryHandler>();
         services.AddScoped<ICommandHandler<LinkToTaskCommand, Result>, LinkToTaskCommandHandler>();
         services.AddScoped<ICommandHandler<MergeIntoTaskCommand, Result>, MergeIntoTaskCommandHandler>();
+        services.AddScoped<ICommandHandler<EditNoteCommand, Result>, EditNoteCommandHandler>();
 
         services.AddScoped<IInboxItems, InboxItems>();
 
@@ -150,6 +154,14 @@ public static class InboxModuleRegistration
         services.AddTransient<ICommandHandler<ReceiveCaptureCommand, Result<InboxIntakeOutcome>>, ReceiveCaptureCommandHandler>();
         services.AddTransient<IInboxIntake, InboxIntake>();
         services.AddTransient<IInboxCaptureOutbox, InboxCaptureOutbox>();
+
+        // A note's two-way sync (.devbook/arc42/06-runtime-view.md#mobile-note-sync),
+        // transient for the reason the intake is: the sync loop resolves it from
+        // the root provider.
+        services.AddTransient<ICommandHandler<ReceiveNoteCommand, Result<InboxIntakeOutcome>>, ReceiveNoteCommandHandler>();
+        services.AddTransient<IQueryHandler<ListPendingNotesQuery, Result<IReadOnlyList<InboxNoteDto>>>, ListPendingNotesQueryHandler>();
+        services.AddTransient<ICommandHandler<MarkNotesPushedCommand, Result>, MarkNotesPushedCommandHandler>();
+        services.AddTransient<IInboxNoteReplication, InboxNoteReplication>();
 
         return services;
     }

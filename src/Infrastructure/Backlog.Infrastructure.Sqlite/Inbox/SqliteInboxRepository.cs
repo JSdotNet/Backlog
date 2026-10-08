@@ -46,7 +46,8 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
     private const string ItemColumns =
         "id, title, body_md, source_url, captured_at, received_at, status, deferred_until, kind, " +
         "channel, person, tags, repo_ids, list_id, routing_domain, routing_repo_ids, routing_task_ids, " +
-        "routed_at, replica_backed, replica_ack_pending, updated_at, dismissed_suggestions, duplicate_of, duplicate_of_task";
+        "routed_at, replica_backed, replica_ack_pending, updated_at, dismissed_suggestions, duplicate_of, duplicate_of_task, " +
+        "edited_at, note_push_pending";
 
     private const string AttachmentColumns =
         "item_id, attachment_id, name, content_type, size_bytes, sha256, local_path, downloaded_at, last_error, sort_order";
@@ -97,7 +98,8 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             VALUES (
                 $id, $title, $body_md, $source_url, $captured_at, $received_at, $status, $deferred_until, $kind,
                 $channel, $person, $tags, $repo_ids, $list_id, $routing_domain, $routing_repo_ids, $routing_task_ids,
-                $routed_at, $replica_backed, $replica_ack_pending, $updated_at, $dismissed_suggestions, $duplicate_of, $duplicate_of_task)
+                $routed_at, $replica_backed, $replica_ack_pending, $updated_at, $dismissed_suggestions, $duplicate_of,
+                $duplicate_of_task, $edited_at, $note_push_pending)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 body_md = excluded.body_md,
@@ -121,7 +123,9 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 updated_at = excluded.updated_at,
                 dismissed_suggestions = excluded.dismissed_suggestions,
                 duplicate_of = excluded.duplicate_of,
-                duplicate_of_task = excluded.duplicate_of_task;
+                duplicate_of_task = excluded.duplicate_of_task,
+                edited_at = excluded.edited_at,
+                note_push_pending = excluded.note_push_pending;
             """;
 
         command.Parameters.AddWithValue("$id", item.Id.ToString());
@@ -152,6 +156,8 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         command.Parameters.AddWithValue("$dismissed_suggestions", TaskPayloads.Write(item.DismissedSuggestions));
         command.Parameters.AddWithValue("$duplicate_of", Nullable(item.DuplicateOf?.ToString()));
         command.Parameters.AddWithValue("$duplicate_of_task", item.DuplicateOfTask ? 1 : 0);
+        command.Parameters.AddWithValue("$edited_at", WriteInstant(item.EditedAt));
+        command.Parameters.AddWithValue("$note_push_pending", item.NotePushPending ? 1 : 0);
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
@@ -299,18 +305,24 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             await using var keep = connection.CreateCommand();
             keep.Transaction = transaction;
             keep.CommandText = """
-                INSERT INTO inbox_deleted_captures (id, title, captured_at, deleted_at)
-                VALUES ($id, $title, $captured_at, $deleted_at)
-                ON CONFLICT(id) DO UPDATE SET deleted_at = excluded.deleted_at;
+                INSERT INTO inbox_deleted_captures (id, title, captured_at, deleted_at, kind)
+                VALUES ($id, $title, $captured_at, $deleted_at, $kind)
+                ON CONFLICT(id) DO UPDATE SET deleted_at = excluded.deleted_at, kind = excluded.kind;
                 """;
             keep.Parameters.AddWithValue("$id", item.Id.ToString());
             keep.Parameters.AddWithValue("$title", item.Title);
             keep.Parameters.AddWithValue("$captured_at", WriteInstant(item.CapturedAt));
             keep.Parameters.AddWithValue("$deleted_at", WriteInstant(item.UpdatedAt));
+            // The kind decides which document the tombstone is written as: a
+            // note's goes out as a note, so the phone's Notes list drops it.
+            keep.Parameters.AddWithValue("$kind", item.KindSlug);
             await keep.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        if (!item.ReplicaBacked)
+        // A note is remembered too, wherever it was made: the phone may push an
+        // edit it made before it heard of the deletion, and that must not make
+        // the note again once the tombstone above has been sent and forgotten.
+        if (!item.ReplicaBacked || item.IsNote)
         {
             // A feed offers the entry again on its next run; the id is what
             // keeps the deletion from being undone by it.
@@ -331,15 +343,35 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
 
     public async Task<IReadOnlyList<InboxDeletedCapture>> ListDeletedCapturesAsync(CancellationToken cancellationToken = default) =>
         await ReadDeletedCapturesAsync(
-            "SELECT id, title, captured_at, deleted_at FROM inbox_deleted_captures ORDER BY deleted_at;",
+            "SELECT id, title, captured_at, deleted_at, kind FROM inbox_deleted_captures ORDER BY deleted_at;",
             id: null,
             cancellationToken).ConfigureAwait(false);
 
     public async Task<InboxDeletedCapture?> GetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default) =>
         (await ReadDeletedCapturesAsync(
-            "SELECT id, title, captured_at, deleted_at FROM inbox_deleted_captures WHERE id = $id;",
+            "SELECT id, title, captured_at, deleted_at, kind FROM inbox_deleted_captures WHERE id = $id;",
             id,
             cancellationToken).ConfigureAwait(false)).FirstOrDefault();
+
+    public async Task RememberDeletedCaptureAsync(InboxDeletedCapture capture, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(capture);
+
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO inbox_deleted_captures (id, title, captured_at, deleted_at, kind)
+            VALUES ($id, $title, $captured_at, $deleted_at, $kind)
+            ON CONFLICT(id) DO UPDATE SET deleted_at = excluded.deleted_at, kind = excluded.kind;
+            """;
+        command.Parameters.AddWithValue("$id", capture.Id.ToString());
+        command.Parameters.AddWithValue("$title", capture.Title);
+        command.Parameters.AddWithValue("$captured_at", WriteInstant(capture.CapturedAt));
+        command.Parameters.AddWithValue("$deleted_at", WriteInstant(capture.DeletedAt));
+        command.Parameters.AddWithValue("$kind", Nullable(capture.Kind));
+
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     public async Task ForgetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -379,7 +411,8 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 Guid.Parse(reader.GetString(0)),
                 reader.GetString(1),
                 ParseInstant(reader.GetString(2)),
-                ParseInstant(reader.GetString(3))));
+                ParseInstant(reader.GetString(3)),
+                reader.IsDBNull(4) ? null : reader.GetString(4)));
         }
 
         return captures;
@@ -634,6 +667,18 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             .ConfigureAwait(false);
         await EnsureColumnAsync(connection, "inbox_items", "duplicate_of_task", "INTEGER NOT NULL DEFAULT 0", cancellationToken)
             .ConfigureAwait(false);
+        // A note's own last-write-wins stamp (InboxItem.EditedAt). Null on a row
+        // written before it, which reads as the row's updated_at.
+        await EnsureColumnAsync(connection, "inbox_items", "edited_at", "TEXT NULL", cancellationToken)
+            .ConfigureAwait(false);
+        // A note this desktop changed and has not pushed yet (InboxItem.NotePushPending).
+        await EnsureColumnAsync(connection, "inbox_items", "note_push_pending", "INTEGER NOT NULL DEFAULT 0", cancellationToken)
+            .ConfigureAwait(false);
+        // Which kind of item a deleted capture was, so its tombstone goes out as
+        // the document the phone holds it as. Null on a row written before it:
+        // every such row was a plain capture.
+        await EnsureColumnAsync(connection, "inbox_deleted_captures", "kind", "TEXT NULL", cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>Adds a column to one of the inbox tables when it is not already
@@ -684,7 +729,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         public const int Tags = 11, RepoIds = 12, ListId = 13;
         public const int RoutingDomain = 14, RoutingRepoIds = 15, RoutingTaskIds = 16, RoutedAt = 17;
         public const int ReplicaBacked = 18, ReplicaAckPending = 19, UpdatedAt = 20, DismissedSuggestions = 21;
-        public const int DuplicateOf = 22, DuplicateOfTask = 23;
+        public const int DuplicateOf = 22, DuplicateOfTask = 23, EditedAt = 24, NotePushPending = 25;
 
         public const int ListName = 1, ListGroupId = 2, ListOrder = 3, ListCreatedAt = 4, ListUpdatedAt = 5;
         public const int GroupName = 1, GroupOrder = 2, GroupCreatedAt = 3, GroupUpdatedAt = 4;
@@ -744,7 +789,9 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             row.GetInt32(Col.ReplicaAckPending) != 0,
             ParseInstant(row.GetString(Col.UpdatedAt)),
             ParseGuid(Text(row, Col.DuplicateOf)),
-            row.GetInt32(Col.DuplicateOfTask) != 0);
+            row.GetInt32(Col.DuplicateOfTask) != 0,
+            Text(row, Col.EditedAt) is { } editedAt ? ParseInstant(editedAt) : null,
+            row.GetInt32(Col.NotePushPending) != 0);
 
         return item;
     }

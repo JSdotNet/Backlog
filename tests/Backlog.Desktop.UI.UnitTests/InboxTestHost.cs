@@ -382,6 +382,18 @@ internal sealed class FakeInboxItems : IInboxItems
         return Update(id, item => item with { ListId = listId });
     }
 
+    /// <summary>Every note edit asked for, in order: id, title, body.</summary>
+    public List<(Guid Id, string Title, string? BodyMd)> NoteEdits { get; } = [];
+
+    public Task<Result> EditNoteAsync(Guid id, string title, string? bodyMd, CancellationToken cancellationToken = default)
+    {
+        NoteEdits.Add((id, title, bodyMd));
+
+        return Update(id, item => item.Kind != ContentKind.Note
+            ? throw new InvalidOperationException("Not a note.")
+            : item with { Title = title, BodyMd = bodyMd ?? string.Empty });
+    }
+
     public Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default) =>
         Fails("archive", id, out var refused) ? Task.FromResult(Result.Failure(refused)) :
         Update(id, item => item.Status == InboxStatus.Archived

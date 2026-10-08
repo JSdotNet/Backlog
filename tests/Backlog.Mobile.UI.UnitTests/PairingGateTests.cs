@@ -16,8 +16,8 @@ public sealed class PairingGateTests
 {
     [Theory]
     [InlineData("")]
-    [InlineData("note")]
-    [InlineData("tasks")]
+    [InlineData("inbox")]
+    [InlineData("notes")]
     public void An_unpaired_phone_is_offered_a_pairing_code_and_nothing_else_on_every_route(string route)
     {
         using var host = ShellHost.Unpaired();
@@ -34,7 +34,7 @@ public sealed class PairingGateTests
         // No page is drawn behind the gate, and no tabs lead to one: every one of
         // them would come back to this box.
         Assert.Empty(app.FindAll("[data-testid='capture-field']"));
-        Assert.Empty(app.FindAll("[data-testid='note-placeholder']"));
+        Assert.Empty(app.FindAll("[data-testid='notes']"));
         Assert.Empty(app.FindAll("[data-testid='tasks-empty']"));
         Assert.Empty(app.FindAll("[data-testid='tab-bar']"));
 
@@ -47,7 +47,7 @@ public sealed class PairingGateTests
     public void Redeeming_a_code_opens_the_page_the_app_was_opened_on()
     {
         using var host = ShellHost.Unpaired();
-        var app = host.Open("tasks");
+        var app = host.Open("");
 
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='pairing-code-field'] input")));
 

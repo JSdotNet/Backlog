@@ -51,6 +51,14 @@ public interface IInboxItems
     /// included.</summary>
     Task<Result> MoveToListAsync(Guid id, Guid? listId, CancellationToken cancellationToken = default);
 
+    /// <summary>Changes a note's title and body: the edit the reader makes on
+    /// the desktop, which reaches the phone on the next sync
+    /// (<c>.devbook/domain/inbox/features.md#notes-on-the-desktop</c>). Only an
+    /// item of kind <c>note</c>, and not once it is archived. Fails with
+    /// <c>inbox.item.not_a_note</c> for any other kind and with
+    /// <c>inbox.item.needs_title</c> for a blank title.</summary>
+    Task<Result> EditNoteAsync(Guid id, string title, string? bodyMd, CancellationToken cancellationToken = default);
+
     /// <summary>Dismisses the item. Terminal, and the only terminal state an
     /// item reaches without leaving anything behind in another context.</summary>
     Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default);

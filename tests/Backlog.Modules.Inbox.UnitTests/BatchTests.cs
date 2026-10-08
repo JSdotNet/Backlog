@@ -192,5 +192,6 @@ public sealed class BatchTests
             linkToTask: null!,
             mergeIntoTask: null!,
             adviseTriage: null!,
-            proposeTriagePass: null!);
+            proposeTriagePass: null!,
+            editNote: null!);
 }

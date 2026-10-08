@@ -1,3 +1,4 @@
+using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.TalkNotes;
 using Backlog.Mobile.UI.Tasks;
@@ -69,6 +70,10 @@ internal static class TestOutbox
         services.AddSingleton<DeviceOutbox>();
         services.AddSingleton(taskView ?? new InMemoryTaskViewStore());
         services.AddSingleton<TaskViewProjection>();
+        services.AddSingleton<TaskEdits>();
+        services.AddSingleton<INoteViewStore>(new InMemoryNoteViewStore());
+        services.AddSingleton<NoteViewProjection>();
+        services.AddSingleton<IOutboxKind, NoteOutboxKind>();
         return services;
     }
 }

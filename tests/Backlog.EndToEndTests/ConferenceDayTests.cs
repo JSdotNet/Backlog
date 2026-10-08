@@ -71,7 +71,7 @@ public sealed class ConferenceDayTests
             var quick = $"Quick capture {token}";
             await phone.CaptureAsync(quick);
             await Expect(phone.InboxRow(quick)).ToBeVisibleAsync(new() { Timeout = 5_000 });
-            await Expect(phone.InboxRow(quick)).ToHaveAttributeAsync("data-waiting", "false", new() { Timeout = 30_000 });
+            await Expect(phone.InboxRow(quick)).ToHaveAttributeAsync("data-state", "sent", new() { Timeout = 30_000 });
             await evidence.ScreenshotAsync(phone.Page, "phone-quick-capture");
 
             log.AppendLine($"desktop sync: {await desktop.SyncNowAsync()}");
@@ -113,10 +113,10 @@ public sealed class ConferenceDayTests
             await evidence.ScreenshotAsync(phone.Page, "phone-talk-note-waiting");
 
             await phone.GoToAsync("inbox", "Inbox");
-            await Expect(phone.InboxRow(note)).ToHaveAttributeAsync("data-waiting", "true");
+            await Expect(phone.InboxRow(note)).ToHaveAttributeAsync("data-state", "waiting");
             var offline = $"Offline capture {token}";
             await phone.CaptureAsync(offline);
-            await Expect(phone.InboxRow(offline)).ToHaveAttributeAsync("data-waiting", "true", new() { Timeout = 5_000 });
+            await Expect(phone.InboxRow(offline)).ToHaveAttributeAsync("data-state", "waiting", new() { Timeout = 5_000 });
             await evidence.ScreenshotAsync(phone.Page, "phone-inbox-waiting");
 
             // 4. Back online: the uploads, then the note's capture, then the second
@@ -299,7 +299,12 @@ public sealed class ConferenceDayTests
                 {
                     foreach (var row in rows)
                     {
-                        if (await row.CountAsync() != 1 || await row.GetAttributeAsync("data-waiting") != "false") return false;
+                        // An Inbox row says "sent" in data-state; a task row says
+                        // "false" in data-waiting.
+                        if (await row.CountAsync() != 1) return false;
+                        var state = await row.GetAttributeAsync("data-state");
+                        var sent = state is not null ? state == "sent" : await row.GetAttributeAsync("data-waiting") == "false";
+                        if (!sent) return false;
                     }
 
                     return true;

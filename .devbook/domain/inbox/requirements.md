@@ -1563,3 +1563,121 @@ The system SHALL add each dependency the drafter infers between two items of the
 - **Given** the reader has pressed Ask the AI to order
 - **When** the drafter has not answered yet
 - **Then** Confirm is disabled until it does
+
+## Notes on the phone
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#notes-on-the-phone]
+```
+
+> The requirements of keeping and editing notes on the phone. The feature
+> chapter says what the Notes tab offers; this says what it promises.
+
+### Requirement: A note saves itself as it is written
+
+```meta
+type: requirement
+status: draft
+```
+
+The phone SHALL save a note a second after typing stops, with no save button, and say in the line at the top that it is saved.
+
+#### Scenario: A new note
+
+- **Given** the phone's Notes tab is open
+- **When** the reader presses New note, types a title and a body, and stops typing
+- **Then** the line at the top reads "Saved"
+
+### Requirement: A note made on the phone reaches the desktop as a note
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL bring a note made on the phone into the desktop Inbox as an item whose kind is note.
+
+#### Scenario: After the desktop syncs
+
+- **Given** a note the phone saved
+- **When** the desktop syncs
+- **Then** the desktop Inbox shows it as a Note with its title
+
+## Notes on the desktop
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#notes-on-the-desktop]
+```
+
+> The requirements of a desktop change to a note reaching the phone. The
+> feature chapter says what the desktop offers on a note; this says what it
+> promises the phone.
+
+### Requirement: A desktop edit to a note reaches the phone
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL bring an edit the desktop makes to a note to the phone's Notes list on the phone's next pull.
+
+#### Scenario: Editing the body
+
+- **Given** a note the phone made, shown in the desktop Inbox
+- **When** the reader presses Edit note, changes the body, presses Save, and the phone pulls after the desktop syncs
+- **Then** the phone's Notes list shows the edited text
+
+### Requirement: An archived note leaves the phone
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL take a note the desktop archives off the phone's Notes list on the phone's next pull.
+
+#### Scenario: Archiving on the desktop
+
+- **Given** a note shown in the desktop Inbox and in the phone's Notes list
+- **When** the reader archives it on the desktop, and the phone pulls after the desktop syncs
+- **Then** the note is gone from the phone's Notes list
+
+## Triage stays on the desktop
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#triage-stays-on-the-desktop]
+```
+
+> The requirements of keeping triage off the phone. The feature chapter says
+> why the desktop decides what an item becomes; this says what the phone
+> promises not to do. Every scenario starts from captures the phone made,
+> because the phone's Inbox tab shows only those until the desktop takes them
+> in.
+
+### Requirement: The phone offers no triage
+
+```meta
+type: requirement
+status: draft
+```
+
+The phone SHALL offer no way to route, defer, accept or archive an Inbox Item, in its Inbox tab's list or on an item opened from it.
+
+#### Scenario: The list
+
+- **Given** the phone's Inbox tab shows two captures the phone made that the desktop has not taken in
+- **When** the reader looks at the list
+- **Then** each row shows its sync state and none offers to route, defer, accept or archive
+
+#### Scenario: An opened item
+
+- **Given** the phone's Inbox tab shows a capture the phone made that the desktop has not taken in
+- **When** the reader opens it
+- **Then** the capture is shown with no button to route, defer, accept or archive it

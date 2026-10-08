@@ -25,7 +25,13 @@ public enum ContentKind
     Email,
     Code,
     Voice,
-    ClaudeArtifact
+    ClaudeArtifact,
+
+    /// <summary>A note the person keeps and edits — the one kind that syncs both
+    /// ways with the phone (<c>.devbook/domain/inbox/domain.md#note</c>). Never
+    /// inferred from the text: an item is a note because it was created as one.
+    /// Declared last so no stored ordinal moves, though none is stored.</summary>
+    Note
 }
 
 /// <summary>Where a triaged item was sent. <see cref="Devbook"/> is declared

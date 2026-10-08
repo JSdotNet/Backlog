@@ -101,6 +101,9 @@
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <ProjectReference Include="..\..\src\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
+    <!-- The phone's note view and outbox, for the tests that pair a phone with a
+         desktop through one replica (NoteSyncBetweenPhoneAndDesktopTests). -->
+    <ProjectReference Include="..\..\src\App\Backlog.Mobile.UI\Backlog.Mobile.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks.UI\Backlog.Modules.Tasks.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Devbook\Backlog.Modules.Devbook.UI\Backlog.Modules.Devbook.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
