@@ -316,23 +316,32 @@
             <div class="inbox-pane__body" data-testid="inbox-pane-body">
                 <InboxSideMenu State="State" />
 
-                @* The list is the fixed pane and the detail takes the rest: a row is a
-                   line of metadata that fits a known width, and a detail is a page that
-                   wants whatever is left. Anchored at the start for that reason. *@
-                <SplitPane CssClass="inbox-pane__split"
-                           Anchor="SplitPaneAnchor.Start"
-                           FixedWidthRem="28"
-                           MinRem="18"
-                           AriaLabel="Inbox list width"
-                           TestId="inbox-pane-split"
-                           SeparatorTestId="inbox-pane-split-handle">
-                    <Start>
-                        <InboxItemList State="State" />
-                    </Start>
-                    <End>
-                        <InboxItemDetail @ref="_detail" State="State" />
-                    </End>
-                </SplitPane>
+                @if (State.ShowsInboxZero)
+                {
+                    @* Nothing left waiting and something decided: the session's
+                       summary takes the rows' and the detail's place. *@
+                    <InboxZero State="State" />
+                }
+                else
+                {
+                    @* The list is the fixed pane and the detail takes the rest: a row is a
+                       line of metadata that fits a known width, and a detail is a page that
+                       wants whatever is left. Anchored at the start for that reason. *@
+                    <SplitPane CssClass="inbox-pane__split"
+                               Anchor="SplitPaneAnchor.Start"
+                               FixedWidthRem="28"
+                               MinRem="18"
+                               AriaLabel="Inbox list width"
+                               TestId="inbox-pane-split"
+                               SeparatorTestId="inbox-pane-split-handle">
+                        <Start>
+                            <InboxItemList State="State" />
+                        </Start>
+                        <End>
+                            <InboxItemDetail @ref="_detail" State="State" />
+                        </End>
+                    </SplitPane>
+                }
             </div>
         }
     };
@@ -413,6 +422,10 @@
             // With the sources shown the rows are not on screen, and a key that
             // decided an item the reader cannot see would be a surprise.
             if (SourcesShown && key != "?") return;
+
+            // The inbox-zero screen has no detail on it, so the keys that act
+            // on the open item have nothing to act on; U and ? still work.
+            if (State.ShowsInboxZero && key is "a" or "r" or "d" or "l" or "g" or "x") return;
 
             switch (key)
             {

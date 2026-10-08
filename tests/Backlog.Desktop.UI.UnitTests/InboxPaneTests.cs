@@ -650,6 +650,9 @@ public sealed class InboxPaneTests
     {
         using var harness = Harness.Create();
         var item = harness.Inbox.Seed("Route me", repoIds: [Repo, "JSdotNet/Other"]);
+        // A second item still waiting keeps the Inbox from being cleared, so the
+        // inbox-zero summary (InboxZeroTests) does not take the detail away.
+        harness.Inbox.Seed("Still waiting");
         var routed = new List<InboxRoutedDto>();
         harness.State.Routed += routed.Add;
 
@@ -672,8 +675,8 @@ public sealed class InboxPaneTests
         Assert.Empty(pane.FindAll("[data-testid='inbox-move-to-backlog']"));
         Assert.Empty(pane.FindAll("[data-testid='inbox-archive']"));
         Assert.NotEmpty(pane.FindAll("[data-testid='inbox-move-to-list']"));
-        // And it no longer counts as waiting.
-        Assert.Equal("0", pane.Find("[data-testid='inbox-nav-inbox-count']").TextContent.Trim());
+        // And it no longer counts as waiting: only the other item does.
+        Assert.Equal("1", pane.Find("[data-testid='inbox-nav-inbox-count']").TextContent.Trim());
     }
 
     /// <summary>The four decisions sit in one bar at the foot of the detail,
@@ -786,6 +789,9 @@ public sealed class InboxPaneTests
     {
         using var harness = Harness.Create();
         var item = harness.Inbox.Seed("Dismiss me");
+        // A second item still waiting keeps the Inbox from being cleared, so the
+        // inbox-zero summary (InboxZeroTests) does not take the detail away.
+        harness.Inbox.Seed("Still waiting");
 
         var pane = await harness.RenderAsync();
         await harness.SelectAsync(pane, item.Id);
@@ -906,6 +912,9 @@ public sealed class InboxPaneTests
     {
         using var harness = Harness.Create();
         var item = harness.Inbox.Seed("Someday");
+        // A second item still waiting keeps the Inbox from being cleared, so the
+        // inbox-zero summary (InboxZeroTests) does not take the detail away.
+        harness.Inbox.Seed("Still waiting");
 
         var pane = await harness.RenderAsync();
         await harness.SelectAsync(pane, item.Id);
@@ -917,7 +926,7 @@ public sealed class InboxPaneTests
         await pane.Find("[data-testid='inbox-return']").ClickAsync(new());
 
         Assert.Equal(InboxStatus.Unprocessed, harness.Inbox.Find(item.Id)!.Status);
-        Assert.Equal(["Someday"], Titles(pane));
+        Assert.Contains("Someday", Titles(pane));
         Assert.Empty(pane.FindAll("[data-testid='inbox-return']"));
     }
 
