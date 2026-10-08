@@ -4183,6 +4183,345 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
+/* "Let AI propose the rest" sits at the end of triage's header line. */
+.inbox-triage__propose {
+    gap: var(--spacing-xs);
+}
+
+/* The AI triage pass under review (InboxTriagePass.razor, artboard D). It
+   takes triage's place in the pane's column and scrolls as one, like triage. */
+.inbox-pass {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* Back, what this is, the count and the two acts on one line where there is
+   room, wrapping under the title where there is not. */
+.inbox-pass__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.inbox-pass__heading-block {
+    display: flex;
+    flex: 1 1 20rem;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.inbox-pass__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    line-height: var(--line-height-tight);
+}
+
+.inbox-pass__subtitle,
+.inbox-pass__count {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pass__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+}
+
+.inbox-pass__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.inbox-pass__section-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-pass__section-sub {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: normal;
+}
+
+.inbox-pass__card .card__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.inbox-pass__card-head,
+.inbox-pass__repos-row,
+.inbox-pass__card-foot,
+.inbox-pass__rest-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+}
+
+.inbox-pass__plan-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pass__meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__tag {
+    font-family: var(--font-family-mono);
+    color: var(--color-text-primary);
+}
+
+/* The Accept toggle sits at the end of its line; on, it reads as accepted in
+   the success colours as well as in words and a tick. */
+.inbox-pass__card-head > .inbox-pass__accept,
+.inbox-pass__repos-row > .inbox-pass__edit {
+    margin-left: auto;
+}
+
+.inbox-pass__accept {
+    gap: var(--spacing-2xs);
+}
+
+.btn--toggle.inbox-pass__accept--on {
+    border-color: var(--color-success-text);
+    background: var(--color-success);
+    color: var(--color-text-primary);
+}
+
+/* Some of a row's proposals accepted and some not: the edge says "partly"
+   without claiming the accepted colours. */
+.btn--toggle.inbox-pass__accept--mixed {
+    border-style: dashed;
+    border-color: var(--color-success-text);
+    color: var(--color-text-primary);
+}
+
+.inbox-pass__tick {
+    color: var(--color-success-text);
+}
+
+.inbox-pass__members {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pass__editor {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.inbox-pass__member {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pass__member-title {
+    flex: 1 1 12rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.inbox-pass__member--left-out .inbox-pass__member-title {
+    color: var(--color-text-secondary);
+    text-decoration: line-through;
+}
+
+/* A repository chip: the identity edge (`repo-mark`) on its leading edge. */
+.inbox-pass__repo {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--spacing-lg);
+    padding: 0 var(--spacing-xs) 0 var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__repos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs);
+}
+
+.inbox-pass__why {
+    display: flex;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__card-foot > .inbox-pass__why {
+    margin-left: auto;
+}
+
+/* The two sides of a duplicate pair, side by side where there is room and
+   stacked where there is not. */
+.inbox-pass__sides {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pass__side {
+    display: flex;
+    flex: 1 1 14rem;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.inbox-pass__side--entry {
+    box-shadow: inset var(--border-width-4) 0 0 0 var(--color-primary);
+}
+
+.inbox-pass__side-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__side-title {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pass__arrow {
+    display: flex;
+    align-items: center;
+    color: var(--color-text-secondary);
+}
+
+.inbox-pass__choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs);
+}
+
+.inbox-pass__choice--on {
+    border-color: var(--color-success-text);
+    background: var(--color-success);
+    color: var(--color-text-primary);
+}
+
+/* The single routes: a table that keeps its columns and scrolls sideways in
+   its own box when the pane is narrower than they are. */
+.inbox-pass__table-box {
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+}
+
+.inbox-pass__table {
+    min-width: 640px;
+}
+
+.inbox-pass__row {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 2fr) 8rem;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pass__row--head {
+    border-top: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__cell-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.inbox-pass__row-title {
+    overflow: hidden;
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The rest: one line per list, one for the archives, one for what is left. */
+.inbox-pass__rest-row + .inbox-pass__rest-row {
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.inbox-pass__rest-text {
+    flex: 1 1 14rem;
+    min-width: 0;
+}
+
+.inbox-pass__rest-text--quiet,
+.inbox-pass__rest-reason {
+    color: var(--color-text-secondary);
+    font-style: normal;
+}
+
+.inbox-pass__shown {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-xs) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-pass__shown-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pass .btn:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
 /* The shortcuts dialog: the key in a fixed column, what it does beside it. */
 .inbox-pane__shortcuts {
     display: grid;

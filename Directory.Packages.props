@@ -89,6 +89,12 @@
     -->
     <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.63.2" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <!--
+      The container itself, for a test that composes a module the way a host
+      does (AddInboxModule() over in-memory ports) rather than newing its
+      handlers one by one. Products get it from their host; only tests name it.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
     <!--

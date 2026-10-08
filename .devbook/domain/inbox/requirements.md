@@ -556,7 +556,7 @@ The system SHALL send for the item only its title, link, notes, kind, source, pe
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Without_the_advisor_no_ai_surface_is_drawn_and_the_suggestions_number_from_one]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.Without_the_advisor_no_ai_surface_is_drawn_and_the_suggestions_number_from_one, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Let_AI_propose_the_rest_is_drawn_only_while_the_advisor_can_run]
 ```
 
 The system SHALL show no AI card and no Let AI propose the rest when Foundry is not configured, and SHALL show the rule-based suggestions as it does with Foundry.
@@ -720,6 +720,7 @@ related: [.devbook/domain/inbox/features.md#ai-triage-pass, .devbook/arc42/adr/0
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Pressing_it_opens_the_review_with_the_four_groups_and_their_reasons]
 ```
 
 The system SHALL show on the review screen, for every unprocessed item of the slice the model placed, a proposed plan, duplicate, single route, list filing or archive, each with its reason.
@@ -735,6 +736,7 @@ The system SHALL show on the review screen, for every unprocessed item of the sl
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Low_confidence_starts_unaccepted_and_toggling_changes_the_count_and_Apply, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.A_duplicate_below_the_threshold_starts_on_keep_both_and_an_item_target_offers_keep_the_other]
 ```
 
 The system SHALL start a proposal whose confidence is below 0.6 unaccepted and every other proposal accepted.
@@ -750,6 +752,7 @@ The system SHALL start a proposal whose confidence is below 0.6 unaccepted and e
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Discard_and_Back_put_the_pass_away_change_nothing_and_return_to_triage, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Apply_runs_the_accepted_decisions_and_pushes_one_undo_step_each]
 ```
 
 The system SHALL change no item, task or list until the reader presses Apply, and SHALL then take every accepted proposal and no other.
@@ -771,6 +774,7 @@ The system SHALL change no item, task or list until the reader presses Apply, an
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Triage_them_puts_the_pass_away_and_opens_triage_on_a_left_over_item]
 ```
 
 The system SHALL leave every item the model could not place unprocessed and offer it to triage from the review screen.
@@ -779,7 +783,55 @@ The system SHALL leave every item the model could not place unprocessed and offe
 
 - **Given** the pass placed ten of twelve items
 - **When** the reader looks at the review screen
-- **Then** it says two items are left for them, and Triage them opens triage on those two
+- **Then** it says two items are left for them, and Triage them puts the pass away and opens triage on the first of those two
+
+### Requirement: Apply takes each decision through its own act
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.A_plan_routes_its_members_in_one_batch_under_a_plus_tag_built_from_its_title_with_its_repositories, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.Two_plans_go_as_two_batches_with_two_different_tags, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.A_merge_into_a_task_writes_the_comment_and_archives_the_capture_as_its_duplicate, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.A_single_route_assigns_its_repositories_then_routes, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.A_filing_moves_the_item_to_its_list_and_an_archive_archives, unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.The_decisions_run_in_the_order_given]
+```
+
+The system SHALL apply an accepted plan as one batch route under a plan tag of its own, a duplicate by merging it into the task or archiving it as a duplicate, a single route by moving the item to the backlog with the repositories proposed, and a filing or an archive through its own act, in the order the screen lists them.
+
+#### Scenario: Two plans
+
+- **Given** the reader accepted two plans
+- **When** they press Apply
+- **Then** the backlog receives two batches, each under a different plan tag that opens with its plan's name
+
+### Requirement: Each applied decision can be undone
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.Apply_runs_the_accepted_decisions_and_pushes_one_undo_step_each]
+```
+
+The system SHALL record every decision Apply takes as one step of the session's undo history.
+
+#### Scenario: Taking the last one back
+
+- **Given** Apply took a plan, a merge and an archive
+- **When** the reader presses U
+- **Then** the archive is taken back and the plan and the merge stay
+
+### Requirement: The first refusal stops Apply and is named
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests.The_first_refusal_stops_the_rest_names_the_item_and_leaves_what_landed, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests.A_refusal_stops_the_rest_names_the_item_and_keeps_what_applied]
+```
+
+The system SHALL stop Apply at the first decision refused, keep every decision already taken, leave the rest untried and on the screen, and say which item was refused and why.
+
+#### Scenario: A merge refused in the middle
+
+- **Given** the reader applies a route, a merge and an archive, and the backlog refuses the merge's comment
+- **When** Apply runs
+- **Then** the route stays, the archive is not tried, and the screen says it could not merge the item, naming it
 
 ## Capture attachments
 

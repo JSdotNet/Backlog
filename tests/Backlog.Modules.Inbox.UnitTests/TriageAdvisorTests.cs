@@ -278,6 +278,32 @@ public sealed class TriageAdvisorTests
     }
 
     [Fact]
+    public async Task A_kept_pair_carries_its_targets_title_and_a_tasks_status_from_the_context()
+    {
+        var (store, item, other) = Inbox();
+        var third = Items.Manual("Login button misaligned again");
+        store.Seed(third);
+        var open = Task("Fix the login page", isOpen: true, status: "in progress");
+        var advisor = new FakeTriageAdvisor
+        {
+            Pass = InboxTriagePassDto.Nothing with
+            {
+                Duplicates =
+                [
+                    new(item.Id, InboxTriageTargetKind.Task, open.Id, InboxDuplicateAction.MergeIntoTask, "Same fix.", 0.9),
+                    new(third.Id, InboxTriageTargetKind.InboxItem, other.Id, InboxDuplicateAction.KeepOneAttachOther, "Same.", 0.9),
+                ],
+            },
+        };
+
+        var pass = (await Pass(store, advisor, [item.Id, other.Id, third.Id], new FakeTaskReferences(open))).Value;
+
+        Assert.Equal(2, pass.Duplicates.Count);
+        Assert.Equal(("Fix the login page", "in progress"), (pass.Duplicates[0].TargetTitle, pass.Duplicates[0].TargetStatus));
+        Assert.Equal(("Login button misaligned", (string?)null), (pass.Duplicates[1].TargetTitle, pass.Duplicates[1].TargetStatus));
+    }
+
+    [Fact]
     public async Task A_failed_pass_is_passed_through()
     {
         var (store, item, _) = Inbox();

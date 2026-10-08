@@ -130,7 +130,19 @@ public sealed record InboxTriageDuplicatePairDto(
     Guid TargetId,
     InboxDuplicateAction Action,
     string Reason,
-    double Confidence);
+    double Confidence)
+{
+    /// <summary>What the target is called — the task's title, or the other
+    /// item's — filled in by the module from what the backlog and the inbox
+    /// hold, never taken from the advisor, so the review screen names what the
+    /// reader will find. Null on a pair the advisor built and the module has
+    /// not held yet. A member so an advisor builds a pair as it always did.</summary>
+    public string? TargetTitle { get; init; }
+
+    /// <summary>The task's status (<c>ready</c>, <c>in progress</c>…) for a
+    /// task target; null for an inbox item.</summary>
+    public string? TargetStatus { get; init; }
+}
 
 /// <summary>One item routed on its own: the entry type it becomes
 /// (<c>prompt</c>, <c>task</c> or <c>test</c>), its repositories, and why.</summary>

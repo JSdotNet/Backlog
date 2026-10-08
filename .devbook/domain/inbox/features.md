@@ -399,29 +399,58 @@ on. A list, or Deferred, that is empty shows its own empty state.
 type: sub-feature
 status: draft
 depends-on: [.devbook/domain/inbox/features.md#ai-triage-cards]
-related: [.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md, .devbook/domain/inbox/requirements.md#ai-triage-pass, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/domain/inbox/features.md#merge-into-a-task]
+related: [.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md, .devbook/domain/inbox/requirements.md#ai-triage-pass, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/domain/inbox/features.md#merge-into-a-task, .devbook/domain/inbox/features.md#undo-a-decision]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassDraftTests]
 ```
 
 **Let AI propose the rest**, in triage's header, asks the model to read every
 unprocessed item of the slice against the backlog at once, and opens a review
-screen of what it proposes. It is shown only when Foundry is configured.
+screen of what it proposes in place of the item being triaged. It is drawn only
+when Foundry is configured; while the model reads, it says how many items it is
+reading, and a failed pass is one sentence under the header that triage carries
+on beneath.
 
 The screen groups the proposals:
 
-- **Plans to make**: items that belong together, with a plan name and the
-  repositories, to go to the backlog as one batch;
-- **Likely duplicates**: an item and the open task or capture it repeats, with
-  merge as the proposed act;
-- **Move to backlog on their own**: single routes, each with its repositories;
-- **The rest**: items to file in a named list, and items to archive.
+- **Plans to make**: items that belong together, with a plan name, the plan tag
+  it will carry (`+tasks-sync-polish-…`, the digits minted on Apply), the
+  members and the repositories, to go to the backlog as one batch. **Edit plan**
+  renames it or leaves a member out; a plan left with one member is not applied;
+- **Likely duplicates**: an item and the open task or capture it repeats, side by
+  side, with a choice of acts — for a task, merge into the entry, keep both, or
+  archive the capture; for another capture, keep that one and archive this one
+  as its duplicate, or keep both;
+- **Move to backlog on their own**: single routes, each with the entry type the
+  model reads it as and its repositories;
+- **The rest**: items to file, one row per list, and items to archive, each row
+  accepted as a whole and opened with **Show** to accept them one by one; and
+  the items the model could not place, as **Left for you**, with **Triage them**.
 
-Every proposal carries its reason. Each one is accepted or not by a toggle; a
-proposal below confidence 0.6 starts unaccepted and the rest start accepted.
-The header counts the accepted ones. Nothing changes until **Apply**, which takes
-every accepted proposal as the decision it names; **Discard** leaves the screen
-and changes nothing. The items the model could not place go back to triage,
-listed as left for the reader.
+Every proposal carries its reason. Each one is accepted or not by a toggle — a
+duplicate by its choice, **Keep both** being the unaccepted one; a proposal
+below confidence 0.6 starts unaccepted and the rest start accepted. The header
+counts "*accepted* of *total* accepted" and names what Apply will do, "Apply *n*
+decisions". Nothing changes until **Apply**; **Discard**, **Back** and Esc leave
+the screen for triage and change nothing, and while the screen is open the
+decision keys act on no item.
+
+**Apply** takes every accepted proposal as the decision it names, in the order
+the screen lists them: a plan through the batch route with a plan tag of its own,
+a duplicate through merge into a task or archive as a duplicate, a single route
+by writing its repositories to the item and moving it to the backlog, a filing
+and an archive through their own acts. Each decision lands as one step of the
+[undo history](#undo-a-decision), so U takes them back newest first. The first
+decision refused stops the rest: what already landed stays, the screen keeps the
+proposals not yet taken (a plan that routed only some of its members leaves, and
+its members still waiting are left for the reader), and a note names the item
+that was refused and why. Applied whole, the screen closes and a toast counts the
+decisions taken and the items left for the reader. A pass with nothing to propose
+opens no screen and says so under triage's header. **Triage them** puts the pass away and opens triage on the first item left
+for the reader.
+
+The entry type a single route shows is the model's reading only: the route makes
+the entries Move to backlog makes.
 
 ## Classification and enrichment
 

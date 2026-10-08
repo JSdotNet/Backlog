@@ -363,8 +363,17 @@ internal sealed class FakeInboxItems : IInboxItems
         return Task.FromResult(Result.Success(0));
     }
 
+    /// <summary>Single-item acts refused on cue, by act — <c>merge</c>,
+    /// <c>archive</c>, <c>duplicate</c>, <c>move</c>, <c>route</c> — and item:
+    /// the way a test makes one decision of the AI pass's Apply fail.</summary>
+    public Dictionary<(string Act, Guid Id), Error> FailAct { get; } = [];
+
+    private bool Fails(string act, Guid id, out Error error) => FailAct.TryGetValue((act, id), out error);
+
     public Task<Result> MoveToListAsync(Guid id, Guid? listId, CancellationToken cancellationToken = default)
     {
+        if (Fails("move", id, out var refused)) return Task.FromResult(Result.Failure(refused));
+
         if (listId is { } target && _lists.All(list => list.Id != target))
         {
             return Task.FromResult(Result.Failure(InboxErrors.ListNotFound));
@@ -374,6 +383,7 @@ internal sealed class FakeInboxItems : IInboxItems
     }
 
     public Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Fails("archive", id, out var refused) ? Task.FromResult(Result.Failure(refused)) :
         Update(id, item => item.Status == InboxStatus.Archived
             ? throw new InvalidOperationException("Already archived.")
             : item with { Status = InboxStatus.Archived, DeferredUntil = null });
@@ -409,6 +419,7 @@ internal sealed class FakeInboxItems : IInboxItems
     /// exist, and only an open item.</summary>
     public Task<Result> ArchiveAsDuplicateAsync(Guid id, Guid duplicateOf, CancellationToken cancellationToken = default)
     {
+        if (Fails("duplicate", id, out var refused)) return Task.FromResult(Result.Failure(refused));
         if (id == duplicateOf) return Task.FromResult(Result.Failure(InboxErrors.DuplicateOfItself));
         if (Find(duplicateOf) is null) return Task.FromResult(Result.Failure(InboxErrors.DuplicateTargetNotFound));
         if (Find(duplicateOf)!.DuplicateOf == id) return Task.FromResult(Result.Failure(InboxErrors.DuplicateCircular));
@@ -450,6 +461,8 @@ internal sealed class FakeInboxItems : IInboxItems
     public Task<Result> MergeIntoTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default)
     {
         Merges.Add((id, taskId));
+
+        if (Fails("merge", id, out var refused)) return Task.FromResult(Result.Failure(refused));
 
         if (Find(id) is { } item && (item.Routing is not null || item.Status is not (InboxStatus.Unprocessed or InboxStatus.Deferred)))
         {
@@ -611,6 +624,8 @@ internal sealed class FakeInboxItems : IInboxItems
     {
         SingleRouteCalls++;
         if (BeforeRoute is { } gate) await gate();
+
+        if (Fails("route", id, out var refused)) return Result.Failure<InboxRoutedDto>(refused);
 
         if (Find(id) is not { } item) return Result.Failure<InboxRoutedDto>(InboxErrors.ItemNotFound);
         if (item.Routing is not null) return Result.Failure<InboxRoutedDto>(InboxErrors.InvalidTransition("Already routed."));
