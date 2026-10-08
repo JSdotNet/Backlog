@@ -15,6 +15,12 @@
     not readable: the picture is aria-hidden, and everything it shows is in the
     table underneath it. Unlike the sparkline, these values appear nowhere else on
     the page, so they have to be somewhere.
+
+    Two optional marks for a chart that runs past today. Columns from ProjectedFrom
+    on are drawn faded and carry "(projected)" in the table, so a forecast never
+    reads as something that happened. A Reference draws a dashed line across the
+    plot at a value — a budget — and the scale stretches to keep it on the chart;
+    its label is printed beside it and repeated in the table's caption.
 *@
 
 <figure class="@ClassValue" style="@StyleValue" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -49,9 +55,19 @@
             </div>
 
             <div class="@(Part("columns"))">
+                @if (ReferenceShare is not null)
+                {
+                    <div class="@(Part("reference"))" style="@($"--metric-bars-reference: {ReferenceShare.Value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)}")">
+                        @if (!string.IsNullOrWhiteSpace(ReferenceLabel))
+                        {
+                            <span class="@(Part("reference-label"))">@ReferenceLabel</span>
+                        }
+                    </div>
+                }
+
                 @foreach (var column in Columns)
                 {
-                    <div class="@ColumnClass(column)" title="@($"{column.Label}: {Format(column.Value)}")">
+                    <div class="@ColumnClass(column)" title="@($"{column.Label}: {Format(column.Value)}{(column.IsProjected ? " (projected)" : null)}")">
                         <div class="@(Part("column-track"))">
                             <span class="@(Part("column-fill"))" style="@($"height: {Invariant(column.Height)}%")"></span>
                         </div>
@@ -79,7 +95,7 @@
                     {
                         <tr>
                             <th scope="row">@column.Label</th>
-                            <td>@Format(column.Value)</td>
+                            <td>@Format(column.Value)@(column.IsProjected ? " (projected)" : null)</td>
                         </tr>
                     }
                 </tbody>
@@ -130,6 +146,22 @@
     [Parameter]
     public bool HighlightLast { get; set; }
 
+    /// <summary>The index of the first projected column; it and every column after
+    /// it are drawn faded and marked projected in the table. Null projects
+    /// nothing.</summary>
+    [Parameter]
+    public int? ProjectedFrom { get; set; }
+
+    /// <summary>A value to draw as a dashed line across the plot, such as a budget.
+    /// The scale reaches at least this far, so the line is always on the chart.</summary>
+    [Parameter]
+    public decimal? Reference { get; set; }
+
+    /// <summary>What the line is — "Budget $300" — printed beside it and added to the
+    /// table's caption.</summary>
+    [Parameter]
+    public string? ReferenceLabel { get; set; }
+
     [Parameter]
     public string Height { get; set; } = "9rem";
 
@@ -151,11 +183,13 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    private sealed record Column(string Label, decimal Value, decimal Height, bool ShowLabel, bool IsLast);
+    private sealed record Column(string Label, decimal Value, decimal Height, bool ShowLabel, bool IsLast, bool IsProjected);
 
     private List<Column> Columns { get; set; } = [];
 
     private decimal PeakValue { get; set; }
+
+    private decimal? ReferenceShare { get; set; }
 
     protected override void OnParametersSet()
     {
@@ -165,6 +199,7 @@
         {
             Columns = [];
             PeakValue = 0m;
+            ReferenceShare = null;
             return;
         }
 
@@ -173,12 +208,16 @@
         // look like a cliff, and the reader has no axis to argue with.
         PeakValue = points.Max(point => point.Value);
 
+        if (Reference is { } reference && reference > PeakValue) PeakValue = reference;
+
         // A whole period of nothing is legitimate — a week with no AI usage in it —
         // and every column should be empty rather than every column full.
         var span = PeakValue <= 0m ? 1m : PeakValue;
 
         var stride = MaxLabels <= 0 ? 1 : Math.Max(1, (int)Math.Ceiling(points.Count / (double)MaxLabels));
         var last = points.Count - 1;
+
+        ReferenceShare = Reference is { } line && line > 0m ? line / span : null;
 
         Columns =
         [
@@ -187,20 +226,32 @@
                 point.Value,
                 Math.Max(0m, point.Value) / span * 100m,
                 index % stride == 0 || index == last,
-                index == last))
+                index == last,
+                ProjectedFrom is { } from && index >= from))
         ];
     }
 
     private string ColumnClass(Column column)
     {
         var highlight = HighlightLast && column.IsLast ? $" {Part("column")}--current" : string.Empty;
+        var projected = column.IsProjected ? $" {Part("column")}--projected" : string.Empty;
 
-        return $"{Part("column")}{highlight}";
+        return $"{Part("column")}{highlight}{projected}";
     }
 
-    private string TableCaption => string.IsNullOrWhiteSpace(Label)
-        ? $"{ValueHeading} per {BucketHeading.ToLowerInvariant()}"
-        : Label;
+    private string TableCaption
+    {
+        get
+        {
+            var caption = string.IsNullOrWhiteSpace(Label)
+                ? $"{ValueHeading} per {BucketHeading.ToLowerInvariant()}"
+                : Label;
+
+            return ReferenceShare is not null && !string.IsNullOrWhiteSpace(ReferenceLabel)
+                ? $"{caption} — {ReferenceLabel}"
+                : caption;
+        }
+    }
 
     private string Format(decimal value) => (FormatValue ?? MetricFormat.Compact)(value);
 

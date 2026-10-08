@@ -62,6 +62,29 @@ public sealed class ClaudeSpendSourceTests
         Assert.Empty(report.Entries);
     }
 
+    /// <summary>Anthropic reports tokens by direction, so each entry carries both halves
+    /// beside the total — input counting the cache reads and writes, which is what a
+    /// reader means by input.</summary>
+    [Fact]
+    public async Task Each_entry_splits_its_tokens_into_input_and_output()
+    {
+        using var store = new TemporaryClaudeStore();
+        var personal = store.Store.Current.Accounts[0].Id;
+        store.Store.SetAdminApiKey(personal, "sk-ant-admin01-personal");
+        store.Store.SetActor(personal, "me@example.com");
+
+        var usage = new StubUsage { [personal] = ("me@example.com", 1.25m) };
+        var source = new ClaudeSpendSource(usage, store.Store);
+
+        var day = new DateOnly(2026, 9, 1);
+        var report = await source.GetSpendAsync(day, day, TestContext.Current.CancellationToken);
+
+        var entry = Assert.Single(report.Entries);
+        Assert.Equal(15, entry.Tokens);
+        Assert.Equal(10, entry.InputTokens);
+        Assert.Equal(5, entry.OutputTokens);
+    }
+
     [Fact]
     public async Task A_key_without_an_actor_on_every_account_is_unavailable_and_says_why()
     {

@@ -6039,6 +6039,52 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* A Cost tab provider card: the tile with its budget meter in the trend slot and
+   the chip in the corner the label line leaves free. The chip is a soft surface
+   with primary text on it, like every other state chip — the words say whether the
+   projection passes the budget, the tint only draws the eye to the one that does. */
+.dashboard-spend-card {
+    position: relative;
+}
+
+.dashboard-spend-card__chip {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* The tile's own value and unit already read "spent of budget", so the meter's
+   printed reading would say it twice. The track keeps it as its aria-valuetext. */
+.dashboard-spend-card .metric-meter__heading {
+    display: none;
+}
+
+/* The label line makes room for the chip, so a long provider name in a narrow
+   column wraps instead of running under it. */
+.dashboard-spend-card:has(.dashboard-spend-card__chip) .metric-tile__label {
+    padding-right: 8.5rem;
+}
+
+.dashboard-spend-card__chip--over {
+    background: var(--color-warning);
+}
+
+.dashboard-spend-card__chip--within {
+    background: var(--color-success);
+}
+
+/* The Cumulative / Per day switch sits at the start of the part, above the chart
+   it switches, and does not stretch across it. */
+.dashboard-spend-trend__mode {
+    justify-self: start;
+}
+
 /* Drift at a glance. The repository after a unit only when the units come from more
    than one, quieter than the unit it qualifies; a unit whose drift issue carries
    sync-failed keeps its row and says so with the badge, the tint only draws the eye. */

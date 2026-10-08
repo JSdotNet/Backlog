@@ -111,7 +111,9 @@ The y scale runs zero to max rather than min to max, so a series that moved two 
 
 Only every nth date is printed, the last one always among them, and every column is also a row in a visually-hidden table.
 
-`Note` puts what a reader could get wrong about the columns behind a mark beside the caption, so the caption stays a name. The second chart here has one."
+`Note` puts what a reader could get wrong about the columns behind a mark beside the caption, so the caption stays a name. The second chart here has one.
+
+`ProjectedFrom` fades the columns from that index on and marks them projected in the table; `Reference` draws a dashed line at a value — a budget — with `ReferenceLabel` beside it. The third chart has both."
            Code="@BarsCode">
         <div class="sb-stack">
             <MetricBars Points="UsageFixtures.TokensPerDay"
@@ -129,6 +131,17 @@ Only every nth date is printed, the last one always among them, and every column
                         FormatValue="UsageFixtures.Money"
                         Height="7rem"
                         TestId="bars-cost" />
+
+            <MetricBars Points="CumulativeCost"
+                        Label="@($"Spend so far, in {UsageFixtures.Currency}")"
+                        BucketHeading="Day"
+                        ValueHeading="Cost"
+                        ProjectedFrom="@(CumulativeCost.Count - 4)"
+                        Reference="@UsageFixtures.BudgetCap"
+                        ReferenceLabel="@($"Budget {UsageFixtures.Money(UsageFixtures.BudgetCap)}")"
+                        FormatValue="UsageFixtures.Money"
+                        Height="7rem"
+                        TestId="bars-projected" />
         </div>
     </Story>
 
@@ -183,7 +196,9 @@ Every figure is printed; the bars are `aria-hidden`. `Detail` carries what a rea
     <Story Name="MetricMeter"
            Description="Spend against a cap: the one component here about a limit rather than a quantity, so it is a meter with a known maximum and a reading inside it.
 
-The threshold is passed as a value on the same scale rather than as a fraction, so the call site reads `Max * 0.8m` instead of a bare `0.8`. Going over renders a modifier, a frame and a caption saying by how much."
+The threshold is passed as a value on the same scale rather than as a fraction, so the call site reads `Max * 0.8m` instead of a bare `0.8`. Going over renders a modifier, a frame and a caption saying by how much.
+
+`Marker` draws a second reading across the track — where the spend is heading by the month's end — clamped at the track's end when it passes the cap."
            Code="@MeterCode">
         <div class="sb-stack">
             <MetricMeter Label="Spend this month"
@@ -192,6 +207,14 @@ The threshold is passed as a value on the same scale rather than as a fraction, 
                          Threshold="UsageFixtures.BudgetThreshold"
                          FormatValue="UsageFixtures.Money"
                          TestId="meter-under" />
+
+            <MetricMeter Label="Spend this month, projected past the cap"
+                         Value="UsageFixtures.BudgetSpent"
+                         Max="UsageFixtures.BudgetCap"
+                         Marker="1180m"
+                         MarkerLabel="Projected 1,180.00 USD"
+                         FormatValue="UsageFixtures.Money"
+                         TestId="meter-marker" />
 
             <MetricMeter Label="Spend this month"
                          Value="874.20m"
@@ -224,7 +247,9 @@ The threshold is passed as a value on the same scale rather than as a fraction, 
     <Story Name="MetricBreakdown"
            Description="The rows behind the tiles: a table, because the question is “which one, and how much”. The share bar in the last cell sits on top of a printed percentage rather than replacing it.
 
-Which column the share is a share of is a parameter, because tokens and cost do not produce the same ranking."
+Which column the share is a share of is a parameter, because tokens and cost do not produce the same ranking.
+
+Rows that split their tokens by direction get input and output columns of their own; `ShareFirst` moves the share bar beside the name."
            Code="@BreakdownCode">
         <div class="sb-stack">
             <MetricBreakdown Rows="UsageFixtures.ByModel"
@@ -245,6 +270,13 @@ Which column the share is a share of is a parameter, because tokens and cost do 
                              NameHeading="Actor"
                              ShareOf="MetricShareOf.Cost"
                              TestId="breakdown-actors" />
+
+            <MetricBreakdown Rows="SplitTokens"
+                             Label="By model, tokens by direction"
+                             NameHeading="Model"
+                             CostHeading="Spend"
+                             ShareFirst="true"
+                             TestId="breakdown-split" />
         </div>
     </Story>
 
@@ -352,6 +384,21 @@ A total across two currencies is a wrong number rather than a missing one, so th
     ];
 
     private static readonly IReadOnlyList<MetricRow> NoRows = [];
+
+    private static readonly IReadOnlyList<MetricPoint> CumulativeCost = Running(UsageFixtures.CostPerDay);
+
+    private static readonly IReadOnlyList<MetricRow> SplitTokens =
+    [
+        new("claude-opus-5", Cost: new MoneyAmount(131.00m, "USD")) { InputTokens = 41_200_000, OutputTokens = 3_100_000 },
+        new("claude-sonnet-5", Cost: new MoneyAmount(64.00m, "USD")) { InputTokens = 58_700_000, OutputTokens = 4_400_000 },
+        new("gpt-5 (Copilot)", Cost: new MoneyAmount(17.00m, "USD"))
+    ];
+
+    private static IReadOnlyList<MetricPoint> Running(IReadOnlyList<MetricPoint> points)
+    {
+        var total = 0m;
+        return [.. points.Select(point => new MetricPoint(point.Label, total += point.Value))];
+    }
 
     /// <summary>Seconds, from a real run's fold, in no particular order: the
     /// component ranks them.</summary>

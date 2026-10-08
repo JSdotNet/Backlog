@@ -222,6 +222,9 @@ public sealed class DashboardDeltaPartTests
         public Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendProjectionInsight>.Unavailable(DashboardTestHost.UnavailableReason));
 
+        public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByDayInsight>.Unavailable(DashboardTestHost.UnavailableReason));
+
         public void Invalidate()
         {
         }

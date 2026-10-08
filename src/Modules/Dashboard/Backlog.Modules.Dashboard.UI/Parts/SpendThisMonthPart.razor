@@ -12,14 +12,20 @@
     would say which part. So each tile says whose it is and whether it is
     estimated, and the reader does the addition knowing that.
 
+    Each tile is a card: the spend so far out of the provider's monthly budget, a
+    meter with a mark where the month-end projection falls, and a chip saying
+    whether that projection passes the budget. The budget is the person's own,
+    set in Dashboard settings; a provider with none shows its spend and projection
+    and no meter, because a meter needs a ceiling and nobody published one.
+
     Each tile is compared with the same days of last month rather than the whole of
     it, because this month is not over, and spend going up is the worse direction.
     Copilot reports a month as one entry and so has no comparison.
 
-    The meter appears only for a provider that reported a discount, which today
-    means Copilot: GitHub says how much of the month's consumption the plan already
-    covered, so value-against-consumed is a real ratio. Anthropic and Azure report
-    no allowance, and a meter there would need a ceiling nobody published.
+    Charged against consumed is a caption, and only for a provider that reported
+    a discount — today Copilot: GitHub says how much of the month's consumption
+    the plan already covered. Anthropic and Azure report no allowance, so for them
+    what was charged is all there is to say.
 *@
 @inherits DashboardPartBase<SpendThisMonthInsight>
 @inject ICostInsights Costs
@@ -40,19 +46,31 @@
                                 Emphasis="@(provider.Provider == SpendProvider.Claude)"
                                 Delta="@DashboardFormat.ShareDelta(provider.Spend.Amount, provider.PreviousSpend?.Amount, "same days last month", higherIsBetter: false)"
                                 Footnote="@Footnote(provider)"
-                                TestId="@($"dashboard-spend-month-{Slug(provider.Provider)}")" />
+                                TestId="@($"dashboard-spend-month-{Slug(provider.Provider)}")"
+                                Unit="@OfBudget(provider)"
+                                CssClass="dashboard-spend-card">
+                        <Trend>
+                            @if (ProjectionOf(provider) is { } projection && projection.Budget is { } budget)
+                            {
+                                <Badge Kind=""
+                                       Slug="@(projection.IsProjectedPastBudget ? "over" : "within")"
+                                       BaseClass="dashboard-spend-card__chip"
+                                       TestId="@($"dashboard-spend-month-chip-{Slug(provider.Provider)}")">
+                                    @(projection.IsProjectedPastBudget ? "Will pass budget" : "Within budget")
+                                </Badge>
+                                <MetricMeter AriaLabel="@($"{Name(provider.Provider)} spend against its monthly budget")"
+                                             Value="@provider.Spend.Amount"
+                                             Max="@budget.Amount"
+                                             Marker="@projection.Projected.Amount"
+                                             MarkerLabel="@($"Projected {Money(projection.Projected)}")"
+                                             FormatValue="@(amount => MetricFormat.Money(new MoneyAmount(amount, provider.Spend.Currency)))"
+                                             Caption=""
+                                             TestId="@($"dashboard-spend-month-meter-{Slug(provider.Provider)}")" />
+                            }
+                        </Trend>
+                    </MetricTile>
                 }
             </MetricGrid>
-
-            @foreach (var provider in Value!.Providers.Where(one => one.Allowance is not null))
-            {
-                <MetricMeter Label="@($"{Name(provider.Provider)} — charged against consumed")"
-                             Value="@provider.Spend.Amount"
-                             Max="@(provider.Spend.Amount + provider.Allowance!.Amount)"
-                             FormatValue="@(amount => MetricFormat.Money(new MoneyAmount(amount, provider.Spend.Currency)))"
-                             Caption="@Covered(provider)"
-                             TestId="@($"dashboard-spend-month-meter-{Slug(provider.Provider)}")" />
-            }
         </div>
     }
     else
@@ -71,8 +89,28 @@
 
     protected override bool FollowsWindow => false;
 
-    protected override Task<InsightResult<SpendThisMonthInsight>> FetchAsync(CancellationToken cancellationToken) =>
-        Costs.GetThisMonthAsync(cancellationToken);
+    /// <summary>Each provider's projection and budget, by provider. Empty when the
+    /// projection could not be read, which costs the cards their meter and chip and
+    /// leaves the spend standing.</summary>
+    private IReadOnlyDictionary<SpendProvider, SpendProjection> _projections =
+        new Dictionary<SpendProvider, SpendProjection>();
+
+    /// <summary>
+    /// The month's spend, and beside it the projection the meter and chip read. Both
+    /// derive from one cached read of the month, so the second call asks no provider
+    /// again.
+    /// </summary>
+    protected override async Task<InsightResult<SpendThisMonthInsight>> FetchAsync(CancellationToken cancellationToken)
+    {
+        var month = await Costs.GetThisMonthAsync(cancellationToken);
+        var projection = await Costs.GetProjectionAsync(cancellationToken);
+
+        _projections = projection.HasValue
+            ? projection.Value!.Providers.ToDictionary(one => one.Provider)
+            : new Dictionary<SpendProvider, SpendProjection>();
+
+        return month;
+    }
 
     /// <summary>
     /// Empty when no provider is in the list. A provider present with a spend of
@@ -102,16 +140,36 @@
         _ => provider.ToString().ToLowerInvariant()
     };
 
-    private static string Footnote(MonthlySpend provider)
+    private SpendProjection? ProjectionOf(MonthlySpend provider) =>
+        _projections.TryGetValue(provider.Provider, out var projection) ? projection : null;
+
+    /// <summary>"of $250" beside the spend, when the provider has a budget.</summary>
+    private string? OfBudget(MonthlySpend provider) =>
+        ProjectionOf(provider)?.Budget is { } budget ? $"of {Money(budget)}" : null;
+
+    /// <summary>
+    /// What was charged against what was consumed, where the provider reported the
+    /// difference, and where the month is heading. A provider with no allowance says
+    /// which days the figure covers instead, because charged is all there is.
+    /// </summary>
+    private string Footnote(MonthlySpend provider)
     {
-        var through = $"1–{provider.Through.Day} {provider.Through:MMM}";
+        var parts = new List<string>
+        {
+            provider.Allowance is { } allowance
+                ? $"Charged {Money(provider.Spend)} against {Money(provider.Spend + allowance)} consumed"
+                : $"1–{provider.Through.Day} {provider.Through:MMM}"
+        };
+
+        if (ProjectionOf(provider) is { } projection) parts.Add($"projected {Money(projection.Projected)}");
+
+        var caption = string.Join(" · ", parts);
 
         return provider.IsEstimate
-            ? $"{through}, estimated by the provider"
-            : through;
+            ? $"{caption}, estimated by the provider"
+            : caption;
     }
 
-    private static string Covered(MonthlySpend provider) =>
-        $"{MetricFormat.Money(new MoneyAmount(provider.Allowance!.Amount, provider.Allowance.Currency))} "
-        + "of this month's consumption was already covered by the plan.";
+    private static string Money(DashboardMoney money) =>
+        MetricFormat.Money(new MoneyAmount(money.Amount, money.Currency));
 }

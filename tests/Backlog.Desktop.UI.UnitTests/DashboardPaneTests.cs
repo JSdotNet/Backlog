@@ -3517,6 +3517,12 @@ public class DashboardPaneTests
             return Task.FromResult(InsightResult<SpendProjectionInsight>.Unavailable("Not configured."));
         }
 
+        public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(InsightResult<SpendByDayInsight>.Unavailable("Not configured."));
+        }
+
         public void Invalidate()
         {
         }
@@ -3551,6 +3557,13 @@ public class DashboardPaneTests
 
         public Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendProjectionInsight>.Ready(SpendProjectionInsight.Empty));
+
+        public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByDayInsight>.Ready(new SpendByDayInsight(
+                [new SpendDay(new DateOnly(2026, 8, 1), 12.34m, IsProjected: false)],
+                "USD",
+                Budget: null,
+                IsEstimate: true)));
 
         public void Invalidate()
         {

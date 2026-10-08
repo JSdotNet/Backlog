@@ -14,6 +14,11 @@
     Rows render in the order given. Sorting is the caller's, because the useful
     order depends on the question: biggest spender first for a cost review, most
     recent first for a seat audit.
+
+    Input and output tokens are columns of their own, shown only when some row
+    reports tokens by direction: a provider that prices the two differently is the
+    reason a reader wants them apart. ShareFirst moves the share column next to the
+    name, for a table whose first question is proportion.
 *@
 
 <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -39,6 +44,18 @@
                 <thead>
                     <tr>
                         <th scope="col">@NameHeading</th>
+                        @if (ShowShare && ShareFirst)
+                        {
+                            <th scope="col">@ShareHeading</th>
+                        }
+                        @if (ShowInputTokens)
+                        {
+                            <th scope="col" class="@(Part("numeric"))">@InputTokensHeading</th>
+                        }
+                        @if (ShowOutputTokens)
+                        {
+                            <th scope="col" class="@(Part("numeric"))">@OutputTokensHeading</th>
+                        }
                         @if (ShowTokens)
                         {
                             <th scope="col" class="@(Part("numeric"))">@TokensHeading</th>
@@ -47,7 +64,7 @@
                         {
                             <th scope="col" class="@(Part("numeric"))">@CostHeading</th>
                         }
-                        @if (ShowShare)
+                        @if (ShowShare && !ShareFirst)
                         {
                             <th scope="col" class="@(Part("numeric"))">@ShareHeading</th>
                         }
@@ -65,6 +82,21 @@
                                 }
                             </th>
 
+                            @if (ShowShare && ShareFirst)
+                            {
+                                <td class="@(Part("share-cell"))">@ShareCell(row)</td>
+                            }
+
+                            @if (ShowInputTokens)
+                            {
+                                <td class="@(Part("numeric"))">@(row.InputTokens is null ? Missing : MetricFormat.Compact(row.InputTokens.Value))</td>
+                            }
+
+                            @if (ShowOutputTokens)
+                            {
+                                <td class="@(Part("numeric"))">@(row.OutputTokens is null ? Missing : MetricFormat.Compact(row.OutputTokens.Value))</td>
+                            }
+
                             @if (ShowTokens)
                             {
                                 <td class="@(Part("numeric"))">@(row.Tokens is null ? Missing : MetricFormat.Compact(row.Tokens.Value))</td>
@@ -75,28 +107,9 @@
                                 <td class="@(Part("numeric"))">@(row.Cost is null ? Missing : MetricFormat.Money(row.Cost, CostDecimals))</td>
                             }
 
-                            @if (ShowShare)
+                            @if (ShowShare && !ShareFirst)
                             {
-                                <td class="@(Part("numeric"))">
-                                    @{
-                                        var share = ShareOfRow(row);
-                                    }
-                                    @if (share is null)
-                                    {
-                                        @Missing
-                                    }
-                                    else
-                                    {
-                                        <span class="@(Part("share"))">
-                                            <span class="@(Part("share-text"))">@MetricFormat.Percent(share.Value)</span>
-                                            @* The bar repeats the percentage beside it,
-                                               so it adds nothing to the tree. *@
-                                            <span class="@(Part("share-track"))" aria-hidden="true">
-                                                <span class="@(Part("share-fill"))" style="@($"width: {Width(share.Value)}%")"></span>
-                                            </span>
-                                        </span>
-                                    }
-                                </td>
+                                <td class="@(Part("numeric"))">@ShareCell(row)</td>
                             }
                         </tr>
                     }
@@ -107,6 +120,18 @@
                     <tfoot>
                         <tr class="@(Part("total"))">
                             <th scope="row">@TotalHeading</th>
+                            @if (ShowShare && ShareFirst)
+                            {
+                                <td>@(HasShareTotal ? MetricFormat.Percent(1m) : Missing)</td>
+                            }
+                            @if (ShowInputTokens)
+                            {
+                                <td class="@(Part("numeric"))">@MetricFormat.Compact(Rows.Sum(row => row.InputTokens ?? 0))</td>
+                            }
+                            @if (ShowOutputTokens)
+                            {
+                                <td class="@(Part("numeric"))">@MetricFormat.Compact(Rows.Sum(row => row.OutputTokens ?? 0))</td>
+                            }
                             @if (ShowTokens)
                             {
                                 <td class="@(Part("numeric"))">@(TotalTokens is null ? Missing : MetricFormat.Compact(TotalTokens.Value))</td>
@@ -115,7 +140,7 @@
                             {
                                 <td class="@(Part("numeric"))">@(TotalCost is null ? Missing : MetricFormat.Money(TotalCost, CostDecimals))</td>
                             }
-                            @if (ShowShare)
+                            @if (ShowShare && !ShareFirst)
                             {
                                 <td class="@(Part("numeric"))">@(HasShareTotal ? MetricFormat.Percent(1m) : Missing)</td>
                             }
@@ -154,6 +179,16 @@
 
     [Parameter]
     public string CostHeading { get; set; } = "Cost";
+
+    [Parameter]
+    public string InputTokensHeading { get; set; } = "Input tokens";
+
+    [Parameter]
+    public string OutputTokensHeading { get; set; } = "Output tokens";
+
+    /// <summary>Puts the share column straight after the name rather than last.</summary>
+    [Parameter]
+    public bool ShareFirst { get; set; }
 
     [Parameter]
     public string ShareHeading { get; set; } = "Share";
@@ -216,6 +251,42 @@
     private bool ShowTokens => Rows.Any(row => row.Tokens is not null);
 
     private bool ShowCost => Rows.Any(row => row.Cost is not null);
+
+    private bool ShowInputTokens => Rows.Any(row => row.InputTokens is not null);
+
+    private bool ShowOutputTokens => Rows.Any(row => row.OutputTokens is not null);
+
+    /// <summary>The share as a percentage with a bar behind it, or an em dash when the
+    /// row has no figure to be a share of. A fragment because the column is drawn in
+    /// one of two places.</summary>
+    private RenderFragment ShareCell(MetricRow row) => builder =>
+    {
+        var share = ShareOfRow(row);
+
+        if (share is null)
+        {
+            builder.AddContent(0, Missing);
+            return;
+        }
+
+        builder.OpenElement(1, "span");
+        builder.AddAttribute(2, "class", Part("share"));
+        builder.OpenElement(3, "span");
+        builder.AddAttribute(4, "class", Part("share-text"));
+        builder.AddContent(5, MetricFormat.Percent(share.Value));
+        builder.CloseElement();
+
+        // The bar repeats the percentage beside it, so it adds nothing to the tree.
+        builder.OpenElement(6, "span");
+        builder.AddAttribute(7, "class", Part("share-track"));
+        builder.AddAttribute(8, "aria-hidden", "true");
+        builder.OpenElement(9, "span");
+        builder.AddAttribute(10, "class", Part("share-fill"));
+        builder.AddAttribute(11, "style", $"width: {Width(share.Value)}%");
+        builder.CloseElement();
+        builder.CloseElement();
+        builder.CloseElement();
+    };
 
     private long? TotalTokens => ShowTokens
         ? Rows.Where(row => row.Tokens is not null).Sum(row => row.Tokens!.Value)
