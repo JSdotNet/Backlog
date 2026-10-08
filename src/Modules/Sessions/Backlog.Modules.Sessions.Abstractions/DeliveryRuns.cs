@@ -264,7 +264,36 @@ public sealed record DeliveryRunStage(string Name, string Status, long? Duration
     /// is.
     /// </summary>
     public string? Execution { get; init; }
+
+    /// <summary>
+    /// Every sub-agent call the run's insights recorded in this stage, one per call and
+    /// in the order they were recorded — where <see cref="Agents"/> counts them per
+    /// agent and model, this keeps each call's own time, tokens and tool calls, which is
+    /// what a stage's execution panel lists. Empty where the file recorded none.
+    /// </summary>
+    public IReadOnlyList<DeliveryRunSubAgentRun> SubAgentRuns { get; init; } = [];
+
+    /// <summary>How many tool calls the run's insights filed under this stage.</summary>
+    public int ToolCalls { get; init; }
 }
+
+/// <summary>
+/// One sub-agent call a stage made, as the run's insights recorded it.
+/// </summary>
+/// <param name="Agent">The agent's name as recorded — a display name where the record
+/// carries one.</param>
+/// <param name="Model">The model it ran on, verbatim, or null where none was recorded.</param>
+/// <param name="DurationMs">How long it ran, where recorded.</param>
+/// <param name="Tokens">The tokens it moved in all, where recorded.</param>
+/// <param name="ToolCalls">The tool calls it made, where recorded.</param>
+/// <param name="Failed">Whether the call did not complete.</param>
+public sealed record DeliveryRunSubAgentRun(
+    string Agent,
+    string? Model,
+    long? DurationMs,
+    long? Tokens,
+    int? ToolCalls,
+    bool Failed);
 
 /// <summary>
 /// One agent a stage delegated to, on one model.

@@ -1,0 +1,61 @@
+@*
+    How a stage of a flow ran: inline, delegate, fork or gate.
+    .devbook/design/effort-and-mode-chips.md#mode-chips is the rule; this is its drawing.
+
+    Four modes, four shapes, so a reader who cannot tell the colours apart still tells
+    the modes apart: inline is plain text, delegate a solid outline, fork a dashed
+    one, and gate the one filled box — the stage that waits on the reader. The word is
+    always the text, and the title says what the mode means and doubles as the
+    accessible name.
+
+    A word the vocabulary does not list renders verbatim as plain text, and its title
+    names the modes expected: flagged, not styled. Information, not a control.
+*@
+@if (Value is { } value)
+{
+    <span class="@ClassValue(value)"
+          role="img"
+          title="@Title(value)"
+          aria-label="@($"{value}: {Meaning(value)}")"
+          data-testid="@TestId"
+          data-mode="@Step(value)">@value</span>
+}
+
+@code {
+    /// <summary>The modes, in the order a legend lists them.</summary>
+    public static readonly IReadOnlyList<string> Modes = ["inline", "delegate", "fork", "gate"];
+
+    /// <summary>The mode word. Null or blank draws nothing.</summary>
+    [Parameter]
+    public string? Mode { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "mode-chip";
+
+    private string? Value => string.IsNullOrWhiteSpace(Mode) ? null : Mode.Trim().ToLowerInvariant();
+
+    /// <summary>The mode a word names, or "unknown".</summary>
+    public static string Step(string mode) =>
+        Modes.FirstOrDefault(known => string.Equals(known, mode.Trim(), StringComparison.OrdinalIgnoreCase)) ?? "unknown";
+
+    /// <summary>What a mode means, in the guideline's words.</summary>
+    public static string Meaning(string mode) => Step(mode) switch
+    {
+        "inline" => "Ran in the owner session",
+        "delegate" => "Handed to a sub-agent",
+        "fork" => "Ran in a fork of the owner session",
+        "gate" => "Your approval: no model runs it",
+        _ => $"Not a recorded mode; expected one of {string.Join(", ", Modes)}"
+    };
+
+    private static string Title(string mode) => Meaning(mode);
+
+    private string ClassValue(string mode)
+    {
+        var chip = $"mode-chip mode-chip--{Step(mode)}";
+        return string.IsNullOrWhiteSpace(CssClass) ? chip : $"{chip} {CssClass}";
+    }
+}

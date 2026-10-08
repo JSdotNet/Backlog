@@ -726,9 +726,8 @@ narrow width the panel drops under the list.
 
 ```meta
 type: feature
-status: proposed
 depends-on: [.devbook/domain/sessions/features.md#delivery-runs-beside-their-sessions]
-related: [.devbook/domain/sessions/features.md#under-the-session-that-drove-it, .devbook/domain/sessions/domain.md#delivery-run, .devbook/design/effort-and-mode-chips.md#mode-chips, .devbook/design/effort-and-mode-chips.md#effort-chips]
+related: [.devbook/domain/sessions/features.md#under-the-session-that-drove-it, .devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/domain.md#stage-resolution, .devbook/design/effort-and-mode-chips.md#mode-chips, .devbook/design/effort-and-mode-chips.md#effort-chips]
 ```
 
 Each stage of a delivery run says how it ran, beside how the repository said it should
@@ -738,13 +737,16 @@ run is usually explained by a stage that ran differently from its configuration.
 
 This deepens the fold described in
 [Under the session that drove it](#under-the-session-that-drove-it). That chapter names
-who worked in each stage; this one says how.
+who worked in each stage; this one says how. The stages are listed in the run's fold,
+under the picture of its stages and above its figures, with a legend above them. What
+each value means is the `Stage Resolution` of
+[the domain](domain.md#stage-resolution), the same reading the delivery engine's own run
+view draws its pane with, so the two never say different things about one run.
 
 ### The mode a stage ran in
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/design/effort-and-mode-chips.md#mode-chips]
 ```
 
@@ -758,11 +760,14 @@ related: [.devbook/design/effort-and-mode-chips.md#mode-chips]
 Every stage shows its mode. A reader needs it to read the stage's figures: an inline stage
 shares the driving session's context and cost, while a delegated stage spends its own.
 
+Personal Validation is always the gate, whatever the run recorded for it. Otherwise a mode
+the run recorded wins. A stage with no recorded mode that a sub-agent worked in was
+delegated, and the rest ran inline. A mode found that way is marked as inferred.
+
 ### What ran beside what was configured
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/sessions/features.md#only-what-the-dashboard-recorded, .devbook/design/effort-and-mode-chips.md#stage-marks]
 ```
 
@@ -770,26 +775,52 @@ Each stage shows the agent, model and effort that ran, next to the ones its conf
 named. A ≠ mark says the stage ran differently from its configuration. A ? mark says a
 value on the stage was inferred rather than read from the run's own record. When both
 apply, ≠ is the one shown, and the open stage states the difference and the inference in
-words.
+words. The ≠ mark's tooltip lists every difference, for example "model Sonnet → Opus 5.5".
 
 The ≠ mark exists because a difference is the finding a reader is looking for. Without
 it, they would have to compare two columns by eye on every stage. The ? mark exists
-because an inferred value reads as convincingly as a recorded one. An example is the model
-of a stage in a run that called exactly one model. Marking it keeps the rule this area
-already holds: say what was recorded, and say so when something was not.
+because an inferred value reads as convincingly as a recorded one. Marking it keeps the
+rule this area already holds: say what was recorded, and say so when something was not.
+
+A stage is compared on its agent, the family of its model and its effort. The family,
+because a configuration names an alias such as `opus` and the run records the id it
+resolved to. An effort is compared only where the run recorded what ran. A stage still
+pending, and the gate, are never compared: neither has run anything to compare. A
+configured agent that did not resolve is a difference too, and the stage says what ran
+instead.
+
+For example, a run whose phase map configures Implement on `sonnet` at `high` effort,
+and whose Implement stage recorded running on `claude-opus-5-5` at `medium`, shows ≠ on
+Implement with the tooltip "Not as configured: model Sonnet → Opus 5.5 · effort high →
+medium". A run whose context holds no phase map shows a stage a sub-agent worked in as
+delegate with the ? mark, and its panel says the run records no resolved phases, so mode
+and agent are inferred.
 
 ### The stage panel
 
 ```meta
 type: sub-feature
-status: proposed
 ```
 
-A stage expands into a panel that names the skill it ran and the MCP servers it used. The
-panel also lists the skills that ran before and after it within the stage, and the
-sub-agent runs it started. The panel is closed by default, for the reason the run's fold
-is: a stage can hold hundreds of tool calls, and a list that showed them all would bury
-the stage strip.
+A stage expands into a panel, and only one panel is open at a time: opening a stage
+closes the one that was open. The panel is closed by default, for the reason the run's
+fold is: a stage can hold hundreds of tool calls, and a list that showed them all would
+bury the stage strip.
+
+The panel says:
+
+- **Ran**: the mode, the agent or the owner session, the model and the effort, and the
+  stage's output tokens and tool calls where the run counted them. A stage nobody has
+  reported on reads "Not run yet".
+- **Configured**: the agent, model and effort the run resolved, and where that came from
+  — the team default, or the team default with an overlay merged over it.
+- **Skill** and **MCP servers**: what the stage followed and was given, or "not recorded".
+- **Before and after**: the skills run before and after the stage.
+- **Why ≠ or ?**: the difference or the inference in words.
+- **Sub-agents**: every sub-agent call the stage made, with its agent, model, time,
+  tokens, tool calls and result, each left out where the run did not record it. A call
+  under the gate is marked as a revise round. A delegated stage whose calls the run did
+  not record says so rather than claiming none ran.
 
 ## The cost of a run and its stages
 

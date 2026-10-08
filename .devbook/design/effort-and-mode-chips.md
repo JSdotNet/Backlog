@@ -300,5 +300,8 @@ beside `StageStrip`, the compact stage strip a session row draws its run with. T
 Sessions pane wears it on every row after the model and among the detail panel's
 facts.
 
-The mode chips, the stage marks and the legend are not materialized yet: they belong
-to the stage list of a delivery run, which is built separately.
+The mode chips, the stage marks and the legend are materialized as `ModeChip`,
+`StageMark` and `StageLegend` in the same folder, drawn by the `mode-chip`,
+`stage-mark` and `stage-legend` rules in `components.css`, and shown on the
+storybook's Badges page. The Sessions pane's stage list of a delivery run wears all
+three, with the effort chip, on every stage of an open run.
