@@ -106,9 +106,10 @@ public sealed class SessionsPaneRunTests
             // Nothing linked, no references.
             Assert.Empty(line.QuerySelectorAll(".integration-link"));
 
-            // The four figures, on the fold's own trigger.
+            // The figures, on the fold's own trigger: stages done, cost, context peak
+            // and tool calls — a run nobody priced has no cost, never "$0.00".
             var trigger = line.QuerySelector(".fold__trigger")!;
-            Assert.Equal("2 of 3 stages done · 1.7M output tokens · context peak 41% · 45.2K tool calls", trigger.TextContent.Trim().TrimStart('▸').Trim());
+            Assert.Equal("2 of 3 stages done · context peak 41% · 45.2K tool calls", trigger.TextContent.Trim().TrimStart('▸').Trim());
 
             // Folded until asked.
             Assert.Equal("false", trigger.GetAttribute("aria-expanded"));
@@ -902,7 +903,9 @@ public sealed class SessionsPaneRunTests
 
         var pane = context.Render<SessionsPane>();
 
-        pane.WaitForAssertion(() => Assert.Contains("1.7M output tokens", pane.Find("[data-testid='sessions-run'] .fold__trigger").TextContent, StringComparison.Ordinal));
+        // The trigger's figures are stages done, cost, context and calls; the tokens
+        // are the fold's, where every one of them is still shown.
+        pane.WaitForAssertion(() => Assert.Contains("1 of 1 stages done", pane.Find("[data-testid='sessions-run'] .fold__trigger").TextContent, StringComparison.Ordinal));
 
         pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
 

@@ -212,4 +212,49 @@ public sealed class DeliveryRunStagesTests
 
         Assert.Empty(list.FindAll("[data-testid='sessions-stage-cost']"));
     }
+
+    [Fact]
+    public void A_priced_stage_shows_its_share_of_the_run_and_its_ratio_in_its_band_and_an_uncompared_one_its_share_alone()
+    {
+        using var context = new BunitContext();
+
+        IReadOnlyList<DeliveryRunStageCost> costs =
+        [
+            new(new CostFigure(3_000_000, CostSource.Reported), []),
+            new(new CostFigure(1_000_000, CostSource.Reported), []),
+            new(new CostFigure(500_000, CostSource.Reported), []),
+            DeliveryRunStageCost.None(0)
+        ];
+
+        var comparison = new DeliveryRunCostComparison(
+            new CostFigure(4_500_000, CostSource.Reported),
+            [
+                new StageCostAgainstUsual(costs[0].Stage!, 2 / 3d, new CostAgainstUsual(2.4, 1_250_000, 12)),
+                new StageCostAgainstUsual(costs[1].Stage!, 2 / 9d, new CostAgainstUsual(1.03, 970_000, 12)),
+                new StageCostAgainstUsual(costs[2].Stage!, 1 / 9d, null),
+                null
+            ],
+            null);
+
+        var list = context.Render<DeliveryRunStages>(parameters => parameters
+            .Add(p => p.Run, Run())
+            .Add(p => p.Costs, costs)
+            .Add(p => p.Comparison, comparison));
+        var stages = list.FindAll("[data-testid='sessions-stage']");
+
+        Assert.Equal("67% of the run's cost", stages[0].QuerySelector("[data-testid='sessions-stage-share']")!.TextContent);
+        var high = stages[0].QuerySelector("[data-testid='sessions-stage-ratio']")!;
+        Assert.Equal("2.4× its usual", high.TextContent);
+        Assert.Equal("higher", high.GetAttribute("data-band"));
+        Assert.Contains("over the last 12 runs", high.GetAttribute("title"), StringComparison.Ordinal);
+
+        var typical = stages[1].QuerySelector("[data-testid='sessions-stage-ratio']")!;
+        Assert.Equal("typical for this stage", typical.TextContent);
+        Assert.Equal("typical", typical.GetAttribute("data-band"));
+
+        // Under five earlier runs, or not finished: the share, and no ratio.
+        Assert.StartsWith("11%", stages[2].QuerySelector("[data-testid='sessions-stage-share']")!.TextContent);
+        Assert.Null(stages[2].QuerySelector("[data-testid='sessions-stage-ratio']"));
+        Assert.Null(stages[3].QuerySelector("[data-testid='sessions-stage-usual']"));
+    }
 }

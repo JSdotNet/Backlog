@@ -579,6 +579,47 @@ partial sum would read as the whole. Every estimate is marked as one.
 
 **Neither is no figure.** With no request and no price, there is no cost, never zero.
 
+### Cost Baseline
+
+```meta
+type: domain-service
+related: [.devbook/domain/sessions/domain.md#cost-attribution, .devbook/domain/sessions/features.md#each-stage-against-its-usual-cost]
+aliases: [DeliveryRunBaselines, CostAgainstUsual, CostBand, DeliveryRunCostComparison, DeliveryRunCostInsight, usual cost, cost baseline]
+```
+
+Reads a run's cost against its usual, from the figures `Cost Attribution` gives the run
+and the runs before it. The median is used rather than the mean, because one runaway run
+would otherwise move the baseline for the next thirty.
+
+**The earlier runs** are runs of the same skill id that finished, marked done, and started
+before this one. The latest 30 count, and the run itself never does. A run with no start
+is placed by its last update.
+
+**A stage** is matched to the earlier runs' stages by name. Its figures are its cost, its
+share of what the run's priced stages cost, and its ratio to the median cost of that
+stage in the earlier runs that finished it and priced it. A stage that has not finished
+has no ratio. Neither has a stage that fewer than five of those runs priced.
+
+**The bands** come from the ratio. At 0.8 or below the cost is lower than usual, and
+drawn green. Within 5% of 1 either side it is typical. From 1.5 it is higher than usual,
+and highlighted. Anything between is the plain ratio. A ratio is written to one decimal,
+"2.4×". It gets two where one decimal would round it across a band's edge, so 1.46 is
+"1.46×" rather than "1.5×" without the highlight. It also gets two below 0.1.
+
+**The run** is compared like for like. An earlier run is a sample only when it finished
+and priced every stage this run priced, and its total is the sum of those same stages.
+Summed over whatever each earlier run priced, a run from before per-stage tokens were
+counted would read as a cheap run. The median would sink, and every later run would read
+many times its usual while each of its stages read typical. The run needs at least five
+samples and is compared only once it has left in-progress.
+
+**The insight** names the run's ratio and the stage that explains most of the
+difference. When the run cost more than usual, that is the stage whose cost exceeds its
+own median by the most. When it cost less, it is the stage furthest below its median. A
+typical run names no stage. The stage's re-entries are its done count less one, which
+counts the implement–review loop and every revise round. Review rounds are to join it
+once the run records them.
+
 ### Model Price Table
 
 ```meta

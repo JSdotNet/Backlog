@@ -392,7 +392,7 @@ related: [.devbook/domain/sessions/domain.md#run-attachment, .devbook/domain/ses
 A run filed under the worktree a listed session ran in, and open while that session
 was active, is shown under that session's own row and across every column of the
 list, stacked the way a reader asks: the work it is linked to, the dashboard's status
-under it, one line of figures — stages done, output tokens, the context peak, the tool
+under it, one line of figures — stages done, the cost, the context peak, the tool
 calls — and the skill that owned it last. The stages, the token buckets, the gauge,
 the tool activity by category and by MCP server, and the run's own title are behind a
 fold.
@@ -922,20 +922,37 @@ from one this product worked out.
 
 ```meta
 type: sub-feature
-status: proposed
-related: [.devbook/domain/sessions/features.md#delivery-economics]
+related: [.devbook/domain/sessions/features.md#delivery-economics, .devbook/domain/sessions/domain.md#cost-baseline]
 ```
 
-Each stage shows its cost and its ratio to that stage's median cost over the last 30 runs
-of the same flow. A one-line insight under the run names the stage that stood out most,
-for example "Review cost 2.4 times its usual".
+Each stage row in a run's fold shows its cost, its share of the run's cost, and its ratio
+to that stage's median cost over the last 30 finished runs of the same flow. The ratio
+reads "typical" within 5% of the median. It is green at 0.8 times or below, and
+highlighted from 1.5 times. Between those it is the plain ratio, such as "1.2×". A stage
+that has not finished shows no ratio. Neither does a stage that fewer than five earlier
+runs priced. The ratio's tooltip names the median and how many runs it was taken over.
+
+The run's own figures, on the line that opens its fold, are stages done, the cost, the
+context peak and the tool calls. An estimated cost reads "est. cost". The output tokens
+moved into the fold, where every token count still is.
+
+One insight line sits under that line once the run has finished and five earlier runs of
+its flow were priced. It names the run's ratio to the flow's median and the stage that
+explains most of the difference. If that stage was entered again, the line says how many
+times, for example "2.0× the usual flow-code run · Implement explains most of it: $5.00
+over its usual, entered again once". A typical run names no stage. It wears the same
+bands as the ratios. Review rounds are to join the re-entry count once the run records
+them.
 
 The comparison is per flow and per stage because a review stage and an implement stage
 cost very different amounts. A run-wide average would flag every long run and explain
 none of them. The median is used rather than the mean, because one runaway run would
-otherwise move the baseline for the next thirty. Where the flow has fewer than 30 earlier
-runs, the ratio says how many it was taken over. The insight opens
-[Delivery economics](#delivery-economics), filtered to the run's flow.
+otherwise move the baseline for the next thirty. The run is compared like for like, with
+earlier runs that priced the same stages. How the earlier runs are chosen and matched is
+the [Cost Baseline](domain.md#cost-baseline).
+
+Still to build: the insight does not open
+[Delivery economics](#delivery-economics) yet, because that page is not built.
 
 ### Share of the week and the weekly limit
 

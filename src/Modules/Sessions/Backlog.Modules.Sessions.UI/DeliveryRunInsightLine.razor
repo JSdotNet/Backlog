@@ -1,0 +1,19 @@
+@*
+    The run's insight line, under its header: the run's cost against the median of the
+    last 30 finished runs of the same flow, and the stage that explains most of the
+    difference with how often it was entered again (DeliveryRunBaselines). Drawn in the
+    same band as the ratio — green at 0.8× or below, highlighted from 1.5× — and absent
+    while the run is under way or fewer than five earlier runs were priced.
+*@
+@if (Insight is { } insight)
+{
+    <span class="sessions-run__insight"
+          data-band="@DeliveryRunStageUsual.BandSlug(insight.Usual.Band)"
+          title="@insight.Usual.Title"
+          data-testid="sessions-run-insight">@insight.Text</span>
+}
+
+@code {
+    [Parameter]
+    public DeliveryRunCostInsight? Insight { get; set; }
+}
