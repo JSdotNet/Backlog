@@ -93,6 +93,84 @@ public sealed class AppButtonTests
         Assert.Equal("submit", submit.Find("button").GetAttribute("type"));
         Assert.Equal("button", nonsense.Find("button").GetAttribute("type"));
     }
+    /// <summary>An act that opens a page is an anchor wearing the button's classes,
+    /// opening another site in a new window without handing it this window.</summary>
+    [Fact]
+    public void An_href_makes_it_an_anchor_with_the_same_classes()
+    {
+        using var context = new BunitContext();
+
+        var link = context.Render<AppButton>(parameters => parameters
+            .Add(b => b.Href, "https://github.com/JSdotNet/Backlog/pull/1")
+            .Add(b => b.Variant, ButtonVariant.Primary)
+            .Add(b => b.TestId, "open")
+            .AddChildContent("Open on GitHub"));
+
+        Assert.Empty(link.FindAll("button"));
+        var anchor = link.Find("a");
+        Assert.Equal("btn btn--primary", anchor.GetAttribute("class"));
+        Assert.Equal("https://github.com/JSdotNet/Backlog/pull/1", anchor.GetAttribute("href"));
+        Assert.Equal("_blank", anchor.GetAttribute("target"));
+        Assert.Equal("noopener noreferrer", anchor.GetAttribute("rel"));
+        Assert.Equal("open", anchor.GetAttribute("data-testid"));
+        Assert.False(anchor.HasAttribute("aria-disabled"));
+        Assert.Equal("Open on GitHub", anchor.TextContent.Trim());
+    }
+
+    /// <summary>An anchor has no disabled state, so a disabled one loses its address
+    /// and says so.</summary>
+    [Fact]
+    public void A_disabled_href_has_no_address_and_says_it_is_disabled()
+    {
+        using var context = new BunitContext();
+
+        var link = context.Render<AppButton>(parameters => parameters
+            .Add(b => b.Href, "https://github.com/JSdotNet/Backlog/pull/1")
+            .Add(b => b.Disabled, true));
+
+        var anchor = link.Find("a");
+        Assert.False(anchor.HasAttribute("href"));
+        Assert.Equal("true", anchor.GetAttribute("aria-disabled"));
+
+        // Still a link, and still in the tab order, without its address.
+        Assert.Equal("link", anchor.GetAttribute("role"));
+        Assert.Equal("0", anchor.GetAttribute("tabindex"));
+    }
+
+    /// <summary>Busy keeps Busy's promise on the anchor too: the spinner, no address,
+    /// and focus kept — the inert link stays focusable and announced as a link.</summary>
+    [Fact]
+    public void A_busy_href_keeps_its_focus_and_its_link_role()
+    {
+        using var context = new BunitContext();
+
+        var link = context.Render<AppButton>(parameters => parameters
+            .Add(b => b.Href, "https://github.com/JSdotNet/Backlog/pull/1")
+            .Add(b => b.Busy, true));
+
+        var anchor = link.Find("a");
+        Assert.False(anchor.HasAttribute("href"));
+        Assert.Equal("link", anchor.GetAttribute("role"));
+        Assert.Equal("0", anchor.GetAttribute("tabindex"));
+        Assert.Equal("true", anchor.GetAttribute("aria-disabled"));
+        Assert.Equal("true", anchor.GetAttribute("aria-busy"));
+    }
+
+    /// <summary>A live link is a plain anchor: no role or tab stop of its own, which
+    /// its href already gives it.</summary>
+    [Fact]
+    public void A_live_href_carries_no_role_or_tabindex_of_its_own()
+    {
+        using var context = new BunitContext();
+
+        var link = context.Render<AppButton>(parameters => parameters
+            .Add(b => b.Href, "https://github.com/JSdotNet/Backlog/pull/1"));
+
+        var anchor = link.Find("a");
+        Assert.False(anchor.HasAttribute("role"));
+        Assert.False(anchor.HasAttribute("tabindex"));
+    }
+
     // --- Where the icon-alone marker may come from --------------------------
 
     /// <summary>

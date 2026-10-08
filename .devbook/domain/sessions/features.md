@@ -1024,7 +1024,6 @@ session where they can see it happen.
 
 ```meta
 type: feature
-status: proposed
 related: [.devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
 ```
 
@@ -1032,27 +1031,41 @@ The pull requests pane is the Sessions context's second surface. Sessions and de
 runs produce pull requests, so the pane is where a reader follows that work to the point
 where it merges. This chapter is the first to describe the pane.
 
-The pane as it stands has two views, Open and Recently merged. A Mine / Everyone's choice
-narrows the rows, where Mine is the reader's own pull requests and those related to one of
-their tasks. Refresh re-reads the list. A stack of pull requests that build on each other
-shows as one tree, and each pull request is matched to the task it serves. The acts are
-Update branch, Ready for review, and Merge or Merge when checks pass.
+The pane has two views, Open and Recently merged. A Mine / Everyone's choice narrows the
+rows, where Mine is the reader's own pull requests and those related to one of their
+tasks, and Refresh re-reads the list. A repository's label filter, set in Settings, lets
+through only the pull requests carrying one of its labels. A pinned pull request ignores
+every filter: it sits in a Pinned group at the top of the list until it is unpinned, even
+after it merges or closes.
 
-What this feature adds is one answer per pull request: is it ready, and if not, what is it
+The pane is a triage list beside a detail panel. Lane tiles say how many pull requests
+need what, the list below them is grouped by lane, and the pull request the reader picks
+is laid out in full beside the list. Where the pane is narrow, the panel moves under the
+list. Each row says one thing: the verdict on whether it is ready, and if not, what it is
 waiting on. A reader scanning twenty pull requests should not have to open each to learn
 which one needs them.
+
+A row shows the repository's identity colour along its edge, the number, the verdict chip,
+the title, the head branch, how long ago it was updated, and a meter of its checks with
+how many passed. A pull request stacked on another is indented and says which one it
+waits on, so the reader merges that one first.
 
 ### Lanes that filter the list
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/sessions/features.md#one-verdict-per-pull-request]
 ```
 
-Four lane tiles sit beside the Mine / Everyone's choice: Needs you, Ready to merge,
-Waiting and Drafts. Each tile shows how many pull requests are in its lane, and pressing
-it narrows the list to them.
+Four lane tiles sit under the header: Needs you, Ready to merge, Waiting and Drafts. Each
+tile shows how many pull requests are in its lane and, in a line under the count, what put
+them there, such as "conflicts · failing checks". Pressing a tile narrows the list to that
+lane, and pressing it again lets the lane go. One lane is pressed at a time.
+
+The counts are taken over the rows the other filters leave, so a tile never promises a
+pull request the list will not show. A pinned pull request still shows under a pressed
+lane, for the reason it ignores every other filter. Recently merged has no tiles, because
+a merged pull request is in no lane.
 
 The Mine / Everyone's choice stays, because it answers a different question. Mine says
 whose pull requests to look at; a lane says which of them to look at first. The two
@@ -1062,7 +1075,6 @@ combine: Mine and Needs you is the reader's own work that is waiting on them.
 
 ```meta
 type: sub-feature
-status: proposed
 ```
 
 Each pull request that is still open gets exactly one readiness verdict. Where several
@@ -1103,20 +1115,26 @@ banner, and the acts above. A few rules sit beside the table:
 
 ```meta
 type: sub-feature
-status: proposed
 related: [.devbook/domain/sessions/features.md#the-detail-of-one-session]
 ```
 
-Picking a pull request opens a detail panel. From the top, it holds:
+Picking a pull request opens a detail panel. The first row the list shows is picked until
+the reader picks another, and a pick the filters hide falls back to the first row shown.
+From the top, the panel holds:
 
-- a banner with the verdict and the one act that fits it, such as Update branch for
-  Behind;
+- the pull request's repository, number, author, title and branches, a link to it on
+  GitHub, and its pin;
+- a banner with the verdict and the act that fits it, such as Update branch for Behind,
+  with the verdict's second act beside it where it has one;
 - a merge-readiness list of four lines: checks, review, up to date, and mergeable;
-- the checks, failures first;
+- the checks, failures first, then the ones still running; six are shown and the rest
+  are counted;
 - the stack the pull request is part of, bottom first;
 - the task card and the session card for the work behind it.
 
-The banner offers one act because the verdict already names the one thing in the way. The
+The banner leads with one act because the verdict already names the one thing in the way.
+Where GitHub already holds an auto-merge the verdict's acts do not touch, the banner also
+offers to cancel it, because that undoes a request rather than making one. The
 mergeable line says only whether the pull request has conflicts. It does not count the
 conflicted files, because GitHub reports no such count, and a number this product made
 up would be wrong in a way nobody could check. The failures come first so the reader sees
@@ -1147,8 +1165,8 @@ pane reads that one repository again, as it does after every other act, so the r
 the checks running instead of failed.
 
 It is offered only for GitHub Actions because that is the only kind of check this product
-can ask GitHub to run again. A check from another service has to be re-run there. Until
-the detail panel lands, the act sits beside the row's other acts.
+can ask GitHub to run again. A check from another service has to be re-run there. The act
+sits in the detail panel's banner, as the act of the Failing checks verdict.
 
 There is no act that hands a pull request off to an agent. Starting a session is something
 a person does in their agent, with the context they choose. A button here would start work
