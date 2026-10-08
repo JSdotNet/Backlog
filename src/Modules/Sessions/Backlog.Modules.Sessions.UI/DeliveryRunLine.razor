@@ -12,8 +12,9 @@
 
     A summary line and a fold. The summary is what a reader scanning the list wants
     from a run — which skill, what it was called, how it ended — plus the four
-    figures that say how much it took: stages done, output tokens, the context peak
-    and the tool-call count. Everything the run file records beyond that is behind
+    figures that say how much it took: stages done, what it cost, the context peak
+    and the tool-call count; under them, once the run finished, one line on its cost
+    against the usual run of its flow. Everything the run file records beyond that is behind
     the fold, because a run holds ten stages, six token buckets per stage and tens of
     thousands of tool calls, and a row that showed them would be a report with a
     table around it. The fold is the library's, so the region is announced, keyed and
@@ -116,6 +117,11 @@
                      ExpandedChanged="OnExpandedChanged"
                      TestId="sessions-run-fold" />
 
+        @* Under the header, what the run cost against its usual and the stage that
+           explains the difference — only once the run has finished and enough earlier
+           runs of its flow were priced. *@
+        <DeliveryRunInsightLine Insight="@Comparison?.Insight" />
+
         @* Last, and quiet: which recipe produced the run is what a reader asks after
            the work and the outcome, and it is the one thing two runs of the same flow
            share. *@
@@ -123,6 +129,10 @@
             <SparklesIcon Size="12" CssClass="sessions-run__icon" />
             <span class="data-table__mono">@Run.SkillId</span>
         </span>
+
+        @* What the host has to say about the run's part of the week, drawn by the
+           host's own component so the run line holds no figure it did not read. *@
+        @Usage
     </span>
 
     @* The fold's region: the picture first and across the full width, so every stage
@@ -169,6 +179,14 @@
                     }
                 }
             </div>
+        }
+
+        @* How each stage ran, under the picture of where it stands: the mode, the
+           model and effort, whether it ran as configured, and one panel at a time
+           with the whole of it. *@
+        @if (Run.Stages.Count > 0)
+        {
+            <DeliveryRunStages Run="Run" Costs="Costs" Comparison="Comparison" />
         }
 
         @* Groups rather than one long list, so the grid can set them side by side:
@@ -352,6 +370,26 @@
     [Parameter]
     public IReadOnlyList<DeliveryRunReference>? References { get; set; }
 
+    /// <summary>What each stage and each of its sub-agent calls cost, in stage order
+    /// (<see cref="DeliveryRunCosts"/>), or null where the host worked none out — the
+    /// stage rows then show no cost, never a zero.</summary>
+    [Parameter]
+    public IReadOnlyList<DeliveryRunStageCost>? Costs { get; set; }
+
+    /// <summary>The run's costs against its usual (<see cref="DeliveryRunBaselines"/>),
+    /// or null where the host compared none — the stage rows then show no share or
+    /// ratio, and there is no insight line.</summary>
+    [Parameter]
+    public DeliveryRunCostComparison? Comparison { get; set; }
+
+    /// <summary>What the run cost: the sum of its stages', or null where none was
+    /// priced.</summary>
+    private CostFigure? Total => Comparison?.Total ?? (Costs is { } costs ? CostFigure.Sum(costs.Select(cost => cost.Stage)) : null);
+
+    /// <summary>The run's share of the week, under its facts; nothing when null.</summary>
+    [Parameter]
+    public RenderFragment? Usage { get; set; }
+
     private IReadOnlyList<DeliveryRunReference> AllReferences => References ?? Run.References;
 
     /// <summary>The references drawn on the line: the work that lives elsewhere. The
@@ -365,11 +403,12 @@
         AllReferences.FirstOrDefault(reference => reference.Kind is DeliveryRunReferenceKind.Task);
 
     /// <summary>
-    /// The four figures a reader wants before deciding whether to open the fold,
-    /// joined with the middle dot the rest of this table uses between facts. Each is
-    /// left out rather than shown as zero when the file does not carry it: an older
-    /// run file has no token usage, and "0 output tokens" would be a claim about the
-    /// run rather than about the file.
+    /// The four figures a reader wants before deciding whether to open the fold —
+    /// stages done, what the run cost, the context peak and the tool calls — joined
+    /// with the middle dot the rest of this table uses between facts. Each is left out
+    /// rather than shown as zero when nothing answers it: a run nobody priced has no
+    /// cost, and "$0.00" would be a claim about the run rather than about the file.
+    /// The cost took the output tokens' place, which stay in the fold.
     /// </summary>
     private string Facts
     {
@@ -384,9 +423,9 @@
                 facts.Add($"{done} of {Run.Stages.Count} stages done");
             }
 
-            if (Run.TokenUsage is { } usage && usage.Total.ModelCalls > 0)
+            if (Total is { } cost)
             {
-                facts.Add($"{MetricFormat.Compact(usage.Total.OutputTokens)} output tokens");
+                facts.Add(cost.Estimated ? $"{cost.Label} est. cost" : $"{cost.Label} cost");
             }
 
             if (Run.Context?.PeakShare is { } share)

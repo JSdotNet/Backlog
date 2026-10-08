@@ -34,6 +34,19 @@
         </div>
     </Story>
 
+    <Story Name="Tone badges"
+           Description="The shared tone scale itself, as a family, for a host that has already decided where its value sits on it and hands the tone over as the slug. The pull requests pane's verdict chip is the case that asked for it: Conflicts, Behind, Ready to merge and the rest are the pane's own words, and each wears one of these tones rather than a family of its own.
+
+Quiet and live are outlined; alert, fault and settled are filled, because filled means the product acts on it; archived spends no colour. The word is always printed, so the tone is never the only carrier."
+           Code="@ToneCode">
+        <div class="sb-row" data-testid="badges-tone">
+            @foreach (var (slug, word) in Tones)
+            {
+                <Badge Kind="tone" Slug="@slug" Title="@($"tone: {slug}")">@word</Badge>
+            }
+        </div>
+    </Story>
+
     <Story Name="A badge that leads somewhere"
            Description="Three shapes, one badge. What it renders depends on what the host can do with the value rather than on what the value is: given a URL it is an anchor, given a callback it is a button, given neither it is the span every badge in this library has always been. An anchor can be middle-clicked, copied and opened in a new window and a button cannot, and a value nobody can follow should not invite a click or take a tab stop to refuse one.
 
@@ -194,6 +207,43 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
         </div>
     </Story>
 
+    <Story Name="EffortChip"
+           Description="The reasoning effort something ran at, on one ladder of the brand gold rather than the tone scale: low and medium share a grey outline, high is gold ink in a gold outline, xhigh adds a tint, max is solid gold. The word is always the text. No recorded effort draws nothing; the Session list page shows it in use."
+           Code="@EffortCode">
+        <div class="sb-row" data-testid="badges-effort-chip">
+            @foreach (var step in EffortChip.Ladder)
+            {
+                <EffortChip Effort="@step" TestId="@($"badges-effort-{step}")" />
+            }
+        </div>
+    </Story>
+
+    <Story Name="ModeChip"
+           Description="How a stage of a flow ran, told apart by shape so it reads in greyscale: inline is plain text, delegate a solid outline, fork a dashed one, gate the only filled box. The title says what the mode means; the Sessions pane's stage list wears it on every stage."
+           Code="@ModeCode">
+        <div class="sb-row" data-testid="badges-mode-chip">
+            @foreach (var mode in ModeChip.Modes)
+            {
+                <ModeChip Mode="@mode" TestId="@($"badges-mode-{mode}")" />
+            }
+        </div>
+    </Story>
+
+    <Story Name="StageMark"
+           Description="The one mark a stage may carry after its chips: ≠ where it ran other than as configured, ? where its mode was inferred. A glyph with no box; the title, which lists every difference, is what a screen reader reads."
+           Code="@MarkCode">
+        <div class="sb-row" data-testid="badges-stage-mark">
+            <StageMark Kind="StageMarkKind.Drift" Title="Not as configured: model Sonnet → Opus 5.5 · effort high → medium" TestId="badges-stage-mark-drift" />
+            <StageMark Kind="StageMarkKind.Inferred" TestId="badges-stage-mark-inferred" />
+        </div>
+    </Story>
+
+    <Story Name="StageLegend"
+           Description="The key above a stage list: the four modes, then the two marks, each drawn exactly as a row draws it. No effort steps — the effort chip prints its own word."
+           Code="@LegendCode">
+        <StageLegend TestId="badges-stage-legend" />
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -202,8 +252,31 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
         new("color-scheme.md#badge-and-chip-tones", "What each badge family and each value tone means."),
         new("color-scheme.md#contrast-rules-wcag-aa-minimum", "The ratio a badge's small text has to clear."),
         new("typography-and-layout.md#metadata-lines", "How small a chip is set, and how it sits beside prose."),
-        new("accessibility.md#iconography-accessibility", "Why a glyph never carries the meaning on its own.")
+        new("accessibility.md#iconography-accessibility", "Why a glyph never carries the meaning on its own."),
+        new("effort-and-mode-chips.md#effort-chips", "Why effort rises along one gold ladder rather than the tone scale."),
+        new("effort-and-mode-chips.md#mode-chips", "Why each mode has its own shape, and what each one means."),
+        new("effort-and-mode-chips.md#stage-marks", "When a stage carries ≠ or ?, and why ≠ wins."),
+        new("effort-and-mode-chips.md#legend", "What the legend above a stage list shows, and in which order.")
     ];
+
+    private const string EffortCode = """
+        <EffortChip Effort="xhigh" />
+        <EffortChip Effort="@row.Effort" />   @* null draws nothing *@
+        """;
+
+    private const string ModeCode = """
+        <ModeChip Mode="delegate" />
+        <ModeChip Mode="gate" />
+        """;
+
+    private const string MarkCode = """
+        <StageMark Kind="StageMarkKind.Drift" Title="Not as configured: effort high → medium" />
+        <StageMark Kind="StageMarkKind.Inferred" />
+        """;
+
+    private const string LegendCode = """
+        <StageLegend />
+        """;
 
     private static readonly string[] Kinds = ["status", "priority", "type"];
     private static readonly string[] Slugs = ["draft", "ready", "active", "blocked", "done"];
@@ -262,6 +335,23 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
 
     private const string BadgeCode = """
         <Badge Kind="status" Slug="ready">Ready</Badge>
+        """;
+
+    /// <summary>Each tone with a word a host might put on it — the pull requests
+    /// pane's verdicts, and Closed for the one tone they do not use.</summary>
+    private static readonly (string Slug, string Word)[] Tones =
+    [
+        ("quiet", "Draft"),
+        ("live", "Checks running"),
+        ("alert", "Behind"),
+        ("fault", "Conflicts"),
+        ("settled", "Ready to merge"),
+        ("archived", "Closed")
+    ];
+
+    private const string ToneCode = """
+        <Badge Kind="tone" Slug="fault">Conflicts</Badge>
+        <Badge Kind="tone" Slug="@verdict.Tone.ToString().ToLowerInvariant()">@verdict.Label</Badge>
         """;
 
     private const string OutlookCode = """

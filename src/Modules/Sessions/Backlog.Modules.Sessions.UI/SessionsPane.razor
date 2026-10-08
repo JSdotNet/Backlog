@@ -1,6 +1,7 @@
 @using Microsoft.Extensions.DependencyInjection
 @using Microsoft.JSInterop
 @using global::Backlog.UI.Components.Metrics
+@implements IDisposable
 @inject IAgentSessionSource Sessions
 @inject IDeliveryRunSource Runs
 @inject IServiceProvider Services
@@ -8,87 +9,63 @@
 
 @*
     The sessions pane: the Claude and Copilot sessions this environment has a record
-    of. The Sessions context's only surface (see .devbook/domain/sessions/).
+    of. The Sessions context's only list of them (see .devbook/domain/sessions/,
+    "The session list and its detail").
+
+    A filter bar, a list, and a detail panel beside it. The list answers "what have
+    my agents been doing here" at a glance — one row per session, saying who ran it,
+    where, on which model at which effort, how far its run got — and the panel
+    answers "what exactly happened in this one" without the row growing into a
+    report. A panel beside the list rather than a page of its own, because a reader
+    is usually moving down the rows, and a panel keeps their place. At a narrow width
+    the panel drops under the list.
 
     It was first built as a second pane on Dev PC Management, which read plausibly
-    and was wrong about the boundary. Both are about the machine, but they answer
-    different questions in different languages: one is how a PC is configured and
-    what an operator can change about it, the other is what has been running on it,
-    for how long, and in which repository. This is a list read down and grouped, not
-    a set of things to act on, and its vocabulary — session, agent, environment,
-    stalled — is its own.
+    and was wrong about the boundary: one is how a PC is configured, the other is what
+    has been running on it, for how long and in which repository. Like the tools pane
+    it owns its own loading; the shell decides whether there is a sessions pane, and
+    this decides what is in one.
 
-    Like the tools pane, it owns its own loading: the list is the pane's subject, and
-    a shell holding it would be holding state about a context it only makes room for.
-    The shell decides *whether* there is a sessions pane — the feature flag and the
-    tab it opens on, beside the dashboard's overview, stay there — and this decides
-    what is in one.
-
-    Two things this pane deliberately is not:
+    Two things this pane deliberately is not.
 
     It is not a monitor. It reads the folders once when it opens and again when
-    somebody asks, and there is no timer. A surface that re-read itself every few
-    seconds would be a claim to be live that the underlying files do not support: a
-    Copilot session leaves no liveness marker at all, so a moving list would move
-    without meaning.
+    somebody asks, and there is no timer. A Copilot session leaves no liveness marker
+    at all, so a list that moved by itself would move without meaning.
 
     It is not exhaustive, and it says so out loud. Each reader stops at the most
-    recent hundred sessions, because a developer's profile holds hundreds of records —
-    the machine this was validated on held 842, and 705 of them were Copilot's, which
-    as one list was 40,000 pixels of table with the four running sessions somewhere in
-    it. When the cap takes anything, the line under the title names both numbers: a
-    capped list presented as the whole history is the one thing a cap must not do.
+    recent hundred sessions — a developer's profile holds hundreds, and the machine
+    this was validated on held 842 — and when the cap takes anything, the line under
+    the title names both numbers: a capped list presented as the whole history is the
+    one thing a cap must not do.
 
-    And one thing it is. It opens on the live sessions — the ones the reading called
-    Running or Stalled — because "what is going on right now" is the question somebody
-    opens this for, and eight hundred finished records are the answer to a different
-    one. What that reading rests on is not the same for both agents, and the reader of
-    this pane pays for the difference: Claude writes a file per running session, so its
-    live rows are evidence, while Copilot's state is a timeout on top of a folder that
-    leaves no liveness marker at all. A Copilot session that is genuinely running but
-    has been quiet for over half an hour reads as Finished, and this view does not
-    hold it. The view is a filter, and so is Machine beside it — the two controls
-    here that remove a row: grouping still moves rows and removes none, which is why
-    the badge does not move when the grouping does.
+    And one thing it is. It opens on the live sessions — Running or Stalled — because
+    "what is going on right now" is the question somebody opens this for. What that
+    rests on differs per agent: Claude writes a file per running session, Copilot's
+    state is a timeout over a folder with no liveness marker, and the detail panel
+    says so on every Copilot row.
 
-    Machine narrows to one environment, and it is a select where the two strips are
-    one-of-many buttons, for the reason the dashboard's machine filter is one: the
-    options are however many machines have reported, which is not this pane's
-    decision and not a list it can promise stays short. Its options are read off the
-    catalog itself, so an option is offered exactly when there are rows behind it,
-    and it is named and ordered the way Group by environment names and orders its
-    sections — the same derivation, so the two cannot disagree. Like Show, it comes
-    back to "All machines" on every open.
+    The filter bar holds every control that removes a row — Show, With delivery runs,
+    Machine — so a reader who wonders why a session is missing finds every reason in
+    one place, and Group by beside them moves rows and removes none, which is why the
+    count badge does not move when the grouping does. Every filter comes back to its
+    first option on every open: a filter that remembered itself would open the pane
+    on a subset nobody asked for.
 
-    The shell's repository scope reaches this list too — the same chips that narrow
-    the task list and the dashboard's overview — and it is the one filter this pane
-    does not own a control for, because the control is in the header. A session is
-    in scope by either of two repositories: the one its agent recorded, or the one
-    this product resolved from its working folder lying inside a registered clone
-    (see .devbook/domain/sessions — the two are kept apart because a resolved repository is
-    only as good as the clone somebody registered, and the log never writes into a
-    gap the agent left). Claude records none, so its sessions are in scope only by
-    the second, and a Claude session outside every registered clone — or one that
-    arrived from a machine that had registered none — is still left out. The
-    subtitle says exactly that rather than letting a reader conclude Claude ran
-    nothing. What either repository is called on the wire — an owner/name, or an
-    alias — is the shell's to resolve, which is why the mapping is handed in beside
-    the scope the way the hue is.
+    The shell's repository scope reaches this list too, and it is the one filter this
+    pane does not own a control for, because the control is in the header. A session
+    is in scope by the repository its agent recorded, by the one this product resolved
+    from its working folder lying inside a registered clone, or by the repository a
+    run of it named. Claude records none, so the subtitle says what the scope rests on
+    rather than letting a reader conclude Claude ran nothing.
 
-    Two subtractions, two lines, and they must not be confused for each other. The
-    subtitle says what the *reading* left out — the cap, and its numbers are the
-    catalog's. The badge says what the *filters* are hiding, and it names both numbers
-    whenever they are hiding any. A list that was capped and filtered and reported one
-    number for both would be blaming the cap for the reader's own choice.
+    Two subtractions, two lines. The subtitle says what the *reading* left out — the
+    cap, in the catalog's own numbers. The badge says what the *filters* are hiding,
+    and names both numbers whenever they hide any.
 
-    The rows are SessionRows, not sessions, since the dashboards' delivery runs joined
-    the list. A run file describes the same piece of work a session record does, from
-    the other side — what it was and what it cost, rather than who and where and how
-    long — and either side can be the one this PC still holds. So the two readings
-    are made into one list (SessionRows.Of, matched by worktree and window), a run
-    sits on its session's row, and a run no listed session drove is a row of its own
-    that says so. One list, whichever half arrived first, and every control here works
-    on rows without knowing which kind it is holding.
+    The rows are SessionRows, not sessions: a run file and a session record describe
+    the same piece of work from two sides, either can be the one this PC still holds,
+    and SessionRows.Of makes them one list. A run no listed session drove is a row of
+    its own that says so.
 
     The ✕ only reports that it was pressed; what that closes is the shell's business.
 *@
@@ -105,30 +82,26 @@
                    ActionsCssClass="sessions-panel__header-actions"
                    Eyebrow="Sessions"
                    TitleId="sessions-title"
-                   Title="Claude and Copilot"
+                   Title="@Heading"
                    Description="@Subtitle">
         <Actions>
-            @* The library's badge wearing this pane's count class. It answers to the
-               filters and not to the grouping: it stays put while Group by moves the
-               same rows around, and it changes — and names both numbers — the moment
-               Show or Machine leaves some of them out. *@
+            @* It answers to the filters and not to the grouping: it stays put while
+               Group by moves the same rows around, and it names both numbers the
+               moment a filter leaves some of them out. *@
             <Badge BaseClass="sessions-panel__count" Kind="" TestId="sessions-count">@CountLabel</Badge>
             <IconButton AriaLabel="Close sessions pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
     </SectionHeader>
 
     <div class="sessions-panel__filters" data-testid="sessions-filters">
-        @* The two filters first, because they decide which rows exist before Group
-           by decides where they sit — and reading left to right is the order the
-           controls apply.
+        @* The filters first, because they decide which rows exist before Group by
+           decides where they sit — left to right is the order the controls apply.
 
-           A one-of-many strip rather than a Toggle, even though there are two
-           options and a switch would fit. A role="switch" states a boolean
-           *setting*, and this is not one: it resets to Live on every open, and a
-           setting that silently forgets itself reads as broken. A strip that comes
-           back to its first option reads as where you are looking, which is what
-           this is — and it is exactly what Group by already does in returning to
-           "Nothing". *@
+           Show is a one-of-many strip rather than a switch: a role="switch" states a
+           boolean setting, and this resets to Live on every open; a strip that comes
+           back to its first option reads as where you are looking. Live carries how
+           many rows it would show under the other filters, so the press is never a
+           guess. *@
         <div class="sessions-filter">
             <span class="sessions-filter__label">Show</span>
             <ButtonGroup AriaLabel="Which sessions to show" TestId="sessions-view-filter">
@@ -138,37 +111,32 @@
                                   PressedChanged="_ => ChooseView(view)"
                                   TestId="@($"sessions-view-{Slug(view)}")">
                         @AgentSessionViews.Label(view)
+                        @if (view is AgentSessionView.Live)
+                        {
+                            <span class="sessions-filter__tally" data-testid="sessions-live-tally">@LiveTally</span>
+                        }
                     </ToggleButton>
                 }
             </ButtonGroup>
         </div>
 
-        <div class="sessions-filter">
-            <span class="sessions-filter__label">Runs</span>
-            @* A single toggle, not a strip: the question has one answer — only the
-               rows with a delivery run on them, or every row — and it is a filter
-               like Show, so the badge moves when it is pressed. *@
-            <ButtonGroup AriaLabel="Whether to show only rows with a delivery run" TestId="sessions-runs-filter">
-                <ToggleButton Pressed="_withRuns"
-                              PressedChanged="value => _withRuns = value"
-                              TestId="sessions-runs-only">
-                    With runs
-                </ToggleButton>
-            </ButtonGroup>
-        </div>
+        @* One toggle: only the rows with a delivery run on them, or every row. A
+           filter like Show, so the badge moves when it is pressed. *@
+        <ButtonGroup AriaLabel="Whether to show only rows with a delivery run" TestId="sessions-runs-filter">
+            <ToggleButton Pressed="_withRuns"
+                          PressedChanged="value => _withRuns = value"
+                          TestId="sessions-runs-only">
+                With delivery runs
+            </ToggleButton>
+        </ButtonGroup>
 
+        @* "Machine", the dashboard's word for this same control, and a select for the
+           reason the dashboard's is one: the options are however many machines have
+           reported, which is not a list this pane can promise stays short. Read off
+           the whole catalog, so an option is offered exactly when there are rows
+           behind it, and named the way Group by machine names its sections. *@
         <div class="sessions-filter">
             <span class="sessions-filter__label">Machine</span>
-            @* "Machine", the dashboard's word for this same control, and not the
-               column's "Environment". The two surfaces offer the same list — this
-               device and every machine that has reported — and a reader who has
-               narrowed the dashboard by machine should find the identical control
-               under the identical name here rather than a second vocabulary for
-               one filter. Environment stays the context's term everywhere the
-               record is described: the column, the grouping, and the code. The
-               library's SelectField in the dashboard's own machine-filter dress,
-               so the two selects are one control rather than two that happen to
-               look alike. *@
             <SelectField CurrentValue="@_environmentId"
                          Options="@EnvironmentOptions"
                          Label="Machine to focus on"
@@ -179,24 +147,17 @@
                          OnChanged="ChooseEnvironment" />
         </div>
 
+        @* A select over a closed set of three, as the agreed canvas draws it. When
+           first: it is the shape that puts the live rows on top and the rest under
+           the day they were last active. *@
         <div class="sessions-filter">
             <span class="sessions-filter__label">Group by</span>
-            @* A one-of-many strip over a closed set of three, which is what the
-               dashboard's window filter is and for the same reason: the options are
-               not a list somebody's configuration can lengthen. *@
-            <ButtonGroup AriaLabel="How to group the sessions" TestId="sessions-grouping-filter">
-                @foreach (var grouping in Groupings)
-                {
-                    @* PressedChanged rather than the pressed state itself: the strip
-                       is one-of-many, so this pane owns the selection and the button
-                       only announces the press. *@
-                    <ToggleButton Pressed="_grouping == grouping"
-                                  PressedChanged="_ => ChooseGrouping(grouping)"
-                                  TestId="@($"sessions-group-{Slug(grouping)}")">
-                        @GroupingLabel(grouping)
-                    </ToggleButton>
-                }
-            </ButtonGroup>
+            <SelectField CurrentValue="@Slug(_grouping)"
+                         Options="@GroupingOptions"
+                         Label="How to group the sessions"
+                         CssClass="badge badge--area"
+                         TestId="sessions-grouping-filter"
+                         OnChanged="ChooseGrouping" />
         </div>
 
         <div class="sessions-filter sessions-filter--end">
@@ -205,11 +166,11 @@
                 @* Amends every one of this machine's session records from what its
                    agents' files still hold, and asks sync to send them all again when
                    sync is on. Beside Refresh because it is the heavier version of the
-                   same question: Refresh reads, this reads everything and writes it
-                   down. *@
+                   same question. *@
                 <AppButton Variant="ButtonVariant.Secondary"
                            Disabled="@(_loading || _updating)"
                            TestId="sessions-update-records"
+                           Title="Re-read every record from the agents' files and send them to sync again"
                            OnClick="UpdateRecordsAsync">
                     @(_updating ? "Updating records..." : "Update records")
                 </AppButton>
@@ -234,15 +195,10 @@
         }
         @if (Unreadable.Count > 0)
         {
-            @* Named, not swallowed. One agent's folder being unreadable leaves the
-               other agent's rows perfectly good, and the reader has to be able to
-               tell "no Copilot sessions" from "Copilot could not be read".
-
-               An alert, and with a way back, because this is the one notice here
-               that is a failure: this section's read did not complete. The two
-               above it are news. .devbook/design/interaction-guidelines.md, Error
-               States, asks a section that failed for a Retry, and the Retry is the
-               read itself — the same one the header's Refresh runs. *@
+            @* Named, not swallowed: one agent's folder being unreadable leaves the
+               other's rows perfectly good, and a reader has to tell "no Copilot
+               sessions" from "Copilot could not be read". The one notice here that is
+               a failure, so it carries the read again as its Retry. *@
             <Alert Message="@UnreadableMessage"
                    BaseClass="sessions-panel__notice"
                    Role="alert"
@@ -252,16 +208,10 @@
                    TestId="sessions-unreadable" />
         }
 
-        @* Total, not Shown: a refresh of a fully-filtered list has nothing on screen
-           and is not a first read, and this placeholder would flash on every one of
-           them.
-
-           Placeholder rows rather than a sentence: a table on its way is drawn in the
-           shape of one (.devbook/design/interaction-guidelines.md, Loading States).
-           This was the library's alert reading "Reading the sessions on this PC.",
-           which is the line a reader cannot tell from a pane that failed to draw.
-           Hidden in one piece, as every skeleton is; the content region's aria-busy
-           is what says the list is not there yet. *@
+        @* Total, not Shown: a refresh of a fully-filtered list is not a first read,
+           and this placeholder would flash on every one of them. Placeholder rows
+           rather than a sentence, because a list on its way is drawn in the shape of
+           one. *@
         @if (_loading && Total == 0)
         {
             <div class="sessions-panel__loading" data-testid="sessions-loading" aria-hidden="true">
@@ -271,427 +221,442 @@
                 }
             </div>
         }
+        else if (Shown == 0)
+        {
+            @* Nothing on this machine, or nothing these filters admit — two different
+               facts, and the sentence under the title names the way back out. *@
+            <EmptyState Title="@EmptyMessage" Description="@EmptyDescription" TestId="sessions-empty" />
+        }
         else
         {
-            @* The table's accessible name says "has a record of" rather than "on this
-               PC", which is what the subtitle and the feature's own description
-               already say. Some of these rows ran somewhere else, and the name of the
-               table is not the place to claim otherwise. *@
-            <DataTable TItem="SessionRow"
-                       Columns="Columns"
-                       Sections="Sections"
-                       RowKey="@(row => (object)row.Key)"
-                       RowCssClass="@(row => IsFocused(row) ? "sessions-table__row--focused" : null)"
-                       RowAttributes="@FocusAttributes"
-                       RowNoun="session"
-                       AriaLabel="Claude and Copilot sessions this PC has a record of"
-                       EmptyMessage="@EmptyMessage"
-                       EmptyDescription="@EmptyDescription"
-                       TestId="sessions-table">
-                <Row Context="row">
-                    @* The folder is the second line of the name rather than a column
-                       of its own: it is the longest value in the row and the least
-                       often the thing being looked for, and as a column it set the
-                       table's width and pushed the dates off screen.
+            // The sections and the row in the panel, worked out once per render: the
+            // grouping sorts every row, and asking for it per row would sort the list
+            // once for each of them.
+            var sections = Sections;
+            var selected = SelectedOf(sections);
+            _shownKey = selected?.Key;
 
-                       A replicated row has no folder to put there, and that absence
-                       is not the one the em dash means. Or(...) says the agent
-                       recorded nothing; here the agent recorded a folder and it
-                       deliberately stayed behind — a raw path describes one machine's
-                       disk and means nothing on this one, so ADR 0005 keeps it off
-                       the wire entirely. Spending the em dash on it would file a
-                       boundary this product chose under "nobody wrote it down", and
-                       the two absences could no longer be told apart anywhere on this
-                       screen — including on the one row where both occur at once,
-                       which is a replicated session Claude recorded no repository
-                       for.
-
-                       So the line says what is true instead: which machine recorded
-                       the session, and that its detail stayed there. That is also
-                       this pane's only answer to what a reader tries next. There is
-                       no transcript-opening control anywhere in this product, so
-                       nothing here is disabled and nothing is greyed out — what would
-                       read as broken is a row that looks exactly like a local one and
-                       has nothing behind it, and naming the machine is what stops it
-                       looking that way. The day a local row does grow a way into its
-                       transcript, the sentence explaining why this row has none is
-                       already written and already in the place a reader looks.
-
-                       Prose in the library's own data-table__detail, and not
-                       IntegrationUnavailable. That component states that a cluster of
-                       acts cannot be performed, takes one of four causes — not
-                       connected, not installed, offline, turned off in settings — and
-                       draws its sentence in --color-text-disabled beside a glyph for
-                       whichever one it was given. None of the four is true here:
-                       nothing is unavailable, nothing is off, the record is complete,
-                       and there is no act to disable. Forcing a cause on would make a
-                       complete record read as a broken integration, which is the
-                       exact misreading this line exists to prevent — and a p carrying
-                       a paragraph and a glyph inside a table cell is the wrong weight
-                       for a row besides.
-
-                       Calm on purpose: no role, no colour of its own, no glyph.
-                       Nothing happened and nothing is wrong, so it is a fact in the
-                       row's own secondary ink at the weight the folder line already
-                       has, because it is the same kind of detail. The machine's name
-                       is in the text rather than in a tint, so the row survives
-                       greyscale and reads out loud. *@
-                    <td class="sessions-table__session">
-                        <span class="@TitleClass(row)">@row.Title</span>
-                        @if (row.RunOnly)
-                        {
-                            @* A row the runs alone account for: no session record on
-                               this PC, only the dashboard's. The line says which
-                               dashboard and under which key, so the reader knows what
-                               the row rests on — the same job the origin line does
-                               for a replicated session, and the same quiet register:
-                               nothing is wrong with the row. *@
-                            <span class="data-table__detail" data-testid="sessions-run-only">
-                                <span class="data-table__clamp sessions-table__origin" title="@RunOnlyLine(row)">@RunOnlyLine(row)</span>
-                            </span>
-                        }
-                        else if (row.Session!.Origin is AgentSessionOrigin.Replicated)
-                        {
-                            @* Clamped through the library's own class, exactly as the
-                               folder line below is. The width cap alone is not enough
-                               and was the bug: with no overflow rule the sentence ran
-                               out of the cell and collided with the Type column, and
-                               with no title there was no way to read the part that had
-                               been cut. A machine name is as unbounded as a path, so
-                               this line needs the same treatment paths get. *@
-                            <span class="data-table__detail" data-testid="sessions-origin">
-                                <span class="data-table__clamp sessions-table__origin" title="@OriginLine(row.Session)">@OriginLine(row.Session)</span>
-                            </span>
-                        }
-                        else if (!string.IsNullOrWhiteSpace(row.WorkingFolder))
-                        {
-                            <span class="data-table__detail data-table__mono">
-                                <span class="data-table__clamp" title="@row.WorkingFolder">@row.WorkingFolder</span>
-                            </span>
-                        }
-
-                        @* A row answered from this machine's own record because the
-                           agent's files no longer hold the session. Beside the folder
-                           rather than instead of it — unlike a replicated row, the folder
-                           is this disk's and still means something — and in the origin
-                           line's quiet register, because nothing is wrong with the row:
-                           it is as complete as the last reading that amended it, and the
-                           sentence says that it cannot be read again. *@
-                        @if (row.Origin is AgentSessionOrigin.Recorded)
-                        {
-                            <span class="data-table__detail" data-testid="sessions-recorded">
-                                <span class="data-table__clamp sessions-table__origin" title="@RecordedLine">@RecordedLine</span>
-                            </span>
-                        }
-
-                        @* The row's runs are folded by default, so the list reads as
-                           sessions — one line each — and a run's line opens on demand.
-                           The trigger is the row's own and names how many runs it
-                           holds; the region is the detail row under it. *@
-                        @if (row.Runs.Count > 0)
-                        {
-                            <span class="data-table__detail">
-                                <FoldControl Label="@RunCount(row)"
-                                             CssClass="sessions-table__runs-fold"
-                                             AriaLabel="@($"Delivery runs of {row.Title}")"
-                                             Controls="@RunsId(row)"
-                                             Expanded="@IsExpanded(row)"
-                                             ExpandedChanged="expanded => SetExpanded(row, expanded)"
-                                             TestId="sessions-runs-toggle" />
-                            </span>
-                        }
-                    </td>
-
-                    @* The mark alone on screen: the column holds two agents, and the
-                       marks tell them apart at a glance. The word stays for a screen
-                       reader and in the cell's title, so the mark is never the only
-                       carrier — and carries no title of its own, or it would be
-                       announced twice. *@
-                    <td class="sessions-table__kind" title="@AgentSessionGroups.Label(row.Kind)">
-                        <ProviderMark Provider="@Provider(row.Kind)" CssClass="sessions-table__mark" />
-                        <span class="sr-only">@AgentSessionGroups.Label(row.Kind)</span>
-                        @* Where the agent was run from, as a quiet outlined badge after
-                           the word: a detail of the type, not a type of its own. *@
-                        @if (EntrypointLabel(row.Session?.Entrypoint) is { } entrypoint)
-                        {
-                            <Badge Kind="kind"
-                                   CssClass="sessions-table__entrypoint"
-                                   Title="@($"Run from {row.Session!.Entrypoint}")"
-                                   TestId="sessions-entrypoint">@entrypoint</Badge>
-                        }
-                    </td>
-
-                    <td>@row.Environment</td>
-
-                    @* Clamped for the same reason the folder is, and it is the state
-                       column that pays for not doing it: a branch name in this product
-                       is a slug with a hash on the end, and at 200 rows the longest one
-                       set the table's width and pushed State off the right edge — the
-                       one column a reader scanning for a running session actually
-                       needs. The full value stays in the cell's title. *@
-                    @* The recorded repository where there is one, and otherwise the
-                       resolved one, marked as such: a reader can tell "the agent said
-                       backlog" from "this folder is under the clone registered as
-                       backlog" by the hint, and the title says which in words. The
-                       em dash stays for a session with neither. *@
-                    @* The branch under its repository, as the folder sits under the
-                       name: a branch is only ever read as one of that repository's. *@
-                    <td class="data-table__mono">
-                        <span class="@RepositoryClass(row)" title="@RepositoryTitle(row)">@Or(row.Repository)</span>
-                        <span class="data-table__detail">
-                            <span class="data-table__clamp sessions-table__branch" title="@row.Branch">@Or(row.Branch)</span>
-                        </span>
-                    </td>
-
-                    @* The work the row leads to, a column each, as the Pull requests
-                       pane draws them: the pull requests the session linked and its
-                       runs recorded, and the Backlog entry it was worked for. On the
-                       row rather than on the run lines alone, because those are folded
-                       and this is what a reader scans the list for. *@
-                    <td class="sessions-table__reference">
-                        @if (PullRequestsOf(row) is { Count: > 0 } pulls)
-                        {
-                            <span class="sessions-table__pull-requests" data-testid="sessions-pull-requests">
-                                @foreach (var pull in pulls.Take(MaxPullRequests))
-                                {
-                                    <IntegrationLink Link="@DeliveryRunLine.Link(pull)"
-                                                     ShowTitle="false"
-                                                     CssClass="sessions-table__pull-request"
-                                                     TestId="sessions-pull-request" />
-                                }
-                                @if (pulls.Count > MaxPullRequests)
-                                {
-                                    <span class="sessions-table__more"
-                                          title="@string.Join(", ", pulls.Skip(MaxPullRequests).Select(pull => pull.Label))"
-                                          data-testid="sessions-pull-requests-more">+@(pulls.Count - MaxPullRequests)</span>
-                                }
-                            </span>
-                        }
-                        else
-                        {
-                            @Missing
-                        }
-                    </td>
-                    <td class="sessions-table__reference">
-                        @if (TaskOf(row) is { } task)
-                        {
-                            <IntegrationLink Link="@TaskLink(task)"
-                                             ShowTitle="false"
-                                             OnOpen="@TaskOpener(task)"
-                                             TestId="sessions-task" />
-                        }
-                        else
-                        {
-                            @Missing
-                        }
-                    </td>
-                    @* When it was last active, and under it when it started: the first
-                       is what the list is ordered by, the second is the detail. *@
-                    <td class="sessions-table__activity">
-                        <span title="@Moment(row.LastActivityAt)">@Ago(row.LastActivityAt)</span>
-                        <span class="data-table__detail" title="Started" data-testid="sessions-started">@Moment(row.StartedAt)</span>
-                    </td>
-
-                    @* Output and input, with every model and the cache figures in the
-                       title. An em dash where the session did not record its usage —
-                       Copilot never does — never a zero. *@
-                    <td class="sessions-table__tokens" title="@TokensTitle(row.Session?.ModelUsage)" data-testid="sessions-tokens">@TokensCell(row.Session?.ModelUsage)</td>
-
-                    @* The library's chip, so colour is never the only carrier of the
-                       state — it brings its own glyph and its own word. *@
-                    <td><IntegrationStateChip Session="@State(row.State)" /></td>
-                </Row>
-
-                @* The delivery runs on this row, under it and across every column.
-                   A run is a thing that happened inside a session rather than beside
-                   it — the session is the process, the run is the work it was
-                   tracking — so it is not a column; and it is not the name cell's
-                   third line either, which is where it started: a run's own line
-                   carries a skill, a title, the work it links to and its outcome, and
-                   a quarter of the table's width made three lines of each of them
-                   while the other seven columns sat empty alongside.
-
-                   Keyed the way the row is, so a re-read does not rebuild every fold
-                   a reader had opened. *@
-                <RowDetail Context="row">
-                    @* Only where there is something to show: the fragment is asked
-                       for every row, and a row with no run must not leave a stripe
-                       under it. The wrapper is also what carries the cell's padding,
-                       so an empty detail row is exactly nothing high. *@
-                    @if (row.Runs.Count > 0)
+            <div class="sessions-layout">
+                <section class="sessions-list" aria-label="Claude and Copilot sessions this PC has a record of" data-testid="sessions-list">
+                    @foreach (var section in sections)
                     {
-                        <div class="sessions-runs" id="@RunsId(row)" hidden="@(!IsExpanded(row))" data-testid="sessions-runs">
-                            @foreach (var run in row.Runs)
+                        <div class="sessions-group" @key="@(section.Key ?? section.Name ?? "all")" data-testid="sessions-group">
+                            @if (section.Name is not null)
                             {
-                                <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" OnOpenTask="OnOpenTask" />
+                                <h3 class="sessions-group__heading">
+                                    <span class="sessions-group__name" data-testid="sessions-group-name">@SectionName(section)</span>
+                                    <span class="sessions-group__size" title="@SessionCount(section.Rows.Count)" data-testid="sessions-group-size">@section.Rows.Count</span>
+                                </h3>
                             }
+                            <ul class="sessions-group__rows">
+                                @foreach (var row in section.Rows)
+                                {
+                                    <li @key="row.Key">
+                                        @RowButton(row)
+                                    </li>
+                                }
+                            </ul>
                         </div>
                     }
-                </RowDetail>
-            </DataTable>
+                </section>
+
+                @if (selected is not null)
+                {
+                    @Detail(selected)
+                }
+            </div>
         }
     </div>
 </section>
 
 @code {
-    /// <summary>The views on offer, in the order the strip lists them. Live first,
-    /// because it is the view the pane opens in.</summary>
+    /// <summary>
+    /// One row of the list, as a pressable button: pressing it shows the row in the
+    /// detail panel. Three lines — who and how it stands, where and on what, and how
+    /// far its run got — each of which a reader scanning the list is looking for,
+    /// and nothing that is a way into something else: the pull requests and the task
+    /// are in the panel, because a link inside a button is markup no browser agrees
+    /// on.
+    /// </summary>
+    private RenderFragment RowButton(SessionRow row) => __builder =>
+    {
+        <ToggleButton BaseClass="sessions-row"
+                      PressedCssClass="sessions-row--selected"
+                      CssClass="@(IsFocused(row) ? "sessions-row--focused" : null)"
+                      Pressed="@IsSelected(row)"
+                      PressedChanged="_ => Select(row)"
+                      TestId="sessions-row"
+                      data-row-key="@row.Key"
+                      @attributes="@FocusAttributes(row)">
+            <span class="sessions-row__line">
+                @* The mark alone on screen; the word for a screen reader and in the
+                   title, so the mark is never the only carrier. *@
+                <span class="sessions-row__kind" title="@AgentSessionGroups.Label(row.Kind)">
+                    <ProviderMark Provider="@Provider(row.Kind)" Size="20" CssClass="sessions-row__mark" />
+                    <span class="sr-only">@AgentSessionGroups.Label(row.Kind)</span>
+                </span>
+                <span class="@TitleClass(row)" title="@row.Title">@row.Title</span>
+                <IntegrationStateChip Session="@State(row.State)" />
+            </span>
+            <span class="sessions-row__line sessions-row__facts">
+                @* The repository wears its identity edge here, on the one fact that
+                   names it — a rule down the whole row would read as if the session
+                   belonged to that project. The em dash for a row that names none. *@
+                <span class="@RepositoryClass(row)" title="@RepositoryTitle(row)" data-testid="sessions-repository">@Or(RepositoryLabel(row.Repository))</span>
+                <span data-testid="sessions-machine">@row.Environment</span>
+                <span aria-hidden="true">·</span>
+                <span title="@Moment(row.LastActivityAt)" data-testid="sessions-last-activity">@Ago(row.LastActivityAt)</span>
+                @if (DurationLabel(row.Duration) is { } duration)
+                {
+                    <span aria-hidden="true">·</span>
+                    <span title="From its start to its last activity" data-testid="sessions-duration">@duration</span>
+                }
+                <span aria-hidden="true">·</span>
+                <span class="sessions-row__model" data-testid="sessions-model">
+                    @ModelLabel(row.Model)
+                    <EffortChip Effort="@row.Effort" TestId="sessions-effort" />
+                </span>
+                <span class="sessions-row__spacer" aria-hidden="true"></span>
+                <span class="sessions-row__tokens" title="@TokensTitle(row.Session?.ModelUsage)" data-testid="sessions-tokens">@OutputLabel(row.OutputTokens)</span>
+            </span>
+            @if (row.Runs.Count > 0)
+            {
+                @* The run the row last drove: one mark per stage and where it stands,
+                   so how far it got is read without opening anything. A row of a
+                   schedule's runs shows the latest of them. *@
+                <span class="sessions-row__line">
+                    <StageStrip Steps="@DeliveryRunProgress.Steps(row.Runs[0])"
+                                Summary="@RunSummary(row)"
+                                TestId="sessions-stage-strip" />
+                </span>
+            }
+        </ToggleButton>
+    };
+
+    /// <summary>
+    /// The detail panel of one row: its facts, the notes on where the record came
+    /// from, the delivery run it drove, and the pull requests and task its work led
+    /// to — in that order, which is the order a reader asks about a session in.
+    /// </summary>
+    private RenderFragment Detail(SessionRow row) => __builder =>
+    {
+        <aside class="sessions-detail" aria-label="Selected session" data-testid="sessions-detail" data-row-key="@row.Key">
+            <div class="sessions-detail__head">
+                <ProviderMark Provider="@Provider(row.Kind)" Size="28" CssClass="sessions-detail__mark" />
+                <span class="sessions-detail__provider">
+                    @AgentSessionGroups.Label(row.Kind)
+                    @if (EntrypointLabel(row.Session?.Entrypoint) is { } entrypoint)
+                    {
+                        <span aria-hidden="true">·</span>
+                        <Badge Kind="kind"
+                               CssClass="sessions-detail__entrypoint"
+                               Title="@($"Run from {row.Session!.Entrypoint}")"
+                               TestId="sessions-entrypoint">@entrypoint</Badge>
+                    }
+                </span>
+                <IntegrationStateChip Session="@State(row.State)" />
+                <span class="sessions-detail__when" title="@Moment(row.LastActivityAt)">@Ago(row.LastActivityAt)</span>
+            </div>
+            <h3 class="@($"sessions-detail__title {(IsIdentifierTitle(row) ? "data-table__mono" : string.Empty)}".Trim())" data-testid="sessions-detail-title">@row.Title</h3>
+
+            @* Where the record came from, in the quiet register: nothing is wrong
+               with any of these rows, and each sentence says what the row rests on
+               and why something a local row has is not here. *@
+            @if (row.RunOnly)
+            {
+                <p class="sessions-detail__note" data-testid="sessions-run-only">@RunOnlyLine(row)</p>
+            }
+            else if (row.Session!.Origin is AgentSessionOrigin.Replicated)
+            {
+                @* The machine's name and not its id, so the row survives greyscale and
+                   reads out loud; a raw path from another disk stays behind by ADR
+                   0005, and this sentence is why there is no folder below. *@
+                <p class="sessions-detail__note" data-testid="sessions-origin">@OriginLine(row.Session)</p>
+            }
+            @if (row.Origin is AgentSessionOrigin.Recorded)
+            {
+                <p class="sessions-detail__note" data-testid="sessions-recorded">@RecordedLine</p>
+            }
+            @if (row.Kind is AgentSessionKind.Copilot)
+            {
+                <p class="sessions-detail__note" data-testid="sessions-copilot-liveness">@CopilotLivenessLine</p>
+            }
+
+            <dl class="sessions-detail__facts" data-testid="sessions-facts">
+                <div class="sessions-fact">
+                    <dt>Repository</dt>
+                    <dd><span class="@RepositoryClass(row)" title="@RepositoryTitle(row)">@Or(RepositoryLabel(row.Repository))</span></dd>
+                </div>
+                <div class="sessions-fact">
+                    <dt>Machine</dt>
+                    <dd>@row.Environment</dd>
+                </div>
+                <div class="sessions-fact">
+                    <dt>Model</dt>
+                    <dd data-testid="sessions-fact-model" title="@row.Model">@ModelLabel(row.Model)</dd>
+                </div>
+                <div class="sessions-fact">
+                    <dt>Effort</dt>
+                    <dd data-testid="sessions-fact-effort">
+                        @if (row.Effort is { } effort)
+                        {
+                            <EffortChip Effort="@effort" TestId="sessions-fact-effort-chip" />
+                        }
+                        else
+                        {
+                            @NotRecorded
+                        }
+                    </dd>
+                </div>
+                <div class="sessions-fact">
+                    <dt>Started</dt>
+                    <dd data-testid="sessions-started">@Moment(row.StartedAt)</dd>
+                </div>
+                <div class="sessions-fact">
+                    <dt>Duration</dt>
+                    <dd data-testid="sessions-fact-duration">@Or(DurationLabel(row.Duration))</dd>
+                </div>
+                <div class="sessions-fact">
+                    <dt>Output</dt>
+                    <dd data-testid="sessions-fact-output" title="@TokensTitle(row.Session?.ModelUsage)">@TokensCell(row.Session?.ModelUsage, row.OutputTokens)</dd>
+                </div>
+                @* What the session cost: Claude Code's reported figure, or estimated
+                   from its runs' tokens at the Settings prices and marked so. With
+                   neither there is no fact at all — a zero nobody measured would
+                   read as free. *@
+                @if (CostsOf(row)?.Session is { } cost)
+                {
+                    <div class="sessions-fact">
+                        <dt>Cost</dt>
+                        <dd data-testid="sessions-fact-cost" data-source="@(cost.Estimated ? "estimated" : "reported")" title="@DeliveryRunStages.CostTitle(cost)">
+                            @cost.Label
+                            @if (cost.Estimated)
+                            {
+                                <span class="sessions-fact__note">@CostFigure.EstimatedNote</span>
+                            }
+                        </dd>
+                    </div>
+                }
+                @* The session's part of the week's telemetry cost, and once a weekly
+                   refusal has sized the limit, an estimate of its part of that. *@
+                @if (SharesOf(row) is { Session: { } share } shares)
+                {
+                    <div class="sessions-fact">
+                        <dt>Share of week</dt>
+                        <dd data-testid="sessions-fact-share">
+                            <UsageShareFact Share="share" Usage="shares.Usage" TestId="sessions-share" />
+                        </dd>
+                    </div>
+                }
+                <div class="sessions-fact">
+                    <dt>Branch</dt>
+                    <dd class="data-table__mono" data-testid="sessions-branch">@Or(row.Branch)</dd>
+                </div>
+                @if (!row.RunOnly && row.Session!.Origin is not AgentSessionOrigin.Replicated && !string.IsNullOrWhiteSpace(row.WorkingFolder))
+                {
+                    <div class="sessions-fact sessions-fact--wide">
+                        <dt>Working folder</dt>
+                        <dd class="data-table__mono" data-testid="sessions-folder">@row.WorkingFolder</dd>
+                    </div>
+                }
+            </dl>
+
+            @if (row.Runs.Count > 0)
+            {
+                @* The run card: every run the row holds, latest first, each the line
+                   that has always drawn a run — its references, its outcome, and the
+                   fold with its stages and figures. *@
+                <section class="sessions-detail__card" aria-label="Delivery runs" data-testid="sessions-run-card">
+                    <h4 class="sessions-detail__card-title">@(row.Runs.Count == 1 ? "Delivery run" : $"Delivery runs · {row.Runs.Count}")</h4>
+                    <div class="sessions-runs" data-testid="sessions-runs">
+                        @foreach (var run in row.Runs)
+                        {
+                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" Costs="@CostsOf(row)?.StagesOf(run)" Comparison="@CostsOf(row)?.ComparisonOf(run)" OnOpenTask="OnOpenTask">
+                                <Usage>
+                                    <UsageShareFact Share="@SharesOf(row)?.Of(run)" Usage="@SharesOf(row)?.Usage" Run="true" TestId="sessions-run-share" />
+                                </Usage>
+                            </DeliveryRunLine>
+                        }
+                    </div>
+                </section>
+            }
+            else
+            {
+                <p class="sessions-detail__card sessions-detail__note" data-testid="sessions-no-run">@NoRunLine</p>
+            }
+
+            <section class="sessions-detail__produced" aria-label="What it produced">
+                <h4 class="sessions-detail__section-title">What it produced</h4>
+                <div class="sessions-detail__cards">
+                    <div class="sessions-detail__card" data-testid="sessions-pull-request-card">
+                        <span class="sessions-detail__card-label">Pull request</span>
+                        @if (PullRequestsOf(row) is { Count: > 0 } pulls)
+                        {
+                            @foreach (var pull in pulls)
+                            {
+                                <div class="sessions-detail__work" data-testid="sessions-pull-requests">
+                                    <IntegrationLink Link="@DeliveryRunLine.Link(pull)"
+                                                     ShowTitle="false"
+                                                     CssClass="sessions-detail__link"
+                                                     TestId="sessions-pull-request" />
+                                    @if (PullTitle(pull) is { } title)
+                                    {
+                                        <span class="sessions-detail__work-title" title="@title">@title</span>
+                                    }
+                                    @if (StatusOf(pull) is { } status)
+                                    {
+                                        <Badge Kind="tone"
+                                               Slug="@ToneSlug(status.Tone)"
+                                               Title="@status.Reason"
+                                               CssClass="sessions-detail__verdict"
+                                               TestId="sessions-pull-request-verdict">@status.Label</Badge>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <span class="sessions-detail__none">No pull request yet.</span>
+                        }
+                    </div>
+                    <div class="sessions-detail__card" data-testid="sessions-task-card">
+                        <span class="sessions-detail__card-label">Task</span>
+                        @if (TaskOf(row) is { } task)
+                        {
+                            <div class="sessions-detail__work">
+                                <IntegrationLink Link="@TaskLink(task)"
+                                                 ShowTitle="false"
+                                                 OnOpen="@TaskOpener(task)"
+                                                 TestId="sessions-task" />
+                                @if (!string.IsNullOrWhiteSpace(task.Title))
+                                {
+                                    <span class="sessions-detail__work-title" title="@task.Title">@task.Title</span>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="sessions-detail__none">No task names this session.</span>
+                        }
+                    </div>
+                </div>
+            </section>
+        </aside>
+    };
+
+    /// <summary>The views on offer, Live first because it is the one the pane opens in.</summary>
     private static readonly AgentSessionView[] Views =
     [
         AgentSessionView.Live,
         AgentSessionView.All
     ];
 
-    /// <summary>The groupings on offer, in the order the strip lists them. Ungrouped
+    /// <summary>The groupings on offer, in the order the select lists them. When
     /// first, because it is the shape the list has when the pane opens.</summary>
     private static readonly AgentSessionGrouping[] Groupings =
     [
-        AgentSessionGrouping.None,
-        AgentSessionGrouping.Environment,
-        AgentSessionGrouping.Kind
+        AgentSessionGrouping.When,
+        AgentSessionGrouping.Repository,
+        AgentSessionGrouping.Environment
     ];
 
-    /// <summary>The headings, in the order the row template writes its cells.</summary>
-    private static readonly DataTableColumn[] Columns =
-    [
-        new("Session"),
-        new("Type"),
-        new("Environment"),
-        new("Repository"),
-        new("Pull request"),
-        new("Task"),
-        new("Last activity"),
-        new("Tokens"),
-        new("State")
-    ];
+    private static readonly IReadOnlyList<SelectorOption> GroupingOptions =
+        [.. Groupings.Select(grouping => new SelectorOption(Slug(grouping), GroupingLabel(grouping)))];
 
-    /// <summary>An em dash: the agent did not record this. Distinct from an empty
-    /// string, which would read as a value that happens to be blank.</summary>
+    /// <summary>An em dash: the agent did not record this.</summary>
     private const string Missing = "—";
+
+    /// <summary>What a fact nobody recorded reads, where an em dash would be too
+    /// quiet to tell from a value: the model and the effort, the two facts a reader
+    /// compares sessions on.</summary>
+    private const string NotRecorded = "not recorded";
 
     private AgentSessionCatalog _catalog = AgentSessionCatalog.Empty;
 
-    /// <summary>The runs, and the one list the two readings make together. Built
-    /// once per read rather than per render, because it hashes every session's folder
-    /// against every worktree a run was filed under, and a render happens on every
-    /// press in the filter strip.</summary>
+    /// <summary>The runs, and the one list the two readings make together — built
+    /// once per read, because it hashes every session's folder against every
+    /// worktree a run was filed under, and a render happens on every press.</summary>
     private DeliveryRunCatalog _runs = DeliveryRunCatalog.Empty;
     private IReadOnlyList<SessionRow> _rows = [];
     private AgentSessionView _view = AgentSessionView.Live;
 
     /// <summary>Whether only the rows with a delivery run on them are shown. Off on
-    /// every open, like the view: a filter that remembered itself would open the
-    /// pane on a subset the reader did not ask for.</summary>
+    /// every open, like the view.</summary>
     private bool _withRuns;
 
-    /// <summary>The rows whose runs are unfolded, by row key. Empty on every open, so
-    /// the pane opens on one line per session; a re-read keeps what a reader opened.</summary>
-    private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
-
-    private bool IsExpanded(SessionRow row) => _expanded.Contains(row.Key);
-
-    private void SetExpanded(SessionRow row, bool expanded)
-    {
-        if (expanded) _expanded.Add(row.Key);
-        else _expanded.Remove(row.Key);
-    }
-
-    /// <summary>The region's id: the row key with anything an id may not hold — a
-    /// worktree path's spaces among them — made a hyphen.</summary>
-    private static string RunsId(SessionRow row) =>
-        "sessions-runs-" + string.Concat(row.Key.Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '-'));
-
-    internal static string RunCount(SessionRow row) =>
-        row.Runs.Count == 1 ? "1 run" : $"{row.Runs.Count} runs";
-
-    private AgentSessionGrouping _grouping = AgentSessionGrouping.None;
+    private AgentSessionGrouping _grouping = AgentSessionGrouping.When;
 
     /// <summary>The environment the list is narrowed to, by id, or null for all of
-    /// them. Held the way <see cref="_view"/> is — here, for as long as this pane
-    /// lasts — and for the same reason: a new opening starts on every environment,
-    /// and a stored choice would leave a reader looking at one machine's sessions
-    /// without having asked for them.</summary>
+    /// them. Back to all on every open.</summary>
     private string? _environmentId;
+
+    /// <summary>The row the reader picked, by key, or null for none picked yet —
+    /// which shows the first row the list draws.</summary>
+    private string? _selectedKey;
 
     private bool _loading;
 
-    /// <summary>The first read's placeholder rows, of differing length so that
-    /// they read as rows rather than as a pattern.</summary>
     private static readonly string[] SkeletonWidths = ["100%", "92%", "96%", "88%"];
 
-    /// <summary>When the list was read, so "12 minutes ago" is measured against the
-    /// reading rather than against the render. Neither strip re-reads anything: a
-    /// grouping change and a view change are both a second render of one reading, and
-    /// pinning the clock to the reading is what makes them say the same thing about
-    /// the same row. Only Refresh moves this.</summary>
+    /// <summary>When the list was read, so "12 minutes ago" and the day a row is
+    /// grouped under are measured against the reading rather than the render. Only
+    /// Refresh moves this.</summary>
     private DateTimeOffset _readAt = DateTimeOffset.UtcNow;
 
-    /// <summary>Raised when somebody dismisses the pane. Whether that returns to the
-    /// workspace, opens something else or does nothing is the shell's decision — the
-    /// pane only reports that the ✕ was pressed.</summary>
+    /// <summary>Raised when somebody dismisses the pane.</summary>
     [Parameter]
     public EventCallback OnClose { get; set; }
 
     /// <summary>
-    /// Which identity colour a repository wears, asked per session, or null for one
-    /// this pane's host cannot place.
-    /// <para>
-    /// A callback rather than a lookup of its own, for the reason this context holds
-    /// <c>owner/name</c> as an opaque string in the first place: which repositories
-    /// exist is a workspace question and answering it here would tie sessions to
-    /// repository management. It is also the answer three other surfaces read, and a
-    /// pane that worked its own out would be a second answer to which project is
-    /// which. See <c>.devbook/design/color-scheme.md#band-identity-tokens</c>.
-    /// </para>
+    /// Which identity colour a repository wears, or null for one the host cannot
+    /// place. A callback, because which repositories exist is a workspace question
+    /// (<c>.devbook/design/color-scheme.md#band-identity-tokens</c>).
     /// </summary>
     [Parameter]
     public Func<string?, int?>? RepositoryColour { get; set; }
 
-    /// <summary>
-    /// The repositories the shell has scoped, by alias, in the order taken; empty
-    /// for all of them. Read on every render: the chips can move while the list is
-    /// open, and the list follows them the way the dashboard's parts do.
-    /// </summary>
+    /// <summary>The repositories the shell has scoped, by alias; empty for all.</summary>
     [Parameter]
     public IReadOnlyList<string> RepositoryScope { get; set; } = [];
 
-    /// <summary>
-    /// What a session's recorded repository is called here — the configured alias
-    /// for an <c>owner/name</c> or for an alias that arrived on the wire, or null
-    /// for a repository this workspace does not know and for a session that
-    /// recorded none. The shell's to answer, for the reason <see cref="RepositoryColour"/>
-    /// is: the pane knows nothing about the repository list and should not have to.
-    /// </summary>
+    /// <summary>What a recorded repository is called here — the configured alias —
+    /// or null for one this workspace does not know. The shell's to answer.</summary>
     [Parameter]
     public Func<string?, string?>? RepositoryAlias { get; set; }
 
     /// <summary>
-    /// How the shell opens a Backlog entry a delivery run was started from. Wired by
-    /// the host because opening one is the workspace's business and not this
-    /// context's: this pane holds sessions and runs, and an entry belongs to Tasks.
-    /// <para>
-    /// Without it a task reference renders as inert text rather than as a control
-    /// that would have to refuse the click — the same tri-state the Integrations
-    /// family applies to every reference nobody can follow.
-    /// </para>
+    /// How the shell opens a Backlog entry. Without it a task reference renders as
+    /// inert text rather than as a control that would have to refuse the click.
     /// </summary>
     [Parameter]
     public EventCallback<DeliveryRunReference> OnOpenTask { get; set; }
 
     /// <summary>
-    /// The Backlog entry that linked a session, by the session's id, where one did —
-    /// the entry's own record of the session it was worked in, written through the
-    /// Backlog server's <c>link_session</c>. Asked of the host for the same reason as
-    /// <see cref="OnOpenTask"/>: the link is stored on the entry, and entries belong
-    /// to Tasks.
-    /// <para>
-    /// A fallback and never a second opinion: a run whose prompt named its entry keeps
-    /// that one, because the prompt is what the run was actually started from. A run
-    /// that named none borrows its session's, so its status still leads to the work.
-    /// </para>
+    /// The Backlog entry that linked a session, by the session's id. A fallback and
+    /// never a second opinion: a run whose prompt named its entry keeps that one.
     /// </summary>
     [Parameter]
     public Func<string, DeliveryRunReference?>? SessionTask { get; set; }
+
+    /// <summary>
+    /// How a pull request the selected row leads to stands — its readiness verdict —
+    /// asked of the host when the row is shown in the panel, or null where the host
+    /// cannot say. Without it the card shows the pull request with no chip: a chip
+    /// would be claiming this pane had asked GitHub.
+    /// </summary>
+    [Parameter]
+    public Func<DeliveryRunReference, Task<SessionPullRequestStatus?>>? PullRequestStatus { get; set; }
+
+    /// <summary>
+    /// The session the pane was opened on — by a task that names it — or null. The
+    /// row is selected and receives focus, and the pane's own filters widen when they
+    /// would hide it. The shell's repository scope is left alone; a row outside it is
+    /// said out loud instead.
+    /// </summary>
+    [Parameter]
+    public string? FocusSessionId { get; set; }
+
+    private string Heading => _view is AgentSessionView.Live ? "Running now" : "Claude and Copilot";
 
     /// <summary>What a run's line draws: the row's references for the run, plus the
     /// entry its session was linked to where the run names no entry of its own.</summary>
@@ -706,13 +671,7 @@
         return SessionTask(session.Id) is { } task ? [.. references, task] : references;
     }
 
-    /// <summary>How many pull requests the column draws before it counts the rest: a
-    /// schedule's row gathers every run's, and a cell is not a list.</summary>
-    private const int MaxPullRequests = 2;
-
-    /// <summary>Every reference the row leads to: each run's, as its line draws them,
-    /// or — on a row with no run — the session's own pull requests and entry. One per
-    /// address, so a pull request two runs recorded is drawn once.</summary>
+    /// <summary>Every reference the row leads to, one per address.</summary>
     private IReadOnlyList<DeliveryRunReference> ReferencesOf(SessionRow row)
     {
         IEnumerable<DeliveryRunReference> references = row.Runs.Count > 0
@@ -732,13 +691,11 @@
     private IReadOnlyList<DeliveryRunReference> PullRequestsOf(SessionRow row) =>
         [.. ReferencesOf(row).Where(reference => reference.Kind is DeliveryRunReferenceKind.PullRequest)];
 
-    /// <summary>The Backlog entry the row was worked for: the first run that names one, else
-    /// the one its session was linked to.</summary>
+    /// <summary>The Backlog entry the row was worked for: the first run that names one,
+    /// else the one its session was linked to.</summary>
     private DeliveryRunReference? TaskOf(SessionRow row) =>
         ReferencesOf(row).FirstOrDefault(reference => reference.Kind is DeliveryRunReferenceKind.Task);
 
-    /// <summary>An entry as the Pull requests pane draws one: its label, leading into
-    /// the task list.</summary>
     private static IntegrationLinkRef TaskLink(DeliveryRunReference task) =>
         new(task.EntryId?.ToString() ?? task.Label, IntegrationProvider.None, IntegrationLinkKind.Other, task.Label, Title: $"Open {task.Label} in the task list");
 
@@ -748,83 +705,410 @@
             ? EventCallback.Factory.Create<IntegrationLinkRef>(this, () => OnOpenTask.InvokeAsync(task))
             : default;
 
+    /// <summary>The verdicts read so far, by the pull request's address, and the
+    /// addresses asked about — so a row shown twice asks once.</summary>
+    private readonly Dictionary<string, SessionPullRequestStatus?> _statuses = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _asked = new(StringComparer.OrdinalIgnoreCase);
+    private bool _disposed;
+
+    /// <summary>Which reading the verdicts belong to. A refresh starts a new one, so an
+    /// answer still out for the last reading is dropped rather than kept as this
+    /// one's.</summary>
+    private int _statusGeneration;
+
+    private static string PullKey(DeliveryRunReference pull) => $"{pull.Repository}|{pull.Url ?? pull.Label}";
+
+    private SessionPullRequestStatus? StatusOf(DeliveryRunReference pull) =>
+        _statuses.TryGetValue(PullKey(pull), out var status) ? status : null;
+
+    private string? PullTitle(DeliveryRunReference pull) =>
+        !string.IsNullOrWhiteSpace(pull.Title) ? pull.Title : StatusOf(pull)?.Title;
+
+    /// <summary>Asks the host about the selected row's pull requests it has not asked
+    /// about yet. Each answer redraws the panel as it lands; one that fails leaves
+    /// that card without a chip rather than failing the pane.</summary>
+    private void AskAboutPullRequests()
+    {
+        if (PullRequestStatus is not { } read || Selected is not { } row) return;
+
+        foreach (var pull in PullRequestsOf(row))
+        {
+            var key = PullKey(pull);
+            if (!_asked.Add(key)) continue;
+
+            _ = AskAsync(read, pull, key, _statusGeneration);
+        }
+    }
+
+    private async Task AskAsync(Func<DeliveryRunReference, Task<SessionPullRequestStatus?>> read, DeliveryRunReference pull, string key, int generation)
+    {
+        SessionPullRequestStatus? status;
+
+        try
+        {
+            status = await read(pull);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            status = null;
+        }
+
+        if (_disposed || generation != _statusGeneration) return;
+
+        _statuses[key] = status;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => _disposed = true;
+
+    /// <summary>What one row cost, worked out once its requests are in.</summary>
+    private sealed record RowCosts(
+        CostFigure? Session,
+        IReadOnlyDictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>> Stages,
+        IReadOnlyDictionary<DeliveryRun, DeliveryRunCostComparison> Comparisons)
+    {
+        public IReadOnlyList<DeliveryRunStageCost>? StagesOf(DeliveryRun run) => Stages.TryGetValue(run, out var costs) ? costs : null;
+
+        public DeliveryRunCostComparison? ComparisonOf(DeliveryRun run) => Comparisons.TryGetValue(run, out var comparison) ? comparison : null;
+    }
+
+    /// <summary>What part of the week one row and each of its runs make up.</summary>
+    private sealed record RowShares(WeeklyUsage Usage, UsageShare? Session, IReadOnlyDictionary<DeliveryRun, UsageShare?> Runs)
+    {
+        public UsageShare? Of(DeliveryRun run) => Runs.TryGetValue(run, out var share) ? share : null;
+    }
+
+    /// <summary>How far back limit refusals are read to place the week and size the
+    /// limits: a refusal older than this sizes nothing any more.</summary>
+    private static readonly TimeSpan LimitHitHorizon = TimeSpan.FromDays(28);
+
+    /// <summary>Where the limit refusals come from: this machine's session records,
+    /// which hold each transcript already folded. Never the activity port, which
+    /// reads the transcripts' bodies — the pane may not pay that to draw a figure.</summary>
+    private IAgentSessionRecordStore? _records;
+
+    private TimeProvider _clock = TimeProvider.System;
+
+    /// <summary>The week's total and limits, read once per refresh over every stored
+    /// request; cleared with the costs.</summary>
+    private Task<WeeklyUsage?>? _weekly;
+
+    private readonly Dictionary<string, RowShares> _shares = new(StringComparer.Ordinal);
+
+    private RowShares? SharesOf(SessionRow row) => _shares.TryGetValue(row.Key, out var shares) ? shares : null;
+
+    private Task<WeeklyUsage?> WeeklyAsync() => _weekly ??= ReadWeeklyAsync();
+
+    /// <summary>Every stored request and every limit refusal inside the horizon. A
+    /// store that fails shows no share; records that fail to read only lose the
+    /// refusals, so the week falls back to the trailing seven days.</summary>
+    private async Task<WeeklyUsage?> ReadWeeklyAsync()
+    {
+        if (_requestStore is not { } store) return null;
+
+        var now = _clock.GetUtcNow();
+        IReadOnlyList<ClaudeApiRequest> requests;
+
+        try
+        {
+            // Only the limit horizon and the week before its oldest refusal can matter.
+            var from = now - LimitHitHorizon - UsageWeek.Length;
+            requests = [.. (await store.ListAsync()).Where(request => request.Timestamp >= from)];
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
+
+        IReadOnlyList<AgentLimitHit> hits = [];
+
+        if (_records is { } records)
+        {
+            try
+            {
+                var since = now - LimitHitHorizon;
+                var held = await Task.Run(records.All);
+                hits = [.. held.SelectMany(record => record.Activity?.LimitHits ?? []).Where(hit => hit.At >= since)];
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                hits = [];
+            }
+        }
+
+        return WeeklyUsage.Of(requests, hits, now);
+    }
+
+    private IClaudeApiRequestStore? _requestStore;
+
+    private IModelPriceStore? _priceStore;
+
+    private ModelPriceTable _prices = ModelPriceTable.Empty;
+
+    /// <summary>Each row's costs, by row key, once worked out; cleared by a refresh,
+    /// which also reads the prices again.</summary>
+    private readonly Dictionary<string, RowCosts> _costs = new(StringComparer.Ordinal);
+
+    private readonly HashSet<string> _costAsked = new(StringComparer.Ordinal);
+
+    private RowCosts? CostsOf(SessionRow row) => _costs.TryGetValue(row.Key, out var costs) ? costs : null;
+
+    /// <summary>The sessions whose requests a row's costs are read from: its own, and
+    /// every one its runs name.</summary>
+    private static IReadOnlyList<string> CostSessionsOf(SessionRow row) =>
+        [.. new[] { row.Session?.Id }.Concat(row.Runs.SelectMany(run => run.SessionIds)).OfType<string>().Where(id => id.Length > 0).Distinct(StringComparer.Ordinal)];
+
+    /// <summary>Works out the selected row's costs, reading its sessions' requests from
+    /// the store where the host keeps one. A store that fails leaves the row on the
+    /// estimate alone rather than failing the pane.</summary>
+    private void AskAboutCosts()
+    {
+        if (Selected is not { } row || !_costAsked.Add(row.Key)) return;
+
+        _ = WorkOutCostsAsync(row, _statusGeneration);
+    }
+
+    private async Task WorkOutCostsAsync(SessionRow row, int generation)
+    {
+        var requests = new List<ClaudeApiRequest>();
+
+        if (_requestStore is { } store)
+        {
+            try
+            {
+                foreach (var id in CostSessionsOf(row)) requests.AddRange(await store.ListAsync(id));
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                requests.Clear();
+            }
+        }
+
+        if (_disposed || generation != _statusGeneration) return;
+
+        var sessionId = row.Session?.Id ?? row.Runs.SelectMany(run => run.SessionIds).FirstOrDefault();
+        var stages = new Dictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>>(ReferenceEqualityComparer.Instance);
+        var comparisons = new Dictionary<DeliveryRun, DeliveryRunCostComparison>(ReferenceEqualityComparer.Instance);
+        CostFigure? session;
+
+        try
+        {
+            foreach (var run in row.Runs)
+            {
+                stages[run] = DeliveryRunCosts.Of(run, requests, _prices, sessionId, row.Model);
+            }
+
+            session = DeliveryRunCosts.Session(sessionId, requests, row.Runs, _prices, row.Model, row.Session?.ModelUsage);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // A run file shaped in a way the attribution did not expect costs that row
+            // its figures, not the pane: the row shows no cost, which is the honest
+            // answer to a question nothing could answer.
+            stages.Clear();
+            session = null;
+        }
+
+        // The row's own figures first: pricing the earlier runs its comparison needs
+        // reads up to thirty runs' requests, and the row's cost should not wait on them.
+        _costs[row.Key] = new RowCosts(session, stages, new Dictionary<DeliveryRun, DeliveryRunCostComparison>());
+
+        // The costs are drawn before the week is read: the week reads every request,
+        // and the row's own figures should not wait on it.
+        await InvokeAsync(StateHasChanged);
+
+        WeeklyUsage? weekly;
+
+        try
+        {
+            weekly = await WeeklyAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            weekly = null;
+        }
+
+        if (weekly is not null && !_disposed && generation == _statusGeneration)
+        {
+            var shares = new Dictionary<DeliveryRun, UsageShare?>(ReferenceEqualityComparer.Instance);
+
+            try
+            {
+                foreach (var run in row.Runs) shares[run] = weekly.ShareOfRun(run, requests, sessionId);
+
+                _shares[row.Key] = new RowShares(weekly, weekly.ShareOfSession(sessionId, requests), shares);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // The same honest answer as the costs above: a run the matching could
+                // not read shows no share rather than failing the pane.
+                _shares.Remove(row.Key);
+            }
+        }
+
+        await InvokeAsync(StateHasChanged);
+
+        foreach (var (run, costs) in stages)
+        {
+            if (await CompareAsync(run, costs, generation) is { } comparison) comparisons[run] = comparison;
+
+            if (_disposed || generation != _statusGeneration) return;
+        }
+
+        if (comparisons.Count == 0) return;
+
+        _costs[row.Key] = new RowCosts(session, stages, comparisons);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>What each earlier run cost, by run, once asked: the baseline of a flow
+    /// is the same thirty runs for every run that follows them, so each is priced once
+    /// per refresh rather than once per row — the task kept, so two rows asking at once
+    /// share one pricing.</summary>
+    private readonly Dictionary<DeliveryRun, Task<IReadOnlyList<DeliveryRunStageCost>>> _earlierCosts = new(ReferenceEqualityComparer.Instance);
+
     /// <summary>
-    /// The repository cell, plus its identity mark when the host placed it.
-    /// <para>
-    /// On the cell that names the repository rather than down the whole row: a row
-    /// here is a session and the repository is one of eight things it reports, so a
-    /// rule down its leading edge would read as if the row itself belonged to that
-    /// project. Beside the name is also where the design rule wants it — the mark is
-    /// never the sole carrier, and the name is right there.
-    /// </para>
+    /// A run's costs against its usual: the last thirty finished runs of its flow
+    /// (<see cref="DeliveryRunBaselines.Earlier"/>), each priced the way its own row
+    /// would be — its sessions' reported requests, else its tokens at the Settings
+    /// prices. Null where the comparison could not be worked out, which leaves the run
+    /// with its costs and nothing to compare them with.
     /// </summary>
+    private async Task<DeliveryRunCostComparison?> CompareAsync(DeliveryRun run, IReadOnlyList<DeliveryRunStageCost> costs, int generation)
+    {
+        try
+        {
+            var earlier = DeliveryRunBaselines.Earlier(run, _runs.Runs);
+            var priced = new List<PricedDeliveryRun>(earlier.Count);
+
+            foreach (var other in earlier)
+            {
+                if (!_earlierCosts.TryGetValue(other, out var pricing))
+                {
+                    pricing = PriceAsync(other);
+                    _earlierCosts[other] = pricing;
+                }
+
+                var otherCosts = await pricing;
+
+                // A refresh cleared the cache and re-read the runs while this waited;
+                // the comparison it was for is no longer on screen.
+                if (_disposed || generation != _statusGeneration) return null;
+
+                priced.Add(new PricedDeliveryRun(other, otherCosts));
+            }
+
+            return DeliveryRunBaselines.Compare(run, costs, priced);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>What an earlier run's stages cost, read from the row that holds it.</summary>
+    private async Task<IReadOnlyList<DeliveryRunStageCost>> PriceAsync(DeliveryRun run)
+    {
+        var owner = _rows.FirstOrDefault(row => row.Runs.Any(candidate => ReferenceEquals(candidate, run)));
+        var sessionId = owner?.Session?.Id ?? run.SessionIds.FirstOrDefault();
+        var ids = run.SessionIds.Count > 0 ? run.SessionIds : sessionId is null ? [] : [sessionId];
+        var requests = new List<ClaudeApiRequest>();
+
+        if (_requestStore is { } store)
+        {
+            try
+            {
+                foreach (var id in ids.Distinct(StringComparer.Ordinal)) requests.AddRange(await store.ListAsync(id));
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                requests.Clear();
+            }
+        }
+
+        return DeliveryRunCosts.Of(run, requests, _prices, sessionId, owner?.Model);
+    }
+
+    private async Task ReadPricesAsync()
+    {
+        if (_priceStore is not { } store) return;
+
+        try
+        {
+            _prices = await store.GetAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _prices = ModelPriceTable.Empty;
+        }
+    }
+
+    private static readonly string[] Tones = ["quiet", "live", "alert", "fault", "settled", "archived"];
+
+    /// <summary>The tone's slug, or quiet for a word the scale does not hold.</summary>
+    private static string ToneSlug(string tone) =>
+        Tones.FirstOrDefault(known => string.Equals(known, tone.Trim(), StringComparison.OrdinalIgnoreCase)) ?? "quiet";
+
+    /// <summary>The repository fact, plus its identity mark when the host placed it.</summary>
     private string RepositoryClass(SessionRow row)
     {
         var stem = row.RepositoryResolved
-            ? "data-table__clamp sessions-table__repository sessions-table__repository--resolved"
-            : "data-table__clamp sessions-table__repository";
+            ? "sessions-repository sessions-repository--resolved"
+            : "sessions-repository";
         var colour = RepositoryColour?.Invoke(row.Repository);
 
         return colour is null ? stem : $"{stem} repo-mark repo-mark--{colour}";
     }
 
-    /// <summary>The cell's title: the full value, and — for a resolved one — how
-    /// it was arrived at, so the hint is never the only carrier. Which repository a
-    /// row names, and whether it was recorded or placed, is the row's own answer:
-    /// see <see cref="SessionRow.Repositories"/>.</summary>
+    /// <summary>The full value, and — for a resolved one — how it was arrived at, so
+    /// the hint is never the only carrier.</summary>
     private static string? RepositoryTitle(SessionRow row) =>
         row.RepositoryResolved
             ? $"{row.Repository} — placed by its working folder, inside the registered clone. The agent recorded no repository."
             : row.Repository;
 
-    /// <summary>
-    /// The session's name, plus the family that says it is an identifier on a row
-    /// that only has one.
-    /// <para>
-    /// A replicated record from a device that predates the title field names itself
-    /// with its own session id. Rendering that in the ink and weight of a title
-    /// somebody wrote is the row passing itself off as a named session: it reads as a
-    /// name right up to the point somebody tries to make sense of it. The mono family
-    /// is what this pane already gives every identifier in a row — the repository,
-    /// the branch, the folder — so the id joins them rather than inventing a fifth
-    /// treatment for the same kind of value. A record that carried its title (ADR
-    /// 0005, 2026-09-23) shows it as a title.
-    /// </para>
-    /// </summary>
-    private static string TitleClass(SessionRow row) =>
-        row.Origin is AgentSessionOrigin.Replicated && string.Equals(row.Title, row.Id, StringComparison.Ordinal)
-            ? "sessions-table__title data-table__mono"
-            : "sessions-table__title";
+    /// <summary>A repository as this workspace calls it: its alias where the shell
+    /// knows one, else as recorded.</summary>
+    private string? RepositoryLabel(string? repository) =>
+        string.IsNullOrWhiteSpace(repository) ? null : RepositoryAlias?.Invoke(repository) ?? repository;
+
+    private string? SectionName(AgentSessionGroup section) =>
+        _grouping is AgentSessionGrouping.Repository && section.Key is { } repository
+            ? RepositoryLabel(repository)
+            : section.Name;
 
     /// <summary>
-    /// Where a replicated record came from, and that its detail stayed there. It
-    /// takes the second line unconditionally on such a row: the folder is empty by
-    /// contract, and a path that did somehow arrive would still name a disk this
-    /// machine cannot open, so provenance is the truer thing to spend the one line
-    /// on.
-    /// <para>
-    /// The machine's name and not its id. <c>EnvironmentId</c> is a sync device id —
-    /// a different id space from this device's kernel identity, and nothing a person
-    /// recognises. The fallback drops the name rather than the sentence, because
-    /// "Recorded on ." is worse than a sentence admitting it cannot say which
-    /// machine, and a name can be blank the way any wire field can.
-    /// </para>
+    /// A replicated record from a device that predates the title field names itself
+    /// with its own session id; drawn in the mono family every identifier here wears,
+    /// so it does not pass itself off as a name somebody wrote.
     /// </summary>
+    private static bool IsIdentifierTitle(SessionRow row) =>
+        row.Origin is AgentSessionOrigin.Replicated && string.Equals(row.Title, row.Id, StringComparison.Ordinal);
+
+    private static string TitleClass(SessionRow row) =>
+        IsIdentifierTitle(row) ? "sessions-row__title data-table__mono" : "sessions-row__title";
+
+    /// <summary>Where a replicated record came from, and that its detail stayed there.
+    /// The machine's name, not its sync id; the sentence survives a blank name.</summary>
     private static string OriginLine(AgentSession session) =>
         string.IsNullOrWhiteSpace(session.Environment)
             ? "Recorded on another machine. Its folder and transcript stay there."
             : $"Recorded on {session.Environment}. Its folder and transcript stay there.";
 
-    /// <summary>What a row answered from this machine's own record says about itself:
-    /// where it came from, and why the agent's files are not behind it.</summary>
     private const string RecordedLine =
         "From this PC's session record — the transcript is gone, so this is what the last reading kept.";
 
+    /// <summary>What the panel says on every Copilot row: its state is a reading of
+    /// silence, not evidence.</summary>
+    private const string CopilotLivenessLine =
+        "Copilot leaves no liveness marker, so its state is read from its last write: one quiet for over half an hour reads as Finished.";
+
+    private const string NoRunLine =
+        "No delivery run reported from this session. It ran outside a flow, or its dashboard file is on another machine.";
+
     /// <summary>
     /// Where the agent was run from, shortened for a badge: Claude's own prefix is
-    /// dropped, since the Type column already says Claude — <c>claude-desktop</c> reads
-    /// "desktop", <c>cli</c> stays "cli". Null where nothing was recorded; the title
-    /// keeps the full spelling.
+    /// dropped — <c>claude-desktop</c> reads "desktop". Null where nothing was recorded.
     /// </summary>
     internal static string? EntrypointLabel(string? entrypoint) =>
         string.IsNullOrWhiteSpace(entrypoint)
@@ -833,15 +1117,21 @@
                 ? value["claude-".Length..]
                 : entrypoint.Trim();
 
-    /// <summary>Output and input over every model, or an em dash where the session did
-    /// not record its usage or recorded none.</summary>
-    internal static string TokensCell(IReadOnlyList<AgentModelUsage>? usage) =>
+    /// <summary>Output and input over every model, or the row's output alone where only
+    /// a run recorded it, or an em dash where nothing did — never a zero.</summary>
+    internal static string TokensCell(IReadOnlyList<AgentModelUsage>? usage, long? output = null) =>
         usage is { Count: > 0 }
             ? $"{MetricFormat.Compact(usage.Sum(model => model.OutputTokens))} out · {MetricFormat.Compact(usage.Sum(model => model.InputTokens))} in"
-            : Missing;
+            : output is { } tokens
+                ? $"{MetricFormat.Compact(tokens)} out"
+                : Missing;
 
-    /// <summary>One line per model in the table's token words, and what the figure
-    /// leaves out. Null where there is nothing recorded to break down.</summary>
+    /// <summary>The row's output tokens, compactly, or an em dash.</summary>
+    internal static string OutputLabel(long? output) =>
+        output is { } tokens ? $"{MetricFormat.Compact(tokens)} out" : Missing;
+
+    /// <summary>One line per model, and what the figure leaves out. Null where there is
+    /// nothing recorded to break down.</summary>
     internal static string? TokensTitle(IReadOnlyList<AgentModelUsage>? usage) =>
         usage switch
         {
@@ -853,29 +1143,49 @@
                     .Append("This session's own spend; the agents it spawned are not included."))
         };
 
-    /// <summary>
-    /// What a run-only row rests on. The worktree's name is already the title; the
-    /// line adds the dashboard and the key it filed the run under, which is the
-    /// nearest thing to a folder the run knows — a path would be a guess, and the
-    /// key at least identifies the folder to anyone holding the profile.
-    /// </summary>
+    internal static string ModelLabel(string? model) =>
+        string.IsNullOrWhiteSpace(model) ? $"model {NotRecorded}" : AgentModels.Label(model);
+
+    /// <summary>A duration the way a reader says one: "38 min", "1 h 12 min", "3 d".</summary>
+    internal static string? DurationLabel(TimeSpan? duration) => duration switch
+    {
+        null => null,
+        { TotalMinutes: < 1 } => "under a minute",
+        { TotalHours: < 1 } d => $"{(int)d.TotalMinutes} min",
+        { TotalDays: < 1 } d => d.Minutes == 0 ? $"{(int)d.TotalHours} h" : $"{(int)d.TotalHours} h {d.Minutes} min",
+        { } d => $"{(int)d.TotalDays} d"
+    };
+
+    internal static string RunCount(SessionRow row) =>
+        row.Runs.Count == 1 ? "1 run" : $"{row.Runs.Count} runs";
+
+    /// <summary>The strip's line, with the count of the row's other runs where it has
+    /// more than one — a schedule's row is many runs under one strip.</summary>
+    private static string RunSummary(SessionRow row) =>
+        row.Runs.Count > 1
+            ? $"{DeliveryRunProgress.Summary(row.Runs[0])} · {RunCount(row)}"
+            : DeliveryRunProgress.Summary(row.Runs[0]);
+
+    /// <summary>What a run-only row rests on: the dashboard and the key it filed the
+    /// run under, or for a schedule's row, the schedule and how often it ran.</summary>
     private static string RunOnlyLine(SessionRow row) => row.Schedule is not null
-        // A schedule's row stands for many worktrees, each cut for one run and gone, so
-        // naming one would describe one run of the row's many. What it rests on is the
-        // schedule and how often it has run.
-        ? $"Scheduled, unattended. {(row.Runs.Count == 1 ? "1 run" : $"{row.Runs.Count} runs")} recorded on this PC."
+        ? $"Scheduled, unattended. {RunCount(row)} recorded on this PC."
         : $"No session record on this PC. Recorded by {row.Runs[0].Dashboard} under {row.Runs[0].Worktree}.";
 
     protected override async Task OnInitializedAsync()
     {
         _keeper = Services.GetService<ISessionRecordKeeper>();
+        _requestStore = Services.GetService<IClaudeApiRequestStore>();
+        _priceStore = Services.GetService<IModelPriceStore>();
+        _records = Services.GetService<IAgentSessionRecordStore>();
+        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
 
         await RefreshAsync();
 
         // Every opening amends the records of the sessions that moved since the last
         // one, so a session is written down while its transcript is still there to
-        // read. Not awaited by the list: the list is already read, and the records are
-        // what a later reading falls back to, not what this one shows.
+        // read. Not awaited by the list: the records are what a later reading falls
+        // back to, not what this one shows.
         if (_keeper is not null) _ = KeepRecordsAsync(_keeper);
     }
 
@@ -898,8 +1208,7 @@
     private string? _recordsMessage;
 
     /// <summary>The update button: every session the files still hold, amended into
-    /// its record — added to, never replaced — then the list read again so a record
-    /// that now answers for a cleaned-away session shows.</summary>
+    /// its record, then the list read again.</summary>
     private async Task UpdateRecordsAsync()
     {
         if (_keeper is null) return;
@@ -938,26 +1247,36 @@
 
         try
         {
-            // Both readings in flight together: they are two folders read by two
-            // readers, and neither needs the other's answer until both are in.
+            // Both readings in flight together: neither needs the other's answer
+            // until both are in.
             var sessions = Sessions.GetSessionsAsync();
             var runs = Runs.GetRunsAsync();
 
             _catalog = await sessions;
             _runs = await runs;
+            await ReadPricesAsync();
             _rows = SessionRows.Of(_catalog.Sessions, _runs.Runs);
             _read = true;
             _readAt = DateTimeOffset.UtcNow;
 
-            // A re-read can lose the environment the list was narrowed to — its only
-            // records aged past the cap, or the source that held them could not be
-            // read this time. Left in place, the select would fall back to showing
-            // "All machines" over a list narrowed to nothing, which is the one
-            // thing the control must not say. Widening back out is the honest reset.
+            // A re-read can lose the environment the list was narrowed to. Left in
+            // place, the select would read "All machines" over a list narrowed to
+            // nothing; widening back out is the honest reset.
             if (_environmentId is not null && Environments.All(environment => environment.Id != _environmentId))
             {
                 _environmentId = null;
             }
+
+            // A fresh reading may hold newer verdicts too, newer requests, and prices
+            // somebody changed in Settings since.
+            _statuses.Clear();
+            _asked.Clear();
+            _costs.Clear();
+            _costAsked.Clear();
+            _earlierCosts.Clear();
+            _shares.Clear();
+            _weekly = null;
+            _statusGeneration++;
         }
         finally
         {
@@ -967,18 +1286,6 @@
         RevealFocused();
     }
 
-    /// <summary>
-    /// The session the pane was opened on — by a task that names it — or null.
-    /// <para>
-    /// The row is marked and receives focus, and the pane's own filters widen when
-    /// they would hide it: the reader asked for this session, and "Live" hiding a
-    /// finished one would answer with nothing. The shell's repository scope is left
-    /// alone, because it is the shell's; a row outside it is said out loud instead.
-    /// </para>
-    /// </summary>
-    [Parameter]
-    public string? FocusSessionId { get; set; }
-
     /// <summary>The <see cref="FocusSessionId"/> last acted on, so re-rendering with
     /// the same one does not widen the filters the reader has since narrowed.</summary>
     private string? _focusApplied;
@@ -987,8 +1294,7 @@
 
     private bool _focusMissing;
 
-    /// <summary>Whether the list has been read once, so an empty list is an answer
-    /// rather than a reading still in flight.</summary>
+    /// <summary>Whether the list has been read once.</summary>
     private bool _read;
 
     protected override void OnParametersSet()
@@ -1003,8 +1309,7 @@
     }
 
     /// <summary>A row is the focused session when it is that session, or when one of
-    /// its runs was driven by it — a run-only row still answers for the session id
-    /// its run recorded.</summary>
+    /// its runs was driven by it.</summary>
     internal bool IsFocused(SessionRow row) =>
         !string.IsNullOrWhiteSpace(FocusSessionId)
         && (string.Equals(row.Session?.Id, FocusSessionId, StringComparison.OrdinalIgnoreCase)
@@ -1014,7 +1319,7 @@
     {
         if (!_focusPending || !_read) return;
 
-        if (!ScopedSessions.Any(IsFocused))
+        if (ScopedSessions.FirstOrDefault(IsFocused) is not { } focused)
         {
             _focusMissing = true;
             _focusPending = false;
@@ -1022,9 +1327,8 @@
             return;
         }
 
-        // The session asked for opens with its runs showing: a task that names a
-        // session is usually asking about the run it drove.
-        foreach (var row in ScopedSessions.Where(IsFocused)) _expanded.Add(row.Key);
+        // The session asked for is the one the panel shows.
+        _selectedKey = focused.Key;
 
         if (!Visible.Any(IsFocused))
         {
@@ -1040,21 +1344,24 @@
             : $"This PC has no record of session {id}."
         : null;
 
-    private static string RowDomId(SessionRow row) => $"sessions-row-{row.Key}";
+    private static string RowDomId(SessionRow row) =>
+        "sessions-row-" + string.Concat(row.Key.Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '-'));
 
     private IReadOnlyDictionary<string, object>? FocusAttributes(SessionRow row) =>
         IsFocused(row)
             ? new Dictionary<string, object>
             {
                 ["id"] = RowDomId(row),
-                ["tabindex"] = "-1",
                 ["aria-current"] = "true",
-                ["data-testid"] = "sessions-focused-row",
+                ["data-focused"] = "true",
             }
             : null;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        AskAboutPullRequests();
+        AskAboutCosts();
+
         if (!_focusPending || _loading) return;
 
         var row = Visible.FirstOrDefault(IsFocused);
@@ -1073,56 +1380,55 @@
         catch (InvalidOperationException)
         {
             // Prerendering, or a test host with no JavaScript: the row is still
-            // marked, which is the part a reader sees.
+            // selected and marked, which is the part a reader sees.
         }
     }
 
-    /// <summary>Held here and nowhere else, so it lasts exactly as long as this
-    /// pane does: closing and reopening is a new pane, and a new pane opens on
-    /// Live. A stored view would make "what is going on right now" a question the
-    /// reader had to remember having answered.</summary>
     private void ChooseView(AgentSessionView view) => _view = view;
 
-    private void ChooseGrouping(AgentSessionGrouping grouping) => _grouping = grouping;
+    private void ChooseGrouping(string? slug) =>
+        _grouping = Groupings.FirstOrDefault(grouping => Slug(grouping) == slug, AgentSessionGrouping.When);
 
-    /// <summary>One environment, or all of them when the empty option is chosen — the
-    /// select hands back an empty string for that, and the module reads either as
-    /// the absence of a filter.</summary>
     private void ChooseEnvironment(string? id) => _environmentId = string.IsNullOrWhiteSpace(id) ? null : id;
 
+    private void Select(SessionRow row) => _selectedKey = row.Key;
+
     /// <summary>
-    /// The environments the select offers: every one the reading holds a record of,
-    /// read off the whole catalog and not off the view, so switching Show to Live
-    /// does not take the option a reader just chose out from under them. Derived per
-    /// render rather than stored, because it is a pure function of a catalog that
-    /// only Refresh changes.
+    /// The row the panel shows: the one the reader picked while the filters still
+    /// admit it, else the first row the list draws. Never a row the list does not
+    /// show — a panel about a session the filters hid would contradict the list.
     /// </summary>
+    private SessionRow? Selected => SelectedOf(Sections);
+
+    private SessionRow? SelectedOf(IReadOnlyList<AgentSessionGroup> sections)
+    {
+        var drawn = sections.SelectMany(section => section.Rows).ToList();
+
+        return drawn.FirstOrDefault(row => row.Key == _selectedKey) ?? drawn.FirstOrDefault();
+    }
+
+    /// <summary>The key of the row the panel shows in the render under way.</summary>
+    private string? _shownKey;
+
+    private bool IsSelected(SessionRow row) => _shownKey == row.Key;
+
+    /// <summary>Every environment the reading holds a record of, off the whole catalog
+    /// and not off the view, so switching Show does not take a chosen option away.</summary>
     private IReadOnlyList<AgentSessionEnvironment> Environments => AgentSessionEnvironments.Of(_rows);
 
-    /// <summary>The environments as the library's select wants them: the id is the
-    /// value and the name is the label, which is the whole reason an environment
-    /// carries both.</summary>
     private IReadOnlyList<SelectorOption> EnvironmentOptions =>
         [.. Environments.Select(environment => new SelectorOption(environment.Id, environment.Name))];
 
-    /// <summary>What the chosen environment is called, for the sentences that name it,
-    /// or null when the list is not narrowed to one.</summary>
     private string? EnvironmentName =>
         _environmentId is null ? null : Environments.FirstOrDefault(environment => environment.Id == _environmentId)?.Name;
 
-    /// <summary>The rows the filters admit, before any grouping. Environment, then
-    /// view, then grouping: neither narrowing reorders, so which of the two goes first
-    /// changes nothing, and the grouping never sees what either left out.</summary>
     /// <summary>Whether the header has narrowed the list to some repositories.</summary>
     private bool Scoped => RepositoryScope.Count > 0;
 
     private string ScopeLabel => string.Join(", ", RepositoryScope);
 
-    /// <summary>A row in the scope: one whose repository — recorded by the agent,
-    /// resolved from its folder, or named by a run's tracker item — the shell
-    /// resolves to a scoped alias. Any of them will do: a row is about one
-    /// repository however the product came to know which. With none there is nothing
-    /// to resolve, so the row is out: an absence, not a guess.</summary>
+    /// <summary>A row in the scope: one whose repository — recorded, resolved, or named
+    /// by a run — the shell resolves to a scoped alias. With none, the row is out.</summary>
     private bool InScope(SessionRow row) =>
         !Scoped || row.Repositories.Any(Scopes);
 
@@ -1130,67 +1436,53 @@
         RepositoryAlias?.Invoke(repository) is { } alias
         && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The list after the header's scope and before this pane's own
-    /// filters: the scope decides which rows exist here at all, the way it does on
-    /// the task list.</summary>
     private IReadOnlyList<SessionRow> ScopedSessions =>
         Scoped ? [.. _rows.Where(InScope)] : _rows;
 
-    private IReadOnlyList<SessionRow> Visible
+    /// <summary>The rows every filter but Show admits: the scope, the machine and the
+    /// runs toggle. What Live's tally counts the live rows of.</summary>
+    private IReadOnlyList<SessionRow> Narrowed
     {
         get
         {
-            var rows = AgentSessionViews.Of(AgentSessionEnvironments.On(ScopedSessions, _environmentId), _view);
+            var rows = AgentSessionEnvironments.On(ScopedSessions, _environmentId);
 
-            // The same list back when the toggle is off, for the reason the view
-            // hands the same list back for All.
             return _withRuns ? [.. rows.Where(row => row.Runs.Count > 0)] : rows;
         }
     }
 
-    /// <summary>How many sessions the chosen environment has a record of, whatever
-    /// the view. The number the empty state offers a reader as the way back out.</summary>
+    /// <summary>The rows the filters admit, before any grouping. Neither narrowing
+    /// reorders, and the grouping never sees what any of them left out.</summary>
+    private IReadOnlyList<SessionRow> Visible => AgentSessionViews.Of(Narrowed, _view);
+
+    /// <summary>How many rows Live would show under the other filters.</summary>
+    private int LiveTally => AgentSessionViews.Of(Narrowed, AgentSessionView.Live).Count;
+
+    /// <summary>How many sessions the chosen environment has a record of, whatever the
+    /// view. The number the empty state offers as the way back out.</summary>
     private int OnEnvironment => AgentSessionEnvironments.On(ScopedSessions, _environmentId).Count;
 
-    /// <summary>
-    /// The sections to render, derived from the module's own grouping rather than
-    /// worked out here. The pane translates the module's group into the table's —
-    /// two records of the same shape in two projects, because the control library
-    /// may not see a module and the module may not depend on a control library.
-    /// The key crosses with the name: the grouping keys environments on their id,
-    /// so two machines sharing a name are two sections, and the table has to key
-    /// its rows on the same thing or it refuses to render the second.
-    /// </summary>
-    private IReadOnlyList<DataTableSection<SessionRow>> Sections =>
-        [.. AgentSessionGroups.Of(Visible, _grouping)
-            .Select(group => new DataTableSection<SessionRow>(group.Name, group.Rows, group.Key))];
+    /// <summary>The sections, from the module's own grouping, against the reading's
+    /// clock and the reader's own time zone.</summary>
+    private IReadOnlyList<AgentSessionGroup> Sections =>
+        AgentSessionGroups.Of(Visible, _grouping, _readAt, TimeZoneInfo.Local);
 
-    /// <summary>What the reading found. The subtitle's number and the second half of
-    /// the badge's.</summary>
+    /// <summary>What the reading found. The subtitle's number and the badge's total.</summary>
     private int Total => _rows.Count;
 
-    /// <summary>What the view kept. The row count.</summary>
+    /// <summary>What the filters kept.</summary>
     private int Shown => Visible.Count;
 
     /// <summary>
-    /// Both numbers whenever the view is hiding some, and one number when it is
-    /// hiding none. Never "of" on a Live view over an all-live catalog: "2 of 2
-    /// sessions" would send a reader looking for two rows that do not exist.
-    /// <para>
-    /// The noun agrees with the total on both branches, because the total is the
-    /// number it is the noun for. A profile holding exactly one session record, over,
-    /// opens on Live with nothing on screen — and "0 of 1 sessions" would be the badge
-    /// disagreeing with the very number it is quoting.
-    /// </para>
+    /// Both numbers whenever the filters hide some, one when they hide none — never
+    /// "2 of 2". The noun agrees with the total, the number it is the noun for.
     /// </summary>
     private string CountLabel => Shown == Total
         ? (Total == 1 ? $"1 {Noun}" : $"{Total} {Nouns}")
         : (Total == 1 ? $"{Shown} of 1 {Noun}" : $"{Shown} of {Total} {Nouns}");
 
-    /// <summary>What a row is called in the counts. "Session" while every row is one,
-    /// and "session or run" once a run the list holds no session for has become a row
-    /// of its own — a badge reading "522 sessions" over 200 sessions and 322 runs
-    /// would be counting one thing under another's name.</summary>
+    /// <summary>"Session" while every row is one, and "session or run" once a run the
+    /// list holds no session for is a row of its own.</summary>
     private bool AnyRunOnly => _rows.Any(row => row.RunOnly);
 
     private string Noun => AnyRunOnly ? "session or run" : "session";
@@ -1198,28 +1490,15 @@
     private string Nouns => AnyRunOnly ? "sessions and runs" : "sessions";
 
     /// <summary>
-    /// Both numbers when the cap took something, and only the honest claim when it
-    /// did not. "The most recent" on an uncapped list would be hedging about a list
-    /// that is in fact complete.
-    /// <para>
-    /// This line describes the *reading* and deliberately not the view, which is why
-    /// its count is the catalog's rather than the rows on screen. The cap and the
-    /// view are two different subtractions; "the 2 most recent of 842" over a
-    /// four-session reading filtered to two would be attributing one to the other.
-    /// The badge is where the view's own subtraction is reported.
-    /// </para>
+    /// The reading's own line — both numbers when the cap took something, only the
+    /// honest claim when it did not — plus the runs and schedules that are rows of
+    /// their own, and while the header has narrowed the list, what a session is in by.
+    /// It describes the reading and not the filters, which is the badge's job.
     /// </summary>
-    /// <summary>The reading's own line, plus — while the header has narrowed the
-    /// list — the one thing about that narrowing a reader cannot see from the
-    /// rows: on what terms a session is in, so a Claude session that is missing
-    /// can be understood as one outside every registered clone rather than as one
-    /// that never ran.</summary>
     private string Subtitle
     {
         get
         {
-            // The catalog's own numbers, not the row count: the cap is on sessions,
-            // and the runs that became rows of their own were never under it.
             var reading = _catalog.Capped
                 ? $"The {_catalog.Sessions.Count} most recent of {_catalog.Discovered} sessions this PC has a record of, most recently active first."
                 : "The sessions this PC has a record of, most recently active first.";
@@ -1233,8 +1512,6 @@
                     : $" And {runs} delivery runs no listed session drove, as rows of their own.";
             }
 
-            // A schedule's runs are counted by schedule: the row is the schedule, and
-            // the runs are its history under it.
             var schedules = _rows.Count(row => row.Schedule is not null);
 
             if (schedules > 0)
@@ -1250,11 +1527,8 @@
         }
     }
 
-    /// <summary>
-    /// Nothing on this machine, or nothing this view admits — two different facts,
-    /// and telling a reader with three finished sessions that there are none would
-    /// be blaming the machine for their own filter.
-    /// </summary>
+    /// <summary>Nothing on this machine, or nothing these filters admit — two different
+    /// facts.</summary>
     private string EmptyMessage => Total == 0
         ? "No sessions on this PC."
         : _withRuns && Shown == 0
@@ -1265,43 +1539,27 @@
                 ? "No live sessions right now."
                 : $"No live sessions on {EnvironmentName} right now.";
 
-    /// <summary>The description names both states out loud, and names the way back
-    /// out. "Live" in the title above is only checkable if the sentence under it
-    /// says which states that means and how many rows are on the other side.
-    /// <para>
-    /// Narrowed to one environment, the sentence names that environment and counts
-    /// its sessions rather than the PC's: the way back out is still Show, because an
-    /// environment is only ever offered when it has records behind it, so the view is
-    /// the filter that emptied the list. "Recorded there" rather than "it has a record
-    /// of", because for a machine the reader is not sitting at, it is this PC that
-    /// holds the record.
-    /// </para></summary>
+    /// <summary>Names which states Live keeps and how many rows are on the other side,
+    /// and the way back out.</summary>
     private string EmptyDescription => Total == 0
         ? "Neither Claude nor Copilot has left a session record in this profile yet."
         : _withRuns && Shown == 0
-            ? "None of the rows this view admits carries a run an orchestration dashboard recorded. Turn off With runs to see them all."
+            ? "None of the rows this view admits carries a run an orchestration dashboard recorded. Turn off With delivery runs to see them all."
         : Scoped && ScopedSessions.Count == 0
             ? "A session is matched to the scope by the repository its agent recorded, or by its working folder lying inside a clone registered for it — Claude records none, so its sessions need the clone. Clear the repository scope in the header to see every session."
         : EnvironmentName is null
             ? Scoped
-                // The way back names the scoped count, not the catalog's: the
-                // other view brings back the sessions in scope and no more.
                 ? $"Nothing in {ScopeLabel} is running or stalled. Choose {AllLabel} to see the {SessionCount(ScopedSessions.Count)} recorded there."
                 : $"Nothing is running or stalled on this PC. Choose {AllLabel} to see the {SessionCount(Total)} it has a record of."
             : $"Nothing on {EnvironmentName} is running or stalled. Choose {AllLabel} to see the {SessionCount(OnEnvironment)} recorded there.";
 
     private static string SessionCount(int count) => count == 1 ? "1 session" : $"{count} sessions";
 
-    /// <summary>The other view's own word, read from the module rather than written
-    /// out here. This is the one sentence in the product that names a view in prose,
-    /// and it names the button the reader has to press — so it asks the button's
-    /// label for it. "running or stalled" beside it stays literal: those are states,
-    /// not the view. See <see cref="AgentSessionViews.Label"/>.</summary>
+    /// <summary>The other view's own word, read from the module: the sentence names the
+    /// button the reader has to press.</summary>
     private static string AllLabel => AgentSessionViews.Label(AgentSessionView.All);
 
-    /// <summary>What could not be read, across both readings: an agent's folder,
-    /// or a dashboard's. One list, because the sentence under the title is one
-    /// sentence.</summary>
+    /// <summary>What could not be read, across both readings.</summary>
     private IReadOnlyList<string> Unreadable => [.. _catalog.Unreadable, .. _runs.Unreadable];
 
     private string UnreadableMessage =>
@@ -1309,9 +1567,9 @@
 
     private static string GroupingLabel(AgentSessionGrouping grouping) => grouping switch
     {
-        AgentSessionGrouping.Environment => "Environment",
-        AgentSessionGrouping.Kind => "Type",
-        _ => "Nothing"
+        AgentSessionGrouping.Repository => "Repository",
+        AgentSessionGrouping.Environment => "Machine",
+        _ => "When"
     };
 
     private static string Slug(AgentSessionView view) => view switch
@@ -1322,9 +1580,9 @@
 
     private static string Slug(AgentSessionGrouping grouping) => grouping switch
     {
-        AgentSessionGrouping.Environment => "environment",
-        AgentSessionGrouping.Kind => "type",
-        _ => "none"
+        AgentSessionGrouping.Repository => "repository",
+        AgentSessionGrouping.Environment => "machine",
+        _ => "when"
     };
 
     private static IntegrationProvider Provider(AgentSessionKind kind) => kind switch
@@ -1333,12 +1591,9 @@
         _ => IntegrationProvider.Claude
     };
 
-    /// <summary>
-    /// The three states this context can evidence, in the control library's
-    /// vocabulary. The library's enum has more members and none of the extra ones is
-    /// derivable from a file on disk, which is why the mapping is this narrow rather
-    /// than clever.
-    /// </summary>
+    /// <summary>The three states this context can evidence, in the control library's
+    /// vocabulary — the mapping is this narrow because nothing else is derivable from
+    /// a file on disk.</summary>
     private static IntegrationSessionState State(AgentSessionState state) => state switch
     {
         AgentSessionState.Running => IntegrationSessionState.Running,
@@ -1348,21 +1603,16 @@
 
     private static string Or(string? value) => string.IsNullOrWhiteSpace(value) ? Missing : value;
 
-    /// <summary>Local time, because a person comparing a session against their own
-    /// morning is not thinking in UTC.</summary>
+    /// <summary>Local time: a person comparing a session against their own morning is
+    /// not thinking in UTC.</summary>
     private static string Moment(DateTimeOffset? moment) =>
         moment is null ? Missing : moment.Value.ToLocalTime().ToString("ddd d MMM HH:mm");
 
-    /// <summary>
-    /// How long ago, coarsely. The exact timestamp is in the cell's title, so this
-    /// can round: down to the minute is what tells a reader whether a session is
-    /// theirs from this morning, and no reader is comparing two sessions by seconds.
-    /// </summary>
+    /// <summary>How long ago, coarsely; the exact timestamp is in the title.</summary>
     private string Ago(DateTimeOffset moment)
     {
         var elapsed = _readAt - moment;
 
-        if (elapsed < TimeSpan.Zero) return "just now";
         if (elapsed < TimeSpan.FromMinutes(1)) return "just now";
         if (elapsed < TimeSpan.FromHours(1)) return Plural((int)elapsed.TotalMinutes, "minute");
         if (elapsed < TimeSpan.FromDays(1)) return Plural((int)elapsed.TotalHours, "hour");

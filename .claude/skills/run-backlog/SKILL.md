@@ -111,6 +111,49 @@ instead close a takeover that was already on screen.
 - Never type a password, token or key into a form yourself. Open the page, say where the
   credential lives, and let the person sign in.
 
+## Claude Code telemetry
+
+The desktop app receives Claude Code's OpenTelemetry logs at `/v1/logs` and keeps each
+`claude_code.api_request` event once, in the `claude_api_requests` table of the workspace's
+`backlog.db` (local ADR 0024). Nothing else Claude Code sends is kept.
+
+- **Read the URL, never build it.** Settings → **Claude Code** shows the endpoint and a
+  `settings.json` block. The page is offered only while the `sessions` feature is on
+  (Settings → Features). In the desktop app the endpoint is `/v1/logs` on the MCP server's
+  loopback port, behind the MCP server's bearer token. **Copy the settings block** carries
+  the token; the block drawn on the page hides it. A new MCP port or token means copying the
+  block again.
+- **An app without the page does not serve it.** A desktop build from before the receiver
+  answers `404` on `/v1/logs` even with a valid token. Do not point Claude Code at it.
+- **The harness serves it too.** `desktop-web-harness` maps `/v1/logs` on its own origin,
+  with no token, and its Settings → Claude Code page shows that URL. Its port changes on
+  every run, so use it in a project's `.claude/settings.json` or that shell's environment
+  for one check, never in the user-level file.
+
+The `env` block of `~/.claude/settings.json` (or a project's `.claude/settings.json`):
+
+| Key | Value |
+| --- | --- |
+| `CLAUDE_CODE_ENABLE_TELEMETRY` | `1` |
+| `OTEL_LOGS_EXPORTER` | `otlp` |
+| `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` | `http/protobuf`, as the copied block writes it. `http/json` works too: the endpoint reads both. |
+| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | The endpoint Settings → Claude Code shows. |
+| `OTEL_EXPORTER_OTLP_LOGS_HEADERS` | `Authorization=Bearer <token>`, from the copied block. The harness needs none. |
+| `OTEL_LOG_TOOL_DETAILS` | `1`, so each request's `agent.name` and `skill.name` arrive instead of being redacted. Not in the copied block; add it. |
+
+- The copied block uses the logs signal's own keys, so an exporter for metrics or traces
+  that is already configured elsewhere keeps going there, and the token goes only to this
+  endpoint.
+- Never set `OTEL_LOG_USER_PROMPTS` or `OTEL_LOG_ASSISTANT_RESPONSES`. The receiver would
+  drop those events anyway, so all they would do is send what the session said to the
+  endpoint.
+- Edit the file by merging the `env` keys into it. Keep every other key as it was.
+- **Check it arrived.** The settings are read when a session starts, so start a new Claude
+  Code session and run one prompt in it. Its session id is the name of its transcript under
+  `~/.claude/projects/`. Then read `claude_api_requests` in the workspace's `backlog.db`
+  with any SQLite client, `WHERE session_id = '<that id>'`: one row per model request, with
+  the model, the cost and the tokens. No app screen shows these rows yet.
+
 ## Never
 
 - Restart an instance that is already running without saying so.

@@ -190,6 +190,20 @@ public interface IGitHubClient
         CancellationToken cancellationToken = default) =>
         Task.FromException(new GitHubException("This GitHub client cannot update a pull request's branch."));
 
+    /// <summary>
+    /// Runs the failed jobs of one GitHub Actions workflow run again, and the jobs that
+    /// depend on them — GitHub's "Re-run failed jobs". GitHub answers once the run is
+    /// queued, so the caller reads the pull request again rather than trusting the answer.
+    /// A default body for the reason <see cref="GetPullRequestAsync"/> has one.
+    /// </summary>
+    /// <param name="workflowRunId">The run's database id, from
+    /// <see cref="GitHubCheck.WorkflowRunId"/>.</param>
+    Task RerunFailedJobsAsync(
+        GitHubRepositoryRef repository,
+        long workflowRunId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException(new GitHubException("This GitHub client cannot re-run a workflow."));
+
     /// <summary>Commits <paramref name="content"/> to <paramref name="path"/> on
     /// <paramref name="branch"/>, creating the branch off the repository's default
     /// branch first if it does not already exist, and returns the raw URL the
@@ -404,6 +418,12 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     /// <see cref="OnlyTheListsExtraFactsWereRefused"/> reads around.
     /// </para>
     /// <para>
+    /// The same alias lists the checks one by one, after the counts: each check run
+    /// with its state, its times and, for a GitHub Actions run, the workflow run Re-run
+    /// failed names; each commit status with its context and state. Up to
+    /// <see cref="HeadCheckLimit"/>, and the counts cover the rest.
+    /// </para>
+    /// <para>
     /// Twenty labels, twenty reviews and ten closing issues per pull request: a
     /// list row shows a handful of each, and fifty rows of these stay well inside
     /// GitHub's node limit. <c>writersOnly</c> keeps the reviews to people whose
@@ -416,6 +436,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 title
                 url
                 isDraft
+                isCrossRepository
                 headRefName
                 headRefOid
                 baseRefName
@@ -434,10 +455,27 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                     commit {
                       statusCheckRollup { state }
                       checkCounts: statusCheckRollup {
-                        contexts(first: 1) {
+                        contexts(first: 50) {
                           totalCount
                           checkRunCountsByState { state count }
                           statusContextCountsByState { state count }
+                          nodes {
+                            __typename
+                            ... on CheckRun {
+                              name
+                              status
+                              conclusion
+                              startedAt
+                              completedAt
+                              detailsUrl
+                              checkSuite { app { slug } workflowRun { databaseId } }
+                            }
+                            ... on StatusContext {
+                              context
+                              state
+                              targetUrl
+                            }
+                          }
                         }
                       }
                     }
@@ -598,7 +636,109 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             cancellationToken,
             tolerate: OnlyTheListsExtraFactsWereRefused).ConfigureAwait(false);
 
-        return ReadOpenPullRequests(data, repository.FullName);
+        return await WithBehindCountsAsync(repository, ReadOpenPullRequests(data, repository.FullName), cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>How many of the head commit's checks the list reads one by one. The
+    /// list query's <c>contexts(first: 50)</c>; a test holds the two together.</summary>
+    public const int HeadCheckLimit = 50;
+
+    /// <summary>
+    /// The distance query: for each pull request, its base branch compared with its
+    /// head, under the alias <c>c</c> and its place in the list. GitHub's GraphQL has
+    /// no field on a pull request for how far it is behind, and
+    /// <c>Ref.compare</c> takes the other branch as an argument, which a list query
+    /// cannot fill in from each row — so the distance is a second round trip, one per
+    /// repository, made only once the list has said which branches there are. The
+    /// branch names travel as variables, never in the text, because a branch name is
+    /// whatever its author typed.
+    /// </summary>
+    internal static string BehindCountsQuery(int count)
+    {
+        var variables = string.Concat(Enumerable.Range(0, count).Select(index => $", $b{index}: String!, $h{index}: String!"));
+        var fields = string.Join(
+            Environment.NewLine,
+            Enumerable.Range(0, count).Select(index => $$"""
+                    c{{index}}: ref(qualifiedName: $b{{index}}) { compare(headRef: $h{{index}}) { behindBy } }
+                """));
+
+        return $$"""
+            query($owner: String!, $name: String!{{variables}}) {
+              repository(owner: $owner, name: $name) {
+            {{fields}}
+              }
+            }
+            """;
+    }
+
+    /// <summary>
+    /// The pull requests given, each open one from this repository carrying how far it
+    /// is behind its base. A pull request from a fork keeps a null distance: the base
+    /// repository cannot name its branch. The distance is something extra on a row the
+    /// list already has, so a refusal of any of it — a branch deleted since, a token
+    /// that may not compare — leaves that row's distance unknown rather than failing
+    /// the list.
+    /// </summary>
+    private async Task<IReadOnlyList<GitHubOpenPullRequest>> WithBehindCountsAsync(
+        GitHubRepositoryRef repository,
+        IReadOnlyList<GitHubOpenPullRequest> pulls,
+        CancellationToken cancellationToken)
+    {
+        var compared = pulls
+            .Where(pull => pull.IsOpen && !pull.IsCrossRepository
+                && !string.IsNullOrWhiteSpace(pull.BaseRefName) && !string.IsNullOrWhiteSpace(pull.HeadRefName))
+            .ToList();
+
+        if (compared.Count == 0) return pulls;
+
+        var variables = new Dictionary<string, object?>
+        {
+            ["owner"] = repository.Owner,
+            ["name"] = repository.Name
+        };
+
+        for (var index = 0; index < compared.Count; index++)
+        {
+            variables[$"b{index}"] = "refs/heads/" + compared[index].BaseRefName;
+            variables[$"h{index}"] = compared[index].HeadRefName;
+        }
+
+        JsonElement data;
+        try
+        {
+            data = await GitHubGraphQl.SendAsync(
+                transport,
+                repository,
+                BehindCountsQuery(compared.Count),
+                variables,
+                cancellationToken,
+                tolerate: (_, answer) => answer.TryGetProperty("repository", out var repo) && repo.ValueKind == JsonValueKind.Object)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is GitHubException or HttpRequestException)
+        {
+            return pulls;
+        }
+
+        var behind = new Dictionary<GitHubOpenPullRequest, int>(ReferenceEqualityComparer.Instance);
+        for (var index = 0; index < compared.Count; index++)
+        {
+            if (ReadBehindBy(data, index) is { } count) behind[compared[index]] = count;
+        }
+
+        return [.. pulls.Select(pull => behind.TryGetValue(pull, out var count) ? pull with { BehindBy = count } : pull)];
+    }
+
+    /// <summary>One alias of <see cref="BehindCountsQuery"/>: the base compared with the
+    /// head, whose <c>behindBy</c> is the commits the base has that the head does not.
+    /// Null where the ref or the comparison came back null.</summary>
+    internal static int? ReadBehindBy(JsonElement data, int index)
+    {
+        if (!data.TryGetProperty("repository", out var repository) || repository.ValueKind != JsonValueKind.Object) return null;
+        if (!repository.TryGetProperty($"c{index}", out var reference) || reference.ValueKind != JsonValueKind.Object) return null;
+        if (!reference.TryGetProperty("compare", out var comparison) || comparison.ValueKind != JsonValueKind.Object) return null;
+
+        return comparison.TryGetProperty("behindBy", out var count) && count.TryGetInt32(out var value) && value >= 0 ? value : null;
     }
 
     /// <summary>
@@ -630,7 +770,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             cancellationToken,
             tolerate: (errors, answer) => OnlyPinnedFactsOrMissingPinsWereRefused(errors, answer, wanted)).ConfigureAwait(false);
 
-        return ReadPinnedPullRequests(data, repository.FullName, wanted);
+        return await WithBehindCountsAsync(repository, ReadPinnedPullRequests(data, repository.FullName, wanted), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -966,6 +1106,27 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// REST, because GraphQL has no mutation that re-runs part of a workflow run:
+    /// <c>rerequestCheckSuite</c> runs a whole suite again, passing jobs included. An
+    /// empty object as the body for the reason <see cref="UpdateBranchAsync"/> sends
+    /// one; <c>enable_debug_logging</c> is left at GitHub's default.
+    /// </summary>
+    public async Task RerunFailedJobsAsync(
+        GitHubRepositoryRef repository,
+        long workflowRunId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(workflowRunId);
+
+        await transport.SendAsync(
+            HttpMethod.Post,
+            $"repos/{repository.Owner}/{repository.Name}/actions/runs/{workflowRunId.ToString(System.Globalization.CultureInfo.InvariantCulture)}/rerun-failed-jobs",
+            new Dictionary<string, object?>(),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>One of the pull request mutations. Nothing in their payloads is read:
     /// success is the absence of an <c>errors</c> entry, and the caller re-reads the
     /// status to see what it did.</summary>
@@ -1144,6 +1305,8 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         {
             Labels = ReadConnectionLabelNames(pull),
             CheckCounts = ReadCheckCounts(pull),
+            HeadChecks = ReadHeadChecks(pull),
+            IsCrossRepository = pull.TryGetProperty("isCrossRepository", out var fork) && fork.ValueKind == JsonValueKind.True,
             Reviews = ReadReviews(pull),
             ClosingIssues = ReadClosingIssues(pull)
         };
@@ -1245,6 +1408,91 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         }
 
         return new GitHubCheckCounts(passed, failed, pending);
+    }
+
+    /// <summary>GitHub's app slug for the check runs GitHub Actions makes.</summary>
+    private const string GitHubActionsApp = "github-actions";
+
+    /// <summary>
+    /// The head commit's checks one by one, from the <c>checkCounts</c> alias's
+    /// <c>contexts</c> nodes, in the order GitHub lists them. A node of neither type, or
+    /// without a name, is left out. None where the commit has no roll-up or the
+    /// contexts were refused.
+    /// </summary>
+    private static IReadOnlyList<GitHubCheck> ReadHeadChecks(JsonElement pull)
+    {
+        if (HeadCommit(pull) is not { } commit
+            || !commit.TryGetProperty("checkCounts", out var rollup) || rollup.ValueKind != JsonValueKind.Object)
+        {
+            return [];
+        }
+
+        return [.. Nodes(rollup, "contexts").Select(ReadHeadCheck).OfType<GitHubCheck>()];
+    }
+
+    private static GitHubCheck? ReadHeadCheck(JsonElement node) => String(node, "__typename") switch
+    {
+        "CheckRun" => ReadCheckRun(node),
+        "StatusContext" => ReadStatusContext(node),
+        _ => null
+    };
+
+    /// <summary>A check run: pending until GitHub says it completed, then its
+    /// conclusion; a conclusion this reader does not know is still to come, as
+    /// <see cref="ReadCheckCounts"/> counts it.</summary>
+    private static GitHubCheck? ReadCheckRun(JsonElement run)
+    {
+        if (String(run, "name") is not { Length: > 0 } name) return null;
+
+        var completed = string.Equals(String(run, "status"), "COMPLETED", StringComparison.Ordinal);
+        var conclusion = String(run, "conclusion") ?? string.Empty;
+
+        var state = !completed ? GitHubCheckState.Pending
+            : PassedCheckStates.Contains(conclusion) ? GitHubCheckState.Passing
+            : FailedCheckStates.Contains(conclusion) ? GitHubCheckState.Failing
+            : GitHubCheckState.Pending;
+
+        TimeSpan? duration = completed
+            && Timestamp(run, "startedAt") is { } started
+            && Timestamp(run, "completedAt") is { } ended
+            && ended >= started
+                ? ended - started
+                : null;
+
+        return new GitHubCheck(name, state, duration, String(run, "detailsUrl"), ReadWorkflowRunId(run));
+    }
+
+    /// <summary>The workflow run a check run belongs to, when GitHub Actions made it.
+    /// A check suite another app owns has no workflow run, and one whose app came back
+    /// as anything but GitHub Actions is not offered for a re-run here.</summary>
+    private static long? ReadWorkflowRunId(JsonElement run)
+    {
+        if (!run.TryGetProperty("checkSuite", out var suite) || suite.ValueKind != JsonValueKind.Object) return null;
+
+        var app = suite.TryGetProperty("app", out var owner) && owner.ValueKind == JsonValueKind.Object ? String(owner, "slug") : null;
+        if (!string.Equals(app, GitHubActionsApp, StringComparison.Ordinal)) return null;
+
+        return suite.TryGetProperty("workflowRun", out var workflow) && workflow.ValueKind == JsonValueKind.Object
+            && workflow.TryGetProperty("databaseId", out var id) && id.TryGetInt64(out var value) && value > 0
+                ? value
+                : null;
+    }
+
+    /// <summary>A commit status: <c>SUCCESS</c> passed, <c>FAILURE</c> and <c>ERROR</c>
+    /// failed, anything else is still to come. No duration: a status records only
+    /// when it was set.</summary>
+    private static GitHubCheck? ReadStatusContext(JsonElement status)
+    {
+        if (String(status, "context") is not { Length: > 0 } name) return null;
+
+        var state = String(status, "state") switch
+        {
+            "SUCCESS" => GitHubCheckState.Passing,
+            "FAILURE" or "ERROR" => GitHubCheckState.Failing,
+            _ => GitHubCheckState.Pending
+        };
+
+        return new GitHubCheck(name, state, Duration: null, String(status, "targetUrl"), WorkflowRunId: null);
     }
 
     /// <summary>The last of a pull request's <c>commits(last: 1)</c>, or null.</summary>

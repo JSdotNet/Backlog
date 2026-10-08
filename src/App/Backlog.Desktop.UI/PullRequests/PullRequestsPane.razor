@@ -1,14 +1,23 @@
 @using Backlog.Modules.Sessions.Abstractions
-@using Backlog.UI.Components.Data
 @using Backlog.UI.Components.Integrations
 @inject IServiceProvider Services
 @implements IDisposable
 
 @*
-    The pull requests pane: the open pull requests of every registered repository, in
-    one table, with the three things a person does to one from a list — bring its
-    branch up to date, take it out of draft, merge it — and the way back to the task
-    and the session it came from.
+    The pull requests pane: the open pull requests of every registered repository,
+    triaged. Four lane tiles say how many need the reader, are ready to merge, wait
+    on somebody else, or are still drafts; the list below is grouped by those lanes;
+    and the pull request the reader picked is laid out beside it — one verdict on what
+    stands between it and its merge, with the act that fits, then the four things
+    GitHub gates a merge on, its checks one by one, its stack, and the task and the
+    session it came from.
+
+    A verdict rather than a row of badges, because a reader acts on one thing at a
+    time (.devbook/domain/sessions/features.md#one-verdict-per-pull-request). It is
+    PullRequestVerdict's to derive; this pane only draws it, and its acts are the
+    only ones the banner offers — plus Cancel auto-merge wherever GitHub already
+    holds an auto-merge the verdict's acts do not withdraw, because that undoes a
+    request rather than making one.
 
     It is the Sessions context's second surface, what the sessions shipped, and it
     lives in the shell project rather than beside SessionsPane for one reason: it
@@ -24,32 +33,35 @@
     GraphQL query per repository every few seconds to tell a reader what they could
     have asked for.
 
-    It has two views. Open is the one it opens on, with the acts. Recently merged is
-    what the open list cannot show — a pull request merged from it leaves it — and is
-    read on the first switch to it rather than on open, because most opens never look
-    at it; once read it is kept until Refresh, an act, or the next open.
+    It has two views. Open is the one it opens on, with the lanes and the acts.
+    Recently merged is what the open list cannot show — a pull request merged from it
+    leaves it — and is read on the first switch to it rather than on open, because
+    most opens never look at it; once read it is kept until Refresh, an act, or the
+    next open. A merged pull request is in no lane, so that view has no tiles.
 
     Every repository is read, and the header's chips narrow what is drawn, the way
     the session list narrows its rows. Reading only the scoped ones would make every
     press on a chip a round trip to GitHub, and the chips are pressed far more often
     than the list goes stale.
 
-    What a row links to is the shell's to answer. A task is an entry, which belongs to
-    Tasks; this pane asks for the reference by repository and number and hands it
-    back on a click. A session is matched here, because the sessions are this
-    context's own: first the session whose transcript recorded the pull request's
-    address, then the most recent session that ran on its head branch in the same
-    repository — the second is how a Copilot session, which records no pull request,
-    still leads back to the work.
+    What the detail links to is the shell's to answer. A task is an entry, which
+    belongs to Tasks; this pane asks for the reference by repository and number and
+    hands it back on a click. A session is matched here, because the sessions are
+    this context's own: first the session whose transcript recorded the pull
+    request's address, then the most recent session that ran on its head branch in
+    the same repository — the second is how a Copilot session, which records no pull
+    request, still leads back to the work.
 
     The ✕ only reports that it was pressed; what that closes is the shell's business.
 
-    Three things narrow the rows beside the header's chips: Mine (the reader's own
-    pull requests and those related to one of their tasks), and a repository's label
+    Four things narrow the rows beside the header's chips: Mine (the reader's own
+    pull requests and those related to one of their tasks), a repository's label
     filter, set in Settings, which lets through only pull requests carrying one of its
-    labels. A pinned pull request ignores all of them: a pin is somebody saying "keep
-    this one in front of me". It is read by number beside the open list, so it stays —
-    merged or closed, with no act and no place in a stack — until it is unpinned.
+    labels, and the lane a tile was pressed for. A pinned pull request ignores all of
+    them: a pin is somebody saying "keep this one in front of me". It is read by
+    number beside the open list, so it stays — merged or closed, with no act and no
+    place in a stack — until it is unpinned, and it sits in a Pinned group of its own
+    at the top.
 *@
 
 <section @key=@("pull-requests-pane") class="pull-requests-panel" id="pull-requests-pane" aria-labelledby="pull-requests-title" data-testid="pull-requests-panel">
@@ -76,7 +88,7 @@
     @if (!Configured)
     {
         @* Nothing to read until a repository is registered, and the sentence says
-           where that is done rather than drawing an empty table that suggests the
+           where that is done rather than drawing an empty list that suggests the
            repositories have no pull requests. *@
         <EmptyState Title="No repositories registered"
                     Description="Register a GitHub repository in Settings, and its open pull requests are listed here."
@@ -182,229 +194,77 @@
                     }
                 </div>
             }
-            else if (Merged)
-            {
-                @* Its own table rather than the open one with columns switched off:
-                   the rows are a different record, and a merged row has no status
-                   beyond Merged and no act at all. *@
-                <DataTable TItem="GitHubMergedPullRequest"
-                           Columns="MergedColumns"
-                           Items="MergedVisible"
-                           RowKey="@(pull => (object)Key(pull.RepositoryFullName, pull.Number))"
-                           RowAttributes="@(pull => RowAttributes(pull.RepositoryFullName, pull.Number))"
-                           RowNoun="pull request"
-                           AriaLabel="Pull requests merged recently in the registered repositories"
-                           EmptyMessage="@EmptyMessage"
-                           EmptyDescription="@EmptyDescription"
-                           TestId="pull-requests-merged-table">
-                    <Row Context="pull">
-                        @RepositoryCell(pull.RepositoryFullName)
-
-                        <td class="pull-requests-table__pull-request">
-                            <span class="pull-requests-table__chain">
-                                <IntegrationLink Link="@MergedLink(pull)"
-                                                 StateAsInk="true"
-                                                 CssClass="pull-requests-table__link"
-                                                 TestId="pull-request-link"
-                                                 StateTestId="pull-request-state" />
-                                @PinToggle(pull.RepositoryFullName, pull.Number)
-                            </span>
-                        </td>
-
-                        @BranchCell(pull.HeadRefName, pull.BaseRefName)
-
-                        @* Coarse in the cell, exact in the title: "2h ago" is what
-                           tells a reader whether this is the one they just merged. Who
-                           merged it rides along here rather than in a column of its
-                           own, which would push the table past the pane's width. The
-                           link already wears Merged as its colour, so no chip here. *@
-                        <td>
-                            <span class="pull-requests-table__facts">
-                                <span>
-                                    <span title="@MergedTitle(pull)" data-testid="pull-request-merged-at">@MergedAgo(pull)</span>
-                                    @if (pull.MergedByLogin is { } merger)
-                                    {
-                                        @(" · by ")<span data-testid="pull-request-merged-by">@merger</span>
-                                    }
-                                </span>
-                            </span>
-                        </td>
-
-                        @TaskCell(TaskSubject(pull))
-
-                        @SessionCell(pull.Url, pull.HeadRefName, pull.RepositoryFullName)
-                    </Row>
-                </DataTable>
-            }
             else
             {
-                @* A stack stays in the one list as a tree, bottom first, because the
-                   order to handle its pull requests in is the order they merge in:
-                   each sits one level under the one it waits on. *@
-                <DataTable TItem="GitHubOpenPullRequest"
-                           Columns="Columns"
-                           Items="Ordered"
-                           RowKey="@(pull => (object)Key(pull))"
-                           RowAttributes="@OpenRowAttributes"
-                           RowNoun="pull request"
-                           AriaLabel="Open pull requests in the registered repositories"
-                           EmptyMessage="@EmptyMessage"
-                           EmptyDescription="@EmptyDescription"
-                           TestId="pull-requests-table">
-                    <Row Context="pull">
-                        @RepositoryCell(pull.RepositoryFullName)
+                var board = Merged ? MergedBoard() : OpenBoard();
 
-                        <td class="pull-requests-table__pull-request">
-                            <span class="pull-requests-table__chain" style="@ChainIndent(pull)">
-                                @if (Stacks.ParentOf(pull) is { } parent)
-                                {
-                                    @* The tree's elbow, and the one place the row says
-                                       what it waits on: a reader sees it hang under its
-                                       parent, a screen reader hears the words. *@
-                                    <span class="pull-requests-table__elbow"
-                                          role="img"
-                                          aria-label="@($"Waits on #{parent.Number}")"
-                                          title="@($"Waits on #{parent.Number}: it targets {parent.HeadRefName}, so merge that one first.")"
-                                          data-testid="pull-request-waits-on">↳</span>
-                                }
-                                <IntegrationLink Link="@Link(pull)"
-                                                 StateAsInk="true"
-                                                 CssClass="pull-requests-table__link"
-                                                 TestId="pull-request-link"
-                                                 StateTestId="pull-request-state" />
-                                @PinToggle(pull.RepositoryFullName, pull.Number)
-                            </span>
-                        </td>
+                @if (!Merged)
+                {
+                    @* One lane at a time, pressed again to let go: a filter by what a
+                       pull request needs, counted over what Mine, the scope and the
+                       label filters leave. Each tile says why in a line, so a count
+                       is never the only thing it carries. *@
+                    <div class="pull-requests-lanes" role="group" aria-label="Filter by what a pull request needs" data-testid="pull-requests-lanes">
+                        @foreach (var tile in board.Lanes)
+                        {
+                            var lane = tile.Lane;
+                            <ToggleButton BaseClass="@($"pull-requests-lane pull-requests-lane--{LaneTone(lane)}")"
+                                          PressedCssClass="pull-requests-lane--pressed"
+                                          Pressed="@(_lane == lane)"
+                                          PressedChanged="_ => PressLane(lane)"
+                                          TestId="@($"pull-requests-lane-{LaneSlug(lane)}")"
+                                          data-lane="@LaneSlug(lane)">
+                                <span class="pull-requests-lane__label"><span class="pull-requests-lane__dot" aria-hidden="true"></span>@LaneLabel(lane)</span>
+                                <span class="pull-requests-lane__number">@tile.Total</span>
+                                <span class="pull-requests-lane__reasons">@tile.Reasons</span>
+                            </ToggleButton>
+                        }
+                    </div>
+                }
 
-                        @BranchCell(pull.HeadRefName, pull.BaseRefName)
-
-                        @* Words, each in the library's own badge. Draft or open is not
-                           here: the link is the one GitHub button and wears it as its
-                           colour, with the words in its title. Every other fact a reader
-                           acts on is its own badge, so none is carried by colour alone.
-                           GitHub's raw merge state is in the title. A pinned pull
-                           request that merged or closed has one fact left, said in
-                           words beside the link's colour. *@
-                        <td title="@StatusTitle(pull)">
-                            <span class="pull-requests-table__facts">
-                                @if (!pull.IsOpen)
-                                {
-                                    <Badge Kind="kind" Title="@ClosedTitle(pull)" TestId="pull-request-closed">@(pull.IsMerged ? "Merged" : "Closed")</Badge>
-                                }
-                                else
-                                {
-                                    @if (pull.CheckCounts is { Total: > 0 } counts)
-                                    {
-                                        @* GitHub's "8/9": how many of the head commit's checks
-                                           passed, then what holds the rest, each in words. The
-                                           tone is the roll-up's, the state GitHub gates the
-                                           merge on. *@
-                                        <Badge Kind="@ChecksKind(pull.Checks)" Slug="@ChecksSlug(pull.Checks)" Title="@ChecksTitle(counts)" TestId="pull-request-checks">@($"{counts.Passed}/{counts.Total} checks")</Badge>
-                                        @if (counts.Failed > 0)
+                <div class="pull-requests-board">
+                    <section class="pull-requests-list" aria-label="@(Merged ? "Pull requests merged recently" : "Open pull requests")">
+                        @if (board.Groups.Count == 0)
+                        {
+                            <EmptyState Title="@ListEmptyTitle" Description="@ListEmptyDescription" TestId="pull-requests-empty" />
+                        }
+                        else
+                        {
+                            @foreach (var group in board.Groups)
+                            {
+                                <section @key="group.Slug" class="pull-requests-group" data-testid="pull-requests-group" data-lane="@group.Slug" aria-label="@group.Label">
+                                    <h3 class="pull-requests-group__heading">@group.Label <span class="pull-requests-group__size">@group.Rows.Count</span></h3>
+                                    <div class="pull-requests-group__rows">
+                                        @foreach (var row in group.Rows)
                                         {
-                                            <Badge Kind="finding" Slug="error" TestId="pull-request-checks-failing">@($"{counts.Failed} failing")</Badge>
+                                            var key = row.Key;
+                                            <ToggleButton @key="key"
+                                                          BaseClass="@RowClass(row)"
+                                                          PressedCssClass="pull-requests-row--selected"
+                                                          Pressed="@(board.Selected?.Key == key)"
+                                                          PressedChanged="_ => _selected = key"
+                                                          TestId="pull-request-row"
+                                                          @attributes="RowAttributes(row)">
+                                                @RowBody(row)
+                                            </ToggleButton>
                                         }
-                                        @if (counts.Pending > 0)
-                                        {
-                                            <Badge Kind="finding" Slug="warning" TestId="pull-request-checks-pending">@($"{counts.Pending} pending")</Badge>
-                                        }
-                                    }
-                                    else if (ChecksLabel(pull.Checks) is { } checks)
-                                    {
-                                        <Badge Kind="@ChecksKind(pull.Checks)" Slug="@ChecksSlug(pull.Checks)" TestId="pull-request-checks">@checks</Badge>
-                                    }
-                                    @if (pull.Reviews.Approvals > 0)
-                                    {
-                                        <Badge Kind="kind" TestId="pull-request-approvals">@(pull.Reviews.Approvals == 1 ? "1 approval" : $"{pull.Reviews.Approvals} approvals")</Badge>
-                                    }
-                                    @if (ReviewLabel(pull.Reviews) is { } review)
-                                    {
-                                        <Badge Kind="@ReviewKind(pull.Reviews)" Slug="@ReviewSlug(pull.Reviews)" TestId="pull-request-review">@review</Badge>
-                                    }
-                                    @if (pull.IsBehind)
-                                    {
-                                        <Badge Kind="finding" Slug="warning" TestId="pull-request-behind">Behind</Badge>
-                                    }
-                                    @if (pull.HasConflicts)
-                                    {
-                                        <Badge Kind="finding" Slug="error" TestId="pull-request-conflicts">Conflicts</Badge>
-                                    }
-                                    @if (pull.AutoMergeEnabled)
-                                    {
-                                        <Badge Kind="kind" TestId="pull-request-auto-merge">Auto-merge on</Badge>
-                                    }
-                                }
-                            </span>
-                        </td>
-
-                        @TaskCell(TaskSubject(pull))
-
-                        @SessionCell(pull.Url, pull.HeadRefName, pull.RepositoryFullName)
-
-                        @* No act on a pinned pull request that merged or closed: there
-                           is nothing left on GitHub to do to it from a list. *@
-                        <td class="pull-requests-table__actions">
-                            @if (pull.IsOpen && pull.IsBehind)
-                            {
-                                <AppButton Size="ButtonSize.Small"
-                                           Disabled="@Busy(pull)"
-                                           TestId="pull-request-update-branch"
-                                           OnClick="() => UpdateBranchAsync(pull)">
-                                    Update branch
-                                </AppButton>
+                                    </div>
+                                </section>
                             }
-                            @if (pull.IsOpen && pull.IsDraft)
-                            {
-                                <AppButton Size="ButtonSize.Small"
-                                           Disabled="@Busy(pull)"
-                                           TestId="pull-request-ready"
-                                           OnClick="() => MarkReadyAsync(pull)">
-                                    Ready for review
-                                </AppButton>
-                            }
-                            @if (OfferedMergeFor(pull) is { } act)
-                            {
-                                <AppButton Size="ButtonSize.Small"
-                                           Variant="@(act is PullRequestMerge.Now ? ButtonVariant.Primary : ButtonVariant.Secondary)"
-                                           Disabled="@Busy(pull)"
-                                           TestId="pull-request-merge"
-                                           OnClick="() => MergeAsync(pull)">
-                                    @MergeLabel(act)
-                                </AppButton>
-                            }
-                        </td>
-                    </Row>
-                </DataTable>
+                        }
+                    </section>
+
+                    @if (board.Selected is { } selected)
+                    {
+                        @Detail(selected)
+                    }
+                </div>
             }
         </div>
     }
 </section>
 
 @code {
-    /// <summary>The headings, in the order the row template writes its cells.</summary>
-    private static readonly DataTableColumn[] Columns =
-    [
-        new("Repository"),
-        new("Pull request"),
-        new("Branch"),
-        new("Status"),
-        new("Task"),
-        new("Session"),
-        new("Actions")
-    ];
-
-    /// <summary>The merged view's headings: no status beyond Merged, so the column is
-    /// when and by whom; no acts, so no Actions column standing empty on every row.</summary>
-    private static readonly DataTableColumn[] MergedColumns =
-    [
-        new("Repository"),
-        new("Pull request"),
-        new("Branch"),
-        new("Merged"),
-        new("Task"),
-        new("Session")
-    ];
-
     /// <summary>The two lists the pane can show.</summary>
     private enum PullRequestsView
     {
@@ -412,11 +272,16 @@
         RecentlyMerged
     }
 
-    /// <summary>An em dash: nothing links this pull request to one. Not an empty
-    /// cell, which would read as a value that happens to be blank.</summary>
-    private const string Missing = "—";
+    /// <summary>How many of a pull request's checks the detail lists before it counts
+    /// the rest: enough for every failure a typical run has, few enough that the stack
+    /// and the cards below are still on screen.</summary>
+    private const int ChecksShown = 6;
 
     private static readonly string[] SkeletonWidths = ["100%", "92%", "96%", "88%"];
+
+    /// <summary>The lanes in the order the tiles and the groups are drawn: the one that
+    /// needs the reader first.</summary>
+    private static readonly PullRequestLane[] Lanes = Enum.GetValues<PullRequestLane>();
 
     private GitHubIntegration? _gitHub;
     private IAgentSessionSource? _sessionSource;
@@ -479,6 +344,16 @@
     /// is their own, and a stored choice would open it on everybody's without their
     /// having asked.</summary>
     private bool _mine = true;
+
+    /// <summary>The lane a tile was pressed for, or null for every lane. Null on every
+    /// open, and let go on the switch to Recently merged, where no pull request is in
+    /// a lane.</summary>
+    private PullRequestLane? _lane;
+
+    /// <summary>The pull request the reader picked, by <see cref="Key"/>; null for
+    /// the first one listed. Kept while a filter hides it — the detail falls back to
+    /// the first row shown — so letting the filter go brings the pick back.</summary>
+    private string? _selected;
 
     /// <summary>The rows an act is running on, by <see cref="Key"/>. Their actions
     /// are disabled until the re-read after the act has landed, because a second act
@@ -632,13 +507,22 @@
         else _pins.Pin(repositoryFullName, number);
     }
 
-    /// <summary>Shows a view, reading the merged one the first time it is shown.</summary>
+    /// <summary>Shows a view, reading the merged one the first time it is shown. The
+    /// merged view has no lanes, so the lane is let go on the way there rather than
+    /// waiting, invisible, to narrow the open view on the way back.</summary>
     private async Task ShowAsync(PullRequestsView view)
     {
         _view = view;
 
-        if (view is PullRequestsView.RecentlyMerged) await EnsureMergedAsync();
+        if (view is PullRequestsView.RecentlyMerged)
+        {
+            _lane = null;
+            await EnsureMergedAsync();
+        }
     }
+
+    /// <summary>A tile pressed: its lane, or every lane again when it already was.</summary>
+    private void PressLane(PullRequestLane lane) => _lane = _lane == lane ? null : lane;
 
     /// <summary>The merged view's read: none when it is already in, the one in flight
     /// when there is one, else a new one.</summary>
@@ -725,7 +609,7 @@
     }
 
     /// <summary>The sessions to match rows against, or none when there is no source.
-    /// A source that cannot be read is said out loud and costs the session column
+    /// A source that cannot be read is said out loud and costs the session card
     /// only: the pull requests are GitHub's and do not depend on it.</summary>
     private async Task<IReadOnlyList<AgentSession>> ReadSessionsAsync()
     {
@@ -785,6 +669,9 @@
     private Task UpdateBranchAsync(GitHubOpenPullRequest pull) =>
         ActAsync(pull, gitHub => gitHub.UpdateBranchAsync(pull), $"Asked GitHub to update the branch of {Subject(pull)}.");
 
+    private Task RerunFailedAsync(GitHubOpenPullRequest pull) =>
+        ActAsync(pull, gitHub => gitHub.RerunFailedChecksAsync(pull), $"Asked GitHub to re-run the failed checks of {Subject(pull)}.");
+
     private Task MarkReadyAsync(GitHubOpenPullRequest pull) =>
         ActAsync(pull, gitHub => gitHub.MarkReadyForReviewAsync(pull), $"{Subject(pull)} is ready for review.");
 
@@ -794,7 +681,7 @@
     private Task MergeAsync(GitHubOpenPullRequest pull) => OfferedMergeFor(pull) switch
     {
         PullRequestMerge.Now => ActAsync(pull, gitHub => gitHub.MergePullRequestAsync(pull.ToStatus()), $"Merged {Subject(pull)}."),
-        PullRequestMerge.WhenChecksPass => ActAsync(pull, gitHub => gitHub.EnableAutoMergeAsync(pull.ToStatus()), $"{Subject(pull)} will merge when its checks pass."),
+        PullRequestMerge.WhenChecksPass => ActAsync(pull, gitHub => gitHub.EnableAutoMergeAsync(pull.ToStatus()), $"{Subject(pull)} will merge when it is ready."),
         PullRequestMerge.CancelAutoMerge => ActAsync(pull, gitHub => gitHub.DisableAutoMergeAsync(pull.ToStatus()), $"Cancelled auto-merge for {Subject(pull)}."),
         _ => Task.CompletedTask
     };
@@ -856,25 +743,25 @@
 
     private static string Subject(GitHubOpenPullRequest pull) => $"{pull.RepositoryFullName}#{pull.Number}";
 
-    /// <summary>What the merge button does for this row, or null for none. Queued
-    /// already comes first, for the reason the task row's merge menu gives: enabling
-    /// again would be refused, and merging now would jump the queue it was put in on
-    /// purpose. A draft is offered nothing else — GitHub merges no draft, and "Ready
-    /// for review" is the act it is waiting on. Nor is a branch in conflict: "when
-    /// checks pass" would wait on checks that may already pass while the conflict,
-    /// which only a change to the branch resolves, is what holds it — the Conflicts
-    /// badge says so instead.</summary>
+    /// <summary>What the merge button does for this pull request, or null for none.
+    /// Queued already comes first, for the reason the task row's merge menu gives:
+    /// enabling again would be refused, and merging now would jump the queue it was
+    /// put in on purpose. A draft is offered nothing else — GitHub merges no draft, and
+    /// "Ready for review" is the act it is waiting on. Nor is a branch in conflict:
+    /// "when checks pass" would wait on checks that may already pass while the
+    /// conflict, which only a change to the branch resolves, is what holds it — the
+    /// verdict says so instead.</summary>
     internal static PullRequestMerge? MergeActFor(GitHubOpenPullRequest pull) =>
         pull.AutoMergeEnabled ? PullRequestMerge.CancelAutoMerge
         : pull.IsDraft || pull.HasConflicts ? null
         : pull.MergeReady ? PullRequestMerge.Now
         : PullRequestMerge.WhenChecksPass;
 
-    /// <summary>The merge act this row offers: <see cref="MergeActFor"/>, less a merge
-    /// on a pull request that waits on another in its stack — merged now, it would land
-    /// on its parent's branch rather than where the stack is going, and "Waits on" says
-    /// so instead. Withdrawing auto-merge stays, because that undoes a request rather
-    /// than making one.</summary>
+    /// <summary>The merge act this pull request offers: <see cref="MergeActFor"/>, less
+    /// a merge on a pull request that waits on another in its stack — merged now, it
+    /// would land on its parent's branch rather than where the stack is going, and
+    /// "Waits on" says so instead. Withdrawing auto-merge stays, because that undoes a
+    /// request rather than making one.</summary>
     private PullRequestMerge? OfferedMergeFor(GitHubOpenPullRequest pull) =>
         pull.IsOpen
         && MergeActFor(pull) is { } act
@@ -882,14 +769,19 @@
             ? act
             : null;
 
+    /// <summary>The merge button's words. Handing it to auto-merge reads "Merge when
+    /// ready", the verdict table's word in <c>features.md#one-verdict-per-pull-request</c>:
+    /// GitHub merges it once everything it waits on is through — checks, a required
+    /// review, or both — so naming only the checks would send a reader whose pull
+    /// request waits for an approval to look at the wrong thing.</summary>
     private static string MergeLabel(PullRequestMerge act) => act switch
     {
         PullRequestMerge.Now => "Merge now",
         PullRequestMerge.CancelAutoMerge => "Cancel auto-merge",
-        _ => "Merge when checks pass"
+        PullRequestMerge.WhenChecksPass => "Merge when ready"
     };
 
-    // --- What is drawn --------------------------------------------------------
+    // --- What is read, narrowed ------------------------------------------------
 
     private bool Scoped => RepositoryScope.Count > 0;
 
@@ -965,7 +857,8 @@
     private IReadOnlyList<GitHubOpenPullRequest> LabelledRows => [.. InScopeRows.Where(pull => PassesLabels(pull.RepositoryFullName, pull.Labels))];
 
     /// <summary>The scope, the label filters, then whose — and every pinned pull
-    /// request whatever they say.</summary>
+    /// request whatever they say. The lane is not one of them: the tiles count what
+    /// this leaves, and the board narrows it.</summary>
     private IReadOnlyList<GitHubOpenPullRequest> Visible =>
         [.. OpenRows.Where(pull => IsPinned(pull)
             || (InScope(pull.RepositoryFullName)
@@ -976,7 +869,7 @@
     private (GitHubPullRequestListing Listing, GitHubPullRequestListing Pinned, string Scope, int Pins) _stacksOf;
 
     /// <summary>The stacks among the open rows of every author in scope, and the pinned
-    /// open ones, derived once per read, scope and pin rather than once per cell that
+    /// open ones, derived once per read, scope and pin rather than once per row that
     /// asks. A merged or closed pinned pull request is in no stack.</summary>
     private PullRequestStacks Stacks
     {
@@ -996,7 +889,8 @@
     /// <summary>The pinned rows first, newest update first; then the rest, with each
     /// stack gathered into one tree, bottom first, placed where the latest update
     /// among its shown rows puts it, and every other row in the newest-update-first
-    /// order it was read in. A pinned row in a stack sits with the pins.</summary>
+    /// order it was read in. A pinned row in a stack sits with the pins. The board
+    /// then deals these into their lanes, each keeping this order.</summary>
     private IReadOnlyList<GitHubOpenPullRequest> Ordered
     {
         get
@@ -1021,23 +915,6 @@
                 .SelectMany(rows => rows)];
         }
     }
-
-    /// <summary>A stacked row's depth rides on the row for a driver to read; the
-    /// shared attributes otherwise.</summary>
-    private IReadOnlyDictionary<string, object>? OpenRowAttributes(GitHubOpenPullRequest pull)
-    {
-        var attributes = new Dictionary<string, object>(RowAttributes(pull.RepositoryFullName, pull.Number)!);
-        if (!IsPinned(pull) && Stacks.DepthOf(pull) is { } depth) attributes["data-stack-depth"] = depth.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        return attributes;
-    }
-
-    /// <summary>How far the tree indents a stacked row: one step per level under the
-    /// bottom. None for a pinned row, which sits with the pins rather than in its
-    /// tree.</summary>
-    private string? ChainIndent(GitHubOpenPullRequest pull) =>
-        !IsPinned(pull) && Stacks.DepthOf(pull) is > 0 and var depth
-            ? $"--chain-depth: {depth.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
-            : null;
 
     private IReadOnlyList<GitHubMergedPullRequest> MergedRows => (_merged ?? GitHubMergedPullRequestListing.Empty).PullRequests;
 
@@ -1159,6 +1036,14 @@
         }
     }
 
+    /// <summary>Whether a lane is what emptied the list: something is shown before the
+    /// lane narrows it, and nothing after.</summary>
+    private bool LaneEmptied => !Merged && _lane is not null && Visible.Count > 0;
+
+    private string ListEmptyTitle => LaneEmptied && _lane is { } lane ? $"Nothing in {LaneLabel(lane)}." : EmptyMessage;
+
+    private string ListEmptyDescription => LaneEmptied ? "Press the tile again to see every lane." : EmptyDescription;
+
     private string FailureMessage =>
         string.Join(" ", Failures.Select(failure => $"Couldn't read {failure.RepositoryFullName}: {failure.Message.TrimEnd('.')}."))
         + " Every other repository below is complete.";
@@ -1167,83 +1052,228 @@
         $"Only the {GitHubClient.MergedPageSize * GitHubClient.MergedPageCap} most recently updated merged pull requests "
         + $"of {string.Join(", ", repositories)} were read, so some of what merged there in {Window} is missing.";
 
-    private IReadOnlyDictionary<string, object>? RowAttributes(string repositoryFullName, int number)
-    {
-        var attributes = new Dictionary<string, object>
-        {
-            ["data-testid"] = "pull-request-row",
-            ["data-pull-request"] = Key(repositoryFullName, number)
-        };
+    // --- The board ----------------------------------------------------------------
 
-        if (IsPinned(repositoryFullName, number)) attributes["data-pinned"] = "true";
+    /// <summary>One row of the list, from either view: an open (or pinned) pull
+    /// request with its verdict and its place in a stack, or a merged one.</summary>
+    /// <param name="Verdict">Null only for a pinned pull request closed without
+    /// merging.</param>
+    /// <param name="Parent">The open pull request it waits on, for an open one in a
+    /// stack above its bottom.</param>
+    /// <param name="Depth">Its level in its stack, for an open one in a stack that is
+    /// not pinned — a pinned one sits with the pins rather than in its tree.</param>
+    private sealed record BoardRow(
+        string Key,
+        GitHubOpenPullRequest? Open,
+        GitHubMergedPullRequest? MergedPull,
+        PullRequestVerdict? Verdict,
+        GitHubOpenPullRequest? Parent,
+        int? Depth,
+        bool Pinned)
+    {
+        public string RepositoryFullName => Open?.RepositoryFullName ?? MergedPull!.RepositoryFullName;
+
+        public int Number => Open?.Number ?? MergedPull!.Number;
+
+        public string Title => Open?.Title ?? MergedPull!.Title;
+
+        public string HeadRefName => Open?.HeadRefName ?? MergedPull!.HeadRefName;
+
+        public string BaseRefName => Open?.BaseRefName ?? MergedPull!.BaseRefName;
+
+        public string Url => Open?.Url ?? MergedPull!.Url;
+
+        public string? AuthorLogin => Open?.AuthorLogin ?? MergedPull!.AuthorLogin;
+
+        /// <summary>Indented under the one it waits on.</summary>
+        public bool Stacked => Depth is > 0;
+    }
+
+    /// <summary>A heading and its rows: a lane, the pins, or the merged window.</summary>
+    private sealed record BoardGroup(string Slug, string Label, IReadOnlyList<BoardRow> Rows);
+
+    /// <summary>A lane's tile: how many are in it and, in a line, why.</summary>
+    private sealed record LaneTile(PullRequestLane Lane, int Total, string Reasons);
+
+    /// <summary>What one render draws: the groups, the tiles, and the row the detail
+    /// is about — derived once per render rather than once per element that asks.</summary>
+    private sealed record Board(IReadOnlyList<BoardGroup> Groups, IReadOnlyList<LaneTile> Lanes, BoardRow? Selected);
+
+    /// <summary>The open view: tiles counted over every row the filters leave, the
+    /// pins first, then a group per lane that has rows, in lane order.</summary>
+    private Board OpenBoard()
+    {
+        var stacks = Stacks;
+        var rows = Ordered.Select(pull => OpenRow(pull, stacks)).ToList();
+
+        var tiles = Lanes
+            .Select(lane =>
+            {
+                var inLane = rows.Where(row => row.Verdict?.Lane == lane).ToList();
+                return new LaneTile(lane, inLane.Count, LaneReasons(lane, inLane));
+            })
+            .ToList();
+
+        var shown = rows.Where(row => row.Pinned || _lane is null || row.Verdict?.Lane == _lane).ToList();
+
+        var groups = new List<BoardGroup>();
+        var pinned = shown.Where(row => row.Pinned).ToList();
+        if (pinned.Count > 0) groups.Add(new BoardGroup("pinned", "Pinned", pinned));
+
+        foreach (var lane in Lanes)
+        {
+            var inLane = shown.Where(row => !row.Pinned && row.Verdict?.Lane == lane).ToList();
+            if (inLane.Count > 0) groups.Add(new BoardGroup(LaneSlug(lane), LaneLabel(lane), inLane));
+        }
+
+        return new Board(groups, tiles, SelectedOf(groups));
+    }
+
+    /// <summary>The merged view: one group, the window it was read for, and no tiles —
+    /// a merged pull request is in no lane.</summary>
+    private Board MergedBoard()
+    {
+        var rows = MergedVisible
+            .Select(pull => new BoardRow(
+                Key(pull.RepositoryFullName, pull.Number), null, pull, PullRequestVerdict.Of(pull), null, null,
+                IsPinned(pull.RepositoryFullName, pull.Number)))
+            .ToList();
+
+        IReadOnlyList<BoardGroup> groups = rows.Count == 0
+            ? []
+            : [new BoardGroup("merged", $"Last {GitHubIntegration.RecentlyMergedWindow.TotalDays:0} days", rows)];
+
+        return new Board(groups, [], SelectedOf(groups));
+    }
+
+    private BoardRow OpenRow(GitHubOpenPullRequest pull, PullRequestStacks stacks)
+    {
+        var pinned = IsPinned(pull);
+        var parent = pull.IsOpen ? stacks.ParentOf(pull) : null;
+
+        return new BoardRow(
+            Key(pull),
+            pull,
+            null,
+            PullRequestVerdict.Of(pull, parent, pull.CanRerunFailed),
+            parent,
+            pinned ? null : stacks.DepthOf(pull),
+            pinned);
+    }
+
+    /// <summary>The pick where it is still shown, else the first row shown.</summary>
+    private BoardRow? SelectedOf(IReadOnlyList<BoardGroup> groups)
+    {
+        var shown = groups.SelectMany(group => group.Rows).ToList();
+        return shown.FirstOrDefault(row => string.Equals(row.Key, _selected, StringComparison.OrdinalIgnoreCase))
+            ?? shown.FirstOrDefault();
+    }
+
+    /// <summary>A tile's line: what its pull requests are waiting on, one reason per
+    /// kind of verdict, so the count beside it has a reason. By kind rather than by the
+    /// chip's label, which carries a count — two pull requests failing one and two
+    /// checks are one reason, not two.</summary>
+    private static string LaneReasons(PullRequestLane lane, IReadOnlyList<BoardRow> rows) =>
+        rows.Count == 0
+            ? "Nothing here"
+            : lane switch
+            {
+                PullRequestLane.ReadyToMerge => "Nothing in the way",
+                PullRequestLane.Drafts => rows.Any(row => row.Parent is not null) ? "Includes a stacked branch" : "Not ready for review",
+                PullRequestLane.NeedsYou or PullRequestLane.Waiting =>
+                    string.Join(" · ", rows.Select(row => row.Verdict!.Kind).Distinct().Select(ReasonWord))
+            };
+
+    /// <summary>A verdict kind as a tile names it.</summary>
+    private static string ReasonWord(PullRequestVerdictKind kind) => kind switch
+    {
+        PullRequestVerdictKind.Conflicts => "conflicts",
+        PullRequestVerdictKind.FailingChecks => "failing checks",
+        PullRequestVerdictKind.ChangesRequested => "changes requested",
+        PullRequestVerdictKind.Behind => "behind",
+        PullRequestVerdictKind.Draft => "draft",
+        PullRequestVerdictKind.ChecksRunning => "checks running",
+        PullRequestVerdictKind.ReviewRequired => "review required",
+        PullRequestVerdictKind.Ready => "ready to merge",
+        PullRequestVerdictKind.Merged => "merged"
+    };
+
+    private static string LaneLabel(PullRequestLane lane) => lane switch
+    {
+        PullRequestLane.NeedsYou => "Needs you",
+        PullRequestLane.ReadyToMerge => "Ready to merge",
+        PullRequestLane.Waiting => "Waiting",
+        PullRequestLane.Drafts => "Drafts"
+    };
+
+    private static string LaneSlug(PullRequestLane lane) => lane switch
+    {
+        PullRequestLane.NeedsYou => "needs-you",
+        PullRequestLane.ReadyToMerge => "ready",
+        PullRequestLane.Waiting => "waiting",
+        PullRequestLane.Drafts => "drafts"
+    };
+
+    /// <summary>The tone a lane's tile marks itself with — the tone its worst verdict
+    /// wears.</summary>
+    private static string LaneTone(PullRequestLane lane) => lane switch
+    {
+        PullRequestLane.NeedsYou => "fault",
+        PullRequestLane.ReadyToMerge => "settled",
+        PullRequestLane.Waiting => "live",
+        PullRequestLane.Drafts => "quiet"
+    };
+
+    /// <summary>The badge tone of a verdict, by the scale's own names; a pull request
+    /// closed without merging is out of force and wears archived.</summary>
+    private static string ToneSlug(PullRequestVerdict? verdict) => verdict?.Tone switch
+    {
+        PullRequestTone.Quiet => "quiet",
+        PullRequestTone.Live => "live",
+        PullRequestTone.Alert => "alert",
+        PullRequestTone.Fault => "fault",
+        PullRequestTone.Settled => "settled",
+        null => "archived"
+    };
+
+    private static string VerdictLabel(PullRequestVerdict? verdict) => verdict?.Label ?? "Closed";
+
+    private static string RowClass(BoardRow row)
+    {
+        var classes = "pull-requests-row";
+        if (row.Stacked) classes += " pull-requests-row--stacked";
+        if (row.Open is { IsOpen: false }) classes += " pull-requests-row--closed";
+        return classes;
+    }
+
+    /// <summary>What a driver reads off a row: which pull request, whether it is
+    /// pinned, its level in a stack, and its lane — and the indent the stack gives it.</summary>
+    private static IReadOnlyDictionary<string, object> RowAttributes(BoardRow row)
+    {
+        var attributes = new Dictionary<string, object> { ["data-pull-request"] = row.Key };
+
+        if (row.Pinned) attributes["data-pinned"] = "true";
+        if (row.Depth is { } depth) attributes["data-stack-depth"] = depth.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (row.Verdict?.Lane is { } lane) attributes["data-lane"] = LaneSlug(lane);
+        if (row.Stacked) attributes["style"] = $"--chain-depth: {row.Depth!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
         return attributes;
     }
 
     private string RepositoryLabel(string repositoryFullName) => AliasOf(repositoryFullName) ?? repositoryFullName;
 
-    /// <summary>The repository cell plus its identity mark where the host placed one,
-    /// beside the name rather than down the row, as on the session list.</summary>
-    private string RepositoryClass(string repositoryFullName)
+    /// <summary>The repository's alias with its identity mark where the host placed
+    /// one: the hue down its leading edge, as on the session list.</summary>
+    private string RepositoryClass(string stem, string repositoryFullName)
     {
-        const string stem = "data-table__clamp pull-requests-table__repository";
         var colour = RepositoryColour?.Invoke(repositoryFullName);
 
         return colour is null ? stem : $"{stem} repo-mark repo-mark--{colour}";
     }
 
-    // The cells both views draw the same way, written once.
-
-    private RenderFragment RepositoryCell(string repositoryFullName) =>
-        @<td class="data-table__mono">
-            <span class="@RepositoryClass(repositoryFullName)" title="@repositoryFullName" data-testid="pull-request-repository">@RepositoryLabel(repositoryFullName)</span>
-        </td>;
-
-    /// <summary>Head, then where it would merge (or did): the order GitHub's own
-    /// header reads, and clamped like every branch in this product, with both names
-    /// in the title.</summary>
-    private static RenderFragment BranchCell(string head, string target) =>
-        @<td class="data-table__mono">
-            <span class="data-table__clamp pull-requests-table__branch"
-                  title="@($"{head} → {target}")">@head → @target</span>
-        </td>;
-
-    /// <summary>Inert text where the shell wired no way to open one, as the
-    /// Integrations family draws every reference nobody can follow; an em dash where
-    /// nothing links the two.</summary>
-    private RenderFragment TaskCell(PullRequestTaskSubject pull) =>
-        @<td class="pull-requests-table__reference">
-            @if (TaskFor(pull) is { } task)
-            {
-                <IntegrationLink Link="@TaskLink(task)"
-                                 ShowTitle="false"
-                                 OnOpen="@TaskOpener(task)"
-                                 TestId="pull-request-task" />
-            }
-            else
-            {
-                <span data-testid="pull-request-no-task">@Missing</span>
-            }
-        </td>;
-
-    private RenderFragment SessionCell(string url, string headRefName, string repositoryFullName) =>
-        @<td class="pull-requests-table__reference">
-            @if (SessionFor(url, headRefName, repositoryFullName) is { } session)
-            {
-                <IntegrationLink Link="@SessionLink(session)"
-                                 ShowTitle="false"
-                                 OnOpen="SessionOpener"
-                                 TestId="pull-request-session" />
-            }
-            else
-            {
-                <span data-testid="pull-request-no-session">@Missing</span>
-            }
-        </td>;
-
-    /// <summary>The pull request as a link wearing Merged as its colour — the one
-    /// place the row says it.</summary>
-    private static IntegrationLinkRef MergedLink(GitHubMergedPullRequest pull) =>
-        IntegrationLinkRef.PullRequest(pull.Url, $"#{pull.Number}", IntegrationArtifactState.Merged, pull.Title, pull.Url);
+    /// <summary>How long ago an open pull request last moved, against the pane's clock.</summary>
+    private string? UpdatedAgo(GitHubOpenPullRequest pull) =>
+        pull.UpdatedAt is { } at ? Backlog.UI.Components.Shell.SyncStatusLine.Relative(_clock.GetUtcNow() - at) : null;
 
     /// <summary>How long before the reading it was merged, coarsely — the exact
     /// moment is in <see cref="MergedTitle"/>.</summary>
@@ -1251,85 +1281,12 @@
         Backlog.UI.Components.Shell.SyncStatusLine.Relative(_mergedReadAt - pull.MergedAt);
 
     /// <summary>Local time, because a reader matching a merge against their own day is
-    /// not thinking in UTC; the author too, which the merger column does not say.</summary>
+    /// not thinking in UTC; the author too, which the row does not say.</summary>
     private static string MergedTitle(GitHubMergedPullRequest pull)
     {
         var when = $"Merged {pull.MergedAt.ToLocalTime():ddd d MMM yyyy HH:mm}.";
         return pull.AuthorLogin is { } author ? $"{when} Opened by {author}." : when;
     }
-
-    /// <summary>The pull request as the Integrations family draws one: the number,
-    /// its title, an anchor to GitHub, its state as the link's colour. The status
-    /// column says the rest in words.</summary>
-    private static IntegrationLinkRef Link(GitHubOpenPullRequest pull) =>
-        IntegrationLinkRef.PullRequest(
-            pull.Url,
-            $"#{pull.Number}",
-            pull.State switch
-            {
-                GitHubItemState.Merged => IntegrationArtifactState.Merged,
-                GitHubItemState.Closed => IntegrationArtifactState.Closed,
-                GitHubItemState.Draft => IntegrationArtifactState.Draft,
-                _ => IntegrationArtifactState.Open
-            },
-            pull.Title,
-            pull.Url);
-
-    private static string? ChecksLabel(GitHubCheckState checks) => checks switch
-    {
-        GitHubCheckState.Passing => "Checks passing",
-        GitHubCheckState.Failing => "Checks failing",
-        GitHubCheckState.Pending => "Checks pending",
-        _ => null
-    };
-
-    /// <summary>Failing and pending wear the library's finding tones, because each is
-    /// something standing between the pull request and a merge; passing is a plain
-    /// fact and wears the quiet outlined kind the auto-merge badge does.</summary>
-    private static string ChecksKind(GitHubCheckState checks) =>
-        checks is GitHubCheckState.Failing or GitHubCheckState.Pending ? "finding" : "kind";
-
-    private static string? ChecksSlug(GitHubCheckState checks) => checks switch
-    {
-        GitHubCheckState.Failing => "error",
-        GitHubCheckState.Pending => "warning",
-        _ => null
-    };
-
-    /// <summary>GitHub's own merge state and author, for a reader who wants the word
-    /// the badges were derived from.</summary>
-    private static string StatusTitle(GitHubOpenPullRequest pull)
-    {
-        var state = pull.MergeStateStatus is { } mergeState ? $"GitHub's merge state: {mergeState}." : "GitHub did not say how it would merge.";
-        return pull.AuthorLogin is { } author ? $"Opened by {author}. {state}" : state;
-    }
-
-    /// <summary>The task the pull request is related to, among every task — not only
-    /// mine, so Everyone's rows lead back to their task too.</summary>
-    private DeliveryRunReference? TaskFor(PullRequestTaskSubject pull) =>
-        PullRequestTask?.Invoke(pull, false);
-
-    /// <summary>
-    /// The pin, on every row of both views where the host composed a pins store. A
-    /// toggle whose name stays "Pin #n" while <c>aria-pressed</c> carries whether it is
-    /// pinned — the button pattern's way, so a screen reader says the state once
-    /// rather than in the name and the state both. The visible word is the name's, so
-    /// a reader who speaks the label reaches it.
-    /// </summary>
-    private RenderFragment PinToggle(string repositoryFullName, int number) => __builder =>
-    {
-        if (_pins is null) return;
-
-        var pinned = IsPinned(repositoryFullName, number);
-        <ToggleButton Pressed="@pinned"
-                      PressedChanged="_ => TogglePin(repositoryFullName, number)"
-                      AriaLabel="@($"Pin #{number}")"
-                      Title="@(pinned ? "Pinned: listed whatever the filters say, until you unpin it." : "Pin: keep it listed whatever the filters say, and after it merges or closes.")"
-                      CssClass="btn--small pull-requests-table__pin"
-                      TestId="pull-request-pin">
-            Pin
-        </ToggleButton>
-    };
 
     /// <summary>When a pinned pull request merged or closed, in local time.</summary>
     private static string? ClosedTitle(GitHubOpenPullRequest pull) =>
@@ -1340,29 +1297,516 @@
     private static string ChecksTitle(GitHubCheckCounts counts) =>
         $"{counts.Passed} of the head commit's {counts.Total} checks passed, {counts.Failed} failed, {counts.Pending} still running or waiting.";
 
-    /// <summary>GitHub's review decision in words; changes asked for by a reviewer
-    /// are said even where the repository asks for no decision.</summary>
-    private static string? ReviewLabel(GitHubReviewSummary reviews) => reviews.Decision switch
+    /// <summary>The meter's three widths, as the counts themselves: each part grows by
+    /// its share, so the bar needs no arithmetic here.</summary>
+    private static string MeterStyle(GitHubCheckCounts counts) =>
+        string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"--checks-passed: {counts.Passed}; --checks-failed: {counts.Failed}; --checks-running: {counts.Pending}");
+
+    /// <summary>The pull request as the Integrations family draws one, on the detail's
+    /// head: an anchor to GitHub wearing its state as its colour, with the state's
+    /// words in its title and an sr-only span.</summary>
+    private static IntegrationLinkRef Link(GitHubOpenPullRequest pull) =>
+        IntegrationLinkRef.PullRequest(
+            pull.Url,
+            "Open on GitHub",
+            pull.State switch
+            {
+                GitHubItemState.Merged => IntegrationArtifactState.Merged,
+                GitHubItemState.Closed => IntegrationArtifactState.Closed,
+                GitHubItemState.Draft => IntegrationArtifactState.Draft,
+                _ => IntegrationArtifactState.Open
+            },
+            pull.Title,
+            pull.Url);
+
+    private static IntegrationLinkRef MergedLink(GitHubMergedPullRequest pull) =>
+        IntegrationLinkRef.PullRequest(pull.Url, "Open on GitHub", IntegrationArtifactState.Merged, pull.Title, pull.Url);
+
+    // --- A row --------------------------------------------------------------------
+
+    /// <summary>
+    /// One row: the repository's identity edge and alias, the number, the verdict
+    /// chip, the title, the head branch and its age, and the checks meter. Nothing in
+    /// it is a control — the row is the button — so the pin and the links live in
+    /// the detail.
+    /// </summary>
+    private RenderFragment RowBody(BoardRow row) =>
+        @<text>
+            <span class="pull-requests-row__top">
+                <span class="@RepositoryClass("pull-requests-row__repository", row.RepositoryFullName)" title="@row.RepositoryFullName" data-testid="pull-request-repository">@RepositoryLabel(row.RepositoryFullName)</span>
+                <span class="pull-requests-row__number">#@row.Number</span>
+                <Badge Kind="tone"
+                       Slug="@ToneSlug(row.Verdict)"
+                       Title="@(row.Open is { IsOpen: false } closed ? ClosedTitle(closed) : null)"
+                       CssClass="pull-requests-row__verdict"
+                       TestId="pull-request-verdict">@VerdictLabel(row.Verdict)</Badge>
+            </span>
+            <span class="pull-requests-row__title">@row.Title</span>
+            <span class="pull-requests-row__meta">
+                <span class="pull-requests-row__branch" title="@($"{row.HeadRefName} → {row.BaseRefName}")">@row.HeadRefName</span>
+                @if (row.MergedPull is { } merged)
+                {
+                    <span aria-hidden="true">·</span>
+                    <span class="pull-requests-row__age">
+                        <span title="@MergedTitle(merged)" data-testid="pull-request-merged-at">@MergedAgo(merged)</span>
+                        @if (merged.MergedByLogin is { } merger)
+                        {
+                            @(" · by ")<span data-testid="pull-request-merged-by">@merger</span>
+                        }
+                    </span>
+                }
+                else if (row.Open is { } pull)
+                {
+                    @if (UpdatedAgo(pull) is { } ago)
+                    {
+                        <span aria-hidden="true">·</span>
+                        <span class="pull-requests-row__age">@ago</span>
+                    }
+                    @if (pull.IsOpen && pull.CheckCounts is { Total: > 0 } counts)
+                    {
+                        @* GitHub's "8/9", drawn: passed, failed and running as three
+                           widths, with the words beside it and the exact counts in
+                           the title, so the bar is never the only carrier. *@
+                        <span class="pull-request-checks-meter"
+                              title="@ChecksTitle(counts)"
+                              style="@MeterStyle(counts)"
+                              data-testid="pull-request-checks-meter">
+                            <span class="pull-request-checks-meter__bar" aria-hidden="true">
+                                <span class="pull-request-checks-meter__passed"></span>
+                                <span class="pull-request-checks-meter__failed"></span>
+                                <span class="pull-request-checks-meter__running"></span>
+                            </span>
+                            <span class="pull-request-checks-meter__words">@($"{counts.Passed}/{counts.Total}")<span class="sr-only"> checks passed</span></span>
+                        </span>
+                    }
+                }
+            </span>
+            @if (row.Stacked && row.Parent is { } parent)
+            {
+                @* The one place the row says what it waits on: a reader sees it
+                   hang under its parent, and the words say why. *@
+                <span class="pull-requests-row__waits"
+                      title="@($"It targets {parent.HeadRefName}, so merge #{parent.Number} first.")"
+                      data-testid="pull-request-waits-on">↳ Waits on #@parent.Number, merge that first</span>
+            }
+        </text>;
+
+    // --- The detail -----------------------------------------------------------------
+
+    /// <summary>The detail of the picked pull request: its head, the verdict and its
+    /// acts, and — for one still open — what GitHub gates the merge on, its checks and
+    /// its stack; then the task and the session it came from.</summary>
+    private RenderFragment Detail(BoardRow row) =>
+        @<aside class="pull-request-detail" aria-label="Selected pull request" data-testid="pull-request-detail" data-pull-request="@row.Key">
+            <header class="pull-request-detail__head">
+                <div class="pull-request-detail__line">
+                    <span class="@RepositoryClass("pull-request-detail__repository", row.RepositoryFullName)" title="@row.RepositoryFullName">@RepositoryLabel(row.RepositoryFullName)</span>
+                    <span class="pull-request-detail__number">#@row.Number</span>
+                    <span class="pull-request-detail__byline">@Byline(row)</span>
+                    <span class="pull-request-detail__links">
+                        @if (row.Open is { } open)
+                        {
+                            <IntegrationLink Link="@Link(open)"
+                                             StateAsInk="true"
+                                             ShowTitle="false"
+                                             CssClass="pull-request-detail__github"
+                                             TestId="pull-request-link"
+                                             StateTestId="pull-request-state" />
+                        }
+                        else if (row.MergedPull is { } merged)
+                        {
+                            <IntegrationLink Link="@MergedLink(merged)"
+                                             StateAsInk="true"
+                                             ShowTitle="false"
+                                             CssClass="pull-request-detail__github"
+                                             TestId="pull-request-link"
+                                             StateTestId="pull-request-state" />
+                        }
+                        @PinToggle(row.RepositoryFullName, row.Number)
+                    </span>
+                </div>
+                <h3 class="pull-request-detail__title">@row.Title</h3>
+                <p class="pull-request-detail__branches" title="@($"{row.HeadRefName} → {row.BaseRefName}")">@($"{row.HeadRefName} → {row.BaseRefName}")</p>
+            </header>
+
+            @Banner(row)
+
+            @if (row.Open is { IsOpen: true } pull)
+            {
+                <div class="pull-request-detail__facts">
+                    <section class="pull-request-detail__section" aria-label="Merge readiness">
+                        <h4 class="pull-request-detail__heading">Merge readiness</h4>
+                        <ul class="pull-request-readiness" data-testid="pull-request-readiness">
+                            @foreach (var line in Readiness(pull))
+                            {
+                                <li class="@($"pull-request-readiness__line pull-request-readiness__line--{line.State}")"
+                                    data-line="@line.Slug"
+                                    data-state="@line.State">
+                                    <span class="pull-request-readiness__mark" aria-hidden="true">@ReadinessMark(line.State)</span>
+                                    <span class="pull-request-readiness__label">@line.Label</span>
+                                    <span class="pull-request-readiness__words">@line.Words<span class="sr-only">@ReadinessWord(line.State)</span></span>
+                                </li>
+                            }
+                        </ul>
+                    </section>
+
+                    <section class="pull-request-detail__section" aria-label="Checks">
+                        <h4 class="pull-request-detail__heading">
+                            Checks
+                            @if (pull.CheckCounts is { Total: > 0 } counts)
+                            {
+                                <span class="pull-request-detail__tally">@($"{counts.Passed}/{counts.Total} passed")</span>
+                            }
+                        </h4>
+                        @ChecksList(pull)
+                    </section>
+                </div>
+
+                @if (Stacks.StackOf(pull) is { } stack)
+                {
+                    <section class="pull-request-detail__section" aria-label="Stack" data-testid="pull-request-stack">
+                        <h4 class="pull-request-detail__heading">Stack · merges bottom first</h4>
+                        <ol class="pull-request-stack">
+                            @foreach (var member in stack.Members)
+                            {
+                                var current = member == pull;
+                                <li class="@(current ? "pull-request-stack__member pull-request-stack__member--current" : "pull-request-stack__member")"
+                                    aria-current="@(current ? "true" : null)"
+                                    data-pull-request="@Key(member)">
+                                    <span class="pull-request-stack__number">#@member.Number</span>
+                                    <span class="pull-request-stack__title">@member.Title</span>
+                                    <Badge Kind="tone" Slug="@ToneSlug(MemberVerdict(member))">@VerdictLabel(MemberVerdict(member))</Badge>
+                                </li>
+                            }
+                        </ol>
+                    </section>
+                }
+            }
+
+            @* The way back to the work: the task the pull request belongs to and the
+               session that made it, each said in a sentence when nothing matched
+               rather than left as a blank card. *@
+            <div class="pull-request-detail__cards">
+                <Card Title="Task" Compact="true" CssClass="pull-request-detail__card">
+                    @if (TaskFor(row) is { } task)
+                    {
+                        <IntegrationLink Link="@TaskLink(task)"
+                                         ShowTitle="false"
+                                         OnOpen="@TaskOpener(task)"
+                                         TestId="pull-request-task" />
+                    }
+                    else
+                    {
+                        <p class="pull-request-detail__unmatched" data-testid="pull-request-no-task">No task names this pull request.</p>
+                    }
+                </Card>
+                <Card Title="Session" Compact="true" CssClass="pull-request-detail__card">
+                    @if (SessionFor(row.Url, row.HeadRefName, row.RepositoryFullName) is { } session)
+                    {
+                        <IntegrationLink Link="@SessionLink(session)"
+                                         ShowTitle="false"
+                                         OnOpen="SessionOpener"
+                                         TestId="pull-request-session" />
+                    }
+                    else
+                    {
+                        <p class="pull-request-detail__unmatched" data-testid="pull-request-no-session">No session matched this pull request.</p>
+                    }
+                </Card>
+            </div>
+        </aside>;
+
+    /// <summary>A stack member's verdict, read the way its own row reads it.</summary>
+    private PullRequestVerdict? MemberVerdict(GitHubOpenPullRequest member) =>
+        PullRequestVerdict.Of(member, Stacks.ParentOf(member), member.CanRerunFailed);
+
+    /// <summary>Who opened it and how long ago it moved — or merged, for a merged one.</summary>
+    private string Byline(BoardRow row)
     {
-        GitHubReviewDecision.Approved => "Approved",
-        GitHubReviewDecision.ChangesRequested => "Changes requested",
-        GitHubReviewDecision.ReviewRequired => "Review required",
-        _ => reviews.ChangesRequested > 0 ? "Changes requested" : null
+        var age = row.MergedPull is { } merged ? $"merged {MergedAgo(merged)}" : row.Open is { } open ? UpdatedAgo(open) : null;
+        var by = row.AuthorLogin is { } author ? $"by {author}" : null;
+
+        return string.Join(" · ", new[] { by, age }.Where(part => part is not null));
+    }
+
+    /// <summary>
+    /// The verdict, in its tone: the chip, the headline, the one-sentence reason, and
+    /// the acts that fit — the secondary before the primary, so the primary sits at
+    /// the end of the line where the eye finishes. A pull request closed without
+    /// merging has no verdict; the banner says so in the archived tone, with no act.
+    /// </summary>
+    private RenderFragment Banner(BoardRow row) => __builder =>
+    {
+        var verdict = row.Verdict;
+        var tone = ToneSlug(verdict);
+        var headline = verdict?.Headline ?? "Closed without merging";
+        var reason = verdict?.Reason ?? "Nothing is left to do from here.";
+        IReadOnlyList<(PullRequestAct Act, bool Primary)> acts = row.Open is { } pull ? ActsFor(pull, verdict) : [];
+
+        <div class="@($"pull-request-banner pull-request-banner--{tone}")"
+             data-testid="pull-request-banner"
+             data-verdict="@(verdict?.Kind.ToString() ?? "Closed")">
+            <div class="pull-request-banner__text">
+                <Badge Kind="tone" Slug="@tone">@VerdictLabel(verdict)</Badge>
+                <p class="pull-request-banner__headline">@headline</p>
+                <p class="pull-request-banner__reason">@reason</p>
+            </div>
+            @if (acts.Count > 0 && row.Open is { } open)
+            {
+                <div class="pull-request-banner__acts">
+                    @foreach (var (act, primary) in acts)
+                    {
+                        @ActButton(open, act, primary)
+                    }
+                </div>
+            }
+        </div>
     };
 
-    /// <summary>Changes requested and a review still required stand between the
-    /// pull request and a merge, so they wear the finding tones; approved is a plain
-    /// fact.</summary>
-    private static string ReviewKind(GitHubReviewSummary reviews) =>
-        ReviewSlug(reviews) is null ? "kind" : "finding";
-
-    private static string? ReviewSlug(GitHubReviewSummary reviews) => reviews.Decision switch
+    /// <summary>
+    /// The acts the banner offers, secondary first. The verdict's own — plus Cancel
+    /// auto-merge wherever GitHub already holds an auto-merge and the verdict offers no
+    /// merge act to withdraw it with: a draft, a branch in conflict, a stacked pull
+    /// request. Withdrawing undoes a request rather than making one, so nothing the
+    /// verdict waits on is a reason to hide it.
+    /// </summary>
+    private IReadOnlyList<(PullRequestAct Act, bool Primary)> ActsFor(GitHubOpenPullRequest pull, PullRequestVerdict? verdict)
     {
-        GitHubReviewDecision.ChangesRequested => "error",
-        GitHubReviewDecision.ReviewRequired => "warning",
-        GitHubReviewDecision.Approved => null,
-        _ => reviews.ChangesRequested > 0 ? "error" : null
+        if (verdict is null || !pull.IsOpen) return [];
+
+        var acts = new List<(PullRequestAct Act, bool Primary)>();
+        if (verdict.SecondaryAct is { } secondary) acts.Add((secondary, false));
+        if (verdict.PrimaryAct is { } primary) acts.Add((primary, true));
+
+        if (!acts.Any(entry => IsMergeAct(entry.Act)) && OfferedMergeFor(pull) is PullRequestMerge.CancelAutoMerge)
+        {
+            acts.Insert(0, (PullRequestAct.MergeWhenReady, false));
+        }
+
+        return acts;
+    }
+
+    private static bool IsMergeAct(PullRequestAct act) => act is PullRequestAct.Merge or PullRequestAct.MergeWhenReady;
+
+    /// <summary>One act as its control. The two that only go and look are links to
+    /// GitHub; the rest are the pane's own act methods. A merge act becomes whichever
+    /// merge GitHub would accept — and nothing where it would accept none.</summary>
+    private RenderFragment ActButton(GitHubOpenPullRequest pull, PullRequestAct act, bool primary) => __builder =>
+    {
+        var variant = primary ? ButtonVariant.Primary : ButtonVariant.Secondary;
+        var busy = Busy(pull);
+
+        switch (act)
+        {
+            case PullRequestAct.OpenOnGitHub:
+                <AppButton Href="@pull.Url" Variant="variant" TestId="pull-request-open-on-github">Open on GitHub</AppButton>
+                break;
+            case PullRequestAct.OpenReviewOnGitHub:
+                <AppButton Href="@($"{pull.Url}/files")" Variant="variant" TestId="pull-request-open-review">Open review on GitHub</AppButton>
+                break;
+            case PullRequestAct.RerunFailed:
+                <AppButton Variant="variant" Disabled="@busy" TestId="pull-request-rerun-failed" OnClick="() => RerunFailedAsync(pull)">Re-run failed</AppButton>
+                break;
+            case PullRequestAct.UpdateBranch:
+                <AppButton Variant="variant" Disabled="@busy" TestId="pull-request-update-branch" OnClick="() => UpdateBranchAsync(pull)">Update branch</AppButton>
+                break;
+            case PullRequestAct.ReadyForReview:
+                <AppButton Variant="variant" Disabled="@busy" TestId="pull-request-ready" OnClick="() => MarkReadyAsync(pull)">Ready for review</AppButton>
+                break;
+            case PullRequestAct.MergeWhenReady:
+            case PullRequestAct.Merge:
+                if (OfferedMergeFor(pull) is { } merge)
+                {
+                    <AppButton Variant="variant" Disabled="@busy" TestId="pull-request-merge" OnClick="() => MergeAsync(pull)">@MergeLabel(merge)</AppButton>
+                }
+                break;
+        }
     };
+
+    /// <summary>One of the four things GitHub gates a merge on, in words.</summary>
+    /// <param name="State"><c>ok</c>, <c>waiting</c> or <c>failing</c>.</param>
+    private sealed record ReadinessLine(string Slug, string Label, string State, string Words);
+
+    private const string Ok = "ok";
+    private const string Waiting = "waiting";
+    private const string Failing = "failing";
+
+    /// <summary>Checks, review, up to date, mergeable — each ok, waiting or failing,
+    /// said in words. Nothing here is a verdict: these are the facts the verdict was
+    /// ranked from, so a reader can see what else stands in the way.</summary>
+    private static IReadOnlyList<ReadinessLine> Readiness(GitHubOpenPullRequest pull)
+    {
+        var baseRef = pull.BaseRefName;
+
+        var (checksState, checksWords) = pull.CheckCounts switch
+        {
+            { Failed: > 0 } counts => (Failing, $"{counts.Failed} failing"),
+            { Pending: > 0 } counts => (Waiting, $"{counts.Pending} running"),
+            { Total: > 0 } counts => (Ok, $"{counts.Total}/{counts.Total} passed"),
+            _ => pull.Checks switch
+            {
+                GitHubCheckState.Failing => (Failing, "Failing"),
+                GitHubCheckState.Pending => (Waiting, "Pending"),
+                GitHubCheckState.Passing => (Ok, "Passing"),
+                GitHubCheckState.None => (Waiting, "None reported yet")
+            }
+        };
+
+        var reviews = pull.Reviews;
+        var (reviewState, reviewWords) =
+            reviews.Decision == GitHubReviewDecision.ChangesRequested || reviews.ChangesRequested > 0 ? (Failing, "Changes requested")
+            : reviews.Approvals > 0 ? (Ok, reviews.Approvals == 1 ? "1 approval" : $"{reviews.Approvals} approvals")
+            : pull.IsDraft ? (Waiting, "Not requested (draft)")
+            : reviews.Decision == GitHubReviewDecision.ReviewRequired ? (Waiting, "Approval required")
+            : (Ok, "No review required");
+
+        var (behindState, behindWords) =
+            pull.BehindBy is > 0 and var behind ? (Waiting, behind == 1 ? $"1 commit behind {baseRef}" : $"{behind} commits behind {baseRef}")
+            : pull.IsBehind ? (Waiting, $"Behind {baseRef}")
+            : pull.BehindBy == 0 ? (Ok, $"With {baseRef}")
+            : pull.IsCrossRepository ? (Ok, "Not compared")
+            : (Ok, $"With {baseRef}");
+
+        var (mergeableState, mergeableWords) = pull.HasConflicts ? (Failing, $"Conflicts with {baseRef}") : (Ok, "No conflicts");
+
+        return
+        [
+            new("checks", "Checks", checksState, checksWords),
+            new("review", "Review", reviewState, reviewWords),
+            new("up-to-date", "Up to date", behindState, behindWords),
+            new("mergeable", "Mergeable", mergeableState, mergeableWords)
+        ];
+    }
+
+    /// <summary>A glyph per state, beside the words: three shapes, so the colour on
+    /// the line is never the only thing telling them apart.</summary>
+    private static string ReadinessMark(string state) => state switch
+    {
+        Ok => "✓",
+        Failing => "✕",
+        _ => "○"
+    };
+
+    private static string ReadinessWord(string state) => state switch
+    {
+        Ok => " (ok)",
+        Failing => " (failing)",
+        _ => " (waiting)"
+    };
+
+    /// <summary>
+    /// The head commit's checks, failures first, then the ones still running, then
+    /// the ones that passed — in GitHub's order within each — up to
+    /// <see cref="ChecksShown"/>, and the rest counted. Counted against GitHub's own
+    /// total as well as the list, because the list stops at the client's limit and
+    /// the counts do not.
+    /// </summary>
+    private static RenderFragment ChecksList(GitHubOpenPullRequest pull) => __builder =>
+    {
+        var ordered = pull.HeadChecks.OrderBy(check => CheckRank(check.State)).ToList();
+        var shown = ordered.Take(ChecksShown).ToList();
+        var total = Math.Max(pull.CheckCounts?.Total ?? 0, pull.HeadChecks.Count);
+        var hidden = total - shown.Count;
+
+        <ul class="pull-request-detail-checks" data-testid="pull-request-detail-checks">
+            @if (total == 0)
+            {
+                <li class="pull-request-detail-checks__more">No checks have reported yet.</li>
+            }
+            @foreach (var check in shown)
+            {
+                var state = CheckSlug(check.State);
+                <li class="@($"pull-request-detail-checks__check pull-request-detail-checks__check--{state}")" data-check-state="@state">
+                    <span class="pull-request-detail-checks__dot" aria-hidden="true"></span>
+                    @if (!string.IsNullOrWhiteSpace(check.Url))
+                    {
+                        <a class="pull-request-detail-checks__name" href="@check.Url" target="_blank" rel="noopener noreferrer">@check.Name</a>
+                    }
+                    else
+                    {
+                        <span class="pull-request-detail-checks__name">@check.Name</span>
+                    }
+                    <span class="pull-request-detail-checks__word">@CheckWord(check)</span>
+                </li>
+            }
+            @if (shown.Count == 0 && total > 0)
+            {
+                <li class="pull-request-detail-checks__more">@($"{total} checks, not listed one by one.")</li>
+            }
+            else if (hidden > 0)
+            {
+                <li class="pull-request-detail-checks__more">@(HiddenAllPassed(pull, shown) ? $"and {hidden} more passed" : $"and {hidden} more")</li>
+            }
+        </ul>
+    };
+
+    private static int CheckRank(GitHubCheckState state) => state switch
+    {
+        GitHubCheckState.Failing => 0,
+        GitHubCheckState.Pending => 1,
+        GitHubCheckState.Passing or GitHubCheckState.None => 2
+    };
+
+    private static string CheckSlug(GitHubCheckState state) => state switch
+    {
+        GitHubCheckState.Failing => "failed",
+        GitHubCheckState.Pending => "running",
+        GitHubCheckState.Passing or GitHubCheckState.None => "passed"
+    };
+
+    /// <summary>Failed, Running, or how long a passed one took — "2m 10s", "45s".</summary>
+    private static string CheckWord(GitHubCheck check) => check.State switch
+    {
+        GitHubCheckState.Failing => "Failed",
+        GitHubCheckState.Pending => "Running",
+        GitHubCheckState.Passing or GitHubCheckState.None => check.Duration is { } duration ? DurationWords(duration) : "Passed"
+    };
+
+    private static string DurationWords(TimeSpan duration) =>
+        duration >= TimeSpan.FromMinutes(1)
+            ? $"{(int)duration.TotalMinutes}m {duration.Seconds}s"
+            : $"{Math.Max(0, (int)duration.TotalSeconds)}s";
+
+    /// <summary>Whether every check the list leaves out passed: none of the listed
+    /// ones past the cut failed or is running, and GitHub's counts have no failure or
+    /// running check the listed ones do not already account for.</summary>
+    private static bool HiddenAllPassed(GitHubOpenPullRequest pull, IReadOnlyList<GitHubCheck> shown)
+    {
+        var shownUnfinished = shown.Count(check => check.State is GitHubCheckState.Failing or GitHubCheckState.Pending);
+        var listedUnfinished = pull.HeadChecks.Count(check => check.State is GitHubCheckState.Failing or GitHubCheckState.Pending);
+        var countedUnfinished = pull.CheckCounts is { } counts ? counts.Failed + counts.Pending : listedUnfinished;
+
+        return Math.Max(listedUnfinished, countedUnfinished) == shownUnfinished;
+    }
+
+    /// <summary>
+    /// The pin, in the detail's head of both views where the host composed a pins
+    /// store. A toggle whose name stays "Pin #n" while <c>aria-pressed</c> carries
+    /// whether it is pinned — the button pattern's way, so a screen reader says the
+    /// state once rather than in the name and the state both. The visible word is the
+    /// name's, so a reader who speaks the label reaches it.
+    /// </summary>
+    private RenderFragment PinToggle(string repositoryFullName, int number) => __builder =>
+    {
+        if (_pins is null) return;
+
+        var pinned = IsPinned(repositoryFullName, number);
+        <ToggleButton Pressed="@pinned"
+                      PressedChanged="_ => TogglePin(repositoryFullName, number)"
+                      AriaLabel="@($"Pin #{number}")"
+                      Title="@(pinned ? "Pinned: listed whatever the filters say, until you unpin it." : "Pin: keep it listed whatever the filters say, and after it merges or closes.")"
+                      CssClass="btn--small pull-request-detail__pin"
+                      TestId="pull-request-pin">
+            Pin
+        </ToggleButton>
+    };
+
+    /// <summary>The task the pull request is related to, among every task — not only
+    /// mine, so Everyone's rows lead back to their task too.</summary>
+    private DeliveryRunReference? TaskFor(BoardRow row) =>
+        PullRequestTask?.Invoke(row.Open is { } open ? TaskSubject(open) : TaskSubject(row.MergedPull!), false);
 
     private static IntegrationLinkRef TaskLink(DeliveryRunReference task) =>
         new(task.EntryId?.ToString() ?? task.Label, IntegrationProvider.None, IntegrationLinkKind.Other, task.Label, Title: $"Open {task.Label} in the task list");

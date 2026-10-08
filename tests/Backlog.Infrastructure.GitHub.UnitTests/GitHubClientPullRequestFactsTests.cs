@@ -217,7 +217,9 @@ public sealed class GitHubClientPullRequestFactsTests
 
         await new GitHubClient(transport).ListPullRequestsAsync(Repository, [12, 34], Cancellation);
 
-        Assert.Equal("graphql#JSdotNet/Backlog", Assert.Single(transport.Paths));
+        // The pinned read, then the open one's distance from its base.
+        Assert.All(transport.Paths, path => Assert.Equal("graphql#JSdotNet/Backlog", path));
+        Assert.Single(transport.Bodies, sent => sent!.Contains("pullRequest(number:", StringComparison.Ordinal));
         using var body = JsonDocument.Parse(transport.Bodies[0]!);
         var query = body.RootElement.GetProperty("query").GetString()!;
         Assert.Contains("p12: pullRequest(number: 12)", query, StringComparison.Ordinal);

@@ -147,7 +147,7 @@ outside every registered clone rather than as one that never ran.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/productivity/features.md#what-the-sessions-cost-and-shipped]
+related: [.devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/productivity/features.md#what-the-sessions-cost-and-shipped, .devbook/domain/sessions/features.md#the-detail-of-one-session]
 ```
 
 As of 2026-09-23 a row also shows three things Claude writes into its transcript and
@@ -242,8 +242,10 @@ type: feature
 related: [.devbook/domain/sessions/domain.md#session-grouping]
 ```
 
-Carve the same list up by the two things that separate sessions from each other in
-practice, without removing any of them.
+Carve the same list up by the things that separate sessions from each other in
+practice — when they ran, which repository they were in, which machine ran them —
+without removing any of them. The list opens grouped by When, which puts the live
+sessions on top and the rest under the day they were last active.
 
 ### Group by environment
 
@@ -276,10 +278,13 @@ row.
 
 ```meta
 type: sub-feature
+status: deprecated
 ```
 
-A section per agent, so Claude's sessions and Copilot's can be read separately
-without the two being separate lists.
+A section per agent, so Claude's sessions and Copilot's could be read separately
+without the two being separate lists. The session list no longer offers it: every row
+wears its agent's mark, and When, Repository and Machine are the three ways the
+redesigned list is read. The grouping itself remains in the domain.
 
 ### Grouping never hides a session
 
@@ -381,13 +386,13 @@ directly, and then the run is recorded here as it happens rather than found afte
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/domain.md#run-attachment]
+related: [.devbook/domain/sessions/domain.md#run-attachment, .devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran]
 ```
 
 A run filed under the worktree a listed session ran in, and open while that session
 was active, is shown under that session's own row and across every column of the
 list, stacked the way a reader asks: the work it is linked to, the dashboard's status
-under it, one line of figures — stages done, output tokens, the context peak, the tool
+under it, one line of figures — stages done, the cost, the context peak, the tool
 calls — and the skill that owned it last. The stages, the token buckets, the gauge,
 the tool activity by category and by MCP server, and the run's own title are behind a
 fold.
@@ -411,6 +416,9 @@ turned each of its parts into three lines while the rest of the row sat empty.
 Behind a fold, because a run holds ten stages
 and tens of thousands of tool calls, and a row that showed them would be a report with
 a table around it.
+
+[How each stage of a run ran](#how-each-stage-of-a-run-ran) extends this fold with each
+stage's mode and what ran beside what was configured.
 
 ### One line for a run two surfaces reported
 
@@ -587,7 +595,7 @@ that cannot say which repository it is about matches no chapter.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/sessions/features.md#only-what-the-dashboard-recorded]
+related: [.devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/sessions/features.md#only-what-the-dashboard-recorded, .devbook/domain/sessions/features.md#the-cost-of-a-run-and-its-stages]
 ```
 
 A run recorded here shows what it cost the way a dashboard's run does: the tool calls
@@ -603,6 +611,609 @@ before it; a run another session is driving is left alone. A session that does n
 report — the plugin not installed, or a host other than Claude Code — leaves its run
 without these figures, and they are left out rather than shown as zero: the rule this
 area already applies to a dashboard's own gaps.
+
+[The cost of a run and its stages](#the-cost-of-a-run-and-its-stages) extends these
+figures with what the run and each stage cost in money.
+
+## The session list and its detail
+
+```meta
+type: feature
+depends-on: [.devbook/domain/sessions/features.md#session-inventory]
+related: [.devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/features.md#session-grouping, .devbook/domain/sessions/features.md#delivery-runs-beside-their-sessions, .devbook/design/effort-and-mode-chips.md#effort-chips]
+```
+
+The session list gains a filter bar above it, rows that say how each session ran, and a
+detail panel beside it for the one row the reader picked. The list still answers "what
+have my agents been doing here" at a glance. The detail panel answers "what exactly
+happened in this one" without the row growing into a report.
+
+This extends [Session inventory](#session-inventory) and
+[Delivery runs beside their sessions](#delivery-runs-beside-their-sessions) rather than
+replacing them. Every rule those chapters set still holds: one list, nothing hidden by a
+grouping, and nothing shown that the agent or the dashboard did not record.
+
+### A filter bar over the list
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#narrow-to-one-machine, .devbook/domain/sessions/features.md#only-the-rows-with-a-run]
+```
+
+The controls that narrow the list sit together in one filter bar above it, in the order
+they apply: Show — Live or All — then With delivery runs, then Machine; Group by beside
+them; and Update records and Refresh at the end. One bar, because a reader who wonders
+why a session is missing should find every reason in one place.
+
+Live carries how many rows it would show under the other filters, so pressing it is
+never a guess. Every filter comes back to its first option on every opening, and Group
+by comes back to When.
+
+The count beside the title keeps its promise from
+[Grouping never hides a session](#grouping-never-hides-a-session). It names both numbers
+whenever the bar leaves rows out. The heading reads "Running now" while Show is on Live.
+
+### Grouped rows that show how each session ran
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/features.md#session-grouping, .devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran, .devbook/design/effort-and-mode-chips.md#effort-chips]
+```
+
+The list stays grouped the way the reader chose. Each row now also shows the model the
+session ran on, the effort it ran at, and the stage strip of the run it drove. The stage
+strip is one mark per stage, so a reader sees how far the run got without opening it.
+
+Model and effort sit on the row because they are the two choices that most change what a
+session costs and how well it does. A reader comparing two sessions should not have to
+open both to learn that one ran on a smaller model. A session whose agent recorded no
+effort shows none, rather than a default that would claim a choice nobody made.
+
+The list is grouped by When, Repository or Machine — see
+[Session Grouping](domain.md#session-grouping) — and each row reads, in three lines:
+
+- the agent's mark, the session's title and its state chip;
+- the repository wearing its identity edge, the machine, when it was last active, how
+  long it went on, the model with its effort chip, and its output tokens;
+- the stage strip of the run it last drove, with one line saying where that run
+  stands: every stage done, the stage it failed or was parked at, or the stage it is on
+  and how far along that is.
+
+The row is one control: pressing it shows the session in the detail panel. The pull
+requests and the task it led to are in the panel rather than on the row, because a
+link inside a control is markup no browser agrees on.
+
+### The detail of one session
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/features.md#what-a-session-cost-and-what-it-shipped, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/sessions/features.md#the-detail-panel-of-a-pull-request]
+```
+
+Picking a row opens a detail panel beside the list. It holds three things, in this order:
+
+- the session's facts, with its model and effort among them;
+- the run card for the delivery run the session drove;
+- a card for each pull request and each task the session or its run is linked to.
+
+A panel beside the list, because the reader is usually moving down the rows. A panel
+keeps their place, where a page of its own would lose it. The pull request card and the
+task card are the same cards the pull requests pane and the task list draw, so one piece
+of work looks the same wherever it appears.
+
+The panel shows the row the reader pressed, and until they press one, the first row the
+list draws. A filter that hides the pressed row moves the panel to the first row drawn,
+because a panel about a session the list does not show would contradict the list. At a
+narrow width the panel drops under the list.
+
+- **The facts**: repository, machine, model, effort, started, duration, output, branch,
+  and — on a row whose folder is this machine's — the working folder. A model or an
+  effort nobody recorded reads "not recorded".
+- **Where the record came from**, in a quiet note under the title: a replicated record
+  names the machine that recorded it and says its folder and transcript stayed there; a
+  row the runs alone account for says which dashboard recorded it and under which key,
+  or for a schedule's row how many runs it holds; a row answered from this machine's own
+  record says the transcript is gone; and a Copilot row says its state is read from
+  silence, because Copilot leaves no liveness marker.
+- **The run card**: every run on the row, latest first, each the run's line as the list
+  has always drawn it. A session with no run says so in its place.
+- **What it produced**: a pull request card for each pull request, wearing the readiness
+  verdict of [One verdict per pull request](#one-verdict-per-pull-request) as read for
+  it, and the task card for the Backlog entry it was worked for. A pull request whose
+  verdict could not be read wears no chip rather than a guess.
+
+## How each stage of a run ran
+
+```meta
+type: feature
+depends-on: [.devbook/domain/sessions/features.md#delivery-runs-beside-their-sessions]
+related: [.devbook/domain/sessions/features.md#under-the-session-that-drove-it, .devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/domain.md#stage-resolution, .devbook/design/effort-and-mode-chips.md#mode-chips, .devbook/design/effort-and-mode-chips.md#effort-chips]
+```
+
+Each stage of a delivery run says how it ran, beside how the repository said it should
+run. A flow's configuration names an agent, a model and an effort per phase. What a
+reader needs to know is whether the run actually followed it, because a cheap or a poor
+run is usually explained by a stage that ran differently from its configuration.
+
+This deepens the fold described in
+[Under the session that drove it](#under-the-session-that-drove-it). That chapter names
+who worked in each stage; this one says how. The stages are listed in the run's fold,
+under the picture of its stages and above its figures, with a legend above them. What
+each value means is the `Stage Resolution` of
+[the domain](domain.md#stage-resolution), the same reading the delivery engine's own run
+view draws its pane with, so the two never say different things about one run.
+
+### The mode a stage ran in
+
+```meta
+type: sub-feature
+related: [.devbook/design/effort-and-mode-chips.md#mode-chips]
+```
+
+| Mode | What it means |
+| --- | --- |
+| inline | The session driving the run did the stage itself. |
+| delegate | The session handed the stage to a sub-agent and waited for its answer. |
+| fork | The session started the stage in a separate session that runs on its own. |
+| gate | The stage waited for a person to decide. |
+
+Every stage shows its mode. A reader needs it to read the stage's figures: an inline stage
+shares the driving session's context and cost, while a delegated stage spends its own.
+
+Personal Validation is always the gate, whatever the run recorded for it. Otherwise a mode
+the run recorded wins. A stage with no recorded mode that a sub-agent worked in was
+delegated, and the rest ran inline. A mode found that way is marked as inferred.
+
+### What ran beside what was configured
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/features.md#only-what-the-dashboard-recorded, .devbook/design/effort-and-mode-chips.md#stage-marks]
+```
+
+Each stage shows the agent, model and effort that ran, next to the ones its configuration
+named. A ≠ mark says the stage ran differently from its configuration. A ? mark says a
+value on the stage was inferred rather than read from the run's own record. When both
+apply, ≠ is the one shown, and the open stage states the difference and the inference in
+words. The ≠ mark's tooltip lists every difference, for example "model Sonnet → Opus 5.5".
+
+The ≠ mark exists because a difference is the finding a reader is looking for. Without
+it, they would have to compare two columns by eye on every stage. The ? mark exists
+because an inferred value reads as convincingly as a recorded one. Marking it keeps the
+rule this area already holds: say what was recorded, and say so when something was not.
+
+A stage is compared on its agent, the family of its model and its effort. The family,
+because a configuration names an alias such as `opus` and the run records the id it
+resolved to. An effort is compared only where the run recorded what ran. A stage still
+pending, and the gate, are never compared: neither has run anything to compare. A
+configured agent that did not resolve is a difference too, and the stage says what ran
+instead.
+
+For example, a run whose phase map configures Implement on `sonnet` at `high` effort,
+and whose Implement stage recorded running on `claude-opus-5-5` at `medium`, shows ≠ on
+Implement with the tooltip "Not as configured: model Sonnet → Opus 5.5 · effort high →
+medium". A run whose context holds no phase map shows a stage a sub-agent worked in as
+delegate with the ? mark, and its panel says the run records no resolved phases, so mode
+and agent are inferred.
+
+### The stage panel
+
+```meta
+type: sub-feature
+```
+
+A stage expands into a panel, and only one panel is open at a time: opening a stage
+closes the one that was open. The panel is closed by default, for the reason the run's
+fold is: a stage can hold hundreds of tool calls, and a list that showed them all would
+bury the stage strip.
+
+The panel says:
+
+- **Ran**: the mode, the agent or the owner session, the model and the effort, and the
+  stage's output tokens and tool calls where the run counted them. A stage nobody has
+  reported on reads "Not run yet".
+- **Configured**: the agent, model and effort the run resolved, and where that came from
+  — the team default, or the team default with an overlay merged over it.
+- **Skill** and **MCP servers**: what the stage followed and was given, or "not recorded".
+- **Before and after**: the skills run before and after the stage.
+- **Why ≠ or ?**: the difference or the inference in words.
+- **Sub-agents**: every sub-agent call the stage made, with its agent, model, time,
+  tokens, tool calls and result, each left out where the run did not record it. A call
+  under the gate is marked as a revise round. A delegated stage whose calls the run did
+  not record says so rather than claiming none ran.
+
+## The cost of a run and its stages
+
+```meta
+type: feature
+status: proposed
+depends-on: [.devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran]
+related: [.devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself, .devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/productivity/features.md#what-the-sessions-cost-and-shipped]
+```
+
+A run and each of its stages show what they cost in money, and whether that was usual. A
+token count tells a reader how much was said. It does not tell them whether a stage was
+expensive, and that is the question a person tuning a flow is asking.
+
+This extends
+[What a run cost, reported by the session itself](#what-a-run-cost-reported-by-the-session-itself),
+which counts tool calls and tokens. That chapter's rule still holds: a figure nobody
+reported is left out, never shown as zero.
+
+### Cost as Claude Code reports it
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/domain/sessions/domain.md#cost-attribution, .devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md]
+```
+
+```mermaid
+flowchart LR
+    A[Claude Code session] -->|claude_code.api_request events| B[Desktop app]
+    B --> C{Run has telemetry?}
+    C -->|yes| D[Cost from cost_usd]
+    C -->|no| E[Cost from the price table, marked estimated]
+```
+
+The cost of a run comes from the `claude_code.api_request` events Claude Code sends
+through OpenTelemetry, which the desktop app receives. Each event carries `cost_usd`. That
+figure is Claude Code's own estimate of what the request cost, and the product shows it as
+Claude Code's rather than as an invoice.
+
+Claude Code's own figure is preferred because Claude Code knows the price it applied to
+each request. A price the product worked out afterwards would only be a second guess at
+the same number.
+
+The receiving end is built. The desktop app takes Claude Code's OpenTelemetry logs at
+`/v1/logs` on the port its MCP server listens on, and keeps each
+`claude_code.api_request` event once, in its local database, as the
+[Claude API Request Log](domain.md#claude-api-request-log). Settings has a **Claude
+Code** page with the endpoint and the `settings.json` block to paste into Claude Code.
+
+The cost is shown in three places. The session's detail panel has a **Cost** fact: the
+sum of every request the session reported. Each stage row in a run's fold shows the
+stage's cost at its end, and the stage panel's **Ran** line repeats it. Each sub-agent call
+in the panel shows what that call cost. Which requests belong to which stage and which
+call is the [Cost Attribution](domain.md#cost-attribution) of the domain: the main loop's
+requests between the stage's start and its completion, and the requests of the stage's own
+sub-agents, matched by name. With no figure from either source, nothing is shown: there
+is no cost fact on the panel and no cost on the row, never a zero.
+
+A session sends these events only when its Claude Code settings say to. The person
+merges that page's block into the `env` of their user-level `~/.claude/settings.json`:
+telemetry on, the OTLP logs exporter, the logs protocol, the endpoint, and the bearer
+token as a header. They add `OTEL_LOG_TOOL_DETAILS=1` so each request names the sub-agent
+and the skill it ran under. They never turn on the prompt or response events, which would
+only send what the session said. A new session, started after the change, is the first
+to report. The exact keys and the check that the rows arrived are in
+`.claude/skills/run-backlog/SKILL.md`, under Claude Code telemetry.
+
+### A price table for runs without telemetry
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#model-price-table, .devbook/domain/sessions/domain.md#cost-attribution]
+```
+
+A price table in Settings gives a price per model. It covers the runs that sent no
+telemetry, such as runs from before the desktop app received it or from a session that
+does not send it. The product works out those runs' cost from their tokens, and marks
+that cost as estimated.
+
+The table is the **Model prices** page in Settings, beside the Claude Code page. Each row
+names a model and gives four rates in US dollars per million tokens: input, output, cache
+read and cache write. The table is empty until the person fills it in. The product ships
+no prices, because a list it shipped would be wrong the day a price changed. A row is
+saved as soon as it names a model. A rate is written with a point, such as 0.30. A rate
+that does not read that way, a comma among them, is refused with nothing saved, and so
+is a second row for the same model. A rate left empty is unknown, never free, so a stage that spent
+tokens of that kind is not priced at all.
+
+An estimated figure carries the words "estimated from tokens" on the session's detail
+and on each sub-agent call. A stage row, which has less room, marks it "est." with those
+words as its title. A model with no row in the table prices nothing, and a run on it
+shows no cost.
+
+The mark matters because the two figures are not equally sure. A price the person typed
+in may be out of date. A reader comparing two runs must be able to tell a reported cost
+from one this product worked out.
+
+### Each stage against its usual cost
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/features.md#delivery-economics, .devbook/domain/sessions/domain.md#cost-baseline]
+```
+
+Each stage row in a run's fold shows its cost, its share of the run's cost, and its ratio
+to that stage's median cost over the last 30 finished runs of the same flow. The ratio
+reads "typical" within 5% of the median. It is green at 0.8 times or below, and
+highlighted from 1.5 times. Between those it is the plain ratio, such as "1.2×". A stage
+that has not finished shows no ratio. Neither does a stage that fewer than five earlier
+runs priced. The ratio's tooltip names the median and how many runs it was taken over.
+
+The run's own figures, on the line that opens its fold, are stages done, the cost, the
+context peak and the tool calls. An estimated cost reads "est. cost". The output tokens
+moved into the fold, where every token count still is.
+
+One insight line sits under that line once the run has finished and five earlier runs of
+its flow were priced. It names the run's ratio to the flow's median and the stage that
+explains most of the difference. If that stage was entered again, the line says how many
+times, for example "2.0× the usual flow-code run · Implement explains most of it: $5.00
+over its usual, entered again once". A typical run names no stage. It wears the same
+bands as the ratios. Review rounds are to join the re-entry count once the run records
+them.
+
+The comparison is per flow and per stage because a review stage and an implement stage
+cost very different amounts. A run-wide average would flag every long run and explain
+none of them. The median is used rather than the mean, because one runaway run would
+otherwise move the baseline for the next thirty. The run is compared like for like, with
+earlier runs that priced the same stages. How the earlier runs are chosen and matched is
+the [Cost Baseline](domain.md#cost-baseline).
+
+Still to build: the insight does not open
+[Delivery economics](#delivery-economics) yet, because that page is not built.
+
+### Share of the week and the weekly limit
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#weekly-usage, .devbook/domain/sessions/domain.md#cost-attribution]
+```
+
+Each run and each session shows its share of the week's usage: the cost Claude Code
+reported for it inside the week, over the cost reported for every session that week.
+The session's share is a fact on the session detail, and each run's is a line under the
+run. The week ends at the reset time the latest weekly-limit refusal carried, rolled
+forward a week at a time once that reset has passed. With no such refusal recorded, the
+week is the last seven days. Once a weekly-limit hit has been recorded,
+each run also shows an estimated percentage of the weekly limit. The weekly limit for
+Fable is kept separate, because Claude counts Fable against a limit of its own. Its
+percentage counts the Fable requests only and is a line of its own.
+
+The percentage is always labelled an estimate. Nothing the product reads states the size
+of the weekly limit. The product can only learn it from the moment a session was refused for
+reaching it, and the usage recorded up to then. A percentage without that hit would be a
+guess dressed as a measurement, so none is shown until one is recorded.
+
+## Delivery economics
+
+```meta
+type: feature
+status: proposed
+depends-on: [.devbook/domain/sessions/features.md#the-cost-of-a-run-and-its-stages]
+related: [.devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran, .devbook/design/effort-and-mode-chips.md#effort-chips, .devbook/design/effort-and-mode-chips.md#mode-chips]
+```
+
+A page under Sessions compares how the flows' configurations perform, so a person can
+decide which agent, model, effort and mode to give each phase. One run tells a reader
+what happened once. Deciding a configuration needs many runs side by side, which is what
+this page holds.
+
+### Where the page is reached from
+
+```meta
+type: sub-feature
+status: proposed
+related: [.devbook/domain/sessions/features.md#each-stage-against-its-usual-cost]
+```
+
+The page has a button in the Sessions header. A run's one-line insight also opens it,
+filtered to that run's flow. The second way in exists because the insight raises the
+question, "is this stage always this expensive?", and the page is where it is answered.
+
+### Configurations compared per phase
+
+```meta
+type: sub-feature
+status: proposed
+```
+
+For each phase of a flow, the page compares the configurations that ran it on three
+measures:
+
+| Measure | What it says |
+| --- | --- |
+| Phase cost | What the phase cost under this configuration. |
+| Quality | How well the work came out, from what the delivery phases report. |
+| Whole-run cost | What the runs cost end to end. |
+
+Whole-run cost sits beside phase cost because a cheaper phase can make the run dearer. A
+smaller model in implement can save money there and then cost more in extra review
+rounds. Comparing the phase alone would recommend exactly that mistake.
+
+### What the delivery phases report
+
+```meta
+type: sub-feature
+status: proposed
+```
+
+The quality measure is built from three facts the delivery phases start reporting with
+their run: how many review rounds a change took, how many blockers review found, and how
+many defects escaped review and were found later. The delivery engine reports them,
+because only the phase that reviews or verifies the work knows them. This product records
+what is reported and works out none of the three itself.
+
+A run from before the phases reported these facts has no quality measure. It still counts
+toward cost, and the page says how many runs the quality measure stands on.
+
+### Lesson cards
+
+```meta
+type: sub-feature
+status: proposed
+```
+
+```mermaid
+flowchart LR
+    A[Lesson card] -->|button| B[devbook-config:local request on the clipboard]
+    B --> C[Person pastes it into a session]
+    C --> D[Personal overlay changed]
+```
+
+The page draws its findings as lesson cards. Each card states one lesson and the number of
+runs it is drawn from, for example "Sonnet at high effort reviews as well as Opus here,
+over 14 runs". The card's button copies a request for the `devbook-config:local` skill,
+which changes the person's own overlay of the repository's configuration.
+
+The sample size is on every card because a lesson from three runs reads as confidently as
+one from forty. Only the number tells them apart. The app never writes the overlay
+itself, for two reasons. The overlay belongs to the person and to the skill that keeps it.
+A change to how a flow runs should also be a step the person takes on purpose, in a
+session where they can see it happen.
+
+## Pull request readiness
+
+```meta
+type: feature
+related: [.devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md]
+```
+
+The pull requests pane is the Sessions context's second surface. Sessions and delivery
+runs produce pull requests, so the pane is where a reader follows that work to the point
+where it merges. This chapter is the first to describe the pane.
+
+The pane has two views, Open and Recently merged. A Mine / Everyone's choice narrows the
+rows, where Mine is the reader's own pull requests and those related to one of their
+tasks, and Refresh re-reads the list. A repository's label filter, set in Settings, lets
+through only the pull requests carrying one of its labels. A pinned pull request ignores
+every filter: it sits in a Pinned group at the top of the list until it is unpinned, even
+after it merges or closes.
+
+The pane is a triage list beside a detail panel. Lane tiles say how many pull requests
+need what, the list below them is grouped by lane, and the pull request the reader picks
+is laid out in full beside the list. Where the pane is narrow, the panel moves under the
+list. Each row says one thing: the verdict on whether it is ready, and if not, what it is
+waiting on. A reader scanning twenty pull requests should not have to open each to learn
+which one needs them.
+
+A row shows the repository's identity colour along its edge, the number, the verdict chip,
+the title, the head branch, how long ago it was updated, and a meter of its checks with
+how many passed. A pull request stacked on another is indented and says which one it
+waits on, so the reader merges that one first.
+
+### Lanes that filter the list
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/features.md#one-verdict-per-pull-request]
+```
+
+Four lane tiles sit under the header: Needs you, Ready to merge, Waiting and Drafts. Each
+tile shows how many pull requests are in its lane and, in a line under the count, what put
+them there, such as "conflicts · failing checks". Pressing a tile narrows the list to that
+lane, and pressing it again lets the lane go. One lane is pressed at a time.
+
+The counts are taken over the rows the other filters leave, so a tile never promises a
+pull request the list will not show. A pinned pull request still shows under a pressed
+lane, for the reason it ignores every other filter. Recently merged has no tiles, because
+a merged pull request is in no lane.
+
+The Mine / Everyone's choice stays, because it answers a different question. Mine says
+whose pull requests to look at; a lane says which of them to look at first. The two
+combine: Mine and Needs you is the reader's own work that is waiting on them.
+
+### One verdict per pull request
+
+```meta
+type: sub-feature
+```
+
+Each pull request that is still open gets exactly one readiness verdict. Where several
+apply, the first in this table wins:
+
+| Precedence | Verdict | Lane | Tone | Act | Second act |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Conflicts | Needs you | fault | Open on GitHub | — |
+| 2 | Failing checks | Needs you | fault | Re-run failed, when a failed check is a GitHub Actions run; else Open on GitHub | Open on GitHub, after Re-run failed |
+| 3 | Changes requested | Needs you | fault | Open review on GitHub | — |
+| 4 | Behind | Needs you | alert | Update branch | Merge when ready |
+| 5 | Draft | Drafts | quiet | Ready for review | — |
+| 6 | Checks running | Waiting | live | Merge when ready | — |
+| 7 | Review required | Waiting | live | Merge when ready | — |
+| 8 | Ready | Ready to merge | settled | Merge | — |
+
+One verdict rather than a row of badges, because a reader acts on one thing at a time. The
+order puts first what blocks the most: a conflict has to be resolved before checks or
+review mean anything, and a failing check before a review is worth asking for. Behind is
+in Needs you because it waits on nobody else: the reader brings the branch up to date
+with the act the banner offers, and it can merge. The tones are the badge tone scale of
+`.devbook/design/color-scheme.md`, so the verdict chip reads like every other badge.
+
+Each verdict carries a label for its chip, a headline and a one-sentence reason for the
+banner, and the acts above. A few rules sit beside the table:
+
+- A failed check decides even while others still run, and a reviewer who asked for
+  changes counts even where the repository asks for no review.
+- Ready offers Merge when ready instead of Merge when GitHub still reports the pull
+  request not mergeable, because a merge now would be refused.
+- A stacked pull request's reason names the pull request it waits on. It is offered no
+  merge act, because merged now it would land on its parent's branch rather than where
+  the stack is going; its other acts stay.
+- A merged pull request reads as Merged, in the settled tone, with no act. A pull request
+  closed without merging has no verdict, since there is nothing left to get ready.
+
+### The detail panel of a pull request
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/features.md#the-detail-of-one-session]
+```
+
+Picking a pull request opens a detail panel. The first row the list shows is picked until
+the reader picks another, and a pick the filters hide falls back to the first row shown.
+From the top, the panel holds:
+
+- the pull request's repository, number, author, title and branches, a link to it on
+  GitHub, and its pin;
+- a banner with the verdict and the act that fits it, such as Update branch for Behind,
+  with the verdict's second act beside it where it has one;
+- a merge-readiness list of four lines: checks, review, up to date, and mergeable;
+- the checks, failures first, then the ones still running; six are shown and the rest
+  are counted;
+- the stack the pull request is part of, bottom first;
+- the task card and the session card for the work behind it.
+
+The banner leads with one act because the verdict already names the one thing in the way.
+Where GitHub already holds an auto-merge the verdict's acts do not touch, the banner also
+offers to cancel it, because that undoes a request rather than making one. The
+mergeable line says only whether the pull request has conflicts. It does not count the
+conflicted files, because GitHub reports no such count, and a number this product made
+up would be wrong in a way nobody could check. The failures come first so the reader sees
+the reason before the long list of passing checks.
+
+The list already reads what the panel needs. Each check on the head commit, a check run or
+a commit status, comes with its name, whether it passed, failed or is still running, and,
+for a check run that finished, how long it took; the first fifty are listed and the counts
+cover the rest. Each open pull request from the same repository also carries how many
+commits its base has that its branch does not. GitHub cannot compare a fork's branch from
+the base repository, so a pull request from a fork has no such count.
+
+### Re-run failed
+
+```meta
+type: sub-feature
+```
+
+Re-run failed is the one new act. It is offered when a failed check is a GitHub Actions
+run, and it starts the failed jobs of that run again, and the jobs that depend on them. It
+covers the most common way a check goes red without anyone's code being wrong: a runner
+that flaked.
+
+Where several checks failed, each workflow run behind them is asked once, however many of
+its jobs failed. Every run is asked even when GitHub refuses one, because the runs are
+independent; the refusal then says how many of the others did start again. Afterwards the
+pane reads that one repository again, as it does after every other act, so the row shows
+the checks running instead of failed.
+
+It is offered only for GitHub Actions because that is the only kind of check this product
+can ask GitHub to run again. A check from another service has to be re-run there. The act
+sits in the detail panel's banner, as the act of the Failing checks verdict.
+
+There is no act that hands a pull request off to an agent. Starting a session is something
+a person does in their agent, with the context they choose. A button here would start work
+on the reader's behalf that the pane could neither show nor stop.
 
 ## Session activity enrichment
 

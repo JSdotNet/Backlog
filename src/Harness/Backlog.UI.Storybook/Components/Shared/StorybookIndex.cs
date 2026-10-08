@@ -107,7 +107,7 @@ internal static class StorybookIndex
             // StatusBadge a picked value renders as. A badge is a value with a
             // class on it, sitting on the rows, headers and pickers this group is
             // about, which is why it is here and not in Content.
-            new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge: a value, and the class that says what kind of value it is.", Exact: true),
+            new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge, EffortChip, ModeChip, StageMark, StageLegend: a value, and the class that says what kind of value it is.", Exact: true),
 
             // Under Badges because a kind is a value with a class on it, drawn
             // as a mark instead of a word — and the row it leads is made of the
@@ -159,7 +159,7 @@ internal static class StorybookIndex
         // chapters below all reach for.
         new("Feedback",
         [
-            new("feedback", "Feedback", "Alert, EmptyState, SetupSteps, FlowSteps, Spinner, Skeleton, SaveIndicator, Toast, ToastTray."),
+            new("feedback", "Feedback", "Alert, EmptyState, SetupSteps, FlowSteps, StageStrip, Spinner, Skeleton, SaveIndicator, Toast, ToastTray."),
             new("overlays", "Overlays", "Modal and ConfirmDialog.")
         ]),
 
@@ -371,7 +371,8 @@ internal static class StorybookIndex
         [
             new("usage-metrics", "Usage metrics", "MetricTile, MetricGrid, MetricSparkline, MetricBars, MetricBreakdownBar, MetricRanking, MetricMeter, MetricBreakdown, MetricStatus."),
             new("ai-usage", "AI usage and cost", "The same components composed into the view they were built for: what AI cost this fortnight, on what, and for whom."),
-            new("productivity", "Productivity over time", "MetricScore, MetricTrellis, MetricHeatmap, MetricSpotlight, MetricStackedArea, MetricStackedBars: a score, where the time went, and how one hue compares them across repositories and weeks.")
+            new("productivity", "Productivity over time", "MetricScore, MetricTrellis, MetricHeatmap, MetricSpotlight, MetricStackedArea, MetricStackedBars: a score, where the time went, and how one hue compares them across repositories and weeks."),
+            new("session-list", "Session list", "EffortChip and StageStrip: the effort a session ran at on one gold ladder, and how far its delivery run got — the parts the Sessions pane's rows and detail panel are drawn with.")
         ]),
 
         // Last, and last by the rule rather than by convention: every page here

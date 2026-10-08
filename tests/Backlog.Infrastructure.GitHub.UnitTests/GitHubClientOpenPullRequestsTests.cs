@@ -126,7 +126,10 @@ public sealed class GitHubClientOpenPullRequestsTests
 
         await new GitHubClient(transport).ListOpenPullRequestsAsync(Repository, TestContext.Current.CancellationToken);
 
-        Assert.Equal("graphql#JSdotNet/Backlog", Assert.Single(transport.Paths));
+        // The list, then the distance of each branch from its base — a second query,
+        // because GitHub's comparison takes the other branch as an argument.
+        Assert.All(transport.Paths, path => Assert.Equal("graphql#JSdotNet/Backlog", path));
+        Assert.Single(transport.Bodies, sent => sent!.Contains("pullRequests(states: OPEN", StringComparison.Ordinal));
 
         using var body = JsonDocument.Parse(transport.Bodies[0]!);
         var variables = body.RootElement.GetProperty("variables");

@@ -48,18 +48,23 @@ public sealed class SessionsPaneRunTests
 
         pane.WaitForAssertion(() =>
         {
-            // One row for the session, and its runs under it across every column —
-            // not a second row in the list, and not a third line of the name cell.
-            var row = Assert.Single(pane.FindAll(".data-table__row"));
+            // One row for the session — not a second row in the list for its run —
+            // and on it, the run's stage strip and where the run stands.
+            var row = Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
 
             Assert.Contains("keen-bose-667825", row.TextContent);
             Assert.Empty(row.QuerySelectorAll("[data-testid='sessions-run']"));
 
-            var detail = Assert.Single(pane.FindAll(".data-table__row-detail"));
-            var cell = Assert.Single(detail.QuerySelectorAll("td"));
+            var strip = row.QuerySelector("[data-testid='sessions-stage-strip']")!;
+            Assert.Equal(3, strip.QuerySelectorAll(".stage-strip__mark").Length);
+            Assert.Equal("2 of 3 stages done", strip.QuerySelector(".stage-strip__marks")!.GetAttribute("aria-label"));
+            Assert.Equal("orch-feature · Done, 2 of 3 stages done", strip.QuerySelector(".stage-strip__summary")!.TextContent.Trim());
 
-            // Every column, which is what makes the width the table's.
-            Assert.Equal(pane.FindAll(".data-table__table thead th").Count.ToString(), cell.GetAttribute("colspan"));
+            // The run itself is in the panel's run card, the line that has always
+            // drawn a run.
+            var detail = Assert.Single(pane.FindAll("[data-testid='sessions-detail']"));
+            Assert.Equal("Delivery run", detail.QuerySelector("[data-testid='sessions-run-card'] h4")!.TextContent.Trim());
+            Assert.Empty(detail.QuerySelectorAll("[data-testid='sessions-no-run']"));
 
             var line = detail.QuerySelector("[data-testid='sessions-run']");
             Assert.NotNull(line);
@@ -101,9 +106,10 @@ public sealed class SessionsPaneRunTests
             // Nothing linked, no references.
             Assert.Empty(line.QuerySelectorAll(".integration-link"));
 
-            // The four figures, on the fold's own trigger.
+            // The figures, on the fold's own trigger: stages done, cost, context peak
+            // and tool calls — a run nobody priced has no cost, never "$0.00".
             var trigger = line.QuerySelector(".fold__trigger")!;
-            Assert.Equal("2 of 3 stages done · 1.7M output tokens · context peak 41% · 45.2K tool calls", trigger.TextContent.Trim().TrimStart('▸').Trim());
+            Assert.Equal("2 of 3 stages done · context peak 41% · 45.2K tool calls", trigger.TextContent.Trim().TrimStart('▸').Trim());
 
             // Folded until asked.
             Assert.Equal("false", trigger.GetAttribute("aria-expanded"));
@@ -114,35 +120,32 @@ public sealed class SessionsPaneRunTests
     }
 
     /// <summary>
-    /// The pane opens on one line per session: a row's runs are folded under it, and
-    /// the row's own trigger — naming how many runs it holds — unfolds them.
+    /// Every run a row holds is in its run card, latest first, and the row's strip
+    /// is the latest one's, with the rest counted beside its summary.
     /// </summary>
     [Fact]
-    public void A_rows_runs_are_folded_until_its_trigger_opens_them()
+    public void A_rows_runs_are_all_in_its_run_card()
     {
         var first = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-40));
-        var second = SessionRowsTests.Run("run-2", Worktree, Noon.AddMinutes(-30), Noon.AddMinutes(-10));
+        var second = SessionRowsTests.Run("run-2", Worktree, Noon.AddMinutes(-30), Noon.AddMinutes(-10), status: "in_progress") with
+        {
+            Stages = [new DeliveryRunStage("Scope", "done", 1_000, 1), new DeliveryRunStage("Implement", "in_progress", null, 0), new DeliveryRunStage("Review", "pending", null, 0)]
+        };
 
         using var context = Context([Live], [first, second]);
 
         var pane = context.Render<SessionsPane>();
 
-        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-runs-toggle']")));
-
-        var toggle = pane.Find(".data-table__row [data-testid='sessions-runs-toggle']");
-        var runs = pane.Find("[data-testid='sessions-runs']");
-
-        Assert.Equal("2 runs", toggle.QuerySelector(".fold__label")!.TextContent.Trim());
-        Assert.Equal("false", toggle.GetAttribute("aria-expanded"));
-        Assert.Equal(runs.Id, toggle.GetAttribute("aria-controls"));
-        Assert.True(runs.HasAttribute("hidden"));
-
-        toggle.Click();
-
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal("true", pane.Find("[data-testid='sessions-runs-toggle']").GetAttribute("aria-expanded"));
-            Assert.False(pane.Find("[data-testid='sessions-runs']").HasAttribute("hidden"));
+            var card = pane.Find("[data-testid='sessions-run-card']");
+
+            Assert.Equal("Delivery runs · 2", card.QuerySelector("h4")!.TextContent.Trim());
+            Assert.Equal(["run-2", "run-1"], card.QuerySelectorAll("[data-testid='sessions-run']").Select(line => line.GetAttribute("data-run-id")));
+
+            Assert.Equal(
+                "orch-feature · Implement (2 of 3) · 2 runs",
+                pane.Find("[data-testid='sessions-row'] .stage-strip__summary").TextContent.Trim());
         });
     }
 
@@ -381,7 +384,7 @@ public sealed class SessionsPaneRunTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+            Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count);
             Assert.Equal("false", pane.Find("[data-testid='sessions-runs-only']").GetAttribute("aria-pressed"));
         });
 
@@ -389,18 +392,18 @@ public sealed class SessionsPaneRunTests
 
         pane.WaitForAssertion(() =>
         {
-            var row = Assert.Single(pane.FindAll(".data-table__row"));
+            var row = Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
 
             Assert.Contains("keen-bose-667825", row.TextContent);
 
             // The run is under the row, across the columns.
-            Assert.NotNull(Assert.Single(pane.FindAll(".data-table__row-detail")).QuerySelector("[data-testid='sessions-run']"));
+            Assert.NotNull(Assert.Single(pane.FindAll("[data-testid='sessions-detail']")).QuerySelector("[data-testid='sessions-run']"));
             Assert.Equal("1 of 2 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
         });
 
         pane.Find("[data-testid='sessions-runs-only']").Click();
 
-        pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll(".data-table__row").Count));
+        pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count));
     }
 
     [Fact]
@@ -415,9 +418,9 @@ public sealed class SessionsPaneRunTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Empty(pane.FindAll(".data-table__row"));
+            Assert.Empty(pane.FindAll("[data-testid='sessions-row']"));
             Assert.Contains("No delivery runs here.", pane.Markup);
-            Assert.Contains("Turn off With runs to see them all.", pane.Markup);
+            Assert.Contains("Turn off With delivery runs to see them all.", pane.Markup);
         });
     }
 
@@ -439,7 +442,7 @@ public sealed class SessionsPaneRunTests
         // Live first: one row, the live session. A run alone is not live.
         pane.WaitForAssertion(() =>
         {
-            Assert.Single(pane.FindAll(".data-table__row"));
+            Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
             Assert.Empty(pane.FindAll("[data-testid='sessions-run-only']"));
 
             // And the count says two exist, one shown — and does not call the run a
@@ -452,23 +455,29 @@ public sealed class SessionsPaneRunTests
 
         pane.WaitForAssertion(() =>
         {
-            var rows = pane.FindAll(".data-table__row");
+            var rows = pane.FindAll("[data-testid='sessions-row']");
 
             Assert.Equal(2, rows.Count);
 
             // Most recently active first: the session today, the run five days ago.
             var row = rows[1];
 
-            Assert.Contains("old-worktree", row.QuerySelector(".sessions-table__title")!.TextContent);
+            Assert.Contains("old-worktree", row.QuerySelector(".sessions-row__title")!.TextContent);
+            Assert.Equal("run/orch-dashboard/old-worktree-1a2b3c4d/run-stray", row.GetAttribute("data-row-key"));
+        });
 
-            var line = row.QuerySelector("[data-testid='sessions-run-only']")!;
+        var detail = SessionsPaneTests.Pick(pane, "run/orch-dashboard/old-worktree-1a2b3c4d/run-stray");
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = pane.FindAll("[data-testid='sessions-row']")[1];
+            var line = detail.QuerySelector("[data-testid='sessions-run-only']")!;
             Assert.Equal(
                 "No session record on this PC. Recorded by orch-dashboard under old-worktree-1a2b3c4d.",
                 line.TextContent.Trim());
 
-            // The run itself, under the row and across the columns; the dashboard's
-            // own status on its chip, and the run's own words in the fold.
-            var detail = pane.FindAll(".data-table__row-detail")[1];
+            // The run itself, in the panel's run card; the dashboard's own status on
+            // its chip, and the run's own words in the fold.
 
             Assert.Equal("In progress", detail.QuerySelector("[data-testid='sessions-run-status']")!.TextContent.Trim());
             Assert.Equal("orch-feature", detail.QuerySelector("[data-testid='sessions-run-skill']")!.TextContent.Trim());
@@ -480,8 +489,8 @@ public sealed class SessionsPaneRunTests
             Assert.Contains("DEV-TOWER", row.TextContent);
             Assert.NotEmpty(row.QuerySelectorAll(".badge--integration-finished"));
 
-            // One table, still.
-            Assert.Single(pane.FindAll("[data-testid='sessions-table-table']"));
+            // One list, still.
+            Assert.Single(pane.FindAll("[data-testid='sessions-list']"));
         });
     }
 
@@ -514,18 +523,24 @@ public sealed class SessionsPaneRunTests
 
         pane.WaitForAssertion(() =>
         {
-            var rows = pane.FindAll(".data-table__row");
+            var rows = pane.FindAll("[data-testid='sessions-row']");
 
             Assert.Equal(2, rows.Count);
 
             var row = rows[1];
 
-            Assert.Contains("devbook-pull-sweep", row.QuerySelector(".sessions-table__title")!.TextContent);
+            Assert.Contains("devbook-pull-sweep", row.QuerySelector(".sessions-row__title")!.TextContent);
+        });
+
+        var detail = SessionsPaneTests.Pick(pane, "schedule/devbook-pull-sweep/JSdotNet/Backlog");
+
+        pane.WaitForAssertion(() =>
+        {
             Assert.Equal(
                 "Scheduled, unattended. 2 runs recorded on this PC.",
-                row.QuerySelector("[data-testid='sessions-run-only']")!.TextContent.Trim());
+                detail.QuerySelector("[data-testid='sessions-run-only']")!.TextContent.Trim());
 
-            var lines = pane.FindAll(".data-table__row-detail")[1].QuerySelectorAll("[data-testid='sessions-run']");
+            var lines = detail.QuerySelectorAll("[data-testid='sessions-run']");
 
             Assert.Equal(["pull-2", "pull-1"], lines.Select(line => line.GetAttribute("data-run-id")));
 
@@ -556,13 +571,13 @@ public sealed class SessionsPaneRunTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+            Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count);
             Assert.Empty(pane.FindAll("[data-testid='sessions-run-scheduled']"));
         });
     }
 
     /// <summary>The list is one list under every control: a run-only row groups by
-    /// the agent whose dashboard wrote it, beside the sessions.</summary>
+    /// the day it was last active, beside the sessions.</summary>
     [Fact]
     public void A_run_only_row_groups_with_the_sessions()
     {
@@ -573,16 +588,17 @@ public sealed class SessionsPaneRunTests
         var pane = context.Render<SessionsPane>();
 
         ShowAll(pane);
-        pane.Find("[data-testid='sessions-group-type']").Click();
+        SessionsPaneTests.GroupBy(pane, "when");
 
         pane.WaitForAssertion(() =>
         {
             Assert.Equal(
-                ["Claude", "Copilot"],
-                pane.FindAll(".data-table__group-name").Select(name => name.TextContent.Trim()));
+                ["Live now", "Older"],
+                pane.FindAll("[data-testid='sessions-group-name']").Select(name => name.TextContent.Trim()));
 
-            // Two Claude rows — the session and the run — and the Copilot one.
-            Assert.Equal(3, pane.FindAll(".data-table__row").Count);
+            // The two live sessions, and the run under the day it was last active.
+            Assert.Equal(3, pane.FindAll("[data-testid='sessions-row']").Count);
+            Assert.Equal(["2", "1"], pane.FindAll("[data-testid='sessions-group-size']").Select(size => size.TextContent.Trim()));
         });
     }
 
@@ -605,15 +621,15 @@ public sealed class SessionsPaneRunTests
 
         ShowAll(pane);
 
-        pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='sessions-run-only']")));
+        pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='sessions-row'][data-row-key^='run/']")));
 
         pane.Find("[data-testid='sessions-machine-filter'] select").Change("laptop");
 
-        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='sessions-run-only']")));
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='sessions-row'][data-row-key^='run/']")));
 
         pane.Find("[data-testid='sessions-machine-filter'] select").Change("tower");
 
-        pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='sessions-run-only']")));
+        pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='sessions-row'][data-row-key^='run/']")));
     }
 
     /// <summary>
@@ -751,12 +767,12 @@ public sealed class SessionsPaneRunTests
 
         pane.WaitForAssertion(() =>
         {
-            var task = pane.Find(".data-table__row [data-testid='sessions-task']");
+            var task = pane.Find("[data-testid='sessions-task-card'] [data-testid='sessions-task']");
 
             Assert.Contains("delivery-run-reader", task.TextContent);
         });
 
-        pane.Find(".data-table__row [data-testid='sessions-task']").Click();
+        pane.Find("[data-testid='sessions-task-card'] [data-testid='sessions-task']").Click();
 
         pane.WaitForAssertion(() => Assert.Same(own, opened));
     }
@@ -773,7 +789,7 @@ public sealed class SessionsPaneRunTests
             .Add(component => component.SessionTask, _ => linked));
 
         pane.WaitForAssertion(() =>
-            Assert.Contains("Link the done badge", pane.Find(".data-table__row [data-testid='sessions-task']").TextContent));
+            Assert.Contains("Link the done badge", pane.Find("[data-testid='sessions-task-card'] [data-testid='sessions-task']").TextContent));
     }
 
     [Fact]
@@ -887,7 +903,9 @@ public sealed class SessionsPaneRunTests
 
         var pane = context.Render<SessionsPane>();
 
-        pane.WaitForAssertion(() => Assert.Contains("1.7M output tokens", pane.Find("[data-testid='sessions-run'] .fold__trigger").TextContent, StringComparison.Ordinal));
+        // The trigger's figures are stages done, cost, context and calls; the tokens
+        // are the fold's, where every one of them is still shown.
+        pane.WaitForAssertion(() => Assert.Contains("1 of 1 stages done", pane.Find("[data-testid='sessions-run'] .fold__trigger").TextContent, StringComparison.Ordinal));
 
         pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
 
@@ -936,8 +954,8 @@ public sealed class SessionsPaneRunTests
             Assert.NotNull(view.QuerySelector("[data-testid='diagram-view-artifact']"));
             Assert.Null(panel.QuerySelector("[data-testid='sessions-run-stages']"));
 
-            // Picture first, figures under it.
-            Assert.Equal(["sessions-run__diagram", "sessions-run__details"], panel.Children.Select(child => child.ClassName));
+            // Picture first, then how each stage ran, then the figures.
+            Assert.Equal(["sessions-run__diagram", "sessions-stages", "sessions-run__details"], panel.Children.Select(child => child.ClassName));
         });
 
         var request = Assert.Single(diagrams.Requests);
@@ -1009,7 +1027,7 @@ public sealed class SessionsPaneRunTests
 
             pane.WaitForAssertion(() =>
             {
-                var row = Assert.Single(pane.FindAll(".data-table__row"));
+                var row = Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
 
                 Assert.Contains("keen-bose-667825", row.TextContent);
 
