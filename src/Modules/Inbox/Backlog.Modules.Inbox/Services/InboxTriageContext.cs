@@ -111,8 +111,11 @@ internal static class InboxTriageContext
             });
         }
 
-        var tasks = context.OpenTasks.Select(task => task.Id).ToHashSet();
-        var otherItems = context.OtherItems.Select(item => item.Id).ToHashSet();
+        // First wins on a repeated id, so a context that names one task twice
+        // cannot fail the whole pass.
+        var tasks = context.OpenTasks.GroupBy(task => task.Id).ToDictionary(group => group.Key, group => group.First());
+        var otherItems = context.OtherItems.GroupBy(item => item.Id).ToDictionary(group => group.Key, group => group.First());
+        var batchItems = items.GroupBy(item => item.Id).ToDictionary(group => group.Key, group => group.First());
 
         var duplicates = new List<InboxTriageDuplicatePairDto>();
         foreach (var pair in pass.Duplicates)
@@ -121,8 +124,8 @@ internal static class InboxTriageContext
 
             var targetKnown = pair.TargetKind switch
             {
-                InboxTriageTargetKind.Task => tasks.Contains(pair.TargetId),
-                InboxTriageTargetKind.InboxItem => inBatch.Contains(pair.TargetId) || otherItems.Contains(pair.TargetId),
+                InboxTriageTargetKind.Task => tasks.ContainsKey(pair.TargetId),
+                InboxTriageTargetKind.InboxItem => inBatch.Contains(pair.TargetId) || otherItems.ContainsKey(pair.TargetId),
                 _ => false,
             };
             if (!targetKnown || !Enum.IsDefined(pair.Action)) continue;
@@ -141,7 +144,18 @@ internal static class InboxTriageContext
             // proposal, so nothing else may place it.
             if (targetInBatch) placed.Add(pair.TargetId);
 
-            duplicates.Add(pair with { Confidence = Clamp(pair.Confidence) });
+            // What the review screen names the target by is the context's, not
+            // the advisor's, as for the card: the title the reader will find.
+            var (targetTitle, targetStatus) = pair.TargetKind == InboxTriageTargetKind.Task
+                ? (tasks[pair.TargetId].Title, tasks[pair.TargetId].Status)
+                : ((batchItems.GetValueOrDefault(pair.TargetId) ?? otherItems[pair.TargetId]).Title, (string?)null);
+
+            duplicates.Add(pair with
+            {
+                Confidence = Clamp(pair.Confidence),
+                TargetTitle = targetTitle,
+                TargetStatus = targetStatus,
+            });
         }
 
         var routes = new List<InboxTriageRouteProposalDto>();

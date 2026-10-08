@@ -15,7 +15,10 @@
     The AI cards are drawn only while the state has advice for the item, which
     it never has without Foundry, after a failed call, or once every card was
     turned down — no AI surface is ever drawn disabled (local ADR 0023).
-    "Let AI propose the rest" is not drawn here yet.
+    "Let AI propose the rest" sits in the header on the same terms: drawn only
+    while the advisor can run, busy while the pass is being read, and a failed
+    pass is one sentence under the header with a way to put it away. The pass
+    that comes back replaces this screen with its review (InboxTriagePass).
 
     The article takes the digit keys, as the column's detail does: a bare digit
     takes the card or suggestion with that number. Fields and dialogs stop
@@ -74,7 +77,29 @@
                            OnClick="() => State.Step(1)"
                            TestId="inbox-triage-skip">Skip <kbd class="inbox-pane__key" aria-hidden="true">J</kbd></AppButton>
             </div>
+
+            @if (State.TriageAdvisorAvailable)
+            {
+                @* The pass over every item still waiting in the slice: the
+                   model's, so it wears the sparkle the cards do. *@
+                <AppButton Size="ButtonSize.Small"
+                           CssClass="inbox-triage__propose"
+                           Disabled="@(State.TriagePassRunning || Busy)"
+                           Title="Ask the AI for a decision on every item still waiting here; nothing moves until you apply"
+                           OnClick="() => State.ProposeTriagePassAsync()"
+                           TestId="inbox-triage-propose">
+                    <SparklesIcon Size="14" CssClass="inbox-triage__ai-icon" />
+                    @(State.TriagePassRunning ? $"Reading {State.TriagePassItemCount} items…" : "Let AI propose the rest")
+                </AppButton>
+            }
         </header>
+
+        <Alert BaseClass="inbox-pane__note"
+               Message="@State.TriagePassError"
+               ActionLabel="Dismiss"
+               OnAction="State.DismissTriagePass"
+               ActionTestId="inbox-triage-pass-error-dismiss"
+               TestId="inbox-triage-pass-error" />
 
         <div class="inbox-triage__main">
             <div class="inbox-triage__body">

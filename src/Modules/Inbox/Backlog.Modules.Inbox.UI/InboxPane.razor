@@ -276,7 +276,13 @@
                triage's own screen — the item, what the AI noticed, where it would
                go, the four decisions, and what comes next. *@
             <div class="inbox-pane__triage" data-testid="inbox-triage">
-                @if (State.SelectedItem is null)
+                @if (State.TriagePassDraft is not null)
+                {
+                    @* The AI triage pass came back: its review takes triage's
+                       place until it is applied or put away (features.md#ai-triage-pass). *@
+                    <InboxTriagePass State="State" />
+                }
+                else if (State.SelectedItem is null)
                 {
                     <div class="inbox-pane__triage-bar">
                         <AppButton Size="ButtonSize.Small"
@@ -374,7 +380,7 @@
         ("1–9", "Take the suggestion with that number, from the rows or the item"),
         ("x", "Pick the item for a bulk action"),
         ("u", "Undo the last decision"),
-        ("Esc", "Back to the list, from triage"),
+        ("Esc", "Back to the list, from triage; back to triage, from the AI pass"),
         ("?", "These shortcuts"),
     ];
 
@@ -409,6 +415,31 @@
             // With the sources shown the rows are not on screen, and a key that
             // decided an item the reader cannot see would be a surprise.
             if (SourcesShown && key != "?") return;
+
+            // The AI pass under review is not an item: the keys that decide one
+            // have nothing to act on. Escape puts the review away rather than
+            // leaving triage, and U still takes the last decision back.
+            if (State.TriageMode && State.TriagePassDraft is not null)
+            {
+                switch (key)
+                {
+                    // Not while Apply is running: it is applying this review.
+                    case "Escape" when !State.RoutingInFlight:
+                        State.DismissTriagePass();
+                        break;
+                    case "u" or "U":
+                        await State.UndoLatestAsync();
+                        break;
+                    case "?":
+                        _shortcutsOpen = true;
+                        break;
+                    default:
+                        return;
+                }
+
+                StateHasChanged();
+                return;
+            }
 
             // The inbox-zero screen has no detail on it, so the keys that act
             // on the open item have nothing to act on; U and ? still work.

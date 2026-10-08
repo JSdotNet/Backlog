@@ -533,6 +533,7 @@ public sealed class InboxDesktopState
             SelectedListId = null;
             DeferredSelected = true;
             SelectedItemId = null;
+            ForgetTriagePassForNewRows();
             _kindFilter.Clear();
             ForgetSelection();
             Changed?.Invoke();
@@ -553,6 +554,7 @@ public sealed class InboxDesktopState
         SelectedListId = listId;
         DeferredSelected = false;
         SelectedItemId = null;
+        ForgetTriagePassForNewRows();
         _kindFilter.Clear();
         ForgetSelection();
         Changed?.Invoke();
@@ -572,6 +574,7 @@ public sealed class InboxDesktopState
     public void ToggleKind(string slug)
     {
         if (!_kindFilter.Add(slug)) _kindFilter.Remove(slug);
+        ForgetTriagePassForNewRows();
         PruneSelection();
         Changed?.Invoke();
     }
@@ -581,6 +584,7 @@ public sealed class InboxDesktopState
         if (_kindFilter.Count == 0) return;
 
         _kindFilter.Clear();
+        ForgetTriagePassForNewRows();
         PruneSelection();
         Changed?.Invoke();
     }
@@ -1313,6 +1317,11 @@ public sealed class InboxDesktopState
     /// <summary>While the pass is being asked for.</summary>
     public bool TriagePassRunning { get; private set; }
 
+    /// <summary>How many items the latest pass was asked about — the items
+    /// still waiting in the slice when it was asked. "Reading n items…" while it
+    /// runs, and "Read the n items still waiting" over its review.</summary>
+    public int TriagePassItemCount { get; private set; }
+
     /// <summary>
     /// "Let AI propose the rest": asks for the pass over every unprocessed item
     /// of the slice being triaged, and answers whether one came back. Asked only
@@ -1323,15 +1332,18 @@ public sealed class InboxDesktopState
     /// </summary>
     public async Task<bool> ProposeTriagePassAsync()
     {
-        if (TriagePassRunning || !TriageAdvisorAvailable) return false;
+        if (TriagePassRunning || RoutingInFlight || !TriageAdvisorAvailable) return false;
 
         var ids = SliceItems.Where(IsUndecided).Select(item => item.Id).ToList();
         if (ids.Count == 0) return false;
 
         var version = ++_triagePassVersion;
         TriagePassRunning = true;
+        TriagePassItemCount = ids.Count;
         _triagePassError = null;
         _triagePass = null;
+        _triagePassDraft = null;
+        _triagePassApplyError = null;
         Changed?.Invoke();
 
         InboxTriagePassDto? pass = null;
@@ -1360,22 +1372,218 @@ public sealed class InboxDesktopState
 
         _triagePass = pass;
         _triagePassError = error;
+
+        // The review is drawn over what the pass proposes for items still
+        // waiting; a pass with nothing in it has nothing to review, and says so
+        // rather than opening an empty screen.
+        if (pass is not null)
+        {
+            var draft = new InboxTriagePassDraft(pass, Items, Lists);
+            if (draft.IsEmpty) _triagePassError = NothingProposed;
+            else _triagePassDraft = draft;
+        }
+
         Changed?.Invoke();
 
         return pass is not null;
     }
 
-    /// <summary>Puts the pass, or its failure, away.</summary>
+    /// <summary>What triage says when the pass came back with nothing for the
+    /// items still waiting.</summary>
+    internal const string NothingProposed = "The AI had nothing to propose for the items still waiting.";
+
+    /// <summary>Puts the pass, or its failure, away — Discard and Back on the
+    /// review screen, and Escape while it is shown. Nothing it proposed is
+    /// applied.</summary>
     public void DismissTriagePass()
     {
+        // Never under an Apply in flight: it is applying this draft, and what
+        // it stops at is reported on it.
+        if (BulkRunning) return;
+
         // A pass still out is put away too: its answer will be dropped.
         _triagePassVersion++;
 
-        if (_triagePass is null && _triagePassError is null) return;
+        if (_triagePass is null && _triagePassError is null && _triagePassDraft is null && _triagePassApplyError is null) return;
 
+        ForgetTriagePass();
+        Changed?.Invoke();
+    }
+
+    /// <summary>The pass was asked about one slice and its rows: opening
+    /// another, or filtering these, puts it away — but never under an Apply in
+    /// flight, which is applying it.</summary>
+    private void ForgetTriagePassForNewRows()
+    {
+        if (BulkRunning) return;
+
+        _triagePassVersion++;
+        ForgetTriagePass();
+    }
+
+    private void ForgetTriagePass()
+    {
         _triagePass = null;
         _triagePassError = null;
+        _triagePassDraft = null;
+        _triagePassApplyError = null;
+    }
+
+    // --- Reviewing and applying the pass -----------------------------------------
+    //
+    // The pass is a proposal until the reader presses Apply (ADR 0023 §5). The
+    // review screen edits a draft of it; Apply runs the accepted decisions through
+    // the port, one act each, and every one that lands goes onto the undo history
+    // as its own step, so U takes them back one at a time.
+
+    /// <summary>The pass under review, or null — before a pass came back, after
+    /// it was applied or put away, and while the advisor is not available.
+    /// While it is not null the triage body is the review screen.</summary>
+    public InboxTriagePassDraft? TriagePassDraft => TriageAdvisorAvailable ? _triagePassDraft : null;
+
+    private InboxTriagePassDraft? _triagePassDraft;
+
+    /// <summary>The sentence saying which decision Apply stopped at and why, or
+    /// null. The draft stays open on what is left.</summary>
+    public string? TriagePassApplyError => TriageAdvisorAvailable ? _triagePassApplyError : null;
+
+    private string? _triagePassApplyError;
+
+    /// <summary>The toast an Apply answers with, applied or stopped.</summary>
+    public const string TriagePassResultTestId = "inbox-pass-result";
+
+    /// <summary>
+    /// Apply on the review screen: runs the accepted decisions in order through
+    /// <see cref="InboxTriagePassApply"/>, records each one that landed as its
+    /// own undo step, and reloads. Applied whole, the review closes with a
+    /// sentence counting what was done and what is left for the reader. Stopped
+    /// part way, the review stays open on what was not applied, with the
+    /// sentence naming the item it stopped at, and what did land stays — and
+    /// can be undone. Answers whether every decision was applied.
+    /// </summary>
+    public async Task<bool> ApplyTriagePassAsync()
+    {
+        if (TriagePassDraft is not { DecisionCount: > 0 } draft || RoutingInFlight) return false;
+
+        var decisions = draft.Decisions();
+        var before = Items.ToDictionary(item => item.Id);
+        var titles = draft.Titles;
+
+        BulkRunning = true;
+        _triagePassApplyError = null;
         Changed?.Invoke();
+
+        try
+        {
+            var outcome = await InboxTriagePassApply.ApplyAsync(_inbox, decisions, titles);
+
+            foreach (var applied in outcome.Applied) RecordApplied(applied, before);
+
+            await ReloadAsync();
+
+            if (outcome.Failure is { } failure)
+            {
+                draft.Remove(outcome.Applied.Select(applied => applied.Decision), Items, SliceItems);
+                _triagePassApplyError = failure.Sentence;
+                _toasts?.Publish(ToastMessage.Warning(failure.Sentence, TriagePassResultTestId));
+            }
+            else
+            {
+                var left = draft.Unplaced.Count(id => Items.Any(item => item.Id == id && IsUndecided(item)));
+                _triagePassVersion++;
+                ForgetTriagePass();
+
+                var sentence = $"Applied {Counted(outcome.Applied.Count, "decision", "decisions")}."
+                    + (left > 0 ? $" {left} left for you." : string.Empty);
+                _toasts?.Publish(ToastMessage.Info(sentence, TriagePassResultTestId));
+            }
+
+            // The item triage was reading may be one the pass decided: triage
+            // goes on from the first item still waiting.
+            if (TriageMode && (SelectedItem is not { } reading || !IsUndecided(reading)))
+            {
+                SelectedItemId = VisibleItems.FirstOrDefault(IsUndecided)?.Id;
+                RememberPosition();
+            }
+
+            foreach (var applied in outcome.Applied)
+            {
+                if (applied.Batch is { Routed.Count: > 0 } batch) BatchRouted?.Invoke(batch);
+                if (applied.Routed is { } routed) Routed?.Invoke(routed);
+            }
+
+            return outcome.Succeeded;
+        }
+        finally
+        {
+            BulkRunning = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>"Triage them": puts the review away — nothing applied — and opens
+    /// triage on the first item the pass left for the reader. Triage still walks
+    /// the whole slice from there.</summary>
+    public void TriageLeftOver()
+    {
+        if (RoutingInFlight) return;
+
+        // Only an item triage can land on: one in the rows on screen.
+        var first = TriagePassDraft?.Unplaced
+            .Select(id => VisibleItems.FirstOrDefault(item => item.Id == id))
+            .FirstOrDefault(item => item is not null && IsUndecided(item));
+
+        DismissTriagePass();
+
+        if (first is null) return;
+
+        SelectedItemId = first.Id;
+        RememberPosition();
+        Changed?.Invoke();
+    }
+
+    /// <summary>One applied decision as one undo step — a plan as one group of
+    /// its routed members and the duplicates its batch archived.</summary>
+    private void RecordApplied(InboxTriageApplied applied, IReadOnlyDictionary<Guid, InboxItemDto> before)
+    {
+        InboxDeferral? Deferral(Guid id) => before.TryGetValue(id, out var item) ? DeferralOf(item) : null;
+
+        switch (applied.Decision)
+        {
+            case InboxTriagePlanDecision when applied.Batch is { } batch:
+                RecordGroup(
+                    InboxDecisionKind.MoveToBacklog,
+                    "Move to backlog",
+                    [
+                        .. batch.Routed.Select(routed => (InboxUndoStep)new InboxRouteUndoStep(
+                            InboxDecisionKind.MoveToBacklog, "Move to backlog", routed.InboxItemId, DeleteTasks: true, Deferral(routed.InboxItemId))),
+                        .. batch.Archived.Select(archived => (InboxUndoStep)new InboxRestoreUndoStep(
+                            InboxDecisionKind.Archive, ArchiveAsDuplicateLabel, archived, Deferral(archived))),
+                    ]);
+                break;
+            case InboxTriageDuplicateDecision { Choice: InboxTriageDuplicateChoice.Merge, TargetKind: InboxTriageTargetKind.Task } merge:
+                _undo.Record(before.TryGetValue(merge.ItemId, out var merged)
+                    ? MergeUndo(merged)
+                    : new InboxRestoreUndoStep(InboxDecisionKind.MergeIntoTask, "Merge into a task", merge.ItemId));
+                break;
+            case InboxTriageDuplicateDecision { Choice: InboxTriageDuplicateChoice.Merge } duplicate:
+                _undo.Record(new InboxRestoreUndoStep(InboxDecisionKind.Archive, ArchiveAsDuplicateLabel, duplicate.ItemId, Deferral(duplicate.ItemId)));
+                break;
+            case InboxTriageDuplicateDecision archived:
+                _undo.Record(new InboxRestoreUndoStep(InboxDecisionKind.Archive, "Archive", archived.ItemId, Deferral(archived.ItemId)));
+                break;
+            case InboxTriageArchiveDecision archive:
+                _undo.Record(new InboxRestoreUndoStep(InboxDecisionKind.Archive, "Archive", archive.ItemId, Deferral(archive.ItemId)));
+                break;
+            case InboxTriageRouteDecision route:
+                _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Move to backlog", route.ItemId, DeleteTasks: true, Deferral(route.ItemId)));
+                break;
+            case InboxTriageFilingDecision filing:
+                // Filed where it already was: nothing moved, so nothing to take back.
+                var previous = before.TryGetValue(filing.ItemId, out var filed) ? filed.ListId : null;
+                if (previous != filing.ListId) _undo.Record(new InboxMoveUndoStep("Move to list", filing.ItemId, previous));
+                break;
+        }
     }
 
     /// <summary>Waiting for its first decision: unprocessed and never routed.</summary>
@@ -1422,13 +1630,8 @@ public sealed class InboxDesktopState
 
         TriageMode = on;
 
-        // The pass belongs to the triage it was asked from.
-        if (!on)
-        {
-            _triagePassVersion++;
-            _triagePass = null;
-            _triagePassError = null;
-        }
+        // The pass, and its review, belong to the triage it was asked from.
+        if (!on) ForgetTriagePassForNewRows();
 
         if (on && TriagePosition < 0)
         {
@@ -2014,6 +2217,10 @@ public sealed class InboxDesktopState
 
             _undo.Undone(undone);
             await ReloadAsync();
+
+            // An undo taken while the pass is under review changes what it is
+            // about: what came back and no proposal covers is left for the reader.
+            _triagePassDraft?.Prune(Items, SliceItems);
 
             if (undone.Any(decision => decision is InboxRouteUndoStep { DeleteTasks: true })) RouteUndone?.Invoke();
 
