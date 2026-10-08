@@ -465,7 +465,7 @@ It exists for the row that was projected from a document the task itself does no
         // still be ticked, and a copy button refused in place. Not the chain's
         // "Waiting for", which a row is given by naming another one.
         new("f10", "Blocked, which a person said", Group: "Tasks", Kind: new("📋", "task"), Due: "Friday", MarkedBlocked: true),
-        new("f6", "Everything at once", Group: "Tasks", Kind: new("📋", "task"), Due: "Friday", Reminder: "09:00", Repeats: true, InMyDay: true, StepsDone: 2, StepCount: 5, Note: true, Tags: ["ui"]) { RepeatLabel = "Weekly" },
+        new("f6", "Everything at once", Group: "Tasks", Kind: new("📋", "task"), Due: "Friday", Reminder: "09:00", Repeats: true, InMyDay: true, StepsDone: 2, StepCount: 5, Note: true, Tags: ["ui"]) { RepeatLabel = "Weekly", Agenda = "10:45–11:30" },
         new("f7", "Finished, so nothing competes", Done: true, Group: "Tasks", Due: "Yesterday", Reminder: "08:00", Tags: ["ui"])
     ];
 
@@ -527,7 +527,7 @@ It exists for the row that was projected from a document the task itself does no
         new("done", "One that is finished", Done: true, Group: "Tasks"),
         new("important", "One that matters", Important: true, Group: "Tasks"),
         new("both", "Finished, and it mattered", Done: true, Important: true, Group: "Tasks"),
-        new("today", "Picked for today", InMyDay: true, Group: "Tasks", Due: "Tomorrow"),
+        new("today", "Picked for today", InMyDay: true, Group: "Tasks", Due: "Tomorrow") { Agenda = "10:45–11:30" },
         new("status", "One that says where it has got to", Group: "Tasks", Status: "in progress"),
         new("everything", "Everything at once", Important: true, InMyDay: true, Group: "Tasks", Due: "Friday", Reminder: "09:00", Repeats: true, StepsDone: 2, StepCount: 5, Status: "ready")
     ];

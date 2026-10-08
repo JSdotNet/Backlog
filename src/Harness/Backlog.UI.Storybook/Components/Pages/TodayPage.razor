@@ -1,0 +1,125 @@
+@page "/today"
+
+<PageTitle>Today — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Today"
+           Summary="DayProgress, NowCard and DayTaskRow: how far through the day the person is, the task the day is on, and every other task picked for it — the parts of the phone's Today screen."
+           Guidelines="@Rules">
+
+    <Story Name="Day progress"
+           Description="The count of the day's tasks ticked off, and a bar of the same share. The bar is a progressbar with its maximum, and it announces the same sentence the line says."
+           Code="@ProgressCode">
+        <div class="sb-phone">
+            <DayProgress Done="3" Total="8" TestId="story-day-progress" />
+        </div>
+    </Story>
+
+    <Story Name="Nothing picked"
+           Description="A day with no tasks has no share to show. The bar stays empty rather than dividing by nothing; a host usually shows an empty state instead."
+           Code="@ProgressEmptyCode">
+        <div class="sb-phone">
+            <DayProgress Done="0" Total="0" TestId="story-day-progress-empty" />
+        </div>
+    </Story>
+
+    <Story Name="Now card"
+           Description="The task whose block is running. The kicker says until when, the line under the title is the first step still open, and the bar has one segment per step: done ones filled, the current one lit. The title and Details open the task; Focus opens its countdown."
+           Code="@NowCode">
+        <div class="sb-phone">
+            <NowCard Kicker="Now · until 11:30" Current="true" Title="Write sync conflict tests"
+                     NextStep="Cover the offline-edit case" StepsDone="1" StepsTotal="5"
+                     DetailsHref="#now-card" FocusHref="#now-card" TestId="story-now-card" />
+        </div>
+    </Story>
+
+    <Story Name="Next card"
+           Description="Between blocks the card shows the next one to start, without the accent edge. A task with no steps has no step line and no bar."
+           Code="@NextCode">
+        <div class="sb-phone">
+            <NowCard Kicker="Next · 14:00" Title="Plan sprint goals with Anna"
+                     DetailsHref="#next-card" FocusHref="#next-card" TestId="story-next-card" />
+        </div>
+    </Story>
+
+    <Story Name="Day row"
+           Description="One task in the day. The circle ticks it off and back on and says in words which way a press goes; the rest of the row is a link to the task. Press the circle: the row is live here."
+           Code="@RowCode">
+        <div class="sb-phone">
+            <DayTaskRow Title="Plan sprint goals with Anna" Meta="Planning · 14:00–14:45" Done="_ticked"
+                        Href="#day-row" OnToggle="done => _ticked = done" TestId="story-day-row" />
+        </div>
+    </Story>
+
+    <Story Name="Ticked row"
+           Description="A ticked row is struck through, and its button says it will untick."
+           Code="@TickedCode">
+        <div class="sb-phone">
+            <DayTaskRow Title="Triage the inbox" Meta="Routine" Done="true" Href="#ticked-row"
+                        OnToggle="_ => { }" TestId="story-day-row-done" />
+        </div>
+    </Story>
+
+    <Story Name="Row with a trailing marker"
+           Description="Trailing holds what the host knows and the row does not — here, that the tick is still waiting to be sent."
+           Code="@TrailingCode">
+        <div class="sb-phone">
+            <DayTaskRow Title="Reply to the design feedback" Meta="Design · 2 of 3 steps" Done="true"
+                        Href="#row-with-a-trailing-marker" OnToggle="_ => { }" TestId="story-day-row-waiting">
+                <Trailing>
+                    <Badge Kind="sync" Slug="waiting" Title="Kept on this phone until cloud sync takes it">Waiting</Badge>
+                </Trailing>
+            </DayTaskRow>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private bool _ticked;
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("accessibility.md#target-sizes-and-text", "How large the circle and the card's buttons have to be under a thumb."),
+        new("interaction-guidelines.md#task-rows", "What ticking a task off does, and why ticking and opening are two targets."),
+        new("typography-and-layout.md#metadata-lines", "What a row's one meta line may carry, and in what order."),
+        new("interaction-guidelines.md#optimistic-ui", "Why a tick shows at once and the row only says it is waiting.")
+    ];
+
+    private const string ProgressCode = """
+        <DayProgress Done="3" Total="8" />
+        """;
+
+    private const string ProgressEmptyCode = """
+        <DayProgress Done="0" Total="0" />
+        """;
+
+    private const string NowCode = """
+        <NowCard Kicker="Now · until 11:30" Current="true" Title="Write sync conflict tests"
+                 NextStep="Cover the offline-edit case" StepsDone="1" StepsTotal="5"
+                 DetailsHref="tasks/{id}" FocusHref="tasks/{id}/focus" />
+        """;
+
+    private const string NextCode = """
+        <NowCard Kicker="Next · 14:00" Title="Plan sprint goals with Anna"
+                 DetailsHref="tasks/{id}" FocusHref="tasks/{id}/focus" />
+        """;
+
+    private const string RowCode = """
+        <DayTaskRow Title="Plan sprint goals with Anna" Meta="Planning · 14:00–14:45"
+                    Done="ticked" Href="tasks/{id}" OnToggle="done => ticked = done" />
+        """;
+
+    private const string TickedCode = """
+        <DayTaskRow Title="Triage the inbox" Meta="Routine" Done="true"
+                    Href="tasks/{id}" OnToggle="UntickAsync" />
+        """;
+
+    private const string TrailingCode = """
+        <DayTaskRow Title="Reply to the design feedback" Meta="Design · 2 of 3 steps" Done="true"
+                    Href="tasks/{id}" OnToggle="ToggleAsync">
+            <Trailing>
+                <Badge Kind="sync" Slug="waiting" Title="Kept on this phone until cloud sync takes it">Waiting</Badge>
+            </Trailing>
+        </DayTaskRow>
+        """;
+}

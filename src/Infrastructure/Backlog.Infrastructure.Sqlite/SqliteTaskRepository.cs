@@ -37,7 +37,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         "source_inbox_id, recurrence_source_id, due_on, remind_at, recurrence, in_my_day_on, " +
         "view, tags, repo_ids, depends_on, sub_items, usage_events, projections, effort, " +
         "import_plan_id, import_item_id, updated_at, deleted_at, attachment_path, completed_on, started_on, " +
-        "devbook_refs, blocked_since, source_ref, planned_hours";
+        "devbook_refs, blocked_since, source_ref, agenda_at, agenda_minutes, planned_hours";
 
     private readonly string _databasePath;
 
@@ -76,7 +76,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 $source_inbox_id, $recurrence_source_id, $due_on, $remind_at, $recurrence, $in_my_day_on,
                 $view, $tags, $repo_ids, $depends_on, $sub_items, $usage_events, $projections, $effort,
                 $import_plan_id, $import_item_id, $updated_at, $deleted_at, $attachment_path,
-                $completed_on, $started_on, $devbook_refs, $blocked_since, $source_ref, $planned_hours)
+                $completed_on, $started_on, $devbook_refs, $blocked_since, $source_ref, $agenda_at, $agenda_minutes, $planned_hours)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 content_md = excluded.content_md,
@@ -110,6 +110,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 devbook_refs = excluded.devbook_refs,
                 blocked_since = excluded.blocked_since,
                 source_ref = excluded.source_ref,
+                agenda_at = excluded.agenda_at,
+                agenda_minutes = excluded.agenda_minutes,
                 planned_hours = excluded.planned_hours;
             """;
 
@@ -130,6 +132,10 @@ public sealed class SqliteTaskRepository : ITaskRepository
             "$recurrence",
             Nullable(task.Recurrence is { } recurrence ? EntryTextParser.RepeatToken(recurrence) : null));
         command.Parameters.AddWithValue("$in_my_day_on", Nullable(WriteDate(task.InMyDayOn)));
+        command.Parameters.AddWithValue("$agenda_at", Nullable(task.AgendaTime?.StartToken));
+        command.Parameters.AddWithValue(
+            "$agenda_minutes",
+            task.AgendaTime is { } agendaTime ? agendaTime.DurationMinutes : DBNull.Value);
         command.Parameters.AddWithValue("$completed_on", Nullable(WriteDate(task.CompletedOn)));
         command.Parameters.AddWithValue("$started_on", Nullable(WriteDate(task.StartedOn)));
         command.Parameters.AddWithValue("$blocked_since", Nullable(WriteDate(task.BlockedSince)));
@@ -318,6 +324,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 devbook_refs         TEXT NOT NULL DEFAULT '[]',
                 blocked_since        TEXT NULL,
                 source_ref           TEXT NULL,
+                agenda_at            TEXT NULL,
+                agenda_minutes       INTEGER NULL,
                 planned_hours        TEXT NOT NULL DEFAULT '[]'
             );
 
@@ -360,6 +368,12 @@ public sealed class SqliteTaskRepository : ITaskRepository
         // with none: null is what "local work" is, so a row from before the column
         // reads as the local task it was (local ADR 0020, §2).
         await EnsureColumnAsync(connection, "source_ref", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+
+        // The agenda time as its two tokens' values: the `at:` start as HH:mm and
+        // the duration in minutes. Null on a row from before the columns, which
+        // had no slot in its day.
+        await EnsureColumnAsync(connection, "agenda_at", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+        await EnsureColumnAsync(connection, "agenda_minutes", "INTEGER NULL", cancellationToken).ConfigureAwait(false);
 
         // A JSON list like devbook_refs, and defaulted the same way, so a row from
         // before the column reads as having no hours set aside on any day — which it
@@ -531,7 +545,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
         public const int AttachmentPath = 27, CompletedOn = 28, StartedOn = 29, DevbookReferences = 30;
         public const int BlockedSince = 31;
         public const int SourceRef = 32;
-        public const int PlannedHours = 33;
+        public const int AgendaAt = 33, AgendaMinutes = 34;
+        public const int PlannedHours = 35;
     }
 
     private static TaskItem Read(IDataRecord row)
@@ -555,6 +570,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         task.SetReminder(ParseWallClock(Text(row, Col.RemindAt)));
         task.SetRecurrence(EntryTextParser.ParseRepeat(Text(row, Col.Recurrence)));
         task.SetInMyDayOn(ParseDate(Text(row, Col.InMyDayOn)));
+        task.SetAgendaTime(AgendaTime.FromWire(Text(row, Col.AgendaAt), Int(row, Col.AgendaMinutes)));
         task.SetCompletedOn(ParseDate(Text(row, Col.CompletedOn)));
         task.SetStartedOn(ParseDate(Text(row, Col.StartedOn)));
         task.SetBlockedSince(ParseDate(Text(row, Col.BlockedSince)));

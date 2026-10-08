@@ -26,6 +26,9 @@ public enum SyncItemKind
     Session,
     Roadmap,
     GitHubSettings,
+
+    /// <summary>A note: the one Inbox item that syncs both ways with the phone.</summary>
+    Note,
 }
 
 /// <summary>

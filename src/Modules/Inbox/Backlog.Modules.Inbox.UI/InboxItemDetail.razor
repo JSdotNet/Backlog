@@ -204,6 +204,45 @@
                         @Prose(item, "Only the title and the attachment were captured.")
                         break;
 
+                    case ContentKind.Note:
+                        @* A note is the one kind the reader may change after it is
+                           captured, and the change reaches the phone. Edited in
+                           place rather than in a dialog: the note is what the
+                           column is about. Not once archived, because an archived
+                           note has left the phone. *@
+                        @if (_editingNote == item.Id)
+                        {
+                            <div class="inbox-pane__note-editor" data-testid="inbox-note-editor">
+                                <TextField Label="Title" @bind-Value="_noteTitle" TestId="inbox-note-title" />
+                                <TextArea Label="Note" @bind-Value="_noteBody" Rows="8" TestId="inbox-note-body" />
+                                <ButtonGroup AriaLabel="Note edit actions" TestId="inbox-note-edit-actions">
+                                    <AppButton Size="ButtonSize.Small"
+                                               Variant="ButtonVariant.Primary"
+                                               Disabled="@(string.IsNullOrWhiteSpace(_noteTitle) || _noteSaving)"
+                                               Busy="@_noteSaving"
+                                               BusyLabel="Saving the note"
+                                               OnClick="SaveNoteAsync"
+                                               TestId="inbox-note-save">Save</AppButton>
+                                    <AppButton Size="ButtonSize.Small"
+                                               Disabled="@_noteSaving"
+                                               OnClick="CancelNoteEdit"
+                                               TestId="inbox-note-cancel">Cancel</AppButton>
+                                </ButtonGroup>
+                            </div>
+                        }
+                        else
+                        {
+                            @Prose(item, "This note has no text yet.")
+                            @if (item.Status != InboxStatus.Archived)
+                            {
+                                <AppButton Size="ButtonSize.Small"
+                                           Disabled="@Busy"
+                                           OnClick="() => StartNoteEdit(item)"
+                                           TestId="inbox-note-edit">Edit note</AppButton>
+                            }
+                        }
+                        break;
+
                     case ContentKind.Voice:
                         @Prose(item, "No transcript was captured with the memo.")
                         @Link(item.SourceUrl)
@@ -502,6 +541,41 @@
     private bool _moveOpen;
 
     private bool _deleteOpen;
+
+    /// <summary>The note being edited in place, or null. Keyed by id, so choosing
+    /// another item closes the editor rather than editing that one.</summary>
+    private Guid? _editingNote;
+
+    private string? _noteTitle;
+
+    private string? _noteBody;
+
+    private bool _noteSaving;
+
+    private void StartNoteEdit(InboxItemDto item)
+    {
+        _editingNote = item.Id;
+        _noteTitle = item.Title;
+        _noteBody = item.BodyMd;
+    }
+
+    private void CancelNoteEdit() => _editingNote = null;
+
+    private async Task SaveNoteAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_noteTitle)) return;
+
+        _noteSaving = true;
+
+        try
+        {
+            if (await State.EditNoteAsync(_noteTitle, _noteBody)) _editingNote = null;
+        }
+        finally
+        {
+            _noteSaving = false;
+        }
+    }
 
     private static string DeleteMessage(InboxItemDto item) =>
         $"“{Title(item)}” is removed for good. Archive keeps an item findable; delete does not."

@@ -82,6 +82,16 @@ public sealed record TaskPayload(
     // the same reason: an older document carries none and reads as local work,
     // and null on every local task, so its document serialises as it did before.
     SourceRefPayload? SourceRef = null,
+    // The task's agenda time within its My Day — the `at:` start as a 24-hour
+    // `HH:mm` and the duration in whole minutes — so the phone can place the
+    // task without reading the metadata line, which never crosses the wire.
+    // Plain values for the reason Recurrence is a string: the service never
+    // parses one. Both null on a task with no slot, and last and defaulted for
+    // the reason StartedOn is: an older document carries neither and reads as
+    // having none, and a service built before them passes them through in
+    // Unrecognised.
+    string? AgendaAt = null,
+    int? AgendaMinutes = null,
     // The hours the person set aside for the task on given days, the Calendar's
     // planned hours. Last and defaulted for the same reason, and null rather than
     // empty on a task with none, so its document serialises as it did before; the

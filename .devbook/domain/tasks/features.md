@@ -286,7 +286,7 @@ from crowding the default views.
 type: feature
 status: proposed
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
-related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
+related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/domain/tasks/domain.md#agenda-time, .devbook/domain/tasks/domain.md#my-day, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push, .devbook/design/content-editing.md#scheduling-and-dependency-tokens, .devbook/domain/tasks/requirements.md#my-day]
 ```
 
 Pick the tasks to work on today, separately from when they are due: a task
@@ -297,12 +297,83 @@ My Day expires on its own, so yesterday's list clears itself with no timer, no
 timezone rule and no overnight sweep, and a device that was switched
 off for a week comes back to an empty My Day rather than a stale one.
 
-On the phone, My Day is the whole of the Tasks tab. It shows what was picked for
-the phone's own date — never a due-date grouping — and reads everything about a
-task without editing it. The one thing it changes is the list itself: a task
-added there is picked for today as it is created, because adding it on that
-screen is the decision My Day records. Editing, scheduling and the rest of a
-task's life stay on the desktop; see
+A task in today's My Day may also carry an [Agenda Time](domain.md#agenda-time):
+a start time and a duration that place it in the day, such as 10:45 for 45
+minutes. The agenda time is set and cleared on the desktop only. It means
+nothing without a My Day date, and it is dropped when the task leaves My Day.
+
+On the desktop, the agenda time sits in the task's detail pane directly under
+the My Day control, and only while the task is in today's My Day. A start is
+picked in 15-minute steps and a duration from 15, 30, 45, 60, 90 or 120
+minutes. A start picked alone means 30 minutes. Changing the start keeps the
+duration, and changing the duration keeps the start. Clearing removes the agenda
+time and leaves the task in My Day. A start or duration typed into the text off
+those steps is kept and shown as it is. The task row shows the block from start
+to end beside My Day, such as `10:45–11:30`.
+
+On the phone, My Day is the Today tab, the first of the phone's three tabs
+(Today, Inbox, Notes) and the screen the app opens on. Under the phone's own
+date it says how many of the day's tasks are ticked off, as `3 of 8 done` with
+a bar. It shows what was picked for the phone's own date, never a due-date
+grouping, and splits that list into four groups:
+
+```mermaid
+flowchart TD
+    MyDay["Tasks in today's My Day"] --> Ticked{"Ticked off today?"}
+    Ticked -- yes --> Done["Done today"]
+    Ticked -- no --> Timed{"Has an agenda time?"}
+    Timed -- no --> Anytime["Anytime today, in My Day order"]
+    Timed -- yes --> Current{"Does its block contain the current time?"}
+    Current -- yes --> Now["Now"]
+    Current -- no --> Agenda["Agenda, in time order"]
+```
+
+**Now** holds the timed task whose block contains the current time, as a card
+at the top labelled `Now · until 11:30`, with the task's first open step, a bar
+of its steps, and the ways into Focus and the task's own page. Between blocks
+the card shows the next timed task to start instead, labelled `Next · 14:00`;
+with no timed task still to come there is no card. **Agenda** holds the other
+open timed tasks in time order, each showing its block as `10:45–11:30`.
+**Anytime today** holds the open tasks without an agenda time, in the order My
+Day keeps them. **Done today** holds the tasks ticked off today. Every row
+ticks its task off or back on, and opens the task's own page.
+
+The task's own page has a way back to Today, the title, and chips for the
+task's area, its block as `Today · 10:45–11:30` when it has an agenda time
+today, and its effort as `3 points`. Below them sits **Focus on this** when the
+task has an agenda time today, then the task's steps as a checklist headed by
+how many are done, as `2 of 5`, and then the task's own text, read-only. At the
+bottom are **Move to tomorrow** and **Mark done**. Both return to Today. The
+steps, Move to tomorrow and Mark done change a task only while it is in today's
+My Day and not yet ticked off. Any other task is shown with its steps locked and
+without the two buttons or Focus.
+
+**Focus** exists only for a task with an agenda time today that is not yet
+ticked off. Opening Focus for any other task opens the task's own page instead.
+Focus shows the task's area and when its block ends, as `Sync · until 11:30`,
+the title, and a ring counting down to the end of the block, as `28:40` left in
+this block, which moves every second. Once the block has ended it reads how far
+over it is, as `Over by 03:12`. The countdown is the block itself, so there is
+no pause. Below the ring sits the current step, the first one not ticked off,
+as `Step 2 of 5 · now`, then the steps in order. **Step done — next** ticks off
+the current step. When no step is left it becomes **Complete task**, which
+ticks off the task and returns to Today. **Capture a thought** opens the
+capture sheet over Focus, and saving the thought, cancelling or tapping outside
+the sheet comes back to Focus.
+
+The phone reads everything about a task. It changes four things and nothing
+else:
+
+| On the phone | What it writes |
+| --- | --- |
+| Add a task | A new task picked for today, because adding it to Today is the decision My Day records. The Today screen adds through its capture button rather than a field of its own. |
+| Mark a task done or undone | The task's tick, the way the desktop's checkbox writes it. See [Completed](domain.md#completed). |
+| Tick or untick a step | The status of one [Sub-Item](domain.md#sub-item). |
+| Move a task to tomorrow | `myday:` set to the phone's local date plus one day. |
+
+The last three apply only to a task in today's My Day. Editing, scheduling, the
+agenda time and the rest of a task's life stay on the desktop. How the phone
+delivers each change is
 `.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push`.
 
 ## Task dependencies

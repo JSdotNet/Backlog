@@ -187,6 +187,12 @@ public sealed class TaskItem
     /// arithmetic rather than by an overnight sweep.</summary>
     public DateOnly? InMyDayOn { get; private set; }
 
+    /// <summary>Where the entry sits in its My Day — a start and a duration — or
+    /// null when it has no slot. Held only while <see cref="InMyDayOn"/> is set,
+    /// because it has no date of its own, and dropped whenever that date changes
+    /// or is cleared.</summary>
+    public AgendaTime? AgendaTime { get; private set; }
+
     /// <summary>The day the person ticked this entry off, or null while it is
     /// still on their list. Deliberately not the same fact as <see cref="Status"/>:
     /// Done and Archived say the work is over, this says the person has dealt with
@@ -452,9 +458,25 @@ public sealed class TaskItem
         Touch();
     }
 
+    /// <summary>Picks the entry for a day's My Day, or takes it out. A different
+    /// day — or none — drops the <see cref="AgendaTime"/>, which borrowed its date
+    /// from the old one: a task moved to tomorrow or taken out of My Day loses its
+    /// slot. The same day keeps it.</summary>
     public void SetInMyDayOn(DateOnly? inMyDayOn)
     {
+        if (InMyDayOn != inMyDayOn) AgendaTime = null;
         InMyDayOn = inMyDayOn;
+        Touch();
+    }
+
+    /// <summary>Places the entry at a time within its My Day, or clears the
+    /// agenda time. An entry with no <see cref="InMyDayOn"/> has no day for the
+    /// time to fall in, so it holds none — the value is dropped rather than
+    /// refused, the way the parser drops what it cannot place
+    /// (<c>.devbook/domain/tasks/domain.md#agenda-time</c>).</summary>
+    public void SetAgendaTime(AgendaTime? agendaTime)
+    {
+        AgendaTime = InMyDayOn is null ? null : agendaTime;
         Touch();
     }
 

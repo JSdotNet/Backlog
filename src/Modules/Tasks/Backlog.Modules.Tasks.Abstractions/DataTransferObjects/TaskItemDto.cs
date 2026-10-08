@@ -110,6 +110,7 @@ public sealed record TaskItemDto(
     IReadOnlyList<string>? DevbookReferences = null,
     DateOnly? BlockedSince = null,
     SourceRef? SourceRef = null,
+    AgendaTime? AgendaTime = null,
     IReadOnlyList<PlannedHoursDto>? PlannedHours = null)
 {
     /// <summary>The hours the person set aside for the entry on given days, one block

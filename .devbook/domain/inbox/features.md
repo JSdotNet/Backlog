@@ -497,3 +497,80 @@ there are any — a chip counting those unprocessed for more than fourteen days.
 It reads the whole queue, whichever list is open, because how the queue is doing
 is not a question about one list. The dashboard half, and the configurable
 alerts, are Monitoring's.
+
+## Notes
+
+```meta
+type: feature
+status: draft
+related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/domain.md#content-kind, .devbook/arc42/06-runtime-view.md#mobile-note-sync, .devbook/domain/capture/features.md#talk-note]
+```
+
+A note is an Inbox Item the person keeps and edits, rather than a thought
+waiting to be sorted. Its `Content Kind` is `note`. Every note reaches the
+phone, whichever device made it, and an edit on either side reaches the other.
+The phone and the desktop each keep the edit with the later `updated_at`, the
+same rule the task feed uses. The sync both ways, the desktop half and the
+phone's Notes tab are built.
+
+### Notes on the phone
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync, .devbook/domain/inbox/requirements.md#notes-on-the-phone]
+```
+
+The phone's Notes tab lists every note, newest change first. Each row shows the
+title, when the note last changed — the time for today, "Yesterday", the
+weekday within the week, then the date — and the opening of its body as two
+lines of plain text. A search field narrows the list on the phone itself: a
+note stays when every word typed is in its title or its body. With no notes the
+tab says how to start one; with no match it repeats the words searched for.
+**New note** opens an empty editor, and a tap on a note opens it in the same
+editor.
+
+The editor holds a title, a Markdown body that dictation appends to, and
+attached photos and files — the talk note's tools
+(`.devbook/domain/capture/features.md#talk-note`). It has no save button. A
+second after typing stops the note is saved; leaving a field or the editor saves
+at once, and so does picking a file. A new note is created on its first save
+with something in it, so an editor opened and left empty makes nothing. The
+line at the top says **Saving...**, then **Saved**, or **Waiting to sync**
+while the outbox still holds the note. A note made or changed on the phone is
+kept on the phone first and sent through the outbox, so it works with no
+signal. A note the desktop archives or deletes leaves the phone's list on the
+next pull, and an editor still open on it says its changes are no longer kept.
+Pinning, a linked task, a formatting toolbar and turning a line into an Inbox
+item are not part of the phone's Notes tab.
+
+### Notes on the desktop
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/inbox/domain.md#note, .devbook/domain/inbox/features.md#filter-by-content-kind, .devbook/domain/inbox/requirements.md#notes-on-the-desktop]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+```
+
+On the desktop a note is an item in the queue like any other. It shows its kind
+on its row, with a mark of its own, and the kind chips filter it like any kind.
+The reader may edit its title and body in place in the detail column with
+**Edit note**, and the edit reaches the phone on the next sync. An archived note
+offers no edit, because it has left the phone. The reader may also triage it:
+routing, deferring and archiving work as for any item. Routing a note leaves it on
+the phone. Archiving or deleting a note removes it from the phone.
+
+### Triage stays on the desktop
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/inbox/domain.md#triage, .devbook/domain/capture/features.md#offline-first-sync, .devbook/domain/inbox/requirements.md#triage-stays-on-the-desktop]
+```
+
+The phone never triages. It does not route, defer, accept or archive any Inbox
+item, notes included, and it offers no button that would. The phone's Inbox tab
+shows only the captures the phone made itself, each with its sync state, until
+the desktop takes them in. Deciding what an item becomes is the desktop's job,
+because the desktop is where the backlog and the repositories are.

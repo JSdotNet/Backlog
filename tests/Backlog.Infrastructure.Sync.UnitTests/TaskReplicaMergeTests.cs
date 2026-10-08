@@ -529,6 +529,62 @@ public sealed class TaskReplicaMergeTests
     }
 
     /// <summary>
+    /// The agenda time rides as two plain values of its own, for the reason the
+    /// block does: its tokens live on the metadata line, which is not in
+    /// <c>ContentMd</c>. Through the JSON the service stores, back into a task on
+    /// the other device, it lands as the same slot in the same My Day — and a
+    /// document from a build that never heard of it reads as having none.
+    /// </summary>
+    [Fact]
+    public void An_agenda_time_round_trips_through_the_wire_and_an_older_document_reads_as_none()
+    {
+        var placed = TaskChanges.Task("Standup", Noon);
+        placed.SetInMyDayOn(new DateOnly(2026, 10, 7));
+        placed.SetAgendaTime(new AgendaTime(new TimeOnly(10, 45), 45));
+        placed.LoadStamps(Noon, null);
+
+        var payload = TaskReplicaMerge.ToPayload(placed);
+        Assert.Equal("10:45", payload.AgendaAt);
+        Assert.Equal(45, payload.AgendaMinutes);
+
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            TaskReplicaMerge.ToChange(placed),
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        var pulled = System.Text.Json.JsonSerializer.Deserialize<TaskChange>(
+            json,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+
+        var restored = TaskReplicaMerge.ToTaskItem(pulled);
+        Assert.Equal(new DateOnly(2026, 10, 7), restored.InMyDayOn);
+        Assert.Equal(new AgendaTime(new TimeOnly(10, 45), 45), restored.AgendaTime);
+        Assert.Equal(Noon, restored.UpdatedAt);
+
+        var older = TaskReplicaMerge.ToTaskItem(
+            new TaskChange(placed.Id, Noon, null, payload with { AgendaAt = null, AgendaMinutes = null }));
+        Assert.Null(older.AgendaTime);
+    }
+
+    /// <summary>A task in My Day with no slot sends neither value, and one moved
+    /// to another day sends neither either: the move dropped its slot.</summary>
+    [Fact]
+    public void A_task_with_no_agenda_time_sends_no_agenda_values()
+    {
+        var unplaced = TaskChanges.Task("Anytime today", Noon);
+        unplaced.SetInMyDayOn(new DateOnly(2026, 10, 7));
+
+        var moved = TaskChanges.Task("Moved to tomorrow", Noon);
+        moved.SetInMyDayOn(new DateOnly(2026, 10, 7));
+        moved.SetAgendaTime(new AgendaTime(new TimeOnly(10, 45), 45));
+        moved.SetInMyDayOn(new DateOnly(2026, 10, 8));
+
+        foreach (var payload in new[] { TaskReplicaMerge.ToPayload(unplaced), TaskReplicaMerge.ToPayload(moved) })
+        {
+            Assert.Null(payload.AgendaAt);
+            Assert.Null(payload.AgendaMinutes);
+        }
+    }
+
+    /// <summary>
     /// The Devbook references arrived after the contract did, so they ride last and
     /// defaulted: a task pointing at nothing writes no list at all — its document
     /// serialises exactly as it did before — and a document from a build that never

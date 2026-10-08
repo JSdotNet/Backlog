@@ -5,4 +5,9 @@ namespace Backlog.Modules.Inbox.DomainModels;
 /// heard: enough to rebuild the capture's tombstone, and nothing the item was
 /// decided into. Forgotten once the outbox drains it.
 /// </summary>
-public sealed record InboxDeletedCapture(Guid Id, string Title, DateTimeOffset CapturedAt, DateTimeOffset DeletedAt);
+public sealed record InboxDeletedCapture(
+    Guid Id,
+    string Title,
+    DateTimeOffset CapturedAt,
+    DateTimeOffset DeletedAt,
+    string? Kind = null);

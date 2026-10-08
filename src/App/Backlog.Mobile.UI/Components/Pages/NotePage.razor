@@ -1,0 +1,540 @@
+@page "/notes/new"
+@page "/notes/{Id:guid}"
+@using System.Globalization
+@using Backlog.Mobile.UI.Notes
+@using Backlog.Mobile.UI.TalkNotes
+@inject NoteViewProjection Notes
+@inject DeviceOutbox Outbox
+@inject TalkNoteFiles Files
+@inject TalkNoteComposer Composer
+@inject IAttachmentPicker Picker
+@inject ISpeechTranscriber Speech
+@inject TimeProvider Clock
+@implements IDisposable
+
+@*
+    One note, new or already on the phone: its title, its Markdown body, words
+    dictated into it and photos and files attached to it — the talk note's
+    tools, on a note that keeps itself.
+
+    There is no save button (interaction-guidelines.md#auto-save-no-save-buttons).
+    A second after the last keystroke the note is written through
+    NoteViewProjection — created the first time it has anything in it, edited
+    after that — and a field's blur, a picked file and leaving the page flush a
+    save still pending. The line at the top says "Saved", or "Waiting to sync"
+    while the outbox still holds an edit of this note.
+
+    The text being written is held in a TalkNoteDraft of this page's own rather
+    than the scoped one: the note is saved within a second, so what outlives a
+    trip to another tab is the note itself, and the scoped draft is left to the
+    capture sheet. Files picked and not yet saved wait on its strip; a refused one
+    stays there, saying why, until it is taken off.
+*@
+
+<PageTitle>@(string.IsNullOrWhiteSpace(_draft.Title) ? "Note" : _draft.Title)</PageTitle>
+
+@if (_missing)
+{
+    <EmptyState Title="This note isn't on this phone"
+                Description="It may have been archived on the desktop, which stops it syncing here."
+                TestId="note-missing">
+        <Action>
+            <a href="notes" data-testid="note-missing-back">Back to Notes</a>
+        </Action>
+    </EmptyState>
+}
+else
+{
+    <NoteEditor Title="@_draft.Title" TitleChanged="OnTitleChanged"
+                Body="@_draft.Body" BodyChanged="OnBodyChanged"
+                When="@When" State="_state" Waiting="@_waiting" OnBlur="FlushAsync"
+                TestId="note-editor">
+        <Tools>
+            @* Dictation appends to the body, as it does to the Inbox's quick
+               capture: nothing goes into the note that was not heard first. *@
+            <ToggleButton Pressed="_listening"
+                          PressedChanged="OnSpeechToggledAsync"
+                          Disabled="@(_speechSupported != true)"
+                          AriaLabel="@(_listening ? "Stop dictating" : "Dictate into the note")"
+                          Title="@(_listening ? "Stop dictating" : "Dictate into the note")"
+                          TestId="note-speech-toggle">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <rect x="6" y="1.75" width="4" height="7.5" rx="2" />
+                    <path d="M3.75 7.25v.75a4.25 4.25 0 0 0 8.5 0v-.75" />
+                    <path d="M8 12.25v2" />
+                </svg>
+            </ToggleButton>
+            @if (_canTakePhoto)
+            {
+                <AppButton Size="ButtonSize.Small" Disabled="_picking" OnClick="() => PickAsync(Picker.TakePhotoAsync)"
+                           TestId="note-take-photo">Take photo</AppButton>
+            }
+            <AppButton Size="ButtonSize.Small" Disabled="_picking" OnClick="() => PickAsync(Picker.PickPicturesAsync)"
+                       TestId="note-choose-pictures">Choose pictures</AppButton>
+            <AppButton Size="ButtonSize.Small" Disabled="_picking" OnClick="() => PickAsync(Picker.PickFilesAsync)"
+                       TestId="note-choose-files">Choose files</AppButton>
+        </Tools>
+        <ChildContent>
+            @if (Picker is WebAttachmentPicker web)
+            {
+                <WebAttachmentInputs Picker="web" />
+            }
+
+            @if (_speechStatus is not null)
+            {
+                <Alert Message="@_speechStatus" Role="status" BaseClass="capture__status" TestId="note-speech-status" />
+            }
+
+            @if (_error is not null)
+            {
+                <Alert Message="@_error" BaseClass="error" TestId="note-error" />
+                @if (_dirty)
+                {
+                    <AppButton Size="ButtonSize.Small" OnClick="FlushAsync" TestId="note-save-retry">Try again</AppButton>
+                }
+            }
+
+            <div class="note-page__attached">
+                <AttachmentStrip Tiles="SavedTiles" AriaLabel="Attached to this note" TestId="note-attachments" />
+                <AttachmentStrip Tiles="PendingTiles" OnRemove="RemoveAsync" AriaLabel="Not attached" TestId="note-pending-attachments" />
+            </div>
+
+            @if (_draft.HasRefused)
+            {
+                <Alert Message="The files marked above are not attached and will not go with the note. Remove them to clear the list."
+                       Role="status" BaseClass="capture__notice" TestId="note-refused-notice" />
+            }
+        </ChildContent>
+    </NoteEditor>
+}
+
+@code {
+    /// <summary>How long typing has to stop for before the note is written.</summary>
+    public static readonly TimeSpan SaveDelay = TimeSpan.FromSeconds(1);
+
+    private const string Listening = "Listening…";
+
+    /// <summary>One save at a time. Not disposed with the page: the save leaving
+    /// the page flushes runs after it, and a semaphore with no wait handle holds
+    /// nothing to release.</summary>
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
+
+    /// <summary>Files from the strip already moved into the outbox folder, by
+    /// their id, kept until a save that names them lands: preparing moves the
+    /// bytes, so a save that fails cannot prepare them twice.</summary>
+    private readonly Dictionary<Guid, AttachmentMetadata> _prepared = [];
+
+    private TalkNoteDraft _draft = new();
+    private NoteViewRow? _row;
+    private bool _initialized;
+    private Guid? _loaded;
+    private bool _missing;
+
+    /// <summary>Moves on whenever the page turns to another note, so a save that
+    /// finishes for the note before leaves this one alone.</summary>
+    private int _generation;
+
+    private ITimer? _debounce;
+    private bool _dirty;
+    private bool _disposed;
+    private SaveState _state = SaveState.Idle;
+    private bool _waiting;
+    private string? _error;
+
+    private bool? _speechSupported;
+    private bool _listening;
+    private string? _speechStatus;
+
+    private bool _canTakePhoto;
+    private bool _picking;
+
+    /// <summary>The note's id; absent on <c>/notes/new</c> until the first save.</summary>
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    private string? When => _row is { } row
+        ? TimeZoneInfo.ConvertTime(row.UpdatedAt, Clock.LocalTimeZone).ToString("ddd d MMM · HH:mm", CultureInfo.InvariantCulture)
+        : null;
+
+    private IReadOnlyList<AttachmentTile> SavedTiles =>
+    [
+        .. (_row?.Attachments ?? []).Select(attachment => new AttachmentTile(
+            attachment.Id.ToString("N"),
+            attachment.Name,
+            AttachmentRules.Describe(attachment.ContentType),
+            AttachmentRules.DescribeSize(attachment.SizeBytes),
+            AttachmentRules.IsPicture(attachment.ContentType)))
+    ];
+
+    private IReadOnlyList<AttachmentTile> PendingTiles =>
+    [
+        .. _draft.Attachments.Select(attachment => new AttachmentTile(
+            attachment.Id.ToString("N"),
+            attachment.Name,
+            AttachmentRules.Describe(attachment.ContentType),
+            AttachmentRules.DescribeSize(attachment.SizeBytes),
+            attachment.IsPicture,
+            attachment.Refusal))
+    ];
+
+    protected override void OnInitialized()
+    {
+        Outbox.Changed += OnOutboxChanged;
+        Notes.Changed += OnNotesChanged;
+        if (Picker is WebAttachmentPicker web) web.Unrequested += OnUnrequestedAsync;
+    }
+
+    /// <summary>
+    /// Loads the note the address names. A note this page has just created keeps
+    /// its draft: the address stays <c>/notes/new</c>, because replacing it from a
+    /// save would race the Back link whose blur set that save off. Turning to
+    /// another note first lands what is pending on this one.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_initialized && (Id == _loaded || (Id is { } id && id == _row?.Id))) return;
+
+        if (_initialized) await FlushAsync();
+
+        _initialized = true;
+        _generation++;
+        _loaded = Id;
+        _draft = new TalkNoteDraft();
+        _prepared.Clear();
+        _row = null;
+        _missing = false;
+        _error = null;
+        _state = SaveState.Idle;
+
+        if (Id is { } noteId)
+        {
+            if (Notes.Find(noteId) is { } row)
+            {
+                Load(row);
+                _state = SaveState.Saved;
+            }
+            else
+            {
+                _missing = true;
+            }
+        }
+
+        RefreshWaiting();
+    }
+
+    /// <summary>Asked after the first render, as the Inbox asks: prerendered on
+    /// the server there is no browser to ask, and "no" would be a lie.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _canTakePhoto = await Picker.CanTakePhotoAsync();
+        _speechSupported = await Speech.IsSupportedAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>Leaving the page stops listening and flushes what is still
+    /// pending: the note is a singleton's, so the write outlives this page.</summary>
+    public void Dispose()
+    {
+        _disposed = true;
+        Outbox.Changed -= OnOutboxChanged;
+        Notes.Changed -= OnNotesChanged;
+        if (Picker is WebAttachmentPicker web) web.Unrequested -= OnUnrequestedAsync;
+
+        _debounce?.Dispose();
+        _debounce = null;
+
+        if (_listening) _ = Speech.StopAsync().AsTask();
+        if (_dirty) _ = SaveAsync();
+    }
+
+    private void Load(NoteViewRow row)
+    {
+        _row = row;
+        _draft.Title = row.Title;
+        _draft.Body = row.Body;
+    }
+
+    /// <summary>Whether the outbox still holds this note, worked out when the
+    /// outbox or the note changes rather than on every keystroke's render.</summary>
+    private void RefreshWaiting() =>
+        _waiting = _row is { } row && NoteOutboxKind.Holds(Outbox, row.Id);
+
+    private void OnOutboxChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            RefreshWaiting();
+            StateHasChanged();
+        });
+    }
+
+    /// <summary>
+    /// A pull brought a newer copy — the desktop edited the note while it was
+    /// open. Taken in only while nothing typed here is waiting to be saved, so
+    /// it never overwrites the person's words; otherwise the next save wins, as
+    /// last-write-wins says it should.
+    /// </summary>
+    private void OnNotesChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (_dirty || _row is not { } shown || _disposed) return;
+
+            if (Notes.Find(shown.Id) is { } fresh && fresh.UpdatedAt > shown.UpdatedAt)
+            {
+                Load(fresh);
+                RefreshWaiting();
+                StateHasChanged();
+            }
+        });
+    }
+
+    private void OnTitleChanged(string value)
+    {
+        _draft.Title = value ?? string.Empty;
+        ScheduleSave();
+    }
+
+    private void OnBodyChanged(string value)
+    {
+        _draft.Body = value ?? string.Empty;
+        ScheduleSave();
+    }
+
+    /// <summary>Restarts the wait on every keystroke: the note is written once
+    /// typing has stopped for <see cref="SaveDelay"/>.</summary>
+    private void ScheduleSave()
+    {
+        _dirty = true;
+        if (_row is not null || _draft.HasContent) _state = SaveState.Saving;
+        if (_disposed) return;
+
+        _debounce?.Dispose();
+        _debounce = Clock.CreateTimer(_ => _ = InvokeAsync(SaveAsync), null, SaveDelay, Timeout.InfiniteTimeSpan);
+    }
+
+    private Task FlushAsync()
+    {
+        if (!_dirty) return Task.CompletedTask;
+
+        _debounce?.Dispose();
+        _debounce = null;
+        return SaveAsync();
+    }
+
+    /// <summary>
+    /// Writes the note as it stands: created on its first save, edited on every
+    /// one after, with the files picked since the last save prepared and handed
+    /// over with it. A new note with nothing in it is not created. A save that
+    /// fails keeps the note marked unsaved and its files on the strip, and says
+    /// so with a way to try again.
+    /// </summary>
+    private async Task SaveAsync()
+    {
+        await _saveGate.WaitAsync();
+        var generation = _generation;
+
+        try
+        {
+            if (!_dirty) return;
+            _dirty = false;
+
+            if (_row is null && !_draft.HasContent)
+            {
+                _state = SaveState.Idle;
+                return;
+            }
+
+            var picked = _draft.Accepted;
+            foreach (var file in picked)
+            {
+                if (!_prepared.ContainsKey(file.Id))
+                {
+                    _prepared[file.Id] = await Composer.PrepareAsync(file, sendOriginals: false);
+                }
+            }
+
+            IReadOnlyList<AttachmentMetadata> added = [.. picked.Select(file => _prepared[file.Id])];
+
+            var saved = _row is { } current
+                ? await Notes.EditAsync(current.Id, _draft.Title, _draft.Body, added)
+                : await Notes.CreateAsync(_draft.Title, _draft.Body, added);
+
+            if (generation != _generation) return;
+
+            if (saved is null)
+            {
+                // The desktop archived it while it was open: an archived note has
+                // stopped syncing, so nothing typed here would reach it.
+                _state = SaveState.Failed;
+                _error = "This note was archived on the desktop, so changes here are no longer kept.";
+                return;
+            }
+
+            foreach (var file in picked)
+            {
+                _draft.Attachments.Remove(file);
+                _prepared.Remove(file.Id);
+            }
+
+            _row = saved;
+            _error = null;
+            _state = _dirty ? SaveState.Saving : SaveState.Saved;
+            RefreshWaiting();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            if (generation == _generation)
+            {
+                _dirty = true;
+                _state = SaveState.Failed;
+                _error = $"Couldn't save the note: {ex.Message}";
+            }
+        }
+        finally
+        {
+            _saveGate.Release();
+        }
+
+        if (!_disposed) StateHasChanged();
+    }
+
+    private async Task PickAsync(Func<CancellationToken, Task<AttachmentPick>> pick)
+    {
+        _picking = true;
+        _error = null;
+
+        try
+        {
+            await AddAsync(await pick(CancellationToken.None));
+        }
+        finally
+        {
+            _picking = false;
+        }
+    }
+
+    /// <summary>Files set on the harness's input without a button press —
+    /// Playwright's way in — are taken like any other pick.</summary>
+    private Task OnUnrequestedAsync(AttachmentPick pick) => InvokeAsync(async () =>
+    {
+        await AddAsync(pick);
+        StateHasChanged();
+    });
+
+    /// <summary>
+    /// Each file is staged on the device at once — a browser file is readable
+    /// only until the next pick — and the note is saved straight away, without
+    /// the typing delay: picking a file is a discrete act. A refused file on the
+    /// strip does not count against the per-note limit; it will never go.
+    /// </summary>
+    private async Task AddAsync(AttachmentPick pick)
+    {
+        if (pick.IsError)
+        {
+            _error = pick.Error;
+            return;
+        }
+
+        foreach (var file in pick.Files)
+        {
+            try
+            {
+                var already = (_row?.Attachments.Count ?? 0) + _draft.Accepted.Count;
+                _draft.Attachments.Add(await Files.StageAsync(file, already));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _error = $"Couldn't attach {file.Name}: {ex.Message}";
+            }
+        }
+
+        if (_draft.Accepted.Count == 0) return;
+
+        _dirty = true;
+        _state = SaveState.Saving;
+        await FlushAsync();
+    }
+
+    private Task RemoveAsync(AttachmentTile tile)
+    {
+        var attachment = _draft.Attachments.Find(candidate => candidate.Id.ToString("N") == tile.Key);
+        if (attachment is not null)
+        {
+            _draft.Attachments.Remove(attachment);
+            TalkNoteFiles.Discard(attachment);
+
+            // Prepared for a save that failed: its bytes are in the outbox folder.
+            if (_prepared.Remove(attachment.Id)) Files.Release(attachment.Id);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task OnSpeechToggledAsync(bool pressed)
+    {
+        if (!pressed)
+        {
+            await Speech.StopAsync();
+            return;
+        }
+
+        _listening = true;
+        _speechStatus = Listening;
+
+        // Not awaited: ListenAsync ends when recognition does, and the pressed
+        // state has to reach the screen before that.
+        _ = ListenAsync();
+    }
+
+    private async Task ListenAsync()
+    {
+        SpeechTranscript result;
+
+        try
+        {
+            result = await Speech.ListenAsync();
+        }
+        catch (Exception ex)
+        {
+            result = SpeechTranscript.Failed(ex.Message);
+        }
+
+        _listening = false;
+
+        if (result.IsError)
+        {
+            _speechStatus = result.Error;
+        }
+        else if (result.Text.Length == 0)
+        {
+            _speechStatus = "Nothing was heard.";
+        }
+        else
+        {
+            _speechStatus = null;
+            var existing = _draft.Body.TrimEnd();
+            _draft.Body = existing.Length == 0 ? result.Text : $"{existing} {result.Text}";
+
+            // Words heard after the page closed are still the person's: saved
+            // now, with no page left to wait a second on.
+            if (_disposed)
+            {
+                _dirty = true;
+                _ = SaveAsync();
+                return;
+            }
+
+            ScheduleSave();
+        }
+
+        if (!_disposed) await InvokeAsync(StateHasChanged);
+    }
+}

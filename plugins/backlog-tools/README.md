@@ -69,7 +69,10 @@ for the remarks a person leaves while reading — and a pane that follows a runn
   its gate and lands as a draft pull request whose body is the review handoff, so the whole
   plan runs without anyone present and Personal Validation happens on the drafts — in branch
   mode on the closing draft to the base branch. A failed entry blocks only what depends on
-  it. User-invoked only. The `UserPromptSubmit` hook
+  it. It titles its own session `<tag>:execute-plan` and labels each sub-agent
+  `<tag>:<n> - <Title>`, and a ready entry in another repository is handed to a new session
+  in that repository's checkout running the same plan, per
+  `skills/execute-plan/assets/handoff.md`. User-invoked only. The `UserPromptSubmit` hook
   stays quiet on a prompt that names this skill, so a pasted plan is not mistaken for one item.
 - **`import-inbox`** — turns an export from another to-do tool into an inbox import
   manifest (ADR 0017:

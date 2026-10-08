@@ -2,12 +2,16 @@ namespace Backlog.Modules.Inbox.Abstractions.Services;
 
 /// <summary>One acknowledgement waiting to leave the machine: which replica
 /// capture it is, enough of it to rebuild the tombstone document, and when the
-/// desktop decided.</summary>
+/// desktop decided. <paramref name="Kind"/> is the item's content kind slug: a
+/// <c>note</c>'s tombstone is written as a note document, every other kind's as
+/// a capture document (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>).
+/// Null reads as a plain capture.</summary>
 public sealed record InboxCaptureAckDto(
     Guid CaptureId,
     string Title,
     DateTimeOffset CapturedAt,
-    DateTimeOffset AcknowledgedAt);
+    DateTimeOffset AcknowledgedAt,
+    string? Kind = null);
 
 /// <summary>
 /// The port the sync client drains on every push: captures this desktop has

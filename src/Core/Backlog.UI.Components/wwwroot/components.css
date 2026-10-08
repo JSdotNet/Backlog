@@ -4222,11 +4222,13 @@ button.task-panel__check:focus-visible {
     line-height: 1;
 }
 
-/* The two that carry a time come forward slightly. A due date and a reminder are
-   the facts that make a row urgent, and reading them at the same weight as the
-   list it came from is how a deadline gets missed. */
+/* The ones that carry a time come forward slightly. A due date, a reminder and
+   the block of today a task is planned into are the facts that make a row
+   urgent, and reading them at the same weight as the list it came from is how a
+   deadline gets missed. */
 .task-item__detail--due,
-.task-item__detail--reminder {
+.task-item__detail--reminder,
+.task-item__detail--agenda {
     color: var(--color-text-primary);
 }
 
@@ -16067,6 +16069,987 @@ select.field__input {
     box-shadow: 0 0 0 2px var(--color-info);
 }
 
+/* --- Day: progress, the card on now, a day's row ------------------------- */
+/*
+  The phone's Today screen: how far through the day the person is, the task
+  the day is on, and the rows of the rest. Every control here keeps the 44px
+  touch minimum of accessibility.md#target-sizes-and-text. A ticked row is
+  struck through *and* says so in its button's words, and the card on now is
+  told apart by its kicker's words as well as its accent edge (color-scheme.md:
+  a colour is never the sole carrier).
+*/
+
+.day-progress {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.day-progress__label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.day-progress__count {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.day-progress__track {
+    overflow: hidden;
+    height: 6px;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+}
+
+.day-progress__fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    transition: width var(--transition-base);
+}
+
+.now-card {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.now-card--current {
+    border-color: var(--color-primary);
+}
+
+.now-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-xs);
+}
+
+.now-card__kicker {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.now-card--current .now-card__kicker {
+    color: var(--color-primary);
+}
+
+.now-card__step {
+    color: var(--color-text-secondary);
+}
+
+.now-card__open {
+    display: grid;
+    gap: var(--spacing-2xs);
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.now-card__open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.now-card__title {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.now-card__next {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.now-card__steps {
+    display: grid;
+    grid-template-columns: repeat(var(--now-card-steps, 1), minmax(0, 1fr));
+    gap: var(--spacing-2xs);
+}
+
+.now-card__segment {
+    height: 4px;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+}
+
+.now-card__segment--done {
+    background: var(--color-success-text);
+}
+
+.now-card__segment--current {
+    background: var(--color-primary);
+}
+
+.now-card__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.now-card__action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    text-decoration: none;
+}
+
+.day-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    min-height: 3.5rem;
+    padding-right: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.day-row__tick {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    min-height: 3.5rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+}
+
+.day-row__tick:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+    border-radius: var(--border-radius-md);
+}
+
+.day-row__tick:disabled {
+    cursor: default;
+}
+
+.day-row__circle-ring {
+    fill: none;
+    stroke: var(--color-border-strong);
+    stroke-width: 2;
+}
+
+.day-row__circle-fill {
+    fill: var(--color-success-text);
+}
+
+.day-row__circle-check {
+    fill: none;
+    stroke: var(--color-background);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.day-row__open {
+    display: grid;
+    flex: 1;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-xs) 0;
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.day-row__open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.day-row__title {
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.day-row--done .day-row__title {
+    color: var(--color-text-secondary);
+    text-decoration: line-through;
+}
+
+.day-row__meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.day-row__trailing {
+    flex: none;
+}
+
+.day-row__chevron {
+    flex: none;
+    fill: none;
+    stroke: var(--color-border-strong);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* --- Capture: the quick capture sheet, a phone capture's row ------------- */
+/*
+  The sheet rises from the bottom edge over a dimmed screen; the screen behind
+  stays where it was, so leaving puts the person back on it. Every control keeps
+  the 44px touch minimum of accessibility.md#target-sizes-and-text. The chosen
+  target is pressed in words (aria-pressed) as well as filled, and a row's sync
+  state is a word on a badge (color-scheme.md: a colour is never the sole
+  carrier).
+*/
+
+.capture-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.capture-sheet__backdrop {
+    position: absolute;
+    inset: 0;
+    padding: 0;
+    border: 0;
+    background: var(--color-background-overlay);
+    cursor: default;
+}
+
+.capture-sheet__panel {
+    position: relative;
+    display: grid;
+    gap: var(--spacing-md);
+    max-height: 92dvh;
+    overflow-y: auto;
+    padding: var(--spacing-xs) var(--spacing-md) calc(var(--spacing-xl) + env(safe-area-inset-bottom, 0px));
+    border-radius: 1.5rem 1.5rem 0 0;
+    background: var(--color-background-alt);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Focus-visibility exemption: the panel takes focus only as the focus trap's
+   container (tabindex="-1"), never as a control; every control inside it keeps
+   its own focus ring. */
+.capture-sheet__panel:focus {
+    outline: none;
+}
+
+.capture-sheet__grip {
+    justify-self: center;
+    width: 40px;
+    height: 5px;
+    border-radius: var(--border-radius-full);
+    background: var(--color-border);
+}
+
+.capture-sheet__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.capture-sheet__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.capture-sheet__cancel {
+    min-height: 44px;
+}
+
+.capture-sheet__targets {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-2xs);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background);
+}
+
+.capture-sheet__target {
+    min-height: 44px;
+    border: 0;
+    border-radius: var(--border-radius-md);
+    background: none;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.capture-sheet__target--chosen {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.capture-sheet__target:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+/* Prose, not Markdown source: the field takes the UI face the rest of the sheet
+   uses rather than the editor's monospace. */
+.capture-sheet__field .field__input {
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-lg);
+}
+
+.capture-sheet__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.capture-sheet__chip {
+    min-height: 44px;
+    border-radius: var(--border-radius-full);
+}
+
+.capture-sheet__actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.capture-sheet__mic {
+    flex: none;
+    width: 52px;
+    min-height: 52px;
+}
+
+.capture-sheet__save {
+    flex: 1;
+    min-height: 52px;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* Empty, the live region stays in the accessibility tree but takes no room. */
+.capture-sheet__status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.capture-sheet__status--shown {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    min-height: 44px;
+    border-radius: var(--border-radius-lg);
+    background: var(--color-success);
+    color: var(--color-success-text);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.capture-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding-right: var(--spacing-sm);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.capture-row__open {
+    display: grid;
+    flex: 1;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    min-height: 44px;
+    padding: var(--spacing-sm) 0 var(--spacing-sm) var(--spacing-md);
+    border: 0;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.capture-row__open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+    border-radius: var(--border-radius-lg);
+}
+
+.capture-row__title {
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.capture-row--waiting .capture-row__title,
+.capture-row--stuck .capture-row__title {
+    color: var(--color-text-secondary);
+}
+
+.capture-row__preview {
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.capture-row__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.capture-row__state {
+    flex: none;
+}
+
+.capture-row__retry {
+    min-height: 44px;
+}
+
+/* --- Day: one task's detail --------------------------------------------- */
+/*
+  A task opened from the phone's day. One column, the footer pinned to the
+  bottom of whatever scrolls so Move to tomorrow and Mark done are always where
+  a thumb is. Every target keeps the 44px touch minimum of
+  accessibility.md#target-sizes-and-text. The time chip is the one chip in the
+  accent, because it is the one fact about today; the area stays a quiet
+  outline, as an area does everywhere in this library, and a ticked step is
+  struck through as well as checked (color-scheme.md: a colour is never the
+  sole carrier).
+*/
+
+.task-detail {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.task-detail__back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    justify-self: start;
+    min-height: 44px;
+    padding: 0 var(--spacing-sm) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+    text-decoration: none;
+}
+
+.task-detail__back svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.task-detail__back:hover {
+    color: var(--color-text-primary);
+}
+
+.task-detail__back:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-md);
+}
+
+.task-detail__head {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.task-detail__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.task-detail__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.task-detail__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-height: 1.875rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.task-detail__chip-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--border-radius-full);
+    background: currentColor;
+}
+
+.task-detail__chip--time {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-detail__focus {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    min-height: 3.25rem;
+    border-radius: var(--border-radius-lg);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+}
+
+.task-detail__focus svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+}
+
+.task-detail__section {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.task-detail__section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin: 0 var(--spacing-2xs);
+}
+
+.task-detail__section-title {
+    margin: 0 var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-size: .8125rem;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.task-detail__section-head .task-detail__section-title {
+    margin: 0;
+}
+
+.task-detail__count {
+    color: var(--color-text-secondary);
+    font-size: .8125rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.task-detail__steps {
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    list-style: none;
+}
+
+.task-detail__step + .task-detail__step {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+/* The whole line is the label, so the whole line is the target. */
+.task-detail__step-box {
+    display: flex;
+    width: 100%;
+    min-height: 3rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    box-sizing: border-box;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+}
+
+.task-detail__step-box .checkbox__input {
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: 0;
+    accent-color: var(--color-success-text);
+}
+
+.task-detail__step-box .checkbox__label {
+    overflow-wrap: anywhere;
+}
+
+.task-detail__step--done .checkbox__label {
+    color: var(--color-text-secondary);
+    text-decoration: line-through;
+}
+
+.task-detail__body {
+    padding-bottom: var(--spacing-sm);
+}
+
+.task-detail__footer {
+    position: sticky;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
+    border-top: var(--border-width) solid var(--color-border);
+    background: var(--color-background);
+    /* Full bleed: the bar's ground reaches past the host's side gutters, so
+       nothing scrolling under it shows at the edges. */
+    box-shadow: 0 0 0 100vmax var(--color-background);
+    clip-path: inset(0 -100vmax);
+}
+
+.task-detail__action {
+    min-height: 3rem;
+    border-radius: var(--border-radius-md);
+}
+
+.task-detail__action--done {
+    border: 0;
+    background: color-mix(in srgb, var(--color-success-text) 20%, var(--color-background));
+    color: var(--color-success-text);
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-detail__action--done:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success-text) 30%, var(--color-background));
+}
+
+/* --- Day: Focus on one timed task ---------------------------------------- */
+/*
+  One timed task, worked on now. One column: the bar with Back and Task details,
+  the area and the block's end, the title, the ring, the current step, the step
+  list, and the footer pinned to the bottom of whatever scrolls so the primary
+  action is always where a thumb is. Every target keeps the 44px touch minimum
+  of accessibility.md#target-sizes-and-text.
+
+  The ring wears the accent while the block runs and the error foreground once
+  it is over; the words in the middle say the same thing ("Over by 03:12"), so
+  the colour never carries it alone (color-scheme.md). A step's state is its
+  glyph and its weight, and a screen reader hears it in words.
+*/
+
+.focus {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.focus__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.focus__back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    min-height: 44px;
+    padding: 0 var(--spacing-sm) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+    text-decoration: none;
+}
+
+.focus__details {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+    text-decoration: none;
+}
+
+.focus__back svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.focus__back:hover,
+.focus__details:hover {
+    color: var(--color-text-primary);
+}
+
+.focus__back:focus-visible,
+.focus__details:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-md);
+}
+
+.focus__head {
+    display: grid;
+    justify-items: center;
+    gap: var(--spacing-xs);
+    text-align: center;
+}
+
+.focus__kicker {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.focus__area-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: var(--spacing-xs);
+    vertical-align: 1px;
+    border-radius: var(--border-radius-full);
+    background: currentColor;
+}
+
+.focus__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.focus__ring {
+    position: relative;
+    justify-self: center;
+    width: 12.25rem;
+    height: 12.25rem;
+}
+
+.focus__ring svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.focus__ring-track {
+    fill: none;
+    stroke: var(--color-background-raised);
+    stroke-width: 10;
+}
+
+.focus__ring-fill {
+    fill: none;
+    stroke: var(--color-primary);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear;
+}
+
+.focus__ring--over .focus__ring-track {
+    stroke: var(--color-error-text);
+}
+
+.focus__ring--over .focus__ring-fill {
+    stroke: transparent;
+}
+
+.focus__clock {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2xs);
+    padding: 0 var(--spacing-lg);
+    text-align: center;
+}
+
+.focus__time {
+    font-family: var(--font-family-heading);
+    font-size: 2.5rem;
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.focus__ring--over .focus__time {
+    font-size: var(--font-size-xl);
+    line-height: var(--line-height-tight);
+}
+
+.focus__time-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.focus__current {
+    display: grid;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.focus__current-kicker {
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.focus__current-title {
+    font-size: var(--font-size-lg);
+    font-weight: 500;
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.focus__steps {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.focus__step {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-height: 2.5rem;
+    padding: 0 var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+}
+
+.focus__step-title {
+    overflow-wrap: anywhere;
+}
+
+.focus__step--done .focus__step-title {
+    text-decoration: line-through;
+}
+
+.focus__step--current {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.focus__step-glyph {
+    flex: none;
+}
+
+.focus__step-ring {
+    fill: none;
+    stroke: var(--color-border-strong);
+    stroke-width: 2;
+}
+
+.focus__step--current .focus__step-ring {
+    stroke: var(--color-primary);
+}
+
+.focus__step-dot {
+    fill: var(--color-primary);
+}
+
+.focus__step--done .focus__step-ring {
+    fill: var(--color-success-text);
+    stroke: var(--color-success-text);
+}
+
+.focus__step-tick {
+    fill: none;
+    stroke: var(--color-background);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.focus__footer {
+    position: sticky;
+    bottom: 0;
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
+    background: var(--color-background);
+    /* Full bleed, as the task detail's footer is. */
+    box-shadow: 0 0 0 100vmax var(--color-background);
+    clip-path: inset(0 -100vmax);
+}
+
+.focus__primary {
+    min-height: 3.25rem;
+    border-radius: var(--border-radius-lg);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.focus__capture {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    min-height: 44px;
+    border-color: var(--color-border);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.focus__capture svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .focus__ring-fill {
+        transition: none;
+    }
+}
+
 /* --- Attachment strip ---------------------------------------------------- */
 /*
   The files on something being written, one tile per file. A tile is a full row
@@ -17544,4 +18527,159 @@ select.field__input {
     flex-direction: column;
     gap: var(--spacing-xs);
     min-width: 0;
+}
+
+/* --- Notes ----------------------------------------------------------------- */
+/*
+  A note row is one link: the title and its time on the first line, the
+  opening of the body clamped to two lines under them. The editor is the page:
+  title and body wear no box, so the note reads as a note while it is written,
+  and each keeps the focus ring every field has.
+*/
+
+.note-row {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-height: 2.75rem;
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.note-row:hover {
+    color: var(--color-text-primary);
+}
+
+.note-row:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.note-row__head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.note-row__title {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.note-row__when {
+    flex: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.note-row__snippet {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    overflow-wrap: anywhere;
+}
+
+.note-editor {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.note-editor__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    min-height: 2.75rem;
+}
+
+.note-editor__back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    min-height: 2.75rem;
+    padding-right: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+}
+
+.note-editor__back:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-md);
+}
+
+.note-editor .note-editor__title-input {
+    width: 100%;
+    min-width: 0;
+    padding: var(--spacing-2xs) 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.note-editor .note-editor__title-input::placeholder {
+    color: var(--color-text-disabled);
+}
+
+.note-editor .note-editor__title-input:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-sm);
+}
+
+.note-editor__when {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.note-editor__body .field__grow {
+    padding: var(--spacing-2xs) 0;
+    border: 0;
+    background: transparent;
+}
+
+/* A note is prose, so its body reads in the body face rather than the source
+   face a Markdown field wears elsewhere. Set on the grow wrapper, never on the
+   textarea: the replica beside it has to measure the same text. */
+.note-editor__body .grow-wrap {
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-base);
+}
+
+.note-editor__body .field__grow:focus-within {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-sm);
+}
+
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the ring
+   belongs to the box that grows with the body, drawn by the :focus-within rule above in
+   --color-border-focus at --border-width-2 — an outline, so High Contrast keeps it. A
+   second ring on the textarea inside it would sit a few pixels inside the first. */
+.note-editor__body .field__input:focus-visible {
+    outline: none;
+}
+
+.note-editor__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
 }

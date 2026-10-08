@@ -88,7 +88,8 @@ when the service answers.
   last_error, created_at`. The `kind` picks the sender; `capture` is the first,
   and later kinds join the same queue and the same order: `task`, pushed to its
   own endpoint, and `talk-note`, one entry that is several requests — see
-  **Talk Note Upload**.
+  **Talk Note Upload**. Kind `note` joins them for a note the phone creates or
+  edits — see **Mobile Note Sync**.
 - **Oldest first, head of line.** A transient failure (no network, a timeout, a
   5xx, or a 401 from a service that restarted with a new signing key) stops the
   flush, so nothing overtakes it. It is retried after 2s, 4s, 8s, 16s. The fifth
@@ -105,6 +106,15 @@ when the service answers.
   file with its time. A failed pull, including 503 `sync.replica_unavailable`
   while the Cosmos emulator warms up, shows that cached list with one status line
   saying why it is not newer.
+- **Only the phone's own captures.** The Inbox tab lists the captures this phone
+  made, until the desktop takes each in. The phone sends no acknowledgement and
+  no other decision about an item: triage stays on the desktop
+  (`.devbook/domain/inbox/features.md#triage-stays-on-the-desktop`). The service
+  answers with every capture the desktop has not taken in, so the tab keeps the
+  ones whose source is the phone channel, `mobile`.
+- **Notes come back.** Notes are the one kind of Inbox item the phone pulls as
+  well as sends. They travel on the task feed, not on the inbox listing, and
+  **Mobile Note Sync** below describes them.
 
 ```mermaid
 sequenceDiagram
@@ -266,13 +276,15 @@ sequenceDiagram
 ## Mobile My Day and Task Push
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day"]
+related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#completed"]
 ```
 
-The phone's Tasks tab is My Day and nothing else. It reads the owner's existing
-task feed rather than a My Day endpoint, and it writes exactly one thing: a task
-added for today. It keeps no task store of its own — a projection of the feed,
-and a push through the outbox.
+The phone's Today tab is My Day and nothing else. It reads the owner's existing
+task feed rather than a My Day endpoint. It writes four things, all through the
+device outbox: a task added for today, and three edits to a task already in
+today's My Day. Those edits are done or undone, a step ticked or unticked, and
+the task moved to tomorrow. The phone keeps no task store of its own, only a
+projection of the feed.
 
 - **Fold the feed.** `GET /api/sync/tasks?since=` is pulled from a cursor kept
   on the phone, page after page until `hasMore` is false, and each page is kept
@@ -284,7 +296,10 @@ and a push through the outbox.
   never changes the result.
 - **My Day is arithmetic**, as `.devbook/domain/tasks/domain.md#my-day` defines
   it. The list is the rows whose `in_my_day_on` is the phone's current local date
-  and whose status is neither `done` nor `archived`.
+  and whose status is not `archived`. A row with `completed_on` today is in Done
+  today. The other rows are grouped by their agenda time against the phone's
+  clock into Now, Agenda and Anytime today, as
+  `.devbook/domain/tasks/features.md#my-day` describes.
 - **A rejected cursor starts over.** `sync.cursor_malformed` or
   `sync.cursor_expired` drops the cursor and pulls once from the beginning; the
   rows already kept fold to the same result. Any other failure keeps the list on
@@ -300,11 +315,55 @@ and a push through the outbox.
   is queued, with server stamp 0, so it is in today's list immediately and marked
   waiting until the outbox delivers it. The pull that delivery triggers brings
   back the replica's copy of the same write, which replaces it.
+- **An edit is a whole document.** The replica keeps one document per task and
+  the later `UpdatedAt` wins whole (ADR 0005), so the phone cannot send a field
+  on its own. It takes the task's row from `task_view`, applies the one edit,
+  stamps `UpdatedAt` now and queues the whole `TaskChange` as outbox kind `task`.
+  When the phone's clock is behind the stamp the row already carries, the edit
+  is stamped one millisecond past it instead, so it is still the later write.
+  Done ticks the task as the desktop's checkbox does. Undone clears
+  `completed_on`. A step edit changes one sub-item's status. Move to tomorrow
+  sets `InMyDayOn` to the phone's local date plus one day and drops the agenda
+  time. An edit that changes nothing, such as ticking a task already ticked
+  today, queues nothing.
+- **An edit rewrites the entry text.** The desktop's next save reads a task's
+  fields back off its text, so the phone edits the text and not only the
+  fields. It builds the task's title, a metadata line and its body from
+  `ContentMd`, then applies the same `EntryTextParser` rewrite the desktop's
+  control uses. It reads status, `completed_on` and `in_my_day_on` back off the
+  result. When the body changed, it also reads the body and the steps'
+  statuses, by position, as the desktop's save syncs them. So done writes
+  `!done` on to every step chapter, and a step tick flips a `[ ]` marker or
+  writes the step's own `!done` or `!ready`. A step that has no place in the
+  text is still set in the sub-item list. `TaskEdits` is the one service the
+  screens call for the three edits.
+- **Every edit gets its own entry.** Each edit is a new outbox entry with its own
+  entry id, carrying the task's own id in the `TaskChange`. A retry sends the
+  same document, so the replica's upsert keeps it idempotent. Entries queue
+  behind the ones before them, so two quick taps on the same task arrive
+  in the order they were made. The edit is applied to `task_view` at once and
+  marked waiting, the same as an added task. Because an edit's entry id is not
+  the task's, the waiting marker looks for the task's id inside the queued
+  document, not for an entry with that id. A pull that brings back an older
+  copy before delivery does not undo the edit, because the edit's stamp is
+  later.
+- **A repeating task gets no successor from the phone.** The desktop spawns a
+  repeating task's next occurrence only when its own save ticks it, and the
+  replica merge spawns none. A repeating task ticked on the phone therefore
+  arrives done with no next occurrence. This gap is open.
+- **A refused edit stays on the phone.** The service may refuse an edit and
+  answer the same way on every retry. The outbox then sets the entry aside, and
+  the phone's row keeps the edit until a later write from another device
+  replaces it.
+- **A concurrent desktop edit loses or wins whole.** When the desktop changes the
+  same task while a phone edit waits in the outbox, the later `UpdatedAt` decides
+  the whole task. The phone's narrow edits make this rare, but it is the cost of
+  sending documents rather than field changes.
 
 ```mermaid
 sequenceDiagram
     actor ME
-    participant Tasks as Phone Tasks tab
+    participant Tasks as Phone Today tab
     participant View as task_view (SQLite)
     participant Outbox as SQLite Outbox
     participant Sync as Sync Service
@@ -327,6 +386,28 @@ sequenceDiagram
             Tasks->>View: Forget the cursor; pull again from the beginning
         end
     end
+```
+
+An edit to a task already in My Day takes the same path from the outbox onward:
+
+```mermaid
+sequenceDiagram
+    actor ME
+    participant Tasks as Phone Today tab
+    participant View as task_view (SQLite)
+    participant Outbox as SQLite Outbox
+    participant Sync as Sync Service
+
+    ME->>Tasks: Mark done, tick a step, or move to tomorrow
+    Tasks->>View: Read the task's row
+    Tasks->>Outbox: INSERT outbox (new entry id v7, kind=task, whole TaskChange under the task's id, UpdatedAt now)
+    Tasks->>View: UPSERT edited row (server stamp 0)
+    Tasks-->>ME: Change shown at once, marked waiting
+
+    Outbox->>+Sync: POST /api/sync/tasks (same document every attempt)
+    Sync-->>-Outbox: 200 Accepted
+    Outbox->>Outbox: DELETE entry
+    Tasks->>Sync: GET /api/sync/tasks?since=cursor (fold as above)
 ```
 
 ## Sync Item Lifecycle
@@ -488,4 +569,81 @@ sequenceDiagram
     Monitoring-->>ME: Machine visible as online
 ```
 
+## Mobile Note Sync
 
+```meta
+related: [".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/features.md#notes", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#capture-attachments", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
+```
+
+A note (`.devbook/domain/inbox/domain.md#note`) is the one Inbox item that
+syncs both ways. The phone pulls every note, whichever device made it, and pushes the notes
+it creates and edits. The desktop pushes its own note edits back, and a
+tombstone when it archives or deletes one. The sync and the phone's Notes tab,
+which reads `note_view`, are built.
+
+```mermaid
+sequenceDiagram
+    actor ME
+    participant Notes as Phone Notes tab
+    participant View as note_view (SQLite)
+    participant Outbox as SQLite Outbox
+    participant Sync as Sync Service
+    participant Desktop as Desktop App
+
+    ME->>Notes: Create or edit a note
+    Notes->>View: UPSERT row (UpdatedAt now, server stamp 0)
+    Notes->>Outbox: INSERT outbox (kind=note, whole note document)
+    Outbox->>+Sync: POST /api/sync/tasks (type note, same id every attempt)
+    Sync-->>-Outbox: 200 Accepted
+
+    Desktop->>+Sync: GET /api/sync/tasks?since=cursor
+    Sync-->>-Desktop: note document
+    Desktop->>Desktop: Inbox intake: create or update the item of kind note (later UpdatedAt wins)
+
+    ME->>Desktop: Edit, archive or delete the note
+    Desktop->>Sync: POST /api/sync/tasks (note document, or its tombstone)
+
+    Notes->>+Sync: GET /api/sync/tasks?since=cursor
+    Sync-->>-Notes: Changed documents
+    Notes->>View: Fold notes (later UpdatedAt wins, tombstone hides the row)
+```
+
+- **A third document kind.** A note travels on the replica as a task-shaped
+  document in the `tasks` container with its own kind token, `type: "note"`,
+  under the Inbox item's id. It follows the pattern
+  `.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md` set
+  for `capture`. The difference is that nobody acknowledges a note away: the
+  desktop takes it in and keeps pushing it.
+- **Pulled with the task feed.** The phone already pages through
+  `GET /api/sync/tasks?since=` for My Day. It folds every `note`-type document
+  into a local `note_view` table the way it folds tasks into `task_view`. The
+  later `UpdatedAt` wins, an equal stamp goes to the higher server timestamp, and
+  a `DeletedAt` hides the row. The note pull keeps its own cursor beside
+  `task_view`'s, so neither view's progress depends on the other's. The task fold
+  skips `note` documents. The Notes tab reads `note_view` and searches it on the
+  phone.
+- **Pushed through the outbox.** A note the phone creates or edits is written
+  into `note_view` at once, then queued as outbox kind `note` and posted whole to
+  `POST /api/sync/tasks`. It keeps the order, backoff and waiting marker of every
+  other outbox entry. A retry sends the same id, so the replica's whole-document
+  upsert makes it idempotent. Each edit is an entry of its own, so two edits made
+  offline go out in order. An edit is never stamped earlier than the copy it
+  replaces, so a phone clock behind the desktop's cannot undo it.
+- **The desktop owns triage.** The desktop's merge hands each `note` document to
+  the Inbox's note port, which creates the item or applies the later edit by the
+  note's own `edited_at`. On every push the desktop sends each live note it
+  changed itself and has not pushed yet, as a note document. That is a flag on
+  the note rather than a watermark, because a note's stamp may come from the
+  phone's clock. A note it only pulled is never sent back. A change made here is
+  stamped after the copy it replaces, whatever the two clocks say. When the desktop
+  archives or deletes a note, the acknowledgement outbox pushes the note's
+  tombstone as a `note` document, and the phone drops the row on its next pull. A
+  phone edit that arrives after the archive or the deletion leaves it standing
+  and owes the tombstone again, under a later stamp, so the phone drops the note
+  anyway. A deleted note's id is kept, so no later copy makes it again.
+  The phone never pushes a tombstone, because it never archives an item.
+- **Files keep their own path.** A note's photos and files travel as
+  **Capture Attachments** describes: each is uploaded before the note document
+  that names it, and the desktop fetches it from the attachment store. An edit
+  uploads only the files it added. The service releases a note's files when it
+  takes the note's tombstone, as it does a capture's.

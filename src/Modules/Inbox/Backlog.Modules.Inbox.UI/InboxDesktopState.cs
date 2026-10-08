@@ -558,6 +558,20 @@ public sealed class InboxDesktopState
     public Task ArchiveAsync() =>
         DecideAsync(item => _inbox.ArchiveAsync(item.Id));
 
+    /// <summary>Changes the selected note's title and body, the edit that reaches
+    /// the phone on the next sync (<c>.devbook/domain/inbox/features.md#notes-on-the-desktop</c>).
+    /// Answers whether it was saved; a refusal is reported as every other act's
+    /// is, and leaves the editor open with what was typed.</summary>
+    public async Task<bool> EditNoteAsync(string title, string? bodyMd)
+    {
+        if (SelectedItem is not { } item) return false;
+
+        if (Report(await _inbox.EditNoteAsync(item.Id, title, bodyMd))) return false;
+
+        await ReloadAsync();
+        return true;
+    }
+
     /// <summary>Deletes the selected item for good. The detail confirms first;
     /// the reload then finds the item gone and clears the selection.</summary>
     public async Task DeleteAsync()
