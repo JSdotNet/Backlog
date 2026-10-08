@@ -446,6 +446,40 @@ public sealed class DeliveryRunReaderTests : IDisposable
         Assert.Null(runs["run-strings"].RunContext);
     }
 
+    /// <summary>A stage's scenario evidence is read per part; an entry that is not
+    /// an object, or names neither a page nor a part, is skipped rather than drawn
+    /// as an empty row.</summary>
+    [Fact]
+    public async Task A_stage_s_scenario_evidence_is_read_per_part()
+    {
+        GivenRun("backlog", "Backlog-43b9057e", "run-evidence.json", """
+            {
+              "id": "run-evidence",
+              "skillId": "flow-code",
+              "status": "in_progress",
+              "stages": [
+                { "name": "Verify", "status": "done", "evidence": [
+                  { "stem": "set-up-and-fill-the-backlog", "part": "statuses-are-set-up", "outcome": "passed", "runAt": "2026-10-07T08:30:00Z" },
+                  "not an object",
+                  { "outcome": "passed" },
+                  { "stem": "set-up-and-fill-the-backlog", "part": "an-item-is-moved", "outcome": "not-run" }
+                ] },
+                { "name": "Spec Check", "status": "pending", "evidence": "none" }
+              ]
+            }
+            """);
+
+        var run = Assert.Single((await ReadAsync()).Runs);
+
+        Assert.Equal(
+            [
+                new DeliveryScenarioEvidence("set-up-and-fill-the-backlog", "statuses-are-set-up", "passed", "2026-10-07T08:30:00Z"),
+                new DeliveryScenarioEvidence("set-up-and-fill-the-backlog", "an-item-is-moved", "not-run", null)
+            ],
+            run.Stages[0].Evidence);
+        Assert.Empty(run.Stages[1].Evidence);
+    }
+
     [Fact]
     public async Task Both_dashboards_are_read_and_say_which_they_are()
     {

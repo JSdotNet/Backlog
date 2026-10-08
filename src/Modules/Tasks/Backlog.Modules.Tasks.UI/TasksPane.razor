@@ -3518,6 +3518,22 @@
                     </span>
                 }
 
+                @* The scenario parts the references stand for, as the entry's
+                   acceptance checklist: a part itself, every part of a scenario
+                   page, or the parts a requirement's Proved by: lines name. Read
+                   only — "Proved" is a signal, and the entry's status stays where
+                   a person put it. *@
+                @if (ScenarioAcceptance.From(references) is { Total: > 0 } acceptance)
+                {
+                    <div class="entry-doc__acceptance">
+                        <ScenarioPartChecklist Parts="@ChecklistParts(acceptance)"
+                                               Heading="Acceptance"
+                                               ShowProved="true"
+                                               OnOpen="@AcceptanceOpener(row)"
+                                               TestId="entry-acceptance" />
+                    </div>
+                }
+
                 <Alert Message="@row.DevbookReferenceError" BaseClass="entry-doc__devbook-refusal" TestId="entry-devbook-error" />
 
                 @if (IsPickerOpen(SchedulePicker.Devbook))
@@ -3683,6 +3699,25 @@
             DevbookReferenceState.OutsideDevbook => "Not in a devbook folder of this repository.",
             _ => null
         };
+
+    /// <summary>The acceptance checklist's rows: part, state, page, last run.</summary>
+    private static IReadOnlyList<ScenarioChecklistPart> ChecklistParts(ScenarioAcceptance acceptance) =>
+        [
+            .. acceptance.Parts.Select(part => new ScenarioChecklistPart(
+                part.Title,
+                part.State.ToWire(),
+                part.PageTitle,
+                part.LastRun is { } ranAt ? $"Ran {ranAt.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture)}" : null,
+                part.Reference))
+        ];
+
+    /// <summary>Opens a checklist part in the Devbook pane, at the part — or
+    /// nothing, when the host wired no opener.</summary>
+    private EventCallback<string> AcceptanceOpener(EntryRow row) =>
+        OnOpenDevbookReference.HasDelegate
+            ? EventCallback.Factory.Create<string>(this, value =>
+                OnOpenDevbookReference.InvokeAsync(new DevbookReferenceRequest(State.DevbookRepositoryAliasFor(row), value)))
+            : default;
 
     /// <summary>The chip's opener, or none: when the host wired nothing, and for a
     /// reference to no page, which the Devbook pane could only refuse. A heading

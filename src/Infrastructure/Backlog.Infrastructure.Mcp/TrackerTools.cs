@@ -643,7 +643,9 @@ public sealed class TrackerTools(
         "Replaces the whole list of Devbook pages and chapters one backlog entry points at, and answers the list "
         + "resolved. Send every reference the entry should keep - an empty list clears them; to add one, send the "
         + "current list (list_devbook_references) with it appended. Existence is not checked on write: a reference "
-        + "to a page or heading that is not there is kept and comes back with a broken state.")]
+        + "to a page or heading that is not there is kept and comes back with a broken state. A part of a scenario "
+        + "page is referenced as <page>.md#<part> and comes back with its run state, as list_devbook_references "
+        + "answers it.")]
     public async Task<DevbookReferencesPayload> SetDevbookReferencesAsync(
         [Description("The entry's id, as a GUID.")]
         Guid id,
@@ -674,7 +676,10 @@ public sealed class TrackerTools(
         + "devbook as it stands now: chapter or page when found, with its title and the chapter's status; "
         + "unknown-heading, unknown-page or outside-devbook when the link is broken - a chapter renamed since, "
         + "a page that is gone, a path under no devbook folder; unverified when the devbook could not be read. "
-        + "Read-only.")]
+        + "A reference to a scenario page part (<page>.md#<part>), a whole scenario page, or a requirement whose "
+        + "Proved by: lines name parts carries parts: each part's run state (passed, failed, stale, never-run) and "
+        + "last run; acceptance counts them and says proved when every part passed on a current signature. "
+        + "Proved never changes the entry's status. Read-only.")]
     public async Task<DevbookReferencesPayload> ListDevbookReferencesAsync(
         [Description("The entry's id, as a GUID.")]
         Guid id,
@@ -697,7 +702,10 @@ public sealed class TrackerTools(
             .ResolveAsync(scope.Alias, entry.DevbookReferences, cancellationToken)
             .ConfigureAwait(false);
 
-        return new DevbookReferencesPayload(entry.Id, scope.Id, [.. resolved.Select(Projections.DevbookReference)]);
+        return new DevbookReferencesPayload(entry.Id, scope.Id, [.. resolved.Select(Projections.DevbookReference)])
+        {
+            Acceptance = Projections.Acceptance(ScenarioAcceptance.From(resolved))
+        };
     }
 
     /// <summary>The entry, or the refusal that names the id. One read of the port

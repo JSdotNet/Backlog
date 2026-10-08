@@ -264,6 +264,13 @@ public sealed record DeliveryRunStage(string Name, string Status, long? Duration
     /// is.
     /// </summary>
     public string? Execution { get; init; }
+
+    /// <summary>
+    /// The scenario page parts the stage ran, as its last <c>update_stage</c> with
+    /// <c>evidence</c> reported them — one per part, in the order sent — or empty
+    /// where the stage reported none.
+    /// </summary>
+    public IReadOnlyList<DeliveryScenarioEvidence> Evidence { get; init; } = [];
 }
 
 /// <summary>

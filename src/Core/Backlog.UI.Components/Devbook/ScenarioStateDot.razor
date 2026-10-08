@@ -1,0 +1,44 @@
+@*
+    The four-state dot of a scenario page or part: passed, failed, stale, never run.
+    Told apart by shape as well as colour — a filled disc, a filled diamond, a ring,
+    a dashed ring — so the state reads without colour, and named to a screen reader,
+    since a dot alone says nothing to one (.devbook/design/accessibility.md, "Names
+    & roles"). Any word but the four, a run's not-run among them, is never run.
+*@
+<span class="devbook-scenario-dot devbook-scenario-dot--@Slug"
+      role="img"
+      aria-label="@AccessibleName"
+      title="@Label"
+      data-testid="@TestId"
+      data-state="@Slug"></span>
+
+@code {
+    /// <summary><c>passed</c>, <c>failed</c>, <c>stale</c> or <c>never-run</c>.</summary>
+    [Parameter, EditorRequired]
+    public string? State { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "devbook-scenario-dot";
+
+    private string Slug => SlugOf(State);
+
+    private string Label => Slug switch
+    {
+        "passed" => "Passed",
+        "failed" => "Failed",
+        "stale" => "Stale",
+        _ => "Never run"
+    };
+
+    private string AccessibleName => $"Scenario {Label.ToLowerInvariant()}";
+
+    /// <summary>The dot's state for a state word.</summary>
+    public static string SlugOf(string? state) =>
+        state?.Trim().ToLowerInvariant() switch
+        {
+            "passed" => "passed",
+            "failed" => "failed",
+            "stale" => "stale",
+            _ => "never-run"
+        };
+}

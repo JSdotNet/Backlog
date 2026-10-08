@@ -202,7 +202,7 @@ public class McpToolCreationTests
             ["worktree", "runId", "changeKind", "approval", "approvalNote", "model", "runContext"],
             schemas["set_run_context"]);
         Assert.Equal(
-            ["worktree", "runId", "stageIndex", "status", "output", "links", "scenarios", "monitoring", "execution"],
+            ["worktree", "runId", "stageIndex", "status", "output", "links", "scenarios", "monitoring", "execution", "evidence"],
             schemas["update_stage"]);
         Assert.Equal(["worktree", "runId", "status", "summary", "verdicts"], schemas["finish_run"]);
         Assert.Equal(["worktree"], schemas["list_runs"]);

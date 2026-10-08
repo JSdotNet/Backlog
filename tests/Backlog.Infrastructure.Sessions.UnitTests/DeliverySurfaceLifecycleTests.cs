@@ -288,6 +288,44 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
         Assert.Equal("No errors during the run", stage["monitoring"]!["summary"]!.GetValue<string>());
     }
 
+    /// <summary>
+    /// A verify stage's scenario evidence (BL2) is kept on the stage, one entry per
+    /// part, and read back onto the stage — so the Sessions pane can show it per
+    /// part. A later call without evidence keeps it.
+    /// </summary>
+    [Fact]
+    public async Task A_verify_stage_keeps_its_scenario_evidence_per_part()
+    {
+        var surface = Surface();
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+
+        await surface.UpdateStageAsync(
+            Worktree,
+            started.RunId,
+            2,
+            "done",
+            evidence:
+            [
+                new DeliveryScenarioEvidence("set-up-and-fill-the-backlog", "statuses-are-set-up", "passed", "2026-10-07T08:30:00Z"),
+                new DeliveryScenarioEvidence("set-up-and-fill-the-backlog", "an-item-is-moved", "failed", "2026-10-07T08:30:00Z")
+            ],
+            cancellationToken: TestContext.Current.CancellationToken);
+        await surface.UpdateStageAsync(Worktree, started.RunId, 2, "done", "Again.", cancellationToken: TestContext.Current.CancellationToken);
+
+        var stage = StageOf(started.RunId, 2);
+        Assert.Equal("an-item-is-moved", stage["evidence"]![1]!["part"]!.GetValue<string>());
+        Assert.Equal("2026-10-07T08:30:00Z", stage["evidence"]![1]!["runAt"]!.GetValue<string>());
+
+        var run = Assert.Single(await surface.ListRunsAsync(Worktree, TestContext.Current.CancellationToken));
+        Assert.Equal(
+            [
+                new DeliveryScenarioEvidence("set-up-and-fill-the-backlog", "statuses-are-set-up", "passed", "2026-10-07T08:30:00Z"),
+                new DeliveryScenarioEvidence("set-up-and-fill-the-backlog", "an-item-is-moved", "failed", "2026-10-07T08:30:00Z")
+            ],
+            run.Stages[2].Evidence);
+        Assert.Empty(run.Stages[0].Evidence);
+    }
+
     [Fact]
     public async Task The_first_prompt_recorded_is_what_links_a_run_back_to_its_plan_item()
     {

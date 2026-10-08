@@ -1,0 +1,80 @@
+@*
+    Scenario parts as a checklist: one row per part with the four-state dot, the
+    part, the page it belongs to and when it last ran, under a count of how many
+    pass. What a task shows as its acceptance evidence, and what a delivery run
+    shows against the verify stage that ran them.
+
+    The dot is the Devbook pane's own (ScenarioStateDot), told apart by shape
+    as well as colour and named to a screen reader, so a part reads the same in the
+    knowledge view, on a task and on a run.
+
+    "Proved" is said only when the host asks for it (ShowProved) and every part
+    passed — a part that passed on a page edited since is stale, not passed, so the
+    host has already folded the signature into the state. It is a badge and nothing
+    else: the checklist moves nothing.
+*@
+
+@if (Parts.Count > 0)
+{
+    <section class="scenario-checklist" aria-label="@Heading" data-testid="@TestId">
+        <header class="scenario-checklist__head">
+            <span class="scenario-checklist__heading">@Heading</span>
+            <span class="scenario-checklist__count" data-testid="@($"{TestId}-count")">@Summary</span>
+            @if (ShowProved && IsProved)
+            {
+                <span class="badge badge--scenario-proved scenario-checklist__proved"
+                      title="Every part passed on the page as it stands. This does not move the item."
+                      data-testid="@($"{TestId}-proved")">Proved</span>
+            }
+        </header>
+        <ul class="scenario-checklist__list">
+            @foreach (var part in Parts)
+            {
+                var slug = ScenarioStateDot.SlugOf(part.State);
+                <li class="scenario-checklist__row" @key="part.Key" data-state="@slug" data-testid="@($"{TestId}-part")">
+                    <ScenarioStateDot State="@slug" TestId="@null" />
+                    @if (OnOpen.HasDelegate && part.Reference is { Length: > 0 } reference)
+                    {
+                        <button type="button"
+                                class="scenario-checklist__part scenario-checklist__part--link"
+                                title="@reference"
+                                @onclick="() => OnOpen.InvokeAsync(reference)">@part.Title</button>
+                    }
+                    else
+                    {
+                        <span class="scenario-checklist__part" title="@part.Reference">@part.Title</span>
+                    }
+                    <span class="scenario-checklist__page">@part.Page</span>
+                    <span class="scenario-checklist__run">@(part.LastRun ?? "Never run")</span>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@code {
+    /// <summary>The parts, in the order to list them.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<ScenarioChecklistPart> Parts { get; set; } = [];
+
+    /// <summary>What the list is, as its heading and accessible name.</summary>
+    [Parameter]
+    public string Heading { get; set; } = "Acceptance";
+
+    /// <summary>Whether to say "Proved" when every part passed.</summary>
+    [Parameter]
+    public bool ShowProved { get; set; }
+
+    /// <summary>Opens a part by its reference; with none, a part is plain text.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpen { get; set; }
+
+    [Parameter]
+    public string TestId { get; set; } = "scenario-checklist";
+
+    private int Passing => Parts.Count(part => ScenarioStateDot.SlugOf(part.State) == "passed");
+
+    private bool IsProved => Parts.Count > 0 && Passing == Parts.Count;
+
+    private string Summary => $"{Passing} of {Parts.Count} passing";
+}

@@ -150,6 +150,72 @@ public class DevbookReferenceToolsTests
         Assert.Empty(entries.Saves);
     }
 
+    private const string ScenarioPage = ".devbook/domain/work/set-up-and-fill-the-backlog.md";
+
+    private static ScenarioPartEvidence Part(string anchor, string title, ScenarioPartState state) =>
+        new($"{ScenarioPage}#{anchor}", ScenarioPage, "Set up and fill the backlog", "set-up-and-fill-the-backlog", anchor, title, state,
+            new DateTimeOffset(2026, 10, 7, 8, 30, 0, TimeSpan.Zero));
+
+    [Fact]
+    public async Task Setting_a_scenario_part_answers_it_with_its_run_state()
+    {
+        var id = Guid.NewGuid();
+        var reference = $"{ScenarioPage}#an-item-is-moved";
+        var resolver = new FakeDevbookReferenceResolver(
+            new ResolvedDevbookReference(reference, ScenarioPage, "an-item-is-moved", DevbookReferenceState.Chapter, "An item is moved", null, "domain")
+            {
+                ScenarioParts = [Part("an-item-is-moved", "An item is moved", ScenarioPartState.Failed)]
+            });
+        var entries = new FakeTaskItems(Entries.Entry("The one", id: id));
+
+        var answer = await Tools(entries, resolver).SetDevbookReferencesAsync(id, "JSdotNet/Backlog", [reference], TestContext.Current.CancellationToken);
+
+        Assert.Equal([reference], Assert.Single(entries.DevbookReferenceWrites).References);
+        var part = Assert.Single(Assert.Single(answer.References).Parts!);
+        Assert.Equal(
+            new ScenarioPartPayload(reference, ScenarioPage, "Set up and fill the backlog", "set-up-and-fill-the-backlog", "an-item-is-moved",
+                "An item is moved", "failed", new DateTimeOffset(2026, 10, 7, 8, 30, 0, TimeSpan.Zero)),
+            part);
+        Assert.Equal(new AcceptancePayload(0, 1, false, "0 of 1 passing"), answer.Acceptance);
+    }
+
+    /// <summary>Proved is a signal: listing a proved entry reads it and moves
+    /// nothing — no save, so no status change.</summary>
+    [Fact]
+    public async Task Listing_a_proved_entry_says_so_and_leaves_its_status_alone()
+    {
+        var id = Guid.NewGuid();
+        var resolver = new FakeDevbookReferenceResolver(
+            new ResolvedDevbookReference(ScenarioPage, ScenarioPage, null, DevbookReferenceState.Page, "Set up and fill the backlog", null, "domain")
+            {
+                ScenarioParts =
+                [
+                    Part("statuses-are-set-up", "Statuses are set up", ScenarioPartState.Passed),
+                    Part("an-item-is-moved", "An item is moved", ScenarioPartState.Passed)
+                ]
+            });
+        var entries = new FakeTaskItems(Entries.Entry("The one", id: id, devbookReferences: [ScenarioPage]));
+
+        var answer = await Tools(entries, resolver).ListDevbookReferencesAsync(id, "JSdotNet/Backlog", TestContext.Current.CancellationToken);
+
+        Assert.Equal(["passed", "passed"], Assert.Single(answer.References).Parts!.Select(part => part.State));
+        Assert.Equal(new AcceptancePayload(2, 2, true, "2 of 2 passing"), answer.Acceptance);
+        Assert.Empty(entries.Saves);
+        Assert.Empty(entries.DevbookReferenceWrites);
+    }
+
+    [Fact]
+    public async Task References_that_stand_for_no_scenario_part_carry_no_acceptance()
+    {
+        var id = Guid.NewGuid();
+        var tools = Tools(new FakeTaskItems(Entries.Entry("The one", id: id, devbookReferences: [Chapter])), new FakeDevbookReferenceResolver(ChapterAnswer));
+
+        var answer = await tools.ListDevbookReferencesAsync(id, "JSdotNet/Backlog", TestContext.Current.CancellationToken);
+
+        Assert.Null(Assert.Single(answer.References).Parts);
+        Assert.Null(answer.Acceptance);
+    }
+
     [Fact]
     public async Task Listing_an_unknown_entry_is_refused()
     {

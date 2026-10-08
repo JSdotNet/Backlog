@@ -357,6 +357,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         IReadOnlyList<DeliveryScenario>? scenarios = null,
         DeliveryMonitoring? monitoring = null,
         JsonObject? execution = null,
+        IReadOnlyList<DeliveryScenarioEvidence>? evidence = null,
         CancellationToken cancellationToken = default)
     {
         if (!DeliveryStageStatuses.Requestable.Contains(status, StringComparer.Ordinal))
@@ -430,6 +431,17 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
                 ["status"] = scenario.Status,
                 ["notes"] = scenario.Notes,
                 ["evidence"] = new JsonArray([.. (scenario.Evidence ?? []).Select(path => (JsonNode)JsonValue.Create(path)!)])
+            })]);
+        }
+
+        if (evidence is not null)
+        {
+            stage["evidence"] = new JsonArray([.. evidence.Select(part => (JsonNode)new JsonObject
+            {
+                ["stem"] = part.Stem,
+                ["part"] = part.Part,
+                ["outcome"] = part.Outcome,
+                ["runAt"] = part.RunAt
             })]);
         }
 

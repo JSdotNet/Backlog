@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.Devbook.Scenarios;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
@@ -423,6 +424,208 @@ public sealed class DevbookReferenceResolverTests : IDisposable
     /// <summary>The caller's context, recognisable when the folder port is asked
     /// on it.</summary>
     private sealed class MarkedContext : SynchronizationContext;
+
+    // --- scenario parts -------------------------------------------------------
+
+    private const string ScenarioPagePath = ".devbook/domain/work/set-up-and-fill-the-backlog.md";
+
+    private const string ScenarioMarkdown = """
+        # Set up and fill the backlog
+
+        ```meta
+        type: scenario
+        ```
+
+        ## Statuses are set up
+        - **Given** a product "Webshop"
+
+        ## An item is moved
+        - **When** I drag it to "Doing"
+        """;
+
+    private const string RequirementsPath = ".devbook/domain/work/requirements.md";
+
+    private const string RequirementsMarkdown = """
+        # Requirements
+
+        ## Requirement: Columns follow the status order
+
+        ```meta
+        type: requirement
+        ```
+
+        ### Scenario: Statuses are set up
+
+        Proved by: set-up-and-fill-the-backlog.md#statuses-are-set-up
+
+        ### Scenario: An item is moved
+
+        Proved by: ./set-up-and-fill-the-backlog.md#an-item-is-moved
+        """;
+
+    /// <summary>The page's signature now, as the run reporter would have
+    /// recorded it.</summary>
+    private string CurrentSignature() =>
+        ScenarioSignature.OfPage(ScenarioPageParser.Parse(ScenarioMarkdown, ScenarioPagePath), _root, ScenarioPageParser.ScenarioFolder);
+
+    private void WriteRun(string signature, string first, string second) =>
+        Write($".devbook/scenarios/set-up-and-fill-the-backlog/run.json", $$"""
+            {
+              "version": 2,
+              "page": "{{ScenarioPagePath}}",
+              "signature": "{{signature}}",
+              "ranAt": "2026-10-07T08:30:00Z",
+              "parts": [
+                { "title": "Statuses are set up", "anchor": "statuses-are-set-up", "outcome": "{{first}}" },
+                { "title": "An item is moved", "anchor": "an-item-is-moved", "outcome": "{{second}}" }
+              ]
+            }
+            """);
+
+    [Fact]
+    public async Task A_part_of_a_scenario_page_answers_with_its_run_state()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown);
+        WriteRun(CurrentSignature(), "passed", "failed");
+
+        var answer = await ResolveOne($"{ScenarioPagePath}#an-item-is-moved");
+
+        Assert.Equal(DevbookReferenceState.Chapter, answer.State);
+        var part = Assert.Single(answer.ScenarioParts);
+        Assert.Equal($"{ScenarioPagePath}#an-item-is-moved", part.Reference);
+        Assert.Equal("An item is moved", part.Title);
+        Assert.Equal("Set up and fill the backlog", part.PageTitle);
+        Assert.Equal("set-up-and-fill-the-backlog", part.Stem);
+        Assert.Equal(ScenarioPartState.Failed, part.State);
+        Assert.Equal(new DateTimeOffset(2026, 10, 7, 8, 30, 0, TimeSpan.Zero), part.LastRun);
+    }
+
+    [Fact]
+    public async Task A_whole_scenario_page_stands_for_every_part()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown);
+        WriteRun(CurrentSignature(), "passed", "passed");
+
+        var answer = await ResolveOne(ScenarioPagePath);
+
+        Assert.Equal(["statuses-are-set-up", "an-item-is-moved"], answer.ScenarioParts.Select(part => part.Anchor));
+        Assert.All(answer.ScenarioParts, part => Assert.Equal(ScenarioPartState.Passed, part.State));
+        Assert.True(ScenarioAcceptance.From([answer]).IsProved);
+    }
+
+    /// <summary>A part that passed on a page edited since is stale, not passed — so
+    /// the entry is not proved.</summary>
+    [Fact]
+    public async Task A_run_on_an_older_signature_makes_every_part_stale()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown);
+        WriteRun("00000000", "passed", "passed");
+
+        var answer = await ResolveOne(ScenarioPagePath);
+
+        Assert.All(answer.ScenarioParts, part => Assert.Equal(ScenarioPartState.Stale, part.State));
+        Assert.False(ScenarioAcceptance.From([answer]).IsProved);
+    }
+
+    [Fact]
+    public async Task A_scenario_page_with_no_run_has_parts_never_run()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown);
+
+        var answer = await ResolveOne($"{ScenarioPagePath}#statuses-are-set-up");
+
+        var part = Assert.Single(answer.ScenarioParts);
+        Assert.Equal(ScenarioPartState.NeverRun, part.State);
+        Assert.Null(part.LastRun);
+    }
+
+    [Fact]
+    public async Task A_requirement_stands_for_the_parts_its_proved_by_lines_name()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown);
+        Write(RequirementsPath, RequirementsMarkdown);
+        WriteRun(CurrentSignature(), "passed", "failed");
+
+        var answer = await ResolveOne($"{RequirementsPath}#requirement-columns-follow-the-status-order");
+
+        Assert.Equal(DevbookReferenceState.Chapter, answer.State);
+        Assert.Equal(
+            [("statuses-are-set-up", ScenarioPartState.Passed), ("an-item-is-moved", ScenarioPartState.Failed)],
+            answer.ScenarioParts.Select(part => (part.Anchor, part.State)));
+    }
+
+    [Fact]
+    public async Task A_part_named_by_a_page_and_by_a_requirement_counts_once()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown);
+        Write(RequirementsPath, RequirementsMarkdown);
+        WriteRun(CurrentSignature(), "passed", "passed");
+
+        var answers = await Resolver().ResolveAsync(
+            Alias,
+            [$"{ScenarioPagePath}#statuses-are-set-up", $"{RequirementsPath}#requirement-columns-follow-the-status-order"],
+            TestContext.Current.CancellationToken);
+
+        var acceptance = ScenarioAcceptance.From(answers);
+        Assert.Equal(2, acceptance.Total);
+        Assert.Equal("2 of 2 passing", acceptance.Summary);
+        Assert.True(acceptance.IsProved);
+    }
+
+    [Fact]
+    public async Task An_ordinary_chapter_and_a_page_outside_the_domain_stand_for_no_part()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown);
+
+        var answers = await Resolver().ResolveAsync(
+            Alias,
+            [$"{TasksPage}#task-item", BuildingBlocksPage, $"{ScenarioPagePath}#renamed-away"],
+            TestContext.Current.CancellationToken);
+
+        Assert.All(answers, answer => Assert.Empty(answer.ScenarioParts));
+    }
+
+    /// <summary>A bare stem two scenario pages share names neither, as the checker
+    /// reports it; the requirement's other pointers still count.</summary>
+    [Fact]
+    public async Task An_ambiguous_stem_names_no_part_and_costs_only_its_own_pointer()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown);
+        Write(".devbook/domain/other/set-up-and-fill-the-backlog.md", ScenarioMarkdown);
+        Write(RequirementsPath, RequirementsMarkdown);
+        WriteRun(CurrentSignature(), "passed", "passed");
+
+        var answer = await ResolveOne($"{RequirementsPath}#requirement-columns-follow-the-status-order");
+
+        // "set-up-and-fill-the-backlog.md#…" is ambiguous; "./set-up-…" is not.
+        Assert.Equal(["an-item-is-moved"], answer.ScenarioParts.Select(part => part.Anchor));
+    }
+
+    [Fact]
+    public async Task A_run_that_does_not_parse_leaves_the_parts_never_run()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown);
+        Write(".devbook/scenarios/set-up-and-fill-the-backlog/run.json", "{ not json");
+
+        var answer = await ResolveOne(ScenarioPagePath);
+
+        Assert.Equal(2, answer.ScenarioParts.Count);
+        Assert.All(answer.ScenarioParts, part => Assert.Equal(ScenarioPartState.NeverRun, part.State));
+    }
+
+    /// <summary>Two pages sharing a stem share a run folder; a run that names
+    /// another page is not this page's.</summary>
+    [Fact]
+    public async Task A_run_that_names_another_page_is_not_this_page_s()
+    {
+        const string twin = ".devbook/domain/other/set-up-and-fill-the-backlog.md";
+        Write(twin, ScenarioMarkdown);
+        WriteRun(CurrentSignature(), "passed", "passed");
+
+        var answer = await ResolveOne($"{twin}#statuses-are-set-up");
+
+        Assert.Equal(ScenarioPartState.NeverRun, Assert.Single(answer.ScenarioParts).State);
+    }
 
     // --- plumbing -------------------------------------------------------------
 

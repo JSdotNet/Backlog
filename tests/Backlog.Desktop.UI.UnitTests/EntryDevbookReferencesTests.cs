@@ -253,6 +253,107 @@ public sealed class EntryDevbookReferencesTests
         pane.WaitForAssertion(() => Assert.Equal(new DevbookReferenceRequest("docs", TaskChapter), asked));
     }
 
+    // --- the acceptance checklist ----------------------------------------------
+
+    private const string ScenarioPage = ".devbook/domain/work/set-up-and-fill-the-backlog.md";
+    private const string Requirement = ".devbook/domain/work/requirements.md#requirement-columns-follow-the-status-order";
+
+    private static ScenarioPartEvidence Part(string anchor, string title, ScenarioPartState state, bool ran = true) =>
+        new($"{ScenarioPage}#{anchor}", ScenarioPage, "Set up and fill the backlog", "set-up-and-fill-the-backlog", anchor, title, state,
+            ran ? new DateTimeOffset(2026, 10, 7, 8, 30, 0, TimeSpan.Zero) : null);
+
+    [Fact]
+    public async Task Scenario_parts_are_an_acceptance_checklist_with_how_many_pass()
+    {
+        var devbook = new FakeDevbookReferenceResolver()
+            .Chapter(TaskChapter, "Task")
+            .Scenario($"{ScenarioPage}#statuses-are-set-up", "Statuses are set up", Part("statuses-are-set-up", "Statuses are set up", ScenarioPartState.Passed))
+            .Scenario(Requirement, "Requirement: Columns follow the status order",
+                Part("statuses-are-set-up", "Statuses are set up", ScenarioPartState.Passed),
+                Part("an-item-is-moved", "An item is moved", ScenarioPartState.Stale),
+                Part("a-new-item-lands-in-backlog", "A new item lands in Backlog", ScenarioPartState.NeverRun, ran: false));
+        using var host = await TasksPaneHost.CreateAsync(devbook, Repositories);
+        var row = await host.WriteEntryAsync(Entry);
+        await host.State.SetDevbookReferencesAsync(row, [TaskChapter, $"{ScenarioPage}#statuses-are-set-up", Requirement]);
+
+        var pane = host.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            var list = pane.Find("[data-testid='entry-acceptance']");
+            Assert.Equal("Acceptance", list.GetAttribute("aria-label"));
+
+            // A part named by its page and by the requirement is one row.
+            Assert.Equal("1 of 3 passing", pane.Find("[data-testid='entry-acceptance-count']").TextContent.Trim());
+            Assert.Empty(pane.FindAll("[data-testid='entry-acceptance-proved']"));
+
+            var rows = pane.FindAll("[data-testid='entry-acceptance-part']");
+            Assert.Equal(["passed", "stale", "never-run"], rows.Select(part => part.GetAttribute("data-state")));
+            Assert.Equal("Statuses are set up", rows[0].QuerySelector(".scenario-checklist__part")!.TextContent.Trim());
+            Assert.Equal("Set up and fill the backlog", rows[0].QuerySelector(".scenario-checklist__page")!.TextContent.Trim());
+            Assert.StartsWith("Ran ", rows[0].QuerySelector(".scenario-checklist__run")!.TextContent.Trim(), StringComparison.Ordinal);
+            Assert.Equal("Never run", rows[2].QuerySelector(".scenario-checklist__run")!.TextContent.Trim());
+            Assert.Equal("Scenario stale", rows[1].QuerySelector(".devbook-scenario-dot")!.GetAttribute("aria-label"));
+        });
+    }
+
+    /// <summary>Proved is a signal: every part passed, the entry says so, and its
+    /// status stays where it was.</summary>
+    [Fact]
+    public async Task Every_part_passing_says_proved_and_leaves_the_status_alone()
+    {
+        var devbook = new FakeDevbookReferenceResolver()
+            .Scenario(ScenarioPage, "Set up and fill the backlog",
+                Part("statuses-are-set-up", "Statuses are set up", ScenarioPartState.Passed),
+                Part("an-item-is-moved", "An item is moved", ScenarioPartState.Passed));
+        using var host = await TasksPaneHost.CreateAsync(devbook, Repositories);
+        var row = await host.WriteEntryAsync(Entry);
+        await host.State.SetDevbookReferencesAsync(row, [ScenarioPage]);
+        var before = row.Status;
+
+        var pane = host.Render();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("2 of 2 passing", pane.Find("[data-testid='entry-acceptance-count']").TextContent.Trim());
+            Assert.Equal("Proved", pane.Find("[data-testid='entry-acceptance-proved']").TextContent.Trim());
+        });
+        Assert.Equal(before, row.Status);
+    }
+
+    [Fact]
+    public async Task References_that_stand_for_no_scenario_part_draw_no_checklist()
+    {
+        var devbook = new FakeDevbookReferenceResolver().Chapter(TaskChapter, "Task");
+        using var host = await TasksPaneHost.CreateAsync(devbook, Repositories);
+        var row = await host.WriteEntryAsync(Entry);
+        await host.State.SetDevbookReferencesAsync(row, [TaskChapter]);
+
+        var pane = host.Render();
+
+        pane.WaitForAssertion(() => Assert.Equal("Task", pane.Find("[data-testid='entry-devbook-reference'] .devbook-chip__label").TextContent.Trim()));
+        Assert.Empty(pane.FindAll("[data-testid='entry-acceptance']"));
+    }
+
+    [Fact]
+    public async Task Pressing_a_part_opens_it_in_the_devbook()
+    {
+        var devbook = new FakeDevbookReferenceResolver()
+            .Scenario(ScenarioPage, "Set up and fill the backlog", Part("an-item-is-moved", "An item is moved", ScenarioPartState.Failed));
+        using var host = await TasksPaneHost.CreateAsync(devbook, Repositories);
+        var row = await host.WriteEntryAsync(Entry);
+        await host.State.SetDevbookReferencesAsync(row, [ScenarioPage]);
+
+        DevbookReferenceRequest? asked = null;
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.OnOpenDevbookReference, (DevbookReferenceRequest request) => asked = request));
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='entry-acceptance-part'] button.scenario-checklist__part")));
+        await pane.Find("[data-testid='entry-acceptance-part'] button.scenario-checklist__part").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Equal(new DevbookReferenceRequest("backlog", $"{ScenarioPage}#an-item-is-moved"), asked));
+    }
+
     [Fact]
     public async Task A_reference_to_no_page_is_not_offered_as_something_to_open()
     {

@@ -2951,6 +2951,80 @@ button.devbook-chip__label:focus-visible {
     border: var(--border-width) dashed var(--color-text-secondary);
 }
 
+/* Scenario parts as a checklist: a task's acceptance evidence, a run's verify
+   evidence. One row per part — dot, part, page, last run — under a count. */
+.scenario-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.scenario-checklist__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.scenario-checklist__heading { font-weight: 600; }
+
+.scenario-checklist__count { color: var(--color-text-secondary); }
+
+.badge--scenario-proved {
+    background: var(--color-success);
+    color: var(--color-success-text);
+}
+
+/* One grid for the list and a subgrid per row, so the columns line up from
+   row to row and the last run keeps the width it needs. */
+.scenario-checklist__list {
+    display: grid;
+    grid-template-columns: auto minmax(0, 3fr) minmax(0, 2fr) max-content;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.scenario-checklist__row {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: center;
+    min-width: 0;
+}
+
+.scenario-checklist__part {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.scenario-checklist__part--link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.scenario-checklist__part--link:hover,
+.scenario-checklist__part--link:focus-visible { text-decoration: underline; }
+
+.scenario-checklist__page,
+.scenario-checklist__run {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* The run above an open scenario page. */
 .devbook-scenario-page {
     display: flex;

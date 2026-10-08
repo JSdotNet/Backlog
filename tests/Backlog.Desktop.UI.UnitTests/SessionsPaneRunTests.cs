@@ -791,6 +791,69 @@ public sealed class SessionsPaneRunTests
         });
     }
 
+    /// <summary>A verify stage's scenario evidence (BL2) shows under the fold,
+    /// one row per part with the run's outcome as its dot.</summary>
+    [Fact]
+    public void A_verify_stage_shows_its_scenario_evidence_per_part()
+    {
+        var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with
+        {
+            Stages =
+            [
+                new DeliveryRunStage("Build & Test", "done", 125_000, 1),
+                new DeliveryRunStage("Verify", "done", 60_000, 1)
+                {
+                    Evidence =
+                    [
+                        new DeliveryScenarioEvidence("set-up-and-fill-the-backlog", "statuses-are-set-up", "passed", "2026-10-07T08:30:00Z"),
+                        new DeliveryScenarioEvidence("set-up-and-fill-the-backlog", "an-item-is-moved", "not-run", null)
+                    ]
+                }
+            ]
+        };
+
+        using var context = Context([Live], [run]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
+        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var list = Assert.Single(pane.FindAll("[data-testid='sessions-run-evidence-list']"));
+            Assert.Equal("Verify: scenario evidence", list.GetAttribute("aria-label"));
+            Assert.Equal("1 of 2 passing", list.QuerySelector("[data-testid='sessions-run-evidence-list-count']")!.TextContent.Trim());
+
+            var parts = list.QuerySelectorAll("[data-testid='sessions-run-evidence-list-part']");
+            Assert.Equal(["passed", "never-run"], parts.Select(part => part.GetAttribute("data-state")));
+            Assert.Equal("statuses-are-set-up", parts[0].QuerySelector(".scenario-checklist__part")!.TextContent.Trim());
+            Assert.Equal("set-up-and-fill-the-backlog", parts[0].QuerySelector(".scenario-checklist__page")!.TextContent.Trim());
+
+            // A run's evidence is no item: it never says proved.
+            Assert.Empty(list.QuerySelectorAll("[data-testid='sessions-run-evidence-list-proved']"));
+        });
+    }
+
+    [Fact]
+    public void A_run_with_no_evidence_draws_no_evidence_list()
+    {
+        var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with
+        {
+            Stages = [new DeliveryRunStage("Verify", "done", 60_000, 1)]
+        };
+
+        using var context = Context([Live], [run]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
+        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal("true", pane.Find("[data-testid='sessions-run'] .fold__trigger").GetAttribute("aria-expanded")));
+        Assert.Empty(pane.FindAll("[data-testid='sessions-run-evidence']"));
+    }
+
     private static void ShowAll(IRenderedComponent<SessionsPane> pane)
     {
         pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-view-all']")));
