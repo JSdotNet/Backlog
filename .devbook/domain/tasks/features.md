@@ -448,7 +448,10 @@ The filtered tasks can be read three ways, picked in the header's view switch:
 **Tasks**, the list with the open task beside it; the
 [Board](#board-view); and the [Calendar](#calendar-view). The three share one
 filter bar, one open task and one selection, so switching between them never
-loses what the reader narrowed to or was looking at. The filter bar belongs to
+loses what the reader narrowed to or was looking at. Among its filters is the
+[Task Type](domain.md#task-type) — prompt, task, idea or test, one at a time — so
+the Board and the Calendar, its tray of tasks with no due date included, narrow
+by type the way the list does. The filter bar belongs to
 these three and to nothing else in the shell. The view last chosen is the one the
 app reopens on, and Tasks when nothing was remembered. The Inbox and the Devbook
 open beside any of them.
@@ -516,7 +519,7 @@ as the list would. Only the due date places a task here, and the range is a
 month.
 
 The roadmap's plans can be drawn over the month: a **Show plans** choice beside
-the month's name, on until the reader turns it off and remembered on this device.
+the month's name, off until the reader turns it on and remembered on this device.
 Each planned item's window is a bar across the days it spans, cut at every week,
 under the day numbers and above the tasks; plans that overlap in a week each take
 a row of their own, and a bar carried on from the week before opens with "…". A

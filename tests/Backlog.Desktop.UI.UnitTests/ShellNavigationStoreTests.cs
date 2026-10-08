@@ -319,6 +319,70 @@ public sealed class ShellNavigationStoreTests
     }
 
     /// <summary>
+    /// The Calendar's "Show plans" box is off on a device that never chose, and the key
+    /// is written only while it is on — so a missing setting reads as off.
+    /// </summary>
+    [Fact]
+    public void Calendar_plans_are_off_until_turned_on_and_only_on_writes_a_key()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.False(store.CalendarPlansShown);
+
+            store.SetLastSurface("Tools");
+            using (var off = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.False(off.RootElement.TryGetProperty("calendarPlansShown", out _));
+            }
+
+            store.SetCalendarPlansShown(true);
+            using (var on = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.True(on.RootElement.GetProperty("calendarPlansShown").GetBoolean());
+            }
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.True(restarted.CalendarPlansShown);
+            Assert.Equal("Tools", restarted.LastSurface);
+
+            restarted.SetCalendarPlansShown(false);
+            Assert.False(new ShellNavigationStore(path).CalendarPlansShown);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// A file from when the box was on by default says <c>false</c> once the reader
+    /// turned it off; that choice stays off.
+    /// </summary>
+    [Fact]
+    public void A_stored_calendar_plans_off_from_the_old_default_stays_off()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """{"lastView":"Calendar","calendarPlansShown":false}""");
+
+            var store = new ShellNavigationStore(path);
+
+            Assert.False(store.CalendarPlansShown);
+            Assert.Equal("Calendar", store.LastView);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
     /// The roadmap bands folded to one lane survive a restart. The key is written only
     /// while some band is folded, so a file from before folds were kept keeps its shape.
     /// </summary>

@@ -228,6 +228,31 @@
                         </div>
                     }
 
+                    @* What kind of task it is — prompt, task, idea or test. The source
+                       group's shape and for its reason: a task has exactly one type,
+                       so pressing another lets go of the first, and with nothing
+                       pressed the list is already every type. Only the types in view
+                       get a chip, and none at all while there is just one of them.
+                       It narrows the rows every view reads, so the Board and the
+                       Calendar's month and its tray of undated tasks follow it too. *@
+                    @if (State.TypeFilters.Count > 0)
+                    {
+                        <div class="filter-group filter-group--type" role="group" aria-label="Filter by type">
+                            @foreach (var type in State.TypeFilters)
+                            {
+                                <ToggleButton BaseClass="chip chip--filter"
+                                              PressedCssClass="chip--active"
+                                              Pressed="@(State.SelectedType == type.Value)"
+                                              TestId="type-filter-option"
+                                              data-type="@EntryTextParser.TypeToken(type.Value)"
+                                              Title="@(State.SelectedType == type.Value ? "Show every type again" : $"Show only {type.Label.ToLowerInvariant()}s")"
+                                              PressedChanged="pressed => State.SetTypeFilter(pressed ? type.Value : null)">
+                                    @type.Label<span class="chip__count">@type.Count</span>
+                                </ToggleButton>
+                            }
+                        </div>
+                    }
+
                     @* Nothing at all until something in scope carries a tag: the group
                        is built from what people typed, so a backlog with no tags has
                        no third group rather than a dead chip filtering nothing.

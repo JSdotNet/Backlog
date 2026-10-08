@@ -264,6 +264,42 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ApplyFilter();
     }
 
+    /// <summary>
+    /// The task type the view is narrowed to — prompts, tasks, ideas or tests — or
+    /// null for every type. A scope like the source: a task has exactly one type, so
+    /// pressing another lets go of the first, and it narrows the one set of rows the
+    /// list, the Board and the Calendar all read. Held here with the other filters,
+    /// so switching views keeps it.
+    /// </summary>
+    public EntryType? SelectedType { get; private set; }
+
+    /// <summary>The type filter's chips: one per task type in what the scopes ahead
+    /// of it left in view, with how many of those rows are of it, in the type's own
+    /// order. Empty while that is fewer than two types and none is picked, so a
+    /// backlog of one type has no chip that could not narrow anything.</summary>
+    public IReadOnlyList<TypeFilterOption> TypeFilters { get; private set; } = [];
+
+    /// <summary>Narrows the view to one task type, or widens it again for null.</summary>
+    public void SetTypeFilter(EntryType? type)
+    {
+        SelectedType = type;
+        ApplyFilter();
+    }
+
+    private void RebuildTypeFilters(IReadOnlyCollection<EntryRow> scoped)
+    {
+        var counts = scoped.Where(row => row.IsPersisted)
+            .GroupBy(row => row.PreviewType)
+            .ToDictionary(group => group.Key, group => group.Count());
+        if (SelectedType is { } selected) counts.TryAdd(selected, 0);
+
+        TypeFilters = counts.Count < 2 && SelectedType is null
+            ? []
+            : [.. Enum.GetValues<EntryType>()
+                .Where(counts.ContainsKey)
+                .Select(type => new TypeFilterOption(type, type.ToString(), counts[type]))];
+    }
+
     /// <summary>Whether a row is in the source <paramref name="source"/> names.</summary>
     public static bool IsFromSource(EntryRow row, string source) =>
         source == LocalSource
@@ -1224,6 +1260,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             widened = true;
         }
 
+        if (SelectedType is { } type && row.PreviewType != type)
+        {
+            SelectedType = null;
+            widened = true;
+        }
+
         if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire)
             && StatusWire(row.PreviewStatus) != SelectedStatusFilterWire)
         {
@@ -1276,9 +1318,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var seedRepository = AnchorRepositoryAlias.Length > 0 ? AnchorRepositoryAlias : null;
         var seedStatus = status is { } wanted && wanted != EntryStatus.Draft ? wanted : (EntryStatus?)null;
 
-        if (seedRepository is not null || MyDayOn is not null || seedStatus is not null)
+        if (seedRepository is not null || MyDayOn is not null || seedStatus is not null || SelectedType is not null)
         {
-            var tokens = "`task` `*medium` `!draft`";
+            var tokens = $"`{EntryTextParser.TypeToken(SelectedType ?? EntryType.Task)}` `*medium` `!draft`";
             if (seedRepository is not null) tokens += $" `repo:{seedRepository}`";
 
             row.RawText = $"# \n{tokens}\n";
@@ -4875,6 +4917,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             rows = rows.Where(row => IsFromSource(row, source));
         }
 
+        // And the task type, on the same terms again.
+        var typeScopedRows = rows.ToList();
+        RebuildTypeFilters(typeScopedRows);
+        rows = typeScopedRows;
+        if (SelectedType is { } type)
+        {
+            rows = rows.Where(row => row.PreviewType == type);
+        }
+
         // The tag bar is built from what every scope left in view, not the
         // repository scope alone: a tag whose entries a scope took out is a chip
         // that could only ever empty the list. Status and the tags themselves come
@@ -5228,6 +5279,10 @@ public sealed record MetaReading(string Kind, string Value, bool Explicit, strin
 /// <summary>One chip of the Source filter: the value it sets, the name it shows,
 /// and how many tasks it would keep.</summary>
 public sealed record SourceFilterOption(string Value, string Label, int Count);
+
+/// <summary>One chip of the type filter: the task type, its label and how many rows
+/// in scope are of it.</summary>
+public sealed record TypeFilterOption(EntryType Value, string Label, int Count);
 
 public sealed class EntryRow
 {
