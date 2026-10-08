@@ -69,6 +69,70 @@ public sealed class TasksPaneCalendarTests
         });
     }
 
+    /// <summary>The type filter narrows the rows the Calendar reads: its month's chips
+    /// and its tray of tasks with no due date alike, and pressing it again widens both.</summary>
+    [Fact]
+    public async Task The_type_filter_narrows_the_calendars_chips_and_its_undated_tray()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var datedPrompt = await host.WriteEntryAsync($"# Dated prompt\n`prompt` `due:{Iso(Today)}`\n");
+        var datedTask = await host.WriteEntryAsync($"# Dated task\n`task` `due:{Iso(Today)}`\n");
+        var undatedPrompt = await host.WriteEntryAsync("# Undated prompt\n`prompt`\n");
+        var undatedIdea = await host.WriteEntryAsync("# Undated idea\n`idea`\n");
+
+        var pane = RenderCalendar(host);
+        Assert.NotEmpty(pane.FindAll($"[data-testid='{ChipTestId(datedTask)}']"));
+        Assert.NotEmpty(pane.FindAll($"[data-testid='{TrayTestId(undatedIdea)}']"));
+
+        pane.Find("[data-testid='type-filter-option'][data-type='prompt']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(EntryType.Prompt, host.State.SelectedType);
+            Assert.NotEmpty(pane.FindAll($"[data-testid='{ChipTestId(datedPrompt)}']"));
+            Assert.Empty(pane.FindAll($"[data-testid='{ChipTestId(datedTask)}']"));
+            Assert.NotEmpty(pane.FindAll($"[data-testid='{TrayTestId(undatedPrompt)}']"));
+            Assert.Empty(pane.FindAll($"[data-testid='{TrayTestId(undatedIdea)}']"));
+        });
+
+        pane.Find("[data-testid='type-filter-option'][data-type='prompt']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Null(host.State.SelectedType);
+            Assert.NotEmpty(pane.FindAll($"[data-testid='{ChipTestId(datedTask)}']"));
+            Assert.NotEmpty(pane.FindAll($"[data-testid='{TrayTestId(undatedIdea)}']"));
+        });
+    }
+
+    /// <summary>The choice is the shared filter bar's, so it is still there after
+    /// switching to the list and back, as the other filters are.</summary>
+    [Fact]
+    public async Task The_type_filter_is_kept_across_a_switch_of_view()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var prompt = await host.WriteEntryAsync($"# A prompt\n`prompt` `due:{Iso(Today)}`\n");
+        var task = await host.WriteEntryAsync($"# A task\n`task` `due:{Iso(Today)}`\n");
+
+        var pane = RenderCalendar(host);
+        pane.Find("[data-testid='type-filter-option'][data-type='prompt']").Click();
+
+        pane.Render(parameters => parameters.Add(p => p.Layout, TasksLayout.List));
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Contains(prompt, host.State.FilteredRows);
+            Assert.DoesNotContain(task, host.State.FilteredRows);
+            Assert.Equal("true", pane.Find("[data-testid='type-filter-option'][data-type='prompt']").GetAttribute("aria-pressed"));
+        });
+
+        pane.Render(parameters => parameters.Add(p => p.Layout, TasksLayout.Calendar));
+        pane.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(pane.FindAll($"[data-testid='{ChipTestId(prompt)}']"));
+            Assert.Empty(pane.FindAll($"[data-testid='{ChipTestId(task)}']"));
+        });
+    }
+
     [Fact]
     public async Task Overdue_and_done_entries_are_drawn_apart()
     {
@@ -283,6 +347,47 @@ public sealed class TasksPaneCalendarTests
         pane.WaitForAssertion(() => Assert.Empty(pane.FindAll($"[data-testid='{PlanTestId}']")));
     }
 
+    /// <summary>On a device that never chose, the box reads the store's default: off,
+    /// with no plan drawn over the month until it is ticked.</summary>
+    [Fact]
+    public async Task On_a_device_that_never_chose_the_plans_are_off_until_ticked()
+    {
+        using var settings = new TempSettings();
+        using var host = await TasksPaneHost.CreateAsync();
+        var plans = new FakeCalendarPlans(Today, new ShellNavigationStore(settings.Path));
+        host.Context.Services.AddSingleton<ICalendarPlans>(plans);
+
+        var pane = RenderCalendar(host);
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='task-calendar-show-plans']")));
+        Assert.False(pane.Find("[data-testid='task-calendar-show-plans'] input").HasAttribute("checked"));
+        Assert.Empty(pane.FindAll($"[data-testid='{PlanTestId}']"));
+
+        pane.Find("[data-testid='task-calendar-show-plans'] input").Change(true);
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll($"[data-testid='{PlanTestId}']")));
+        Assert.True(new ShellNavigationStore(settings.Path).CalendarPlansShown);
+    }
+
+    /// <summary>A choice already stored survives a restart either way: ticked stays
+    /// ticked, and an untick written while the box was on by default stays off.</summary>
+    [Theory]
+    [InlineData("""{"calendarPlansShown":true}""", true)]
+    [InlineData("""{"calendarPlansShown":false}""", false)]
+    public async Task A_stored_show_plans_choice_survives_a_restart(string file, bool shown)
+    {
+        using var settings = new TempSettings();
+        File.WriteAllText(settings.Path, file);
+        using var host = await TasksPaneHost.CreateAsync();
+        host.Context.Services.AddSingleton<ICalendarPlans>(new FakeCalendarPlans(Today, new ShellNavigationStore(settings.Path)));
+
+        var pane = RenderCalendar(host);
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='task-calendar-show-plans']")));
+        Assert.Equal(shown, pane.Find("[data-testid='task-calendar-show-plans'] input").HasAttribute("checked"));
+        Assert.Equal(shown, pane.FindAll($"[data-testid='{PlanTestId}']").Count > 0);
+    }
+
     /// <summary>The shelf drop: the pane hands the tag and the day to the port — whose
     /// adapter has the roadmap's own import place the window — and draws what it reads
     /// back.</summary>
@@ -328,13 +433,16 @@ public sealed class TasksPaneCalendarTests
 
     /// <summary>A roadmap with one plan through today, a milestone today, and one plan on
     /// the shelf that a start moves onto the plan.</summary>
-    private sealed class FakeCalendarPlans(DateOnly today) : ICalendarPlans
+    private sealed class FakeCalendarPlans(DateOnly today, ShellNavigationStore? store = null) : ICalendarPlans
     {
         private bool _started;
+        private bool _shown = true;
 
         public event Action? Changed;
 
-        public bool Shown { get; private set; } = true;
+        /// <summary>On, unless a store is given — then the store's answer, as the real
+        /// adapter reads it.</summary>
+        public bool Shown => store?.CalendarPlansShown ?? _shown;
 
         public int Reads { get; private set; }
 
@@ -342,7 +450,11 @@ public sealed class TasksPaneCalendarTests
 
         public List<(string Tag, DateOnly Start)> Started { get; } = [];
 
-        public void SetShown(bool shown) => Shown = shown;
+        public void SetShown(bool shown)
+        {
+            if (store is null) _shown = shown;
+            else store.SetCalendarPlansShown(shown);
+        }
 
         public void RaiseChanged() => Changed?.Invoke();
 
@@ -367,6 +479,21 @@ public sealed class TasksPaneCalendarTests
             _started = true;
             Changed?.Invoke();
             return Task.FromResult<string?>(null);
+        }
+    }
+
+    /// <summary>A settings file path of its own, removed again afterwards.</summary>
+    private sealed class TempSettings : IDisposable
+    {
+        private readonly string _directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "backlog-calendar-plans-tests", Guid.NewGuid().ToString("n"));
+
+        public TempSettings() => Directory.CreateDirectory(_directory);
+
+        public string Path => System.IO.Path.Combine(_directory, "shell-navigation.json");
+
+        public void Dispose()
+        {
+            try { Directory.Delete(_directory, recursive: true); } catch (IOException) { }
         }
     }
 }
