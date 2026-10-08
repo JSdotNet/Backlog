@@ -40,5 +40,6 @@ internal static class TaskItemMapper
         entry.SourceInboxId,
         [.. entry.DevbookReferences],
         entry.BlockedSince,
-        entry.SourceRef);
+        entry.SourceRef,
+        entry.AgendaTime);
 }

@@ -1,0 +1,108 @@
+@*
+    One task in a day's list, as a phone draws it: a circle that ticks it off or
+    back on, then the task itself as a link to its detail, its title above one
+    quiet meta line.
+
+    Two controls side by side rather than one row with a tap target inside it,
+    because ticking a task and opening it are two acts, and a thumb aiming for
+    one must not land on the other. The circle is a button that says in words
+    which way a press will go ("Mark done", "Mark not done") — not a pressed
+    toggle as well, whose fixed name would then contradict the words — and the
+    rest of the row is a link, so
+    opening a task is a navigation the back button undoes.
+
+    A ticked row is struck through and says so in its button's words: a strike
+    is not something a screen reader reads.
+
+    Trailing holds what the host knows and the row does not, such as a marker
+    that the change is still waiting to be sent.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" data-done="@(Done ? "true" : "false")" @attributes="AdditionalAttributes">
+    <AppButton BaseClass="day-row__tick" Variant="ButtonVariant.None"
+               aria-label="@(Done ? $"Mark not done: {Title}" : $"Mark done: {Title}")"
+               Disabled="@(!OnToggle.HasDelegate)"
+               OnClick="ToggleAsync"
+               TestId="@PartTestId("tick")">
+        <svg class="day-row__circle" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+            @if (Done)
+            {
+                <circle cx="12" cy="12" r="10" class="day-row__circle-fill" />
+                <path d="M7.5 12.5l3 3 6-6.5" class="day-row__circle-check" />
+            }
+            else
+            {
+                <circle cx="12" cy="12" r="10" class="day-row__circle-ring" />
+            }
+        </svg>
+    </AppButton>
+
+    <a class="day-row__open" href="@Href" data-testid="@PartTestId("open")">
+        <span class="day-row__title" data-testid="@PartTestId("title")">@Title</span>
+        @if (!string.IsNullOrWhiteSpace(Meta))
+        {
+            <span class="day-row__meta" data-testid="@PartTestId("meta")">@Meta</span>
+        }
+    </a>
+
+    @if (Trailing is not null)
+    {
+        <span class="day-row__trailing">@Trailing</span>
+    }
+
+    <svg class="day-row__chevron" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+        <path d="M9 6l6 6-6 6" />
+    </svg>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>One line under the title: when it runs, where it belongs, how
+    /// far through its steps it is. Left out when empty.</summary>
+    [Parameter]
+    public string? Meta { get; set; }
+
+    /// <summary>Ticked off.</summary>
+    [Parameter]
+    public bool Done { get; set; }
+
+    /// <summary>Where the row opens: the task's own page.</summary>
+    [Parameter, EditorRequired]
+    public string Href { get; set; } = string.Empty;
+
+    /// <summary>Raised with the state the person asked for — true to tick it
+    /// off. With nobody listening the circle is drawn and does nothing, and says
+    /// so by being disabled.</summary>
+    [Parameter]
+    public EventCallback<bool> OnToggle { get; set; }
+
+    [Parameter]
+    public RenderFragment? Trailing { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The test id on the row. Its parts get <c>{TestId}-tick</c>,
+    /// <c>-open</c>, <c>-title</c> and <c>-meta</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue
+    {
+        get
+        {
+            var done = Done ? " day-row--done" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"day-row{done}{extra}";
+        }
+    }
+
+    private Task ToggleAsync() => OnToggle.InvokeAsync(!Done);
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+}

@@ -3,10 +3,10 @@
 <PageTitle>Capture kinds — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Capture kinds"
-           Summary="A subpage of Badges: the ten marks a captured thing's kind is drawn as, before anybody has decided what to do with it. The kind is a fact about the content — a video is a video whether the monitor found it, the phone shared it or somebody pasted the link — so it is drawn separately from where the thing came from, which the source badge and the person chip beside it say. Every mark is stroked at 1.6 in currentColor, one shape per kind and no colour per kind: `.devbook/design/color-scheme.md` forbids a red video and a blue document, so the word is always printed beside the mark and the mark is decoration for anyone who can read it."
+           Summary="A subpage of Badges: the eleven marks a captured thing's kind is drawn as, before anybody has decided what to do with it. The kind is a fact about the content — a video is a video whether the monitor found it, the phone shared it or somebody pasted the link — so it is drawn separately from where the thing came from, which the source badge and the person chip beside it say. Every mark is stroked at 1.6 in currentColor, one shape per kind and no colour per kind: `.devbook/design/color-scheme.md` forbids a red video and a blue document, so the word is always printed beside the mark and the mark is decoration for anyone who can read it."
            Guidelines="@Rules">
 
-    <Story Name="The ten kinds"
+    <Story Name="The eleven kinds"
            Description="Every kind the marker draws, with the word it is drawn beside. The first is the plain note every source can produce; the next three are what a link turns out to be once somebody looks; the rest arrive as a file, from a machine, or from a session. Each specimen is labelled here because there is no row around it — in a row, the word is printed and the mark is hidden from assistive technology so nobody hears it twice."
            Code="@SpecimenCode">
         <div class="sb-grid" data-testid="capture-kinds-all">
@@ -64,7 +64,7 @@
     [
         new("typography-and-layout.md#iconography", "The stroke, the size and the rule that an icon inherits its ink through currentColor."),
         new("accessibility.md#iconography-accessibility", "When a mark needs a name of its own, and when naming it would say the word twice."),
-        new("color-scheme.md#badge-and-chip-tones", "Why the ten kinds are ten shapes and not ten hues, and what the source badge's dashed edge means."),
+        new("color-scheme.md#badge-and-chip-tones", "Why the eleven kinds are eleven shapes and not eleven hues, and what the source badge's dashed edge means."),
         new("content-editing.md#structured-metadata-sigils", "The `@` sigil that makes the person chip a person.")
     ];
 
@@ -73,7 +73,8 @@
 
     private static readonly KindMark[] Kinds =
     [
-        new("text", "Three lines of prose. The note, which is the one kind every capture source can produce."),
+        new("text", "Three lines of prose. A passing thought, which is the one kind every capture source can produce."),
+        new("note", "A pad with its two binding rings: a note the person keeps and edits, the one kind that syncs both ways with the phone."),
         new("article", "A page with a headline and two columns under it: something somebody meant to read."),
         new("link", "Two chain links. A URL and nothing yet known about what is behind it."),
         new("youtube", "A rounded frame with the play triangle in it — the one filled shape in the set, because a hollow triangle in a frame reads as a warning sign."),
