@@ -683,12 +683,12 @@ type: requirement
 status: draft
 ```
 
-The system SHALL, when the open slice is empty after decisions this session, show the session's count per decision, the deferred items with a review date coming back soonest first and at most five, and links to the fullest list and to Deferred.
+The system SHALL, when the Inbox has no item still waiting after decisions this session, show the session's count per decision kind with a kind that has none left out, the deferred items with a review date coming back soonest first and at most five, and links to the list with the most waiting items, when one has any, and to Deferred.
 
 #### Scenario: The last item decided
 
 - **Given** the reader moved 9 items to the backlog, filed 7, deferred 3 and archived 4 this session, and seven deferred items have a review date
-- **When** the last open item of the slice is decided
+- **When** the last waiting item of the Inbox is decided
 - **Then** the pane shows those four counts, the five deferred items coming back soonest, and links to the fullest list and to Deferred
 
 #### Scenario: A slice that was already empty

@@ -1884,6 +1884,100 @@ public sealed class InboxDesktopState
     /// <summary>Every decision kind the session made and kept, with its count.</summary>
     public IReadOnlyDictionary<InboxDecisionKind, int> DecisionCounts => _undo.Counts;
 
+    // --- Inbox zero -----------------------------------------------------------
+    //
+    // When the unfiled Inbox has nothing left waiting and this session decided
+    // something, the columns give way to a summary of the session
+    // (features.md#inbox-zero): what was decided, what comes back, and where
+    // to go next. With no decision this session the first-use empty state
+    // stays, because a summary of nothing would say nothing.
+
+    /// <summary>How many coming-back rows the inbox-zero screen lists.</summary>
+    public const int ComingBackLimit = 5;
+
+    /// <summary>The decision kinds the summary counts, in its order, with the
+    /// words under each number. "Link to task" is not one: it leaves the item
+    /// where it was, so it is counted in the session's total and nowhere else.</summary>
+    internal static readonly IReadOnlyList<(InboxDecisionKind Kind, string Label)> ZeroStatKinds =
+    [
+        (InboxDecisionKind.MoveToBacklog, "moved to backlog"),
+        (InboxDecisionKind.MoveToList, "filed in lists"),
+        (InboxDecisionKind.Defer, "deferred"),
+        (InboxDecisionKind.Archive, "archived"),
+        (InboxDecisionKind.MergeIntoTask, "merged"),
+    ];
+
+    /// <summary>Every decision this session made and kept, of every kind.</summary>
+    public int SessionDecisionTotal => _undo.Counts.Values.Sum();
+
+    /// <summary>Whether the inbox-zero screen takes the place of the rows and
+    /// the detail: the unfiled Inbox is open, nothing in it is still waiting,
+    /// and the session has decided something. Not while a route, a bulk act or
+    /// a list's confirmation is under way — their panels live in the rows.</summary>
+    public bool ShowsInboxZero =>
+        Loaded
+        && !DeferredSelected
+        && SelectedListId is null
+        && InboxCount == 0
+        && SessionDecisionTotal > 0
+        && !SelectionMode
+        && !RoutingInFlight
+        && RouteDraft is null
+        && !ListRouteConfirmOpen;
+
+    /// <summary>The session's count per decision kind, in the summary's order,
+    /// a kind with no decisions left out.</summary>
+    public IReadOnlyList<InboxZeroStat> ZeroStats =>
+    [
+        .. ZeroStatKinds
+            .Select(stat => new InboxZeroStat(stat.Kind, stat.Label, _undo.CountOf(stat.Kind)))
+            .Where(stat => stat.Count > 0)
+    ];
+
+    /// <summary>The deferred items with a review date, soonest first, at most
+    /// <see cref="ComingBackLimit"/>. An undated deferral has no "when" to show.</summary>
+    public IReadOnlyList<InboxItemDto> ComingBack =>
+    [
+        .. Items
+            .Where(item => item.Status == InboxStatus.Deferred && item.DeferredUntil is not null)
+            .OrderBy(item => item.DeferredUntil)
+            .ThenByDescending(item => item.CapturedAt)
+            .Take(ComingBackLimit)
+    ];
+
+    /// <summary>The list holding the most items still waiting, the first in the
+    /// side menu's order on a tie; null when no list holds any.</summary>
+    public (InboxListDto List, int Count)? BusiestList
+    {
+        get
+        {
+            (InboxListDto List, int Count)? busiest = null;
+            foreach (var list in Lists)
+            {
+                var count = ListCount(list.Id);
+                if (count > 0 && (busiest is null || count > busiest.Value.Count)) busiest = (list, count);
+            }
+
+            return busiest;
+        }
+    }
+
+    /// <summary>When a deferred item comes back, said the way a person says it:
+    /// today, tomorrow, the weekday within the week, else the date.</summary>
+    public string ComesBackLabel(DateOnly until)
+    {
+        var today = DateOnly.FromDateTime(_clock.GetLocalNow().Date);
+        var days = until.DayNumber - today.DayNumber;
+
+        return days switch
+        {
+            <= 0 => "today",
+            1 => "tomorrow",
+            < 7 => until.ToString("dddd", System.Globalization.CultureInfo.InvariantCulture),
+            _ => until.ToString("d MMM", System.Globalization.CultureInfo.InvariantCulture),
+        };
+    }
+
     /// <summary>The history itself, for tests that assert what a decision recorded.</summary>
     internal InboxUndoHistory UndoHistory => _undo;
 
@@ -2936,6 +3030,10 @@ public sealed record InboxQueueHealth(int Unprocessed, DateTimeOffset? OldestCap
 /// <summary>One heading of the list and the rows under it: Today, This week or
 /// Older than a week.</summary>
 public sealed record InboxAgeGroup(string Key, string Label, IReadOnlyList<InboxItemDto> Items);
+
+/// <summary>One number on the inbox-zero screen: how many decisions of a kind
+/// the session made and kept, and the words under it.</summary>
+public sealed record InboxZeroStat(InboxDecisionKind Kind, string Label, int Count);
 
 /// <summary>One kind chip: the slug the marker draws, the word beside it, and
 /// how many rows of the slice it stands for.</summary>
