@@ -52,7 +52,7 @@
 
     Triage is meant to be short, so it runs from the keyboard: j and k move
     through the rows, a archives, d defers, l moves to a list, r routes, t goes
-    to the tags, x picks, ? lists them all. Whether a key is a shortcut or a
+    to the tags, x picks, u undoes the last decision, ? lists them all. Whether a key is a shortcut or a
     letter being typed is decided in components.js at the keydown — a key in a
     field, a dialog, or with a modifier held types — because a preventDefault
     rendered from here arrives one key late. Triage mode swaps the columns for
@@ -338,6 +338,7 @@
         ("r", "Move to backlog"),
         ("t", "Tags"),
         ("x", "Pick the item for a bulk action"),
+        ("u", "Undo the last decision"),
         ("Esc", "Back to the list, from triage"),
         ("?", "These shortcuts"),
     ];
@@ -409,6 +410,9 @@
                     break;
                 case "x" when State.SelectedItemId is { } picked && State.TriagePosition >= 0:
                     State.TogglePicked(picked, !State.IsPicked(picked), range: false);
+                    break;
+                case "u" or "U":
+                    await State.UndoLatestAsync();
                     break;
                 case "?":
                     _shortcutsOpen = true;

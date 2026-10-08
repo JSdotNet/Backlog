@@ -170,8 +170,9 @@ public sealed class InboxItem
     /// <summary>What this item was archived as a duplicate of, or null: another
     /// inbox item, or — when <see cref="DuplicateOfTask"/> — the backlog task it
     /// was merged into. Set only by <see cref="Archive(DateTimeOffset, Guid?, bool)"/>
-    /// with something named, and never cleared: an archived item stays archived,
-    /// and so does what it was archived as.</summary>
+    /// with something named, and cleared only by <see cref="Restore"/> — the
+    /// session undo taking the archive back; otherwise an archived item stays
+    /// archived, and so does what it was archived as.</summary>
     public Guid? DuplicateOf { get; private set; }
 
     /// <summary>Whether <see cref="DuplicateOf"/> names a backlog task rather
@@ -554,6 +555,58 @@ public sealed class InboxItem
         if (IsRouted || !IsOpen) throw new InvalidInboxTransitionException(Status, "linked to a task");
 
         RouteToBacklog([taskId], repoIds, now);
+    }
+
+    // --- Taking a decision back -----------------------------------------------
+    //
+    // The session undo history's two ways back (interaction-guidelines.md, "Undo
+    // and history"). Each returns the item to unprocessed — the state a decision
+    // is made from — rather than to whatever it was before, because a decision
+    // already cleared the deferral date and the list is the item's own and was
+    // never changed by one.
+
+    /// <summary>
+    /// Undoes an archive — plain, as a duplicate, or as the merge into a task:
+    /// the item is unprocessed again and no longer a duplicate of anything. A
+    /// merge's comment is on the task, and the task is not this aggregate's to
+    /// change, so it stays.
+    /// <para>
+    /// An acknowledgement still waiting in the outbox is withdrawn: the capture
+    /// is open again and the replica may keep it. One already sent cannot be
+    /// called back: the replica has dropped the capture, and a tombstone echo
+    /// still on its way may archive this item again on the next pull — a
+    /// window of one sync cycle, accepted for an undo taken seconds later.
+    /// </para>
+    /// </summary>
+    public void Restore(DateTimeOffset now)
+    {
+        if (Status is not InboxStatus.Archived || IsRouted)
+            throw new InvalidInboxTransitionException(Status, "restored");
+
+        Status = InboxStatus.Unprocessed;
+        DeferredUntil = null;
+        DuplicateOf = null;
+        DuplicateOfTask = false;
+        ReplicaAckPending = false;
+        Touch(now);
+    }
+
+    /// <summary>
+    /// Undoes a route or a link: the item no longer names where it went and is
+    /// unprocessed again. Whether the entries the route made are deleted is the
+    /// handler's to settle with the backlog first — the aggregate cannot see
+    /// them. The outbox acknowledgement is withdrawn as <see cref="Restore"/>
+    /// withdraws it.
+    /// </summary>
+    public void ReturnFromBacklog(DateTimeOffset now)
+    {
+        if (!IsRouted) throw new InvalidInboxTransitionException(Status, "returned from the backlog");
+
+        Routing = null;
+        Status = InboxStatus.Unprocessed;
+        DeferredUntil = null;
+        ReplicaAckPending = false;
+        Touch(now);
     }
 
     /// <summary>The outbox drained: the replica has the tombstone.</summary>

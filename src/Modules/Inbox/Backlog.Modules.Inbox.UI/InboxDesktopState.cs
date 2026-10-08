@@ -99,6 +99,11 @@ public sealed class InboxDesktopState
     /// raised when nothing was routed.</summary>
     public event Action<InboxBatchRoutedDto>? BatchRouted;
 
+    /// <summary>Raised after an undo deleted the entries a route made, so the
+    /// shell refreshes the Tasks pane and they leave it. Not raised for an undone
+    /// link, which deleted nothing.</summary>
+    public event Action? RouteUndone;
+
     // --- The snapshot -------------------------------------------------------
 
     /// <summary>Every item the module knows, archived included. Which of them a
@@ -553,10 +558,14 @@ public sealed class InboxDesktopState
     /// null. The item stays selected: it moved, the reader did not — except in
     /// triage mode, where every decision moves on to the next item.</summary>
     public Task MoveToListAsync(Guid? listId) =>
-        DecideAsync(item => _inbox.MoveToListAsync(item.Id, listId));
+        DecideAsync(
+            item => _inbox.MoveToListAsync(item.Id, listId),
+            item => item.ListId == listId ? null : new InboxMoveUndoStep("Move to list", item.Id, item.ListId));
 
     public Task ArchiveAsync() =>
-        DecideAsync(item => _inbox.ArchiveAsync(item.Id));
+        DecideAsync(
+            item => _inbox.ArchiveAsync(item.Id),
+            item => new InboxRestoreUndoStep(InboxDecisionKind.Archive, "Archive", item.Id, DeferralOf(item)));
 
     /// <summary>Deletes the selected item for good. The detail confirms first;
     /// the reload then finds the item gone and clears the selection.</summary>
@@ -805,13 +814,17 @@ public sealed class InboxDesktopState
     /// same capture as <paramref name="duplicateOf"/>. A decision like Archive,
     /// so triage moves on from it.</summary>
     public Task ArchiveAsDuplicateAsync(Guid duplicateOf) =>
-        DecideAsync(item => _inbox.ArchiveAsDuplicateAsync(item.Id, duplicateOf));
+        DecideAsync(
+            item => _inbox.ArchiveAsDuplicateAsync(item.Id, duplicateOf),
+            item => new InboxRestoreUndoStep(InboxDecisionKind.Archive, "Archive as duplicate", item.Id, DeferralOf(item)));
 
     /// <summary>"Link to task…": records that the selected item is already the
     /// task <paramref name="taskId"/>, so it leaves the queue routed to it and no
     /// new task is made.</summary>
     public Task LinkToTaskAsync(Guid taskId) =>
-        DecideAsync(item => _inbox.LinkToTaskAsync(item.Id, taskId));
+        DecideAsync(
+            item => _inbox.LinkToTaskAsync(item.Id, taskId),
+            item => new InboxRouteUndoStep(InboxDecisionKind.LinkToTask, "Link to task", item.Id, DeleteTasks: false, DeferralOf(item)));
 
     /// <summary>"Merge into a task": folds the item <paramref name="itemId"/>
     /// into the backlog task <paramref name="taskId"/> it repeats — its title,
@@ -823,14 +836,23 @@ public sealed class InboxDesktopState
     {
         if (SelectedItem?.Id == itemId)
         {
-            await DecideAsync(item => _inbox.MergeIntoTaskAsync(item.Id, taskId));
+            await DecideAsync(item => _inbox.MergeIntoTaskAsync(item.Id, taskId), MergeUndo);
             return;
         }
 
+        var merged = Items.FirstOrDefault(item => item.Id == itemId);
+
         if (Report(await _inbox.MergeIntoTaskAsync(itemId, taskId))) return;
+
+        _undo.Record(merged is not null
+            ? MergeUndo(merged)
+            : new InboxRestoreUndoStep(InboxDecisionKind.MergeIntoTask, "Merge into a task", itemId));
 
         await ReloadAsync();
     }
+
+    private static InboxUndoStep MergeUndo(InboxItemDto item) =>
+        new InboxRestoreUndoStep(InboxDecisionKind.MergeIntoTask, "Merge into a task", item.Id, DeferralOf(item));
 
     private static bool Matches(string title, string? query) =>
         string.IsNullOrWhiteSpace(query) || (title ?? string.Empty).Contains(query.Trim(), StringComparison.OrdinalIgnoreCase);
@@ -916,7 +938,11 @@ public sealed class InboxDesktopState
     /// the date. The item stays selected: it leaves the queue's rows, and the
     /// detail still owes the reader the line that says until when.</summary>
     public Task DeferAsync(DateOnly? until) =>
-        DecideAsync(item => _inbox.DeferAsync(item.Id, until));
+        DecideAsync(
+            item => _inbox.DeferAsync(item.Id, until),
+            item => item.Status == InboxStatus.Deferred && item.DeferredUntil == until
+                ? null
+                : new InboxDeferUndoStep("Defer", item.Id, item.Status == InboxStatus.Deferred, item.DeferredUntil));
 
     /// <summary>The reader's calendar date, which is what a review date is
     /// counted from — the same local "today" the resurface sweep uses.</summary>
@@ -948,6 +974,8 @@ public sealed class InboxDesktopState
             var routed = await _inbox.RouteToBacklogAsync(item.Id);
             if (Report(routed)) return;
 
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Move to backlog", item.Id, DeleteTasks: true, DeferralOf(item)));
+
             await ReloadAsync();
             if (TriageMode) AdvancePast(before, item.Id);
             Routed?.Invoke(routed.Value);
@@ -974,6 +1002,8 @@ public sealed class InboxDesktopState
         {
             var routed = await _inbox.CreatePlanAsync(item.Id);
             if (Report(routed)) return;
+
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Create plan", item.Id, DeleteTasks: true, DeferralOf(item)));
 
             await ReloadAsync();
             _toasts?.Publish(ToastMessage.Info(
@@ -1260,14 +1290,16 @@ public sealed class InboxDesktopState
 
     /// <summary>One decision on the selected item: the module's act, a reload,
     /// and in triage mode the step on to the next item.</summary>
-    private async Task DecideAsync(Func<InboxItemDto, Task<Result>> act)
+    private async Task DecideAsync(Func<InboxItemDto, Task<Result>> act, Func<InboxItemDto, InboxUndoStep?> undo)
     {
-        if (SelectedItem is not { } item) return;
+        if (SelectedItem is not { } item || UndoRunning) return;
 
         var before = VisibleItems;
         RememberPosition();
 
         if (Report(await act(item))) return;
+
+        if (undo(item) is { } step) _undo.Record(step);
 
         await ReloadAsync();
         if (TriageMode) AdvancePast(before, item.Id);
@@ -1296,6 +1328,155 @@ public sealed class InboxDesktopState
         SelectedItemId = next;
         RememberPosition();
         Changed?.Invoke();
+    }
+
+    // --- Taking a decision back ---------------------------------------------------
+    //
+    // Every decision above records its inverse as it lands, and U takes the
+    // newest back (interaction-guidelines.md, "Undo and history"). The history
+    // lives here, in the one object that outlives the pane's re-mounts, for the
+    // life of the app; it is never written anywhere.
+
+    private readonly InboxUndoHistory _undo = new();
+
+    /// <summary>The toast an undo answers with — what it took back, or why it
+    /// could not.</summary>
+    public const string UndoResultTestId = "inbox-undo-result";
+
+    /// <summary>Whether U has anything to take back.</summary>
+    public bool CanUndo => _undo.CanUndo;
+
+    /// <summary>An undo is in flight; another U waits for it.</summary>
+    public bool UndoRunning { get; private set; }
+
+    /// <summary>How many decisions of <paramref name="kind"/> this session made
+    /// and kept — what the inbox-zero screen sums up.</summary>
+    public int DecisionCount(InboxDecisionKind kind) => _undo.CountOf(kind);
+
+    /// <summary>Every decision kind the session made and kept, with its count.</summary>
+    public IReadOnlyDictionary<InboxDecisionKind, int> DecisionCounts => _undo.Counts;
+
+    /// <summary>The history itself, for tests that assert what a decision recorded.</summary>
+    internal InboxUndoHistory UndoHistory => _undo;
+
+    /// <summary>
+    /// Takes the newest decision back through the module, reloads, and selects
+    /// the item it brought back. A refusal — the item changed since, or a route
+    /// whose entry has started — is toasted in the module's own words and the
+    /// step is dropped, so the next U reaches the decision before it. Answers
+    /// whether anything was taken back.
+    /// </summary>
+    public async Task<bool> UndoLatestAsync()
+    {
+        if (RoutingInFlight) return false;
+
+        if (_undo.TakeLatest() is not { } step)
+        {
+            _toasts?.Publish(ToastMessage.Info("Nothing to undo.", UndoResultTestId));
+            return false;
+        }
+
+        UndoRunning = true;
+        Changed?.Invoke();
+
+        try
+        {
+            var undone = new List<InboxUndoStep>();
+            Error? refusal = null;
+
+            foreach (var decision in InboxUndoHistory.Decisions(step))
+            {
+                var result = await InverseAsync(decision);
+                if (result.IsSuccess) undone.Add(decision);
+                else refusal ??= result.Error;
+            }
+
+            _undo.Undone(undone);
+            await ReloadAsync();
+
+            if (undone.Any(decision => decision is InboxRouteUndoStep { DeleteTasks: true })) RouteUndone?.Invoke();
+
+            if (undone.Count > 0 && ItemOf(undone[^1]) is { } id && Items.Any(item => item.Id == id))
+            {
+                SelectedItemId = id;
+                RememberPosition();
+            }
+
+            _toasts?.Publish(refusal is { } error
+                ? ToastMessage.Error(undone.Count == 0 ? error.Message : $"{error.Message}. The rest was undone.", UndoResultTestId)
+                : ToastMessage.Info($"Undid {step.Label.ToLowerInvariant()}.", UndoResultTestId));
+
+            return undone.Count > 0;
+        }
+        finally
+        {
+            UndoRunning = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>The module's way back for one decision, and the deferral the
+    /// decision cleared put back — the module's way back ends unprocessed, and
+    /// the item is to be as it was.</summary>
+    private async Task<Result> InverseAsync(InboxUndoStep step)
+    {
+        var result = await ModuleInverseAsync(step);
+
+        var deferred = step switch
+        {
+            InboxRestoreUndoStep restore => restore.Deferred,
+            InboxRouteUndoStep route => route.Deferred,
+            _ => null,
+        };
+
+        if (result.IsFailure || deferred is null || ItemOf(step) is not { } id) return result;
+
+        // The decision itself is taken back by now; a deferral that will not go
+        // back on is said, but the undo still counts as done.
+        Report(await _inbox.DeferAsync(id, deferred.Until));
+        return result;
+    }
+
+    private static InboxDeferral? DeferralOf(InboxItemDto item) =>
+        item.Status == InboxStatus.Deferred ? new InboxDeferral(item.DeferredUntil) : null;
+
+    private static InboxDeferral? DeferralOf(IReadOnlyList<InboxItemDto> items, Guid id) =>
+        items.FirstOrDefault(item => item.Id == id) is { } item ? DeferralOf(item) : null;
+
+    private Task<Result> ModuleInverseAsync(InboxUndoStep step) => step switch
+    {
+        InboxRestoreUndoStep restore => _inbox.RestoreAsync(restore.ItemId),
+        InboxDeferUndoStep { WasDeferred: true } defer => _inbox.DeferAsync(defer.ItemId, defer.PreviousUntil),
+        InboxDeferUndoStep defer => _inbox.ResurfaceAsync(defer.ItemId),
+        InboxMoveUndoStep move => _inbox.MoveToListAsync(move.ItemId, move.PreviousListId),
+        InboxRouteUndoStep route => _inbox.ReturnToInboxAsync(route.ItemId, route.DeleteTasks),
+        _ => throw new InvalidOperationException($"No way back for {step.GetType().Name}."),
+    };
+
+    private static Guid? ItemOf(InboxUndoStep step) => step switch
+    {
+        InboxRestoreUndoStep restore => restore.ItemId,
+        InboxDeferUndoStep defer => defer.ItemId,
+        InboxMoveUndoStep move => move.ItemId,
+        InboxRouteUndoStep route => route.ItemId,
+        _ => null,
+    };
+
+    /// <summary>Records one gesture over several items as one step — or as the
+    /// single step it is when it changed one item, and nothing when it changed none.</summary>
+    private void RecordGroup(InboxDecisionKind kind, string label, IReadOnlyList<InboxUndoStep> steps)
+    {
+        switch (steps.Count)
+        {
+            case 0:
+                return;
+            case 1:
+                _undo.Record(steps[0]);
+                return;
+            default:
+                _undo.Record(new InboxGroupUndoStep(kind, label, steps));
+                return;
+        }
     }
 
     // --- Picking several items -------------------------------------------------
@@ -1337,7 +1518,7 @@ public sealed class InboxDesktopState
     /// <summary>A route of any kind is in flight — one item, a drafted plan, or
     /// an act across the selection, a batch route among them. Each waits for
     /// the others: two routes at once could send one item to the backlog twice.</summary>
-    public bool RoutingInFlight => RouteRunning || PlanRunning || BulkRunning;
+    public bool RoutingInFlight => RouteRunning || PlanRunning || BulkRunning || UndoRunning;
 
     /// <summary>Turns the boxes on, or off and empty.</summary>
     public void SetSelectionMode(bool on)
@@ -1419,7 +1600,8 @@ public sealed class InboxDesktopState
             "archived",
             refuse: _ => null,
             alreadyThere: item => item.Status == InboxStatus.Archived,
-            apply: items => _inbox.ArchiveAsync(Ids(items)));
+            apply: items => _inbox.ArchiveAsync(Ids(items)),
+            undo: item => new InboxRestoreUndoStep(InboxDecisionKind.Archive, "Archive", item.Id, DeferralOf(item)));
 
     /// <summary>Deletes every picked item for good — the bar asks first. Nothing
     /// is already there: an item on screen has not been deleted.</summary>
@@ -1440,7 +1622,8 @@ public sealed class InboxDesktopState
             $"moved to {name}",
             refuse: _ => null,
             alreadyThere: item => item.ListId == listId,
-            apply: items => _inbox.MoveToListAsync(Ids(items), listId));
+            apply: items => _inbox.MoveToListAsync(Ids(items), listId),
+            undo: item => new InboxMoveUndoStep("Move to list", item.Id, item.ListId));
     }
 
     /// <summary>
@@ -1760,6 +1943,16 @@ public sealed class InboxDesktopState
 
                 batch = result.Value;
                 foreach (var failure in batch.Failed) refused[failure.Id] = failure.Error;
+
+                RecordGroup(
+                    InboxDecisionKind.MoveToBacklog,
+                    "Move to backlog",
+                    [
+                        .. batch.Routed.Select(routed => (InboxUndoStep)new InboxRouteUndoStep(
+                            InboxDecisionKind.MoveToBacklog, "Move to backlog", routed.InboxItemId, DeleteTasks: true, DeferralOf(pending, routed.InboxItemId))),
+                        .. batch.Archived.Select(archived => (InboxUndoStep)new InboxRestoreUndoStep(
+                            InboxDecisionKind.Archive, "Archive as duplicate", archived, DeferralOf(pending, archived))),
+                    ]);
             }
 
             var failures = picked
@@ -1835,10 +2028,11 @@ public sealed class InboxDesktopState
         string did,
         Func<InboxItemDto, Error?> refuse,
         Func<InboxItemDto, bool> alreadyThere,
-        Func<IReadOnlyList<InboxItemDto>, Task<InboxBatchResultDto>> apply)
+        Func<IReadOnlyList<InboxItemDto>, Task<InboxBatchResultDto>> apply,
+        Func<InboxItemDto, InboxUndoStep>? undo = null)
     {
         var picked = SelectedItems;
-        if (picked.Count == 0 || BulkRunning) return InboxBulkOutcome.Nothing;
+        if (picked.Count == 0 || BulkRunning || UndoRunning) return InboxBulkOutcome.Nothing;
 
         var refused = new Dictionary<Guid, Error>();
         var unchanged = 0;
@@ -1859,6 +2053,12 @@ public sealed class InboxDesktopState
             var result = pending.Count == 0 ? InboxBatchResultDto.Nothing : await apply(pending);
 
             foreach (var failure in result.Failed) refused[failure.Id] = failure.Error;
+
+            if (undo is not null)
+            {
+                var landed = pending.Where(item => result.Changed.Contains(item.Id)).Select(undo).ToList();
+                if (landed.Count > 0) RecordGroup(landed[0].Kind, landed[0].Label, landed);
+            }
 
             var failures = picked
                 .Where(item => refused.ContainsKey(item.Id))

@@ -326,6 +326,14 @@ Two decisions reach outside the Inbox, and undoing them is bounded by that:
 - **Merge into a task.** Undo restores the capture as it was. The comment stays
   on the task, because by then it may have been read or answered.
 
+**Link to task** and **Archive as duplicate** are decisions too and are taken
+back the same way; undoing a link leaves the task it named alone. A gesture over
+several items — a bulk archive, a bulk move, a batch route with the duplicates it
+merged — is one decision to undo, and brings every item back at once.
+
+An undo that is refused is dropped rather than kept on top, so the next **u**
+reaches the decision before it.
+
 Decisions are not remembered past the app: a decision from an earlier session is
 changed by deciding again, not by undo.
 

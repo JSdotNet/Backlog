@@ -100,6 +100,21 @@ public interface IInboxItems
     /// date.</summary>
     Task<Result> ResurfaceAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Takes an archive back — Archive, "Archive as duplicate of…" or
+    /// "Merge into a task": the item is unprocessed again and <c>DuplicateOf</c>
+    /// is cleared. A merge's comment stays on the task. Only an archived item;
+    /// the session undo history is the one caller.</summary>
+    Task<Result> RestoreAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Takes a route back: the item is unprocessed again and no longer
+    /// routed. With <paramref name="deleteTasks"/> the entries the route made are
+    /// deleted first — all or none, refused with
+    /// <c>inbox.undo.task_started</c> ("Can't undo — <i>title</i> has started")
+    /// when any of them is no longer a draft or ready, which leaves the item
+    /// routed. Without it — undoing "Link to task…" — the task is left alone.
+    /// Only a routed item; the session undo history is the one caller.</summary>
+    Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default);
+
     /// <summary>The resurface sweep: every deferred item whose review date is
     /// today or earlier becomes unprocessed. Answers how many moved. The pane
     /// runs it when it opens; nothing schedules it.</summary>

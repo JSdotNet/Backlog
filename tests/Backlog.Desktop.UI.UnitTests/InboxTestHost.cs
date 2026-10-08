@@ -497,6 +497,51 @@ internal sealed class FakeInboxItems : IInboxItems
         return Update(id, current => current with { Status = InboxStatus.Unprocessed, DeferredUntil = null });
     }
 
+    /// <summary>Every undo's way back the pane asked for, in order: the act and
+    /// the item.</summary>
+    public List<(string Act, Guid Id)> Undos { get; } = [];
+
+    /// <summary>What a returned route answers with instead of success, standing
+    /// in for the backlog's "has started" refusal.</summary>
+    public Error? RefuseReturn { get; set; }
+
+    /// <summary>The items <see cref="RefuseReturn"/> applies to; empty means every one.</summary>
+    public HashSet<Guid> RefuseReturnOf { get; } = [];
+
+    public Task<Result> RestoreAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        Undos.Add(("restore", id));
+
+        if (Find(id) is { Status: not InboxStatus.Archived })
+        {
+            return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Only an archived item can be restored.")));
+        }
+
+        return Update(id, current => current with
+        {
+            Status = InboxStatus.Unprocessed,
+            DuplicateOf = null,
+            DuplicateOfTask = false,
+        });
+    }
+
+    public Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default)
+    {
+        Undos.Add((deleteTasks ? "return" : "unlink", id));
+
+        if (Find(id) is { Routing: null })
+        {
+            return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Only a routed item can return.")));
+        }
+
+        if (deleteTasks && RefuseReturn is { } refusal && (RefuseReturnOf.Count == 0 || RefuseReturnOf.Contains(id)))
+        {
+            return Task.FromResult(Result.Failure(refusal));
+        }
+
+        return Update(id, current => current with { Status = InboxStatus.Unprocessed, Routing = null });
+    }
+
     /// <summary>How many times the sweep ran, so a test can assert the pane ran
     /// it on open.</summary>
     public int ResurfaceDueCalls { get; private set; }

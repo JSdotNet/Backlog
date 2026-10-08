@@ -265,4 +265,16 @@ public static class InboxErrors
     public static Error BatchMergeSaveFailed(string detail) => Error.Unexpected(
         "inbox.batch.merge_save_failed",
         $"The item it duplicates was routed, but this one could not be archived ({detail}). It is still in the Inbox.");
+
+    /// <summary>The code <see cref="UndoTaskStarted"/> answers with, so a screen
+    /// can tell this refusal from any other without matching its sentence.</summary>
+    public const string UndoTaskStartedCode = "inbox.undo.task_started";
+
+    /// <summary>Undoing "Move to backlog" would delete the entries it made, and
+    /// one of them has been started — it is no longer a draft or ready. Work
+    /// someone began is not the undo's to throw away, so nothing was deleted and
+    /// the item stays routed.</summary>
+    public static Error UndoTaskStarted(string taskTitle) => Error.Validation(
+        UndoTaskStartedCode,
+        $"Can't undo — {taskTitle} has started");
 }

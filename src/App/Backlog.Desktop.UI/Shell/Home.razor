@@ -764,6 +764,7 @@
         InboxState.Changed += HandleStateChanged;
         InboxState.Routed += HandleInboxRouted;
         InboxState.BatchRouted += HandleInboxBatchRouted;
+        InboxState.RouteUndone += HandleInboxRouteUndone;
         Features.Changed += HandleFeaturesChanged;
         _gitHubIntegrationWasOn = IsFeatureEnabled(TasksFeatures.GitHubIntegration);
 
@@ -2013,6 +2014,22 @@
     /// so one reload shows them all.</summary>
     private void HandleInboxBatchRouted(InboxBatchRoutedDto batch) => RefreshTasksAfterRouting();
 
+    /// <summary>An undone "Move to backlog" deleted the entries it made: the
+    /// Tasks list reloads so they leave it, and no pane is opened for it.</summary>
+    private void HandleInboxRouteUndone() => _ = InvokeAsync(async () =>
+    {
+        try
+        {
+            await State.ReloadFromStoreAsync();
+        }
+        catch (Exception ex)
+        {
+            Toasts.Publish(ToastMessage.Error($"The backlog could not be refreshed after the undo: {ex.Message}", TasksReloadErrorTestId));
+        }
+
+        StateHasChanged();
+    });
+
     private void RefreshTasksAfterRouting() => _ = InvokeAsync(async () =>
     {
         _globalPanes.TryOpenAlongside(GlobalPane.Tasks);
@@ -2193,6 +2210,7 @@
         InboxState.Changed -= HandleStateChanged;
         InboxState.Routed -= HandleInboxRouted;
         InboxState.BatchRouted -= HandleInboxBatchRouted;
+        InboxState.RouteUndone -= HandleInboxRouteUndone;
         Features.Changed -= HandleFeaturesChanged;
         if (_taskSync is not null) _taskSync.Changed -= HandleTaskSyncChanged;
 

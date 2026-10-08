@@ -166,6 +166,8 @@ public sealed class BatchTests
             delete: new DeleteItemCommandHandler(store, Clock),
             defer: null!,
             resurface: null!,
+            restore: null!,
+            returnToInbox: null!,
             resurfaceDue: null!,
             routeToBacklog: null!,
             createPlan: null!,
