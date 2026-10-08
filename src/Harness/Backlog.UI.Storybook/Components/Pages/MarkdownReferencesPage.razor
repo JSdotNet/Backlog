@@ -140,6 +140,30 @@ The label is the heading's words or the page's title, which only a host that rea
         </div>
     </Story>
 
+    <Story Name="Scenario parts: an acceptance checklist"
+           Description="When the references something holds point at parts of a scenario page — a part itself, a whole page, or a requirement whose `Proved by:` lines name parts — a task lists those parts under its chips as its acceptance checklist: `ScenarioPartChecklist`. One row per part: the four-state dot the Devbook pane draws — `ScenarioStateDot`, shown alone in the first row —  the part, the page it belongs to, and when it last ran, under a count of how many pass.
+
+“Proved” is shown only when every part passed on the page as it stands. A part that passed before the page was edited is stale, not passed, so a renamed step takes “Proved” away until the spec is re-derived and run. It is a signal and nothing more: the task's status stays where a person put it.
+
+The second sample is the same list on a delivery run, under the verify stage that ran the parts: a run is evidence, not an item, so it never says proved."
+           Code="@AcceptanceCode">
+        <div class="sb-row" data-testid="references-scenario-dots">
+            <ScenarioStateDot State="passed" TestId="references-dot-passed" />
+            <ScenarioStateDot State="failed" TestId="references-dot-failed" />
+            <ScenarioStateDot State="stale" TestId="references-dot-stale" />
+            <ScenarioStateDot State="never-run" TestId="references-dot-never-run" />
+        </div>
+        <div class="sb-side-panel">
+            <ScenarioPartChecklist Parts="@AcceptanceParts" Heading="Acceptance" ShowProved="true" TestId="panel-acceptance" />
+        </div>
+        <div class="sb-side-panel">
+            <ScenarioPartChecklist Parts="@ProvedParts" Heading="Acceptance" ShowProved="true" TestId="panel-acceptance-proved" />
+        </div>
+        <div class="sb-side-panel">
+            <ScenarioPartChecklist Parts="@EvidenceParts" Heading="Verify: scenario evidence" TestId="panel-run-evidence" />
+        </div>
+    </Story>
+
     <Story Name="In prose: a path written in a sentence"
            Description="The first of the two places. An author writing a knowledge chapter mentions another one the way they would anywhere — a code span holding a path, or an ordinary markdown link — and what comes out is the same reference the record fields carry, drawn by the same component.
 
@@ -201,6 +225,36 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
 </StoryPage>
 
 @code {
+    private static readonly IReadOnlyList<ScenarioChecklistPart> AcceptanceParts =
+    [
+        new("Statuses are set up", "passed", "Set up and fill the backlog", "Ran 7 Oct 2026 08:30", ".devbook/domain/work/set-up-and-fill-the-backlog.md#statuses-are-set-up"),
+        new("An item is moved", "failed", "Set up and fill the backlog", "Ran 7 Oct 2026 08:30", ".devbook/domain/work/set-up-and-fill-the-backlog.md#an-item-is-moved"),
+        new("Columns follow the status order", "stale", "Board journeys", "Ran 2 Oct 2026 17:05", ".devbook/domain/work/board-journeys.md#columns-follow-the-status-order"),
+        new("A new item lands in Backlog", "never-run", "Board journeys", null, ".devbook/domain/work/board-journeys.md#a-new-item-lands-in-backlog")
+    ];
+
+    private static readonly IReadOnlyList<ScenarioChecklistPart> ProvedParts =
+    [
+        new("Statuses are set up", "passed", "Set up and fill the backlog", "Ran 7 Oct 2026 08:30", ".devbook/domain/work/set-up-and-fill-the-backlog.md#statuses-are-set-up"),
+        new("An item is moved", "passed", "Set up and fill the backlog", "Ran 7 Oct 2026 08:30", ".devbook/domain/work/set-up-and-fill-the-backlog.md#an-item-is-moved")
+    ];
+
+    private static readonly IReadOnlyList<ScenarioChecklistPart> EvidenceParts =
+    [
+        new("statuses-are-set-up", "passed", "set-up-and-fill-the-backlog", "Ran 7 Oct 2026 08:30", "set-up-and-fill-the-backlog.md#statuses-are-set-up"),
+        new("an-item-is-moved", "not-run", "set-up-and-fill-the-backlog", "Ran 7 Oct 2026 08:30", "set-up-and-fill-the-backlog.md#an-item-is-moved")
+    ];
+
+    private const string AcceptanceCode = """
+        @* The host folds the signature into the state: a part that passed on a
+           page edited since arrives as stale. *@
+        <ScenarioPartChecklist Parts="@ChecklistParts(acceptance)"
+                               Heading="Acceptance"
+                               ShowProved="true"
+                               OnOpen="@AcceptanceOpener(row)"
+                               TestId="entry-acceptance" />
+        """;
+
     private static readonly DesignGuideline[] Rules =
     [
         new("content-editing.md#structured-metadata-sigils", "How an address is written, and what may follow it."),

@@ -583,6 +583,23 @@ a chapter in the Devbook pane sees what the last sweep said about it without fin
 the run. A run that names no repository keeps its verdicts on itself alone: a verdict
 that cannot say which repository it is about matches no chapter.
 
+### Scenario evidence from a verify stage
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts]
+```
+
+A run's verify stage can say which parts of which scenario pages it ran. It reports
+each part as the page's name, the part, the part's outcome and when the run ran,
+read from the run the page committed. The stage keeps what it was last sent, and a
+later report about the same stage without evidence leaves it in place.
+
+The run shows this evidence under the stage that reported it, one row per part with
+the part's dot, and a count of how many passed. A run is evidence and not a task, so
+it never says proved. A run that reported no evidence shows nothing for it.
+
 ### What a run cost, reported by the session itself
 
 ```meta

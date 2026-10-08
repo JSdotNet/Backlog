@@ -71,6 +71,119 @@ public sealed record ResolvedDevbookReference(
     public bool IsBroken => State is DevbookReferenceState.UnknownHeading
         or DevbookReferenceState.UnknownPage
         or DevbookReferenceState.OutsideDevbook;
+
+    /// <summary>
+    /// The scenario parts this reference stands for, each with the state of its
+    /// last run: the part itself for <c>&lt;page&gt;.md#&lt;part&gt;</c> on a
+    /// scenario page, every part for the page alone, and the parts its
+    /// <c>Proved by:</c> lines name for a requirement chapter. Empty for anything
+    /// else — and for a devbook nobody could read.
+    /// </summary>
+    public IReadOnlyList<ScenarioPartEvidence> ScenarioParts { get; init; } = [];
+}
+
+/// <summary>One part of a scenario page and how its last run went.</summary>
+/// <param name="Reference">The part as a reference would name it:
+/// <c>&lt;page path&gt;#&lt;anchor&gt;</c>.</param>
+/// <param name="PagePath">The scenario page, repository-relative.</param>
+/// <param name="PageTitle">The page's title, else its stem.</param>
+/// <param name="Stem">The page's file name without <c>.md</c>: its run folder.</param>
+/// <param name="Anchor">The part's heading slug.</param>
+/// <param name="Title">The part's heading as the page writes it.</param>
+/// <param name="State">The part's state against the page's last run.</param>
+/// <param name="LastRun">When that run ran, or null for none.</param>
+public sealed record ScenarioPartEvidence(
+    string Reference,
+    string PagePath,
+    string PageTitle,
+    string Stem,
+    string Anchor,
+    string Title,
+    ScenarioPartState State,
+    DateTimeOffset? LastRun);
+
+/// <summary>
+/// A scenario part's state, in the dot's precedence: never run, then stale, then
+/// failed, then passed. Stale is computed, never stored — the page's signature now
+/// against the one its last run executed — so a part only reads as passed when it
+/// passed on the page as it stands.
+/// </summary>
+public enum ScenarioPartState
+{
+    NeverRun,
+    Stale,
+    Failed,
+    Passed
+}
+
+/// <summary>The wire spelling of a <see cref="ScenarioPartState"/> — the same
+/// four words the Devbook pane's dot carries.</summary>
+public static class ScenarioPartStates
+{
+    public const string NeverRun = "never-run";
+    public const string Stale = "stale";
+    public const string Failed = "failed";
+    public const string Passed = "passed";
+
+    public static string ToWire(this ScenarioPartState state) =>
+        state switch
+        {
+            ScenarioPartState.Passed => Passed,
+            ScenarioPartState.Failed => Failed,
+            ScenarioPartState.Stale => Stale,
+            ScenarioPartState.NeverRun => NeverRun,
+            _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Not a scenario part state.")
+        };
+
+    /// <summary>The state as a person reads it.</summary>
+    public static string Label(this ScenarioPartState state) =>
+        state switch
+        {
+            ScenarioPartState.Passed => "Passed",
+            ScenarioPartState.Failed => "Failed",
+            ScenarioPartState.Stale => "Stale",
+            _ => "Never run"
+        };
+}
+
+/// <summary>
+/// An entry's acceptance evidence: every scenario part its references stand for,
+/// once each, in the order they were first met.
+/// <para>
+/// <see cref="IsProved"/> is a signal and nothing more. It is read, never acted
+/// on: no status changes because a run passed, because a person decides when the
+/// work is done and a green run on a branch is evidence for that decision, not the
+/// decision.
+/// </para>
+/// </summary>
+public sealed record ScenarioAcceptance(IReadOnlyList<ScenarioPartEvidence> Parts)
+{
+    public static ScenarioAcceptance None { get; } = new([]);
+
+    /// <summary>The parts of every reference, a part named twice kept once.</summary>
+    public static ScenarioAcceptance From(IEnumerable<ResolvedDevbookReference> references)
+    {
+        ArgumentNullException.ThrowIfNull(references);
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var parts = references
+            .SelectMany(reference => reference.ScenarioParts)
+            .Where(part => seen.Add(part.Reference))
+            .ToList();
+
+        return parts.Count == 0 ? None : new ScenarioAcceptance(parts);
+    }
+
+    public int Total => Parts.Count;
+
+    public int Passing => Parts.Count(part => part.State == ScenarioPartState.Passed);
+
+    /// <summary>Whether every part passed on a current signature — and there is at
+    /// least one: nothing to prove proves nothing.</summary>
+    public bool IsProved => Total > 0 && Passing == Total;
+
+    /// <summary>"2 of 3 passing".</summary>
+    public string Summary => $"{Passing} of {Total} passing";
 }
 
 /// <summary>One page or chapter a reference may name.</summary>

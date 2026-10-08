@@ -3,6 +3,8 @@
 @using global::Backlog.UI.Components.Metrics
 @using global::Backlog.UI.Components.Diagrams
 @using global::Microsoft.Extensions.DependencyInjection
+@using global::Backlog.UI.Components.Devbook
+@using global::System.Globalization
 
 @*
     One delivery run, as a line in the sessions table: under the session that ran
@@ -168,6 +170,18 @@
                                Message="@reason" />
                     }
                 }
+            </div>
+        }
+
+        @* The scenario page parts a stage ran (BL2 evidence), per part, under the
+           stage that reported them — the verify stage, for a delivery run. Left
+           out where no stage reported any. *@
+        @foreach (var stage in Run.Stages.Where(stage => stage.Evidence.Count > 0))
+        {
+            <div class="sessions-run__evidence" data-testid="sessions-run-evidence">
+                <ScenarioPartChecklist Parts="@EvidenceParts(stage)"
+                                       Heading="@($"{stage.Name}: scenario evidence")"
+                                       TestId="sessions-run-evidence-list" />
             </div>
         }
 
@@ -524,6 +538,31 @@
         "skipped" => FlowStepTone.Skipped,
         _ => FlowStepTone.Pending
     };
+
+    /// <summary>A stage's evidence as checklist rows: the part's anchor, its
+    /// outcome, the page's stem, and when the run ran. A part named twice keeps its
+    /// last report.</summary>
+    internal static IReadOnlyList<ScenarioChecklistPart> EvidenceParts(DeliveryRunStage stage) =>
+        [
+            .. stage.Evidence
+                .GroupBy(part => $"{part.Stem}#{part.Part}", StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.Last())
+                .Select(part => new ScenarioChecklistPart(
+                    string.IsNullOrWhiteSpace(part.Part) ? "(whole page)" : part.Part,
+                    part.Outcome ?? "not-run",
+                    part.Stem,
+                    RanAt(part.RunAt),
+                    string.IsNullOrWhiteSpace(part.Stem) || string.IsNullOrWhiteSpace(part.Part) ? null : $"{part.Stem}#{part.Part}"))
+        ];
+
+    /// <summary>A run's <c>ranAt</c> as the pane writes a time, or the text as sent
+    /// when it is no time.</summary>
+    private static string? RanAt(string? runAt) =>
+        string.IsNullOrWhiteSpace(runAt)
+            ? null
+            : DateTimeOffset.TryParse(runAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var time)
+                ? $"Ran {time.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture)}"
+                : runAt;
 
     internal static string? StageFacts(DeliveryRunStage stage)
     {

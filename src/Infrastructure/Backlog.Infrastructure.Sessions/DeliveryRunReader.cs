@@ -530,8 +530,35 @@ internal sealed partial class DeliveryRunReader
                 (int)(Integer(stage, "doneCount") ?? 0))
             {
                 Agents = StageAgents(stage, delegated.Where(agent => agent.Index == position || (agent.Index is null && agent.Stage == name))),
-                Execution = ObjectText(stage, "execution")
+                Execution = ObjectText(stage, "execution"),
+                Evidence = StageEvidence(stage)
             });
+        }
+
+        return read;
+    }
+
+    /// <summary>
+    /// The scenario parts a stage reported running (BL2): each object in its
+    /// <c>evidence</c> list with a stem or a part, its fields as sent. Anything
+    /// else in the list — a string, an object naming neither — is skipped rather
+    /// than drawn as an empty row.
+    /// </summary>
+    private static IReadOnlyList<DeliveryScenarioEvidence> StageEvidence(JsonElement stage)
+    {
+        if (!stage.TryGetProperty("evidence", out var evidence) || evidence.ValueKind is not JsonValueKind.Array) return [];
+
+        var read = new List<DeliveryScenarioEvidence>();
+
+        foreach (var part in evidence.EnumerateArray())
+        {
+            if (part.ValueKind is not JsonValueKind.Object) continue;
+
+            var stem = Text(part, "stem");
+            var anchor = Text(part, "part");
+            if (string.IsNullOrWhiteSpace(stem) && string.IsNullOrWhiteSpace(anchor)) continue;
+
+            read.Add(new DeliveryScenarioEvidence(stem, anchor, Text(part, "outcome"), Text(part, "runAt")));
         }
 
         return read;

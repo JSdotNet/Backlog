@@ -1,17 +1,10 @@
 @*
-    The four-state dot of a scenario page: passed, failed, stale, never run. Told
-    apart by shape as well as colour — a filled disc, a filled diamond, a ring, a
-    dashed ring — so the state reads without colour, and named to a screen reader,
-    since a dot alone says nothing to one (.devbook/design/accessibility.md, "Names
-    & roles"). The precedence is the page's: never run, then stale, then failed,
-    then passed.
+    The four-state dot of a scenario page, from its ScenarioState: the library's
+    ScenarioStateDot, so the knowledge view, a task's acceptance checklist and a
+    run's evidence draw one dot. The precedence is the page's: never run, then
+    stale, then failed, then passed.
 *@
-<span class="devbook-scenario-dot devbook-scenario-dot--@ScenarioEvidence.Slug(State)"
-      role="img"
-      aria-label="@AccessibleName"
-      title="@AccessibleName"
-      data-testid="@TestId"
-      data-state="@ScenarioEvidence.Slug(State)"></span>
+<ScenarioStateDot State="@ScenarioEvidence.Slug(State)" TestId="@TestId" />
 
 @code {
     [Parameter, EditorRequired]
@@ -19,6 +12,4 @@
 
     [Parameter]
     public string? TestId { get; set; } = "devbook-scenario-dot";
-
-    private string AccessibleName => $"Scenario {ScenarioEvidence.Label(State).ToLowerInvariant()}";
 }
