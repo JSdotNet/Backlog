@@ -74,7 +74,12 @@ public sealed record DeliveryRunStageWorker(
     bool Failed,
     bool Declared,
     bool Revise,
-    bool Observed);
+    bool Observed)
+{
+    /// <summary>When the call returned, where the run's insights recorded it — what,
+    /// with <see cref="DurationMs"/>, places the call's own requests in time.</summary>
+    public DateTimeOffset? EndedAt { get; init; }
+}
 
 /// <summary>
 /// How one stage of a delivery run ran, read off the run: its recorded execution, the
@@ -366,7 +371,7 @@ public static partial class DeliveryRunStageResolution
     private static List<DeliveryRunStageWorker> Workers(DeliveryRunStage stage, JsonObject ran, bool isGate)
     {
         var workers = stage.SubAgentRuns
-            .Select(call => new DeliveryRunStageWorker(call.Agent, call.Model, null, null, call.DurationMs, call.Tokens, call.ToolCalls, call.Failed, false, isGate, true))
+            .Select(call => new DeliveryRunStageWorker(call.Agent, call.Model, null, null, call.DurationMs, call.Tokens, call.ToolCalls, call.Failed, false, isGate, true) { EndedAt = call.EndedAt })
             .ToList();
 
         if (workers.Count == 0 && ran["runs"] is JsonArray calls)

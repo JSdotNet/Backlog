@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
@@ -599,6 +600,25 @@ public sealed class DeliveryRunReaderTests : IDisposable
         Assert.Equal(["3c3beb1b-c8c1-4db7-9cdc-6d82d2c90f74"], run.SessionIds);
         Assert.Equal(new DateTimeOffset(2026, 9, 27, 13, 14, 7, 835, TimeSpan.Zero), run.UpdatedAt);
         Assert.Empty(catalog.Unreadable);
+    }
+
+    [Fact]
+    public async Task A_stage_keeps_its_window_and_a_sub_agent_call_its_end()
+    {
+        GivenRun("orch-dashboard", "tasks-bulk-select-daa039-9e68802b", "run-mtlea9im-xxayjs.json", OrchFeatureRun);
+
+        var run = Assert.Single((await ReadAsync()).Runs);
+
+        // The window a stage's cost is read over (DeliveryRunCosts), as stamped.
+        Assert.Equal(DateTimeOffset.Parse("2026-09-03T10:41:25.704Z", CultureInfo.InvariantCulture), run.Stages[0].StartedAt);
+        Assert.Equal(DateTimeOffset.Parse("2026-09-03T14:34:20.291Z", CultureInfo.InvariantCulture), run.Stages[0].CompletedAt);
+
+        // A stage still under way has started and not ended.
+        Assert.NotNull(run.Stages[2].StartedAt);
+        Assert.Null(run.Stages[2].CompletedAt);
+
+        var call = Assert.Single(run.Stages[0].SubAgentRuns);
+        Assert.Equal(DateTimeOffset.Parse("2026-09-03T22:44:37.233Z", CultureInfo.InvariantCulture), call.EndedAt);
     }
 
     private Task<DeliveryRunCatalog> ReadAsync() => new LocalDeliveryRunSource(_home, MachineId, Machine).GetRunsAsync();

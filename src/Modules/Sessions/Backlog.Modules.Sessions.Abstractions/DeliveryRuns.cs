@@ -275,6 +275,16 @@ public sealed record DeliveryRunStage(string Name, string Status, long? Duration
 
     /// <summary>How many tool calls the run's insights filed under this stage.</summary>
     public int ToolCalls { get; init; }
+
+    /// <summary>When the stage's latest pass started, where the writer stamped it —
+    /// restamped on every pass, so a stage re-entered after requested changes starts
+    /// again.</summary>
+    public DateTimeOffset? StartedAt { get; init; }
+
+    /// <summary>When the stage's latest pass ended, or null while it is under way or
+    /// where the writer stamped nothing. With <see cref="StartedAt"/> it is the window
+    /// the stage's cost is read over (<see cref="DeliveryRunCosts"/>).</summary>
+    public DateTimeOffset? CompletedAt { get; init; }
 }
 
 /// <summary>
@@ -293,7 +303,12 @@ public sealed record DeliveryRunSubAgentRun(
     long? DurationMs,
     long? Tokens,
     int? ToolCalls,
-    bool Failed);
+    bool Failed)
+{
+    /// <summary>When the call returned, where recorded. With
+    /// <see cref="DurationMs"/> it is the window the call's own cost is read over.</summary>
+    public DateTimeOffset? EndedAt { get; init; }
+}
 
 /// <summary>
 /// One agent a stage delegated to, on one model.

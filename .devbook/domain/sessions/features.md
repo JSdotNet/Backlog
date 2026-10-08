@@ -844,8 +844,7 @@ reported is left out, never shown as zero.
 
 ```meta
 type: sub-feature
-status: proposed
-related: [.devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md]
+related: [.devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/domain/sessions/domain.md#cost-attribution, .devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md]
 ```
 
 ```mermaid
@@ -870,7 +869,15 @@ The receiving end is built. The desktop app takes Claude Code's OpenTelemetry lo
 `claude_code.api_request` event once, in its local database, as the
 [Claude API Request Log](domain.md#claude-api-request-log). Settings has a **Claude
 Code** page with the endpoint and the `settings.json` block to paste into Claude Code.
-The run and stage views that would show the cost are not built yet.
+
+The cost is shown in three places. The session's detail panel has a **Cost** fact: the
+sum of every request the session reported. Each stage row in a run's fold shows the
+stage's cost at its end, and the stage panel's **Ran** line repeats it. Each sub-agent call
+in the panel shows what that call cost. Which requests belong to which stage and which
+call is the [Cost Attribution](domain.md#cost-attribution) of the domain: the main loop's
+requests between the stage's start and its completion, and the requests of the stage's own
+sub-agents, matched by name. With no figure from either source, nothing is shown: there
+is no cost fact on the panel and no cost on the row, never a zero.
 
 A session sends these events only when its Claude Code settings say to. The person
 merges that page's block into the `env` of their user-level `~/.claude/settings.json`:
@@ -885,13 +892,27 @@ to report. The exact keys and the check that the rows arrived are in
 
 ```meta
 type: sub-feature
-status: proposed
+related: [.devbook/domain/sessions/domain.md#model-price-table, .devbook/domain/sessions/domain.md#cost-attribution]
 ```
 
 A price table in Settings gives a price per model. It covers the runs that sent no
 telemetry, such as runs from before the desktop app received it or from a session that
 does not send it. The product works out those runs' cost from their tokens, and marks
 that cost as estimated.
+
+The table is the **Model prices** page in Settings, beside the Claude Code page. Each row
+names a model and gives four rates in US dollars per million tokens: input, output, cache
+read and cache write. The table is empty until the person fills it in. The product ships
+no prices, because a list it shipped would be wrong the day a price changed. A row is
+saved as soon as it names a model. A rate is written with a point, such as 0.30. A rate
+that does not read that way, a comma among them, is refused with nothing saved, and so
+is a second row for the same model. A rate left empty is unknown, never free, so a stage that spent
+tokens of that kind is not priced at all.
+
+An estimated figure carries the words "estimated from tokens" on the session's detail
+and on each sub-agent call. A stage row, which has less room, marks it "est." with those
+words as its title. A model with no row in the table prices nothing, and a run on it
+shows no cost.
 
 The mark matters because the two figures are not equally sure. A price the person typed
 in may be out of date. A reader comparing two runs must be able to tell a reported cost

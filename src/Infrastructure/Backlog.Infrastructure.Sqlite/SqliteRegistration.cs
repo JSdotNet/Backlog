@@ -66,6 +66,11 @@ public static class SqliteRegistration
         services.AddSingleton<IClaudeApiRequestStore>(sp =>
             new RootedSqliteClaudeApiRequestStore(() => rootDirectory(sp)));
 
+        // The rates the person entered in Settings, which price a run Claude Code
+        // reported no cost for: the same context's table, in the same file.
+        services.AddSingleton<IModelPriceStore>(sp =>
+            new RootedSqliteModelPriceStore(() => rootDirectory(sp)));
+
         return services;
     }
 }

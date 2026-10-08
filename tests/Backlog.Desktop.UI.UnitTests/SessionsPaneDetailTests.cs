@@ -276,6 +276,116 @@ public sealed class SessionsPaneDetailTests
     public void A_duration_reads_the_way_a_person_says_one(double? minutes, string? expected) =>
         Assert.Equal(expected, SessionsPane.DurationLabel(minutes is { } value ? TimeSpan.FromMinutes(value) : null));
 
+    /// <summary>
+    /// What the session cost: Claude Code's reported sum where its telemetry reached
+    /// the app, an estimate from the run's tokens at the Settings prices marked so where
+    /// it did not, and no fact at all with neither — never a zero.
+    /// </summary>
+    [Fact]
+    public void The_panel_shows_the_cost_Claude_Code_reported_for_the_session()
+    {
+        var requests = new StubRequestStore(
+        [
+            new ClaudeApiRequest("req_1", Claude.Id, Noon.AddMinutes(-30), "claude-opus-5-5", "high", 1_500_000, 1, 2, 3, 4, 5, "repl_main_thread", null, null, null),
+            new ClaudeApiRequest("req_2", Claude.Id, Noon.AddMinutes(-20), "claude-opus-5-5", "high", 250_000, 1, 2, 3, 4, 5, "agent:custom", "Explore", null, null)
+        ]);
+
+        using var context = Context([Claude], [Run()]);
+        context.Services.AddSingleton<IClaudeApiRequestStore>(requests);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var cost = pane.Find("[data-testid='sessions-fact-cost']");
+
+            Assert.Equal("$1.75", cost.TextContent.Trim());
+            Assert.Equal("reported", cost.GetAttribute("data-source"));
+        });
+    }
+
+    [Fact]
+    public void Without_telemetry_the_panel_estimates_the_cost_from_tokens_and_says_so()
+    {
+        var run = Run() with
+        {
+            Stages = [new DeliveryRunStage("Scope", "done", 60_000, 1) { Execution = """{"mode":"inline","model":"claude-opus-5-5"}""" }],
+            TokenUsage = new DeliveryRunTokenUsage(
+                new DeliveryRunTokens(1, 1_000_000, 0, 0, 0, 0),
+                new DeliveryRunTokens(0, 0, 0, 0, 0, 0),
+                [new DeliveryRunStageTokens("Scope", new DeliveryRunTokens(1, 1_000_000, 0, 0, 0, 0), new DeliveryRunTokens(0, 0, 0, 0, 0, 0))],
+                ["claude-opus-5-5"])
+        };
+
+        using var context = Context([Claude], [run]);
+        context.Services.AddSingleton<IClaudeApiRequestStore>(new StubRequestStore([]));
+        context.Services.AddSingleton<IModelPriceStore>(new StubPriceStore(new ModelPriceTable([new ModelPrice("opus", 5m, 25m, 0.5m, 6.25m)])));
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var cost = pane.Find("[data-testid='sessions-fact-cost']");
+
+            Assert.Equal("estimated", cost.GetAttribute("data-source"));
+            Assert.Contains("$5.00", cost.TextContent);
+            Assert.Contains("estimated from tokens", cost.TextContent);
+        });
+    }
+
+    [Fact]
+    public void A_refresh_reads_the_prices_again_and_works_the_cost_out_anew()
+    {
+        var session = Claude with { ModelUsage = [new AgentModelUsage("claude-opus-5-5", 1_000_000, 0, 0, 0)] };
+        var prices = new StubPriceStore(ModelPriceTable.Empty);
+
+        using var context = Context([session], [Run()]);
+        context.Services.AddSingleton<IModelPriceStore>(prices);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-fact-output']")));
+        Assert.Empty(pane.FindAll("[data-testid='sessions-fact-cost']"));
+
+        _ = prices.SaveAsync(new ModelPriceTable([new ModelPrice("opus", 5m, 25m, 0.5m, 6.25m)]), TestContext.Current.CancellationToken);
+        pane.Find("[data-testid='sessions-refresh']").Click();
+
+        pane.WaitForAssertion(() => Assert.Contains("$5.00", pane.Find("[data-testid='sessions-fact-cost']").TextContent));
+    }
+
+    [Fact]
+    public void With_neither_telemetry_nor_a_price_the_panel_shows_no_cost()
+    {
+        using var context = Context([Claude], [Run()]);
+        context.Services.AddSingleton<IClaudeApiRequestStore>(new StubRequestStore([]));
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-fact-output']")));
+        Assert.Empty(pane.FindAll("[data-testid='sessions-fact-cost']"));
+    }
+
+    internal sealed class StubRequestStore(IReadOnlyList<ClaudeApiRequest> requests) : IClaudeApiRequestStore
+    {
+        public Task<int> AddAsync(IReadOnlyList<ClaudeApiRequest> added, CancellationToken cancellationToken = default) => Task.FromResult(0);
+
+        public Task<IReadOnlyList<ClaudeApiRequest>> ListAsync(string? sessionId = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ClaudeApiRequest>>([.. requests.Where(request => sessionId is null || request.SessionId == sessionId)]);
+    }
+
+    internal sealed class StubPriceStore(ModelPriceTable table) : IModelPriceStore
+    {
+        public ModelPriceTable Table { get; private set; } = table;
+
+        public Task<ModelPriceTable> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(Table);
+
+        public Task SaveAsync(ModelPriceTable saved, CancellationToken cancellationToken = default)
+        {
+            Table = saved;
+            return Task.CompletedTask;
+        }
+    }
+
     private static DeliveryRun Run() =>
         SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10), status: "in_progress") with
         {

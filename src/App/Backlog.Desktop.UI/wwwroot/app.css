@@ -2491,6 +2491,43 @@ h1, h2, h3 {
     border-color: var(--color-error-text);
 }
 
+/* The Model prices page: one row per model — its name, then four rates in dollars
+   per million tokens, then its remove button — in columns that line up down the
+   table, and stacked to two columns on a narrow pane. Positioned for the header's
+   .sr-only "Remove". */
+.model-prices {
+    position: relative;
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-sm) 0;
+}
+
+.model-prices__row {
+    display: grid;
+    grid-template-columns: minmax(10rem, 2fr) repeat(4, minmax(5rem, 1fr)) auto;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.model-prices__row--head {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.model-prices__rate {
+    text-align: right;
+}
+
+@media (max-width: 40rem) {
+    .model-prices__row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .model-prices__row--head {
+        display: none;
+    }
+}
+
 .setting__input--multiline {
     resize: vertical;
     min-height: 5.5rem;
@@ -6223,6 +6260,13 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
+/* The words an estimated cost carries, quieter than the figure they qualify. */
+.sessions-fact__note {
+    margin-left: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
 .sessions-detail__card {
     display: flex;
     flex-direction: column;
@@ -7156,6 +7200,26 @@ a.pull-request-detail-checks__name:hover {
     height: auto;
     margin-left: 0;
     font-size: var(--font-size-xs);
+}
+
+/* The stage's cost leads the row's end, so it pushes the figures over rather than
+   sitting after them; an estimate wears a dotted "est." whose title says so. */
+.sessions-stage__cost {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-primary);
+}
+
+.sessions-stage__estimate {
+    margin-left: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    text-decoration: underline dotted;
+    cursor: help;
+}
+
+.sessions-stage__cost + .sessions-stage__figures {
+    margin-left: 0;
 }
 
 .sessions-stage__figures {

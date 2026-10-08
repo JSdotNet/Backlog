@@ -84,7 +84,8 @@ public sealed class ClaudeCodeTelemetrySettingsTests
         var services = new ServiceCollection();
         services.AddSessionsSettings();
 
-        var section = Assert.Single(services.Select(d => d.ImplementationInstance).OfType<SettingsSection>());
+        // The Model prices page is registered beside it (ModelPriceSettingsTests).
+        var section = Assert.Single(services.Select(d => d.ImplementationInstance).OfType<SettingsSection>(), s => s.Id == "claude-code");
 
         Assert.Equal("claude-code", section.Id);
         Assert.Equal(typeof(ClaudeCodeTelemetrySettings), section.Component);

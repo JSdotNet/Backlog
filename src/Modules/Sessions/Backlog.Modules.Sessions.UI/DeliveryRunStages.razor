@@ -14,6 +14,11 @@
     row's chips and mark summarise — what ran, what was configured and where from,
     the skill, the servers, the skills run before and after, why a stage is marked,
     and every sub-agent call the stage made.
+
+    Cost, where the host worked one out (DeliveryRunCosts): on the row before its
+    figures, and on each sub-agent call. Reported by Claude Code, or estimated from
+    tokens at the Settings prices and marked so; with neither, nothing is drawn —
+    never a zero.
 *@
 @if (_stages.Count > 0)
 {
@@ -50,6 +55,19 @@
                                            Title="@(mark is StageMarkKind.Drift ? DeliveryRunStageResolution.DriftTitle(stage) : null)"
                                            TestId="sessions-stage-mark" />
                             }
+                            @if (CostOf(position) is { } cost)
+                            {
+                                <span class="sessions-stage__cost"
+                                      title="@CostTitle(cost)"
+                                      data-testid="sessions-stage-cost"
+                                      data-source="@CostSlug(cost)">
+                                    @cost.Label
+                                    @if (cost.Estimated)
+                                    {
+                                        <abbr class="sessions-stage__estimate" title="@CostFigure.EstimatedNote">est.</abbr>
+                                    }
+                                </span>
+                            }
                             @if (Figures(stage) is { } figures)
                             {
                                 <span class="sessions-stage__figures">@figures</span>
@@ -59,7 +77,7 @@
                             <dl class="sessions-stage__panel" data-testid="sessions-stage-panel">
                                 <div class="sessions-stage__fact">
                                     <dt>Ran</dt>
-                                    <dd data-testid="sessions-stage-ran">@Ran(stage)</dd>
+                                    <dd data-testid="sessions-stage-ran">@Ran(stage, CostOf(position))</dd>
                                 </div>
                                 <div class="sessions-stage__fact">
                                     <dt>Configured</dt>
@@ -102,15 +120,17 @@
                                         else
                                         {
                                             <ul class="sessions-stage__workers">
-                                                @foreach (var worker in stage.Workers)
+                                                @for (var w = 0; w < stage.Workers.Count; w++)
                                                 {
+                                                    var worker = stage.Workers[w];
+                                                    var workerCost = WorkerCostOf(position, w);
                                                     <li class="sessions-stage__worker" data-testid="sessions-stage-worker">
                                                         <span class="data-table__mono">@worker.Agent</span>
                                                         @if (worker.Revise)
                                                         {
                                                             <Badge Kind="trigger" CssClass="sessions-stage__revise" Title="Ran under the gate: a revise round after you asked for changes" TestId="sessions-stage-revise">revise round</Badge>
                                                         }
-                                                        <span class="sessions-stage__worker-facts">@WorkerFacts(worker)</span>
+                                                        <span class="sessions-stage__worker-facts">@WorkerFacts(worker, workerCost)</span>
                                                     </li>
                                                 }
                                             </ul>
@@ -140,6 +160,27 @@
 
     [Parameter, EditorRequired]
     public DeliveryRun Run { get; set; } = default!;
+
+    /// <summary>What each stage cost, in stage order, or null where the host worked
+    /// none out.</summary>
+    [Parameter]
+    public IReadOnlyList<DeliveryRunStageCost>? Costs { get; set; }
+
+    private CostFigure? CostOf(int stage) => Costs is { } costs && stage < costs.Count ? costs[stage].Stage : null;
+
+    private CostFigure? WorkerCostOf(int stage, int worker) =>
+        Costs is { } costs && stage < costs.Count && worker < costs[stage].Workers.Count ? costs[stage].Workers[worker] : null;
+
+    /// <summary>Where a figure came from, in words, for its tooltip.</summary>
+    internal static string CostTitle(CostFigure cost) => cost.Estimated
+        ? $"{cost.Label}, {CostFigure.EstimatedNote} at the prices in Settings"
+        : $"{cost.Label}, as Claude Code reported it";
+
+    private static string CostSlug(CostFigure cost) => cost.Estimated ? "estimated" : "reported";
+
+    /// <summary>A figure as a sentence part: the amount, and for an estimate, so.</summary>
+    internal static string CostText(CostFigure cost) =>
+        cost.Estimated ? $"{cost.Label} {CostFigure.EstimatedNote}" : $"{cost.Label} reported";
 
     protected override void OnParametersSet()
     {
@@ -173,7 +214,7 @@
 
     /// <summary>What ran: the mode, the agent or the owner session, the model and the
     /// effort, then what the stage cost where the run counted it.</summary>
-    internal static string Ran(DeliveryRunStageExecution stage)
+    internal static string Ran(DeliveryRunStageExecution stage, CostFigure? cost = null)
     {
         // A stage nobody has reported on has not run: what the configuration would
         // run is the Configured line's to say.
@@ -198,6 +239,7 @@
 
         if (stage.OutputTokens is { } output) parts.Add($"{MetricFormat.Compact(output)} output tokens");
         if (stage.ToolCalls > 0) parts.Add(stage.ToolCalls == 1 ? "1 tool call" : $"{stage.ToolCalls} tool calls");
+        if (cost is not null) parts.Add(CostText(cost));
 
         return string.Join(" · ", parts);
     }
@@ -245,7 +287,7 @@
 
     /// <summary>One sub-agent call: its model, how long, its tokens and tool calls, and
     /// how it ended — each left out where the run did not record it.</summary>
-    internal static string WorkerFacts(DeliveryRunStageWorker worker)
+    internal static string WorkerFacts(DeliveryRunStageWorker worker, CostFigure? cost = null)
     {
         var facts = new List<string>();
 
@@ -255,6 +297,7 @@
         if (worker.DurationMs is { } ms) facts.Add(DeliveryRunLine.Duration(ms));
         if (worker.Tokens is { } tokens) facts.Add($"{MetricFormat.Compact(tokens)} tokens");
         if (worker.ToolCalls is { } calls) facts.Add(calls == 1 ? "1 tool call" : $"{calls} tool calls");
+        if (cost is not null) facts.Add(CostText(cost));
 
         facts.Add(worker.Declared ? "declared, not seen running"
             : !worker.Observed ? "result not recorded"

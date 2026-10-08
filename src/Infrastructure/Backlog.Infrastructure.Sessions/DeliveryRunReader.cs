@@ -535,10 +535,12 @@ internal sealed partial class DeliveryRunReader
                 [
                     .. delegated
                         .Where(agent => InStage(agent.Index, agent.Stage, position, name))
-                        .Select(agent => new DeliveryRunSubAgentRun(agent.Name, agent.Model, agent.DurationMs, agent.Tokens, agent.ToolCalls, agent.Failed))
+                        .Select(agent => new DeliveryRunSubAgentRun(agent.Name, agent.Model, agent.DurationMs, agent.Tokens, agent.ToolCalls, agent.Failed) { EndedAt = agent.EndedAt })
                 ],
                 ToolCalls = toolCalls.Count(call => InStage(call.Index, call.Stage, position, name)),
-                Execution = ObjectText(stage, "execution")
+                Execution = ObjectText(stage, "execution"),
+                StartedAt = Moment(stage, "startedAt"),
+                CompletedAt = Moment(stage, "completedAt")
             });
         }
 
@@ -579,9 +581,9 @@ internal sealed partial class DeliveryRunReader
     /// the call cost where the record says. A record with neither stage nor index ran
     /// outside any stage and belongs to none.
     /// </summary>
-    private static List<(int? Index, string? Stage, string Name, string? Model, bool Failed, long? DurationMs, long? Tokens, int? ToolCalls)> DelegatedAgents(JsonElement root)
+    private static List<(int? Index, string? Stage, string Name, string? Model, bool Failed, long? DurationMs, long? Tokens, int? ToolCalls, DateTimeOffset? EndedAt)> DelegatedAgents(JsonElement root)
     {
-        var agents = new List<(int? Index, string? Stage, string Name, string? Model, bool Failed, long? DurationMs, long? Tokens, int? ToolCalls)>();
+        var agents = new List<(int? Index, string? Stage, string Name, string? Model, bool Failed, long? DurationMs, long? Tokens, int? ToolCalls, DateTimeOffset? EndedAt)>();
 
         if (!root.TryGetProperty("insights", out var insights) || insights.ValueKind is not JsonValueKind.Array) return agents;
 
@@ -606,7 +608,8 @@ internal sealed partial class DeliveryRunReader
                 Failed(insight),
                 Integer(insight, "durationMs"),
                 Integer(insight, "totalTokens"),
-                Integer(insight, "totalToolCalls") is { } calls ? (int)calls : null));
+                Integer(insight, "totalToolCalls") is { } calls ? (int)calls : null,
+                Moment(insight, "endedAt")));
         }
 
         return agents;
@@ -620,7 +623,7 @@ internal sealed partial class DeliveryRunReader
     /// </summary>
     private static IReadOnlyList<DeliveryRunStageAgent> StageAgents(
         JsonElement stage,
-        IEnumerable<(int? Index, string? Stage, string Name, string? Model, bool Failed, long? DurationMs, long? Tokens, int? ToolCalls)> ran)
+        IEnumerable<(int? Index, string? Stage, string Name, string? Model, bool Failed, long? DurationMs, long? Tokens, int? ToolCalls, DateTimeOffset? EndedAt)> ran)
     {
         var agents = ran
             .GroupBy(agent => (agent.Name, agent.Model))

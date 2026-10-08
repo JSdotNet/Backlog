@@ -176,7 +176,7 @@
            with the whole of it. *@
         @if (Run.Stages.Count > 0)
         {
-            <DeliveryRunStages Run="Run" />
+            <DeliveryRunStages Run="Run" Costs="Costs" />
         }
 
         @* Groups rather than one long list, so the grid can set them side by side:
@@ -359,6 +359,12 @@
     /// run's own.</summary>
     [Parameter]
     public IReadOnlyList<DeliveryRunReference>? References { get; set; }
+
+    /// <summary>What each stage and each of its sub-agent calls cost, in stage order
+    /// (<see cref="DeliveryRunCosts"/>), or null where the host worked none out — the
+    /// stage rows then show no cost, never a zero.</summary>
+    [Parameter]
+    public IReadOnlyList<DeliveryRunStageCost>? Costs { get; set; }
 
     private IReadOnlyList<DeliveryRunReference> AllReferences => References ?? Run.References;
 

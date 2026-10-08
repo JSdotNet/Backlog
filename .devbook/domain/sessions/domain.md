@@ -534,6 +534,67 @@ The records are this machine's: they are kept in the app's local database and do
 replicate. Where `Delivery Run Telemetry` counts tokens from the transcript, this log
 holds the figures Claude Code itself reported, cost among them.
 
+### Cost Attribution
+
+```meta
+type: domain-service
+related: [.devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/domain/sessions/domain.md#stage-resolution, .devbook/domain/sessions/domain.md#model-price-table, .devbook/domain/sessions/features.md#cost-as-claude-code-reports-it, .devbook/domain/sessions/features.md#a-price-table-for-runs-without-telemetry]
+aliases: [DeliveryRunCosts, CostFigure, DeliveryRunStageCost, cost attribution]
+```
+
+Says what a session, each stage of a delivery run and each sub-agent call cost, from
+the `Claude API Request Log` where Claude Code reported it and from the run's own token
+counts at the `Model Price Table` where it did not. A figure is the cost in whole
+micro-dollars and which of the two it came from.
+
+**A session** costs the sum of every request it reported.
+
+**A stage** costs the requests of the run's owner session — each session the run names,
+or the one it was joined to by worktree and time — that fall in the stage's window, from
+its latest start to its completion. A stage still under way has no end yet. Only the main
+loop's requests count by time. A request a sub-agent made — one with an `agent.name`, or
+a `query_source` of `agent:<name>` — counts only when that agent is one of the stage's
+workers, matched the way `Stage Resolution` matches agents: the same name, or one the
+other with a plugin prefix. A worker's request counts inside the stage's window or inside
+that worker's own call, so a sub-agent still running after its stage was marked done is
+still its stage's. A stage re-entered after requested changes is the exception: its
+start is stamped again on every pass, so its window holds the latest pass only, and a
+figure over it would read as the whole stage. Such a stage is estimated instead.
+
+**A sub-agent call** costs its agent's requests between the call's start, its end less
+its duration, and its end, two seconds either way for the two clocks. A call that
+recorded no end claims its agent's requests in the stage only when it is the stage's one
+call of that agent. Two calls of one agent whose times overlap, such as a fan-out, claim
+none either. In both cases the calls could not be told apart, so each is estimated.
+
+**Without a report, an estimate.** A stage no request answers for is priced from its
+token counts: the owner session's share at the stage's model where it ran inline, else
+the owner's, and the sub-agents' share at the one model its calls ran on. Calls on
+several models are each priced at their own. A sub-agent call takes the stage's
+sub-agent tokens in proportion to the tokens it reported. A session with no report is
+its own tokens per model, read from its transcript, plus the sub-agent share of each of
+its runs' stages; a row with no transcript of its own sums its runs' whole stages. An
+estimate is none at all when a part that spent tokens could not be priced, because a
+partial sum would read as the whole. Every estimate is marked as one.
+
+**Neither is no figure.** With no request and no price, there is no cost, never zero.
+
+### Model Price Table
+
+```meta
+type: value-object
+related: [.devbook/domain/sessions/features.md#a-price-table-for-runs-without-telemetry]
+aliases: [ModelPriceTable, ModelPrice, IModelPriceStore, model prices]
+```
+
+The rates the person entered in Settings, one row per model: input, output, cache read
+and cache write, each in US dollars per million tokens, each optional. Empty until filled
+in. A model a run names finds its row by the same id, then by the same model written
+another way ("Opus 5.5" for `claude-opus-5-5`), then by its family (`opus`); a context
+suffix such as `[1m]` is ignored. An estimate needs a rate for every kind of token
+spent, and has none otherwise. The table is this machine's, kept in the app's local
+database beside the request log, and does not replicate.
+
 ### Delivery Run Reference
 
 ```meta
