@@ -77,6 +77,7 @@ internal sealed class InboxItems(
     IQueryHandler<ReadAttachmentQuery, Result<byte[]>> readAttachment,
     ICommandHandler<OpenAttachmentCommand, Result> openAttachment,
     IQueryHandler<SuggestQuery, Result<IReadOnlyList<InboxSuggestionDto>>> suggest,
+    IQueryHandler<SuggestManyQuery, Result<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>> suggestMany,
     ICommandHandler<DismissSuggestionCommand, Result> dismissSuggestion,
     IQueryHandler<RelatedQuery, Result<InboxRelationsDto>> related,
     ICommandHandler<LinkToTaskCommand, Result> linkToTask,
@@ -201,6 +202,9 @@ internal sealed class InboxItems(
 
     public Task<Result<IReadOnlyList<InboxSuggestionDto>>> SuggestAsync(Guid id, CancellationToken cancellationToken = default) =>
         suggest.Handle(new SuggestQuery(id), cancellationToken);
+
+    public Task<Result<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>> SuggestManyAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) =>
+        suggestMany.Handle(new SuggestManyQuery(ids), cancellationToken);
 
     public Task<Result> DismissSuggestionAsync(Guid id, string key, CancellationToken cancellationToken = default) =>
         dismissSuggestion.Handle(new DismissSuggestionCommand(id, key), cancellationToken);

@@ -1777,7 +1777,7 @@
     /// Held here rather than in the pane for the reason the Inbox's own view
     /// state lives in <see cref="InboxDesktopState"/>: the pane re-mounts when
     /// it changes slot, and a run's result dropping at that moment would leave
-    /// the reader with a button that did nothing. The Inbox's Add is not
+    /// the reader with a button that did nothing. The Inbox's capture field is not
     /// answered here at all — the pane files it through its own module.</summary>
     private bool _captureRunning;
     private string? _captureMessage;
@@ -1786,7 +1786,7 @@
     /// The Inbox pane as this shell composes it, once, for both slots it can
     /// sit in: the Capture button answered by <see cref="RunCaptureAsync"/>,
     /// and the Capture context's own sources panel in the pane's sources slot,
-    /// which the pane shows as its Sources tab. The pane draws that slot
+    /// which the pane shows when its Sources button is pressed. The pane draws that slot
     /// without naming what is in it, so the Inbox stays free of Capture's
     /// types while its button and its switches sit together on one pane.
     /// </summary>
@@ -1869,7 +1869,7 @@
     {
         if (run.NothingEnabled)
         {
-            return "No capture sources are enabled. Open the Sources tab and switch one on.";
+            return "No capture sources are enabled. Press Sources in the Inbox header and switch one on.";
         }
 
         var sources = string.Join(" ", run.Sources.Select(source => source.Message));

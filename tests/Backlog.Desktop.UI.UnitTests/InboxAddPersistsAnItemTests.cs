@@ -9,14 +9,15 @@ using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 using Bunit;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// What the Inbox's Add and Capture do inside the rendered shell.
+/// What the Inbox's capture field and Capture now do inside the rendered shell.
 /// <para>
-/// Add is the pane's own — the dialog's title and notes go through the Inbox's
+/// The field is the pane's own — its title and notes go through the Inbox's
 /// module as an item with the notes as its body — so what is under test here is
 /// that the shell composes the pane over a module that actually receives it, and
 /// that nothing else in the shell reacts: no backlog row, no Tasks pane opening.
@@ -30,7 +31,7 @@ public sealed class InboxAddPersistsAnItemTests
     private const string Title = "Ask about the trial length";
     private const string Notes = "Before Friday, and in writing.";
 
-    // --- Add --------------------------------------------------------------
+    // --- The capture field ------------------------------------------------
 
     [Fact]
     public async Task Adding_from_the_inbox_files_an_item_with_its_title_and_notes()
@@ -97,22 +98,22 @@ public sealed class InboxAddPersistsAnItemTests
     }
 
     [Fact]
-    public async Task A_blank_title_is_refused_by_the_dialog_and_files_nothing()
+    public async Task A_blank_title_is_refused_by_the_field_and_files_nothing()
     {
         using var harness = CreateHarness();
 
         var component = Render(harness);
         await WaitForInboxAsync(component);
 
-        await component.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-add-dialog']")));
+        await component.Find("[data-testid='inbox-pane-capture-field'] input").InputAsync(new() { Value = "   " });
+        await component.Find("[data-testid='inbox-pane-capture-field'] input").KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
 
-        Assert.True(component.Find("[data-testid='inbox-pane-add-submit']").HasAttribute("disabled"));
         Assert.Empty(harness.Inbox.Items);
     }
 
-    /// <summary>The dialog has closed by the time the module answers, so a
-    /// refusal is a toast — its own, so a driver can tell it from an item act's.
+    /// <summary>The field is a line in the header with nowhere to hold a
+    /// one-off failure, so a refusal is a toast — its own, so a driver can tell
+    /// it from an item act's.
     /// Read from the channel: the toast stack is MainLayout's, below every
     /// route, and this renders Home alone.</summary>
     [Fact]
@@ -136,8 +137,9 @@ public sealed class InboxAddPersistsAnItemTests
 
     // --- Capture ----------------------------------------------------------
 
-    /// <summary>The sources are configured on the pane itself, on its own
-    /// tab, so the line points at that tab rather than at a Settings tab.</summary>
+    /// <summary>The sources are configured on the pane itself, behind its
+    /// header's Sources button, so the line points there rather than at a
+    /// Settings tab.</summary>
     [Fact]
     public async Task Capture_with_nothing_enabled_points_at_the_sources_panel()
     {
@@ -153,14 +155,13 @@ public sealed class InboxAddPersistsAnItemTests
             var result = component.Find("[data-testid='inbox-pane-capture-result']");
             Assert.Equal("status", result.GetAttribute("role"));
             Assert.Contains("No capture sources are enabled", result.TextContent, StringComparison.Ordinal);
-            Assert.Contains("Sources tab", result.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Press Sources in the Inbox header", result.TextContent, StringComparison.Ordinal);
             Assert.DoesNotContain("Settings", result.TextContent, StringComparison.Ordinal);
         });
 
-        // And the tab it points at is on the pane, beside the queue, with the
-        // panel behind it saying nothing is on.
-        Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-tabs'] [data-testid='inbox-pane-tab-sources']"));
-        await component.Find("[data-testid='inbox-pane-tab-sources']").ClickAsync(new());
+        // And the button it points at is in the pane's header, with the panel
+        // behind it saying nothing is on.
+        await component.Find("[data-testid='inbox-pane-sources-open']").ClickAsync(new());
         component.WaitForAssertion(() =>
             Assert.Equal("None of 3 sources on", component.Find("[data-testid='inbox-pane-sources'] [data-testid='capture-sources-summary']").TextContent.Trim()));
     }
@@ -177,9 +178,9 @@ public sealed class InboxAddPersistsAnItemTests
         var component = Render(harness);
         await WaitForInboxAsync(component);
 
-        await component.Find("[data-testid='inbox-pane-tab-sources']").ClickAsync(new());
+        await component.Find("[data-testid='inbox-pane-sources-open']").ClickAsync(new());
         component.WaitForAssertion(() =>
-            Assert.Equal("true", component.Find("[data-testid='inbox-pane-tab-sources']").GetAttribute("aria-selected")));
+            Assert.Equal("true", component.Find("[data-testid='inbox-pane-sources-open']").GetAttribute("aria-pressed")));
 
         component.Find("[data-testid='capture-source-youtube-enabled'] input").Change(true);
         Assert.True(harness.CaptureSources.Current.For(CaptureSourceKind.YouTube).Enabled);
@@ -299,37 +300,40 @@ public sealed class InboxAddPersistsAnItemTests
 
     /// <summary>Opens the Inbox the way a reader does — the header option — and
     /// waits for the pane to arrive. The pane may be empty, so what is waited
-    /// for is the header's Add rather than a list.</summary>
+    /// for is the header's capture field rather than a list.</summary>
     private static async Task<IRenderedComponent<InboxPane>> WaitForInboxAsync(IRenderedComponent<Home> component)
     {
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']")));
 
-        if (component.FindAll("[data-testid='inbox-pane-add']").Count == 0)
+        if (component.FindAll("[data-testid='inbox-pane-capture-field']").Count == 0)
         {
             await component.Find("[data-testid='inbox-pane-option']").ClickAsync(new());
-            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-add']")));
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-capture-field']")));
         }
 
         return component.FindComponent<InboxPane>();
     }
 
-    /// <summary>Add, through the dialog, the way a reader does it.</summary>
+    /// <summary>Through the capture field, the way a reader does it: the title
+    /// and Enter, or with notes, Shift+Enter, the notes and Ctrl+Enter.</summary>
     private static async Task AddAsync(IRenderedComponent<Home> component, string title, string? notes)
     {
         await WaitForInboxAsync(component);
 
-        await component.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-add-dialog']")));
+        var field = "[data-testid='inbox-pane-capture-field'] input";
+        await component.Find(field).InputAsync(new() { Value = title });
 
-        await component.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new() { Value = title });
-        if (notes is not null)
+        if (notes is null)
         {
-            await component.Find("[data-testid='inbox-pane-add-notes'] textarea").InputAsync(new() { Value = notes });
+            await component.Find(field).KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+            return;
         }
 
-        await component.Find("[data-testid='inbox-pane-add-submit']").ClickAsync(new());
+        await component.Find(field).KeyDownAsync(new KeyboardEventArgs { Key = "Enter", ShiftKey = true });
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-capture-notes'] textarea")));
 
-        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='inbox-pane-add-dialog']")));
+        await component.Find("[data-testid='inbox-pane-capture-notes'] textarea").InputAsync(new() { Value = notes });
+        await component.Find("[data-testid='inbox-pane-capture-notes'] textarea").KeyDownAsync(new KeyboardEventArgs { Key = "Enter", CtrlKey = true });
     }
 
     private static TasksDesktopState State(Harness harness) =>

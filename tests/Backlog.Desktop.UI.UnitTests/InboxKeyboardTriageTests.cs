@@ -61,7 +61,7 @@ public sealed class InboxKeyboardTriageTests
         Assert.Equal(items[2].Id, harness.State.SelectedItemId);
     }
 
-    /// <summary>On the Sources tab the rows are not on screen, so a triage
+    /// <summary>With the sources shown the rows are not on screen, so a triage
     /// key would decide an item the reader cannot see. Only ? still answers.</summary>
     [Fact]
     public async Task Triage_keys_do_nothing_while_the_sources_tab_is_shown()
@@ -143,14 +143,14 @@ public sealed class InboxKeyboardTriageTests
     }
 
     [Fact]
-    public async Task T_focuses_the_tag_field_and_x_picks_the_chosen_item()
+    public async Task G_focuses_the_tag_field_and_x_picks_the_chosen_item()
     {
         using var harness = Harness.Create();
         var item = harness.Inbox.Seed("Tag me");
         var pane = await harness.RenderAsync();
         await harness.SelectAsync(pane, item.Id);
 
-        await PressAsync(pane, "t");
+        await PressAsync(pane, "g");
         Assert.Contains(
             harness.Context.JSInterop.Invocations["backlogFocus"],
             call => Equals(call.Arguments[0], InboxItemDetail.TagsInputId));
@@ -164,6 +164,59 @@ public sealed class InboxKeyboardTriageTests
         Assert.False(harness.State.IsPicked(item.Id));
     }
 
+    /// <summary>t starts triage on the chosen item, the key the header's Start
+    /// triage names; once in triage it does nothing more.</summary>
+    [Fact]
+    public async Task T_starts_triage_on_the_chosen_item()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two", "Three");
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, items[1].Id);
+
+        Assert.Equal("T", pane.Find("[data-testid='inbox-triage-start'] kbd").TextContent);
+
+        await PressAsync(pane, "t");
+
+        Assert.True(harness.State.TriageMode);
+        Assert.Equal("2 of 3", Counter(pane));
+        Assert.Equal("Two", DetailTitle(pane));
+        Assert.True(pane.Find("[data-testid='inbox-triage-start']").HasAttribute("disabled"));
+
+        await PressAsync(pane, "t");
+        Assert.True(harness.State.TriageMode);
+        Assert.Equal("Two", DetailTitle(pane));
+    }
+
+    /// <summary>The triage pager's hints name g for the tags, never t.</summary>
+    [Fact]
+    public async Task The_triage_hints_name_g_for_the_tags()
+    {
+        using var harness = Harness.Create();
+        SeedNewestFirst(harness, "One");
+        var pane = await harness.RenderAsync();
+
+        await PressAsync(pane, "t");
+
+        var hints = pane.Find("[data-testid='inbox-triage-pager']").TextContent;
+        Assert.Contains("tags", hints, StringComparison.Ordinal);
+        Assert.Equal(
+            ["j k", "a", "d", "l", "r", "g", "Esc"],
+            pane.FindAll("[data-testid='inbox-triage-pager'] kbd").Select(key => key.TextContent.Trim()));
+    }
+
+    /// <summary>The keys reach the pane only through the set components.js
+    /// listens for, so g has to be in it beside t.</summary>
+    [Fact]
+    public void Components_js_hands_the_pane_both_g_and_t()
+    {
+        var script = File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.js"));
+        var line = script.Split('\n').Single(line => line.Contains("const SHORTCUT_PANE_KEYS", StringComparison.Ordinal));
+
+        Assert.Contains("'g'", line, StringComparison.Ordinal);
+        Assert.Contains("'t'", line, StringComparison.Ordinal);
+    }
+
     // --- Finding them -------------------------------------------------------
 
     [Fact]
@@ -174,7 +227,12 @@ public sealed class InboxKeyboardTriageTests
 
         await pane.Find("[data-testid='inbox-pane-shortcuts']").ClickAsync(new());
         var keys = pane.FindAll("[data-testid='inbox-shortcuts-list'] kbd").Select(key => key.TextContent).ToList();
-        Assert.Equal(["j", "k", "a", "d", "l", "r", "t", "x", "Esc", "?"], keys);
+        Assert.Equal(["t", "j", "k", "a", "d", "l", "r", "g", "1–9", "x", "Esc", "?"], keys);
+        Assert.Equal(
+            ["Start triage", "Tags"],
+            pane.FindAll("[data-testid='inbox-shortcuts-list'] .inbox-pane__shortcut")
+                .Where(row => row.QuerySelector("kbd")!.TextContent is "t" or "g")
+                .Select(row => row.QuerySelector("dd")!.TextContent));
 
         await pane.Find("[data-testid='inbox-shortcuts-dialog']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
         Assert.Empty(pane.FindAll("[data-testid='inbox-shortcuts-dialog']"));

@@ -26,7 +26,16 @@ selected item opens in a detail view shaped by its kind.
 The rows are grouped by how long ago they were captured: **Today**, **This
 week** and **Older than a week**, each heading with its count. A group with no
 rows is not shown. The pane is three columns: the side menu, the rows, and the
-detail of the chosen item.
+detail of the chosen item. **Deferred** is the one slice without age headings:
+its rows run in the order they come back, soonest review date first, and
+splitting them by capture would scramble that.
+
+A row is a tile with the kind's mark, the title, a line saying what kind of
+thing it is and where it came from ("Article · Web clipper"), and how long ago
+it arrived. A row whose item has a [suggestion](#classification-and-enrichment)
+the reader can take and has not turned down says **suggested** under its age,
+so the rows worth a second look stand out before they are opened. Tags and
+repositories are shown in the detail, not on the row.
 
 ### Add by hand
 
@@ -53,7 +62,11 @@ The capture field replaces the Add dialog. It sits in the header, always open:
 
 It asks for a title and, optionally, notes — nothing else, because the Inbox is
 where deciding happens and a field that asked where the item goes would be
-asking for triage before the item exists.
+asking for triage before the item exists. While the notes are open, Enter in
+the field files the notes with the title too, so nothing written under it is
+dropped; Escape discards the notes with the editor, so notes nobody can see are
+never filed with the next Enter. A capture that fails leaves the title in the
+field to try again with.
 
 The result is a [Capture (manual)](domain.md#capture-manual), captured and received at the same instant; it lands unfiled in the
 queue the reader is filling and opens in the detail beside it rather than

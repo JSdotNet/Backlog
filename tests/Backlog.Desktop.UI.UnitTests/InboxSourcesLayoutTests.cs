@@ -1,16 +1,16 @@
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Inbox pane is a flex column: header, the last run's line, then — when
-/// the shell fills the sources slot — a tab strip over one panel, the queue or
-/// the sources. Each panel takes the whole body the strip leaves, so the
-/// sources are no longer a strip squeezed above the rows; these pin the rules
-/// that make that so.
+/// The Inbox pane is a flex column: header, the last run's line, then the
+/// body — the queue, or, when the header's Sources button is pressed, the
+/// sources the shell put in the slot. The sources take the whole body the
+/// header leaves rather than a strip squeezed above the rows; these pin the
+/// rules that make that so.
 /// </summary>
 public sealed class InboxSourcesLayoutTests
 {
     [Fact]
-    public void The_sources_panel_takes_the_body_and_scrolls_inside_it()
+    public void The_sources_take_the_body_and_scroll_inside_it()
     {
         var rule = Rule(".inbox-pane__sources {");
 
@@ -20,26 +20,13 @@ public sealed class InboxSourcesLayoutTests
         Assert.DoesNotContain("max-height", rule, StringComparison.Ordinal);
     }
 
+    /// <summary>The tab strip is gone, and so are the rules that kept its
+    /// hidden panel hidden.</summary>
     [Fact]
-    public void The_queue_panel_is_a_column_the_body_grows_into()
+    public void The_tab_strip_rules_are_gone()
     {
-        var rule = Rule(".inbox-pane__queue {");
-
-        Assert.Contains("display: flex;", rule, StringComparison.Ordinal);
-        Assert.Contains("flex-direction: column;", rule, StringComparison.Ordinal);
-        Assert.Contains("flex: 1 1 0;", rule, StringComparison.Ordinal);
-    }
-
-    /// <summary>The tab strip keeps the panel that is not chosen in the DOM,
-    /// empty and hidden; a panel's own display rule would otherwise beat the
-    /// attribute and leave it taking half the body.</summary>
-    [Fact]
-    public void A_hidden_panel_stays_hidden()
-    {
-        Assert.Contains(
-            ".inbox-pane__queue[hidden],\n.inbox-pane__sources[hidden] {\n    display: none;",
-            Css(),
-            StringComparison.Ordinal);
+        Assert.DoesNotContain(".inbox-pane__queue", Css(), StringComparison.Ordinal);
+        Assert.DoesNotContain(".inbox-pane__tabs", Css(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -53,7 +40,7 @@ public sealed class InboxSourcesLayoutTests
     }
 
     /// <summary>The sources used to be capped so the queue beneath them kept
-    /// its floor; on a tab of their own there is nothing beneath them.</summary>
+    /// its floor; with the body to themselves there is nothing beneath them.</summary>
     [Fact]
     public void The_sources_height_cap_is_gone()
     {
