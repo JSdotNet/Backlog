@@ -227,7 +227,7 @@ public sealed class InboxKeyboardTriageTests
 
         await pane.Find("[data-testid='inbox-pane-shortcuts']").ClickAsync(new());
         var keys = pane.FindAll("[data-testid='inbox-shortcuts-list'] kbd").Select(key => key.TextContent).ToList();
-        Assert.Equal(["t", "j", "k", "a", "d", "l", "r", "g", "1–9", "x", "Esc", "?"], keys);
+        Assert.Equal(["t", "j", "k", "a", "d", "l", "r", "g", "1–9", "x", "u", "Esc", "?"], keys);
         Assert.Equal(
             ["Start triage", "Tags"],
             pane.FindAll("[data-testid='inbox-shortcuts-list'] .inbox-pane__shortcut")

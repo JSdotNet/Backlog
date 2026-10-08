@@ -30,6 +30,8 @@ using Backlog.Modules.Inbox.Features.RenameList;
 using Backlog.Modules.Inbox.Features.RetryAttachment;
 using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
 using Backlog.Modules.Inbox.Features.ResurfaceItem;
+using Backlog.Modules.Inbox.Features.RestoreItem;
+using Backlog.Modules.Inbox.Features.ReturnToInbox;
 using Backlog.Modules.Inbox.Features.RouteBatchToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.SetTags;
@@ -59,6 +61,8 @@ internal sealed class InboxItems(
     ICommandHandler<DeleteItemCommand, Result> delete,
     ICommandHandler<DeferItemCommand, Result> defer,
     ICommandHandler<ResurfaceItemCommand, Result> resurface,
+    ICommandHandler<RestoreItemCommand, Result> restore,
+    ICommandHandler<ReturnToInboxCommand, Result> returnToInbox,
     ICommandHandler<ResurfaceDueItemsCommand, Result<int>> resurfaceDue,
     ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>> routeToBacklog,
     ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>> createPlan,
@@ -132,6 +136,12 @@ internal sealed class InboxItems(
 
     public Task<Result> ResurfaceAsync(Guid id, CancellationToken cancellationToken = default) =>
         resurface.Handle(new ResurfaceItemCommand(id), cancellationToken);
+
+    public Task<Result> RestoreAsync(Guid id, CancellationToken cancellationToken = default) =>
+        restore.Handle(new RestoreItemCommand(id), cancellationToken);
+
+    public Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default) =>
+        returnToInbox.Handle(new ReturnToInboxCommand(id, deleteTasks), cancellationToken);
 
     public Task<Result<int>> ResurfaceDueAsync(CancellationToken cancellationToken = default) =>
         resurfaceDue.Handle(new ResurfaceDueItemsCommand(), cancellationToken);

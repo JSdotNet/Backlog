@@ -477,6 +477,35 @@ internal sealed partial class InboxBacklogTarget(
     }
 
     /// <summary>
+    /// Undoing a route: every entry it made, deleted through Tasks' own delete —
+    /// after all of them have been checked, so a refusal leaves every one in
+    /// place. Started means no longer <see cref="EntryStatus.Draft"/> or
+    /// <see cref="EntryStatus.Ready"/>: in progress, done or archived — the
+    /// backlog has moved on with it, and the undo is not the place to discard
+    /// that. An id the backlog no longer lists is already deleted.
+    /// </summary>
+    public async Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskIds);
+        if (taskIds.Count == 0) return Result.Success();
+
+        var byId = (await tasks.ListAsync(cancellationToken).ConfigureAwait(false)).ToDictionary(task => task.Id);
+        var present = taskIds.Distinct().Where(byId.ContainsKey).Select(id => byId[id]).ToList();
+
+        if (present.FirstOrDefault(task => task.Status is not (EntryStatus.Draft or EntryStatus.Ready)) is { } started)
+        {
+            return Result.Failure(InboxErrors.UndoTaskStarted(WhitespaceRun().Replace(started.Title.Trim(), " ")));
+        }
+
+        foreach (var task in present)
+        {
+            await tasks.DeleteAsync(task.Id, cancellationToken).ConfigureAwait(false);
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>
     /// The capture as one comment: its title, then its link when it has one,
     /// then its notes after a blank line — the order the merge promises. The
     /// title is one line, every whitespace run in it one space, as

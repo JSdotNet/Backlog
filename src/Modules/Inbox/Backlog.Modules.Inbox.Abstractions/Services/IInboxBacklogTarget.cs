@@ -104,4 +104,14 @@ public interface IInboxBacklogTarget
     /// </para>
     /// </summary>
     Task<Result> CommentOnTaskAsync(InboxMergeRequestDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Undoing "Move to backlog": deletes the entries a route made, named by
+    /// <paramref name="taskIds"/> — all of them or none. Refused with
+    /// <see cref="InboxErrors.UndoTaskStarted"/>, naming the first one in the
+    /// list, when any of them is no longer a draft or ready: someone has started
+    /// it, and deleting started work is not what an undo is for. An id the
+    /// backlog no longer has is skipped, since it is already what the undo asks.
+    /// </summary>
+    Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, CancellationToken cancellationToken = default);
 }
