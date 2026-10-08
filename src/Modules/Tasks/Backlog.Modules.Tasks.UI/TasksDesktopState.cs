@@ -1150,6 +1150,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         NoRepositoryOnly = only;
         ApplyFilter();
+        Changed?.Invoke();
     }
 
     /// <summary>Turns the "ready in a plan" scope on or off. See
