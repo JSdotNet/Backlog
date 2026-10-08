@@ -105,7 +105,7 @@ Page map — each file here and the storybook pages that show it:
 | `content-editing.md` | *Markdown*, *Markdown document*, *Rich text editing*, *File view*, *Code*, *Entry edit*, *Section comparison*; `#ai-proposals-in-a-document` → *Integrations* → **AI in the document** |
 | `accessibility.md` | every page — components carry their own roles, labels and focus styles; *Foundations* reports contrast |
 | `component-libraries.md` | *Diagrams*, *Diagrams in markdown*, *Graph explorer* and *Graph atlas* (Mermaid, the first-party canvas renderer), plus the library itself |
-| `effort-and-mode-chips.md` | None yet. The chips are not yet materialized in the library, as its *Materialization* chapter says. |
+| `effort-and-mode-chips.md` | `#effort-chips` → *Session list* (the effort ladder, an effort nobody recorded, and the stage strip beside it). The mode chips and stage marks are not yet materialized, as its *Materialization* chapter says. |
 
 The storybook's own order is a rule of its own: **nothing is shown before its
 parts.** Its groups run parts (input and action, structure, feedback, content,

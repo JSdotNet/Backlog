@@ -512,6 +512,20 @@ evidence for it. A session row's repository is the session's, and where the agen
 recorded none, the tracker item a run of it named: a recorded fact from a second
 source, not the guess from a path the Session Log forbids.
 
+A row also answers four questions the list shows on it, each from whichever side
+recorded the answer and never from a default:
+
+- **Model**: the model the session spent the most output on, else the first model a
+  run of it observed.
+- **Effort**: the reasoning effort the owner session ran at, as the latest stage of a
+  run on the row that ran inline — in the owner session — recorded it in its
+  execution. A delegated stage's effort is its sub-agent's and says nothing about the
+  session. Telemetry, once it is received, is the better source; with neither, the
+  effort is not recorded.
+- **Output**: the session's own output tokens, summed over its models, else its runs'
+  totals.
+- **Duration**: from its start to its last activity, where the start is dated.
+
 ### Delivery Run Catalog
 
 ```meta
@@ -716,28 +730,38 @@ aliases: [AgentSessionGrouping]
 
 Carves a set of `Session Row`s, run-only rows included, into sections, each ordered
 most recently active first, with the sections themselves in a stable order. There are
-three groupings:
+five groupings; the session list offers the first three, When first:
 
-- **None**, the one a reader starts from: one section with no name, holding every
-  row. No rows means no sections at all, not one empty section.
+- **When**, the one a reader starts from: the live rows — Running or Stalled — in a
+  section of their own first, whatever day they started, then the finished ones by
+  the day they were last active on the reader's own clock: earlier today, yesterday,
+  in the past week, older. A bucket with nothing in it is no section.
+- **Repository**: a section per repository, keyed by the one the row shows, ignoring
+  case, and named after the spelling its most recent row carries. Sections sort by
+  name; the rows that name no repository close the list in a section of their own.
 - **Environment**: a section per environment, keyed by the environment's id rather
   than its name. A section's heading is the name its most recent row carries, so a
   renamed machine shows the name it has now. Two machines that share a name are two
   sections, ordered by name, ignoring case, and then by id.
+- **None**: one section with no name, holding every row. No rows means no sections
+  at all, not one empty section.
 - **Agent**: a section per agent, keyed by the agent's name.
 
 Each section carries the key that made it one, so a surface can tell apart two
 sections whose headings match.
 
 A service because grouping spans sessions rather than belonging to any one of them,
-and a pure one: no clock, no I/O, no state. Two properties it guarantees, both of
-which a reader relies on without being told:
+and a pure one: no I/O and no state. When alone reads a clock and a time zone, and
+both are handed in — the moment the list was read, not the moment it is drawn — so a
+press in the filter bar never moves a row from one day into another. Two properties
+it guarantees, both of which a reader relies on without being told:
 
 - **Grouping rearranges and never filters.** Every session in, every session out. A
   count taken before grouping is still correct after it.
-- **Group order does not depend on group size.** Environments sort by name and agents
-  in the order the `Agent` enum declares them, so a section does not move under the
-  reader as sessions come and go.
+- **Group order does not depend on group size.** When's buckets keep their own order,
+  repositories and environments sort by name and agents in the order the `Agent`
+  enum declares them, so a section does not move under the reader as sessions come
+  and go.
 
 Invocation semantics: query/composition-oriented; invoked per view, never stored.
 Which grouping is in force is the reader's choice and is not part of this context's
