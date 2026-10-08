@@ -542,8 +542,6 @@
 </div>
 
 @code {
-    private const string InboxTarget = "inbox";
-
     [Parameter, EditorRequired]
     public InboxDesktopState State { get; set; } = default!;
 
@@ -596,41 +594,12 @@
     private Task OnShortcutKeyAsync(KeyboardEventArgs e) =>
         e.CtrlKey || e.AltKey || e.MetaKey || e.ShiftKey ? Task.CompletedTask : State.AcceptShortcutAsync(e.Key);
 
-    /// <summary>What the chip says: the tag as a tag, the repository by the alias
-    /// Settings gives it, the destination as the act it would be.</summary>
-    private string SuggestionText(InboxSuggestionDto suggestion) => suggestion.Kind switch
-    {
-        InboxSuggestionKind.Tag => TagText.Display(suggestion.Value),
-        InboxSuggestionKind.Repository => $"Repository {State.RepositoryAlias(suggestion.Value)}",
-        _ => suggestion.Value switch
-        {
-            "tasks" => "Move to backlog",
-            "archive" => "Archive",
-            "devbook" => "Keep as knowledge",
-            var other => other
-        }
-    };
+    // The chip's words are triage's too: InboxSuggestionWords holds them once.
+    private string SuggestionText(InboxSuggestionDto suggestion) => InboxSuggestionWords.Text(State, suggestion);
 
-    /// <summary>The act and the reason, for the accessible name and the tooltip —
-    /// and for a chip that cannot be taken, why not.</summary>
-    private string SuggestionLabel(InboxSuggestionDto suggestion)
-    {
-        var act = suggestion.Kind switch
-        {
-            InboxSuggestionKind.Tag => $"Add {TagText.Display(suggestion.Value)}",
-            InboxSuggestionKind.Repository => $"Assign {State.RepositoryAlias(suggestion.Value)}",
-            _ => SuggestionText(suggestion)
-        };
+    private string SuggestionLabel(InboxSuggestionDto suggestion) => InboxSuggestionWords.Label(State, suggestion);
 
-        return suggestion.UnavailableReason is { } unavailable
-            ? $"{act}: {suggestion.Reason} {unavailable}"
-            : $"{act}: {suggestion.Reason}";
-    }
-
-    /// <summary>A test id that names the suggestion: <c>tag-sync</c>,
-    /// <c>repository-owner-name</c>, <c>destination-tasks</c>.</summary>
-    private static string SuggestionTestId(InboxSuggestionDto suggestion) =>
-        suggestion.Key.Replace(':', '-').Replace('/', '-');
+    private static string SuggestionTestId(InboxSuggestionDto suggestion) => InboxSuggestionWords.TestId(suggestion);
 
     private (bool Available, string? Reason) Availability => State.PlanDrafterAvailability;
 
@@ -939,29 +908,7 @@
     /// <summary>Every list but the one the item is in, with its group's name
     /// in front so two lists called "Reading" in two groups can be told apart,
     /// and the inbox itself when the item is filed somewhere.</summary>
-    private IReadOnlyList<MenuItem> MoveTargets(InboxItemDto item)
-    {
-        var items = new List<MenuItem>();
-
-        if (item.ListId is not null)
-        {
-            items.Add(new MenuItem(InboxTarget, "Inbox", "✉"));
-        }
-
-        var lists = State.Lists
-            .Where(list => list.Id != item.ListId)
-            .OrderBy(list => list.GroupId is { } groupId ? State.FindGroup(groupId)?.Order ?? int.MaxValue : -1)
-            .ThenBy(list => list.Order);
-
-        foreach (var list in lists)
-        {
-            var group = list.GroupId is { } groupId ? State.FindGroup(groupId)?.Name : null;
-            var label = group is null ? list.Name : $"{group} / {list.Name}";
-            items.Add(new MenuItem(InboxDesktopState.ListNavId(list.Id), label));
-        }
-
-        return items;
-    }
+    private IReadOnlyList<MenuItem> MoveTargets(InboxItemDto item) => InboxDecisionMenus.MoveTargets(State, item);
 
     // --- Opened from the keyboard -------------------------------------------
 
@@ -993,41 +940,17 @@
 
     private bool _deferOpen;
 
-    private const string DeferUndated = "none";
-
-    private IReadOnlyList<MenuItem> DeferChoices()
-    {
-        var today = State.Today;
-        return
-        [
-            DeferChoice("Tomorrow", today.AddDays(1)),
-            DeferChoice("Next week", today.AddDays(7)),
-            DeferChoice("Next month", today.AddMonths(1)),
-            new MenuItem(DeferUndated, "Without a date")
-        ];
-
-        static MenuItem DeferChoice(string label, DateOnly date) =>
-            new(date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
-                $"{label} · {date.ToString("ddd d MMM", System.Globalization.CultureInfo.InvariantCulture)}");
-    }
+    private IReadOnlyList<MenuItem> DeferChoices() => InboxDecisionMenus.DeferChoices(State.Today);
 
     private async Task OnDeferChoiceAsync(MenuItem choice)
     {
         _deferOpen = false;
-        await State.DeferAsync(choice.Id == DeferUndated ? null : ParseDate(choice.Id));
+        await InboxDecisionMenus.DeferAsync(State, choice);
     }
 
     private async Task OnMoveTargetAsync(MenuItem target)
     {
         _moveOpen = false;
-
-        if (target.Id == InboxTarget)
-        {
-            await State.MoveToListAsync(null);
-        }
-        else if (InboxDesktopState.TryParseListId(target.Id, out var listId))
-        {
-            await State.MoveToListAsync(listId);
-        }
+        await InboxDecisionMenus.MoveAsync(State, target);
     }
 }

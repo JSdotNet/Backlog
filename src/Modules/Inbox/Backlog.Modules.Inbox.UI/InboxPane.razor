@@ -272,34 +272,18 @@
     {
         if (State.TriageMode)
         {
-            @* One item at full width: the side menu and the rows step aside, and
-               the same detail the columns show takes the whole body, so every act
-               it offers is here too. The pager says where in the rows the reader
-               is and which keys drive it. *@
+            @* One item at full width: the side menu and the rows step aside for
+               triage's own screen — the item, what the AI noticed, where it would
+               go, the four decisions, and what comes next. *@
             <div class="inbox-pane__triage" data-testid="inbox-triage">
-                <div class="inbox-pane__triage-bar">
-                    @if (State.TriagePosition >= 0)
-                    {
-                        <RecordPager Index="@State.TriagePosition"
-                                     Total="@State.VisibleItems.Count"
-                                     OnPrevious="() => State.Step(-1)"
-                                     OnNext="() => State.Step(1)"
-                                     PreviousLabel="Previous item"
-                                     NextLabel="Next item"
-                                     AriaLabel="@($"Triage position in {State.SliceName}")"
-                                     Hints="TriageHints"
-                                     CssClass="inbox-pane__triage-pager"
-                                     TestId="inbox-triage-pager" />
-                    }
-                    <AppButton Size="ButtonSize.Small"
-                               CssClass="inbox-pane__triage-leave"
-                               Title="Return to the list on this item (Esc)"
-                               OnClick="LeaveTriage"
-                               TestId="inbox-triage-leave">Back to the list</AppButton>
-                </div>
-
                 @if (State.SelectedItem is null)
                 {
+                    <div class="inbox-pane__triage-bar">
+                        <AppButton Size="ButtonSize.Small"
+                                   Title="Return to the list (Esc)"
+                                   OnClick="LeaveTriage"
+                                   TestId="inbox-triage-leave">Back to the list</AppButton>
+                    </div>
                     <EmptyState Title="@($"Nothing left to triage in {State.SliceName}")"
                                 Description="Every item here has been decided on. Go back to the list to see where they went."
                                 BaseClass="empty-state inbox-pane__empty-state"
@@ -307,7 +291,7 @@
                 }
                 else
                 {
-                    <InboxItemDetail @ref="_detail" State="State" />
+                    <InboxTriage @ref="_triage" State="State" OnLeave="LeaveTriage" />
                 }
             </div>
         }
@@ -346,7 +330,12 @@
 
     private bool _shortcutsOpen;
     private InboxItemDetail? _detail;
+    private InboxTriage? _triage;
     private DotNetObjectReference<InboxPane>? _self;
+
+    /// <summary>Whether the item on screen — in triage's view or the column's
+    /// detail, whichever is drawn — can still be decided on.</summary>
+    private bool CanDecide => State.TriageMode ? _triage?.CanDecide == true : _detail?.CanDecide == true;
 
     /// <summary>An element to focus once the render that draws it has landed —
     /// the row a step or a triage session ended on, the tag field, the notes
@@ -369,17 +358,6 @@
         ("u", "Undo the last decision"),
         ("Esc", "Back to the list, from triage"),
         ("?", "These shortcuts"),
-    ];
-
-    private static readonly IReadOnlyList<RecordPagerHint> TriageHints =
-    [
-        new("j k", "move"),
-        new("a", "archive"),
-        new("d", "defer"),
-        new("l", "list"),
-        new("r", "route"),
-        new("g", "tags"),
-        new("Esc", "back"),
     ];
 
     protected override void OnInitialized()
@@ -424,19 +402,23 @@
                 case "t" when CanStartTriage:
                     StartTriage();
                     break;
-                case "a" when _detail?.CanDecide == true:
+                case "a" when CanDecide:
                     await State.ArchiveAsync();
                     break;
-                case "r" when _detail?.CanDecide == true:
-                    await State.RouteToBacklogAsync();
+                case "r" when CanDecide:
+                    // In triage the repositories ticked there go with the route.
+                    await (State.TriageMode ? State.RouteFromTriageAsync() : State.RouteToBacklogAsync());
                     break;
                 case "d":
-                    _detail?.OpenDefer();
+                    if (State.TriageMode) _triage?.OpenDefer();
+                    else _detail?.OpenDefer();
                     break;
                 case "l":
-                    _detail?.OpenMove();
+                    if (State.TriageMode) _triage?.OpenMove();
+                    else _detail?.OpenMove();
                     break;
-                case "g" when _detail?.CanDecide == true:
+                case "g" when CanDecide:
+                    // Triage draws its tag field under the same id the detail does.
                     _focusAfterRender = InboxItemDetail.TagsInputId;
                     break;
                 case "x" when State.SelectedItemId is { } picked && State.TriagePosition >= 0:

@@ -1,0 +1,590 @@
+@using Backlog.UI.Components.Icons
+@*
+    Triage mode's body: one item at a time, with everything a decision on it
+    needs on one screen (features.md#triage-mode, artboard B).
+
+    Top to bottom: the way back and the session's progress — "n of total · m
+    decided this session" over a bar, total being the rows triage began with so
+    the count never shrinks under the reader — with K and J beside it; the item
+    itself; what the AI noticed about it, at most two cards numbered 1 and 2;
+    the rule-based suggestions numbered after the cards; the repositories
+    "Move to backlog" will make an entry in; and the four decisions as large
+    buttons naming their keys. Beside it, Up next and the last decision with
+    Undo.
+
+    The AI cards are drawn only while the state has advice for the item, which
+    it never has without Foundry, after a failed call, or once every card was
+    turned down — no AI surface is ever drawn disabled (local ADR 0023).
+    "Let AI propose the rest" is not drawn here yet.
+
+    The article takes the digit keys, as the column's detail does: a bare digit
+    takes the card or suggestion with that number. Fields and dialogs stop
+    their keys on the way up, so a "2" typed into the tag field is a "2".
+*@
+
+@if (State.SelectedItem is { } item)
+{
+    var open = InboxDesktopState.IsOpen(item);
+    var progressed = Math.Min(State.TriageProgressed, State.TriageTotal);
+    var total = State.TriageTotal;
+    var decided = State.DecidedThisSession;
+    var cards = State.TriageCards;
+    var advice = State.TriageAdvice;
+
+    <article class="inbox-triage"
+             aria-labelledby="inbox-triage-title"
+             tabindex="-1"
+             data-inbox-kind="@item.KindSlug"
+             data-testid="inbox-triage-view"
+             @onkeydown="OnKeyDownAsync">
+        <header class="inbox-triage__header" data-testid="inbox-triage-header">
+            <AppButton Variant="ButtonVariant.Ghost"
+                       CssClass="inbox-triage__leave"
+                       Title="Return to the list on this item (Esc)"
+                       OnClick="() => OnLeave.InvokeAsync()"
+                       TestId="inbox-triage-leave">
+                <svg class="inbox-pane__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+                Back to the list <kbd class="inbox-pane__key" aria-hidden="true">Esc</kbd>
+            </AppButton>
+
+            <div class="inbox-triage__progress">
+                <div class="inbox-triage__progress-line">
+                    <span class="inbox-triage__slice">Triage · @State.SliceName</span>
+                    <span class="inbox-triage__position" data-testid="inbox-triage-progress"><strong>@State.TriageNumber</strong> of @total · @decided decided this session</span>
+                </div>
+                <div class="inbox-triage__bar"
+                     role="progressbar"
+                     aria-label="Triage progress"
+                     aria-valuemin="0"
+                     aria-valuemax="@total"
+                     aria-valuenow="@progressed"
+                     data-testid="inbox-triage-bar">
+                    <span class="inbox-triage__bar-fill" style="@($"width: {FillPercent(progressed, total)}%")"></span>
+                </div>
+            </div>
+
+            <div class="inbox-triage__nav">
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Title="Previous item (k)"
+                           aria-label="Previous item"
+                           OnClick="() => State.Step(-1)"
+                           TestId="inbox-triage-previous"><kbd class="inbox-pane__key" aria-hidden="true">K</kbd></AppButton>
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Title="Skip to the next item (j)"
+                           OnClick="() => State.Step(1)"
+                           TestId="inbox-triage-skip">Skip <kbd class="inbox-pane__key" aria-hidden="true">J</kbd></AppButton>
+            </div>
+        </header>
+
+        <div class="inbox-triage__main">
+            <div class="inbox-triage__body">
+                @* The item: what it is, where it came from, when, and what it says. *@
+                <Card CssClass="inbox-triage__item" TestId="inbox-triage-item" aria-labelledby="inbox-triage-title">
+                    <p class="inbox-triage__facts">
+                        <span class="inbox-triage__kind" data-testid="inbox-triage-kind">@InboxLabels.Kind(item.KindSlug)</span>
+                        <span data-testid="inbox-triage-source">@InboxLabels.Channel(item.Channel)</span>
+                        <span data-testid="inbox-triage-age">captured @State.Age(item.CapturedAt)</span>
+                    </p>
+                    <h2 class="inbox-triage__title" id="inbox-triage-title">@TitleOf(item.Title)</h2>
+
+                    @if (!open)
+                    {
+                        <Alert BaseClass="inbox-pane__note"
+                               Role="status"
+                               Message="@($"{InboxLabels.Status(item.Status)} — only Move to list is left for it.")"
+                               TestId="inbox-triage-decided" />
+                    }
+
+                    @if (string.IsNullOrWhiteSpace(item.BodyMd))
+                    {
+                        <Alert BaseClass="inbox-pane__note"
+                               Role="status"
+                               Message="Only the title was captured."
+                               TestId="inbox-triage-no-notes" />
+                    }
+                    else
+                    {
+                        <div class="inbox-triage__notes" data-testid="inbox-triage-notes">
+                            <MarkdownView Blocks="@MarkdownPreview.ParseDocument(item.BodyMd)" />
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(item.SourceUrl))
+                    {
+                        <a class="inbox-pane__link" href="@item.SourceUrl" target="_blank" rel="noopener noreferrer" data-testid="inbox-triage-link">@item.SourceUrl</a>
+                    }
+
+                    @* Keys typed into the field are the field's: stopping them here
+                       ends Blazor's walk up to the article, whose digits take a card. *@
+                    <div class="inbox-triage__tags" @onkeydown:stopPropagation="true">
+                        @if (open)
+                        {
+                            <TagMultiSelect Label="Tags"
+                                            Id="@InboxItemDetail.TagsInputId"
+                                            Options="@State.TagOptions"
+                                            SelectedValues="@TagNames(item)"
+                                            SelectedValuesChanged="tags => State.SetTagsAsync(tags)"
+                                            AllowCreate="true"
+                                            Placeholder="Add a tag"
+                                            CssClass="inbox-pane__picker"
+                                            TestId="inbox-triage-tags" />
+                        }
+                        else if (item.Tags.Count > 0)
+                        {
+                            <p class="inbox-pane__chips" data-testid="inbox-triage-tags">
+                                @foreach (var tag in item.Tags)
+                                {
+                                    <TagChip Text="@TagText.Display(tag.Name)" CssClass="inbox-pane__tag" />
+                                }
+                            </p>
+                        }
+                    </div>
+                </Card>
+
+                @if (advice is not null && cards.Count > 0)
+                {
+                    <section class="inbox-triage__ai" aria-labelledby="inbox-triage-ai-title" data-testid="inbox-triage-ai">
+                        <h3 class="inbox-triage__section-title" id="inbox-triage-ai-title">
+                            <SparklesIcon Size="14" CssClass="inbox-triage__ai-icon" />
+                            AI noticed <span class="inbox-triage__section-hint">· press the number to take it</span>
+                        </h3>
+
+                        @if (advice.Duplicate is { } duplicate)
+                        {
+                            var number = Number(cards, InboxTriageCardKind.Duplicate);
+                            var companion = State.TriageDuplicateCompanion;
+                            var twin = duplicate.TargetKind == InboxTriageTargetKind.InboxItem ? Find(duplicate.TargetId) : null;
+                            <Card Compact="true" CssClass="inbox-triage__card" TestId="inbox-triage-card-duplicate" aria-labelledby="inbox-triage-card-duplicate-title">
+                                <div class="inbox-triage__card-head">
+                                    <kbd class="inbox-pane__key" aria-hidden="true">@number</kbd>
+                                    <span class="inbox-triage__card-title" id="inbox-triage-card-duplicate-title">Probably a duplicate</span>
+                                    <span class="inbox-triage__card-reason">@duplicate.Reason</span>
+                                </div>
+                                <div class="inbox-triage__sides">
+                                    <div class="inbox-triage__side" data-testid="inbox-triage-duplicate-target">
+                                        <span class="inbox-triage__side-label">@TargetLabel(duplicate, twin)</span>
+                                        <span class="inbox-triage__side-title">@TitleOf(duplicate.TargetTitle)</span>
+                                    </div>
+                                    @if (companion is not null)
+                                    {
+                                        <div class="inbox-triage__side" data-testid="inbox-triage-duplicate-companion">
+                                            <span class="inbox-triage__side-label">Inbox · @InboxLabels.Kind(companion.KindSlug) · @State.Age(companion.CapturedAt)</span>
+                                            <span class="inbox-triage__side-title">@TitleOf(companion.Title)</span>
+                                            <span class="inbox-triage__side-note">Also unprocessed</span>
+                                        </div>
+                                    }
+                                </div>
+                                <ButtonGroup AriaLabel="Duplicate actions" CssClass="inbox-triage__card-acts">
+                                    <AppButton Variant="ButtonVariant.Primary"
+                                               Size="ButtonSize.Small"
+                                               Disabled="@Busy"
+                                               aria-keyshortcuts="@number"
+                                               OnClick="State.MergeTriageDuplicateAsync"
+                                               TestId="inbox-triage-merge">@(duplicate.TargetKind == InboxTriageTargetKind.Task ? "Merge into the entry" : "Archive as a duplicate")</AppButton>
+                                    @if (companion is not null)
+                                    {
+                                        <AppButton Size="ButtonSize.Small"
+                                                   Disabled="@Busy"
+                                                   Title="Merge this item and the other unprocessed one into the entry"
+                                                   OnClick="State.MergeAllIntoTaskAsync"
+                                                   TestId="inbox-triage-merge-all">Merge all three</AppButton>
+                                    }
+                                    <AppButton Size="ButtonSize.Small"
+                                               OnClick="() => _compareOpen = true"
+                                               TestId="inbox-triage-compare">Compare</AppButton>
+                                    <AppButton Size="ButtonSize.Small"
+                                               Variant="ButtonVariant.Ghost"
+                                               OnClick="() => State.DismissTriageCard(item.Id, InboxTriageCardKind.Duplicate)"
+                                               TestId="inbox-triage-not-duplicate">Not a duplicate</AppButton>
+                                </ButtonGroup>
+                            </Card>
+
+                            <div @onkeydown:stopPropagation="true">
+                                <Modal Open="@_compareOpen"
+                                       OpenChanged="value => _compareOpen = value"
+                                       Title="Compare"
+                                       CssClass="inbox-pane__dialog"
+                                       TestId="inbox-triage-compare-dialog">
+                                    <ChildContent>
+                                        <div class="inbox-triage__compare">
+                                            <section class="inbox-triage__compare-side" aria-label="This item" data-testid="inbox-triage-compare-this">
+                                                <h4 class="inbox-triage__side-label">This item</h4>
+                                                <p class="inbox-triage__side-title">@TitleOf(item.Title)</p>
+                                                @Notes(item)
+                                            </section>
+                                            <section class="inbox-triage__compare-side" aria-label="The duplicate" data-testid="inbox-triage-compare-target">
+                                                <h4 class="inbox-triage__side-label">@TargetLabel(duplicate, twin)</h4>
+                                                <p class="inbox-triage__side-title">@TitleOf(duplicate.TargetTitle)</p>
+                                                @if (twin is not null)
+                                                {
+                                                    @Notes(twin)
+                                                }
+                                            </section>
+                                        </div>
+                                    </ChildContent>
+                                </Modal>
+                            </div>
+                        }
+
+                        @if (advice.Plan is { } plan)
+                        {
+                            var number = Number(cards, InboxTriageCardKind.Plan);
+                            var members = State.TriagePlanMembers;
+                            <Card Compact="true" CssClass="inbox-triage__card" TestId="inbox-triage-card-plan" aria-labelledby="inbox-triage-card-plan-title">
+                                <div class="inbox-triage__card-head">
+                                    <kbd class="inbox-pane__key" aria-hidden="true">@number</kbd>
+                                    <span class="inbox-triage__card-title" id="inbox-triage-card-plan-title">Group into a plan: <strong data-testid="inbox-triage-plan-title">@plan.Title</strong></span>
+                                    <span class="inbox-triage__card-reason">this and @InboxDesktopState.Counted(members.Count, "other", "others") · @plan.Reason</span>
+                                </div>
+                                <ul class="inbox-triage__members" aria-label="The other items in the plan" data-testid="inbox-triage-plan-members">
+                                    @foreach (var member in members)
+                                    {
+                                        <li @key="member.Id">@TitleOf(member.Title)</li>
+                                    }
+                                </ul>
+                                <ButtonGroup AriaLabel="Plan actions" CssClass="inbox-triage__card-acts">
+                                    <AppButton Variant="ButtonVariant.Primary"
+                                               Size="ButtonSize.Small"
+                                               Disabled="@Busy"
+                                               aria-keyshortcuts="@number"
+                                               OnClick="() => State.MakeTriagePlanAsync()"
+                                               TestId="inbox-triage-make-plan">Make the plan · @plan.ItemIds.Count items</AppButton>
+                                    <AppButton Size="ButtonSize.Small"
+                                               Disabled="true"
+                                               Title="Adding to an existing plan is not available yet"
+                                               TestId="inbox-triage-add-to-plan">Add to an existing plan…</AppButton>
+                                    <AppButton Size="ButtonSize.Small"
+                                               Variant="ButtonVariant.Ghost"
+                                               OnClick="() => State.DismissTriageCard(item.Id, InboxTriageCardKind.Plan)"
+                                               TestId="inbox-triage-dismiss-plan">Dismiss</AppButton>
+                                </ButtonGroup>
+                            </Card>
+                        }
+                    </section>
+                }
+
+                @if (open && State.Suggestions.Count > 0)
+                {
+                    @* The rule-based suggestions, numbered after the cards. *@
+                    <section class="inbox-pane__suggestions" aria-labelledby="inbox-triage-suggestions-title" data-testid="inbox-triage-suggestions">
+                        <div class="inbox-pane__suggestions-head">
+                            <h3 class="inbox-pane__suggestions-title" id="inbox-triage-suggestions-title">Suggested next step</h3>
+                            <span class="inbox-pane__hint">press the number to take it</span>
+                        </div>
+                        <ol class="inbox-pane__suggestion-list">
+                            @foreach (var suggestion in State.Suggestions)
+                            {
+                                var chip = suggestion;
+                                var shortcut = State.ShortcutFor(chip);
+                                var text = InboxSuggestionWords.Text(State, chip);
+                                var label = InboxSuggestionWords.Label(State, chip);
+                                <li class="inbox-pane__suggestion"
+                                    @key="chip.Key"
+                                    title="@label"
+                                    data-suggestion-key="@chip.Key"
+                                    data-testid="@($"inbox-suggestion-{InboxSuggestionWords.TestId(chip)}")">
+                                    @if (chip.Available)
+                                    {
+                                        <AppButton Variant="ButtonVariant.None"
+                                                   BaseClass="inbox-pane__suggestion-take"
+                                                   Disabled="@Busy"
+                                                   aria-label="@label"
+                                                   aria-keyshortcuts="@shortcut"
+                                                   OnClick="() => State.AcceptSuggestionAsync(chip)">
+                                            @if (shortcut is not null)
+                                            {
+                                                <kbd class="inbox-pane__key inbox-pane__suggestion-key" aria-hidden="true">@shortcut</kbd>
+                                            }
+                                            <span class="inbox-pane__suggestion-text">@text</span>
+                                            <span class="inbox-pane__suggestion-reason">@chip.Reason</span>
+                                        </AppButton>
+                                    }
+                                    else
+                                    {
+                                        <span class="inbox-pane__suggestion-take inbox-pane__suggestion-take--unavailable">
+                                            <span class="inbox-pane__suggestion-text">@text</span>
+                                            <span class="inbox-pane__suggestion-reason">@chip.UnavailableReason</span>
+                                        </span>
+                                    }
+                                    <IconButton AriaLabel="@($"Dismiss {text}")"
+                                                Title="@($"Dismiss {text}")"
+                                                BaseClass="btn btn--ghost btn--icon inbox-pane__suggestion-dismiss"
+                                                OnClick="() => State.DismissSuggestionAsync(chip)">×</IconButton>
+                                </li>
+                            }
+                        </ol>
+                    </section>
+                }
+
+                @* Where "Move to backlog" makes its entries: one box per configured
+                   repository, any number ticked, each wearing its identity edge. *@
+                <section class="inbox-triage__repos" aria-labelledby="inbox-triage-repos-title" data-testid="inbox-triage-repos-section">
+                    <div class="inbox-triage__section-head">
+                        <h3 class="inbox-triage__section-title" id="inbox-triage-repos-title">Move to backlog in</h3>
+                        <span class="inbox-pane__hint" data-testid="inbox-triage-route-hint">@State.TriageRouteHint</span>
+                    </div>
+                    @if (State.RepositoryOptions.Count == 0)
+                    {
+                        <Alert BaseClass="inbox-pane__note"
+                               Role="status"
+                               Message="No repositories are configured in Settings, so the entry will not be targeted at one."
+                               TestId="inbox-triage-no-repos" />
+                    }
+                    else
+                    {
+                        var picked = State.TriageRepositories;
+                        var suggested = State.TriageSuggestedRepositories;
+                        <div class="inbox-triage__repo-list"
+                             role="group"
+                             aria-labelledby="inbox-triage-repos-title"
+                             data-testid="inbox-triage-repos"
+                             @onkeydown:stopPropagation="true">
+                            @foreach (var option in State.RepositoryOptions)
+                            {
+                                var repoId = option.Value;
+                                <Checkbox @key="repoId"
+                                          Label="@option.Label"
+                                          Checked="@Contains(picked, repoId)"
+                                          CheckedChanged="on => State.SetTriageRepositoryAsync(repoId, on)"
+                                          Disabled="@(!open || Busy)"
+                                          CssClass="@RepositoryClass(option.Label)"
+                                          TestId="@($"inbox-triage-repo-{repoId.Replace('/', '-')}")">
+                                    @if (Contains(suggested, repoId))
+                                    {
+                                        <Badge Kind="kind" Slug="ai" CssClass="inbox-triage__ai-mark" Title="The AI suggests this repository">AI</Badge>
+                                    }
+                                </Checkbox>
+                            }
+                        </div>
+                    }
+                    <p class="inbox-pane__hint inbox-triage__footnote">More than one repository makes one entry per repository, linked to each other.</p>
+                </section>
+
+                @* The four decisions, each naming its key and doing what it does. *@
+                <div class="inbox-triage__decisions" role="group" aria-label="Decide" data-testid="inbox-triage-decisions">
+                    <AppButton Variant="ButtonVariant.Primary"
+                               CssClass="inbox-triage__decision"
+                               Disabled="@(!open || Busy)"
+                               Title="Create backlog entries from this item (r)"
+                               OnClick="State.RouteFromTriageAsync"
+                               TestId="inbox-move-to-backlog">
+                        <kbd class="inbox-pane__key inbox-pane__key--on-primary" aria-hidden="true">R</kbd>
+                        <span class="inbox-triage__decision-label">Move to backlog</span>
+                        <span class="inbox-triage__decision-hint">@State.TriageRouteHint</span>
+                    </AppButton>
+                    <AppButton CssClass="inbox-triage__decision"
+                               Disabled="@Busy"
+                               Title="File it in one of your lists (l)"
+                               OnClick="OpenMove"
+                               TestId="inbox-move-to-list">
+                        <kbd class="inbox-pane__key" aria-hidden="true">L</kbd>
+                        <span class="inbox-triage__decision-label">Move to list</span>
+                        <span class="inbox-triage__decision-hint">keep it, filed</span>
+                    </AppButton>
+                    <AppButton CssClass="inbox-triage__decision"
+                               Disabled="@(!open || Busy)"
+                               Title="Put it aside until a review date (d)"
+                               OnClick="OpenDefer"
+                               TestId="inbox-decide-defer">
+                        <kbd class="inbox-pane__key" aria-hidden="true">D</kbd>
+                        <span class="inbox-triage__decision-label">Defer</span>
+                        <span class="inbox-triage__decision-hint">back on a date</span>
+                    </AppButton>
+                    <AppButton CssClass="inbox-triage__decision"
+                               Disabled="@(!open || Busy)"
+                               Title="Dismiss it, findable later (a)"
+                               OnClick="State.ArchiveAsync"
+                               TestId="inbox-archive">
+                        <kbd class="inbox-pane__key" aria-hidden="true">A</kbd>
+                        <span class="inbox-triage__decision-label">Archive</span>
+                        <span class="inbox-triage__decision-hint">done with it</span>
+                    </AppButton>
+                </div>
+            </div>
+
+            <aside class="inbox-triage__aside" aria-label="Up next and the last decision">
+                <section class="inbox-triage__aside-part" aria-labelledby="inbox-triage-up-next-title" data-testid="inbox-triage-up-next">
+                    <h3 class="inbox-triage__section-title" id="inbox-triage-up-next-title">Up next</h3>
+                    @if (State.TriageUpNext is { Count: > 0 } next)
+                    {
+                        <ol class="inbox-triage__next-list">
+                            @foreach (var row in next)
+                            {
+                                <li class="inbox-triage__next" @key="row.Id" data-testid="@($"inbox-triage-next-{row.Id:N}")">
+                                    <span class="inbox-triage__next-title">@TitleOf(row.Title)</span>
+                                    <span class="inbox-triage__next-meta">@InboxLabels.Kind(row.KindSlug) · @InboxLabels.Channel(row.Channel) · @State.Age(row.CapturedAt)</span>
+                                </li>
+                            }
+                        </ol>
+                    }
+                    else
+                    {
+                        <Alert BaseClass="inbox-pane__note"
+                               Role="status"
+                               Message="Nothing after this one."
+                               TestId="inbox-triage-up-next-none" />
+                    }
+                </section>
+
+                @if (State.LatestDecision is { } latest)
+                {
+                    <section class="inbox-triage__aside-part" aria-labelledby="inbox-triage-just-decided-title" data-testid="inbox-triage-just-decided">
+                        <h3 class="inbox-triage__section-title" id="inbox-triage-just-decided-title">Just decided</h3>
+                        <div class="inbox-triage__decided">
+                            <span class="inbox-triage__decided-line" data-testid="inbox-triage-just-decided-line">@latest.Title → @latest.Outcome</span>
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       Size="ButtonSize.Small"
+                                       Disabled="@State.RoutingInFlight"
+                                       Title="Take the last decision back (u)"
+                                       OnClick="() => State.UndoLatestAsync()"
+                                       TestId="inbox-triage-undo">Undo <kbd class="inbox-pane__key" aria-hidden="true">U</kbd></AppButton>
+                        </div>
+                    </section>
+                }
+            </aside>
+        </div>
+
+        @* The dialogs a decision opens, and the batch panel the plan card opens.
+           Keys pressed in them are theirs, never a card's number. *@
+        <div class="inbox-triage__dialogs" @onkeydown:stopPropagation="true">
+            <Modal Open="@_moveOpen"
+                   OpenChanged="value => _moveOpen = value"
+                   Title="Move to list"
+                   CssClass="inbox-pane__dialog"
+                   TestId="inbox-move-list-dialog">
+                <ChildContent>
+                    <MenuList Items="@InboxDecisionMenus.MoveTargets(State, item)"
+                              AriaLabel="Lists"
+                              TestId="inbox-move-list"
+                              OnItemSelected="OnMoveTargetAsync" />
+                </ChildContent>
+            </Modal>
+
+            <Modal Open="@_deferOpen"
+                   OpenChanged="value => _deferOpen = value"
+                   Title="Defer until"
+                   CssClass="inbox-pane__dialog"
+                   TestId="inbox-defer-dialog">
+                <ChildContent>
+                    <MenuList Items="@InboxDecisionMenus.DeferChoices(State.Today)"
+                              AriaLabel="Review dates"
+                              TestId="inbox-defer-choices"
+                              OnItemSelected="OnDeferChoiceAsync" />
+                </ChildContent>
+            </Modal>
+
+            <InboxRoutePanel State="State" />
+        </div>
+    </article>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public InboxDesktopState State { get; set; } = default!;
+
+    /// <summary>"Back to the list": the pane leaves triage on the item shown.</summary>
+    [Parameter]
+    public EventCallback OnLeave { get; set; }
+
+    private bool _moveOpen;
+
+    private bool _deferOpen;
+
+    private bool _compareOpen;
+
+    private bool Busy => State.RoutingInFlight;
+
+    /// <summary>Whether the item shown can still be decided on — the acts a
+    /// shortcut reaches are the ones the decision buttons offer.</summary>
+    public bool CanDecide => State.SelectedItem is { } item && InboxDesktopState.IsOpen(item) && !Busy;
+
+    /// <summary>Opens "Move to list", as <c>l</c> does. Filing is allowed in
+    /// every state, so only a missing item or a run in flight refuses it.</summary>
+    public void OpenMove()
+    {
+        if (State.SelectedItem is null || Busy) return;
+
+        _moveOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Opens the review dates, as <c>d</c> does.</summary>
+    public void OpenDefer()
+    {
+        if (!CanDecide) return;
+
+        _deferOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Asks for what triage shows about the item on screen: the AI
+    /// cards, the suggestions and the relations. Each is a no-op once the
+    /// item's are in hand.</summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        // The rule-based suggestions first, so a slow model call never holds
+        // them back (local ADR 0023 §4); their digits renumber once cards land.
+        await State.LoadSuggestionsAsync();
+        await State.LoadRelationsAsync();
+        await State.LoadTriageAdviceAsync();
+    }
+
+    /// <summary>A bare digit takes the card or suggestion with that number; with
+    /// a modifier held the key is somebody else's shortcut.</summary>
+    private Task OnKeyDownAsync(KeyboardEventArgs e) =>
+        e.CtrlKey || e.AltKey || e.MetaKey || e.ShiftKey ? Task.CompletedTask : State.AcceptShortcutAsync(e.Key);
+
+    private async Task OnMoveTargetAsync(MenuItem target)
+    {
+        _moveOpen = false;
+        await InboxDecisionMenus.MoveAsync(State, target);
+    }
+
+    private async Task OnDeferChoiceAsync(MenuItem choice)
+    {
+        _deferOpen = false;
+        await InboxDecisionMenus.DeferAsync(State, choice);
+    }
+
+    private InboxItemDto? Find(Guid id) => State.Items.FirstOrDefault(other => other.Id == id);
+
+    /// <summary>"Backlog entry", or for an inbox item "Inbox · Note · 4d ago".</summary>
+    private string TargetLabel(InboxTriageDuplicateDto duplicate, InboxItemDto? twin) =>
+        duplicate.TargetKind == InboxTriageTargetKind.Task
+            ? "Backlog entry"
+            : twin is null ? "Inbox" : $"Inbox · {InboxLabels.Kind(twin.KindSlug)} · {State.Age(twin.CapturedAt)}";
+
+    /// <summary>The identity edge for a repository's box when colours are
+    /// shown (color-scheme.md#the-identity-edge); none otherwise.</summary>
+    private string RepositoryClass(string alias) =>
+        State.RepositoryColourFor(alias) is { } colour
+            ? $"inbox-triage__repo repo-mark repo-mark--{colour}"
+            : "inbox-triage__repo";
+
+    private static bool Contains(IReadOnlyList<string> ids, string id) =>
+        ids.Contains(id, StringComparer.OrdinalIgnoreCase);
+
+    private static string Number(IReadOnlyList<InboxTriageCardKind> cards, InboxTriageCardKind kind) =>
+        (cards.ToList().IndexOf(kind) + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string FillPercent(int decided, int total) =>
+        (total <= 0 ? 0d : Math.Clamp(decided * 100d / total, 0d, 100d)).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string TitleOf(string? title) => string.IsNullOrWhiteSpace(title) ? "Untitled" : title;
+
+    private static IReadOnlyList<string> TagNames(InboxItemDto item) =>
+        [.. item.Tags.Select(tag => tag.Name)];
+
+    private static RenderFragment Notes(InboxItemDto item) => @<text>
+        @if (string.IsNullOrWhiteSpace(item.BodyMd))
+        {
+            <Alert BaseClass="inbox-pane__note" Role="status" Message="Only the title was captured." />
+        }
+        else
+        {
+            <div class="inbox-triage__notes">
+                <MarkdownView Blocks="@MarkdownPreview.ParseDocument(item.BodyMd)" />
+            </div>
+        }
+    </text>;
+}

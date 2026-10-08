@@ -179,7 +179,7 @@ public sealed class InboxKeyboardTriageTests
         await PressAsync(pane, "t");
 
         Assert.True(harness.State.TriageMode);
-        Assert.Equal("2 of 3", Counter(pane));
+        Assert.Equal("2 of 3 · 0 decided this session", Counter(pane));
         Assert.Equal("Two", DetailTitle(pane));
         Assert.True(pane.Find("[data-testid='inbox-triage-start']").HasAttribute("disabled"));
 
@@ -188,9 +188,10 @@ public sealed class InboxKeyboardTriageTests
         Assert.Equal("Two", DetailTitle(pane));
     }
 
-    /// <summary>The triage pager's hints name g for the tags, never t.</summary>
+    /// <summary>Triage's four decision buttons name the keys that take them —
+    /// R, L, D and A — and g still reaches triage's own tag field.</summary>
     [Fact]
-    public async Task The_triage_hints_name_g_for_the_tags()
+    public async Task The_triage_decisions_name_r_l_d_and_a_and_g_reaches_the_tags()
     {
         using var harness = Harness.Create();
         SeedNewestFirst(harness, "One");
@@ -198,11 +199,18 @@ public sealed class InboxKeyboardTriageTests
 
         await PressAsync(pane, "t");
 
-        var hints = pane.Find("[data-testid='inbox-triage-pager']").TextContent;
-        Assert.Contains("tags", hints, StringComparison.Ordinal);
         Assert.Equal(
-            ["j k", "a", "d", "l", "r", "g", "Esc"],
-            pane.FindAll("[data-testid='inbox-triage-pager'] kbd").Select(key => key.TextContent.Trim()));
+            ["R", "L", "D", "A"],
+            pane.FindAll("[data-testid='inbox-triage-decisions'] kbd").Select(key => key.TextContent.Trim()));
+        Assert.Equal(
+            ["Move to backlog", "Move to list", "Defer", "Archive"],
+            pane.FindAll("[data-testid='inbox-triage-decisions'] .inbox-triage__decision-label").Select(label => label.TextContent.Trim()));
+
+        await PressAsync(pane, "g");
+        Assert.Contains(
+            harness.Context.JSInterop.Invocations["backlogFocus"],
+            call => Equals(call.Arguments[0], InboxItemDetail.TagsInputId));
+        Assert.Equal(InboxItemDetail.TagsInputId, pane.Find("[data-testid='inbox-triage-tags'] input").Id);
     }
 
     /// <summary>The keys reach the pane only through the set components.js
@@ -253,14 +261,15 @@ public sealed class InboxKeyboardTriageTests
         await pane.Find("[data-testid='inbox-triage-start']").ClickAsync(new());
 
         Assert.Empty(pane.FindAll("[data-testid='inbox-pane-body']"));
-        Assert.Equal("1 of 3", Counter(pane));
+        Assert.Equal("1 of 3 · 0 decided this session", Counter(pane));
         Assert.Equal("One", DetailTitle(pane));
 
-        // Archived: it leaves the rows, and the next one takes its place.
+        // Archived: it leaves the rows, and the next one takes its place. The
+        // total is what triage began with, so it does not shrink.
         await PressAsync(pane, "a");
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal("1 of 2", Counter(pane));
+            Assert.Equal("2 of 3 · 1 decided this session", Counter(pane));
             Assert.Equal("Two", DetailTitle(pane));
         });
 
@@ -268,7 +277,7 @@ public sealed class InboxKeyboardTriageTests
         await PressAsync(pane, "r");
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal("2 of 2", Counter(pane));
+            Assert.Equal("3 of 3 · 2 decided this session", Counter(pane));
             Assert.Equal("Three", DetailTitle(pane));
         });
 
@@ -279,7 +288,7 @@ public sealed class InboxKeyboardTriageTests
     }
 
     [Fact]
-    public async Task An_archive_from_the_middle_counts_the_rows_that_are_left()
+    public async Task An_archive_from_the_middle_keeps_counting_against_the_rows_triage_began_with()
     {
         using var harness = Harness.Create();
         SeedNewestFirst(harness, "One", "Two", "Three", "Four");
@@ -287,13 +296,13 @@ public sealed class InboxKeyboardTriageTests
         await pane.Find("[data-testid='inbox-triage-start']").ClickAsync(new());
 
         await PressAsync(pane, "j");
-        Assert.Equal("2 of 4", Counter(pane));
+        Assert.Equal("2 of 4 · 0 decided this session", Counter(pane));
 
         await PressAsync(pane, "a");
         pane.WaitForAssertion(() =>
         {
             Assert.Equal("Three", DetailTitle(pane));
-            Assert.Equal("2 of 3", Counter(pane));
+            Assert.Equal("3 of 4 · 1 decided this session", Counter(pane));
         });
     }
 
@@ -311,7 +320,7 @@ public sealed class InboxKeyboardTriageTests
         pane.WaitForAssertion(() =>
         {
             Assert.Equal(items[0].Id, harness.State.SelectedItemId);
-            Assert.Equal("1 of 1", Counter(pane));
+            Assert.Equal("1 of 2 · 1 decided this session", Counter(pane));
         });
     }
 
@@ -393,11 +402,13 @@ public sealed class InboxKeyboardTriageTests
         pane.InvokeAsync(() => pane.Instance.OnShortcutAsync(key));
 
     private static string Counter(IRenderedComponent<InboxPane> pane) =>
-        string.Join(' ', pane.Find("[data-testid='inbox-triage-pager'] .record-pager__count").TextContent
+        string.Join(' ', pane.Find("[data-testid='inbox-triage-progress']").TextContent
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
+    /// <summary>The item's title, from triage's own heading in triage mode and
+    /// the column's detail otherwise.</summary>
     private static string DetailTitle(IRenderedComponent<InboxPane> pane) =>
-        pane.Find("#inbox-detail-title").TextContent.Trim();
+        pane.Find(pane.FindAll("#inbox-triage-title").Count > 0 ? "#inbox-triage-title" : "#inbox-detail-title").TextContent.Trim();
 
     private static IReadOnlyList<InboxItemDto> SeedNewestFirst(Harness harness, params string[] titles) =>
         [.. titles.Select((title, index) => harness.Inbox.Seed(title, capturedAt: harness.Inbox.Now.AddMinutes(titles.Length - index)))];
