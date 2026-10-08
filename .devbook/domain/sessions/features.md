@@ -941,13 +941,18 @@ runs, the ratio says how many it was taken over. The insight opens
 
 ```meta
 type: sub-feature
-status: proposed
-related: [.devbook/domain/sessions/domain.md#session-log]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#weekly-usage, .devbook/domain/sessions/domain.md#cost-attribution]
 ```
 
-Each run shows its share of the week's usage. Once a weekly-limit hit has been recorded,
+Each run and each session shows its share of the week's usage: the cost Claude Code
+reported for it inside the week, over the cost reported for every session that week.
+The session's share is a fact on the session detail, and each run's is a line under the
+run. The week ends at the reset time the latest weekly-limit refusal carried, rolled
+forward a week at a time once that reset has passed. With no such refusal recorded, the
+week is the last seven days. Once a weekly-limit hit has been recorded,
 each run also shows an estimated percentage of the weekly limit. The weekly limit for
-Fable is kept separate, because Claude counts Fable against a limit of its own.
+Fable is kept separate, because Claude counts Fable against a limit of its own. Its
+percentage counts the Fable requests only and is a line of its own.
 
 The percentage is always labelled an estimate. Nothing the product reads states the size
 of the weekly limit. The product can only learn it from the moment a session was refused for

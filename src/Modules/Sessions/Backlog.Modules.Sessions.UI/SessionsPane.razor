@@ -437,6 +437,17 @@
                         </dd>
                     </div>
                 }
+                @* The session's part of the week's telemetry cost, and once a weekly
+                   refusal has sized the limit, an estimate of its part of that. *@
+                @if (SharesOf(row) is { Session: { } share } shares)
+                {
+                    <div class="sessions-fact">
+                        <dt>Share of week</dt>
+                        <dd data-testid="sessions-fact-share">
+                            <UsageShareFact Share="share" Usage="shares.Usage" TestId="sessions-share" />
+                        </dd>
+                    </div>
+                }
                 <div class="sessions-fact">
                     <dt>Branch</dt>
                     <dd class="data-table__mono" data-testid="sessions-branch">@Or(row.Branch)</dd>
@@ -460,7 +471,11 @@
                     <div class="sessions-runs" data-testid="sessions-runs">
                         @foreach (var run in row.Runs)
                         {
-                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" Costs="@CostsOf(row)?.StagesOf(run)" OnOpenTask="OnOpenTask" />
+                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" Costs="@CostsOf(row)?.StagesOf(run)" OnOpenTask="OnOpenTask">
+                                <Usage>
+                                    <UsageShareFact Share="@SharesOf(row)?.Of(run)" Usage="@SharesOf(row)?.Usage" Run="true" TestId="sessions-run-share" />
+                                </Usage>
+                            </DeliveryRunLine>
                         }
                     </div>
                 </section>
@@ -752,6 +767,73 @@
         public IReadOnlyList<DeliveryRunStageCost>? StagesOf(DeliveryRun run) => Stages.TryGetValue(run, out var costs) ? costs : null;
     }
 
+    /// <summary>What part of the week one row and each of its runs make up.</summary>
+    private sealed record RowShares(WeeklyUsage Usage, UsageShare? Session, IReadOnlyDictionary<DeliveryRun, UsageShare?> Runs)
+    {
+        public UsageShare? Of(DeliveryRun run) => Runs.TryGetValue(run, out var share) ? share : null;
+    }
+
+    /// <summary>How far back limit refusals are read to place the week and size the
+    /// limits: a refusal older than this sizes nothing any more.</summary>
+    private static readonly TimeSpan LimitHitHorizon = TimeSpan.FromDays(28);
+
+    /// <summary>Where the limit refusals come from: this machine's session records,
+    /// which hold each transcript already folded. Never the activity port, which
+    /// reads the transcripts' bodies — the pane may not pay that to draw a figure.</summary>
+    private IAgentSessionRecordStore? _records;
+
+    private TimeProvider _clock = TimeProvider.System;
+
+    /// <summary>The week's total and limits, read once per refresh over every stored
+    /// request; cleared with the costs.</summary>
+    private Task<WeeklyUsage?>? _weekly;
+
+    private readonly Dictionary<string, RowShares> _shares = new(StringComparer.Ordinal);
+
+    private RowShares? SharesOf(SessionRow row) => _shares.TryGetValue(row.Key, out var shares) ? shares : null;
+
+    private Task<WeeklyUsage?> WeeklyAsync() => _weekly ??= ReadWeeklyAsync();
+
+    /// <summary>Every stored request and every limit refusal inside the horizon. A
+    /// store that fails shows no share; records that fail to read only lose the
+    /// refusals, so the week falls back to the trailing seven days.</summary>
+    private async Task<WeeklyUsage?> ReadWeeklyAsync()
+    {
+        if (_requestStore is not { } store) return null;
+
+        var now = _clock.GetUtcNow();
+        IReadOnlyList<ClaudeApiRequest> requests;
+
+        try
+        {
+            // Only the limit horizon and the week before its oldest refusal can matter.
+            var from = now - LimitHitHorizon - UsageWeek.Length;
+            requests = [.. (await store.ListAsync()).Where(request => request.Timestamp >= from)];
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
+
+        IReadOnlyList<AgentLimitHit> hits = [];
+
+        if (_records is { } records)
+        {
+            try
+            {
+                var since = now - LimitHitHorizon;
+                var held = await Task.Run(records.All);
+                hits = [.. held.SelectMany(record => record.Activity?.LimitHits ?? []).Where(hit => hit.At >= since)];
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                hits = [];
+            }
+        }
+
+        return WeeklyUsage.Of(requests, hits, now);
+    }
+
     private IClaudeApiRequestStore? _requestStore;
 
     private IModelPriceStore? _priceStore;
@@ -822,6 +904,40 @@
         }
 
         _costs[row.Key] = new RowCosts(session, stages);
+
+        // The costs are drawn before the week is read: the week reads every request,
+        // and the row's own figures should not wait on it.
+        await InvokeAsync(StateHasChanged);
+
+        WeeklyUsage? weekly;
+
+        try
+        {
+            weekly = await WeeklyAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            weekly = null;
+        }
+
+        if (weekly is not null && !_disposed && generation == _statusGeneration)
+        {
+            var shares = new Dictionary<DeliveryRun, UsageShare?>(ReferenceEqualityComparer.Instance);
+
+            try
+            {
+                foreach (var run in row.Runs) shares[run] = weekly.ShareOfRun(run, requests, sessionId);
+
+                _shares[row.Key] = new RowShares(weekly, weekly.ShareOfSession(sessionId, requests), shares);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // The same honest answer as the costs above: a run the matching could
+                // not read shows no share rather than failing the pane.
+                _shares.Remove(row.Key);
+            }
+        }
+
         await InvokeAsync(StateHasChanged);
     }
 
@@ -973,6 +1089,8 @@
         _keeper = Services.GetService<ISessionRecordKeeper>();
         _requestStore = Services.GetService<IClaudeApiRequestStore>();
         _priceStore = Services.GetService<IModelPriceStore>();
+        _records = Services.GetService<IAgentSessionRecordStore>();
+        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
 
         await RefreshAsync();
 
@@ -1067,6 +1185,8 @@
             _asked.Clear();
             _costs.Clear();
             _costAsked.Clear();
+            _shares.Clear();
+            _weekly = null;
             _statusGeneration++;
         }
         finally
