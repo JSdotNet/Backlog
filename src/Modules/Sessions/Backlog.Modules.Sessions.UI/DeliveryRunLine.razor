@@ -129,6 +129,10 @@
             <SparklesIcon Size="12" CssClass="sessions-run__icon" />
             <span class="data-table__mono">@Run.SkillId</span>
         </span>
+
+        @* What the host has to say about the run's part of the week, drawn by the
+           host's own component so the run line holds no figure it did not read. *@
+        @Usage
     </span>
 
     @* The fold's region: the picture first and across the full width, so every stage
@@ -381,6 +385,10 @@
     /// <summary>What the run cost: the sum of its stages', or null where none was
     /// priced.</summary>
     private CostFigure? Total => Comparison?.Total ?? (Costs is { } costs ? CostFigure.Sum(costs.Select(cost => cost.Stage)) : null);
+
+    /// <summary>The run's share of the week, under its facts; nothing when null.</summary>
+    [Parameter]
+    public RenderFragment? Usage { get; set; }
 
     private IReadOnlyList<DeliveryRunReference> AllReferences => References ?? Run.References;
 

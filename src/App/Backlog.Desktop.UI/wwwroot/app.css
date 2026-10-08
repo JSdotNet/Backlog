@@ -6267,6 +6267,39 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
 }
 
+/* A session's or a run's share of the week: the share first, then each limit
+   estimate on a line of its own, the word "estimate" a quiet outlined tag. */
+.usage-share {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    font-variant-numeric: tabular-nums;
+    cursor: help;
+}
+
+.usage-share--run {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.usage-share__lead {
+    font-weight: 600;
+}
+
+.usage-share__limit {
+    color: var(--color-text-secondary);
+}
+
+.usage-share__estimate {
+    margin-left: var(--spacing-2xs);
+    padding: 0 var(--spacing-2xs);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
 .sessions-detail__card {
     display: flex;
     flex-direction: column;

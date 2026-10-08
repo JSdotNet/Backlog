@@ -620,6 +620,37 @@ typical run names no stage. The stage's re-entries are its done count less one, 
 counts the implement–review loop and every revise round. Review rounds are to join it
 once the run records them.
 
+### Weekly Usage
+
+```meta
+type: domain-service
+related: [.devbook/domain/sessions/domain.md#cost-attribution, .devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/domain/sessions/features.md#share-of-the-week-and-the-weekly-limit]
+aliases: [WeeklyUsage, UsageWeek, WeeklyLimit, UsageShare, share of the week]
+```
+
+Says what part of the week a session or a run makes up, and once a refusal has sized it,
+what part of the weekly limit. Reported cost only: the share is of the week's telemetry
+cost, and a token estimate divided by a reported sum would compare two measurements.
+
+**The week** is the seven days ending at the reset time the latest all-models weekly
+refusal carried, or with none, the latest Fable one. A reset that has passed rolls
+forward a whole week at a time, because the allowance renews on the same beat each week.
+The reset instant belongs to the next week. With no refusal carrying a reset time, the
+week is the seven days up to now. The total is every request reported inside the week up
+to the moment it was read, and a share counts nothing later, so a session still running
+cannot outgrow the total it is divided by.
+
+**A weekly limit** is sized by the most recent refusal of its kind: the cost reported
+from seven days before that refusal's reset time, or before the refusal where it carried
+none, up to the refusal. Fable's limit counts the requests to a Fable model only. A
+refusal with no reported cost before it sizes nothing. The percentage of a limit is
+always an estimate and labelled one, since nothing the product reads states the limit's
+size and requests made on another machine never reach this one.
+
+**A session's share** is its own requests inside the week. **A run's** is the requests
+its stages and their sub-agent calls claim, matched as `Cost Attribution` matches them.
+Nothing reported inside the week is no share, never zero.
+
 ### Model Price Table
 
 ```meta
