@@ -126,26 +126,28 @@ public sealed class SessionInsights(
     {
         var availability = await sessions.GetAvailabilityAsync(cancellationToken).ConfigureAwait(false);
 
-        if (!availability.IsAvailable) return new Reading(availability, null, AssistantActivityReport.Empty);
-
         // One instant for both reads, so the session list and the activity log are the
         // same twelve weeks rather than two windows a tick apart.
         var since = time.GetUtcNow() - Horizon;
+
+        if (!availability.IsAvailable) return new Reading(availability, null, AssistantActivityReport.Empty, since);
 
         var report = await sessions.GetSessionsAsync(since, cancellationToken).ConfigureAwait(false);
 
         var log = await activity.GetActivityAsync(since, cancellationToken).ConfigureAwait(false);
 
-        return new Reading(availability, report, log);
+        return new Reading(availability, report, log, since);
     }
 
     /// <summary>What one read produced. The report is null exactly when the source said
     /// it could not answer, which is the only combination any of the three is ever
-    /// in.</summary>
+    /// in. <paramref name="Since"/> is how far back both sources were asked, kept so a
+    /// derivation can tell a window the reading covers from one it never reached.</summary>
     private sealed record Reading(
         InsightAvailability Availability,
         AssistantSessionReport? Report,
-        AssistantActivityReport Activity);
+        AssistantActivityReport Activity,
+        DateTimeOffset Since);
 
     /// <summary>
     /// The whole derivation: filter to the scope, then measure. Synchronous and pure,
@@ -322,8 +324,33 @@ public sealed class SessionInsights(
             ActivityByHour = grids.Count == 0 ? [] : grids[^1].Hours,
             ActivityByDay = grids.Count == 0 ? [] : grids[^1].Days,
             IdleAfter = reading.Activity.IdleAfter,
+            PreviousActiveTime = PreviousActiveTime(reading, scopedActivity, from, scope.Weeks, zone),
             LongestSessions = Longest(scoped, scopedActivity, bandOf, from, to)
         };
+    }
+
+    /// <summary>
+    /// The agent-active time of the window of the same length just before this one,
+    /// swept over the activity already read and on the machines already scoped — or
+    /// null when that window opens before the reading does.
+    /// </summary>
+    /// <remarks>
+    /// Null rather than a sweep over whatever part of it was read: four weeks of a
+    /// twelve-week window set beside a whole twelve would draw a fall that never
+    /// happened. Twelve weeks is always null for that reason, because the reading goes
+    /// back exactly twelve; see <see cref="Horizon"/> for why it goes no further.
+    /// </remarks>
+    private static TimeSpan? PreviousActiveTime(
+        Reading reading,
+        IReadOnlyList<AssistantActivitySession> scopedActivity,
+        DateTimeOffset from,
+        int weeks,
+        TimeZoneInfo zone)
+    {
+        var previousFrom = from.AddDays(-7 * weeks);
+        if (previousFrom < reading.Since) return null;
+
+        return Sum(LocalHourBuckets.Sweep(Intervals(scopedActivity, session => session.Active), previousFrom, from, zone));
     }
 
     /// <summary>

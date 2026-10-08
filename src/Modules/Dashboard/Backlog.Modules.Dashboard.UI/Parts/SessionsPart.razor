@@ -154,8 +154,12 @@
                    label changed by a factor of twenty-eight. A reader holding an old
                    screenshot beside a new one should conclude the measure changed, which
                    the name says, rather than that the dashboard broke. *@
+                @* Compared with the window before only when the reading reached it, which
+                   is four weeks and never twelve; the insight says why, and a missing
+                   comparison is no line at all rather than a line against nothing. *@
                 <MetricTile Label="Agent-active time"
                             Value="@DashboardFormat.Duration(Value!.ActiveTime)"
+                            Delta="@DashboardFormat.ShareDelta(Value!.ActiveTime, Value!.PreviousActiveTime, DashboardFormat.PreviousWeeks(Scope.Weeks))"
                             Footnote="@ActiveTimeFootnote"
                             FootnoteAsHint="true"
                             TestId="dashboard-sessions-active" />

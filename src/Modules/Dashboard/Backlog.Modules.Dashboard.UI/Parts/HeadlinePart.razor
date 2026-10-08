@@ -7,6 +7,12 @@
     status of its own, which is what lets the grid stay on screen while it loads
     instead of the row appearing from nowhere when the data lands.
 
+    Only the merged count is compared with the window before. It is the one figure
+    here the baseline port can count for an earlier window at a fixed price; the
+    others need each pull request read, which is what makes the window itself
+    expensive, and a second window of that would double the cost of the part for a
+    line under each tile.
+
     The trends are passed as a fragment rather than written as child content, so a
     tile with nothing to draw yet has no trend area at all instead of an empty one
     holding space for a line that may never arrive.
@@ -25,6 +31,7 @@
         <MetricTile Label="Pull requests merged"
                     Value="@(IsReady ? MetricFormat.Compact(Value!.PullRequestsMerged) : null)"
                     Emphasis="true"
+                    Delta="@(IsReady ? DashboardFormat.CountDelta(Value!.PullRequestsMerged, Value!.PreviousPullRequestsMerged, DashboardFormat.PreviousWeeks(Scope.Weeks)) : null)"
                     Trend="@(IsReady ? Sparkline(Value!.PullRequestsPerWeek, "Pull requests merged per week", "dashboard-headline-pulls-trend") : null)"
                     Status="Status"
                     StatusMessage="@StatusMessage"

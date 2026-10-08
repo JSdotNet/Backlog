@@ -1,4 +1,5 @@
 using System.Globalization;
+using Backlog.UI.Components.Metrics;
 
 namespace Backlog.Modules.Dashboard.UI.Parts;
 
@@ -147,6 +148,53 @@ public static class DashboardFormat
     /// <c>21 Sep – 05 Oct</c>. An en dash, the range mark, and the two ends in
     /// <see cref="Date"/>'s words so a sentence and a table cell name a day the same way.</summary>
     public static string Span(DateOnly start, DateOnly end) => $"{Date(start)} – {Date(end)}";
+
+    /// <summary>
+    /// What a delta against the previous window says it is compared with: <c>previous 4
+    /// weeks</c>. Here once, so every tile that compares with the window before names
+    /// it in the same words and none of them can name a length the period control did
+    /// not pick.
+    /// </summary>
+    public static string PreviousWeeks(int weeks) =>
+        $"previous {weeks.ToString(CultureInfo.InvariantCulture)} weeks";
+
+    /// <summary>
+    /// A count's change against an earlier figure, as the count it moved by — or null
+    /// when there is no earlier figure, so the tile draws no comparison.
+    /// <para>
+    /// A count rather than a share for counts and points, because the numbers are small
+    /// enough to read as themselves: "up 3" against eleven merged pull requests says
+    /// more than "up 37.5%", and a share of a quiet window is a large number about very
+    /// little. Null in, null out, and never a zero for a missing figure — "unchanged"
+    /// against a window nobody counted would be a claim nobody made.
+    /// </para>
+    /// </summary>
+    public static MetricDelta? CountDelta(decimal current, decimal? previous, string comparedTo, bool higherIsBetter = true) =>
+        previous is { } before
+            ? new MetricDelta(current - before, MetricDeltaUnit.Absolute, comparedTo, higherIsBetter)
+            : null;
+
+    /// <summary>
+    /// A measure's change against an earlier figure as a fraction of it — the shape
+    /// <see cref="MetricDelta"/> takes for <see cref="MetricDeltaUnit.Percent"/>, so
+    /// 0.124 reads "up 12.4%" — or null when there is no earlier figure or it was zero.
+    /// <para>
+    /// A share rather than a difference for durations and money, because their
+    /// difference has to be formatted in the unit the tile already uses and would read
+    /// as a second figure rather than a change. Null over a zero rather than an infinite
+    /// share: "up from nothing" is not a percentage, the rule
+    /// <c>MetricSeries.Change</c> already follows.
+    /// </para>
+    /// </summary>
+    public static MetricDelta? ShareDelta(decimal current, decimal? previous, string comparedTo, bool higherIsBetter = true) =>
+        previous is { } before && before != 0m
+            ? new MetricDelta((current - before) / before, MetricDeltaUnit.Percent, comparedTo, higherIsBetter)
+            : null;
+
+    /// <summary><see cref="ShareDelta(decimal, decimal?, string, bool)"/> for a duration,
+    /// compared in ticks so no rounding policy above reaches the arithmetic.</summary>
+    public static MetricDelta? ShareDelta(TimeSpan current, TimeSpan? previous, string comparedTo, bool higherIsBetter = true) =>
+        ShareDelta(current.Ticks, previous?.Ticks, comparedTo, higherIsBetter);
 
     /// <summary>
     /// A column heading for the activity grid: the hour, zero-padded, as <c>07</c>.

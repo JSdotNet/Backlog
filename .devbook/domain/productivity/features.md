@@ -153,9 +153,30 @@ header. The Machine select and the Window toggle sit in the pane header, because
 the dashboard reads them. The Devbook tab says that the window and the machine do not
 apply to it.
 
-Each headline figure carries a delta against the previous window of the same length.
-A figure over a window of N weeks is compared with the N weeks just before it, so the
-person sees which way it moved without choosing a second period.
+A headline figure carries a delta against the previous window of the same length. A
+figure over a window of N weeks is compared with the N weeks just before it, so the
+person sees which way it moved without choosing a second period. Pull requests merged
+and story points done show the difference as a count. Agent-active time shows it as a
+share of the earlier figure.
+
+Story points are counted in whole weeks. The earlier window therefore ends on the day
+before the first week shown, and it is as long as the current one, so no day is counted
+twice.
+
+Spend this month is a calendar month, so it is compared with the same days of last
+month. When last month was shorter, the comparison runs to its last day. Only Claude and
+Azure report spend by day, so only they carry this delta. Copilot reports a whole month
+at once, and its tile shows no delta.
+
+A delta is left out when there is no honest earlier figure to compare with:
+
+- Devbook drift issues open has no delta. The issue source reads only the issues open
+  now, so it cannot say how many were open when the window began.
+- Agent-active time has no delta over twelve weeks. Session history goes back
+  84 days, which covers only the current twelve weeks.
+- Pull requests merged has no delta while either window's count is incomplete. An
+  incomplete count is only a floor, so a delta built on it would show a change that may
+  not have happened.
 
 ### What needs you
 
