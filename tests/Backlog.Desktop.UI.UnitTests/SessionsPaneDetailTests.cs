@@ -367,6 +367,53 @@ public sealed class SessionsPaneDetailTests
     }
 
     /// <summary>
+    /// A run against its usual: the cost on the run's header in place of the output
+    /// tokens, each stage's share and ratio, and the insight line naming the stage
+    /// that explains the difference — against five earlier finished runs of its flow.
+    /// </summary>
+    [Fact]
+    public void A_finished_run_reads_its_cost_against_the_usual_run_of_its_flow()
+    {
+        static DeliveryRunTokenUsage Spent(long input) => new(
+            new DeliveryRunTokens(1, input, 0, 0, 0, 0),
+            new DeliveryRunTokens(0, 0, 0, 0, 0, 0),
+            [new DeliveryRunStageTokens("Implement", new DeliveryRunTokens(1, input, 0, 0, 0, 0), new DeliveryRunTokens(0, 0, 0, 0, 0, 0))],
+            ["claude-opus-5-5"]);
+
+        static DeliveryRun Priced(string id, DateTimeOffset started, long input, int done = 1) =>
+            SessionRowsTests.Run(id, Worktree, started, started.AddMinutes(30)) with
+            {
+                SkillId = "flow-code",
+                Stages = [new DeliveryRunStage("Implement", "done", 60_000, done) { Execution = """{"mode":"inline","model":"claude-opus-5-5"}""" }],
+                TokenUsage = Spent(input)
+            };
+
+        var now = Priced("run-now", Noon.AddMinutes(-90), 2_000_000, done: 2) with { SessionIds = [Claude.Id] };
+        var earlier = Enumerable.Range(1, 5).Select(day => Priced($"run-{day}", Noon.AddDays(-day), 1_000_000) with { Worktree = $"wt-{day}-1a2b3c4d" });
+
+        using var context = Context([Claude], [now, .. earlier]);
+        context.Services.AddSingleton<IClaudeApiRequestStore>(new StubRequestStore([]));
+        context.Services.AddSingleton<IModelPriceStore>(new StubPriceStore(new ModelPriceTable([new ModelPrice("opus", 5m, 25m, 0.5m, 6.25m)])));
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var line = pane.Find("[data-testid='sessions-run'][data-run-id='run-now']");
+
+            Assert.Contains("$10.00 est. cost", line.QuerySelector(".fold__trigger")!.TextContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("output tokens", line.QuerySelector(".fold__trigger")!.TextContent, StringComparison.Ordinal);
+
+            var insight = line.QuerySelector("[data-testid='sessions-run-insight']")!;
+            Assert.Equal("higher", insight.GetAttribute("data-band"));
+            Assert.Equal("2.0× the usual flow-code run · Implement explains most of it: $5.00 over its usual, entered again once", insight.TextContent);
+
+            Assert.StartsWith("100%", line.QuerySelector("[data-testid='sessions-stage-share']")!.TextContent);
+            Assert.StartsWith("2.0×", line.QuerySelector("[data-testid='sessions-stage-ratio']")!.TextContent);
+        });
+    }
+
+    /// <summary>
     /// The session's and each run's share of the week's reported cost, and once a weekly
     /// refusal is recorded, an estimate of the weekly limit beside it — Fable's on a line
     /// of its own.

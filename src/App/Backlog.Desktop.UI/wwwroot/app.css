@@ -7261,6 +7261,53 @@ a.pull-request-detail-checks__name:hover {
     color: var(--color-text-secondary);
 }
 
+/* After the cost: the stage's share of the run, then its ratio to its usual. The
+   ratio is drawn in its band — green at 0.8× or below, the warning surface from 1.5×,
+   quiet when typical, plain in between — and the insight line under the run header
+   wears the same bands. */
+.sessions-stage__usual {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-secondary);
+}
+
+.sessions-stage__usual + .sessions-stage__figures {
+    margin-left: 0;
+}
+
+.sessions-stage__ratio {
+    padding: 0 var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-primary);
+}
+
+.sessions-stage__ratio[data-band="typical"] {
+    color: var(--color-text-secondary);
+}
+
+.sessions-stage__ratio[data-band="lower"],
+.sessions-run__insight[data-band="lower"] {
+    color: var(--color-success-text);
+}
+
+.sessions-stage__ratio[data-band="higher"] {
+    background: var(--color-warning);
+    font-weight: 500;
+}
+
+.sessions-run__insight {
+    display: block;
+    color: var(--color-text-secondary);
+}
+
+.sessions-run__insight[data-band="higher"] {
+    color: var(--color-text-primary);
+    font-weight: 500;
+}
+
 .sessions-stage__model {
     font-size: var(--font-size-xs);
     color: var(--color-text-primary);

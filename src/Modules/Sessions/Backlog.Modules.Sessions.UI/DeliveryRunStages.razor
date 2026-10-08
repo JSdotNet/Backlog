@@ -16,7 +16,8 @@
     and every sub-agent call the stage made.
 
     Cost, where the host worked one out (DeliveryRunCosts): on the row before its
-    figures, and on each sub-agent call. Reported by Claude Code, or estimated from
+    figures, followed by its share of the run and its ratio to its usual
+    (DeliveryRunStageUsual), and on each sub-agent call. Reported by Claude Code, or estimated from
     tokens at the Settings prices and marked so; with neither, nothing is drawn —
     never a zero.
 *@
@@ -67,6 +68,7 @@
                                         <abbr class="sessions-stage__estimate" title="@CostFigure.EstimatedNote">est.</abbr>
                                     }
                                 </span>
+                                <DeliveryRunStageUsual Comparison="@UsualOf(position)" />
                             }
                             @if (Figures(stage) is { } figures)
                             {
@@ -165,6 +167,14 @@
     /// none out.</summary>
     [Parameter]
     public IReadOnlyList<DeliveryRunStageCost>? Costs { get; set; }
+
+    /// <summary>Each stage's cost against the run and its usual, in stage order
+    /// (<see cref="DeliveryRunBaselines"/>), or null where the host compared none.</summary>
+    [Parameter]
+    public DeliveryRunCostComparison? Comparison { get; set; }
+
+    private StageCostAgainstUsual? UsualOf(int stage) =>
+        Comparison is { } comparison && stage < comparison.Stages.Count ? comparison.Stages[stage] : null;
 
     private CostFigure? CostOf(int stage) => Costs is { } costs && stage < costs.Count ? costs[stage].Stage : null;
 

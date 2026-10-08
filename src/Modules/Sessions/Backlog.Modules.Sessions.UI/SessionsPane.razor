@@ -471,7 +471,7 @@
                     <div class="sessions-runs" data-testid="sessions-runs">
                         @foreach (var run in row.Runs)
                         {
-                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" Costs="@CostsOf(row)?.StagesOf(run)" OnOpenTask="OnOpenTask">
+                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" Costs="@CostsOf(row)?.StagesOf(run)" Comparison="@CostsOf(row)?.ComparisonOf(run)" OnOpenTask="OnOpenTask">
                                 <Usage>
                                     <UsageShareFact Share="@SharesOf(row)?.Of(run)" Usage="@SharesOf(row)?.Usage" Run="true" TestId="sessions-run-share" />
                                 </Usage>
@@ -762,9 +762,14 @@
     public void Dispose() => _disposed = true;
 
     /// <summary>What one row cost, worked out once its requests are in.</summary>
-    private sealed record RowCosts(CostFigure? Session, IReadOnlyDictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>> Stages)
+    private sealed record RowCosts(
+        CostFigure? Session,
+        IReadOnlyDictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>> Stages,
+        IReadOnlyDictionary<DeliveryRun, DeliveryRunCostComparison> Comparisons)
     {
         public IReadOnlyList<DeliveryRunStageCost>? StagesOf(DeliveryRun run) => Stages.TryGetValue(run, out var costs) ? costs : null;
+
+        public DeliveryRunCostComparison? ComparisonOf(DeliveryRun run) => Comparisons.TryGetValue(run, out var comparison) ? comparison : null;
     }
 
     /// <summary>What part of the week one row and each of its runs make up.</summary>
@@ -883,6 +888,7 @@
 
         var sessionId = row.Session?.Id ?? row.Runs.SelectMany(run => run.SessionIds).FirstOrDefault();
         var stages = new Dictionary<DeliveryRun, IReadOnlyList<DeliveryRunStageCost>>(ReferenceEqualityComparer.Instance);
+        var comparisons = new Dictionary<DeliveryRun, DeliveryRunCostComparison>(ReferenceEqualityComparer.Instance);
         CostFigure? session;
 
         try
@@ -903,7 +909,9 @@
             session = null;
         }
 
-        _costs[row.Key] = new RowCosts(session, stages);
+        // The row's own figures first: pricing the earlier runs its comparison needs
+        // reads up to thirty runs' requests, and the row's cost should not wait on them.
+        _costs[row.Key] = new RowCosts(session, stages, new Dictionary<DeliveryRun, DeliveryRunCostComparison>());
 
         // The costs are drawn before the week is read: the week reads every request,
         // and the row's own figures should not wait on it.
@@ -939,6 +947,86 @@
         }
 
         await InvokeAsync(StateHasChanged);
+
+        foreach (var (run, costs) in stages)
+        {
+            if (await CompareAsync(run, costs, generation) is { } comparison) comparisons[run] = comparison;
+
+            if (_disposed || generation != _statusGeneration) return;
+        }
+
+        if (comparisons.Count == 0) return;
+
+        _costs[row.Key] = new RowCosts(session, stages, comparisons);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>What each earlier run cost, by run, once asked: the baseline of a flow
+    /// is the same thirty runs for every run that follows them, so each is priced once
+    /// per refresh rather than once per row — the task kept, so two rows asking at once
+    /// share one pricing.</summary>
+    private readonly Dictionary<DeliveryRun, Task<IReadOnlyList<DeliveryRunStageCost>>> _earlierCosts = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>
+    /// A run's costs against its usual: the last thirty finished runs of its flow
+    /// (<see cref="DeliveryRunBaselines.Earlier"/>), each priced the way its own row
+    /// would be — its sessions' reported requests, else its tokens at the Settings
+    /// prices. Null where the comparison could not be worked out, which leaves the run
+    /// with its costs and nothing to compare them with.
+    /// </summary>
+    private async Task<DeliveryRunCostComparison?> CompareAsync(DeliveryRun run, IReadOnlyList<DeliveryRunStageCost> costs, int generation)
+    {
+        try
+        {
+            var earlier = DeliveryRunBaselines.Earlier(run, _runs.Runs);
+            var priced = new List<PricedDeliveryRun>(earlier.Count);
+
+            foreach (var other in earlier)
+            {
+                if (!_earlierCosts.TryGetValue(other, out var pricing))
+                {
+                    pricing = PriceAsync(other);
+                    _earlierCosts[other] = pricing;
+                }
+
+                var otherCosts = await pricing;
+
+                // A refresh cleared the cache and re-read the runs while this waited;
+                // the comparison it was for is no longer on screen.
+                if (_disposed || generation != _statusGeneration) return null;
+
+                priced.Add(new PricedDeliveryRun(other, otherCosts));
+            }
+
+            return DeliveryRunBaselines.Compare(run, costs, priced);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>What an earlier run's stages cost, read from the row that holds it.</summary>
+    private async Task<IReadOnlyList<DeliveryRunStageCost>> PriceAsync(DeliveryRun run)
+    {
+        var owner = _rows.FirstOrDefault(row => row.Runs.Any(candidate => ReferenceEquals(candidate, run)));
+        var sessionId = owner?.Session?.Id ?? run.SessionIds.FirstOrDefault();
+        var ids = run.SessionIds.Count > 0 ? run.SessionIds : sessionId is null ? [] : [sessionId];
+        var requests = new List<ClaudeApiRequest>();
+
+        if (_requestStore is { } store)
+        {
+            try
+            {
+                foreach (var id in ids.Distinct(StringComparer.Ordinal)) requests.AddRange(await store.ListAsync(id));
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                requests.Clear();
+            }
+        }
+
+        return DeliveryRunCosts.Of(run, requests, _prices, sessionId, owner?.Model);
     }
 
     private async Task ReadPricesAsync()
@@ -1185,6 +1273,7 @@
             _asked.Clear();
             _costs.Clear();
             _costAsked.Clear();
+            _earlierCosts.Clear();
             _shares.Clear();
             _weekly = null;
             _statusGeneration++;
