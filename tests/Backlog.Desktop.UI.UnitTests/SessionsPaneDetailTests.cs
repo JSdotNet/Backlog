@@ -2,6 +2,7 @@ using Backlog.Modules.Sessions.UI;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -363,6 +364,85 @@ public sealed class SessionsPaneDetailTests
 
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='sessions-fact-output']")));
         Assert.Empty(pane.FindAll("[data-testid='sessions-fact-cost']"));
+    }
+
+    /// <summary>
+    /// The session's and each run's share of the week's reported cost, and once a weekly
+    /// refusal is recorded, an estimate of the weekly limit beside it — Fable's on a line
+    /// of its own.
+    /// </summary>
+    [Fact]
+    public void The_panel_and_the_run_show_their_share_of_the_week()
+    {
+        var requests = new StubRequestStore(
+        [
+            new ClaudeApiRequest("req_1", Claude.Id, Noon.AddMinutes(-30), "claude-opus-5-5", "high", 1_000_000, 1, 2, 3, 4, 5, "repl_main_thread", null, null, null),
+            new ClaudeApiRequest("req_2", "another", Noon.AddDays(-2), "claude-opus-5-5", "high", 3_000_000, 1, 2, 3, 4, 5, "repl_main_thread", null, null, null),
+            new ClaudeApiRequest("req_old", "another", Noon.AddDays(-9), "claude-opus-5-5", "high", 50_000_000, 1, 2, 3, 4, 5, "repl_main_thread", null, null, null)
+        ]);
+        var run = Run() with
+        {
+            Stages = [new DeliveryRunStage("Scope", "done", 60_000, 1) { StartedAt = Noon.AddMinutes(-40), CompletedAt = Noon.AddMinutes(-20), Execution = """{"mode":"inline","model":"claude-opus-5-5"}""" }]
+        };
+
+        using var context = Context([Claude], [run]);
+        context.Services.AddSingleton<IClaudeApiRequestStore>(requests);
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Noon));
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("25% of this week", pane.Find("[data-testid='sessions-share'] [data-testid='usage-share-week']").TextContent.Trim());
+            Assert.Contains("25% of this week", pane.Find("[data-testid='sessions-run'] [data-testid='sessions-run-share']").TextContent);
+            Assert.Empty(pane.FindAll("[data-testid='usage-share-limit']"));
+        });
+    }
+
+    [Fact]
+    public void After_a_weekly_refusal_the_share_carries_an_estimate_of_the_limit()
+    {
+        var reset = Noon.AddDays(3);
+        var requests = new StubRequestStore(
+        [
+            new ClaudeApiRequest("req_before", "another", Noon.AddDays(-1).AddHours(-1), "claude-opus-5-5", "high", 9_000_000, 1, 2, 3, 4, 5, "repl_main_thread", null, null, null),
+            new ClaudeApiRequest("req_fable", "another", Noon.AddHours(-6), "claude-fable-1", "high", 2_000_000, 1, 2, 3, 4, 5, "repl_main_thread", null, null, null),
+            new ClaudeApiRequest("req_1", Claude.Id, Noon.AddMinutes(-30), "claude-opus-5-5", "high", 900_000, 1, 2, 3, 4, 5, "repl_main_thread", null, null, null),
+            new ClaudeApiRequest("req_2", Claude.Id, Noon.AddMinutes(-25), "claude-fable-1", "high", 100_000, 1, 2, 3, 4, 5, "repl_main_thread", null, null, null)
+        ]);
+        var hits = new AgentSessionActivity("other", AgentSessionKind.Claude, "tower", "DEV-TOWER", [], [])
+        {
+            LimitHits =
+            [
+                new AgentLimitHit(Noon.AddDays(-1), AgentLimitKind.Weekly, "seven_day") { ResetsAt = reset },
+                new AgentLimitHit(Noon.AddHours(-5), AgentLimitKind.WeeklyFable, "seven_day_overage_included") { ResetsAt = reset }
+            ]
+        };
+
+        using var context = Context([Claude], [Run()]);
+        context.Services.AddSingleton<IClaudeApiRequestStore>(requests);
+        context.Services.AddSingleton<IAgentSessionRecordStore>(new StubRecordStore(new AgentSessionRecord(Copilot, hits, Noon)));
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Noon));
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var share = pane.Find("[data-testid='sessions-share']");
+
+            Assert.Equal("8.3% of this week", share.QuerySelector("[data-testid='usage-share-week']")!.TextContent.Trim());
+            Assert.Equal("≈ 11% of the weekly limit estimate", Squash(share.QuerySelector("[data-testid='usage-share-limit']")!.TextContent));
+            Assert.Equal("Fable ≈ 5% of its weekly limit estimate", Squash(share.QuerySelector("[data-testid='usage-share-fable']")!.TextContent));
+        });
+    }
+
+    private static string Squash(string text) => string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private sealed class StubRecordStore(params AgentSessionRecord[] records) : IAgentSessionRecordStore
+    {
+        public IReadOnlyList<AgentSessionRecord> All() => records;
+
+        public SessionRecordUpdate Save(IReadOnlyList<AgentSessionRecord> readings) => SessionRecordUpdate.None;
     }
 
     internal sealed class StubRequestStore(IReadOnlyList<ClaudeApiRequest> requests) : IClaudeApiRequestStore

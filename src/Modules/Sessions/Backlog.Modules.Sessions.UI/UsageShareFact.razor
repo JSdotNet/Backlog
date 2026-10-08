@@ -1,0 +1,67 @@
+@using System.Globalization
+
+@*
+    A session's or a run's part of the week: its reported cost over the week's total
+    telemetry cost, and — once a weekly-limit refusal has been recorded — an
+    approximate percentage of the weekly limit, always labelled an estimate
+    (.devbook/domain/sessions/features.md, "Share of the week and the weekly limit").
+    Fable's limit is a separate line, because Claude counts Fable against a limit of
+    its own.
+
+    Its own component rather than a part of the run line or the session facts, so the
+    session detail and every run under it say the same sentence the same way. Renders
+    nothing without a share: a zero nobody measured would read as free.
+*@
+@if (Share is { } share)
+{
+    <span class="usage-share @(Run ? "usage-share--run" : null)" data-testid="@TestId" title="@WeekTitle">
+        @if (Run)
+        {
+            <span class="usage-share__lead">This run</span>
+        }
+        <span data-testid="usage-share-week">@UsageShare.Percent(share.OfWeek) of this week</span>
+        @if (share.OfLimit is { } ofLimit)
+        {
+            <span class="usage-share__limit" data-testid="usage-share-limit" title="@LimitTitle(Usage?.Limit)">
+                ≈ @UsageShare.Percent(ofLimit) of the weekly limit
+                <span class="usage-share__estimate">estimate</span>
+            </span>
+        }
+        @if (share.FableOfLimit is { } fableOfLimit)
+        {
+            <span class="usage-share__limit" data-testid="usage-share-fable" title="@LimitTitle(Usage?.FableLimit)">
+                Fable ≈ @UsageShare.Percent(fableOfLimit) of its weekly limit
+                <span class="usage-share__estimate">estimate</span>
+            </span>
+        }
+    </span>
+}
+
+@code {
+    /// <summary>The share to show, or null for nothing.</summary>
+    [Parameter]
+    public UsageShare? Share { get; set; }
+
+    /// <summary>The week the share was taken over, for the tooltips.</summary>
+    [Parameter]
+    public WeeklyUsage? Usage { get; set; }
+
+    /// <summary>True under a run, where the line names whose share it is.</summary>
+    [Parameter]
+    public bool Run { get; set; }
+
+    [Parameter]
+    public string TestId { get; set; } = "usage-share";
+
+    private string? WeekTitle => Usage is not { Week: var week }
+        ? null
+        : week.FromReset
+            ? $"Share of the cost Claude Code reported for the week {Stamp(week.Start)} – {Stamp(week.End)}, ending at the weekly limit's reset."
+            : $"Share of the cost Claude Code reported over the last seven days, {Stamp(week.Start)} – {Stamp(week.End)}. No weekly-limit refusal with a reset time is recorded.";
+
+    private static string? LimitTitle(WeeklyLimit? limit) => limit is null
+        ? null
+        : $"An estimate: the limit's size is taken as the cost reported up to the refusal at {Stamp(limit.HitAt)}, {new CostFigure(limit.UsdMicros, CostSource.Reported).Label}.";
+
+    private static string Stamp(DateTimeOffset at) => at.ToLocalTime().ToString("ddd d MMM HH:mm", CultureInfo.CurrentCulture);
+}
