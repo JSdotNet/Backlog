@@ -37,6 +37,7 @@ import {
 import { loadStatusLadder } from "./statuses.mjs";
 import { changeDecisionIssues, changeFiles, checkDelta, readChange } from "./delta.mjs";
 import { demoProblems, demoReader, requirementScenarios } from "./demo.mjs";
+import { scenarioProblems } from "./scenario.mjs";
 
 /**
  * Every devbook folder this convention recognizes, as the repository path it
@@ -217,7 +218,23 @@ export { DEVBOOK_FOLDER_NAMES, DEVBOOK_ROOT, CHANGES_ROOT };
 // demo fingerprints as under 28. A page approved over a demo under 28 reads as
 // changed once and is approved again; demos are days old and no migration is
 // owed for a value the approval gate rewrites.
-export const CONTRACT_VERSION = 29;
+//
+// Version 30 learns the scenario page: a `.domain` file typed `scenario`, in a
+// bounded context at any depth, whose `##` parts owe no block and stay
+// addressable, whose `status` is absent, `draft`, or `proposed`, which carries
+// no `tests`, and whose stem is unique across the corpus. The six setup fields
+// — `start`, `actor`, `data`, `profile`, `flags`, `settings` — are legal there
+// alone and resolve against the chapters and `.devbook/scenarios/profiles.json`;
+// a step opens with a bold Given, When, Then or And; a `shot:` or `scenario:`
+// image is no diagram, and a `scenario:` reference must name a page. A
+// requirement's `#### Scenario:` may hold one `Proved by: <page>.md#<part>`
+// line instead of its own steps, which must name a part and derives the
+// requirement's `e2e` entry; a part no case points at is reported. The type
+// anywhere else is an error, and a setup field anywhere else — an
+// unrecognized-field warning under 29 — is one too: neither has a meaning a
+// corpus could have relied on, so it is an added value with a safe default and
+// no migration is owed.
+export const CONTRACT_VERSION = 30;
 
 // The oldest contract a reconcile still carries forward. A migration lives
 // for the major version it ships in: a major release raises this to the
@@ -502,6 +519,9 @@ export async function buildGraph(repoRoot, folders = null) {
     // corpus is read; and the reader both that and the fingerprints share.
     const demoHolders = [];
     const demoText = demoReader(repoRoot);
+    // Every document as read, for the scenario pass that needs the whole
+    // corpus at once.
+    const docs = [];
 
     const layout = folders ? null : await discoverLayout(repoRoot);
     const scanned = folders ?? layout.folders;
@@ -548,6 +568,7 @@ export async function buildGraph(repoRoot, folders = null) {
         }
 
         const fileMeta = chapters.find((c) => c.level === 1)?.meta ?? null;
+        docs.push({ relPath, raw, chapters, fileMeta });
         const delta = changePathParts(relPath)?.part === "delta" ? parseDeltaHeader(raw)?.meta ?? {} : null;
         const fileNode = {
             id: relPath,
@@ -695,6 +716,18 @@ export async function buildGraph(repoRoot, folders = null) {
                 type: "contains",
             });
         }
+    }
+
+    // Scenario pages are checked across the corpus once every chapter exists:
+    // the stem register, the setup fields, `scenario:` images, and the
+    // `Proved by:` pointers — whose part, where a spec implements its page,
+    // derives the requirement's `e2e` entry, so nobody writes it by hand.
+    const scenarios = await scenarioProblems(repoRoot, docs, nodes);
+    problems.push(...scenarios.problems);
+    for (const [id, entries] of scenarios.derivedTests) {
+        const node = nodes.get(id);
+        if (!node) continue;
+        node.tests = [...new Set([...(node.tests ?? []), ...entries])];
     }
 
     // Reference edges are resolved only after every node exists, so forward
@@ -860,7 +893,9 @@ export async function buildGraph(repoRoot, folders = null) {
     problems.push(...(await brokenLinkIssues(repoRoot, links, anchors)));
     problems.push(...(await demoProblems(repoRoot, scanned, demoHolders)));
 
-    return { nodes: [...nodes.values()], edges, problems, ledes, syncLevels };
+    // The scenario register rides beside the nodes, like the ledes, so
+    // graph.json does not change shape; `scenarios-index.mjs` is its one reader.
+    return { nodes: [...nodes.values()], edges, problems, ledes, syncLevels, scenarios: scenarios.register };
 }
 
 /**

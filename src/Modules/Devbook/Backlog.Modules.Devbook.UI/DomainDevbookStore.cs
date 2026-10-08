@@ -781,6 +781,8 @@ public sealed record DomainDevbookDocument(string Path, string Title, DomainDevb
         DomainDevbookDocumentKind.Model => "Structural model",
         DomainDevbookDocumentKind.Flow => "Flow",
         DomainDevbookDocumentKind.Dependencies => "Dependencies",
+        // A scenario page is an additional page that says what it is.
+        DomainDevbookDocumentKind.Page when DevbookTypeMarkers.IsScenario(Metadata.GetValueOrDefault("type")) => "Scenario page",
         DomainDevbookDocumentKind.Page => "Additional page",
         _ => "Domain document"
     };
@@ -851,7 +853,11 @@ public static class DomainDevbookFileTypes
 
     /// <summary>The same for a document already read.</summary>
     public static string? Of(DomainDevbookDocument document) =>
-        document.Kind is DomainDevbookDocumentKind.Page ? DevbookSchema.OwnFileType(document.Path) : Of(document.Kind);
+        document.Kind is not DomainDevbookDocumentKind.Page ? Of(document.Kind)
+        // A scenario page is the one additional page typed by what it states rather
+        // than by its name: it is named after its journey.
+        : DevbookTypeMarkers.IsScenario(document.Metadata.GetValueOrDefault("type")) ? DevbookSchema.ScenarioFileType
+        : DevbookSchema.OwnFileType(document.Path);
 
     /// <summary>The <c>type</c> for a document whose kind is already known, when
     /// the kind alone says it.</summary>

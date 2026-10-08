@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.Copilot;
+using Backlog.Infrastructure.Devbook.Scenarios;
 using Backlog.Infrastructure.GitHub;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -1160,6 +1161,166 @@ public sealed class DomainDevbookPanelTests : IDisposable
         return (context, features);
     }
 
+    /// <summary>
+    /// A scenario page opens with its run above it: the state, the E2E summary, the
+    /// setup it runs under, and each part with its outcome and its screenshot — the
+    /// screenshot drawn from the run's PNG, with the line that says which page, part,
+    /// state and time it came from.
+    /// </summary>
+    [Fact]
+    public async Task A_scenario_page_shows_its_setup_parts_outcomes_and_screenshots()
+    {
+        await using var harness = CreateHarness();
+        WriteScenarioContext(harness.Root, failSecondPart: true);
+
+        var component = harness.Render(".domain/orders/place-an-order.md");
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-scenario-page']")), Wait);
+        Assert.Equal("failed", component.Find("[data-testid='devbook-scenario-page']").GetAttribute("data-state"));
+        var setup = component.Find("[data-testid='devbook-scenario-setup']").TextContent;
+        Assert.Contains("/orders/new", setup, StringComparison.Ordinal);
+        Assert.Contains("actors.md#shopper", setup, StringComparison.Ordinal);
+        Assert.Contains("default", setup, StringComparison.Ordinal);
+        Assert.Contains("1 of 2 failed", component.Find("[data-testid='devbook-scenario-summary']").TextContent, StringComparison.Ordinal);
+
+        var parts = component.FindAll("[data-testid='devbook-scenario-part']");
+        Assert.Equal(["the-cart-is-filled", "the-order-is-placed"], parts.Select(part => part.GetAttribute("data-anchor")));
+        Assert.Equal(["Passed", "Failed"], component.FindAll("[data-testid='devbook-scenario-part-outcome']").Select(badge => badge.TextContent.Trim()));
+
+        await EventuallyAsync(component, () => Assert.Contains(
+            "src=\"data:image/png;base64,",
+            Between(component.Markup, "data-testid=\"devbook-scenario-parts\"", "</ol>"),
+            StringComparison.Ordinal));
+        Assert.Contains("Place an order › The cart is filled · failed", component.Find("[data-testid='devbook-scenario-part'] [data-testid='devbook-scenario-shot-source']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>A page whose text moved on since its run is stale, and says which
+    /// signature the run proved.</summary>
+    [Fact]
+    public async Task A_scenario_page_edited_since_its_run_is_stale()
+    {
+        await using var harness = CreateHarness();
+        WriteScenarioContext(harness.Root, failSecondPart: false);
+        var page = Path.Combine(harness.Root, ".domain", "orders", "place-an-order.md");
+        File.WriteAllText(page, File.ReadAllText(page).Replace("**Then** the cart holds one lamp", "**Then** the cart holds two lamps", StringComparison.Ordinal));
+
+        var component = harness.Render(".domain/orders/place-an-order.md");
+
+        component.WaitForAssertion(() => Assert.Equal("stale", component.Find("[data-testid='devbook-scenario-page']").GetAttribute("data-state")), Wait);
+        Assert.Single(component.FindAll("[data-testid='devbook-scenario-stale-note']"));
+    }
+
+    [Fact]
+    public async Task A_scenario_page_with_no_run_reads_never_run()
+    {
+        await using var harness = CreateHarness();
+        WriteScenarioContext(harness.Root, failSecondPart: false, withRun: false);
+
+        var component = harness.Render(".domain/orders/place-an-order.md");
+
+        component.WaitForAssertion(() => Assert.Equal("never-run", component.Find("[data-testid='devbook-scenario-page']").GetAttribute("data-state")), Wait);
+        Assert.Contains("never run", component.Find("[data-testid='devbook-scenario-summary']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// <c>scenario:&lt;stem&gt;#&lt;label&gt;</c> in another chapter renders the screenshot
+    /// with its source line; a label the page does not have, and a page that does not
+    /// exist, say so instead of drawing a broken image.
+    /// </summary>
+    [Fact]
+    public async Task A_scenario_image_in_another_chapter_renders_with_its_source_line()
+    {
+        await using var harness = CreateHarness();
+        WriteScenarioContext(harness.Root, failSecondPart: false);
+
+        var component = harness.Render(".domain/orders/features.md");
+
+        component.WaitForAssertion(() => Assert.Equal(3, component.FindAll("[data-testid='domain-chapter-file'] [data-testid='devbook-scenario-shot']").Count), Wait);
+        await EventuallyAsync(component, () => Assert.Contains(
+            "src=\"data:image/png;base64,",
+            Between(component.Markup, "data-testid=\"domain-chapter-file\"", "data-kind=\"unknown-label\""),
+            StringComparison.Ordinal));
+
+        // Read from the markup once the screenshot landed: its render replaces the
+        // elements an earlier query handed back.
+        var markup = component.Markup;
+        Assert.Contains("Place an order › The cart is filled · passed", Between(markup, "data-kind=\"shown\"", "data-kind=\"unknown-label\""), StringComparison.Ordinal);
+        Assert.Contains("cart-filled, order-placed", Between(markup, "data-kind=\"unknown-label\"", "data-kind=\"unknown-page\""), StringComparison.Ordinal);
+        Assert.Contains("No scenario page is named no-such-page", Between(markup, "data-kind=\"unknown-page\"", "</article>"), StringComparison.Ordinal);
+    }
+
+    /// <summary>A run is read and its screenshots loaded off the renderer, so a
+    /// suite running in parallel gets longer than the default second.</summary>
+    private static readonly TimeSpan Wait = TimeSpan.FromSeconds(10);
+
+    /// <summary>A screenshot lands from its own component's read after the render
+    /// that drew the page, and under a parallel suite that render does not always
+    /// reach the panel's waiter or its parsed nodes — so this asks the markup again
+    /// until it holds rather than waiting on a render.</summary>
+    private static string Between(string markup, string from, string to)
+    {
+        var start = markup.IndexOf(from, StringComparison.Ordinal);
+        if (start < 0) return string.Empty;
+        var end = markup.IndexOf(to, start, StringComparison.Ordinal);
+        return end < 0 ? markup[start..] : markup[start..end];
+    }
+
+    private static async Task EventuallyAsync(IRenderedComponent<DomainDevbookPanel> component, Action assertion)
+    {
+        var until = DateTime.UtcNow + Wait;
+        while (true)
+        {
+            try
+            {
+                assertion();
+                return;
+            }
+            catch (Exception) when (DateTime.UtcNow < until)
+            {
+                await Task.Delay(50, TestContext.Current.CancellationToken);
+                // Lets the renderer run what the read queued for it.
+                await component.InvokeAsync(() => { });
+            }
+        }
+    }
+
+    /// <summary>An <c>orders</c> context with one scenario page, a features page
+    /// showing its screenshots, and — unless asked not to — a version 2 run of it
+    /// whose signature is the page's own.</summary>
+    private static void WriteScenarioContext(string root, bool failSecondPart, bool withRun = true)
+    {
+        var folder = Path.Combine(root, ".domain", "orders");
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "context.md"), "# Orders\n\n```meta\nstatus: draft\nindex: root\ntype: context\n```\n\nOrders prose.\n");
+        File.WriteAllText(Path.Combine(folder, "features.md"),
+            "# Features\n\n```meta\nstatus: draft\ntype: features\n```\n\nWhat ordering offers.\n\n![The filled cart](scenario:place-an-order#cart-filled) ![Nothing](scenario:place-an-order#nope)\n\n![Gone](scenario:no-such-page#cart-filled)\n");
+        const string page = "# Place an order\n\n```meta\ntype: scenario\nstart: /orders/new\nactor: actors.md#shopper\n```\n\nA shopper fills a cart and places the order.\n\n## The cart is filled\n- **Given** an empty cart\n- **Then** the cart holds one lamp\n\n![The filled cart](shot:cart-filled)\n\n## The order is placed\n- **When** I place the order\n\n![The confirmation](shot:order-placed)\n";
+        File.WriteAllText(Path.Combine(folder, "place-an-order.md"), page);
+        if (!withRun) return;
+
+        var signature = ScenarioSignature.Of(ScenarioPageParser.Parse(page, ".domain/orders/place-an-order.md"));
+        var run = Path.Combine(root, ".devbook", "scenarios", "place-an-order");
+        Directory.CreateDirectory(run);
+        File.WriteAllBytes(Path.Combine(run, "cart-filled.png"), [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        var outcome = failSecondPart ? "failed" : "passed";
+        File.WriteAllText(Path.Combine(run, "run.json"), $$"""
+            {
+              "version": 2,
+              "page": ".domain/orders/place-an-order.md",
+              "signature": "{{signature}}",
+              "ranAt": "2026-10-07T08:30:00Z",
+              "profile": "default",
+              "parts": [
+                { "title": "The cart is filled", "anchor": "the-cart-is-filled", "outcome": "passed", "durationMs": 1200 },
+                { "title": "The order is placed", "anchor": "the-order-is-placed", "outcome": "{{outcome}}", "durationMs": 800 }
+              ],
+              "shots": {
+                "cart-filled": { "file": "cart-filled.png", "part": "the-cart-is-filled", "ranAt": "2026-10-07T08:30:00Z" }
+              }
+            }
+            """);
+    }
+
     private static Task OpenRemarkOnBlockTwoAsync(IRenderedComponent<DomainDevbookPanel> component) =>
         component.InvokeAsync(() => component.Find("[data-testid='markdown-comment-2']").ClickAsync(new()));
 
@@ -1201,6 +1362,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<DevbookChapterWriter>();
+        context.Services.AddSingleton(sp => new DevbookScenarioStore(sp.GetRequiredService<IDevbookFolderSource>()));
 
         // Only where a test is about remarks outliving the panel: without one
         // the panel falls back to its own session-scoped store, which is what

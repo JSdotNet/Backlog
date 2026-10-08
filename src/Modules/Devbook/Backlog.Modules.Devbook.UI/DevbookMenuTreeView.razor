@@ -25,6 +25,7 @@
           IsNodeSelected="node => IsNodeSelected(Original(node))"
           IsNodeExpanded="node => IsNodeExpanded(Original(node))"
           NodeClass="node => NodeClass(Original(node))"
+          NodeMark="@(NodeMark is null ? null : MarkFor)"
           IsFolderOpening="node => IsFolderOpening(Original(node))"
           OnNodeSelected="node => OnNodeSelected.InvokeAsync(Original(node))"
           OnOpenFolder="node => OnOpenFolder.InvokeAsync(Original(node))" />
@@ -63,6 +64,11 @@
     [Parameter]
     public Func<DevbookMenuNode, string> NodeClass { get; set; } = static _ => "devbook-menu__item";
 
+    /// <summary>A row's leading mark, or null for none — the scenario glyph and
+    /// its run's dot on a scenario page.</summary>
+    [Parameter]
+    public Func<DevbookMenuNode, RenderFragment?>? NodeMark { get; set; }
+
     [Parameter]
     public Func<DevbookMenuNode, bool> IsFolderOpening { get; set; } = static _ => false;
 
@@ -100,6 +106,8 @@
             node.Message,
             [.. node.Children.Select((child, index) => Map(child, $"{id}/{index}"))]);
     }
+
+    private RenderFragment? MarkFor(TreeNode node) => NodeMark?.Invoke(Original(node));
 
     private DevbookMenuNode Original(TreeNode node) =>
         _originals.TryGetValue(node.Id, out var original)

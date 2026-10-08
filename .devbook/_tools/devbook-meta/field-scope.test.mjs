@@ -371,6 +371,35 @@ const dump = (issues) => JSON.stringify(issues, null, 2);
     );
 }
 
+// --- scenario page field scope -----------------------------------------
+
+// A scenario page is the one file whose block carries the six setup fields and
+// `aliases`, and the one block that may not carry `tests`: the page is the test.
+{
+    const page = (meta) =>
+        `# Set up\n\n${fence("type: scenario\n" + meta)}\nLead.\n\n## Done\n\n- **Then** it is done\n`;
+    const legal = validateDocument(
+        ".devbook/domain/work/set-up.md",
+        page("aliases: [Backlog setup]\nstart: /backlog\nactor: actors.md#po\ndata: [empty]\nprofile: default\nflags: [context.md#a]\nsettings: [context.md#b=1]\n")
+    );
+    check(legal.length === 0, "aliases and the setup fields are legal on a scenario page", dump(legal));
+
+    const tests = validateDocument(".devbook/domain/work/set-up.md", page("tests: [e2e:playwright:x.spec.ts]\n"));
+    check(Boolean(find(tests, "error", "`tests` on a scenario page")), "`tests` on a scenario page is an error", dump(tests));
+
+    const depends = validateDocument(".devbook/domain/work/set-up.md", page("depends-on: [.devbook/domain/work/features.md#a]\n"));
+    check(Boolean(find(depends, "error", "`depends-on` on the file-level block")), "a chapter-only field stays refused on a scenario page", dump(depends));
+
+    for (const field of ["start: /x", "actor: actors.md#po", "data: [empty]", "profile: default", "flags: [context.md#a]", "settings: [context.md#b=1]"]) {
+        const key = field.split(":")[0];
+        const elsewhere = validateDocument(
+            ".devbook/domain/work/features.md",
+            `# Features\n\n${fence("type: features\n")}\n## Board\n\n${fence("type: feature\n" + field + "\n")}\nProse.\n`
+        );
+        check(Boolean(find(elsewhere, "error", "`" + key + "`, a setup field")), `\`${key}\` off a scenario page is an error`, dump(elsewhere));
+    }
+}
+
 // --- slugs outside ASCII ------------------------------------------------
 
 // `\w` is ASCII-only, so the old class dropped the accented letter and the

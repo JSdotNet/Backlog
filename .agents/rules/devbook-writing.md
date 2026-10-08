@@ -46,6 +46,14 @@ diagram to about nine nodes, and split a larger one.
   sentence structure into another language.
 - Cut what the reader does not need: a closing summary, "note that", a hedge.
 
+## A scenario page
+
+A scenario page reads as one journey, start to finish, in the order the actor
+lives it. Give each part one `##`, titled as the outcome the actor reaches. Give
+each step one list item: one action or one thing the actor sees. Write the page
+in English whatever language the other chapters use, because its steps are the
+test's steps. The page's shape is `devbook-chapter-metadata.md`'s.
+
 ## Example
 
 Before:

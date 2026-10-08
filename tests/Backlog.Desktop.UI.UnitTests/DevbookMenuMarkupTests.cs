@@ -68,6 +68,40 @@ public sealed class DevbookMenuTreeViewTests
         Assert.Equal("intake/domain.md", selected?.Path);
     }
 
+    /// <summary>A scenario page's row carries the scenario glyph and its run's dot in
+    /// the leading mark column; every other row carries no mark.</summary>
+    [Fact]
+    public void A_scenario_page_row_carries_the_scenario_glyph_and_its_state_dot()
+    {
+        using var context = new BunitContext();
+        var root = BuildDomainTree();
+        var page = Backlog.Infrastructure.Devbook.Scenarios.ScenarioPageParser.Parse(
+            "# Specs\n\n```meta\ntype: scenario\n```\n\n## Done\n- **Then** it is done\n",
+            ".devbook/domain/intake/specs/spec.md");
+        var scenario = new DevbookScenario(page, "intake/specs/spec.md", "00000000", null, Backlog.Infrastructure.Devbook.Scenarios.ScenarioState.NeverRun, "unused");
+        var catalog = new DevbookScenarioCatalog([scenario]);
+
+        var component = context.Render<DevbookMenuTreeView>(parameters => parameters
+            .Add(view => view.HeadingLabel, "Domain")
+            .Add(view => view.RootFolder, root)
+            .Add(view => view.Nodes, root.Children)
+            .Add(view => view.IsNodeExpanded, node => node.Kind == DevbookMenuNodeKind.Folder)
+            .Add(view => view.NodeMark, node => catalog.ForPath(node.Path) is { } found && node.Kind != DevbookMenuNodeKind.Folder
+                ? builder =>
+                {
+                    builder.OpenComponent<DevbookScenarioMark>(0);
+                    builder.AddComponentParameter(1, nameof(DevbookScenarioMark.Scenario), found);
+                    builder.CloseComponent();
+                }
+                : null));
+
+        var mark = Assert.Single(component.FindAll("[data-testid='devbook-scenario-mark']"));
+        Assert.Equal("spec", mark.GetAttribute("data-stem"));
+        Assert.Single(mark.QuerySelectorAll(".devbook-type-marker--scenario"));
+        Assert.Equal("never-run", mark.QuerySelector("[data-testid='devbook-scenario-dot']")!.GetAttribute("data-state"));
+        Assert.Equal("Scenario never run", mark.QuerySelector("[data-testid='devbook-scenario-dot']")!.GetAttribute("aria-label"));
+    }
+
     private static DevbookMenuNode BuildDomainTree()
     {
         var domainDoc = new DevbookMenuNode("intake/domain.md", "Domain", "intake/domain.md", DevbookMenuNodeKind.File, "domain", [], true);
