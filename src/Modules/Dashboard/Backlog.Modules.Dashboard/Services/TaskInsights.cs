@@ -76,13 +76,15 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
         ArgumentNullException.ThrowIfNull(scope);
 
         var (from, to) = scope.Window(time.GetUtcNow());
+        var windowFrom = DateOnly.FromDateTime(from.UtcDateTime);
+        var windowTo = DateOnly.FromDateTime(to.UtcDateTime);
 
         PlanReading reading;
         try
         {
             reading = await plan.ReadAsync(
-                DateOnly.FromDateTime(from.UtcDateTime),
-                DateOnly.FromDateTime(to.UtcDateTime),
+                windowFrom,
+                windowTo,
                 scope.IsAllRepositories ? [] : scope.Repositories.Aliases,
                 cancellationToken);
         }
@@ -106,7 +108,8 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
             .Select(item => Outlook(item, today, reading.Week))
             .ToList();
 
-        return InsightResult<PlanInsight>.Ready(new PlanInsight(true, reading.Pace, items));
+        return InsightResult<PlanInsight>.Ready(
+            new PlanInsight(true, reading.Pace, items) { WindowFrom = windowFrom, WindowTo = windowTo });
     }
 
     /// <summary>

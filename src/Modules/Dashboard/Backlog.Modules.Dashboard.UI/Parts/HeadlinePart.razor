@@ -19,7 +19,9 @@
            Busy="Status == MetricStatusKind.Loading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-headline">
-    <MetricGrid Label="Throughput over the selected window" TestId="dashboard-headline-tiles">
+    @* Five tiles on one row where the pane is wide enough, so the minimum column
+       is narrower than the library's default; they wrap below it. *@
+    <MetricGrid Label="Throughput over the selected window" MinColumnWidth="11rem" TestId="dashboard-headline-tiles">
         <MetricTile Label="Pull requests merged"
                     Value="@(IsReady ? MetricFormat.Compact(Value!.PullRequestsMerged) : null)"
                     Emphasis="true"
@@ -49,6 +51,7 @@
         <MetricTile Label="First review arrived in"
                     Value="@(IsReady ? DashboardFormat.Duration(Value!.MedianReviewTurnaround) : null)"
                     Footnote="@(IsReady ? "Median, across reviewed pull requests" : null)"
+                    Trend="@(IsReady ? Sparkline(Value!.ReviewTurnaroundPerWeek, "Median hours to a first review, per week", "dashboard-headline-turnaround-trend") : null)"
                     Status="Status"
                     StatusMessage="@StatusMessage"
                     TestId="dashboard-headline-turnaround" />
@@ -60,6 +63,7 @@
         <MetricTile Label="Commits per pull request"
                     Value="@(IsReady ? CommitsValue : null)"
                     Footnote="@(IsReady ? CommitsFootnote : null)"
+                    Trend="@(IsReady ? Sparkline(Value!.CommitsPerPullRequestPerWeek, "Median commits per pull request, per week", "dashboard-headline-commits-trend") : null)"
                     Status="Status"
                     StatusMessage="@StatusMessage"
                     TestId="dashboard-headline-commits" />

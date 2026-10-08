@@ -140,7 +140,12 @@
     @if (IsReady)
     {
         <div class="dashboard-part__stack">
-            <MetricGrid Label="Assistant sessions over the selected window" TestId="dashboard-sessions-tiles">
+            @* One joined row: six figures read as one strip rather than six cards, and
+               the strip wraps rather than squeezing a figure where the part is narrow. *@
+            <MetricGrid Label="Assistant sessions over the selected window"
+                        CssClass="dashboard-sessions__figures"
+                        MinColumnWidth="10rem"
+                        TestId="dashboard-sessions-tiles">
                 <MetricTile Label="Sessions"
                             Value="@MetricFormat.Compact(Value!.Sessions)"
                             Emphasis="true"
@@ -182,6 +187,7 @@
                 <MetricTile Label="Limit hits"
                             Value="@MetricFormat.Compact(Value!.LimitHits.Total)"
                             Footnote="@LimitHitsFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-limit-hits" />
                 @* The instant rather than "two hours ago". A relative figure would need
                    a clock in a component that otherwise reads none, and would go stale
@@ -192,128 +198,159 @@
                             TestId="dashboard-sessions-last" />
             </MetricGrid>
 
-            @* Drawn on the rule of an axis or nothing: a window with no week in it has
-               no chart to pick a measure for, so the controls go with it. *@
-            @if (Value!.SessionsPerWeek.Count > 0)
-            {
-                <div class="dashboard-sessions__controls">
-                    @* The machine filter's control, for the same reason the pane gives:
-                       the library's SelectField wearing the area badge, rather than a
-                       wrapper that names what it selects. *@
-                    <SelectField CurrentValue="@Key(Chosen)"
-                                 Options="@MeasureOptions"
-                                 Label="Which measure to chart"
-                                 IncludeEmptyOption="false"
-                                 CssClass="badge badge--area"
-                                 TestId="dashboard-sessions-measure"
-                                 OnChanged="ChooseMeasure" />
-                    <ButtonGroup AriaLabel="How to cut the chart" TestId="dashboard-sessions-cut">
-                        <ToggleButton Pressed="CutInForce == Cut.All"
-                                      PressedChanged="_ => _cut = Cut.All"
-                                      TestId="dashboard-sessions-cut-all">
-                            All
-                        </ToggleButton>
-                        <ToggleButton Pressed="CutInForce == Cut.Repository"
-                                      PressedChanged="_ => _cut = Cut.Repository"
-                                      TestId="dashboard-sessions-cut-repository">
-                            By repository
-                        </ToggleButton>
-                        @* Only for tokens, the one measure recorded per model. Offered
-                           and disabled elsewhere, it would be a control that explains
-                           itself by refusing. *@
-                        @if (Chosen == Measure.Tokens)
+            @* The board's two columns: the chart and the hour grid on the left, the
+               longest sessions beside them — one above the other where the part is
+               narrow. The figures row stays whole above both, and More below. *@
+            <div class="dashboard-sessions__layout">
+                <div class="dashboard-sessions__main">
+                    @* Drawn on the rule of an axis or nothing: a window with no week in it has
+                       no chart to pick a measure for, so the controls go with it. *@
+                    @if (Value!.SessionsPerWeek.Count > 0)
+                    {
+                        <div class="dashboard-sessions__controls">
+                            @* The machine filter's control, for the same reason the pane gives:
+                               the library's SelectField wearing the area badge, rather than a
+                               wrapper that names what it selects. *@
+                            <SelectField CurrentValue="@Key(Chosen)"
+                                         Options="@MeasureOptions"
+                                         Label="Which measure to chart"
+                                         IncludeEmptyOption="false"
+                                         CssClass="badge badge--area"
+                                         TestId="dashboard-sessions-measure"
+                                         OnChanged="ChooseMeasure" />
+                            <ButtonGroup AriaLabel="How to cut the chart" TestId="dashboard-sessions-cut">
+                                <ToggleButton Pressed="CutInForce == Cut.All"
+                                              PressedChanged="_ => _cut = Cut.All"
+                                              TestId="dashboard-sessions-cut-all">
+                                    All
+                                </ToggleButton>
+                                <ToggleButton Pressed="CutInForce == Cut.Repository"
+                                              PressedChanged="_ => _cut = Cut.Repository"
+                                              TestId="dashboard-sessions-cut-repository">
+                                    By repository
+                                </ToggleButton>
+                                @* Only for tokens, the one measure recorded per model. Offered
+                                   and disabled elsewhere, it would be a control that explains
+                                   itself by refusing. *@
+                                @if (Chosen == Measure.Tokens)
+                                {
+                                    <ToggleButton Pressed="CutInForce == Cut.Model"
+                                                  PressedChanged="_ => _cut = Cut.Model"
+                                                  TestId="dashboard-sessions-cut-model">
+                                        By model
+                                    </ToggleButton>
+                                }
+                            </ButtonGroup>
+                        </div>
+
+                        @* One test id for "the chart", whichever component draws it: plain
+                           columns have no bands to key, and a band chart is what a cut is. *@
+                        @if (CutInForce == Cut.All)
                         {
-                            <ToggleButton Pressed="CutInForce == Cut.Model"
-                                          PressedChanged="_ => _cut = Cut.Model"
-                                          TestId="dashboard-sessions-cut-model">
-                                By model
-                            </ToggleButton>
+                            <MetricBars Points="@TotalPoints"
+                                        Label="@($"{Label(Chosen)} per week — {PeriodFigure(Chosen)}")"
+                                        Note="@ChartNote"
+                                        BucketHeading="Week"
+                                        ValueHeading="@Label(Chosen)"
+                                        FormatValue="@FormatOf(Chosen)"
+                                        HighlightLast="true"
+                                        TestId="dashboard-sessions-weekly-bars" />
                         }
-                    </ButtonGroup>
+                        else
+                        {
+                            <MetricStackedBars Series="@CutSeries"
+                                               Mode="@ModeOf(Chosen)"
+                                               Categorical="true"
+                                               Label="@($"{Label(Chosen)} per week, {(CutInForce == Cut.Model ? "by model" : "by repository")}")"
+                                               Note="@ChartNote"
+                                               NameHeading="@(CutInForce == Cut.Model ? "Model" : "Repository")"
+                                               TotalHeading="@(CutInForce == Cut.Model ? "All models" : "All repositories")"
+                                               LegendLabel="@(CutInForce == Cut.Model ? "Models" : "Repositories")"
+                                               LegendInteractive="false"
+                                               SelectedBucket="@SelectedWeekLabel"
+                                               OnBucketSelected="@PickWeek"
+                                               FormatValue="@FormatOf(Chosen)"
+                                               IdentityOf="@CutIdentity"
+                                               EmptyMessage="No session in the header's repository scope recorded this measure."
+                                               TestId="dashboard-sessions-weekly-bars" />
+                        }
+                    }
+
+                    @* Empty when nothing in the scoped set left a parsable record, and 168 cells
+                       otherwise, so the count is the whole question. An empty grid drawn as seven
+                       rows of nothing would be a claim that seven days went by with no agent on
+                       them, which is a different fact from having nothing to read. *@
+                    @if (Grid is not null)
+                    {
+                        <div class="dashboard-sessions__controls">
+                            @* A picker of its own, because the plain columns the chart opens on
+                               cannot be pressed; a column pressed on a cut chart is the second
+                               way to the same week. *@
+                            <SelectField CurrentValue="@SelectedWeekLabel"
+                                         Options="@WeekOptions"
+                                         Label="Which week the grid shows"
+                                         IncludeEmptyOption="false"
+                                         CssClass="badge badge--area"
+                                         TestId="dashboard-sessions-week"
+                                         OnChanged="PickWeekFrom" />
+                            <ButtonGroup AriaLabel="Which count the grid shows" TestId="dashboard-sessions-grid-count">
+                                <ToggleButton Pressed="_count == GridCount.Producing"
+                                              PressedChanged="_ => _count = GridCount.Producing"
+                                              TestId="dashboard-sessions-grid-producing">
+                                    Producing
+                                </ToggleButton>
+                                <ToggleButton Pressed="_count == GridCount.Open"
+                                              PressedChanged="_ => _count = GridCount.Open"
+                                              TestId="dashboard-sessions-grid-open">
+                                    On the go
+                                </ToggleButton>
+                                <ToggleButton Pressed="_count == GridCount.Agents"
+                                              PressedChanged="_ => _count = GridCount.Agents"
+                                              TestId="dashboard-sessions-grid-agents">
+                                    Agents
+                                </ToggleButton>
+                            </ButtonGroup>
+                        </div>
+
+                        <MetricHeatmap Series="@GridSeries"
+                                       Label="@GridLabel"
+                                       Note="@GridNote"
+                                       CellDetail="@GridCellDetail"
+                                       CellMarked="@InsideWorkingHours"
+                                       MarkedLabel="working hours"
+                                       CellFlag="@LimitFlag"
+                                       Flags="@LimitFlags"
+                                       ShowValues="true"
+                                       RowTotals="@GridTotals"
+                                       FormatValue="MetricFormat.Compact"
+                                       TestId="dashboard-sessions-hours" />
+                    }
                 </div>
 
-                @* One test id for "the chart", whichever component draws it: plain
-                   columns have no bands to key, and a band chart is what a cut is. *@
-                @if (CutInForce == Cut.All)
-                {
-                    <MetricBars Points="@TotalPoints"
-                                Label="@($"{Label(Chosen)} per week — {PeriodFigure(Chosen)}")"
-                                Note="@ChartNote"
-                                BucketHeading="Week"
-                                ValueHeading="@Label(Chosen)"
-                                FormatValue="@FormatOf(Chosen)"
-                                HighlightLast="true"
-                                TestId="dashboard-sessions-weekly-bars" />
-                }
-                else
-                {
-                    <MetricStackedBars Series="@CutSeries"
-                                       Mode="@ModeOf(Chosen)"
-                                       Categorical="true"
-                                       Label="@($"{Label(Chosen)} per week, {(CutInForce == Cut.Model ? "by model" : "by repository")}")"
-                                       Note="@ChartNote"
-                                       NameHeading="@(CutInForce == Cut.Model ? "Model" : "Repository")"
-                                       TotalHeading="@(CutInForce == Cut.Model ? "All models" : "All repositories")"
-                                       LegendLabel="@(CutInForce == Cut.Model ? "Models" : "Repositories")"
-                                       LegendInteractive="false"
-                                       SelectedBucket="@SelectedWeekLabel"
-                                       OnBucketSelected="@PickWeek"
-                                       FormatValue="@FormatOf(Chosen)"
-                                       IdentityOf="@CutIdentity"
-                                       EmptyMessage="No session in the header's repository scope recorded this measure."
-                                       TestId="dashboard-sessions-weekly-bars" />
-                }
-            }
-
-            @* Empty when nothing in the scoped set left a parsable record, and 168 cells
-               otherwise, so the count is the whole question. An empty grid drawn as seven
-               rows of nothing would be a claim that seven days went by with no agent on
-               them, which is a different fact from having nothing to read. *@
-            @if (Grid is not null)
-            {
-                <div class="dashboard-sessions__controls">
-                    @* A picker of its own, because the plain columns the chart opens on
-                       cannot be pressed; a column pressed on a cut chart is the second
-                       way to the same week. *@
-                    <SelectField CurrentValue="@SelectedWeekLabel"
-                                 Options="@WeekOptions"
-                                 Label="Which week the grid shows"
-                                 IncludeEmptyOption="false"
-                                 CssClass="badge badge--area"
-                                 TestId="dashboard-sessions-week"
-                                 OnChanged="PickWeekFrom" />
-                    <ButtonGroup AriaLabel="Which count the grid shows" TestId="dashboard-sessions-grid-count">
-                        <ToggleButton Pressed="_count == GridCount.Producing"
-                                      PressedChanged="_ => _count = GridCount.Producing"
-                                      TestId="dashboard-sessions-grid-producing">
-                            Producing
-                        </ToggleButton>
-                        <ToggleButton Pressed="_count == GridCount.Open"
-                                      PressedChanged="_ => _count = GridCount.Open"
-                                      TestId="dashboard-sessions-grid-open">
-                            On the go
-                        </ToggleButton>
-                        <ToggleButton Pressed="_count == GridCount.Agents"
-                                      PressedChanged="_ => _count = GridCount.Agents"
-                                      TestId="dashboard-sessions-grid-agents">
-                            Agents
-                        </ToggleButton>
-                    </ButtonGroup>
-                </div>
-
-                <MetricHeatmap Series="@GridSeries"
-                               Label="@GridLabel"
-                               Note="@GridNote"
-                               CellDetail="@GridCellDetail"
-                               CellMarked="@InsideWorkingHours"
-                               MarkedLabel="working hours"
-                               CellFlag="@LimitFlag"
-                               Flags="@LimitFlags"
-                               ShowValues="true"
-                               RowTotals="@GridTotals"
-                               FormatValue="MetricFormat.Compact"
-                               TestId="dashboard-sessions-hours" />
-            }
+                @* The sessions an agent produced longest in, inside the window — the same
+                   population and the same producing stretches as the tiles above, so the
+                   first row can never claim more than the tile. Ranked and drawn by the
+                   library: each bar is scaled to the longest, and the list prints every
+                   figure the bar stands for. *@
+                <section class="dashboard-sessions__longest"
+                         aria-labelledby="@_longestHeadingId"
+                         data-testid="dashboard-sessions-longest">
+                    <h4 class="dashboard-sessions__longest-title" id="@_longestHeadingId">Longest sessions</h4>
+                    <MetricRanking Items="@LongestItems"
+                                   FormatValue="@LongestFormat"
+                                   EmptyMessage="No session in this window left a working stretch to measure."
+                                   TestId="dashboard-sessions-longest-list" />
+                    @if (OnOpenSessions.HasDelegate)
+                    {
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   CssClass="dashboard-sessions__all"
+                                   OnClick="() => OnOpenSessions.InvokeAsync()"
+                                   TestId="dashboard-sessions-all">
+                            All sessions <span aria-hidden="true">→</span>
+                        </AppButton>
+                    }
+                </section>
+            </div>
 
             <FoldControl @bind-Expanded="_more"
                          Label="More: tokens, pull requests, peaks and machines"
@@ -405,6 +442,47 @@
     /// </summary>
     [Parameter]
     public Func<string?, int?>? RepositoryColour { get; set; }
+
+    /// <summary>
+    /// Raised by the longest-sessions list's link to every session. The shell's to
+    /// answer — opening the Sessions pane is a workspace move, not this part's — and
+    /// the link is drawn only when somebody is listening, so a host without a Sessions
+    /// pane offers no link that goes nowhere.
+    /// </summary>
+    [Parameter]
+    public EventCallback OnOpenSessions { get; set; }
+
+    /// <summary>The longest sessions as ranking rows: the title, the active time in
+    /// seconds as the value the bar is scaled by, and what else the record says —
+    /// repository, model and prompt count, each left out where it is not known rather
+    /// than printed as a placeholder.</summary>
+    private IReadOnlyList<MetricRankItem> LongestItems =>
+        [
+            .. Value!.LongestSessions.Select(session => new MetricRankItem(
+                string.IsNullOrWhiteSpace(session.Title) ? "Untitled session" : session.Title,
+                (decimal)session.ActiveTime.TotalSeconds,
+                LongestDetail(session)))
+        ];
+
+    private static string? LongestDetail(LongestSession session)
+    {
+        string?[] parts =
+        [
+            session.Repository,
+            session.Model,
+            session.Prompts is { } prompts ? (prompts == 1 ? "1 prompt" : $"{prompts} prompts") : null
+        ];
+
+        var known = parts.Where(part => !string.IsNullOrWhiteSpace(part)).ToList();
+
+        return known.Count == 0 ? null : string.Join(" · ", known);
+    }
+
+    /// <summary>Per instance, so two hosts of the part never share a heading id.</summary>
+    private readonly string _longestHeadingId = "dashboard-sessions-longest-" + Guid.NewGuid().ToString("N");
+
+    private static readonly Func<decimal, string> LongestFormat =
+        seconds => DashboardFormat.Duration(TimeSpan.FromSeconds((double)seconds));
 
     /// <summary>The one part on the surface that knows which machine its figures came
     /// from, so the one part the machine filter drives.</summary>

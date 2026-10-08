@@ -65,6 +65,16 @@ Everything below reacts to these three: change the subject and the trellis highl
                      TestId="score-composed" />
     </Story>
 
+    <Story Name="MetricScore as labelled bars"
+           Description="ComponentsAsBars draws each input as a bar — its name with its reading and weight under it, a track filled to the reading against its own maximum, and that reading out of 100 — for a card laid beside other figures, where the four-column table does not fit."
+           Code="@ScoreBarsCode">
+        <MetricScore Label="@($"Productivity score — {_subject}")"
+                     Components="ProductivityFixtures.ScoreInputsFor(_subject)"
+                     Bands="ProductivityFixtures.Bands"
+                     ComponentsAsBars="true"
+                     TestId="score-bars" />
+    </Story>
+
     <Story Name="MetricScore in its other states"
            Description="A score with no visible composition says so, in the calm info surface rather than as a warning — a service that did not return its inputs is a legitimate case.
 
@@ -657,6 +667,11 @@ A column is a week, and with a listener bound it is pressable — a button for a
                          new("Steady", 60m), new("Strong", 78m)
                      })"
                      Delta="scoreDelta" />
+        """;
+
+    private const string ScoreBarsCode = """
+        @* Same inputs, drawn as one labelled bar each instead of the table. *@
+        <MetricScore Label="Volume" Components="volumeInputs" Bands="bands" ComponentsAsBars="true" />
         """;
 
     private const string ScoreStatesCode = """

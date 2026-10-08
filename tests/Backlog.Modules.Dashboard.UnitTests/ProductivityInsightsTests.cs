@@ -422,6 +422,55 @@ public class ProductivityInsightsTests
     }
 
     /// <summary>
+    /// The weekly series behind the commits measure and the two tiles that had no
+    /// trend: commits summed by the week a pull request merged, and the two medians
+    /// cut by the same weeks. A pull request whose detail was not read adds no
+    /// commits and is not in either median, and a week with nothing to take a median
+    /// over reads zero rather than dropping out of the axis.
+    /// </summary>
+    [Fact]
+    public async Task Commits_and_the_two_medians_are_cut_by_the_week_a_pull_request_merged()
+    {
+        // Now is Wednesday 19 August. Days 1 and 2 merged this ISO week (W34), day 3
+        // on the Sunday before it (W33), and day 4 is the W33 merge whose detail
+        // could not be read.
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    Turnaround(1, TimeSpan.FromHours(2)) with { SizeKnown = true, Commits = 3 },
+                    Turnaround(2, TimeSpan.FromHours(8)) with { SizeKnown = true, Commits = 7 },
+                    Merged(3, reviewed: false, churned: false) with { SizeKnown = true, Commits = 5 },
+                    Turnaround(4, TimeSpan.FromHours(30)) with { SizeKnown = false, Commits = 0 }
+                ],
+                [])
+        };
+
+        var headline = (await Insights(source).GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken)).Value!;
+
+        var commits = headline.CommitsPerWeek.ToDictionary(point => point.Label, point => point.Value);
+        var turnaround = headline.ReviewTurnaroundPerWeek.ToDictionary(point => point.Label, point => point.Value);
+        var perPullRequest = headline.CommitsPerPullRequestPerWeek.ToDictionary(point => point.Label, point => point.Value);
+
+        Assert.Equal(headline.PullRequestsPerWeek.Select(point => point.Label), headline.CommitsPerWeek.Select(point => point.Label));
+        Assert.Equal(10m, commits["W34"]);
+        Assert.Equal(5m, commits["W33"]);
+
+        // Lower middle of 2 h and 8 h; W33's one reviewed merge is the unread one, and
+        // its turnaround still counts — turnaround does not come off the detail call.
+        Assert.Equal(2m, turnaround["W34"]);
+        Assert.Equal(30m, turnaround["W33"]);
+
+        Assert.Equal(3m, perPullRequest["W34"]);
+        Assert.Equal(5m, perPullRequest["W33"]);
+
+        // Every other week of the window is on the axis at zero.
+        Assert.All(
+            headline.CommitsPerPullRequestPerWeek.Where(point => point.Label is not ("W33" or "W34")),
+            point => Assert.Equal(0m, point.Value));
+    }
+
+    /// <summary>
     /// Review rounds and change requests are summed over the reviewed pull requests,
     /// on the same denominator as every other rework figure. An unreviewed merge has
     /// no rounds to add, and adding its zero would be counting it as reviewed.

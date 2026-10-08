@@ -5790,6 +5790,118 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The sessions part's figures as one joined strip rather than six cards. Each tile
+   draws its own outline as a shadow and the gap is one border wide, so neighbours
+   share a single rule and a wrapped last row leaves its empty cells empty — a border
+   on the grid itself would fill them in. No clipping on the strip: a tile's hinted
+   footnote hangs below it and must not be cut off. */
+.dashboard-sessions__figures {
+    gap: var(--border-width);
+    padding: var(--border-width);
+}
+
+.dashboard-sessions__figures > .metric-tile {
+    border: 0;
+    border-radius: 0;
+    box-shadow: 0 0 0 var(--border-width) var(--color-border);
+}
+
+/* The hero figure keeps its left rule inside the strip: drawn as an inset shadow,
+   because the strip's own rule above takes the border away. */
+.dashboard-sessions__figures > .metric-tile--emphasis {
+    box-shadow:
+        inset var(--border-width-4) 0 0 var(--chart-series),
+        0 0 0 var(--border-width) var(--color-border);
+}
+
+/* The chart and the grid in a wide column, the longest sessions in a narrow one
+   beside them; the narrow one drops underneath where the part has no room for both.
+   Flex rather than a grid of fixed tracks, because the part's width is the panel's
+   and the panel's is the window's. */
+.dashboard-sessions__layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-sessions__main {
+    flex: 999 1 32rem;
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* A window with no week and no grid leaves the column empty; it takes no room then. */
+.dashboard-sessions__main:not(:has(*)) {
+    display: none;
+}
+
+.dashboard-sessions__longest {
+    flex: 1 1 18rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    min-width: 0;
+}
+
+.dashboard-sessions__longest-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+}
+
+/* A row reads title and time on the first line, what the session was on the second,
+   the bar under both — the ranking's own figures box is unwrapped so its two parts
+   can take a line each. */
+.dashboard-sessions__longest .metric-ranking__list {
+    gap: var(--spacing-sm);
+}
+
+.dashboard-sessions__longest .metric-ranking__item {
+    grid-template-areas:
+        "name value"
+        "detail detail"
+        "track track";
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.dashboard-sessions__longest .metric-ranking__name {
+    grid-area: name;
+    font-weight: 600;
+}
+
+.dashboard-sessions__longest .metric-ranking__figures {
+    display: contents;
+}
+
+.dashboard-sessions__longest .metric-ranking__value {
+    grid-area: value;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    text-align: right;
+}
+
+.dashboard-sessions__longest .metric-ranking__detail {
+    grid-area: detail;
+    overflow: hidden;
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-sessions__longest .metric-ranking__track {
+    grid-area: track;
+}
+
+.dashboard-sessions__all {
+    justify-self: start;
+}
+
 /* Two parts side by side where there is room for them, one above the other where
    there is not. auto-fit rather than a media query, because what decides this is
    the panel's own width and the panel is inside a takeover whose width is the
@@ -5799,6 +5911,46 @@ h1, h2, h3 {
     grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
     gap: var(--spacing-md);
     align-items: start;
+    min-width: 0;
+}
+
+/* The Productivity tab's middle row: the volume chart takes the room, the scores
+   keep their own width beside it, and the two stack where there is no room for both. */
+.dashboard-productivity__split {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-productivity__split > .dashboard-part--volume {
+    flex: 999 1 36rem;
+    min-width: 0;
+}
+
+.dashboard-productivity__split > .dashboard-part--score {
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+
+/* Rework after review: one grid of churn and sync tiles, the churn by repository
+   ranked beside it, stacking where there is no room for both. */
+.dashboard-rework {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-rework__tiles {
+    flex: 2 1 30rem;
+    min-width: 0;
+}
+
+.dashboard-rework__by-repository {
+    flex: 1 1 18rem;
     min-width: 0;
 }
 
@@ -5827,6 +5979,22 @@ h1, h2, h3 {
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* A control on the heading's line, pushed against refresh. A header that carries
+   one wraps, so at phone width the control drops under the title rather than
+   pushing the card wider than the pane. */
+.dashboard-part__header:has(.dashboard-part__actions) {
+    flex-wrap: wrap;
+}
+
+.dashboard-part__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-left: auto;
     min-width: 0;
 }
 
@@ -6032,6 +6200,161 @@ h1, h2, h3 {
     justify-content: space-between;
 }
 
+/* The roadmap part's timeline: a column of item names, then one column per week of
+   the window, and a bar per item spanning the weeks it runs in. The columns are one
+   template shared by the axis and every row, so the weeks line up down the grid
+   without the rows being one table. The grid keeps a floor width per week and the
+   wrapper scrolls sideways, so at a narrow width the weeks stay readable and the
+   card does not widen the pane. */
+.dashboard-timeline {
+    container-type: inline-size;
+    --dashboard-timeline-label: 14rem;
+    --dashboard-timeline-week: 3rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-timeline__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.dashboard-timeline__key {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.dashboard-timeline__swatch {
+    width: 0.875rem;
+    height: 0.625rem;
+    border-radius: var(--border-radius-sm);
+}
+
+.dashboard-timeline__swatch--done { background: var(--color-primary); }
+.dashboard-timeline__swatch--planned { background: color-mix(in srgb, var(--color-primary) 28%, transparent); }
+.dashboard-timeline__swatch--behind { background: var(--color-band-4); }
+.dashboard-timeline__swatch--finished { background: var(--color-success-text); }
+
+.dashboard-timeline__scroll {
+    overflow-x: auto;
+    min-width: 0;
+}
+
+/* A narrow card gives the names less room, since they stay put while the weeks
+   scroll: at full width they would leave a phone a sliver of timeline to scroll. */
+@container (max-width: 36rem) {
+    .dashboard-timeline__scroll {
+        --dashboard-timeline-label: 8.5rem;
+    }
+}
+
+.dashboard-timeline__grid {
+    min-width: calc(var(--dashboard-timeline-label) + var(--dashboard-timeline-weeks, 1) * var(--dashboard-timeline-week));
+}
+
+.dashboard-timeline__rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-timeline__row {
+    display: grid;
+    grid-template-columns: var(--dashboard-timeline-label) repeat(var(--dashboard-timeline-weeks, 1), minmax(var(--dashboard-timeline-week), 1fr));
+    align-items: center;
+    min-height: 3.25rem;
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.dashboard-timeline__axis {
+    min-height: 0;
+    padding-bottom: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.dashboard-timeline__week {
+    padding-left: var(--spacing-xs);
+    border-left: var(--border-width) solid var(--color-border);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The names stay put while the weeks scroll under them, so a bar scrolled into view
+   at a narrow width still says which item it is. The card's own background, so a bar
+   passing beneath does not show through. */
+.dashboard-timeline__corner {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--color-background-alt);
+}
+
+.dashboard-timeline__item {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    display: grid;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: stretch;
+    align-content: center;
+    min-width: 0;
+    padding-right: var(--spacing-sm);
+    background: var(--color-background-alt);
+}
+
+.dashboard-timeline__name {
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-timeline__progress {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The bar is the planned stretch in a faint wash of its tone, the fill the share of
+   its effort that is done in the tone itself. A bar cut off by the window loses the
+   rounding on that end, so a clipped bar does not read as one that starts or ends
+   there. */
+.dashboard-timeline__bar {
+    --dashboard-timeline-tone: var(--color-primary);
+    grid-row: 1;
+    height: 1.375rem;
+    margin: 0 2px;
+    overflow: hidden;
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--dashboard-timeline-tone) 28%, transparent);
+}
+
+.dashboard-timeline__bar--behind { --dashboard-timeline-tone: var(--color-band-4); }
+.dashboard-timeline__bar--finished { --dashboard-timeline-tone: var(--color-success-text); }
+
+.dashboard-timeline__bar--clipped-start {
+    margin-left: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.dashboard-timeline__bar--clipped-end {
+    margin-right: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.dashboard-timeline__fill {
+    display: block;
+    height: 100%;
+    background: var(--dashboard-timeline-tone);
+}
 
 /* The sessions takeover. The same frame as the dashboard's — a takeover is a
    takeover, and two different-looking full-screen panels would read as two

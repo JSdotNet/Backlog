@@ -2791,6 +2791,105 @@ public class SessionInsightsTests
         Assert.Equal(1, hits.OverageUnrecorded);
     }
 
+    /// <summary>
+    /// The longest-sessions list: ranked on each session's own producing time clipped to
+    /// the window, at most six, each row carrying what the record says about it — title,
+    /// the repository by its alias or its recorded name, the model it spent most on, and
+    /// the prompt count — and a session with no activity record left out rather than
+    /// listed at zero.
+    /// </summary>
+    [Fact]
+    public async Task The_longest_sessions_are_the_six_with_the_most_agent_active_time_in_the_window()
+    {
+        var scope = new DashboardScope(Period: DashboardPeriod.FourWeeks);
+        var (from, _) = scope.Window(Now);
+
+        // "edge" began five hours before the window and ran three into it: it ranks on
+        // its three, not its eight.
+        var sessions = new List<AssistantSession>
+        {
+            Session(Tower, "Claude", from.AddHours(-5), from.AddHours(3), "edge") with { Title = "Edge" },
+            Session(Tower, "Claude", Now.AddHours(-9), Now.AddHours(-1), "long") with
+            {
+                Title = "Token store",
+                Repository = "acme/backlog",
+                Prompts = 31,
+                ModelUsage = [Usage("sonnet", output: 100), Usage("opus", output: 900)]
+            },
+            Session(Tower, "Copilot", Now.AddHours(-20), Now.AddHours(-16), "other") with { Repository = "someone/else" },
+            Session(Tower, "Claude", Now.AddHours(-30), Now.AddHours(-30), "unmeasured") with { Title = "No transcript" }
+        };
+        var activity = new List<AssistantActivitySession>
+        {
+            Ran("edge", Tower, "Claude", (from.AddHours(-5), from.AddHours(3))),
+            Ran("long", Tower, "Claude", (Now.AddHours(-9), Now.AddHours(-5)), (Now.AddHours(-3), Now.AddHours(-1))),
+            Ran("other", Tower, "Copilot", (Now.AddHours(-20), Now.AddHours(-16)))
+        };
+
+        // Five short ones, so the list has more to choose from than it shows.
+        for (var index = 0; index < 5; index++)
+        {
+            var end = Now.AddDays(-2 - index);
+            sessions.Add(Session(Tower, "Claude", end.AddMinutes(-10 - index), end, $"short{index}"));
+            activity.Add(Ran($"short{index}", Tower, "Claude", (end.AddMinutes(-10 - index), end)));
+        }
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report([.. sessions]) },
+            Activity([.. activity]));
+
+        var value = await ValueOf(insights, scope);
+
+        Assert.Equal(AssistantSessionsInsight.LongestSessionsLimit, value.LongestSessions.Count);
+        Assert.Equal(
+            ["long", "other", "edge", "short4", "short3", "short2"],
+            value.LongestSessions.Select(row => row.Id));
+
+        var longest = value.LongestSessions[0];
+        Assert.Equal(
+            new LongestSession("long", "Token store", "backlog", "opus", 31, TimeSpan.FromHours(6), Now.AddHours(-1)),
+            longest);
+
+        var other = value.LongestSessions[1];
+        Assert.Equal(("someone/else", (string?)null, (int?)null, (string?)null), (other.Repository, other.Model, other.Prompts, other.Title));
+
+        Assert.Equal(TimeSpan.FromHours(3), value.LongestSessions[2].ActiveTime);
+        Assert.Null(value.LongestSessions[2].Repository);
+        Assert.DoesNotContain(value.LongestSessions, row => row.Id == "unmeasured");
+
+        // Never more than the tile it sits beside.
+        Assert.True(longest.ActiveTime <= value.ActiveTime);
+    }
+
+    /// <summary>
+    /// Follows the machine filter the way the tiles do: a session on another machine is
+    /// not one of this machine's longest.
+    /// </summary>
+    [Fact]
+    public async Task The_longest_sessions_follow_the_machine_filter()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-4), Now.AddHours(-1), "same"),
+                    Session(Laptop, "Claude", Now.AddHours(-9), Now.AddHours(-1), "same"))
+            },
+            Activity(
+                Ran("same", Tower, "Claude", (Now.AddHours(-4), Now.AddHours(-1))),
+                Ran("same", Laptop, "Claude", (Now.AddHours(-9), Now.AddHours(-1)))));
+
+        var all = await ValueOf(insights, DashboardScope.Default);
+        var tower = await ValueOf(insights, DashboardScope.Default with { MachineId = Tower });
+
+        // Two machines' sessions that happen to share an id are two rows, each with its
+        // own time, never one row holding both machines' time.
+        Assert.Equal(
+            [TimeSpan.FromHours(8), TimeSpan.FromHours(3)],
+            all.LongestSessions.Select(row => row.ActiveTime));
+        Assert.Equal([TimeSpan.FromHours(3)], tower.LongestSessions.Select(row => row.ActiveTime));
+    }
+
     private static AssistantModelUsage Usage(string model, long output, long input = 0, long cacheRead = 0, long cacheWrite = 0) =>
         new(model, input, output, cacheWrite, cacheRead);
 
