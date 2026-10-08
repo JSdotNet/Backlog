@@ -187,6 +187,7 @@ public sealed class BatchTests
             dismissSuggestion: null!,
             related: null!,
             linkToTask: null!,
+            mergeIntoTask: null!,
             adviseTriage: null!,
             proposeTriagePass: null!);
 }

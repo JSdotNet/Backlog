@@ -813,6 +813,25 @@ public sealed class InboxDesktopState
     public Task LinkToTaskAsync(Guid taskId) =>
         DecideAsync(item => _inbox.LinkToTaskAsync(item.Id, taskId));
 
+    /// <summary>"Merge into a task": folds the item <paramref name="itemId"/>
+    /// into the backlog task <paramref name="taskId"/> it repeats — its title,
+    /// link and notes become a comment on the task, and it is archived as a
+    /// duplicate of the task. A decision like Archive, so when the item is the
+    /// one selected, triage moves on from it; any other item is merged where it
+    /// is and the selection stays. A refusal is toasted and changes nothing.</summary>
+    public async Task MergeIntoTaskAsync(Guid itemId, Guid taskId)
+    {
+        if (SelectedItem?.Id == itemId)
+        {
+            await DecideAsync(item => _inbox.MergeIntoTaskAsync(item.Id, taskId));
+            return;
+        }
+
+        if (Report(await _inbox.MergeIntoTaskAsync(itemId, taskId))) return;
+
+        await ReloadAsync();
+    }
+
     private static bool Matches(string title, string? query) =>
         string.IsNullOrWhiteSpace(query) || (title ?? string.Empty).Contains(query.Trim(), StringComparison.OrdinalIgnoreCase);
 

@@ -16,6 +16,7 @@ using Backlog.Modules.Inbox.Features.DismissSuggestion;
 using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.LinkToTask;
+using Backlog.Modules.Inbox.Features.MergeIntoTask;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
@@ -79,6 +80,7 @@ internal sealed class InboxItems(
     ICommandHandler<DismissSuggestionCommand, Result> dismissSuggestion,
     IQueryHandler<RelatedQuery, Result<InboxRelationsDto>> related,
     ICommandHandler<LinkToTaskCommand, Result> linkToTask,
+    ICommandHandler<MergeIntoTaskCommand, Result> mergeIntoTask,
     IQueryHandler<AdviseTriageQuery, Result<InboxTriageAdviceDto>> adviseTriage,
     IQueryHandler<ProposeTriagePassQuery, Result<InboxTriagePassDto>> proposeTriagePass,
     IInboxPlanDrafter? drafter = null,
@@ -114,6 +116,9 @@ internal sealed class InboxItems(
 
     public Task<Result> LinkToTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default) =>
         linkToTask.Handle(new LinkToTaskCommand(id, taskId), cancellationToken);
+
+    public Task<Result> MergeIntoTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default) =>
+        mergeIntoTask.Handle(new MergeIntoTaskCommand(id, taskId), cancellationToken);
 
     public Task<Result<InboxRelationsDto>> RelatedAsync(Guid id, CancellationToken cancellationToken = default) =>
         related.Handle(new RelatedQuery(id), cancellationToken);

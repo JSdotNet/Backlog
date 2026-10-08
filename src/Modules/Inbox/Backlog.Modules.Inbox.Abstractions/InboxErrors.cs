@@ -237,6 +237,21 @@ public static class InboxErrors
         "inbox.link.task_not_found",
         "That task is no longer in the backlog, so the item was not linked.");
 
+    /// <summary>"Merge into a task" named a task the backlog no longer has, or
+    /// has archived. Nothing was written on any task and the item is left as it
+    /// was.</summary>
+    public static readonly Error MergeTaskNotFound = Error.NotFound(
+        "inbox.merge.task_not_found",
+        "That task is no longer in the backlog, so nothing was merged.");
+
+    /// <summary>"Merge into a task" wrote the comment on the task but could not
+    /// archive the item. The comment stays — it may already have been read — and
+    /// the item is still in the Inbox, so merging again would write it twice.</summary>
+    public static Error MergeArchiveFailed(string detail) => Error.Unexpected(
+        "inbox.merge.archive_failed",
+        $"The comment is on the task, but the item could not be archived ({detail}). "
+            + "Archive it by hand rather than merging again, which would comment twice.");
+
     /// <summary>A merge in a batch: the item it was kept in favour of was not
     /// routed, so this one was not archived as its duplicate either — it is
     /// still in the Inbox, where the kept one is.</summary>

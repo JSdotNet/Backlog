@@ -119,6 +119,20 @@ internal sealed class FakeBacklogTarget : IInboxBacklogTarget
         return Task.FromResult(Result.Success<IReadOnlyList<Guid>>(
             [.. Enumerable.Range(0, entries).Select(_ => Guid.CreateVersion7())]));
     }
+
+    /// <summary>Every merge comment asked for, in order.</summary>
+    public List<InboxMergeRequestDto> Comments { get; } = [];
+
+    /// <summary>What a merge comment answers with instead of success —
+    /// standing in for Tasks' comment rule, which the module never sees.</summary>
+    public Error? FailCommentWith { get; set; }
+
+    public Task<Result> CommentOnTaskAsync(InboxMergeRequestDto request, CancellationToken cancellationToken = default)
+    {
+        Comments.Add(request);
+
+        return Task.FromResult(FailCommentWith is { } error ? Result.Failure(error) : Result.Success());
+    }
 }
 
 /// <summary>The backlog's tasks, as the test lists them — the open ones for
