@@ -27,6 +27,14 @@
 // file a delta folder holds: no header, no sections, checked with demo.mjs's
 // rules and landed by replacing its target whole. The graph does not index it
 // as a delta, but the change's fingerprint covers it. Any other file is an error.
+//
+// Scenario pages carry rules no single file can check — a stem unique across
+// contexts, setup fields that resolve to chapters, `Proved by:` pointers that
+// name a part. Once every delta resolves, the check lays all of the change's
+// merges over the corpus in memory and runs scenario.mjs's pass over the
+// result, so a pointer to a page the same change adds resolves, and a typo or
+// a colliding stem is reported against the delta that causes it, before either
+// gate rather than at archive.
 
 import { readFile, writeFile, readdir, mkdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
@@ -37,6 +45,7 @@ import {
     DELTA_FOLDER,
     DELTA_SECTIONS,
     DECISION_STATUSES,
+    DEVBOOK_FOLDER_NAMES,
     DEVBOOK_PREFIX,
     changeHash,
     changePathParts,
@@ -46,13 +55,16 @@ import {
     parseDocument,
     resolveAnnotation,
     deltaHeaderIssues,
+    folderKindForPath,
     parseDeltaHeader,
+    resolveType,
     slugify,
     validateDocument,
 } from "./metadata.mjs";
 import { loadStatusLadder } from "./statuses.mjs";
 import { demoFileIssues, demoReader } from "./demo.mjs";
 import { regionProblem } from "./demo-template.mjs";
+import { scenarioProblems } from "./scenario.mjs";
 
 const FENCE = /^\s*(`{3,}|~{3,})/;
 const HEADING = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
@@ -513,7 +525,75 @@ export async function checkChange(repoRoot, name) {
         report.deltas.push({ path: relPath, markdown, ...checkDemoDelta(relPath, markdown) });
     }
     if (proposedDemos.size) report.deltas.push(...(await demoLapses(repoRoot, report.deltas, onDisk, demoText)));
+    // The corpus-wide scenario rules run once every delta merges: a delta that
+    // does not would leave the projected corpus wrong in ways it did not cause.
+    if (!report.deltas.some((d) => d.issues.some((i) => i.severity === "error"))) {
+        for (const { delta, issue } of await changeScenarioIssues(repoRoot, report.deltas)) {
+            (delta ? delta.issues : report.problems).push(issue);
+        }
+    }
     return report;
+}
+
+/**
+ * Every devbook document as the scenario pass reads it — `{ relPath, raw,
+ * chapters, fileMeta }` — and the chapter kinds it resolves setup fields
+ * against, with `overrides` laid over the disk: a path to its text, or to
+ * `null` for a file the change removes. A node is what the graph build would
+ * index: one per file, one per heading with a `meta` block, the first heading
+ * keeping an anchor.
+ */
+async function scenarioCorpus(repoRoot, overrides = new Map()) {
+    const paths = new Set(overrides.keys());
+    for (const name of DEVBOOK_FOLDER_NAMES) {
+        for (const relPath of await markdownUnder(repoRoot, `${DEVBOOK_PREFIX}${name}`)) paths.add(relPath);
+    }
+    const docs = [];
+    const nodes = new Map();
+    for (const relPath of [...paths].sort()) {
+        const raw = overrides.has(relPath) ? overrides.get(relPath) : await readInRepo(repoRoot, relPath);
+        if (raw === null) continue;
+        const folder = folderKindForPath(relPath);
+        const { chapters } = parseDocument(raw);
+        const fileMeta = chapters.find((c) => c.level === 1)?.meta ?? null;
+        docs.push({ relPath, raw, chapters, fileMeta });
+        nodes.set(relPath, { id: relPath, kind: fileMeta ? resolveType(folder, fileMeta) ?? undefined : undefined });
+        const anchors = new Set();
+        for (const chapter of chapters) {
+            if (chapter.level === 1 || anchors.has(chapter.slug)) continue;
+            anchors.add(chapter.slug);
+            if (chapter.meta) nodes.set(`${relPath}#${chapter.slug}`, { id: `${relPath}#${chapter.slug}`, kind: resolveType(folder, chapter.meta) ?? undefined });
+        }
+    }
+    return { docs, nodes };
+}
+
+// A problem with its line numbers taken out, so one the corpus already has is
+// recognized after a merge moved it.
+const unlocated = (problem) => `${problem.severity}:${unlined(problem.message.replace(/(\.md):\d+/g, "$1"))}`;
+
+/**
+ * The corpus-wide scenario problems the change introduces: scenario.mjs's pass
+ * over the corpus as the change would leave it, less every problem the corpus
+ * has today. Each comes back with the delta that causes it — the one whose
+ * target the problem sits in, else the one whose target it names — or none,
+ * when it is the change's as a whole.
+ */
+export async function changeScenarioIssues(repoRoot, deltas) {
+    const merging = deltas.filter((d) => !d.placeholder && !d.demo && d.target && d.merged !== undefined);
+    if (!merging.length) return [];
+    const run = async (overrides) => {
+        const { docs, nodes } = await scenarioCorpus(repoRoot, overrides);
+        return (await scenarioProblems(repoRoot, docs, nodes)).problems;
+    };
+    const known = new Set((await run(new Map())).map(unlocated));
+    const found = [];
+    for (const problem of await run(new Map(merging.map((d) => [d.target, d.merged])))) {
+        if (known.has(unlocated(problem))) continue;
+        const delta = merging.find((d) => d.target === problem.path) ?? merging.find((d) => problem.message.includes(d.target)) ?? null;
+        found.push({ delta, issue: { severity: problem.severity, message: `would leave the corpus, with the change merged, where ${problem.message}` } });
+    }
+    return found;
 }
 
 /**

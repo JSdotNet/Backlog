@@ -12,13 +12,14 @@
 // Checking is this tool's own job and the default. Writing is opt-in, because
 // the committed artifacts are a layered plugin's product: its refresh script and
 // nightly workflow pass --write, and nothing in devbook ever does (the checks-and-indexes decision in the repository's devbook).
-// With --write it writes four artifacts per scope, per the derived-artifacts
+// With --write it writes five artifacts per scope, per the derived-artifacts
 // convention:
 //
 //   .devbook/_meta/graph.json          the reference graph (repository-wide rollup)
 //   .devbook/_meta/index.json          the ordered reading outline
 //   .devbook/_meta/annotations.json    the open-note index, from the annotation fences
 //   .devbook/_meta/naming.json         the term register, from domain/'s terms and aliases
+//   .devbook/_meta/scenarios.json      the scenario register, from domain/'s scenario pages
 //   .devbook/tech/_meta/graph.json     the same set, scoped to .tech
 //   ...one set per devbook folder the repository actually has
 //
@@ -30,7 +31,7 @@
 // imports, so the written indexes and the live view are always the same graph.
 // `--print` is for a viewer that can spawn Node but not import these modules:
 // it writes nothing and emits `{ folders, scopes: { "<scope>": { graph, outline,
-// annotations, naming } } }` on stdout, with the usual diagnostics on stderr.
+// annotations, naming, scenarios } } }` on stdout, with the usual diagnostics on stderr.
 
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -50,6 +51,7 @@ import {
     collectAnnotations,
 } from "./annotations-index.mjs";
 import { buildNamingDocument, namingPathFor } from "./naming.mjs";
+import { buildScenariosDocument, scenariosPathFor } from "./scenarios-index.mjs";
 import { templateProblems } from "./demo-template.mjs";
 
 const args = process.argv.slice(2);
@@ -165,11 +167,20 @@ for (const scope of scopes) {
             `${String(namingDocument.stats.aliases).padStart(4)} aliases`
     );
 
+    const scenariosDocument = buildScenariosDocument(REPO_ROOT, scope, graph, folders);
+    await emit(
+        scenariosPathFor(scope),
+        scenariosDocument,
+        `${String(scenariosDocument.stats.pages).padStart(4)} pages, ` +
+            `${String(scenariosDocument.stats.parts).padStart(4)} parts`
+    );
+
     printed.scopes[scope] = {
         graph: graphDocument,
         outline: outlineDocument,
         annotations: annotationsDocument,
         naming: namingDocument,
+        scenarios: scenariosDocument,
     };
 }
 

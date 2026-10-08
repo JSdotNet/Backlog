@@ -53,6 +53,18 @@ for (const [path, fileMeta] of [
 check(!isStructuralDocument(".devbook/tech/sub/technology-graph.md"), "technology-graph.md below the tech root is not structural");
 check(!isStructuralDocument(".devbook/ai/sub/adoption-map.md"), "adoption-map.md below the ai root is not structural");
 
+// A scenario page's `##` parts are sections too, at any depth inside a bounded
+// context, although no file name marks the page: its `type: scenario` does.
+for (const path of [".devbook/domain/work/set-up.md", ".devbook/domain/work/journeys/set-up.md"]) {
+    const m = missing(path, "type: scenario\n");
+    check(m.length === 0, `${path}: a scenario page's part without a block is not reported`, dump(m));
+}
+check(!isStructuralDocument(".devbook/domain/work/journeys/set-up.md"), "the path alone does not make a deeper page structural");
+{
+    const m = missing(".devbook/domain/work/journeys/notes.md", "type: notes\n");
+    check(m.length === 1, "a deeper page that is no scenario page still reports a section without a block", dump(m));
+}
+
 // A section that does carry a block is still validated: a `bounded-context`
 // section in context-map.md is a chapter, and a bad type there is an error.
 {

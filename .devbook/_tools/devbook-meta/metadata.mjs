@@ -427,7 +427,9 @@ const TEST_RUNNERS = {
 // A `tests` entry that starts like a devbook path is a chapter reference
 // pasted into a field that takes test identifiers. Worth its own message,
 // because the author's intent is obvious and the fix is to move it to `related`.
-const DEVBOOK_PATH_PREFIX = /^\.(?:domain|arc42|tech|design|ai)\//;
+// Every devbook path sits under `.devbook/`; the root-level dot-folder spelling
+// of the retired layout is still recognized, since the intent reads the same.
+const DEVBOOK_PATH_PREFIX = /^(?:\.devbook\/|\.)(?:domain|arc42|tech|design|ai)\//;
 
 // What proves a behaviour chapter, by the file it sits in. The level of proof
 // follows the kind of promise: a requirement is made to someone outside the
@@ -469,6 +471,168 @@ const BEHAVIOUR_TEST_LEVELS = {
 // The cases that prove one rule. They are structural headings one level under
 // the rule's own, so they are found by their text rather than by a block.
 const SCENARIO_HEADING = /^Scenario:/i;
+
+// A scenario page: one end-to-end journey, written as a page of its own in a
+// bounded context beside the chapter it demonstrates. Only its file-level
+// `type` makes it one, so the word is a file type of `.domain` and of no other
+// folder, and never a chapter's: the page is the journey, and its `##` parts
+// are the steps of it, not chapters. Two words stay apart in every rule — a
+// scenario *page* is the journey; a scenario *case* is the `#### Scenario:`
+// under a requirement, which may point at one of the page's parts.
+export const SCENARIO_TYPE = "scenario";
+
+// Absent means the journey is in force. A page that is still being written or
+// agreed says so; it has no rung of its own beyond that, because what proves it
+// is its run, not a person's signature on the text.
+const SCENARIO_STATUSES = ["draft", "proposed"];
+
+/**
+ * The fields that say where a journey starts and in which configuration it
+ * runs, legal on a scenario page's file-level block and nowhere else. `start`
+ * is the route, `[portal:]/route`; `actor` the actor chapter signed in,
+ * `[portal:]<path>#<slug>`; `data` the named data sets imported first;
+ * `profile` the one configuration in `.devbook/scenarios/profiles.json`;
+ * `flags` the feature-flag chapters switched on (`-` switches one off);
+ * `settings` the setting chapters set, as `<path>#<slug>=<value>`.
+ */
+export const SCENARIO_SETUP_FIELDS = ["start", "actor", "data", "profile", "flags", "settings"];
+
+// The words a step opens with. A scenario page is English only, and the
+// keyword set is the one place that is checked.
+const STEP_KEYWORDS = ["Given", "When", "Then", "And"];
+
+// A `#### Scenario:` that a scenario page proves instead of spelling out its
+// own Given/When/Then: one line, `Proved by: <page>.md#<part>`.
+const PROVED_BY_LINE = /^\s*Proved by:\s*(.*?)\s*$/;
+const GWT_LINE = /^\s*(?:[-*+]|\d+[.)])\s+\*\*(?:given|when|then|and)\*\*/i;
+const SETUP_PORTAL = /^([a-z0-9][a-z0-9-]*):(.+)$/;
+const SETUP_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/**
+ * Whether a document is a scenario page: a `.domain` file whose file-level
+ * block says `type: scenario`. `fileMeta` is the parsed level-1 block.
+ */
+export function isScenarioPage(relPath, fileMeta) {
+    return folderKindForPath(relPath) === "domain" && resolveType("domain", fileMeta) === SCENARIO_TYPE;
+}
+
+/** A scenario page's stem: its file name without `.md`, its identity for every tool. */
+export function scenarioStem(relPath) {
+    return (String(relPath).replace(/\\/g, "/").split("/").pop() ?? "").replace(/\.md$/i, "");
+}
+
+/** Split a portal prefix off a setup entry: `admin:/route` → `{ portal: "admin", rest: "/route" }`. */
+export function splitPortal(entry) {
+    const match = SETUP_PORTAL.exec(String(entry));
+    return match ? { portal: match[1], rest: match[2] } : { portal: null, rest: String(entry) };
+}
+
+/**
+ * Every top-level list item below the first `##` of a scenario page whose
+ * opening is not a bold Given, When, Then or And. Fences are content and are
+ * skipped; a nested item belongs to the step above it.
+ */
+export function scenarioStepIssues(markdown) {
+    const issues = [];
+    let fence = null;
+    let inPart = false;
+    markdown.split(/\r?\n/).forEach((line, index) => {
+        const marker = /^\s*(`{3,}|~{3,})/.exec(line);
+        if (fence) {
+            if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+            return;
+        }
+        if (marker) {
+            fence = marker[1];
+            return;
+        }
+        if (/^##\s/.test(line)) inPart = true;
+        if (!inPart) return;
+        const item = /^ ?(?:[-*+]|\d+[.)])\s+(.*)$/.exec(line);
+        if (!item) return;
+        const bold = /^\*\*([^*]+)\*\*/.exec(item[1]);
+        if (bold && STEP_KEYWORDS.includes(bold[1].trim())) return;
+        issues.push({
+            severity: "error",
+            message: bold
+                ? `line ${index + 1} opens a step with "**${bold[1]}**" — a step opens with a bold ${STEP_KEYWORDS.join(", ")}, and a scenario page is English only.`
+                : `line ${index + 1} is a list item in a part that opens with no bold ${STEP_KEYWORDS.join(", ")} — every list item in a scenario page's part is a step.`,
+        });
+    });
+    return issues;
+}
+
+/**
+ * The `#### Scenario:` cases under each `requirement` chapter, with any
+ * `Proved by:` pointers their bodies hold and whether they also spell out
+ * Given/When/Then. One entry per case: `{ requirement, heading, line,
+ * pointers: [{ target, line }], gwt }`, `requirement` being the chapter's
+ * `<path>#<slug>` id.
+ */
+export function provedByCases(relPath, markdown) {
+    const folder = folderKindForPath(relPath);
+    const { chapters } = parseDocument(markdown);
+    const lines = markdown.split(/\r?\n/);
+    const cases = [];
+    chapters.forEach((rule, index) => {
+        if (!rule.meta || resolveType(folder, rule.meta) !== "requirement") return;
+        for (let i = index + 1; i < chapters.length && chapters[i].level > rule.level; i++) {
+            const heading = chapters[i];
+            if (heading.level !== rule.level + 1 || !SCENARIO_HEADING.test(heading.text)) continue;
+            const end = chapters[i + 1]?.line ?? lines.length + 1;
+            const pointers = [];
+            let gwt = false;
+            let fence = null;
+            for (let n = heading.line; n < end - 1; n++) {
+                const line = lines[n];
+                const marker = /^\s*(`{3,}|~{3,})/.exec(line);
+                if (fence) {
+                    if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+                    continue;
+                }
+                if (marker) {
+                    fence = marker[1];
+                    continue;
+                }
+                const proved = PROVED_BY_LINE.exec(line);
+                if (proved) pointers.push({ target: proved[1], line: n + 1 });
+                else if (GWT_LINE.test(line)) gwt = true;
+            }
+            cases.push({ requirement: `${relPath}#${rule.slug}`, heading: heading.text, line: heading.line, pointers, gwt });
+        }
+    });
+    return cases;
+}
+
+// What each setup field holds, checked on the page alone. Whether a reference
+// resolves, and to the right kind of chapter, is the graph build's to say.
+function setupFieldIssues(field, value) {
+    const issues = [];
+    const error = (message) => issues.push({ severity: "error", message });
+    const single = ["start", "profile"];
+    if (single.includes(field) && Array.isArray(value)) {
+        error(`has \`${field}\` as a list — a page has one ${field === "start" ? "starting route" : "profile"}; a journey that must hold under another is a page of its own.`);
+        return issues;
+    }
+    for (const entry of toList(value)) {
+        if (field === "start") {
+            const { rest } = splitPortal(entry);
+            if (!rest.startsWith("/")) error(`has \`start\` "${entry}" — a starting point is a route, \`/path\` or \`<portal>:/path\`, relative to the profile's base URL.`);
+        } else if (field === "profile" || field === "data") {
+            if (!SETUP_NAME.test(entry)) error(`has \`${field}\` entry "${entry}" — a ${field === "profile" ? "profile" : "data set"} is named in lowercase kebab-case.`);
+        } else if (field === "actor") {
+            if (!splitPortal(entry).rest.includes("#")) error(`has \`actor\` entry "${entry}", which is not a \`[portal:]<path>#<slug>\` reference to an actor chapter.`);
+        } else if (field === "flags") {
+            if (!String(entry).replace(/^-/, "").includes("#")) error(`has \`flags\` entry "${entry}", which is not a \`[-]<path>#<slug>\` reference to a feature-flag chapter.`);
+        } else if (field === "settings") {
+            const at = String(entry).indexOf("=");
+            if (at <= 0 || !String(entry).slice(0, at).includes("#") || at === String(entry).length - 1) {
+                error(`has \`settings\` entry "${entry}", which is not \`<path>#<slug>=<value>\` — a setting chapter and the value this journey sets it to.`);
+            }
+        }
+    }
+    return issues;
+}
 
 // Fields that steer how this document appears in the generated outline, and so
 // describe the document's place in its directory rather than a chapter inside
@@ -616,9 +780,12 @@ const FIELD_TYPE_SCOPE = {
 // `context.md` is the one document that *is* its subject — the bounded context
 // as a whole — so how the context ships describes that document, not a chapter
 // missing from it.
+// A scenario page carries `aliases` the way a chapter does: the page is the
+// journey, so the other names it goes by are the page's own.
 const FILE_FIELD_TYPE_SCOPE = {
     domain: {
         deployment: ["context"],
+        aliases: [SCENARIO_TYPE],
     },
 };
 
@@ -1046,7 +1213,11 @@ export function documentDigest(markdown) {
         }
         if (inFence) continue;
 
-        for (const _ of line.matchAll(/!\[[^\]]*\]\([^)]*\)/g)) diagrams++;
+        // A `shot:` or `scenario:` target is a screenshot point or a reference
+        // to one, resolved by the tool that runs the journey — not a diagram.
+        for (const image of line.matchAll(/!\[[^\]]*\]\(([^)]*)\)/g)) {
+            if (!/^\s*<?(?:shot|scenario):/i.test(image[1])) diagrams++;
+        }
 
         if (ledeDone) continue;
 
@@ -1099,6 +1270,23 @@ export function typeIssues(folder, blockLevel, meta, fileBase = null) {
 
     const allowed = typeValuesFor(folder, blockLevel);
     const declared = resolveType(folder, meta);
+    // A scenario page is a whole file in a bounded context: never a chapter,
+    // and in no folder but `.domain`. Where it may sit inside `.domain` is
+    // validateDocument's to say, since only it has the path.
+    if (declared === SCENARIO_TYPE) {
+        if (blockLevel !== "file") {
+            issues.push({
+                severity: "error",
+                message: `has type "${SCENARIO_TYPE}" on a chapter — a scenario page is a file of its own, typed on its file-level block, and its \`##\` parts carry no block.`,
+            });
+        } else if (folder !== "domain") {
+            issues.push({
+                severity: "error",
+                message: `has type "${SCENARIO_TYPE}" in .${folder} — a scenario page lives only in .devbook/domain/, inside the bounded context whose chapter it demonstrates.`,
+            });
+        }
+        return issues;
+    }
     if (allowed.length) {
         if (declared === null) {
             if (OPTIONAL_TYPE_FOLDERS.includes(folder)) return issues;
@@ -1967,7 +2155,48 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
         openQuestions.set(note.chapter.line, note.line);
     }
 
-    const structural = isStructuralDocument(relPath);
+    // A scenario page sits inside a bounded context, at any depth below its
+    // folder, and its `##` parts are the journey's steps: sections, never
+    // chapters, so they owe no block and stay addressable by anchor.
+    const scenarioPage = kind === "domain" && isScenarioPage(relPath, fileMeta);
+    if (scenarioPage) {
+        const subject = String(relPath).replace(/\\/g, "/").slice(DEVBOOK_PREFIX.length + kind.length + 1);
+        if (subject.split("/").length < 2) {
+            issues.push({
+                severity: "error",
+                message: `${relPath} is a scenario page outside a bounded context — a page sits in the context folder whose chapter it demonstrates, at any depth inside it.`,
+            });
+        }
+        for (const issue of scenarioStepIssues(markdown)) issues.push(issue);
+    }
+
+    // A `#### Scenario:` case proved by a scenario page holds the one pointer
+    // and nothing else; the page is where its Given/When/Then are written.
+    for (const scenarioCase of provedByCases(relPath, markdown)) {
+        const label = `#### ${scenarioCase.heading} (line ${scenarioCase.line})`;
+        if (scenarioCase.pointers.length > 1) {
+            issues.push({
+                severity: "error",
+                message: `${label} holds ${scenarioCase.pointers.length} \`Proved by:\` lines — a case points at one part of one scenario page; write another \`#### Scenario:\` for another part.`,
+            });
+        }
+        if (scenarioCase.pointers.length && scenarioCase.gwt) {
+            issues.push({
+                severity: "error",
+                message: `${label} holds a \`Proved by:\` line and its own Given/When/Then — the pointer replaces them, so the steps are written once, on the scenario page.`,
+            });
+        }
+        for (const pointer of scenarioCase.pointers) {
+            if (!/^[^#\s]+\.md#[^#\s]+$/.test(pointer.target)) {
+                issues.push({
+                    severity: "error",
+                    message: `${label} has \`Proved by: ${pointer.target}\` — the line names one part of a scenario page, as \`<page>.md#<part>\`.`,
+                });
+            }
+        }
+    }
+
+    const structural = isStructuralDocument(relPath) || scenarioPage;
     for (const [index, chapter] of chapters.entries()) {
         const label = `${"#".repeat(chapter.level)} ${chapter.text} (line ${chapter.line})`;
         if (!chapter.meta) {
@@ -1997,7 +2226,17 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
         const configured = ladder?.statusesFor(relPath, blockLevel) ?? null;
         const allowedStatus = configured?.statuses ?? STATUS_BY_FOLDER[kind];
         const declaresStatus = "status" in chapter.meta;
-        if (!declaresStatus || chapter.meta.status === null) {
+        const pageBlock = scenarioPage && blockLevel === "file";
+        if (pageBlock && declaresStatus && chapter.meta.status !== null) {
+            // A scenario page's ladder is fixed: absent means the journey is
+            // in force, and the page says only that it is still in transition.
+            if (!SCENARIO_STATUSES.includes(chapter.meta.status)) {
+                issues.push({
+                    severity: "error",
+                    message: `${label} has status "${chapter.meta.status}" on a scenario page, expected one of: ${SCENARIO_STATUSES.join(", ")} — or omit it for a journey in force.`,
+                });
+            }
+        } else if (!declaresStatus || chapter.meta.status === null) {
             if (resting === null) {
                 issues.push({
                     severity: "error",
@@ -2200,8 +2439,15 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
 
         // `tests` names the test cases that assert what this chapter claims,
         // as `<level>:<runner>:<selector>` identifiers a runner can resolve.
-        for (const issue of testIssues(chapter.meta)) {
-            issues.push({ severity: issue.severity, message: `${label} ${issue.message}` });
+        if (pageBlock && chapter.meta.tests != null) {
+            issues.push({
+                severity: "error",
+                message: `${label} has \`tests\` on a scenario page — the page is the test: its spec is derived from it, and a requirement's \`e2e\` entry is derived from the \`Proved by:\` line that points at a part.`,
+            });
+        } else {
+            for (const issue of testIssues(chapter.meta)) {
+                issues.push({ severity: issue.severity, message: `${label} ${issue.message}` });
+            }
         }
 
         // A rule chapter is one rule plus the cases that prove it, and the
@@ -2280,6 +2526,28 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
             if (key === "status") continue; // recognized, and fully reported above
             if (key === "sync") continue; // reported by syncIssues in every folder
             if (key in REMOVED_FIELDS) continue; // already reported above
+            if (pageBlock && key === "tests") continue; // reported above
+            if (SCENARIO_SETUP_FIELDS.includes(key)) {
+                if (!pageBlock) {
+                    issues.push({
+                        severity: "error",
+                        message: `${label} has \`${key}\`, a setup field — where a journey starts and in which configuration it runs is said on a scenario page's file-level block only.`,
+                    });
+                    continue;
+                }
+                const isEmpty = value === null || (Array.isArray(value) && value.length === 0);
+                if (isEmpty) {
+                    issues.push({
+                        severity: "warning",
+                        message: `${label} sets \`${key}\` to an empty/null value — omit the field instead per the omit-when-empty rule.`,
+                    });
+                    continue;
+                }
+                for (const issue of setupFieldIssues(key, value)) {
+                    issues.push({ severity: issue.severity, message: `${label} ${issue.message}` });
+                }
+                continue;
+            }
             if (!optionalFields.has(key)) {
                 issues.push({
                     severity: "warning",

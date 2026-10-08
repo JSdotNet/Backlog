@@ -63,6 +63,8 @@ across `domain/`, ADRs, and code module names where practical.
     demo.html               # optional: what a person sees in the context,
                             # counted with context.md
     <page>.demo.html        # optional: the screens of <page>.md, beside it
+    <journey>.md            # optional: a scenario page, type: scenario — one
+                            # end-to-end journey, at any depth in the context
 ```
 
 When starting a new bounded context, create the folder with `context.md`,
@@ -79,6 +81,15 @@ a regulatory annex, whatever that domain turns out to need. It is a file like
 any other: a kebab-case name, a file-level `meta` block whose `type` is the
 filename, and `##` sections that carry no blocks of their own. It reads after
 the listed files, and nothing here has to be changed to allow it.
+
+**A scenario page is the one additional page with a type of its own.** It is
+one end-to-end journey, typed `scenario` on its file-level block rather than by
+its filename, and it sits beside the chapter it demonstrates, at any depth inside
+the context folder. Its `##` parts carry no blocks, like any additional page's
+sections, and stay addressable. Its shape, its setup fields, and its status are
+`devbook-chapter-metadata.md`'s under "Scenario pages"; its stem is
+`devbook-naming.md`'s. Runs, profiles, and data sets live in
+`.devbook/scenarios/`, which holds no page.
 
 **`context.md` is the boundary, and the context's root document.** It opens
 with what the context is responsible for — inside the boundary, outside it,
@@ -397,6 +408,18 @@ Adding a context or a file needs no declaration anywhere; just regenerate
     `#### Scenario: <name>` per case beneath it: Given, When, Then, one clause
     per line. A chapter with two SHALL sentences is two requirements, and
     neither can be accepted on its own.
+  - A case a scenario page proves holds one line instead of its own steps:
+    `Proved by: <page>.md#<part>`. Behaviour is written once, in the page: a
+    case with a `Proved by:` line and its own Given/When/Then is an error, and
+    so is a pointer that names no part. One case points at one part; one part
+    may prove several requirements, and one requirement may point at parts of
+    several pages. The case heading names the case in the requirement's words,
+    the part in the journey's words, and the two may differ.
+  - A `Proved by:` case counts as a scenario for the coverage warning, and the
+    requirement's `e2e` `tests` entry is derived from it and the spec that
+    implements the page, so it is never written by hand. A part no case points
+    at is reported as an unclaimed journey. Inline Given/When/Then stays valid
+    for a requirement with no journey yet.
   - `tests` on a requirement chapter are `e2e`, or `integration` for a policy
     no user triggers.
 - **domain.invariants.md**, **domain.<name>.invariants.md** — What each
@@ -525,7 +548,7 @@ instructions.
   | Level | Values |
   |---|---|
   | Chapter | `bounded-context`, `aggregate`, `entity`, `value-object`, `enum`, `shared-value-objects`, `shared-enums`, `ubiquitous-language`, `domain-service`, `domain-event`, `feature`, `sub-feature`, `requirements`, `requirement`, `invariants`, `invariant`, `feature-flag`, `setting`, `user`, `organisation`, `technical`, `term` |
-  | File | `context-map`, `context`, `domain`, `actors`, `features`, `skills`, `requirements`, `invariants`, `model`, `flow`, `dependencies` — or, for an additional page, its own filename |
+  | File | `context-map`, `context`, `domain`, `actors`, `features`, `skills`, `requirements`, `invariants`, `model`, `flow`, `dependencies`, `scenario` — or, for an additional page, its own filename |
 
   `requirements` and `invariants` are each in both sets, and mean the same
   thing at both levels: the file holds a context's, a `##` chapter holds one
@@ -533,6 +556,12 @@ instructions.
   vocabularies, so the repetition is worth naming — a `## <Feature>` chapter in
   `requirements.md` is `type: requirements`, plural, and only the
   `### Requirement:` chapters under it are `type: requirement`.
+
+  `scenario` is a file value only, and the one file type no filename carries: a
+  scenario page is named after its journey. Written on a chapter it is an
+  error, and so is a scenario page outside a bounded context. Its `status` is
+  `draft` or `proposed` while it is written or agreed, and absent once the
+  journey is in force; it takes no decision rung.
 
   There is no `skill` chapter type, deliberately. A skill in `skills.md` is a
   `feature` and its stages are `sub-feature`s: the file already says which kind
@@ -1273,7 +1302,7 @@ The system SHALL <one promise, stated once>.
 
 #### Scenario: <the next case>
 
-...
+Proved by: <journey>.md#<part-heading-slug>
 
 ### Requirement: <the next promise>
 
