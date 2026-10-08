@@ -3790,7 +3790,7 @@ h1, h2, h3 {
 }
 
 .inbox-pane__health-part--over {
-    background: var(--color-error);
+    background: var(--color-error-text);
 }
 
 .inbox-pane__health-lines {

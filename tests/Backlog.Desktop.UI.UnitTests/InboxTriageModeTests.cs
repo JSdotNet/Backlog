@@ -344,13 +344,15 @@ public sealed class InboxTriageModeTests
         pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-route-panel']")));
         Assert.Equal([items[0].Id, items[1].Id, items[2].Id], harness.Inbox.Proposals.Single().Ids);
 
-        // Confirming the batch is a decision on the item shown: triage moves on.
+        // Confirming the batch is a decision on the item shown: triage moves on,
+        // past the members the batch routed with it, to the next item still open.
         await pane.InvokeAsync(() => harness.State.ConfirmRouteAsync());
 
         pane.WaitForAssertion(() =>
         {
             Assert.Equal(InboxStatus.Triaged, harness.Inbox.Find(items[0].Id)!.Status);
-            Assert.Equal(items[1].Id, harness.State.SelectedItemId);
+            Assert.Equal(InboxStatus.Triaged, harness.Inbox.Find(items[1].Id)!.Status);
+            Assert.Equal(items[3].Id, harness.State.SelectedItemId);
         });
     }
 
