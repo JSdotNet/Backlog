@@ -6220,82 +6220,545 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
-.pull-requests-table__repository {
-    max-width: 12rem;
-}
-
-/* The title is the one value a reader looks for, so this cell takes the width the
-   others leave; the link clamps its own title. */
-.pull-requests-table__pull-request {
-    min-width: 16rem;
-}
-
-.pull-requests-table__branch {
-    max-width: 18rem;
-}
-
-/* A stack is a tree in this column: each pull request indents one step per level
-   under the bottom and hangs off an elbow, so reading down the stack reads the
-   order to handle it in. On a span inside the cell, for the reason the facts below
-   give. The first level's indent is the elbow itself. */
-.pull-requests-table__chain {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
-    max-width: 100%;
-    padding-left: calc((var(--chain-depth, 1) - 1) * 1.25rem);
-}
-
-.pull-requests-table__elbow {
-    flex: none;
-    width: 1rem;
-    color: var(--color-text-secondary);
-    text-align: center;
-}
-
-/* The link is the clamp: its title span already ellipsizes, but an inline-flex
-   link grows to whatever its content asks, so one long title set the whole
-   table's width and pushed Task and Session off the right edge. The full title
-   stays in the link's own tooltip. */
-.pull-requests-table__link {
-    max-width: 26rem;
-}
-
-/* The pin trails the title and never shrinks into it; the title is the clamp. */
-.pull-requests-table__pin {
-    flex: none;
-}
-
-/* A task title or a worktree-named session runs as long as a pull request title
-   and is worth less of the row, so it is cut sooner. */
-.pull-requests-table__reference .integration-link {
-    max-width: 16rem;
-}
-
-.pull-requests-table__reference .integration-link__label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-}
-
-/* The state chip and the badges after it wrap as a group, never one word per line.
-   On a span inside the cell, because a cell that is itself a flex box stops being
-   a table cell. */
-.pull-requests-table__facts {
+/* The four lane tiles: one filter by what a pull request needs, in a wrapping row
+   so a narrow pane takes them two by two rather than squeezing four words into one
+   line. Each is a ToggleButton wearing these classes; the pressed one takes the
+   brand edge, and its words stay the same, so the press is never only a colour. */
+.pull-requests-lanes {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-2xs);
-    align-items: center;
+    gap: var(--spacing-sm);
 }
 
-/* Each act is its own button, so a row offers exactly what fits its state rather
-   than a menu of acts GitHub would refuse. */
-.pull-requests-table__actions {
+/* A tile and a row are the same pressable card: a ToggleButton wearing these
+   classes, the tile a lane filter and the row the pick for the detail. One body for
+   both, so the two cannot drift apart; what differs is on the selectors below. */
+.pull-requests-lane,
+.pull-requests-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.pull-requests-lane:hover,
+.pull-requests-row:hover {
+    border-color: var(--color-border-strong);
+}
+
+.pull-requests-lane:focus-visible,
+.pull-requests-row:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* Four to a row where they fit, two by two where they do not. */
+.pull-requests-lanes > .pull-requests-lane {
+    flex: 1 1 11rem;
+}
+
+.pull-requests-lane--pressed {
+    border-color: var(--color-primary);
+    background: var(--color-background-raised);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-primary);
+}
+
+.pull-requests-lane--fault { --lane-tone: var(--color-error-text); }
+.pull-requests-lane--settled { --lane-tone: var(--color-success-text); }
+.pull-requests-lane--live { --lane-tone: var(--color-primary-light); }
+.pull-requests-lane--quiet { --lane-tone: var(--color-secondary); }
+
+.pull-requests-lane__label {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+/* The tone as a mark beside the lane's name; the name says it, so this is the
+   second carrier. */
+.pull-requests-lane__dot {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+    background: var(--lane-tone, var(--color-border-strong));
+}
+
+.pull-requests-lane__number {
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+}
+
+.pull-requests-lane__reasons {
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.pull-requests-table__actions > .btn + .btn {
-    margin-left: var(--spacing-2xs);
+/* The list and the detail side by side, wrapping: the list keeps a readable width
+   and the detail takes the rest, and once the pane is too narrow for both the
+   detail drops under the list rather than squeezing either. */
+.pull-requests-board {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.pull-requests-list {
+    display: flex;
+    flex: 1 1 26rem;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.pull-requests-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+/* One heading style for the list's groups and the detail's sections. */
+.pull-requests-group__heading,
+.pull-request-detail__heading {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: baseline;
+    margin: 0 0 var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.pull-requests-group__size {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.pull-requests-group__rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+/* A row: pressing it picks the pull request the detail is about, and aria-pressed
+   says which one is. Nothing inside it is a control. It stretches across its
+   column, as a flex item; only a stacked one sets its own width. */
+.pull-requests-row--selected {
+    border-color: var(--color-border-strong);
+    background: var(--color-background-raised);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+/* A stack is a tree in the list: each pull request indents one step per level
+   under the bottom, so reading down the stack reads the order to handle it in. */
+.pull-requests-row--stacked {
+    width: calc(100% - var(--chain-depth, 1) * 1.25rem);
+    margin-left: calc(var(--chain-depth, 1) * 1.25rem);
+}
+
+/* A pinned pull request that merged or closed: kept in front of the reader, and
+   quieter than everything that can still move. */
+.pull-requests-row--closed .pull-requests-row__title {
+    color: var(--color-text-secondary);
+}
+
+.pull-requests-row__top {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+}
+
+/* The repository's identity hue is the .repo-mark rule down this span's leading
+   edge, so it needs the room for it. */
+.pull-requests-row__repository,
+.pull-request-detail__repository {
+    overflow: hidden;
+    max-width: 12rem;
+    padding-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pull-requests-row__number,
+.pull-request-detail__number,
+.pull-request-stack__number {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+.pull-requests-row__verdict {
+    margin-left: auto;
+}
+
+.pull-requests-row__title {
+    display: block;
+    overflow: hidden;
+    width: 100%;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pull-requests-row__meta {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.pull-requests-row__branch {
+    overflow: hidden;
+    min-width: 0;
+    font-family: var(--font-family-mono);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The branch gives way first: a long head ellipsizes rather than squeezing the
+   age, and who merged it, into a column of their own. */
+.pull-requests-row__age {
+    flex: none;
+    white-space: nowrap;
+}
+
+.pull-requests-row__waits {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* GitHub's "8/9", drawn: three parts of one bar, each growing by its own count,
+   beside the words. The bar is aria-hidden; the words and the title carry it. */
+.pull-request-checks-meter {
+    display: inline-flex;
+    flex: none;
+    gap: var(--spacing-xs);
+    align-items: center;
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.pull-request-checks-meter__bar {
+    display: flex;
+    overflow: hidden;
+    width: 3.5rem;
+    height: 0.375rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-border);
+}
+
+.pull-request-checks-meter__passed { flex: var(--checks-passed, 0) 1 0; background: var(--color-success-text); }
+.pull-request-checks-meter__failed { flex: var(--checks-failed, 0) 1 0; background: var(--color-error-text); }
+.pull-request-checks-meter__running { flex: var(--checks-running, 0) 1 0; background: var(--color-primary-light); }
+
+/* The detail of the picked pull request, beside the list or under it. */
+.pull-request-detail {
+    display: flex;
+    flex: 1.35 1 28rem;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.pull-request-detail__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.pull-request-detail__line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+}
+
+.pull-request-detail__byline {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.pull-request-detail__links {
+    display: inline-flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    margin-left: auto;
+}
+
+.pull-request-detail__pin {
+    flex: none;
+}
+
+.pull-request-detail__title {
+    margin: 0;
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.pull-request-detail__branches {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+/* The verdict, in its tone. The banner's surface is the chip's tone mixed into the
+   detail's own, so a fault reads as one without a block of full-strength red; the
+   edge is the strong border, for the contrast reason the tone chips record. */
+.pull-request-banner {
+    --banner-tone: transparent;
+
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: center;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: color-mix(in srgb, var(--banner-tone) 14%, var(--color-background));
+}
+
+.pull-request-banner--alert { --banner-tone: var(--color-warning); }
+.pull-request-banner--fault { --banner-tone: var(--color-error); }
+.pull-request-banner--settled { --banner-tone: var(--color-success); }
+.pull-request-banner--live { --banner-tone: var(--color-primary-dark); }
+
+.pull-request-banner__text {
+    display: flex;
+    flex: 1 1 16rem;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.pull-request-banner__headline {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.pull-request-banner__reason {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.pull-request-banner__acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+/* Readiness and checks side by side, wrapping under each other when narrow. */
+.pull-request-detail__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+}
+
+.pull-request-detail__facts > .pull-request-detail__section {
+    flex: 1 1 14rem;
+    min-width: 0;
+}
+
+.pull-request-detail__tally {
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.pull-request-readiness,
+.pull-request-detail-checks {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pull-request-readiness__line {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    padding: var(--spacing-xs) 0;
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.pull-request-readiness__mark {
+    flex: none;
+    width: 1rem;
+    text-align: center;
+}
+
+.pull-request-readiness__line--ok .pull-request-readiness__mark { color: var(--color-success-text); }
+.pull-request-readiness__line--failing .pull-request-readiness__mark { color: var(--color-error-text); }
+.pull-request-readiness__line--waiting .pull-request-readiness__mark { color: var(--color-secondary); }
+
+.pull-request-readiness__label {
+    flex: 1 1 auto;
+    font-weight: 500;
+}
+
+.pull-request-readiness__words {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: right;
+}
+
+.pull-request-detail-checks__check {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    padding: var(--spacing-2xs) 0;
+    font-size: var(--font-size-sm);
+}
+
+.pull-request-detail-checks__dot {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-success-text);
+}
+
+.pull-request-detail-checks__check--failed .pull-request-detail-checks__dot { background: var(--color-error-text); }
+.pull-request-detail-checks__check--running .pull-request-detail-checks__dot { background: var(--color-primary-light); }
+
+.pull-request-detail-checks__name {
+    flex: 1 1 auto;
+    overflow: hidden;
+    min-width: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-primary);
+}
+
+/* A check with a page of its own is a link, and says so at rest rather than by
+   the browser's default blue, which is unreadable on this surface. */
+a.pull-request-detail-checks__name {
+    text-decoration: underline;
+    text-decoration-color: var(--color-border-strong);
+    text-underline-offset: 2px;
+}
+
+a.pull-request-detail-checks__name:hover {
+    text-decoration-color: currentColor;
+}
+
+.pull-request-detail-checks__word {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.pull-request-detail-checks__check--failed .pull-request-detail-checks__word { color: var(--color-error-text); }
+
+.pull-request-detail-checks__more {
+    padding-top: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.pull-request-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pull-request-stack__member {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+}
+
+.pull-request-stack__member--current {
+    border-color: var(--color-border-strong);
+    background: var(--color-background-raised);
+}
+
+.pull-request-stack__title {
+    flex: 1 1 auto;
+    overflow: hidden;
+    min-width: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The task and the session cards, two across where they fit. */
+.pull-request-detail__cards {
+    display: grid;
+    /* min() so a column never asks for more than the panel has: at phone width a
+       14rem floor would push the cards, and the pane, past the edge. */
+    grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+    gap: var(--spacing-sm);
+}
+
+/* The card is itself a grid whose auto column takes its width from the link
+   label, which does not wrap; a zero minimum lets the label ellipsize instead
+   of pushing the card past its column. */
+.pull-request-detail__cards > * {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.pull-request-detail__card .integration-link {
+    max-width: 100%;
+}
+
+.pull-request-detail__card .integration-link__label {
+    overflow: hidden;
+    min-width: 0;
+    text-overflow: ellipsis;
+}
+
+.pull-request-detail__unmatched {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 /* A delivery run, under the session that drove it or in a row of the runs table.

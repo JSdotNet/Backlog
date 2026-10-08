@@ -456,6 +456,21 @@
     justify-content: center;
 }
 
+/* AppButton with an Href: an anchor wearing the button's classes. It loses the
+   underline and the link colour a bare anchor would bring, and sits in a line the
+   way a button does. A disabled one has no href, so the pointer goes with it. */
+a.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    text-decoration: none;
+}
+
+a.btn[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 /* An inline SVG carries the line box's descender space with it; block does not. */
 .btn svg,
 .btn__icon svg {
@@ -13690,12 +13705,17 @@ select.field__input {
    carries three or four and four filled pills is a row of shouting. The existing
    .badge--gh is already outlined, so this continues what the product does rather
    than introducing a second look beside it. */
-.badge--integration {
+.badge--integration,
+.badge--tone {
     gap: var(--spacing-xs);
     background: transparent;
     border: var(--border-width) solid var(--integration-edge);
     color: var(--integration-ink-quiet);
     font-variant-numeric: tabular-nums;
+    /* A tone badge is bare text, with no inner label to keep whole the way
+       .integration-chip__label does, and a verdict broken over two lines inside
+       its pill reads as two values. An integration chip loses nothing by it. */
+    white-space: nowrap;
 }
 
 .integration-chip__glyph {
@@ -13711,7 +13731,8 @@ select.field__input {
    spends, on the brand edge. */
 .badge--integration-open,
 .badge--integration-starting,
-.badge--integration-running {
+.badge--integration-running,
+.badge--tone-live {
     color: var(--integration-live);
     border-color: var(--integration-live-edge);
 }
@@ -13719,7 +13740,8 @@ select.field__input {
 /* Landed: the settled tone, a success surface inside the strong edge. It
    happened, and it is a fact rather than something in flight. */
 .badge--integration-merged,
-.badge--integration-finished {
+.badge--integration-finished,
+.badge--tone-settled {
     background: var(--integration-settled-surface);
     border-color: var(--integration-edge-strong);
     color: var(--integration-ink);
@@ -13736,7 +13758,8 @@ select.field__input {
 
 /* Out of force without landing: the archived tone, no fill inside the strong
    edge. */
-.badge--integration-closed {
+.badge--integration-closed,
+.badge--tone-archived {
     border-color: var(--integration-edge-strong);
     color: var(--integration-ink-muted);
 }
@@ -13759,16 +13782,38 @@ select.field__input {
    and would be invisible as boundaries. The semantic tokens are backgrounds. */
 .badge--integration-stalled,
 .badge--integration-local-ahead,
-.badge--integration-remote-ahead {
+.badge--integration-remote-ahead,
+.badge--tone-alert {
     background: var(--integration-alert-surface);
     border-color: var(--integration-edge-strong);
     color: var(--integration-ink);
 }
 
-.badge--integration-failed {
+.badge--integration-failed,
+.badge--tone-fault {
     background: var(--integration-fault-surface);
     border-color: var(--integration-edge-strong);
     color: var(--integration-ink);
+}
+
+/*
+  The tone family: the scale of .devbook/design/color-scheme.md#badge-and-chip-tones
+  itself, as a family, for a host that has already decided where its value sits on it
+  and hands the tone over as the slug — `<Badge Kind="tone" Slug="fault">`. The pull
+  requests pane's verdict is the case that asked for it: its vocabulary (Conflicts,
+  Behind, Ready to merge, …) is the host's own and grows, and a family per vocabulary
+  would restate these six rules once more each time.
+
+  It is not a second set of rules. Its base and five of its tones are listed beside
+  their integration twins above — `.badge--tone` on `.badge--integration`, live on
+  open, settled on merged, alert on stalled, fault on failed, archived on closed — so
+  one rule body serves both families and the two cannot drift apart. Only quiet is
+  its own: the integration draft chip takes the raised surface, and the tone table
+  says quiet is the secondary ink on `color-background-alt`.
+*/
+.badge--tone-quiet {
+    background: var(--integration-surface);
+    color: var(--integration-ink-quiet);
 }
 
 .integration-chip__spin {

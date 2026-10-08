@@ -10,17 +10,19 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The pull requests pane reads every registered repository through the GitHub
-/// adapter and draws one table. What is asserted here is the pane's own part: that
+/// adapter and triages it: lane tiles, a list grouped by lane, and the detail of the
+/// pull request the reader picked. What is asserted here is the pane's own part: that
 /// it opens on the reader's own pull requests and Everyone's widens it, that the
-/// header's scope narrows it, that each act is offered only in the state it fits and
-/// reaches GitHub, that a repository GitHub would not answer for is named without
-/// taking the others with it, and that a row leads back to its task and its session.
+/// header's scope and a pressed lane narrow it, that the detail offers exactly the
+/// acts its verdict names and each reaches GitHub, that a repository GitHub would not
+/// answer for is named without taking the others with it, and that the detail leads
+/// back to the task and the session a pull request came from.
 /// <para>
 /// The adapter is the real <see cref="GitHubIntegration"/> over a client double, so
 /// the per-repository failure handling and the refusal wording under test are the
 /// ones the app runs. bUnit swallows an exception thrown from a click handler, so
 /// every act is asserted by its effect — what the client was asked, what the toast
-/// said, what the table shows after the re-read — never by the absence of a throw.
+/// said, what the list shows after the re-read — never by the absence of a throw.
 /// </para>
 /// </summary>
 public sealed class PullRequestsPaneTests : IDisposable
@@ -53,11 +55,17 @@ public sealed class PullRequestsPaneTests : IDisposable
             Assert.Equal(2, rows.Count);
             Assert.Equal(["JSdotNet/Archify#2", "JSdotNet/Backlog#1"], rows.Select(row => row.GetAttribute("data-pull-request")));
 
-            // The repository by its alias, the pull request as an anchor to GitHub,
-            // and the branch it would merge where.
+            // The repository by its alias, the head branch, and the title.
             Assert.Equal("archify", rows[0].QuerySelector("[data-testid='pull-request-repository']")!.TextContent.Trim());
-            Assert.Equal("https://github.com/JSdotNet/Archify/pull/2", rows[0].QuerySelector("a[data-testid='pull-request-link']")!.GetAttribute("href"));
-            Assert.Contains("feature-2 → main", rows[0].TextContent, StringComparison.Ordinal);
+            Assert.Contains("feature-2", rows[0].TextContent, StringComparison.Ordinal);
+            Assert.Contains("Pull request 2", rows[0].TextContent, StringComparison.Ordinal);
+
+            // The detail of the first: the pull request as an anchor to GitHub, and the
+            // branch it would merge where.
+            var detail = Detail(pane);
+            Assert.Equal("JSdotNet/Archify#2", detail.GetAttribute("data-pull-request"));
+            Assert.Equal("https://github.com/JSdotNet/Archify/pull/2", detail.QuerySelector("a[data-testid='pull-request-link']")!.GetAttribute("href"));
+            Assert.Contains("feature-2 → main", detail.TextContent, StringComparison.Ordinal);
         });
     }
 
@@ -105,8 +113,10 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.WaitForAssertion(() =>
         {
             Assert.Empty(pane.FindAll("[data-testid='pull-request-row']"));
-            Assert.Contains("None of the open pull requests is yours.", pane.Markup, StringComparison.Ordinal);
-            Assert.Contains("Choose Everyone's", pane.Markup, StringComparison.Ordinal);
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-detail']"));
+            var empty = pane.Find("[data-testid='pull-requests-empty']");
+            Assert.Contains("None of the open pull requests is yours.", empty.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Choose Everyone's", empty.TextContent, StringComparison.Ordinal);
         });
     }
 
@@ -162,7 +172,8 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.WaitForAssertion(() =>
         {
             Assert.NotEmpty(pane.FindAll("[data-testid='pull-requests-not-configured']"));
-            Assert.Empty(pane.FindAll("[data-testid='pull-requests-table']"));
+            Assert.Empty(pane.FindAll("[data-testid='pull-requests-lanes']"));
+            Assert.Empty(pane.FindAll("[data-testid='pull-requests-empty']"));
         });
 
         Assert.Equal(0, client.ListCalls);
@@ -182,14 +193,15 @@ public sealed class PullRequestsPaneTests : IDisposable
     /// branch GitHub reports behind, Ready for review on a draft, and one merge act
     /// that matches what GitHub would accept — or none on a draft, which GitHub
     /// merges no way, and none on a branch in conflict, which no passing check
-    /// will ever let merge.</summary>
+    /// will ever let merge. An auto-merge GitHub already holds can always be
+    /// withdrawn.</summary>
     [Theory]
-    [InlineData(false, false, false, false, false, null, "Merge when checks pass")]
+    [InlineData(false, false, false, false, false, null, "Merge when ready")]
     [InlineData(false, true, false, false, false, null, "Merge now")]
     [InlineData(false, false, true, false, false, null, "Cancel auto-merge")]
     [InlineData(true, false, false, false, false, "ready", null)]
     [InlineData(true, false, true, false, false, "ready", "Cancel auto-merge")]
-    [InlineData(false, false, false, true, false, "update-branch", "Merge when checks pass")]
+    [InlineData(false, false, false, true, false, "update-branch", "Merge when ready")]
     [InlineData(false, false, false, false, true, null, null)]
     [InlineData(false, false, true, false, true, null, "Cancel auto-merge")]
     public void Each_act_is_offered_only_in_its_state(
@@ -215,6 +227,90 @@ public sealed class PullRequestsPaneTests : IDisposable
                 Assert.Equal(merge, Assert.Single(mergeButtons).TextContent.Trim());
             }
         });
+    }
+
+    /// <summary>
+    /// The banner offers the acts its verdict names and no others, the secondary
+    /// before the primary, each as the control it is: the two that only go and look
+    /// are links to GitHub, the rest are the pane's own acts.
+    /// </summary>
+    [Theory]
+    [InlineData("conflicts", "Conflicts", new[] { "pull-request-open-on-github" }, null)]
+    [InlineData("failing-actions-run", "FailingChecks", new[] { "pull-request-open-on-github", "pull-request-rerun-failed" }, null)]
+    [InlineData("failing-other-check", "FailingChecks", new[] { "pull-request-open-on-github" }, null)]
+    [InlineData("changes-requested", "ChangesRequested", new[] { "pull-request-open-review" }, null)]
+    [InlineData("behind", "Behind", new[] { "pull-request-merge", "pull-request-update-branch" }, "Merge when ready")]
+    [InlineData("draft", "Draft", new[] { "pull-request-ready" }, null)]
+    [InlineData("checks-running", "ChecksRunning", new[] { "pull-request-merge" }, "Merge when ready")]
+    [InlineData("review-required", "ReviewRequired", new[] { "pull-request-merge" }, "Merge when ready")]
+    [InlineData("ready-merge-ready", "Ready", new[] { "pull-request-merge" }, "Merge now")]
+    [InlineData("ready", "Ready", new[] { "pull-request-merge" }, "Merge when ready")]
+    [InlineData("ready-auto-merge-on", "Ready", new[] { "pull-request-merge" }, "Cancel auto-merge")]
+    public void The_banner_offers_exactly_the_acts_of_its_verdict(string state, string verdict, string[] acts, string? merge)
+    {
+        var pull = PullIn(state);
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", pull));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var banner = pane.Find("[data-testid='pull-request-banner']");
+            Assert.Equal(verdict, banner.GetAttribute("data-verdict"));
+
+            var controls = banner.QuerySelectorAll(".pull-request-banner__acts > *");
+            Assert.Equal(acts, controls.Select(control => control.GetAttribute("data-testid")));
+
+            // The primary is the last, and the only one in the primary style.
+            Assert.Contains("btn--primary", controls[^1].ClassList);
+            Assert.All(controls.SkipLast(1), control => Assert.DoesNotContain("btn--primary", control.ClassList));
+
+            if (merge is not null)
+            {
+                Assert.Equal(merge, banner.QuerySelector("[data-testid='pull-request-merge']")!.TextContent.Trim());
+            }
+
+            if (banner.QuerySelector("[data-testid='pull-request-open-on-github']") is { } open)
+            {
+                Assert.Equal("A", open.TagName);
+                Assert.Equal("https://github.com/JSdotNet/Backlog/pull/1", open.GetAttribute("href"));
+                Assert.Equal("_blank", open.GetAttribute("target"));
+            }
+
+            if (banner.QuerySelector("[data-testid='pull-request-open-review']") is { } review)
+            {
+                Assert.Equal("https://github.com/JSdotNet/Backlog/pull/1/files", review.GetAttribute("href"));
+            }
+        });
+    }
+
+    /// <summary>A pull request above the bottom of its stack is offered no merge —
+    /// merged now it would land on its parent's branch — but an auto-merge GitHub
+    /// already holds on it is still the reader's to withdraw.</summary>
+    [Fact]
+    public void A_stacked_pull_request_offers_no_merge_but_still_cancels_auto_merge()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 10),
+            Pull("JSdotNet/Backlog", 11, baseRef: "feature-10", mergeReady: true),
+            Pull("JSdotNet/Backlog", 12, baseRef: "feature-11", autoMerge: true));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.Equal(3, RowKeys(pane).Count));
+
+        Select(pane, "JSdotNet/Backlog#11");
+        pane.WaitForAssertion(() =>
+        {
+            var banner = pane.Find("[data-testid='pull-request-banner']");
+            Assert.Empty(banner.QuerySelectorAll(".pull-request-banner__acts > *"));
+            Assert.Contains("it waits on #10, which has to merge first.", banner.TextContent, StringComparison.Ordinal);
+        });
+
+        Select(pane, "JSdotNet/Backlog#12");
+        pane.WaitForAssertion(() =>
+            Assert.Equal("Cancel auto-merge", Assert.Single(pane.FindAll("[data-testid='pull-request-banner'] [data-testid='pull-request-merge']")).TextContent.Trim()));
     }
 
     [Fact]
@@ -256,7 +352,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     [InlineData(GitHubCheckState.Pending, 41L, false)]
     public void Re_run_failed_is_offered_only_for_a_failed_github_actions_run(GitHubCheckState state, long? run, bool offered)
     {
-        var pull = Pull("JSdotNet/Backlog", 1) with { HeadChecks = [new GitHubCheck("build", state, null, null, run)] };
+        var pull = Pull("JSdotNet/Backlog", 1) with { Checks = state, HeadChecks = [new GitHubCheck("build", state, null, null, run)] };
         using var context = Context(new StubClient().Lists("JSdotNet/Backlog", pull));
 
         var pane = context.Render<PullRequestsPane>();
@@ -317,6 +413,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     {
         var failing = Pull("JSdotNet/Backlog", 1) with
         {
+            Checks = GitHubCheckState.Failing,
             HeadChecks = [new GitHubCheck("build", GitHubCheckState.Failing, null, null, 41)]
         };
         var client = new StubClient().Lists("JSdotNet/Backlog", failing).RefusesActs("Something new GitHub started saying");
@@ -351,7 +448,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         {
             Assert.Equal(["ready PR_1"], client.Acts);
             Assert.Empty(pane.FindAll("[data-testid='pull-request-ready']"));
-            Assert.Equal("Merge when checks pass", pane.Find("[data-testid='pull-request-merge']").TextContent.Trim());
+            Assert.Equal("Merge when ready", pane.Find("[data-testid='pull-request-merge']").TextContent.Trim());
         });
     }
 
@@ -389,6 +486,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.WaitForAssertion(() =>
         {
             Assert.Empty(RowKeys(pane));
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-detail']"));
             Assert.Contains(Toasts(context), toast => toast.Message == "Merged JSdotNet/Backlog#1.");
         });
     }
@@ -461,8 +559,8 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal("Pull requests page", pane.Find("[data-testid='pull-request-task']").TextContent.Trim());
-            Assert.Single(pane.FindAll("[data-testid='pull-request-no-task']"));
+            Assert.Equal("Pull requests page", Detail(pane).QuerySelector("[data-testid='pull-request-task']")!.TextContent.Trim());
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-no-task']"));
         });
 
         Assert.Contains(("JSdotNet/Backlog", 1), asked);
@@ -470,6 +568,15 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.Find("[data-testid='pull-request-task']").Click();
 
         pane.WaitForAssertion(() => Assert.Same(task, opened));
+
+        // The other one names no task, and says so in a sentence.
+        Select(pane, "JSdotNet/Backlog#2");
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-task']"));
+            Assert.Equal("No task names this pull request.", pane.Find("[data-testid='pull-request-no-task']").TextContent.Trim());
+        });
     }
 
     /// <summary>The session whose transcript recorded the pull request's address wins
@@ -522,7 +629,7 @@ public sealed class PullRequestsPaneTests : IDisposable
     }
 
     [Fact]
-    public void A_pull_request_no_session_ran_says_so_with_an_em_dash()
+    public void A_pull_request_no_session_ran_says_so_in_a_sentence()
     {
         using var context = Context(
             new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1)),
@@ -533,12 +640,16 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.WaitForAssertion(() =>
         {
             Assert.Empty(pane.FindAll("[data-testid='pull-request-session']"));
-            Assert.Equal("—", pane.Find("[data-testid='pull-request-no-session']").TextContent.Trim());
+            Assert.Equal("No session matched this pull request.", pane.Find("[data-testid='pull-request-no-session']").TextContent.Trim());
         });
     }
 
+    /// <summary>One verdict on the row, in its tone — the first thing in its way, here
+    /// the conflict — and every other fact in words in the detail's readiness lines,
+    /// never a colour alone. The link to GitHub wears draft as its colour, with the
+    /// word for a screen reader, and no integration chip repeats it.</summary>
     [Fact]
-    public void The_status_says_draft_checks_behind_conflicts_and_auto_merge_in_words()
+    public void The_row_says_one_verdict_and_the_detail_says_the_rest_in_words()
     {
         var pull = Pull("JSdotNet/Backlog", 1, draft: true, behind: true, conflicts: true, autoMerge: true) with { Checks = GitHubCheckState.Failing };
         using var context = Context(new StubClient().Lists("JSdotNet/Backlog", pull));
@@ -547,16 +658,508 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Contains("Draft", pane.Find("[data-testid='pull-request-state']").TextContent, StringComparison.Ordinal);
+            var row = Row(pane, "JSdotNet/Backlog#1");
+            var chip = row.QuerySelector("[data-testid='pull-request-verdict']")!;
+            Assert.Equal("Conflicts", chip.TextContent.Trim());
+            Assert.Contains("badge--tone-fault", chip.ClassList);
+            Assert.Equal("needs-you", row.GetAttribute("data-lane"));
+            Assert.Empty(row.QuerySelectorAll(".badge--integration"));
 
-            // One GitHub button carrying the state as its colour, and no state chip
-            // repeating it anywhere in the row.
+            Assert.Contains("Draft", pane.Find("[data-testid='pull-request-state']").TextContent, StringComparison.Ordinal);
             Assert.Contains("integration-link--state-draft", pane.Find("a[data-testid='pull-request-link']").ClassList);
-            Assert.Empty(pane.FindAll("[data-testid='pull-request-row'] .badge--integration"));
-            Assert.Equal("Checks failing", pane.Find("[data-testid='pull-request-checks']").TextContent.Trim());
-            Assert.Equal("Behind", pane.Find("[data-testid='pull-request-behind']").TextContent.Trim());
-            Assert.Equal("Conflicts", pane.Find("[data-testid='pull-request-conflicts']").TextContent.Trim());
-            Assert.Equal("Auto-merge on", pane.Find("[data-testid='pull-request-auto-merge']").TextContent.Trim());
+
+            Assert.Equal(
+                [("checks", "failing", "Failing"), ("review", "waiting", "Not requested (draft)"), ("up-to-date", "waiting", "Behind main"), ("mergeable", "failing", "Conflicts with main")],
+                ReadinessLines(pane));
+
+            // Open on GitHub for the conflict, and the auto-merge GitHub holds can
+            // still be withdrawn.
+            Assert.Equal(
+                ["pull-request-merge", "pull-request-open-on-github"],
+                pane.FindAll(".pull-request-banner__acts > *").Select(control => control.GetAttribute("data-testid")));
+            Assert.Equal("Cancel auto-merge", pane.Find("[data-testid='pull-request-merge']").TextContent.Trim());
+        });
+    }
+
+    // --- Lanes ----------------------------------------------------------------
+
+    /// <summary>Each tile counts its lane over what Mine leaves, and says why in a
+    /// line: the verdicts in the way, or what the lane means when they all agree.</summary>
+    [Fact]
+    public void Each_lane_tile_counts_what_the_filters_leave_and_says_why()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 1, conflicts: true),
+            Pull("JSdotNet/Backlog", 2, behind: true),
+            Pull("JSdotNet/Backlog", 3),
+            Pull("JSdotNet/Backlog", 4, draft: true),
+            Pull("JSdotNet/Backlog", 5) with { Checks = GitHubCheckState.Pending },
+            Pull("JSdotNet/Backlog", 6, mine: false));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                [("needs-you", "Needs you", "2", "conflicts · behind"), ("ready", "Ready to merge", "1", "Nothing in the way"), ("waiting", "Waiting", "1", "checks running"), ("drafts", "Drafts", "1", "Not ready for review")],
+                Tiles(pane));
+            Assert.All(pane.FindAll("[data-testid^='pull-requests-lane-']"), tile => Assert.Equal("false", tile.GetAttribute("aria-pressed")));
+        });
+
+        pane.Find("[data-testid='pull-requests-filter-everyone']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal("2", Tiles(pane)[1].Total));
+    }
+
+    /// <summary>A tile names each kind of verdict once: two pull requests failing a
+    /// different number of checks are one reason, not "1 failing · 2 failing".</summary>
+    [Fact]
+    public void A_lane_tile_names_each_kind_of_verdict_once()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 1) with { Checks = GitHubCheckState.Failing, CheckCounts = new GitHubCheckCounts(8, 1, 0) },
+            Pull("JSdotNet/Backlog", 2) with { Checks = GitHubCheckState.Failing, CheckCounts = new GitHubCheckCounts(7, 2, 0) },
+            Pull("JSdotNet/Backlog", 3, conflicts: true),
+            Pull("JSdotNet/Backlog", 4) with
+            {
+                Reviews = new GitHubReviewSummary(GitHubReviewDecision.ReviewRequired, Approvals: 0, ChangesRequested: 0)
+            });
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var tiles = Tiles(pane);
+            Assert.Equal(("needs-you", "Needs you", "3", "failing checks · conflicts"), tiles[0]);
+            Assert.Equal(("waiting", "Waiting", "1", "review required"), tiles[2]);
+        });
+    }
+
+    /// <summary>An empty lane says so rather than showing a lone zero, and a draft
+    /// stacked on another says that it is.</summary>
+    [Fact]
+    public void An_empty_lane_says_nothing_is_there_and_drafts_name_a_stacked_branch()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 10),
+            Pull("JSdotNet/Backlog", 11, baseRef: "feature-10", draft: true));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var tiles = Tiles(pane);
+            Assert.Equal(("needs-you", "Needs you", "0", "Nothing here"), tiles[0]);
+            Assert.Equal(("drafts", "Drafts", "1", "Includes a stacked branch"), tiles[3]);
+        });
+    }
+
+    /// <summary>A press narrows the list to the lane, a second press lets it go, and
+    /// only one lane is pressed at a time.</summary>
+    [Fact]
+    public void Pressing_a_lane_filters_the_list_and_pressing_it_again_clears_it()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 1, conflicts: true),
+            Pull("JSdotNet/Backlog", 2),
+            Pull("JSdotNet/Backlog", 3, draft: true));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.Equal(3, RowKeys(pane).Count));
+
+        pane.Find("[data-testid='pull-requests-lane-needs-you']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#1"], RowKeys(pane));
+            Assert.Equal("true", pane.Find("[data-testid='pull-requests-lane-needs-you']").GetAttribute("aria-pressed"));
+            Assert.Equal(["needs-you"], Groups(pane).Select(group => group.Lane));
+
+            // The tiles still count every lane: the press narrows the list, not them.
+            Assert.Equal("1", Tiles(pane)[1].Total);
+        });
+
+        pane.Find("[data-testid='pull-requests-lane-drafts']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#3"], RowKeys(pane));
+            Assert.Equal("false", pane.Find("[data-testid='pull-requests-lane-needs-you']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", pane.Find("[data-testid='pull-requests-lane-drafts']").GetAttribute("aria-pressed"));
+        });
+
+        pane.Find("[data-testid='pull-requests-lane-drafts']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Backlog#2", "JSdotNet/Backlog#3"], RowKeys(pane));
+            Assert.Equal("false", pane.Find("[data-testid='pull-requests-lane-drafts']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    [Fact]
+    public void Mine_and_a_lane_combine()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 1, conflicts: true),
+            Pull("JSdotNet/Backlog", 2, conflicts: true, mine: false),
+            Pull("JSdotNet/Backlog", 3, mine: false));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.Equal("1", Tiles(pane)[0].Total));
+
+        pane.Find("[data-testid='pull-requests-lane-needs-you']").Click();
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#1"], RowKeys(pane)));
+
+        pane.Find("[data-testid='pull-requests-filter-everyone']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Backlog#2"], RowKeys(pane));
+            Assert.Equal("2", Tiles(pane)[0].Total);
+        });
+    }
+
+    /// <summary>A pin keeps a pull request in front of the reader through a lane too,
+    /// in the Pinned group at the top — and still counts in its own lane.</summary>
+    [Fact]
+    public void A_pinned_row_survives_a_lane_filter_in_the_pinned_group()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 1, conflicts: true),
+            Pull("JSdotNet/Backlog", 2),
+            Pull("JSdotNet/Backlog", 3, draft: true));
+        using var context = Context(client, pins: Pins(("JSdotNet/Backlog", 3)));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#3", "JSdotNet/Backlog#1", "JSdotNet/Backlog#2"], RowKeys(pane));
+            Assert.Equal(
+                [("pinned", "Pinned", 1), ("needs-you", "Needs you", 1), ("ready", "Ready to merge", 1)],
+                Groups(pane));
+            Assert.Equal("1", Tiles(pane)[3].Total);
+        });
+
+        pane.Find("[data-testid='pull-requests-lane-needs-you']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#3", "JSdotNet/Backlog#1"], RowKeys(pane));
+            Assert.Equal("true", Row(pane, "JSdotNet/Backlog#3").GetAttribute("data-pinned"));
+        });
+    }
+
+    /// <summary>A lane that leaves nothing says which lane, and how to let it go.</summary>
+    [Fact]
+    public void A_lane_that_leaves_nothing_says_how_to_let_it_go()
+    {
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1)));
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.Single(RowKeys(pane)));
+
+        pane.Find("[data-testid='pull-requests-lane-drafts']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(RowKeys(pane));
+            var empty = pane.Find("[data-testid='pull-requests-empty']");
+            Assert.Contains("Nothing in Drafts.", empty.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Press the tile again to see every lane.", empty.TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>A merged pull request is in no lane, so the merged view has no tiles —
+    /// and the switch lets go of the lane, so the open view comes back whole.</summary>
+    [Fact]
+    public void Recently_merged_has_no_lanes_and_lets_go_of_the_lane()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1, conflicts: true), Pull("JSdotNet/Backlog", 2))
+            .Merged("JSdotNet/Backlog", MergedPull("JSdotNet/Backlog", 10));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.Equal(2, RowKeys(pane).Count));
+
+        pane.Find("[data-testid='pull-requests-lane-needs-you']").Click();
+        pane.WaitForAssertion(() => Assert.Single(RowKeys(pane)));
+
+        pane.Find("[data-testid='pull-requests-view-merged']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#10"], RowKeys(pane));
+            Assert.Empty(pane.FindAll("[data-testid='pull-requests-lanes']"));
+            Assert.Equal([("merged", "Last 14 days", 1)], Groups(pane));
+        });
+
+        pane.Find("[data-testid='pull-requests-view-open']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, RowKeys(pane).Count);
+            Assert.All(pane.FindAll("[data-testid^='pull-requests-lane-']"), tile => Assert.Equal("false", tile.GetAttribute("aria-pressed")));
+        });
+    }
+
+    /// <summary>The list is grouped by lane in lane order, each heading saying how many
+    /// it holds; a lane with nothing in it has no group.</summary>
+    [Fact]
+    public void The_list_is_grouped_by_lane_in_lane_order()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 1, draft: true),
+            Pull("JSdotNet/Backlog", 2),
+            Pull("JSdotNet/Backlog", 3, behind: true),
+            Pull("JSdotNet/Backlog", 4, conflicts: true));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Backlog#3", "JSdotNet/Backlog#4", "JSdotNet/Backlog#2", "JSdotNet/Backlog#1"], RowKeys(pane));
+            Assert.Equal(
+                [("needs-you", "Needs you", 2), ("ready", "Ready to merge", 1), ("drafts", "Drafts", 1)],
+                Groups(pane));
+        });
+    }
+
+    // --- Selection ------------------------------------------------------------
+
+    /// <summary>The detail is about the first row until the reader picks another; the
+    /// row says which one it is about on aria-pressed.</summary>
+    [Fact]
+    public void The_first_row_is_selected_until_another_is_pressed()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 1),
+            Pull("JSdotNet/Backlog", 2));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["true", "false"], pane.FindAll("[data-testid='pull-request-row']").Select(row => row.GetAttribute("aria-pressed")));
+            Assert.Equal("JSdotNet/Backlog#1", Detail(pane).GetAttribute("data-pull-request"));
+            Assert.Equal("Pull request 1", Detail(pane).QuerySelector(".pull-request-detail__title")!.TextContent.Trim());
+        });
+
+        Select(pane, "JSdotNet/Backlog#2");
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["false", "true"], pane.FindAll("[data-testid='pull-request-row']").Select(row => row.GetAttribute("aria-pressed")));
+            Assert.Equal("JSdotNet/Backlog#2", Detail(pane).GetAttribute("data-pull-request"));
+            Assert.Equal("Pull request 2", Detail(pane).QuerySelector(".pull-request-detail__title")!.TextContent.Trim());
+        });
+    }
+
+    /// <summary>A pick a filter hides gives way to the first row shown, and comes back
+    /// when the filter is let go.</summary>
+    [Fact]
+    public void A_selection_a_lane_hides_falls_back_to_the_first_row_shown()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 1, conflicts: true),
+            Pull("JSdotNet/Backlog", 2),
+            Pull("JSdotNet/Backlog", 3, draft: true));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.Equal(3, RowKeys(pane).Count));
+
+        Select(pane, "JSdotNet/Backlog#2");
+        pane.WaitForAssertion(() => Assert.Equal("JSdotNet/Backlog#2", Detail(pane).GetAttribute("data-pull-request")));
+
+        pane.Find("[data-testid='pull-requests-lane-drafts']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("JSdotNet/Backlog#3", Detail(pane).GetAttribute("data-pull-request"));
+            Assert.Equal("true", Row(pane, "JSdotNet/Backlog#3").GetAttribute("aria-pressed"));
+        });
+
+        pane.Find("[data-testid='pull-requests-lane-drafts']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal("JSdotNet/Backlog#2", Detail(pane).GetAttribute("data-pull-request")));
+    }
+
+    // --- The detail -----------------------------------------------------------
+
+    /// <summary>Failures first, then what is still running, then what passed — six of
+    /// them, and the rest counted, worded "passed" when every one left out did.</summary>
+    [Fact]
+    public void The_checks_list_failures_first_and_counts_what_it_leaves_out()
+    {
+        var pull = Pull("JSdotNet/Backlog", 1) with
+        {
+            Checks = GitHubCheckState.Failing,
+            CheckCounts = new GitHubCheckCounts(Passed: 7, Failed: 1, Pending: 1),
+            HeadChecks =
+            [
+                new GitHubCheck("restore", GitHubCheckState.Passing, TimeSpan.FromSeconds(45), null, 41),
+                new GitHubCheck("build", GitHubCheckState.Passing, new TimeSpan(0, 2, 10), null, 41),
+                new GitHubCheck("e2e", GitHubCheckState.Pending, null, null, 41),
+                new GitHubCheck("lint", GitHubCheckState.Passing, null, null, 41),
+                new GitHubCheck("unit", GitHubCheckState.Failing, TimeSpan.FromMinutes(3), "https://github.com/JSdotNet/Backlog/actions/runs/41", 41),
+                new GitHubCheck("docs", GitHubCheckState.Passing, null, null, 41),
+                new GitHubCheck("pack", GitHubCheckState.Passing, null, null, 41),
+                new GitHubCheck("sign", GitHubCheckState.Passing, null, null, 41),
+                new GitHubCheck("publish", GitHubCheckState.Passing, null, null, 41)
+            ]
+        };
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", pull));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var checks = pane.Find("[data-testid='pull-request-detail-checks']");
+            var shown = checks.QuerySelectorAll("li[data-check-state]");
+
+            Assert.Equal(
+                [("unit", "Failed"), ("e2e", "Running"), ("restore", "45s"), ("build", "2m 10s"), ("lint", "Passed"), ("docs", "Passed")],
+                shown.Select(check => (
+                    check.QuerySelector(".pull-request-detail-checks__name")!.TextContent.Trim(),
+                    check.QuerySelector(".pull-request-detail-checks__word")!.TextContent.Trim())));
+
+            // A check that names its page links to it.
+            Assert.Equal("https://github.com/JSdotNet/Backlog/actions/runs/41", shown[0].QuerySelector("a")!.GetAttribute("href"));
+            Assert.Null(shown[1].QuerySelector("a"));
+
+            Assert.Equal("and 3 more passed", checks.QuerySelector(".pull-request-detail-checks__more")!.TextContent.Trim());
+            Assert.Contains("7/9 passed", Detail(pane).TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>The ones left out are only called passed when they all did.</summary>
+    [Fact]
+    public void Checks_left_out_that_did_not_all_pass_are_only_counted()
+    {
+        var failing = Enumerable.Range(1, 7).Select(n => new GitHubCheck($"check-{n}", GitHubCheckState.Failing, null, null, null));
+        var pull = Pull("JSdotNet/Backlog", 1) with
+        {
+            Checks = GitHubCheckState.Failing,
+            CheckCounts = new GitHubCheckCounts(Passed: 1, Failed: 7, Pending: 0),
+            HeadChecks = [.. failing, new GitHubCheck("passed", GitHubCheckState.Passing, null, null, null)]
+        };
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", pull));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var checks = pane.Find("[data-testid='pull-request-detail-checks']");
+            Assert.Equal(6, checks.QuerySelectorAll("li[data-check-state]").Length);
+            Assert.Equal("and 2 more", checks.QuerySelector(".pull-request-detail-checks__more")!.TextContent.Trim());
+        });
+    }
+
+    [Fact]
+    public void A_pull_request_with_no_checks_says_none_have_reported()
+    {
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1) with { Checks = GitHubCheckState.None }));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("No checks have reported yet.", pane.Find("[data-testid='pull-request-detail-checks']").TextContent.Trim());
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-checks-meter']"));
+        });
+    }
+
+    /// <summary>The four things GitHub gates a merge on, each ok, waiting or failing,
+    /// in words.</summary>
+    [Theory]
+    [InlineData("no-checks", "checks", "waiting", "None reported yet")]
+    [InlineData("checks-passed", "checks", "ok", "9/9 passed")]
+    [InlineData("checks-running-2", "checks", "waiting", "2 running")]
+    [InlineData("checks-failing", "checks", "failing", "1 failing")]
+    [InlineData("roll-up-passing", "checks", "ok", "Passing")]
+    [InlineData("changes-requested", "review", "failing", "Changes requested")]
+    [InlineData("two-approvals", "review", "ok", "2 approvals")]
+    [InlineData("draft", "review", "waiting", "Not requested (draft)")]
+    [InlineData("review-required", "review", "waiting", "Approval required")]
+    [InlineData("ready", "review", "ok", "No review required")]
+    [InlineData("behind-by", "up-to-date", "waiting", "3 commits behind main")]
+    [InlineData("behind", "up-to-date", "waiting", "Behind main")]
+    [InlineData("level", "up-to-date", "ok", "With main")]
+    [InlineData("fork", "up-to-date", "ok", "Not compared")]
+    [InlineData("ready", "up-to-date", "ok", "With main")]
+    [InlineData("conflicts", "mergeable", "failing", "Conflicts with main")]
+    [InlineData("ready", "mergeable", "ok", "No conflicts")]
+    public void Merge_readiness_says_each_line_in_words(string state, string line, string expectedState, string words)
+    {
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", PullIn(state)));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var (_, actualState, actualWords) = Assert.Single(ReadinessLines(pane), entry => entry.Line == line);
+            Assert.Equal(expectedState, actualState);
+            Assert.Equal(words, actualWords);
+        });
+    }
+
+    /// <summary>A stack in the detail, bottom first, the one picked marked.</summary>
+    [Fact]
+    public void The_detail_draws_the_stack_bottom_first_with_the_selected_one_marked()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            Pull("JSdotNet/Backlog", 12, baseRef: "feature-11"),
+            Pull("JSdotNet/Backlog", 11, baseRef: "feature-10"),
+            Pull("JSdotNet/Backlog", 10));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.Equal(3, RowKeys(pane).Count));
+
+        Select(pane, "JSdotNet/Backlog#11");
+
+        pane.WaitForAssertion(() =>
+        {
+            var stack = pane.Find("[data-testid='pull-request-stack']");
+            Assert.Contains("Stack · merges bottom first", stack.TextContent, StringComparison.Ordinal);
+
+            var members = stack.QuerySelectorAll("li");
+            Assert.Equal(["JSdotNet/Backlog#10", "JSdotNet/Backlog#11", "JSdotNet/Backlog#12"], members.Select(member => member.GetAttribute("data-pull-request")));
+            Assert.Equal([null, "true", null], members.Select(member => member.GetAttribute("aria-current")));
+        });
+    }
+
+    [Fact]
+    public void A_pull_request_in_no_stack_draws_none()
+    {
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1)));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(pane.FindAll("[data-testid='pull-request-detail']"));
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-stack']"));
         });
     }
 
@@ -590,15 +1193,10 @@ public sealed class PullRequestsPaneTests : IDisposable
 
             var row = pane.FindAll("[data-testid='pull-request-row']")[0];
             Assert.Equal("archify", row.QuerySelector("[data-testid='pull-request-repository']")!.TextContent.Trim());
-            Assert.Equal("https://github.com/JSdotNet/Archify/pull/20", row.QuerySelector("a[data-testid='pull-request-link']")!.GetAttribute("href"));
-            Assert.Contains("feature-20 → main", row.TextContent, StringComparison.Ordinal);
-            Assert.Contains("Merged", row.QuerySelector("[data-testid='pull-request-state']")!.TextContent, StringComparison.Ordinal);
-
-            // The link carries Merged as its colour, and no chip repeats it.
-            Assert.Contains("integration-link--state-merged", row.QuerySelector("a[data-testid='pull-request-link']")!.ClassList);
+            Assert.Equal("Merged", row.QuerySelector("[data-testid='pull-request-verdict']")!.TextContent.Trim());
             Assert.Empty(row.QuerySelectorAll(".badge--integration"));
 
-            // Coarse in the cell, with who merged it beside; exact in the title.
+            // Coarse on the row, with who merged it beside; exact in the title.
             var mergedAt = row.QuerySelector("[data-testid='pull-request-merged-at']")!;
             Assert.Equal("2h ago", mergedAt.TextContent.Trim());
             Assert.Contains(
@@ -607,12 +1205,18 @@ public sealed class PullRequestsPaneTests : IDisposable
                 StringComparison.Ordinal);
             Assert.Equal("merger-20", row.QuerySelector("[data-testid='pull-request-merged-by']")!.TextContent.Trim());
             Assert.Contains("2h ago · by merger-20", NormalizedText(mergedAt.ParentElement!), StringComparison.Ordinal);
+
+            // The detail: the link wears Merged as its colour, and the banner says it.
+            var detail = Detail(pane);
+            Assert.Equal("https://github.com/JSdotNet/Archify/pull/20", detail.QuerySelector("a[data-testid='pull-request-link']")!.GetAttribute("href"));
+            Assert.Contains("integration-link--state-merged", detail.QuerySelector("a[data-testid='pull-request-link']")!.ClassList);
+            Assert.Contains("Merged", detail.QuerySelector("[data-testid='pull-request-state']")!.TextContent, StringComparison.Ordinal);
+            Assert.Contains("feature-20 → main", detail.TextContent, StringComparison.Ordinal);
+            Assert.Equal("Merged", pane.Find("[data-testid='pull-request-banner']").GetAttribute("data-verdict"));
         });
 
-        // No column of its own for the merger: the table has to fit beside the shell.
-        Assert.Equal(
-            ["Repository", "Pull request", "Branch", "Merged", "Task", "Session"],
-            pane.FindAll("[data-testid='pull-requests-merged-table'] th").Select(header => header.TextContent.Trim()));
+        // One group, the window it was read for.
+        Assert.Equal([("merged", "Last 14 days", 2)], Groups(pane));
 
         Assert.Equal(3, client.MergedListed.Count);
 
@@ -642,7 +1246,7 @@ public sealed class PullRequestsPaneTests : IDisposable
             Assert.Equal("Recently merged on GitHub", pane.Find("#pull-requests-title").TextContent.Trim());
             Assert.Equal("0 merged pull requests", pane.Find("[data-testid='pull-requests-count']").TextContent.Trim());
             Assert.Contains("merged in the last 14 days", pane.Find("[data-testid='pull-requests-subtitle']").TextContent, StringComparison.Ordinal);
-            Assert.Contains("No pull requests merged in the last 14 days.", pane.Markup, StringComparison.Ordinal);
+            Assert.Contains("No pull requests merged in the last 14 days.", pane.Find("[data-testid='pull-requests-empty']").TextContent, StringComparison.Ordinal);
             Assert.DoesNotContain("open pull request", pane.Find("[data-testid='pull-requests-panel']").TextContent, StringComparison.OrdinalIgnoreCase);
         });
     }
@@ -798,10 +1402,12 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         pane.WaitForAssertion(() =>
         {
-            var row = Assert.Single(pane.FindAll("[data-testid='pull-request-row']"));
-            Assert.Empty(row.QuerySelectorAll("button"));
-            Assert.Equal("Pull requests page", row.QuerySelector("[data-testid='pull-request-task']")!.TextContent.Trim());
-            Assert.StartsWith("Title of on-branch-10", row.QuerySelector("[data-testid='pull-request-session']")!.TextContent.Trim(), StringComparison.Ordinal);
+            Assert.Single(pane.FindAll("[data-testid='pull-request-row']"));
+            var detail = Detail(pane);
+            Assert.Empty(detail.QuerySelectorAll(".pull-request-banner__acts"));
+            Assert.Empty(detail.QuerySelectorAll("[data-testid='pull-request-readiness']"));
+            Assert.Equal("Pull requests page", detail.QuerySelector("[data-testid='pull-request-task']")!.TextContent.Trim());
+            Assert.StartsWith("Title of on-branch-10", detail.QuerySelector("[data-testid='pull-request-session']")!.TextContent.Trim(), StringComparison.Ordinal);
         });
     }
 
@@ -938,8 +1544,7 @@ public sealed class PullRequestsPaneTests : IDisposable
 
     /// <summary>A stack reads as one tree, bottom first and each pull request one
     /// level under the one it waits on, whatever order GitHub updated them in — and
-    /// it sits in the list where its latest update puts it, with no heading of its
-    /// own.</summary>
+    /// it sits in its lane where its latest update puts it.</summary>
     [Fact]
     public void A_stack_is_one_indented_tree_where_its_latest_update_sits()
     {
@@ -961,11 +1566,14 @@ public sealed class PullRequestsPaneTests : IDisposable
                 ["JSdotNet/Backlog#3", "JSdotNet/Backlog#10", "JSdotNet/Backlog#11", "JSdotNet/Backlog#12", "JSdotNet/Backlog#1", "JSdotNet/Backlog#2"],
                 RowKeys(pane));
 
-            Assert.Equal(
-                [null, "0", "1", "2", null, null],
-                pane.FindAll("[data-testid='pull-request-row']").Select(row => row.GetAttribute("data-stack-depth")));
+            var rows = pane.FindAll("[data-testid='pull-request-row']");
+            Assert.Equal([null, "0", "1", "2", null, null], rows.Select(row => row.GetAttribute("data-stack-depth")));
 
-            Assert.Empty(pane.FindAll(".data-table__group-name"));
+            // Indented one step per level above the bottom; the bottom is not.
+            Assert.Equal(
+                [false, false, true, true, false, false],
+                rows.Select(row => row.ClassList.Contains("pull-requests-row--stacked")));
+            Assert.Equal("--chain-depth: 2", rows[3].GetAttribute("style"));
         });
     }
 
@@ -985,19 +1593,24 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         pane.WaitForAssertion(() =>
         {
-            var bottom = Row(pane, "JSdotNet/Backlog#10");
-            Assert.Null(bottom.QuerySelector("[data-testid='pull-request-waits-on']"));
-            Assert.Equal("Merge now", bottom.QuerySelector("[data-testid='pull-request-merge']")!.TextContent.Trim());
-
-            var middle = Row(pane, "JSdotNet/Backlog#11");
-            Assert.Equal("Waits on #10", WaitsOn(middle));
-            Assert.Null(middle.QuerySelector("[data-testid='pull-request-merge']"));
-
-            // A request GitHub already holds is still the reader's to withdraw.
-            var top = Row(pane, "JSdotNet/Backlog#12");
-            Assert.Equal("Waits on #11", WaitsOn(top));
-            Assert.Equal("Cancel auto-merge", top.QuerySelector("[data-testid='pull-request-merge']")!.TextContent.Trim());
+            Assert.Null(WaitsOn(Row(pane, "JSdotNet/Backlog#10")));
+            Assert.Equal("↳ Waits on #10, merge that first", WaitsOn(Row(pane, "JSdotNet/Backlog#11")));
+            Assert.Equal("↳ Waits on #11, merge that first", WaitsOn(Row(pane, "JSdotNet/Backlog#12")));
         });
+
+        Select(pane, "JSdotNet/Backlog#10");
+        pane.WaitForAssertion(() => Assert.Equal("Merge now", pane.Find("[data-testid='pull-request-merge']").TextContent.Trim()));
+
+        Select(pane, "JSdotNet/Backlog#11");
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("JSdotNet/Backlog#11", Detail(pane).GetAttribute("data-pull-request"));
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-merge']"));
+        });
+
+        // A request GitHub already holds is still the reader's to withdraw.
+        Select(pane, "JSdotNet/Backlog#12");
+        pane.WaitForAssertion(() => Assert.Equal("Cancel auto-merge", pane.Find("[data-testid='pull-request-merge']").TextContent.Trim()));
     }
 
     /// <summary>The stack is read from every author's pull requests, so Mine hiding
@@ -1018,8 +1631,8 @@ public sealed class PullRequestsPaneTests : IDisposable
             Assert.Equal(["JSdotNet/Backlog#11"], RowKeys(pane));
             var row = Row(pane, "JSdotNet/Backlog#11");
             Assert.Equal("1", row.GetAttribute("data-stack-depth"));
-            Assert.Equal("Waits on #10", WaitsOn(row));
-            Assert.Null(row.QuerySelector("[data-testid='pull-request-merge']"));
+            Assert.Equal("↳ Waits on #10, merge that first", WaitsOn(row));
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-merge']"));
         });
     }
 
@@ -1037,14 +1650,14 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.WaitForAssertion(() =>
         {
             Assert.Equal(2, RowKeys(pane).Count);
-            Assert.Empty(pane.FindAll(".data-table__group-name"));
             Assert.Empty(pane.FindAll("[data-stack-depth]"));
             Assert.Empty(pane.FindAll("[data-testid='pull-request-waits-on']"));
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-stack']"));
         });
     }
 
     /// <summary>Two pull requests targeting each other's branches have no bottom to
-    /// merge first, so neither is drawn as waiting on the other.</summary>
+    /// merge first, so neither is drawn as waiting on the other, and each can merge.</summary>
     [Fact]
     public void Pull_requests_targeting_each_others_branches_are_no_stack()
     {
@@ -1060,16 +1673,25 @@ public sealed class PullRequestsPaneTests : IDisposable
         {
             Assert.Equal(2, RowKeys(pane).Count);
             Assert.Empty(pane.FindAll("[data-testid='pull-request-waits-on']"));
-            Assert.Equal(2, pane.FindAll("[data-testid='pull-request-merge']").Count);
+            Assert.Equal("Merge now", pane.Find("[data-testid='pull-request-merge']").TextContent.Trim());
+        });
+
+        Select(pane, "JSdotNet/Backlog#11");
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("JSdotNet/Backlog#11", Detail(pane).GetAttribute("data-pull-request"));
+            Assert.Equal("Merge now", pane.Find("[data-testid='pull-request-merge']").TextContent.Trim());
         });
     }
 
-    // --- Helpers --------------------------------------------------------------
+    // --- Checks, labels and pins ----------------------------------------------
 
-    /// <summary>GitHub's "8/9", what holds the rest, and what the reviewers decided —
-    /// each a word in a badge, never a colour alone.</summary>
+    /// <summary>GitHub's "8/9" as a meter on the row — passed, failed and running as
+    /// three widths beside the words, the exact counts in its title — and the review in
+    /// words in the detail.</summary>
     [Fact]
-    public void Check_progress_and_reviews_are_badges_in_words()
+    public void The_checks_meter_says_its_counts_in_words_and_the_review_is_said_in_the_detail()
     {
         var client = new StubClient().Lists(
             "JSdotNet/Backlog",
@@ -1094,25 +1716,30 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         pane.WaitForAssertion(() =>
         {
-            var first = Row(pane, "JSdotNet/Backlog#1");
-            Assert.Equal("7/10 checks", Text(first, "pull-request-checks"));
-            Assert.Equal("1 failing", Text(first, "pull-request-checks-failing"));
-            Assert.Equal("2 pending", Text(first, "pull-request-checks-pending"));
-            Assert.Equal("1 approval", Text(first, "pull-request-approvals"));
-            Assert.Equal("Review required", Text(first, "pull-request-review"));
+            var first = Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-checks-meter']")!;
+            Assert.Equal("7/10 checks passed", NormalizedText(first));
+            Assert.Equal("7 of the head commit's 10 checks passed, 1 failed, 2 still running or waiting.", first.GetAttribute("title"));
+            Assert.Equal("--checks-passed: 7; --checks-failed: 1; --checks-running: 2", first.GetAttribute("style"));
+            Assert.Equal(3, first.QuerySelectorAll("[aria-hidden='true'] > span").Length);
 
-            var second = Row(pane, "JSdotNet/Backlog#2");
-            Assert.Equal("9/9 checks", Text(second, "pull-request-checks"));
-            Assert.Null(second.QuerySelector("[data-testid='pull-request-checks-failing']"));
-            Assert.Null(second.QuerySelector("[data-testid='pull-request-checks-pending']"));
-            Assert.Equal("2 approvals", Text(second, "pull-request-approvals"));
-            Assert.Equal("Approved", Text(second, "pull-request-review"));
+            var second = Row(pane, "JSdotNet/Backlog#2").QuerySelector("[data-testid='pull-request-checks-meter']")!;
+            Assert.Equal("9/9 checks passed", NormalizedText(second));
 
-            // No counts read: the roll-up's word, as before; no approvals, no badge.
-            var third = Row(pane, "JSdotNet/Backlog#3");
-            Assert.Equal("Checks passing", Text(third, "pull-request-checks"));
-            Assert.Null(third.QuerySelector("[data-testid='pull-request-approvals']"));
-            Assert.Equal("Changes requested", Text(third, "pull-request-review"));
+            // No counts read: no meter.
+            Assert.Null(Row(pane, "JSdotNet/Backlog#3").QuerySelector("[data-testid='pull-request-checks-meter']"));
+        });
+
+        Select(pane, "JSdotNet/Backlog#1");
+        pane.WaitForAssertion(() => Assert.Equal(("review", Ok, "1 approval"), ReadinessLines(pane)[1]));
+
+        Select(pane, "JSdotNet/Backlog#2");
+        pane.WaitForAssertion(() => Assert.Equal(("review", Ok, "2 approvals"), ReadinessLines(pane)[1]));
+
+        Select(pane, "JSdotNet/Backlog#3");
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(("checks", Ok, "Passing"), ReadinessLines(pane)[0]);
+            Assert.Equal(("review", "failing", "Changes requested"), ReadinessLines(pane)[1]);
         });
     }
 
@@ -1162,8 +1789,9 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.WaitForAssertion(() =>
         {
             Assert.Empty(pane.FindAll("[data-testid='pull-request-row']"));
-            Assert.Contains("None of the open pull requests carries a label the filter asks for.", pane.Markup, StringComparison.Ordinal);
-            Assert.Contains("Label filter on backlog: frontend.", pane.Markup, StringComparison.Ordinal);
+            var empty = pane.Find("[data-testid='pull-requests-empty']");
+            Assert.Contains("None of the open pull requests carries a label the filter asks for.", empty.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Label filter on backlog: frontend.", empty.TextContent, StringComparison.Ordinal);
         });
     }
 
@@ -1186,10 +1814,10 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
-    /// <summary>The pin is a toggle whose name stays "Pin #n" while aria-pressed says
-    /// whether it is pinned, and the store keeps it.</summary>
+    /// <summary>The pin is a toggle in the detail's head whose name stays "Pin #n"
+    /// while aria-pressed says whether it is pinned, and the store keeps it.</summary>
     [Fact]
-    public void A_row_is_pinned_and_unpinned_with_its_toggle()
+    public void A_pull_request_is_pinned_and_unpinned_with_its_toggle()
     {
         var pins = Pins();
         using var context = Context(new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1)), pins: pins);
@@ -1197,9 +1825,12 @@ public sealed class PullRequestsPaneTests : IDisposable
         var pane = context.Render<PullRequestsPane>();
         pane.WaitForAssertion(() =>
         {
-            var pin = Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-pin']")!;
+            var pin = Detail(pane).QuerySelector("[data-testid='pull-request-pin']")!;
             Assert.Equal("Pin #1", pin.GetAttribute("aria-label"));
             Assert.Equal("false", pin.GetAttribute("aria-pressed"));
+
+            // Nothing on the row is a control: the row is the button.
+            Assert.Empty(Row(pane, "JSdotNet/Backlog#1").QuerySelectorAll("button, a"));
         });
 
         pane.Find("[data-testid='pull-request-pin']").Click();
@@ -1245,6 +1876,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         {
             Assert.Equal(["JSdotNet/Backlog#2", "JSdotNet/Archify#3"], RowKeys(pane));
             Assert.Equal("true", Row(pane, "JSdotNet/Backlog#2").GetAttribute("data-pinned"));
+            Assert.Equal("pinned", Groups(pane)[0].Lane);
         });
     }
 
@@ -1264,18 +1896,45 @@ public sealed class PullRequestsPaneTests : IDisposable
         {
             Assert.Equal(["JSdotNet/Backlog#5", "JSdotNet/Backlog#1"], RowKeys(pane));
             var merged = Row(pane, "JSdotNet/Backlog#5");
-            Assert.Equal("Merged", Text(merged, "pull-request-closed"));
-            Assert.Null(merged.QuerySelector("[data-testid='pull-request-behind']"));
-            Assert.Null(merged.QuerySelector("[data-testid='pull-request-merge']"));
-            Assert.Null(merged.QuerySelector("[data-testid='pull-request-update-branch']"));
-            Assert.Equal(["pull-request-pin"], merged.QuerySelectorAll("button").Select(button => button.GetAttribute("data-testid")));
+            Assert.Equal("Merged", Text(merged, "pull-request-verdict"));
+            Assert.Null(merged.GetAttribute("data-lane"));
+
+            // The detail of a merged pull request has no act, and no readiness to
+            // report: only the pin is a control.
+            var detail = Detail(pane);
+            Assert.Equal("JSdotNet/Backlog#5", detail.GetAttribute("data-pull-request"));
+            Assert.Empty(detail.QuerySelectorAll("[data-testid='pull-request-readiness']"));
+            Assert.Equal(["pull-request-pin"], detail.QuerySelectorAll("button").Select(button => button.GetAttribute("data-testid")));
         });
         Assert.Contains("JSdotNet/Backlog 5", client.PinnedListed);
 
-        Row(pane, "JSdotNet/Backlog#5").QuerySelector("[data-testid='pull-request-pin']")!.Click();
+        pane.Find("[data-testid='pull-request-pin']").Click();
 
         pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#1"], RowKeys(pane)));
         Assert.False(pins.IsPinned("JSdotNet/Backlog", 5));
+    }
+
+    /// <summary>A pinned pull request closed without merging is in no lane, wears the
+    /// archived tone, and offers nothing.</summary>
+    [Fact]
+    public void A_pinned_closed_pull_request_says_closed_and_offers_nothing()
+    {
+        var client = new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1));
+        client.Finds(Pull("JSdotNet/Backlog", 5) with { IsClosed = true, ClosedAt = Noon.AddHours(-1) });
+        using var context = Context(client, pins: Pins(("JSdotNet/Backlog", 5)));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var chip = Row(pane, "JSdotNet/Backlog#5").QuerySelector("[data-testid='pull-request-verdict']")!;
+            Assert.Equal("Closed", chip.TextContent.Trim());
+            Assert.Contains("badge--tone-archived", chip.ClassList);
+
+            var banner = pane.Find("[data-testid='pull-request-banner']");
+            Assert.Equal("Closed", banner.GetAttribute("data-verdict"));
+            Assert.Empty(banner.QuerySelectorAll(".pull-request-banner__acts"));
+        });
     }
 
     /// <summary>A pull request pinned from the merged view is read by number, so the
@@ -1302,15 +1961,15 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.WaitForAssertion(() =>
         {
             Assert.Equal(["JSdotNet/Backlog#10", "JSdotNet/Backlog#1"], RowKeys(pane));
-            Assert.Equal("Merged", Text(Row(pane, "JSdotNet/Backlog#10"), "pull-request-closed"));
+            Assert.Equal("Merged", Text(Row(pane, "JSdotNet/Backlog#10"), "pull-request-verdict"));
         });
     }
 
     /// <summary>Mine is the reader's own pull requests and those related to one of
-    /// their tasks, whoever opened them; the Task column names the related task on
-    /// every row, Everyone's included.</summary>
+    /// their tasks, whoever opened them; the detail names the related task of every
+    /// pull request, Everyone's included.</summary>
     [Fact]
-    public void Mine_includes_pull_requests_related_to_my_tasks_and_every_row_names_its_task()
+    public void Mine_includes_pull_requests_related_to_my_tasks_and_every_detail_names_its_task()
     {
         var mineTask = new DeliveryRunReference(DeliveryRunReferenceKind.Task, "My task", null, null, null, EntryId: Guid.NewGuid());
         var otherTask = new DeliveryRunReference(DeliveryRunReferenceKind.Task, "Their task", null, null, null, EntryId: Guid.NewGuid());
@@ -1329,19 +1988,16 @@ public sealed class PullRequestsPaneTests : IDisposable
                 _ => null
             }));
 
-        pane.WaitForAssertion(() =>
-        {
-            Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Backlog#2"], RowKeys(pane));
-            Assert.Equal("My task", Text(Row(pane, "JSdotNet/Backlog#2"), "pull-request-task"));
-        });
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Backlog#2"], RowKeys(pane)));
+
+        Select(pane, "JSdotNet/Backlog#2");
+        pane.WaitForAssertion(() => Assert.Equal("My task", Text(Detail(pane), "pull-request-task")));
 
         pane.Find("[data-testid='pull-requests-filter-everyone']").Click();
+        pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Backlog#2", "JSdotNet/Backlog#3"], RowKeys(pane)));
 
-        pane.WaitForAssertion(() =>
-        {
-            Assert.Equal(["JSdotNet/Backlog#1", "JSdotNet/Backlog#2", "JSdotNet/Backlog#3"], RowKeys(pane));
-            Assert.Equal("Their task", Text(Row(pane, "JSdotNet/Backlog#3"), "pull-request-task"));
-        });
+        Select(pane, "JSdotNet/Backlog#3");
+        pane.WaitForAssertion(() => Assert.Equal("Their task", Text(Detail(pane), "pull-request-task")));
     }
 
     /// <summary>Two pins made while the first one's read is still out send two reads.
@@ -1365,9 +2021,14 @@ public sealed class PullRequestsPaneTests : IDisposable
         var pane = OnMergedView(context);
         pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#10", "JSdotNet/Backlog#11"], RowKeys(pane)));
 
-        Row(pane, "JSdotNet/Backlog#10").QuerySelector("[data-testid='pull-request-pin']")!.Click();
+        Select(pane, "JSdotNet/Backlog#10");
+        pane.WaitForAssertion(() => Assert.Equal("JSdotNet/Backlog#10", Detail(pane).GetAttribute("data-pull-request")));
+        pane.Find("[data-testid='pull-request-pin']").Click();
         pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog 10"], client.PinnedListed));
-        Row(pane, "JSdotNet/Backlog#11").QuerySelector("[data-testid='pull-request-pin']")!.Click();
+
+        Select(pane, "JSdotNet/Backlog#11");
+        pane.WaitForAssertion(() => Assert.Equal("JSdotNet/Backlog#11", Detail(pane).GetAttribute("data-pull-request")));
+        pane.Find("[data-testid='pull-request-pin']").Click();
         pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog 10", "JSdotNet/Backlog 10,11"], client.PinnedListed));
 
         pane.InvokeAsync(newer.SetResult);
@@ -1404,16 +2065,99 @@ public sealed class PullRequestsPaneTests : IDisposable
         Assert.Equal(reads, client.ListCalls);
     }
 
-    private static string? Text(AngleSharp.Dom.IElement row, string testId) =>
-        row.QuerySelector($"[data-testid='{testId}']")?.TextContent.Trim();
+    // --- Helpers --------------------------------------------------------------
 
-    /// <summary>What the tree mark in front of a stacked row says it waits on, as a
-    /// screen reader announces it.</summary>
+    private const string Ok = "ok";
+
+    /// <summary>One open pull request per named state, for the theories over the
+    /// verdicts and the readiness lines.</summary>
+    private static GitHubOpenPullRequest PullIn(string state) => state switch
+    {
+        "conflicts" => Pull("JSdotNet/Backlog", 1, conflicts: true),
+        "failing-actions-run" => Pull("JSdotNet/Backlog", 1) with
+        {
+            Checks = GitHubCheckState.Failing,
+            HeadChecks = [new GitHubCheck("build", GitHubCheckState.Failing, null, null, 41)]
+        },
+        "failing-other-check" => Pull("JSdotNet/Backlog", 1) with
+        {
+            Checks = GitHubCheckState.Failing,
+            HeadChecks = [new GitHubCheck("ci/external", GitHubCheckState.Failing, null, null, null)]
+        },
+        "changes-requested" => Pull("JSdotNet/Backlog", 1) with
+        {
+            Reviews = new GitHubReviewSummary(GitHubReviewDecision.ChangesRequested, Approvals: 0, ChangesRequested: 1)
+        },
+        "behind" => Pull("JSdotNet/Backlog", 1, behind: true),
+        "draft" => Pull("JSdotNet/Backlog", 1, draft: true),
+        "checks-running" => Pull("JSdotNet/Backlog", 1) with { Checks = GitHubCheckState.Pending },
+        "review-required" => Pull("JSdotNet/Backlog", 1) with
+        {
+            Reviews = new GitHubReviewSummary(GitHubReviewDecision.ReviewRequired, Approvals: 0, ChangesRequested: 0)
+        },
+        "ready-merge-ready" => Pull("JSdotNet/Backlog", 1, mergeReady: true),
+        "ready" => Pull("JSdotNet/Backlog", 1),
+        "ready-auto-merge-on" => Pull("JSdotNet/Backlog", 1, autoMerge: true),
+        "no-checks" => Pull("JSdotNet/Backlog", 1) with { Checks = GitHubCheckState.None },
+        "checks-passed" => Pull("JSdotNet/Backlog", 1) with { CheckCounts = new GitHubCheckCounts(9, 0, 0) },
+        "checks-running-2" => Pull("JSdotNet/Backlog", 1) with { Checks = GitHubCheckState.Pending, CheckCounts = new GitHubCheckCounts(5, 0, 2) },
+        "checks-failing" => Pull("JSdotNet/Backlog", 1) with { Checks = GitHubCheckState.Failing, CheckCounts = new GitHubCheckCounts(8, 1, 0) },
+        "roll-up-passing" => Pull("JSdotNet/Backlog", 1),
+        "two-approvals" => Pull("JSdotNet/Backlog", 1) with
+        {
+            Reviews = new GitHubReviewSummary(GitHubReviewDecision.Approved, Approvals: 2, ChangesRequested: 0)
+        },
+        "behind-by" => Pull("JSdotNet/Backlog", 1) with { BehindBy = 3 },
+        "level" => Pull("JSdotNet/Backlog", 1) with { BehindBy = 0 },
+        "fork" => Pull("JSdotNet/Backlog", 1) with { IsCrossRepository = true },
+        _ => throw new ArgumentOutOfRangeException(nameof(state), state, "No such state.")
+    };
+
+    private static string? Text(AngleSharp.Dom.IElement element, string testId) =>
+        element.QuerySelector($"[data-testid='{testId}']")?.TextContent.Trim();
+
+    /// <summary>What a stacked row says it waits on, in its own words.</summary>
     private static string? WaitsOn(AngleSharp.Dom.IElement row) =>
-        row.QuerySelector("[data-testid='pull-request-waits-on']")?.GetAttribute("aria-label");
+        row.QuerySelector("[data-testid='pull-request-waits-on']")?.TextContent.Trim();
 
     private static AngleSharp.Dom.IElement Row(IRenderedComponent<PullRequestsPane> pane, string key) =>
         pane.Find($"[data-testid='pull-request-row'][data-pull-request='{key}']");
+
+    private static AngleSharp.Dom.IElement Detail(IRenderedComponent<PullRequestsPane> pane) =>
+        pane.Find("[data-testid='pull-request-detail']");
+
+    /// <summary>Presses a row, which picks it for the detail.</summary>
+    private static void Select(IRenderedComponent<PullRequestsPane> pane, string key) => Row(pane, key).Click();
+
+    /// <summary>Each tile as the reader reads it: its lane, its name, its count, and
+    /// its line of reasons.</summary>
+    private static List<(string? Lane, string Label, string Total, string Reasons)> Tiles(IRenderedComponent<PullRequestsPane> pane) =>
+        [.. pane.FindAll("[data-testid='pull-requests-lanes'] > [data-lane]").Select(tile => (
+            tile.GetAttribute("data-lane"),
+            tile.QuerySelector(".pull-requests-lane__label")!.TextContent.Trim(),
+            tile.QuerySelector(".pull-requests-lane__number")!.TextContent.Trim(),
+            tile.QuerySelector(".pull-requests-lane__reasons")!.TextContent.Trim()))];
+
+    /// <summary>Each group of the list: its lane, its heading, and how many rows it
+    /// holds.</summary>
+    private static List<(string? Lane, string Label, int Rows)> Groups(IRenderedComponent<PullRequestsPane> pane) =>
+        [.. pane.FindAll("[data-testid='pull-requests-group']").Select(group =>
+        {
+            var heading = group.QuerySelector(".pull-requests-group__heading")!;
+            var size = heading.QuerySelector(".pull-requests-group__size")!.TextContent.Trim();
+            var label = heading.TextContent.Trim()[..^size.Length].Trim();
+            var rows = group.QuerySelectorAll("[data-testid='pull-request-row']").Length;
+
+            Assert.Equal(rows.ToString(System.Globalization.CultureInfo.InvariantCulture), size);
+            return (group.GetAttribute("data-lane"), label, rows);
+        })];
+
+    /// <summary>The detail's readiness lines: which line, its state, and its words.</summary>
+    private static List<(string? Line, string? State, string Words)> ReadinessLines(IRenderedComponent<PullRequestsPane> pane) =>
+        [.. pane.FindAll("[data-testid='pull-request-readiness'] > li").Select(line => (
+            line.GetAttribute("data-line"),
+            line.GetAttribute("data-state"),
+            line.QuerySelector(".pull-request-readiness__words")!.FirstChild!.TextContent.Trim()))];
 
     /// <summary>An element's text with its markup's line breaks and indentation
     /// collapsed to single spaces, as a reader sees it.</summary>
