@@ -335,6 +335,12 @@ public sealed class SettingsRepositoryRenameTests
 
         public (bool Available, string? Reason) PlanDrafterAvailability => (false, null);
 
+        public bool TriageAdvisorAvailable => false;
+
+        public Task<Result<InboxTriageAdviceDto>> AdviseTriageAsync(Guid id, IReadOnlyList<string>? repositories = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Result<InboxTriagePassDto>> ProposeTriagePassAsync(IReadOnlyList<Guid> ids, IReadOnlyList<string>? repositories = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public Task<Result<IReadOnlyList<InboxSuggestionDto>>> SuggestAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(Result.Success<IReadOnlyList<InboxSuggestionDto>>([]));
 

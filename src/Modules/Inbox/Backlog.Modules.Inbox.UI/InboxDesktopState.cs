@@ -1002,6 +1002,186 @@ public sealed class InboxDesktopState
     // Leaving the mode changes nothing but the view: the item the reader stopped
     // at stays selected, so the queue opens on it.
 
+    // --- AI triage (local ADR 0023) ----------------------------------------------
+    // Asked of the module only while the advisor says it can run. While it
+    // cannot — no Foundry, or none registered — nothing is asked and nothing is
+    // exposed, so the pane draws no AI surface at all (ADR 0023 §4). A call that
+    // fails, or throws, is the same as no answer: the item shows no cards, the
+    // pass shows nothing, and triage carries on with the rule-based suggestions.
+
+    /// <summary>The cards already asked for, by item, for the app session — one
+    /// model call per item opened in triage (ADR 0023 §2). An item whose call
+    /// failed is kept too, as no advice, so moving back to it does not ask again.</summary>
+    private readonly Dictionary<Guid, InboxTriageAdviceDto?> _triageAdvice = [];
+
+    /// <summary>The items whose cards are being asked for right now.</summary>
+    private readonly HashSet<Guid> _triageAdvicePending = [];
+
+    /// <summary>Whether any AI triage surface may be shown: the advisor is
+    /// registered and can run. Read live, so configuring Foundry in Settings
+    /// shows the surfaces without a restart, and removing it hides them.</summary>
+    public bool TriageAdvisorAvailable => _inbox.TriageAdvisorAvailable;
+
+    /// <summary>The AI cards for <paramref name="itemId"/>, or null — before
+    /// they were asked for, when the call failed, when the advisor is not
+    /// available, and when the answer has no card left to show. The answer is
+    /// kept for the session, but the inbox moves on under it: a duplicate of a
+    /// capture since decided, and plan members since decided, are left out, so
+    /// a card never names what the reader can no longer find.</summary>
+    public InboxTriageAdviceDto? TriageAdviceFor(Guid itemId)
+    {
+        if (!TriageAdvisorAvailable || !_triageAdvice.TryGetValue(itemId, out var advice) || advice is null) return null;
+
+        var waiting = Items.Where(IsUndecided).Select(item => item.Id).ToHashSet();
+
+        var duplicate = advice.Duplicate is { TargetKind: InboxTriageTargetKind.InboxItem } twin && !waiting.Contains(twin.TargetId)
+            ? null
+            : advice.Duplicate;
+
+        var plan = advice.Plan;
+        if (plan is not null)
+        {
+            var members = plan.ItemIds.Where(waiting.Contains).ToList();
+            plan = members.Count >= 2 ? plan with { ItemIds = members } : null;
+        }
+
+        var current = advice with { Duplicate = duplicate, Plan = plan };
+        return current.HasCards ? current : null;
+    }
+
+    /// <summary>The AI cards for the item being read, as <see cref="TriageAdviceFor"/>.</summary>
+    public InboxTriageAdviceDto? TriageAdvice =>
+        SelectedItemId is { } id ? TriageAdviceFor(id) : null;
+
+    /// <summary>
+    /// Asks for the AI cards of the item being read, when triage mode is on, the
+    /// advisor can run, and they were not asked for before in this app session.
+    /// Called when an item is opened in triage, and a no-op otherwise — never on
+    /// intake, on a timer or while the list is browsed (ADR 0023 §2). The
+    /// repositories sent are the ones Settings lists.
+    /// </summary>
+    public async Task LoadTriageAdviceAsync()
+    {
+        if (!TriageMode || SelectedItem is not { } item || !IsUndecided(item)) return;
+        if (!TriageAdvisorAvailable) return;
+        if (_triageAdvice.ContainsKey(item.Id) || !_triageAdvicePending.Add(item.Id)) return;
+
+        InboxTriageAdviceDto? advice = null;
+        try
+        {
+            var answer = await _inbox.AdviseTriageAsync(item.Id, ConfiguredRepositories());
+            advice = answer.IsSuccess ? answer.Value : null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A card is a proposal; one that could not be made is no card, not
+            // an error the reader has to deal with.
+            advice = null;
+        }
+        finally
+        {
+            _triageAdvicePending.Remove(item.Id);
+        }
+
+        _triageAdvice[item.Id] = advice;
+        Changed?.Invoke();
+    }
+
+    /// <summary>The AI triage pass on screen, or null — before it was asked
+    /// for, after it was put away, when it failed, and while the advisor is not
+    /// available.</summary>
+    public InboxTriagePassDto? TriagePass => TriageAdvisorAvailable ? _triagePass : null;
+
+    private InboxTriagePassDto? _triagePass;
+
+    /// <summary>The one sentence that names why the last pass failed, or null —
+    /// and null while the advisor is not available, like every AI surface.
+    /// The reader stays in triage and nothing changed (ADR 0023 §4).</summary>
+    public string? TriagePassError => TriageAdvisorAvailable ? _triagePassError : null;
+
+    private string? _triagePassError;
+
+    /// <summary>The number of the latest pass asked for, so an answer that
+    /// lands after the pass was put away, or asked again, is dropped.</summary>
+    private int _triagePassVersion;
+
+    /// <summary>While the pass is being asked for.</summary>
+    public bool TriagePassRunning { get; private set; }
+
+    /// <summary>
+    /// "Let AI propose the rest": asks for the pass over every unprocessed item
+    /// of the slice being triaged, and answers whether one came back. Asked only
+    /// when the advisor can run and a pass is not already running; a failure,
+    /// thrown or returned, leaves no pass and one sentence in
+    /// <see cref="TriagePassError"/>. Nothing is applied — the pass is a
+    /// proposal until the reader presses Apply (ADR 0023 §5).
+    /// </summary>
+    public async Task<bool> ProposeTriagePassAsync()
+    {
+        if (TriagePassRunning || !TriageAdvisorAvailable) return false;
+
+        var ids = SliceItems.Where(IsUndecided).Select(item => item.Id).ToList();
+        if (ids.Count == 0) return false;
+
+        var version = ++_triagePassVersion;
+        TriagePassRunning = true;
+        _triagePassError = null;
+        _triagePass = null;
+        Changed?.Invoke();
+
+        InboxTriagePassDto? pass = null;
+        string? error = null;
+        try
+        {
+            var answer = await _inbox.ProposeTriagePassAsync(ids, ConfiguredRepositories());
+            if (answer.IsSuccess) pass = answer.Value;
+            else error = answer.Error.Message;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            error = $"The AI triage pass failed: {ex.Message}";
+        }
+        finally
+        {
+            TriagePassRunning = false;
+        }
+
+        // Put away, or asked again, while this one was out: its answer is stale.
+        if (version != _triagePassVersion)
+        {
+            Changed?.Invoke();
+            return false;
+        }
+
+        _triagePass = pass;
+        _triagePassError = error;
+        Changed?.Invoke();
+
+        return pass is not null;
+    }
+
+    /// <summary>Puts the pass, or its failure, away.</summary>
+    public void DismissTriagePass()
+    {
+        // A pass still out is put away too: its answer will be dropped.
+        _triagePassVersion++;
+
+        if (_triagePass is null && _triagePassError is null) return;
+
+        _triagePass = null;
+        _triagePassError = null;
+        Changed?.Invoke();
+    }
+
+    /// <summary>Waiting for its first decision: unprocessed and never routed.</summary>
+    private static bool IsUndecided(InboxItemDto item) =>
+        item.Status == InboxStatus.Unprocessed && item.Routing is null;
+
+    /// <summary>The repositories Settings lists, <c>owner/name</c>, as the
+    /// advisor may name them.</summary>
+    private IReadOnlyList<string> ConfiguredRepositories() =>
+        [.. _gitHubSettings.Current.Repositories.Select(repository => repository.FullName)];
+
     /// <summary>Where the item being read sat in the rows, the last time it was
     /// in them. A decision takes an item out of the rows while it stays
     /// selected, and "next" from there means the row that slid into its place.</summary>
@@ -1036,6 +1216,15 @@ public sealed class InboxDesktopState
         if (TriageMode == on) return;
 
         TriageMode = on;
+
+        // The pass belongs to the triage it was asked from.
+        if (!on)
+        {
+            _triagePassVersion++;
+            _triagePass = null;
+            _triagePassError = null;
+        }
+
         if (on && TriagePosition < 0)
         {
             SelectedItemId = VisibleItems.Count > 0 ? VisibleItems[0].Id : null;

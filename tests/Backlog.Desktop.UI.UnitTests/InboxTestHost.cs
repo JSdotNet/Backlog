@@ -115,6 +115,50 @@ internal sealed class FakeInboxItems : IInboxItems
     public (bool Available, string? Reason) PlanDrafterAvailability { get; set; } =
         (false, "Configure Azure Foundry in Settings to create plans.");
 
+    /// <summary>Whether a triage advisor can run. Off by default — the state
+    /// of an app with no Foundry, where no AI triage surface is drawn.</summary>
+    public bool TriageAdvisorAvailable { get; set; }
+
+    /// <summary>What the advisor answers per item; an item with no entry is
+    /// answered with no cards.</summary>
+    public Dictionary<Guid, Result<InboxTriageAdviceDto>> TriageAdvice { get; } = [];
+
+    /// <summary>What the pass answers.</summary>
+    public Result<InboxTriagePassDto> TriagePassAnswer { get; set; } = Result.Success(InboxTriagePassDto.Nothing);
+
+    /// <summary>Thrown by both triage asks instead of answering, for the
+    /// "a call throws" path.</summary>
+    public Exception? TriageThrows { get; set; }
+
+    /// <summary>Every ask for cards, by item, with the repositories it carried.</summary>
+    public List<(Guid Id, IReadOnlyList<string>? Repositories)> AdviceRequests { get; } = [];
+
+    /// <summary>Every ask for the pass, with the items and repositories it carried.</summary>
+    public List<(IReadOnlyList<Guid> Ids, IReadOnlyList<string>? Repositories)> PassRequests { get; } = [];
+
+    public Task<Result<InboxTriageAdviceDto>> AdviseTriageAsync(Guid id, IReadOnlyList<string>? repositories = null, CancellationToken cancellationToken = default)
+    {
+        AdviceRequests.Add((id, repositories));
+        if (TriageThrows is { } thrown) throw thrown;
+        if (!TriageAdvisorAvailable) return Task.FromResult(Result.Failure<InboxTriageAdviceDto>(InboxErrors.TriageNotConfigured));
+
+        return Task.FromResult(TriageAdvice.TryGetValue(id, out var answer) ? answer : Result.Success(InboxTriageAdviceDto.None(id)));
+    }
+
+    /// <summary>Awaited before the pass answers, so a test can act while it
+    /// is out. Null answers at once.</summary>
+    public Func<Task>? BeforeTriagePass { get; set; }
+
+    public async Task<Result<InboxTriagePassDto>> ProposeTriagePassAsync(IReadOnlyList<Guid> ids, IReadOnlyList<string>? repositories = null, CancellationToken cancellationToken = default)
+    {
+        PassRequests.Add((ids, repositories));
+        if (BeforeTriagePass is { } before) await before();
+        if (TriageThrows is { } thrown) throw thrown;
+        if (!TriageAdvisorAvailable) return Result.Failure<InboxTriagePassDto>(InboxErrors.TriageNotConfigured);
+
+        return TriagePassAnswer;
+    }
+
     /// <summary>The clock captures are stamped with; advanced by a test that
     /// cares about order.</summary>
     public DateTimeOffset Now { get; set; } = new(2026, 9, 14, 9, 0, 0, TimeSpan.Zero);

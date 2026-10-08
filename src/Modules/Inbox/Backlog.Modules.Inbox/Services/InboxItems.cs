@@ -1,6 +1,7 @@
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Inbox.Features.AdviseTriage;
 using Backlog.Modules.Inbox.Features.ArchiveItem;
 using Backlog.Modules.Inbox.Features.AssignRepositories;
 using Backlog.Modules.Inbox.Features.RenameRepository;
@@ -21,6 +22,7 @@ using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
 using Backlog.Modules.Inbox.Features.InferBatchOrder;
 using Backlog.Modules.Inbox.Features.ProposeBatch;
+using Backlog.Modules.Inbox.Features.ProposeTriagePass;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.Related;
 using Backlog.Modules.Inbox.Features.RenameGroup;
@@ -42,8 +44,9 @@ namespace Backlog.Modules.Inbox.Services;
 /// The published <see cref="IInboxItems"/> port, wired to the feature slices
 /// behind it. Deliberately nothing but mapping, as <c>TaskItems</c> is: every
 /// rule lives in a handler or in the aggregate, so there is no third place to
-/// look. The one thing it answers itself is <see cref="PlanDrafterAvailability"/>,
-/// which is a read of the drafter's own property and not a rule.
+/// look. The two things it answers itself are <see cref="PlanDrafterAvailability"/>
+/// and <see cref="TriageAdvisorAvailable"/>, which are reads of the drafter's and
+/// the advisor's own property and not rules.
 /// </summary>
 internal sealed class InboxItems(
     IQueryHandler<GetInboxQuery, InboxSnapshotDto> snapshot,
@@ -78,7 +81,10 @@ internal sealed class InboxItems(
     IQueryHandler<RelatedQuery, Result<InboxRelationsDto>> related,
     ICommandHandler<LinkToTaskCommand, Result> linkToTask,
     ICommandHandler<MergeIntoTaskCommand, Result> mergeIntoTask,
-    IInboxPlanDrafter? drafter = null) : IInboxItems
+    IQueryHandler<AdviseTriageQuery, Result<InboxTriageAdviceDto>> adviseTriage,
+    IQueryHandler<ProposeTriagePassQuery, Result<InboxTriagePassDto>> proposeTriagePass,
+    IInboxPlanDrafter? drafter = null,
+    IInboxTriageAdvisor? triageAdvisor = null) : IInboxItems
 {
     public Task<InboxSnapshotDto> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
         snapshot.Handle(new GetInboxQuery(), cancellationToken);
@@ -203,6 +209,20 @@ internal sealed class InboxItems(
         drafter is { IsAvailable: true }
             ? (true, null)
             : (false, InboxErrors.PlanNotConfigured(drafter?.UnavailableReason).Message);
+
+    public bool TriageAdvisorAvailable => triageAdvisor is { IsAvailable: true };
+
+    public Task<Result<InboxTriageAdviceDto>> AdviseTriageAsync(
+        Guid id,
+        IReadOnlyList<string>? repositories = null,
+        CancellationToken cancellationToken = default) =>
+        adviseTriage.Handle(new AdviseTriageQuery(id, repositories), cancellationToken);
+
+    public Task<Result<InboxTriagePassDto>> ProposeTriagePassAsync(
+        IReadOnlyList<Guid> ids,
+        IReadOnlyList<string>? repositories = null,
+        CancellationToken cancellationToken = default) =>
+        proposeTriagePass.Handle(new ProposeTriagePassQuery(ids, repositories), cancellationToken);
 
     public Task<Result<InboxListDto>> CreateListAsync(string name, Guid? groupId = null, CancellationToken cancellationToken = default) =>
         createList.Handle(new CreateListCommand(name, groupId), cancellationToken);

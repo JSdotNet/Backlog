@@ -243,6 +243,31 @@ public interface IInboxItems
     /// reason rather than hidden — unavailability never hides an act.</summary>
     (bool Available, string? Reason) PlanDrafterAvailability { get; }
 
+    /// <summary>Whether a triage advisor is registered and can run. Unlike
+    /// <see cref="PlanDrafterAvailability"/> there is no reason to show: while it
+    /// is false every AI triage surface is hidden, not disabled (local ADR 0023 §4).</summary>
+    bool TriageAdvisorAvailable { get; }
+
+    /// <summary>The AI cards for one unprocessed item opened in triage: at most
+    /// one duplicate and one plan grouping, and the repositories it would go
+    /// to, held to what the inbox and the backlog hold. <paramref name="repositories"/>
+    /// are the ones configured in Settings. One model call per ask. Fails with
+    /// <c>inbox.triage.not_configured</c> when <see cref="TriageAdvisorAvailable"/>
+    /// is false and <c>inbox.triage.failed</c> when the advisor could not answer.</summary>
+    Task<Result<InboxTriageAdviceDto>> AdviseTriageAsync(
+        Guid id,
+        IReadOnlyList<string>? repositories = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The AI triage pass over the unprocessed items of
+    /// <paramref name="ids"/>: plans, duplicate pairs, single routes, list
+    /// filings, archives, and the items it could not place. A proposal only —
+    /// nothing changes. Fails as <see cref="AdviseTriageAsync"/> does.</summary>
+    Task<Result<InboxTriagePassDto>> ProposeTriagePassAsync(
+        IReadOnlyList<Guid> ids,
+        IReadOnlyList<string>? repositories = null,
+        CancellationToken cancellationToken = default);
+
     Task<Result<InboxListDto>> CreateListAsync(string name, Guid? groupId = null, CancellationToken cancellationToken = default);
 
     Task<Result> RenameListAsync(Guid listId, string name, CancellationToken cancellationToken = default);
