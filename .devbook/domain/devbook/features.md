@@ -182,6 +182,36 @@ chip moves the demo there. Notes on a demo are placed in spec-manager, the
 specification review tool, so the pane neither pins notes nor follows where the
 reader clicks inside the demo.
 
+A scenario page is listed in the bounded context it lives in, at whatever depth,
+like any page beside it. A scenario page is one end-to-end journey that says
+`type: scenario` in its file-level metadata, and its parts are the outcomes the
+actor reaches. Which pages are journeys comes from the scenario register the
+repository's devbook commits. A repository that commits no register is read for
+the pages that say so themselves. In the menu each journey carries the scenario
+mark and a dot for its last run: passed, failed, stale, or never run. The dot
+differs by shape as well as by colour, and a screen reader hears its state.
+
+The run is the one committed beside the scenario folder's copy of the page,
+`<scenario folder>/<stem>/run.json`. The app reads both the current run format
+and the older one spec-manager's test tooling writes. Whether a run is stale is
+worked out, never stored. The app signs the page as it reads now, with devbook's
+signature and against devbook's shared test vector. A run that proved a different
+signature is stale, and so is an older run that proves no signature at all.
+
+Opening a journey shows its run above the page. The run shows the setup the
+journey runs under: where it starts, who is signed in, the profile, the data sets,
+and the flag and setting overrides. Under the setup is a summary line, then each
+part with its outcome and the screenshots it took. A failed part also shows the
+screenshot taken where it failed.
+
+An image written `scenario:<stem>#<label>` in any chapter shows that screenshot
+from the journey's last run, with a source line under it naming the journey, the
+part, the run's state and the time of the capture. Two such images in one
+paragraph sit side by side. A label the journey does not have lists the labels
+it does have. A journey that does not exist, or a name two journeys share, says
+so. A label the run never captured says that too. A capture older than the last
+run says so on its source line.
+
 ### Remarks on a chapter
 
 ```meta

@@ -1,0 +1,57 @@
+@*
+    The screenshot the run took when a part failed, beside that part's own points.
+*@
+<span class="devbook-scenario-shot devbook-scenario-shot--failure" role="figure" aria-label="@Label" data-testid="devbook-scenario-failure">
+    @if (_image is not null)
+    {
+        <img class="devbook-scenario-shot__image" src="@_image" alt="@Label" loading="lazy" />
+    }
+    else
+    {
+        <EmptyState Title="Screenshot unavailable"
+                    BaseClass="devbook-scenario-shot__placeholder"
+                    TitleCssClass="devbook-scenario-shot__placeholder-title" />
+    }
+    <span class="devbook-scenario-shot__caption">@Label</span>
+</span>
+
+@code {
+    private string? _image;
+    private string? _loadedPath;
+
+    [Parameter, EditorRequired]
+    public string Path { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Part { get; set; }
+
+    [Parameter]
+    public DevbookScenarioStore? Store { get; set; }
+
+    [Parameter, EditorRequired]
+    public DevbookScenario Scenario { get; set; } = null!;
+
+    private string Label => $"Where {Part} failed";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.Equals(Path, _loadedPath, StringComparison.OrdinalIgnoreCase)) return;
+
+        var path = Path;
+        _loadedPath = path;
+        _image = null;
+        if (Store is null) return;
+
+        try
+        {
+            var image = await Store.ImageAsync(Scenario, path);
+
+            // Only the latest read lands: an earlier, slower one is about a path
+            // this part no longer shows.
+            if (string.Equals(path, _loadedPath, StringComparison.OrdinalIgnoreCase)) _image = image;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+        }
+    }
+}

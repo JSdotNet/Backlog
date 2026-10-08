@@ -66,6 +66,15 @@ public static class DevbookTypeMarkers
 
     private static readonly HashSet<string> Known = new(All, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The scenario page's glyph: a journey from a start to a flag. Kept
+    /// apart from <see cref="FileTypes"/>, which mirrors the vendored rule text —
+    /// see <see cref="DevbookSchema.ScenarioFileType"/>.</summary>
+    public const string Scenario = DevbookSchema.ScenarioFileType;
+
+    /// <summary>Whether a file states <c>type: scenario</c>.</summary>
+    public static bool IsScenario(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && string.Equals(value.Trim(), Scenario, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Whether the marker has a glyph for this value as a value of the
     /// closed sets. Nothing in, false — a missing <c>type</c> is not a type nobody
     /// drew.</summary>
@@ -84,6 +93,7 @@ public static class DevbookTypeMarkers
     /// </summary>
     public static bool IsAdditionalPage(string? value, string? fileName) =>
         !IsRecognised(value)
+        && !IsScenario(value)
         && DevbookSchema.IsKnownType(DevbookFolder.Domain, DevbookMetadataLevel.File, value, fileName);
 
     /// <summary>The value as the lookup and the class modifier spell it.</summary>
@@ -98,6 +108,7 @@ public static class DevbookTypeMarkers
     /// chapter. Only a file can be an additional page.</param>
     public static string? GlyphFor(string? value, string? fileName = null) =>
         IsRecognised(value) ? Normalise(value!)
+        : IsScenario(value) ? Scenario
         : IsAdditionalPage(value, fileName) ? AdditionalPage
         : null;
 

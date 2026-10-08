@@ -23,6 +23,14 @@ public static class DevbookSchema
     /// <summary>The contract version these lists were taken from.</summary>
     public const int ContractVersion = 19;
 
+    /// <summary>The file-level <c>type</c> of a scenario page — contract 30, ahead of
+    /// the rest of this class, as <see cref="SyncValues"/> is. A <c>domain/</c>
+    /// file stating it is one end-to-end journey, named after the journey rather than
+    /// typed by its filename, so it is the one file type no filename carries and is
+    /// kept out of <see cref="FileTypes"/>, which mirrors the vendored contract 19
+    /// rule text.</summary>
+    public const string ScenarioFileType = "scenario";
+
     /// <summary>The value an editorial folder rests at, spelled by omitting the
     /// field.</summary>
     public const string RestingStatus = "active";
@@ -147,6 +155,13 @@ public static class DevbookSchema
         var normalised = value.Trim();
         var set = level == DevbookMetadataLevel.File ? FileTypes(folder) : ChapterTypes(folder);
         if (set.Contains(normalised, StringComparer.OrdinalIgnoreCase)) return true;
+
+        if (folder == DevbookFolder.Domain
+            && level == DevbookMetadataLevel.File
+            && string.Equals(normalised, ScenarioFileType, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
 
         return folder == DevbookFolder.Domain
             && level == DevbookMetadataLevel.File

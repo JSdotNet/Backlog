@@ -77,6 +77,11 @@ public static class DevbookModuleRegistration
         // is off, so registering it does not turn it on.
         services.AddSingleton<C4DevbookStore>();
         services.AddSingleton<DevbookChapterWriter>();
+        // The scenario pages and their runs: what the menu marks, what a scenario
+        // page shows above its body, and what a `scenario:` image resolves to. One
+        // per app, since it only caches committed files and drops them when the
+        // folder source says they moved.
+        services.AddSingleton<DevbookScenarioStore>();
         services.Add(new ServiceDescriptor(
             typeof(DomainDevbookStore),
             sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()),

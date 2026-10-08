@@ -837,6 +837,13 @@
     [Parameter]
     public EventCallback<DevbookReference> OnDevbookNavigate { get; set; }
 
+    /// <summary>The host's resolver for images a chapter names by scheme — a
+    /// scenario page's screenshot — cascaded from the pane rather than handed down
+    /// through every view between it and here. Absent, every image keeps the
+    /// knowledge rule.</summary>
+    [CascadingParameter]
+    public IDevbookImageSource? DevbookImages { get; set; }
+
     /// <summary>
     /// The repository-relative path of the knowledge document these blocks were
     /// read from, carrying its area folder — <c>.devbook/domain/roadmap/features.md</c>.
@@ -1177,7 +1184,7 @@
     /// </summary>
     private MarkdownRender.MarkdownInlineTarget? InlineTarget =>
         IsDevbookDocument
-            ? DevbookInlineTargets.For(DevbookDocumentPath, DevbookHrefFor, OnDevbookNavigate)
+            ? DevbookInlineTargets.For(DevbookDocumentPath, DevbookHrefFor, OnDevbookNavigate, DevbookImages)
             : null;
 
     /// <summary>Whether a host has said either of the two things that make this a
