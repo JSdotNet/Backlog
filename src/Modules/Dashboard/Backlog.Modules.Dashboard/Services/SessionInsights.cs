@@ -321,7 +321,8 @@ public sealed class SessionInsights(
                         WeekBuckets.Count(buckets, band, pr => pr.At, weeks.KeyOf)))),
             ActivityByHour = grids.Count == 0 ? [] : grids[^1].Hours,
             ActivityByDay = grids.Count == 0 ? [] : grids[^1].Days,
-            IdleAfter = reading.Activity.IdleAfter
+            IdleAfter = reading.Activity.IdleAfter,
+            LongestSessions = Longest(scoped, scopedActivity, bandOf, from, to)
         };
     }
 
@@ -845,6 +846,89 @@ public sealed class SessionInsights(
                 .OrderByDescending(row => row.Sessions)
                 .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
         ];
+    }
+
+    /// <summary>
+    /// The sessions an agent produced longest in, inside the window. Each session's own
+    /// producing stretches, clipped to the window and summed — disjoint within one
+    /// session, so a sum is the session's time and not an overlap count — which is the
+    /// same measure the tile sums across sessions. Joined to the session records by id,
+    /// because the record is where the title, the repository, the model and the prompt
+    /// count live; a session with no activity record has no time to rank and is left out.
+    /// </summary>
+    private static IReadOnlyList<LongestSession> Longest(
+        IReadOnlyList<AssistantSession> scoped,
+        IReadOnlyList<AssistantActivitySession> scopedActivity,
+        Func<string?, (string Name, RepositoryBandKind Kind)> bandOf,
+        DateTimeOffset from,
+        DateTimeOffset to)
+    {
+        // Keyed by machine and id together: an id is the assistant's, and two machines'
+        // records sharing one are two sessions, not one session's time counted twice.
+        var produced = scopedActivity
+            .GroupBy(session => (session.MachineId, session.Id))
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .SelectMany(session => session.Active)
+                    .Aggregate(TimeSpan.Zero, (running, interval) => running + Clipped(interval, from, to)));
+
+        return
+        [
+            .. scoped
+                .Where(session => !string.IsNullOrEmpty(session.Id))
+                .GroupBy(session => (session.MachineId, session.Id))
+                .Select(group => group.MaxBy(session => session.LastActivityAt)!)
+                .Select(session => (Session: session, Time: produced.TryGetValue((session.MachineId, session.Id), out var time) ? time : TimeSpan.Zero))
+                .Where(pair => pair.Time > TimeSpan.Zero)
+                .OrderByDescending(pair => pair.Time)
+                .ThenByDescending(pair => pair.Session.LastActivityAt)
+                .ThenBy(pair => pair.Session.Id, StringComparer.Ordinal)
+                .Take(AssistantSessionsInsight.LongestSessionsLimit)
+                .Select(pair => new LongestSession(
+                    pair.Session.Id,
+                    pair.Session.Title,
+                    RepositoryOf(pair.Session.Repository, bandOf),
+                    MainModel(pair.Session.ModelUsage),
+                    pair.Session.Prompts,
+                    pair.Time,
+                    pair.Session.LastActivityAt))
+        ];
+    }
+
+    /// <summary>The configured alias where the workspace knows the repository, the
+    /// recorded <c>owner/name</c> where it does not — a row names one session, so folding
+    /// it into the chart's "other" band would hide the one thing the row can say — and
+    /// null where nothing is known.</summary>
+    private static string? RepositoryOf(string? repository, Func<string?, (string Name, RepositoryBandKind Kind)> bandOf)
+    {
+        var band = bandOf(repository);
+
+        return band.Kind switch
+        {
+            RepositoryBandKind.Configured => band.Name,
+            RepositoryBandKind.Other => repository!.Trim(),
+            _ => null
+        };
+    }
+
+    /// <summary>The model the session spent the most output tokens on; ties to the name,
+    /// so the answer does not depend on the order the source listed them in.</summary>
+    private static string? MainModel(IReadOnlyList<AssistantModelUsage>? usage) =>
+        usage is null || usage.Count == 0
+            ? null
+            : usage
+                .OrderByDescending(entry => entry.OutputTokens)
+                .ThenBy(entry => entry.Model, StringComparer.Ordinal)
+                .First()
+                .Model;
+
+    private static TimeSpan Clipped(AssistantActivityInterval interval, DateTimeOffset from, DateTimeOffset to)
+    {
+        var start = interval.From > from ? interval.From : from;
+        var end = interval.To < to ? interval.To : to;
+
+        return end > start ? end - start : TimeSpan.Zero;
     }
 
     /// <summary>The same grouping key the session rows use, read off an activity record
