@@ -504,6 +504,10 @@
                                       Milestones="@CalendarMilestones()"
                                       ShelfPlans="@CalendarShelf()"
                                       OnPlanStarted="OnCalendarPlanStartedAsync"
+                                      HoursAvailable="true"
+                                      HoursBlocks="@CalendarHoursBlocks()"
+                                      CapacityOn="@CalendarCapacityOn"
+                                      OnHoursChanged="OnCalendarHoursChangedAsync"
                                       AriaLabel="Tasks by due date"
                                       TestId="task-calendar" />
                     }
@@ -838,6 +842,9 @@
 
         _calendarPlans = Services.GetService(typeof(ICalendarPlans)) as ICalendarPlans;
         if (_calendarPlans is not null) _calendarPlans.Changed += HandleCalendarPlansChanged;
+
+        _calendarCapacity = Services.GetService(typeof(ICalendarCapacity)) as ICalendarCapacity;
+        if (_calendarCapacity is not null) _calendarCapacity.Changed += HandleCalendarCapacityChanged;
     }
 
     /// <summary>The raw editor's element id, so the caret can be put in it the render
@@ -1082,6 +1089,54 @@
     private async Task OnCalendarDueChangedAsync(CalendarDueChange change)
     {
         if (EntryFor(change.TaskId) is { } row) await State.ChangeDueAsync(row, change.DueOn);
+    }
+
+    // --- Planned hours on the Calendar -------------------------------------------
+
+    /// <summary>
+    /// The hours a Calendar day is set against — the roadmap's working week and days
+    /// off, through Tasks' own port, read-only — or null in a host that composed none,
+    /// when a day total stands alone and is never over.
+    /// </summary>
+    private ICalendarCapacity? _calendarCapacity;
+
+    /// <summary>Every block of planned hours in the filtered rows, each on its day: the
+    /// filter bar narrows them as it narrows the chips, and the repository mark follows
+    /// the colours switch through <c>RepositoryMarkClass</c>, as a chip's does.</summary>
+    private IReadOnlyList<CalendarHoursBlock> CalendarHoursBlocks() =>
+        [
+            .. State.FilteredPlannedHours().Select(held => new CalendarHoursBlock(
+                EntryTaskId(held.Row),
+                EntryDisplayTitle(held.Row),
+                held.Block.On,
+                held.Block.Hours,
+                State.RepositoryMarkClass(held.Row)))
+        ];
+
+    private Func<DateOnly, decimal?>? CalendarCapacityOn =>
+        _calendarCapacity is { } capacity ? day => capacity.HoursOn(day) : null;
+
+    /// <summary>Hours set, changed or removed on a Calendar day: written to the entry
+    /// through the module, as the detail panel's Planned hours writes them. The
+    /// roadmap is not told — the blocks are the person's own plan.</summary>
+    private async Task OnCalendarHoursChangedAsync(CalendarHoursChange change)
+    {
+        if (EntryFor(change.TaskId) is not { } row) return;
+
+        // A task not saved yet has nowhere to keep hours; say so rather than drop them.
+        if (!row.IsPersisted)
+        {
+            Toasts.Publish(ToastMessage.Warning("Save the task before planning hours on it.", "calendar-hours-unsaved"));
+            return;
+        }
+
+        await State.SetPlannedHoursAsync(row, change.On, change.Hours);
+    }
+
+    private void HandleCalendarCapacityChanged()
+    {
+        if (Layout != TasksLayout.Calendar) return;
+        _ = InvokeAsync(StateHasChanged);
     }
 
     /// <summary>
@@ -3828,6 +3883,18 @@
                 @if (row.IsPersisted)
                 {
                     @RenderDevbookReferences(row)
+
+                    @* The hours the person set aside for the entry on given days — the
+                       Calendar's blocks, edited here too. The entry's own field, so it
+                       waits for the first save as the Devbook references do. *@
+                    <TaskActionGroup Label="Planned hours" TestId="entry-planned-hours">
+                        <PlannedHoursEditor @key="row.Key"
+                                            Blocks="@PlannedHoursOf(row)"
+                                            DefaultDay="@Today"
+                                            Error="@row.PlannedHoursError"
+                                            OnChanged="change => State.SetPlannedHoursAsync(row, change.On, change.Hours)"
+                                            TestId="entry-planned-hours-editor" />
+                    </TaskActionGroup>
                 }
             </Trailing>
         </TaskActionPane>;
@@ -3869,6 +3936,9 @@
                          Placeholder="Tags"
                          CssClass="entry-doc__tag-picker"
                          TestId="entry-tags-input" />;
+    private static IReadOnlyList<PlannedHoursDay> PlannedHoursOf(EntryRow row) =>
+        [.. row.PlannedHours.Select(block => new PlannedHoursDay(block.On, block.Hours))];
+
     // --- Devbook references --------------------------------------------------
 
     /// <summary>
@@ -4769,6 +4839,7 @@
         State.SetStatusFilterSuspended(false);
         Features.Changed -= HandleFeaturesChanged;
         if (_calendarPlans is not null) _calendarPlans.Changed -= HandleCalendarPlansChanged;
+        if (_calendarCapacity is not null) _calendarCapacity.Changed -= HandleCalendarCapacityChanged;
 
         if (_undoKeysReference is null) return;
 

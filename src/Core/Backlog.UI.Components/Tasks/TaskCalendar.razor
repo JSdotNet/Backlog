@@ -48,6 +48,17 @@
     on its day. The tray's second section, "Plans without a window", lists the
     plans with no window yet; dropping one on a day reports it through
     OnPlanStarted, and the host has the window placed — the calendar sizes nothing.
+
+    Planned hours, when the host keeps them (HoursAvailable), are the person's own
+    plan: a block is a day and a number of hours, never a time of day. Each is a chip
+    on its day — "Refactor sync · 3h" — dashed and tinted apart from a due-date chip,
+    and the day head adds the day's blocks up against the hours the host says the day
+    has (CapacityOn): "3h / 8h", in the error colour with the numbers in its tooltip
+    when the day holds more than it has. A block is made from a day's "Add hours…", or
+    by dragging a chip or a tray item onto a day with Shift held; either opens the
+    day's hours editor, which also changes or removes a block its chip opened. The
+    calendar writes nothing: it reports the figure through OnHoursChanged and redraws
+    from what the host hands back.
 *@
 <section class="@ClassValue"
          data-testid="@TestId"
@@ -142,7 +153,7 @@
             }
             else
             {
-                <p class="task-calendar__tray-hint">Drag onto a day to set its due date.</p>
+                <p class="task-calendar__tray-hint">@(HoursAvailable ? "Drag onto a day to set its due date, or hold Shift to plan hours there." : "Drag onto a day to set its due date.")</p>
                 <ul class="task-calendar__tray-list">
                     @foreach (var task in Undated)
                     {
@@ -220,6 +231,10 @@
     private DateOnly? _expandedDay;
     private ILookup<DateOnly, CalendarTask> _byDay = Array.Empty<CalendarTask>().ToLookup(task => default(DateOnly));
     private IReadOnlyList<CalendarTask> _undated = [];
+    private ILookup<DateOnly, CalendarHoursBlock> _hoursByDay = Array.Empty<CalendarHoursBlock>().ToLookup(block => default(DateOnly));
+    private HoursDraft? _draft;
+    private string? _draftError;
+    private bool _focusDraft;
     private ILookup<DateOnly, CalendarMilestone> _milestonesByDay = Array.Empty<CalendarMilestone>().ToLookup(milestone => default(DateOnly));
 
     /// <summary>The tasks to place, in the order a day lists them. Filtered by the
@@ -282,6 +297,25 @@
     [Parameter]
     public EventCallback<CalendarPlanStart> OnPlanStarted { get; set; }
 
+    /// <summary>Whether the host keeps planned hours. Without it there is no "Add
+    /// hours…", no hours chip and no day total, and a Shift drop is an ordinary one.</summary>
+    [Parameter]
+    public bool HoursAvailable { get; set; }
+
+    /// <summary>The planned-hours blocks to draw, each on its day — filtered by the host
+    /// as the tasks are.</summary>
+    [Parameter]
+    public IReadOnlyList<CalendarHoursBlock> HoursBlocks { get; set; } = [];
+
+    /// <summary>The hours a day has to plan in, or null when the host keeps no working
+    /// week — then the day total stands alone and is never over.</summary>
+    [Parameter]
+    public Func<DateOnly, decimal?>? CapacityOn { get; set; }
+
+    /// <summary>Hours were set, changed or removed for a task on a day.</summary>
+    [Parameter]
+    public EventCallback<CalendarHoursChange> OnHoursChanged { get; set; }
+
     [Parameter]
     public string AriaLabel { get; set; } = "Calendar";
 
@@ -321,10 +355,33 @@
         _byDay = Tasks.Where(task => task.DueOn is not null).ToLookup(task => task.DueOn!.Value);
         _undated = [.. Tasks.Where(task => task.DueOn is null && task.Open)];
         _milestonesByDay = Milestones.ToLookup(milestone => milestone.On);
+        _hoursByDay = HoursBlocks.ToLookup(block => block.On);
+
+        // A draft whose task left the view, or whose block was taken away elsewhere, has
+        // nothing left to edit: Save would re-create what was removed.
+        if (_draft is { } draft
+            && ((draft.TaskId is { } taskId && !Tasks.Any(task => string.Equals(task.Id, taskId, StringComparison.Ordinal)))
+                || (draft.Existing && !_hoursByDay[draft.Day].Any(block => string.Equals(block.TaskId, draft.TaskId, StringComparison.Ordinal)))))
+        {
+            _draft = null;
+            _draftError = null;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_focusDraft && _draft is not null)
+        {
+            _focusDraft = false;
+            try
+            {
+                await Js.InvokeVoidAsync("backlogFocus", HoursFieldId, false);
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+            {
+            }
+        }
+
         if (!firstRender) return;
 
         _self = DotNetObjectReference.Create(this);
@@ -346,9 +403,12 @@
         var hidden = tasks.Count - shown.Count;
         var isToday = date == Today;
         var iso = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        List<CalendarHoursBlock> blocks = HoursAvailable ? [.. _hoursByDay[date]] : [];
+        var dayHours = CalendarHours.Day(blocks, CapacityOn?.Invoke(date));
+        var editing = _draft is { } draft && draft.Day == date;
 
         <div @key="date"
-             class="@DayClass(date)"
+             class="@DayClass(date, dayHours)"
              role="group"
              aria-label="@DayLabel(date, tasks.Count)"
              aria-current="@(isToday ? "date" : null)"
@@ -356,6 +416,13 @@
              data-testid="@Part($"day-{iso}")">
             <div class="task-calendar__day-head">
                 <span class="task-calendar__day-number" data-testid="@Part($"day-{iso}-number")">@DayNumber(date)</span>
+                @if (dayHours is not null)
+                {
+                    <span class="@(dayHours.Over ? "task-calendar__hours task-calendar__hours--over" : "task-calendar__hours")"
+                          title="@dayHours.Summary"
+                          data-over="@(dayHours.Over ? "true" : null)"
+                          data-testid="@Part($"day-{iso}-hours")"><span aria-hidden="true">@dayHours.Label</span><span class="sr-only">@dayHours.Summary</span></span>
+                }
                 @if (isToday)
                 {
                     <span class="task-calendar__my-day" title="In My Day" data-testid="@Part("my-day")">
@@ -414,6 +481,110 @@
                     Show fewer
                 </AppButton>
             }
+
+            @foreach (var block in blocks)
+            {
+                <AppButton @key="@($"hours-{block.TaskId}")"
+                           BaseClass="task-calendar__block"
+                           Variant="ButtonVariant.None"
+                           CssClass="@BlockClass(block)"
+                           TestId="@Part($"block-{block.TaskId}-{iso}")"
+                           title="@BlockTitle(block)"
+                           aria-label="@BlockTitle(block)"
+                           aria-expanded="@(IsEditing(block) ? "true" : "false")"
+                           OnClick="() => EditBlock(block)">
+                    <span class="task-calendar__block-mark" aria-hidden="true"></span>
+                    <span class="task-calendar__chip-text">@block.Title</span>
+                    <span class="task-calendar__block-hours">· @CalendarHours.Format(block.Hours)</span>
+                </AppButton>
+            }
+
+            @if (editing)
+            {
+                @RenderHoursEditor(date)
+            }
+            else if (HoursAvailable)
+            {
+                <AppButton BaseClass="task-calendar__add-hours"
+                           Variant="ButtonVariant.None"
+                           TestId="@Part($"day-{iso}-add-hours")"
+                           aria-label="@($"Add hours on {date.ToString("D", CultureInfo.CurrentCulture)}")"
+                           OnClick="() => AddHours(date)">
+                    Add hours…
+                </AppButton>
+            }
+        </div>
+    };
+
+    private RenderFragment RenderHoursEditor(DateOnly date) => __builder =>
+    {
+        var draft = _draft!;
+        var spoken = date.ToString("D", CultureInfo.CurrentCulture);
+
+        <div class="task-calendar__hours-editor"
+             role="group"
+             aria-label="@($"Planned hours on {spoken}")"
+             data-testid="@Part("hours-editor")"
+             @onkeydown="OnEditorKeyDown">
+            @if (draft.Existing)
+            {
+                <span class="task-calendar__hours-task" data-testid="@Part("hours-editor-task")">@TaskTitle(draft.TaskId)</span>
+            }
+            else
+            {
+                <SelectField Options="@HoursTaskOptions()"
+                             CurrentValue="@draft.TaskId"
+                             IncludeEmptyOption="true"
+                             EmptyLabel="Pick a task"
+                             Label="Task"
+                             BaseClass="task-calendar__hours-pick"
+                             SelectCssClass="task-calendar__hours-select"
+                             TestId="@Part("hours-editor-pick")"
+                             OnChanged="OnDraftTaskChanged" />
+            }
+            <div class="task-calendar__hours-line">
+                <TextField Type="number"
+                           Compact="true"
+                           AriaLabel="Hours"
+                           Id="@HoursFieldId"
+                           BaseClass="task-calendar__hours-field"
+                           TestId="@Part("hours-editor-hours")"
+                           min="0.25"
+                           max="24"
+                           step="0.25"
+                           autocomplete="off"
+                           Value="@draft.Hours"
+                           ValueChanged="OnDraftHoursChanged"
+                           @onkeydown="OnHoursKeyDown" />
+                <span class="task-calendar__hours-unit" aria-hidden="true">h</span>
+            </div>
+            <div class="task-calendar__hours-actions">
+                <AppButton Variant="ButtonVariant.Primary"
+                           Size="ButtonSize.Small"
+                           TestId="@Part("hours-editor-save")"
+                           OnClick="SaveDraftAsync">
+                    @(draft.Existing ? "Save" : "Add")
+                </AppButton>
+                @if (draft.Existing)
+                {
+                    <AppButton Variant="ButtonVariant.Secondary"
+                               Size="ButtonSize.Small"
+                               TestId="@Part("hours-editor-remove")"
+                               OnClick="RemoveDraftAsync">
+                        Remove
+                    </AppButton>
+                }
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           TestId="@Part("hours-editor-cancel")"
+                           OnClick="CancelDraft">
+                    Cancel
+                </AppButton>
+            </div>
+            @if (_draftError is { } error)
+            {
+                <span class="task-calendar__hours-error" role="alert" data-testid="@Part("hours-editor-error")">@error</span>
+            }
         </div>
     };
 
@@ -467,6 +638,146 @@
         await OnPlanStarted.InvokeAsync(new CalendarPlanStart(plan.Tag, date));
         StateHasChanged();
     }
+
+    /// <summary>
+    /// The end of a drag with Shift held, from components.js: <paramref name="taskId"/>
+    /// was let go over <paramref name="day"/> (yyyy-MM-dd) to set hours aside for it
+    /// there rather than to move its due date. Opens the day's hours editor for that
+    /// task — on the day's block, when it has one. Where the host keeps no planned
+    /// hours it is an ordinary drop (<see cref="DropOnDay"/>); a drop naming no task or
+    /// no day is ignored.
+    /// </summary>
+    [JSInvokable]
+    public Task HoldOnDay(string taskId, string day)
+    {
+        if (!HoursAvailable) return DropOnDay(taskId, day);
+        if (!DateOnly.TryParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) return Task.CompletedTask;
+
+        var task = Tasks.FirstOrDefault(candidate => string.Equals(candidate.Id, taskId, StringComparison.Ordinal));
+        if (task is null) return Task.CompletedTask;
+
+        var held = _hoursByDay[date].FirstOrDefault(block => string.Equals(block.TaskId, task.Id, StringComparison.Ordinal));
+        OpenDraft(held is null
+            ? new HoursDraft(date, task.Id, false, string.Empty)
+            : new HoursDraft(date, held.TaskId, true, CalendarHours.Edit(held.Hours)));
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The day's "Add hours…": the editor opens on the day with no task picked.</summary>
+    private void AddHours(DateOnly date) => OpenDraft(new HoursDraft(date, null, false, string.Empty));
+
+    /// <summary>A block's chip: the editor opens on its figure, to change or remove it.</summary>
+    private void EditBlock(CalendarHoursBlock block) =>
+        OpenDraft(new HoursDraft(block.On, block.TaskId, true, CalendarHours.Edit(block.Hours)));
+
+    private void OpenDraft(HoursDraft draft)
+    {
+        _draft = draft;
+        _draftError = null;
+        _focusDraft = true;
+    }
+
+    private void CancelDraft()
+    {
+        _draft = null;
+        _draftError = null;
+    }
+
+    private void OnDraftTaskChanged(string? taskId)
+    {
+        if (_draft is null) return;
+
+        // A task that already has hours on the day is that block's editor, so a pick
+        // never makes a second block for one day.
+        var held = string.IsNullOrEmpty(taskId)
+            ? null
+            : _hoursByDay[_draft.Day].FirstOrDefault(block => string.Equals(block.TaskId, taskId, StringComparison.Ordinal));
+        _draft = held is null
+            ? _draft with { TaskId = string.IsNullOrEmpty(taskId) ? null : taskId }
+            : new HoursDraft(_draft.Day, held.TaskId, true, CalendarHours.Edit(held.Hours));
+        _draftError = null;
+    }
+
+    private void OnDraftHoursChanged(string? hours)
+    {
+        if (_draft is null) return;
+        _draft = _draft with { Hours = hours ?? string.Empty };
+    }
+
+    private async Task SaveDraftAsync()
+    {
+        if (_draft is not { } draft) return;
+
+        if (draft.TaskId is not { } taskId)
+        {
+            _draftError = "Pick the task to set the hours aside for.";
+            return;
+        }
+
+        if (CalendarHours.Parse(draft.Hours) is not { } hours)
+        {
+            _draftError = $"Give the hours as a number more than 0 and at most {CalendarHours.MaxHours.ToString(CultureInfo.CurrentCulture)}.";
+            return;
+        }
+
+        _draft = null;
+        _draftError = null;
+        await OnHoursChanged.InvokeAsync(new CalendarHoursChange(taskId, draft.Day, hours));
+    }
+
+    private async Task RemoveDraftAsync()
+    {
+        if (_draft is not { TaskId: { } taskId } draft) return;
+
+        _draft = null;
+        _draftError = null;
+        await OnHoursChanged.InvokeAsync(new CalendarHoursChange(taskId, draft.Day, null));
+    }
+
+    /// <summary>Escape anywhere in the editor closes it. Enter saves only from the hours
+    /// field: on Remove or Cancel it is that button's own press.</summary>
+    private void OnEditorKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape") CancelDraft();
+    }
+
+    private async Task OnHoursKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter") await SaveDraftAsync();
+    }
+
+    /// <summary>The tasks a new block can be for: the open ones in view, dated or not,
+    /// in the order the host gave them.</summary>
+    private IReadOnlyList<SelectorOption> HoursTaskOptions() =>
+        [.. Tasks.Where(task => task.Open).Select(task => new SelectorOption(task.Id, task.Title))];
+
+    private string TaskTitle(string? taskId) =>
+        Tasks.FirstOrDefault(task => string.Equals(task.Id, taskId, StringComparison.Ordinal))?.Title
+        ?? HoursBlocks.FirstOrDefault(block => string.Equals(block.TaskId, taskId, StringComparison.Ordinal))?.Title
+        ?? string.Empty;
+
+    private bool IsEditing(CalendarHoursBlock block) =>
+        _draft is { Existing: true } draft
+        && draft.Day == block.On
+        && string.Equals(draft.TaskId, block.TaskId, StringComparison.Ordinal);
+
+    private string? BlockClass(CalendarHoursBlock block)
+    {
+        var classes = new List<string>(3);
+        if (string.Equals(block.TaskId, SelectedId, StringComparison.Ordinal)) classes.Add("task-calendar__block--selected");
+        if (!string.IsNullOrWhiteSpace(block.CssClass)) classes.Add(block.CssClass);
+        return classes.Count == 0 ? null : string.Join(' ', classes);
+    }
+
+    private static string BlockTitle(CalendarHoursBlock block) =>
+        $"{block.Title}, {CalendarHours.Format(block.Hours)} planned";
+
+    private string HoursFieldId => $"{_ownerId}-hours";
+
+    /// <summary>The hours editor's state: the day, the task it is for (null until one is
+    /// picked), whether it edits a block already there, and the figure as typed.</summary>
+    private sealed record HoursDraft(DateOnly Day, string? TaskId, bool Existing, string Hours);
 
     private Task OnShowPlansChangedAsync(bool shown) => ShowPlansChanged.InvokeAsync(shown);
 
@@ -533,9 +844,10 @@
 
     private bool IsSelected(CalendarTask task) => string.Equals(task.Id, SelectedId, StringComparison.Ordinal);
 
-    private string DayClass(DateOnly date)
+    private string DayClass(DateOnly date, CalendarDayHours? hours)
     {
-        var classes = new List<string>(4) { "task-calendar__day" };
+        var classes = new List<string>(5) { "task-calendar__day" };
+        if (hours is { Over: true }) classes.Add("task-calendar__day--over");
         if (date.Month != _month.Month || date.Year != _month.Year) classes.Add("task-calendar__day--outside");
         if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) classes.Add("task-calendar__day--weekend");
         if (date == Today) classes.Add("task-calendar__day--today");

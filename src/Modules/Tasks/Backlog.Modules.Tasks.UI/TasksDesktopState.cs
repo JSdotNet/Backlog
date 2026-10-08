@@ -3373,8 +3373,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         return WriteDevbookReferencesAsync(row, _ => whole);
     }
 
-    /// <summary>One reference write at a time. See
-    /// <see cref="WriteDevbookReferencesAsync"/>.</summary>
+    /// <summary>One write of the entry's own fields at a time — its Devbook references
+    /// and its planned hours. See <see cref="WriteDevbookReferencesAsync"/>.</summary>
     private readonly SemaphoreSlim _devbookWrites = new(1, 1);
 
     /// <summary>
@@ -3500,6 +3500,116 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         {
             return _devbookTargets.TryGetValue(alias, out var held) ? held.Targets : [];
         }
+    }
+
+    // --- Planned hours -------------------------------------------------------
+
+    /// <summary>The test id of the toast a refused planned-hours write raises.</summary>
+    private const string PlannedHoursRefusedTestId = "entry-planned-hours-refused";
+
+    /// <summary>
+    /// Sets aside <paramref name="hours"/> for the entry on <paramref name="on"/> — a new
+    /// block, or a new figure for the day's block — or, for null, takes the day's block
+    /// away. The other days' blocks stand.
+    /// <para>
+    /// Saved at once, through the module, the way a Devbook reference is: a figure set or
+    /// a block removed is a decision, not typing. A refusal — hours of zero or less, or
+    /// more than a day — is said on the entry and on a toast, and the band reads Error.
+    /// The person's own plan for the Calendar: nothing here reaches the roadmap.
+    /// </para>
+    /// <para>
+    /// A row the store has not seen has nowhere to keep them, so this does nothing for
+    /// one; nor does it for a read-only row.
+    /// </para>
+    /// </summary>
+    public async Task SetPlannedHoursAsync(EntryRow row, DateOnly on, decimal? hours)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        if (row.IsReadOnly || row.Id is not { } id) return;
+
+        try
+        {
+            // The same gate as the Devbook references: both are written by loading and
+            // saving the whole entry, so two in flight would each save the other's
+            // field as it was before.
+            await _devbookWrites.WaitAsync(_untilDisposed);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        try
+        {
+            var current = _entries.TryGetValue(id, out var known) ? known.PlannedHours : row.PlannedHours;
+            var held = current.FirstOrDefault(block => block.On == on);
+            if (hours is null && held is null) return;
+            if (hours is { } same && held is not null && held.Hours == same) return;
+
+            List<PlannedHoursDto> next = [.. current.Where(block => block.On != on)];
+            if (hours is { } figure) next.Add(new PlannedHoursDto(on, figure));
+
+            await SavePlannedHoursAsync(row, id, [.. next.OrderBy(block => block.On)]);
+        }
+        finally
+        {
+            _devbookWrites.Release();
+        }
+    }
+
+    /// <summary>
+    /// Every block of planned hours in the filtered rows, with the row it belongs to —
+    /// what the Calendar draws on its days. Read from the filtered rows, so the filter
+    /// bar narrows the blocks as it narrows the chips.
+    /// </summary>
+    public IEnumerable<(EntryRow Row, PlannedHoursDto Block)> FilteredPlannedHours() =>
+        FilteredRows.SelectMany(row => row.PlannedHours.Select(block => (row, block)));
+
+    private async Task SavePlannedHoursAsync(EntryRow row, Guid id, IReadOnlyList<PlannedHoursDto> blocks)
+    {
+        SetSaveState(AppSaveState.Saving);
+
+        Result<TaskItemDto> saved;
+        try
+        {
+            saved = await _entryUseCases.SetPlannedHoursAsync(id, blocks, _untilDisposed);
+        }
+        catch (OperationCanceledException) when (_untilDisposed.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception)
+        {
+            RefusePlannedHours(row, "Couldn't save the planned hours.");
+            return;
+        }
+
+        if (saved.IsFailure)
+        {
+            RefusePlannedHours(row, saved.Error.Message);
+            return;
+        }
+
+        var entry = saved.Value;
+        _entries[entry.Id] = entry;
+
+        foreach (var shown in Rows.Where(candidate => candidate.Id == id).Append(row).Distinct())
+        {
+            shown.PlannedHours = entry.PlannedHours;
+            shown.PlannedHoursError = null;
+        }
+
+        SetSaveState(AppSaveState.Saved);
+        FlashSaved(row);
+        Changed?.Invoke();
+    }
+
+    private void RefusePlannedHours(EntryRow row, string message)
+    {
+        row.PlannedHoursError = message;
+        SetSaveState(AppSaveState.Error);
+        AnnounceRowFailure(row, message, PlannedHoursRefusedTestId);
+        Changed?.Invoke();
     }
 
     private void RefuseDevbookReferences(EntryRow row, string message)
@@ -4791,6 +4901,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         row.PullRequestLinks = EntryLinks.PullRequests(entry);
         row.SessionLinks = EntryLinks.Sessions(entry);
         row.DevbookReferences = entry.DevbookReferences;
+        row.PlannedHours = entry.PlannedHours;
         row.CreatedAt = entry.CreatedAt;
         row.ImportPlanId = entry.ImportPlanId;
         row.SourceRef = entry.SourceRef;
@@ -5353,6 +5464,16 @@ public sealed class EntryRow
     /// a token in its text, so it is read off the entry like <see cref="CreatedAt"/>
     /// and written only through <see cref="TasksDesktopState.SetDevbookReferencesAsync"/>.</summary>
     public IReadOnlyList<string> DevbookReferences { get; set; } = [];
+
+    /// <summary>The hours set aside for the entry on given days — the Calendar's planned
+    /// hours — one block a day, in date order. The entry's own field and never a token
+    /// in its text, read off the entry as <see cref="DevbookReferences"/> are and written
+    /// only through <see cref="TasksDesktopState.SetPlannedHoursAsync"/>.</summary>
+    public IReadOnlyList<PlannedHoursDto> PlannedHours { get; set; } = [];
+
+    /// <summary>Why the last change to <see cref="PlannedHours"/> was refused, in words
+    /// fit to read, or null. Cleared by the next one that lands.</summary>
+    public string? PlannedHoursError { get; set; }
 
     /// <summary>Why the last change to <see cref="DevbookReferences"/> was refused,
     /// in words fit to read, or null. Cleared by the next one that lands.</summary>

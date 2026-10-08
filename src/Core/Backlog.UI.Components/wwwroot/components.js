@@ -4958,7 +4958,10 @@
     document.addEventListener('pointerup', (event) => {
         if (!calendarDrag || event.pointerId !== calendarDrag.pointerId) return;
 
-        const { ref, taskId, method, active, root } = calendarDrag;
+        const { ref, taskId, active, root } = calendarDrag;
+        // A task let go with Shift held sets hours aside on the day rather than
+        // moving its due date: the calendar opens that day's hours editor for it.
+        const method = calendarDrag.method === 'DropOnDay' && event.shiftKey ? 'HoldOnDay' : calendarDrag.method;
         const day = active ? calendarDayAt(root, event.clientX, event.clientY) : null;
         endCalendarDrag();
 

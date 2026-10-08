@@ -1,0 +1,146 @@
+@using System.Globalization
+
+@*
+    A task's planned hours, as the detail panel edits them: one line a day — the day,
+    its hours, and a remove — and a line to set hours aside on another day.
+
+    A block is a day and a number of hours, never a time of day: the person's own
+    plan, which the Calendar draws and the roadmap never reads. A figure is committed
+    on change rather than per keystroke, so "2." on the way to "2.5" never reaches the
+    host, and a figure that is no number of hours to keep — zero, less, or more than a
+    day — is said under the lines and not handed on. The editor writes nothing: it
+    reports each change through OnChanged and redraws from the blocks it is given.
+*@
+<div class="planned-hours" data-testid="@TestId">
+    @if (Blocks.Count > 0)
+    {
+        <ul class="planned-hours__list" aria-label="Planned hours">
+            @foreach (var block in Blocks)
+            {
+                var iso = Iso(block.On);
+                var spoken = block.On.ToString("D", CultureInfo.CurrentCulture);
+                <li @key="block.On" class="planned-hours__row" data-day="@iso" data-testid="@Part("row")">
+                    <span class="planned-hours__day">@block.On.ToString("ddd d MMM yyyy", CultureInfo.CurrentCulture)</span>
+                    <TextField Type="number"
+                               Compact="true"
+                               AriaLabel="@($"Hours on {spoken}")"
+                               BaseClass="planned-hours__hours"
+                               TestId="@Part($"hours-{iso}")"
+                               min="0.25"
+                               max="24"
+                               step="0.25"
+                               autocomplete="off"
+                               Value="@CalendarHours.Edit(block.Hours)"
+                               @onchange="args => ChangeAsync(block, args)" />
+                    <span class="planned-hours__unit" aria-hidden="true">h</span>
+                    <IconButton AriaLabel="@($"Remove the hours on {spoken}")"
+                                Title="Remove these hours"
+                                TestId="@Part($"remove-{iso}")"
+                                OnClick="() => RemoveAsync(block)">
+                        <span aria-hidden="true">✕</span>
+                    </IconButton>
+                </li>
+            }
+        </ul>
+    }
+
+    <div class="planned-hours__add">
+        <TextField Type="date"
+                   Compact="true"
+                   AriaLabel="Day to plan hours on"
+                   BaseClass="planned-hours__date"
+                   TestId="@Part("add-day")"
+                   Value="@AddDay"
+                   ValueChanged="value => _addDay = value" />
+        <TextField Type="number"
+                   Compact="true"
+                   AriaLabel="Hours to plan"
+                   BaseClass="planned-hours__hours"
+                   TestId="@Part("add-hours")"
+                   min="0.25"
+                   max="24"
+                   step="0.25"
+                   autocomplete="off"
+                   Placeholder="Hours"
+                   Value="@_addHours"
+                   ValueChanged="value => _addHours = value" />
+        <span class="planned-hours__unit" aria-hidden="true">h</span>
+        <AppButton Size="ButtonSize.Small" TestId="@Part("add")" OnClick="AddAsync">Add hours</AppButton>
+    </div>
+
+    @if ((_error ?? Error) is { } error)
+    {
+        <span class="planned-hours__error" role="alert" data-testid="@Part("error")">@error</span>
+    }
+</div>
+
+@code {
+    private string? _addDay;
+    private string? _addHours;
+    private string? _error;
+
+    /// <summary>The task's blocks, in date order.</summary>
+    [Parameter]
+    public IReadOnlyList<PlannedHoursDay> Blocks { get; set; } = [];
+
+    /// <summary>The day the add line offers until another is picked: the host's today.</summary>
+    [Parameter]
+    public DateOnly DefaultDay { get; set; }
+
+    /// <summary>Why the host's last write was refused, or null.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    /// <summary>Hours were set, changed or — with null hours — removed on a day.</summary>
+    [Parameter]
+    public EventCallback<PlannedHoursDayChange> OnChanged { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string AddDay => _addDay ?? Iso(DefaultDay);
+
+    private async Task ChangeAsync(PlannedHoursDay block, ChangeEventArgs args)
+    {
+        if (CalendarHours.Parse(args.Value?.ToString()) is not { } hours)
+        {
+            _error = Refusal;
+            return;
+        }
+
+        _error = null;
+        if (hours != block.Hours) await OnChanged.InvokeAsync(new PlannedHoursDayChange(block.On, hours));
+    }
+
+    private async Task RemoveAsync(PlannedHoursDay block)
+    {
+        _error = null;
+        await OnChanged.InvokeAsync(new PlannedHoursDayChange(block.On, null));
+    }
+
+    private async Task AddAsync()
+    {
+        if (!DateOnly.TryParseExact(AddDay, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
+        {
+            _error = "Pick the day to plan the hours on.";
+            return;
+        }
+
+        if (CalendarHours.Parse(_addHours) is not { } hours)
+        {
+            _error = Refusal;
+            return;
+        }
+
+        _error = null;
+        _addHours = null;
+        await OnChanged.InvokeAsync(new PlannedHoursDayChange(day, hours));
+    }
+
+    private static string Refusal =>
+        $"Give the hours as a number more than 0 and at most {CalendarHours.MaxHours.ToString(CultureInfo.CurrentCulture)}.";
+
+    private static string Iso(DateOnly day) => day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private string? Part(string name) => TestId is null ? null : $"{TestId}-{name}";
+}

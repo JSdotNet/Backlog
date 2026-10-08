@@ -547,6 +547,34 @@ public sealed class TaskReplicaMergeTests
         Assert.Empty(restored.DevbookReferences);
     }
 
+    /// <summary>
+    /// The planned hours ride last and defaulted, as the Devbook references do: a task
+    /// with none writes no list — its document serialises as it did before — a task with
+    /// some carries them whole, and a document from a build that never heard of them
+    /// reads as having none.
+    /// </summary>
+    [Fact]
+    public void Planned_hours_cross_the_wire_and_an_older_document_reads_as_having_none()
+    {
+        var none = TaskChanges.Task("Nothing planned", Noon);
+        none.LoadStamps(Noon, null);
+        Assert.Null(TaskReplicaMerge.ToPayload(none).PlannedHours);
+
+        var planned = TaskChanges.Task("Refactor sync", Noon);
+        planned.SetPlannedHours([PlannedHoursBlock.Create(new DateOnly(2026, 10, 12), 3m), PlannedHoursBlock.Create(new DateOnly(2026, 10, 13), 1.5m)]);
+        planned.LoadStamps(Noon, null);
+
+        var payload = TaskReplicaMerge.ToPayload(planned);
+        Assert.Equal(2, payload.PlannedHours!.Count);
+
+        var restored = TaskReplicaMerge.ToTaskItem(TaskReplicaMerge.ToChange(planned));
+        Assert.Equal(planned.PlannedHours, restored.PlannedHours);
+        Assert.Equal(Noon, restored.UpdatedAt);
+
+        var older = TaskReplicaMerge.ToTaskItem(new TaskChange(planned.Id, Noon, null, payload with { PlannedHours = null }));
+        Assert.Empty(older.PlannedHours);
+    }
+
     /// <summary>A newer document carries them across, and the device that pulls
     /// it gets the list the other machine set, whole — the merge is whole-document
     /// last-write-wins, as it is for every other list on the task.</summary>

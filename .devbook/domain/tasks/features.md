@@ -536,6 +536,34 @@ roadmap's own shelf, whose **Plan it** places the plan from today, and the roadm
 item editor, which moves its window to any day. The plans are the roadmap's: the
 Calendar reads them and starts a shelf plan, and changes nothing else about them.
 
+### Planned hours
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/tasks/features.md#calendar-view, .devbook/domain/roadmap/features.md]
+```
+
+The person can set hours aside for a task on a day of the
+[Calendar](#calendar-view) — [Planned Hours](domain.md#planned-hours), a day and a
+number of hours, never a time of day. A task can have hours on several days, one
+figure a day. A day shows each task with hours on it as a chip of its own with the
+figure — "Refactor sync · 3h" — drawn apart from the due-date chips, and adds the
+day's hours up against the hours the person works that day, read from the roadmap's
+working week and days off. A day holding more than that is marked, and says by how
+much.
+
+Hours are set from a day's **Add hours…**, which asks for the task and the figure,
+or by dragging a task — from the month or from the tasks with no due date — onto a
+day with Shift held, which asks for the figure only and leaves the due date where
+it was. Pressing a task's hours on a day changes or removes them; the open task's
+**Planned hours** lists every day it has hours on, to change, remove or add one.
+The hours follow the filters and the repository colours the way the task chips do.
+
+The hours are the person's own plan for their days. The roadmap never reads them:
+a plan's window and the pace it is placed at still come from points and the work
+finished, so setting hours aside moves no bar on the roadmap or the Calendar.
+
 ## Prompt features
 
 ```meta

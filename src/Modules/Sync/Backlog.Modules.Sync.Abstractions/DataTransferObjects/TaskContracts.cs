@@ -81,7 +81,12 @@ public sealed record TaskPayload(
     // Where a linked task came from (local ADR 0020, §2). Last and defaulted for
     // the same reason: an older document carries none and reads as local work,
     // and null on every local task, so its document serialises as it did before.
-    SourceRefPayload? SourceRef = null)
+    SourceRefPayload? SourceRef = null,
+    // The hours the person set aside for the task on given days, the Calendar's
+    // planned hours. Last and defaulted for the same reason, and null rather than
+    // empty on a task with none, so its document serialises as it did before; the
+    // service never reads one.
+    IReadOnlyList<PlannedHoursPayload>? PlannedHours = null)
 {
     /// <summary>
     /// Every property the document carried that this build has no member for,
@@ -102,6 +107,16 @@ public sealed record TaskPayload(
     /// compares and serialises as it did before.
     /// </para>
     /// </summary>
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? Unrecognised { get; init; }
+}
+
+/// <summary>One block of a task's planned hours: a day and how many hours, never a
+/// time of day.</summary>
+public sealed record PlannedHoursPayload(DateOnly On, decimal Hours)
+{
+    /// <summary>What this build has no member for, carried through as it
+    /// arrived — see <see cref="TaskPayload.Unrecognised"/>.</summary>
     [JsonExtensionData]
     public IDictionary<string, JsonElement>? Unrecognised { get; init; }
 }

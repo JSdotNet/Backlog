@@ -74,6 +74,13 @@ can see blocks because dropping it would let a chain claim to be ready when the
 step it waits on is merely missing from view, which is the one failure that looks exactly like
 success. `Readiness` is derived from this list on every read and never stored.
 
+`planned_hours` lists the task's [Planned Hours](#planned-hours): the days the
+person set hours aside on, one figure a day, in date order. The task's own field and
+never text in it, so the text save neither writes nor clears it. A figure is more
+than none and at most a whole day; the root refuses anything else and keeps one
+block a day, the last given winning. A recurring task's next occurrence starts with
+none, since the days belonged to this one. Nothing in the roadmap reads it.
+
 Dependency cycles are surfaced rather than prevented, and there is deliberately
 no invariant against one. A cycle spans aggregate boundaries, so no single task
 can enforce its absence transactionally; and which edge in a loop is the wrong
@@ -676,6 +683,22 @@ The calendar day a task is committed to. A date, carrying no time and no
 timezone, so it means the same day wherever the device is. Distinct from a
 `Reminder`, which is a moment, and from `My Day`, which is a choice about today.
 How the date is worded on screen belongs to the channel showing it.
+
+### Planned Hours
+
+```meta
+type: term
+status: proposed
+aliases: [planned_hours, hours block, Planned hours]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/domain.md#effort]
+```
+
+Hours the person has set aside for a task on a given day: a date and a number of
+hours — more than none, at most the whole day, in quarters of an hour — and never a
+start or an end time. A task holds at most one figure a day and may hold several
+days. Kept on the task beside its text rather than in it, as its Devbook references
+are, so editing the text never changes them. A plan for the person's own days, not
+an estimate: unlike [Effort](#effort), nothing the roadmap places or paces reads it.
 
 ### Reminder
 

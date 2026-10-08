@@ -109,8 +109,16 @@ public sealed record TaskItemDto(
     string? SourceInboxId = null,
     IReadOnlyList<string>? DevbookReferences = null,
     DateOnly? BlockedSince = null,
-    SourceRef? SourceRef = null)
+    SourceRef? SourceRef = null,
+    IReadOnlyList<PlannedHoursDto>? PlannedHours = null)
 {
+    /// <summary>The hours the person set aside for the entry on given days, one block
+    /// per day, in date order — the Calendar's planned hours. Published on
+    /// <see cref="DevbookReferences"/>' terms: the entry's own field, never rebuilt
+    /// from the text, and empty rather than null. The person's own plan, which the
+    /// roadmap never reads. Last, for the reason <see cref="StartedOn"/> is.</summary>
+    public IReadOnlyList<PlannedHoursDto> PlannedHours { get; init; } = PlannedHours ?? [];
+
     /// <summary>The Devbook pages and chapters the entry is about, as normalised
     /// references (<c>path</c> or <c>path#anchor</c>), in order. Published on
     /// <see cref="SourceInboxId"/>'s terms — the entry's own field, read from its

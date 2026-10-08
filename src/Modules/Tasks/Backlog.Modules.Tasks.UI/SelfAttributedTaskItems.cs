@@ -87,6 +87,15 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         return await inner.SetDevbookReferencesAsync(id, references, cancellationToken);
     }
 
+    public async Task<Result<TaskItemDto>> SetPlannedHoursAsync(
+        Guid id,
+        IReadOnlyList<PlannedHoursDto> blocks,
+        CancellationToken cancellationToken = default)
+    {
+        _writingHere.Value = true;
+        return await inner.SetPlannedHoursAsync(id, blocks, cancellationToken);
+    }
+
     public async Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
