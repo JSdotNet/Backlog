@@ -1739,7 +1739,9 @@ public sealed class InboxDesktopState
         return order.Count;
     }
 
-    /// <summary>The rows after the item shown, at most four — "Up next".</summary>
+    /// <summary>"Up next", at most four, in the order triage will show them:
+    /// the rows after the item shown, then — the way a decision past the last
+    /// row goes back to the first item still waiting — the open rows above it.</summary>
     public IReadOnlyList<InboxItemDto> TriageUpNext
     {
         get
@@ -1747,9 +1749,10 @@ public sealed class InboxDesktopState
             var rows = VisibleItems;
             var at = TriagePosition;
 
-            return at >= 0
-                ? [.. rows.Skip(at + 1).Take(UpNextCount)]
-                : [.. rows.Where(row => row.Id != SelectedItemId).Take(UpNextCount)];
+            var after = at >= 0 ? rows.Skip(at + 1) : rows.Where(row => row.Id != SelectedItemId);
+            var before = at >= 0 ? rows.Take(at).Where(IsOpen) : [];
+
+            return [.. after.Concat(before).Take(UpNextCount)];
         }
     }
 

@@ -238,28 +238,37 @@ status: draft
 depends-on: [.devbook/domain/inbox/features.md#quick-triage-shortcuts]
 related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/domain/inbox/features.md#ai-triage-cards, .devbook/domain/inbox/features.md#undo-a-decision, .devbook/domain/inbox/features.md#inbox-zero]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests]
 ```
 
 **Start triage** in the header, or **t**, shows one item at a time, full width.
 From the top down the screen holds:
 
-- **Progress.** A bar, and over it the line "n of total · m decided this
-  session": where the item stands among the rows of the slice, and how many
-  decisions the reader has taken since the app opened.
+- **Progress.** **Back to the list** (**Esc**), a bar, and beside it the line
+  "n of total · m decided this session": where the item stands among the rows
+  the slice held when triage began, and how many decisions the reader has taken
+  since the app opened. The bar fills with the rows decided since triage began.
+  An item that arrives during triage is counted after those rows. Previous
+  (**k**) and **Skip** (**j**) step without deciding.
 - **The item**: its kind, its source, when it was captured, its title, notes and
-  tags.
+  tags; the tags are the field **g** goes to.
 - **AI cards**, up to two, numbered **1** and **2** — see [AI triage
   cards](#ai-triage-cards). The rule-based suggestions follow, numbered after
   them. With no AI card shown, the suggestions are numbered from 1.
 - **Move to backlog in**: a repository picker that takes several repositories at
-  once, one box per configured repository. Picking more than one makes one task
-  per repository, linked to each other ([Route to Tasks](#route-to-tasks)).
+  once, one box per configured repository, each with its [identity
+  edge](../../design/color-scheme.md#the-identity-edge). The boxes start from
+  the repositories the AI card answer named, marked **AI**, else from the
+  item's own; ticking one writes the item's repositories. The hint says what
+  **r** makes: "one entry", "n linked entries", or "one entry, no repository".
+  Picking more than one makes one task per repository, linked to each other
+  ([Route to Tasks](#route-to-tasks)).
 - **The four decisions** as large buttons, each naming its key: Move to
   backlog (**r**), Move to list (**l**), Defer (**d**) and Archive (**a**).
 
-Beside the item an **Up next** list shows the next few items of the slice, and
-under it the last decision of the session with **Undo** (**u**).
+Beside the item an **Up next** list shows the next four items in the order
+triage will show them, and under it **Just decided**: the session's last
+decision as "*title* → *what became of it*", with **Undo** (**u**).
 
 Each decision (archive, defer, move to a list, move to the backlog, merge into a
 task) moves on to the next row. Past the last it goes back to the first item
@@ -276,6 +285,7 @@ status: draft
 depends-on: [.devbook/domain/inbox/features.md#triage-mode]
 related: [.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md, .devbook/domain/inbox/requirements.md#ai-triage, .devbook/domain/inbox/features.md#merge-into-a-task, .devbook/domain/inbox/features.md#route-a-batch-to-tasks]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests]
 ```
 
 When the reader opens an item in triage, the Azure Foundry model reads it
@@ -285,13 +295,18 @@ and when, is settled in
 `.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md`.
 
 - **Probably a duplicate.** The open backlog task, or the other unprocessed
-  capture, this item seems to repeat, with the reason in a few words. Its main
-  act is **Merge into the task** ([Merge into a task](#merge-into-a-task)); **Not
-  a duplicate** turns the card down.
+  capture, this item seems to repeat, with the reason in a few words, both
+  shown side by side. Its main act is **Merge into the entry** ([Merge into a
+  task](#merge-into-a-task)); for another capture it is **Archive as a
+  duplicate**. When another unprocessed capture also matches the item, it is
+  shown too, and **Merge all three** folds both captures into the task as one
+  decision. **Compare** opens the two side by side; **Not a duplicate** turns
+  the card down.
 - **Group into a plan.** A plan name, and the other unprocessed captures that
-  belong with this one, with the reason. Its main act makes the plan, routing
-  the item and those captures as one [batch](#route-a-batch-to-tasks);
-  **Dismiss** turns the card down.
+  belong with this one, with the reason. Its main act, **Make the plan**, opens
+  the [batch](#route-a-batch-to-tasks) panel on the item and those captures;
+  **Add to an existing plan…** is shown disabled until the Inbox can list the
+  backlog's plans; **Dismiss** turns the card down.
 
 A card shown is numbered **1**, or **2** when both are, and is taken with its
 number key, as a suggestion is. The rule-based suggestions are numbered after

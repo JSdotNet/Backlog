@@ -465,6 +465,28 @@ public sealed class InboxTriageModeTests
     }
 
     [Fact]
+    public async Task Two_ticked_repositories_and_r_make_one_task_in_each()
+    {
+        using var harness = Harness.Create(repositories: true);
+        var item = harness.Inbox.Seed("Sync drops edits");
+        var pane = await harness.StartTriageAsync();
+
+        await Box(pane, "acme-web").ChangeAsync(new ChangeEventArgs { Value = true });
+        await Box(pane, "acme-sync").ChangeAsync(new ChangeEventArgs { Value = true });
+        pane.WaitForAssertion(() => Assert.Equal(2, harness.Inbox.Find(item.Id)!.RepoIds.Count));
+
+        await PressAsync(pane, "r");
+
+        pane.WaitForAssertion(() =>
+        {
+            var routed = harness.Inbox.Find(item.Id)!;
+            Assert.Equal(InboxStatus.Triaged, routed.Status);
+            Assert.Equal(["acme/web", "acme/sync"], routed.Routing!.RepoIds);
+            Assert.Equal(2, routed.Routing.TaskIds.Count);
+        });
+    }
+
+    [Fact]
     public async Task R_after_the_advisor_preselection_routes_with_those_repositories()
     {
         using var harness = Harness.Create(repositories: true);
@@ -530,6 +552,19 @@ public sealed class InboxTriageModeTests
 
         pane.WaitForAssertion(() => Assert.Equal(["C", "D", "E", "F"], UpNext(pane)));
         Assert.Equal(items[1].Id, harness.State.SelectedItemId);
+    }
+
+    [Fact]
+    public async Task On_the_last_row_up_next_lists_the_items_skipped_on_the_way()
+    {
+        using var harness = Harness.Create();
+        harness.SeedNewestFirst("A", "B", "C");
+        var pane = await harness.StartTriageAsync();
+
+        await PressAsync(pane, "j");
+        await PressAsync(pane, "j");
+
+        Assert.Equal(["A", "B"], UpNext(pane));
     }
 
     [Fact]
