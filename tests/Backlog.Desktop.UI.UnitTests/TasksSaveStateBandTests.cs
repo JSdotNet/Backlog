@@ -397,6 +397,9 @@ public sealed class TasksSaveStateBandTests : IDisposable
         public Task<Result<TaskItemDto>> LinkToIssueAsync(Guid id, string repoId, string externalId, string targetType, CancellationToken cancellationToken = default) =>
             inner.LinkToIssueAsync(id, repoId, externalId, targetType, cancellationToken);
 
+        public Task<Result<TaskItemDto>> UnlinkFromIssueAsync(Guid id, string repoId, string externalId, string targetType, CancellationToken cancellationToken = default) =>
+            inner.UnlinkFromIssueAsync(id, repoId, externalId, targetType, cancellationToken);
+
         public Task<Result<TaskItemDto>> SetDevbookReferencesAsync(Guid id, IReadOnlyList<string> references, CancellationToken cancellationToken = default) =>
             inner.SetDevbookReferencesAsync(id, references, cancellationToken);
 

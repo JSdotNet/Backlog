@@ -775,6 +775,30 @@ public sealed class TaskItem
         Touch();
     }
 
+    /// <summary>Forgets every link to the one external artifact named — the
+    /// counterpart of <see cref="AddProjectionRef"/>. The repository and the external
+    /// id are compared without regard to case, because GitHub is case-preserving but
+    /// not case-sensitive and a session id is matched that way everywhere; the external
+    /// id is trimmed on both sides, as it is when a link is read. With
+    /// <paramref name="anyRepository"/> the repository is not compared at all — a
+    /// session is one link whatever repository it was recorded under. Answers whether
+    /// anything was removed; nothing removed is not an edit.</summary>
+    public bool RemoveProjectionRef(ProjectionRef projectionRef, bool anyRepository = false)
+    {
+        ArgumentNullException.ThrowIfNull(projectionRef);
+
+        var externalId = (projectionRef.ExternalId ?? string.Empty).Trim();
+        var removed = _projectionRefs.RemoveAll(existing =>
+            string.Equals(existing.TargetType, projectionRef.TargetType, StringComparison.OrdinalIgnoreCase)
+            && string.Equals((existing.ExternalId ?? string.Empty).Trim(), externalId, StringComparison.OrdinalIgnoreCase)
+            && (anyRepository || string.Equals(existing.RepoId, projectionRef.RepoId, StringComparison.OrdinalIgnoreCase)));
+
+        if (removed == 0) return false;
+
+        Touch();
+        return true;
+    }
+
     /// <summary>Records where the task came from, replaces it with what the source
     /// says now, or clears it.
     /// <para>

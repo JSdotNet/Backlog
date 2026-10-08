@@ -9,6 +9,7 @@ using Backlog.Modules.Tasks.Features.RecordTaskUsage;
 using Backlog.Modules.Tasks.Features.ReorderTasks;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
 using Backlog.Modules.Tasks.Features.SetDevbookReferences;
+using Backlog.Modules.Tasks.Features.UnlinkTaskFromIssue;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Services;
 using Backlog.SharedKernel.Handlers;
@@ -44,6 +45,7 @@ public static class TasksModuleRegistration
         services.AddScoped<IQueryHandler<ListTasksQuery, IReadOnlyList<TaskItemDto>>, ListTasksQueryHandler>();
         services.AddScoped<ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>>, SaveTaskFromTextCommandHandler>();
         services.AddScoped<ICommandHandler<LinkTaskToIssueCommand, Result<TaskItemDto>>, LinkTaskToIssueCommandHandler>();
+        services.AddScoped<ICommandHandler<UnlinkTaskFromIssueCommand, Result<TaskItemDto>>, UnlinkTaskFromIssueCommandHandler>();
         services.AddScoped<ICommandHandler<SetDevbookReferencesCommand, Result<TaskItemDto>>, SetDevbookReferencesCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteTaskCommand>, DeleteTaskCommandHandler>();
         services.AddScoped<ICommandHandler<ReorderTasksCommand>, ReorderTasksCommandHandler>();

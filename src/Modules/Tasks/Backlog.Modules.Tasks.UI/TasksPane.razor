@@ -4,6 +4,7 @@
 @inject GitHubIntegration GitHub
 @inject IAppFeatureSettings Features
 @inject IJSRuntime JS
+@inject IServiceProvider Services
 
 @*
     A list of entries on the left and the selected entry on the right — the shape
@@ -106,6 +107,29 @@
                        out of view behind the rows. Two presses with nothing
                        visibly happening on the first is not a hierarchy, it is a
                        key that looks stuck. *@
+                    @* The Board's own control, first on its bar because it decides
+                       what everything under the bar is: which columns there are.
+                       Not a filter — it narrows nothing — so its own group. No
+                       visible word in front of it: the select shows Status, Plan,
+                       Repository or Priority, and that answer says what the
+                       columns are on its own — a "Columns" label beside it was a
+                       second word for the same thing, found in the sign-off.
+                       The name stays for anything that cannot see the value,
+                       as the select's aria-label and its tooltip. *@
+                    @if (Layout == TasksLayout.Board)
+                    {
+                        <div class="filter-group filter-group--columns" data-testid="board-columns-group">
+                            <SelectField CurrentValue="@BoardGrouping.ToString()"
+                                         Options="@BoardGroupingOptions"
+                                         Label="Columns"
+                                         Id="board-columns"
+                                         TestId="board-columns"
+                                         BaseClass="board-columns"
+                                         SelectCssClass="board-columns__select"
+                                         OnChanged="OnBoardGroupingPickedAsync" />
+                        </div>
+                    }
+
                     <div class="filter-group filter-group--select" @onkeydown="OnSelectionChipKeyDown">
                         <ToggleButton BaseClass="chip chip--filter chip--scope"
                                       PressedCssClass="chip--active"
@@ -206,6 +230,31 @@
                         </div>
                     }
 
+                    @* What kind of task it is — prompt, task, idea or test. The source
+                       group's shape and for its reason: a task has exactly one type,
+                       so pressing another lets go of the first, and with nothing
+                       pressed the list is already every type. Only the types in view
+                       get a chip, and none at all while there is just one of them.
+                       It narrows the rows every view reads, so the Board and the
+                       Calendar's month and its tray of undated tasks follow it too. *@
+                    @if (State.TypeFilters.Count > 0)
+                    {
+                        <div class="filter-group filter-group--type" role="group" aria-label="Filter by type">
+                            @foreach (var type in State.TypeFilters)
+                            {
+                                <ToggleButton BaseClass="chip chip--filter"
+                                              PressedCssClass="chip--active"
+                                              Pressed="@(State.SelectedType == type.Value)"
+                                              TestId="type-filter-option"
+                                              data-type="@EntryTextParser.TypeToken(type.Value)"
+                                              Title="@(State.SelectedType == type.Value ? "Show every type again" : $"Show only {type.Label.ToLowerInvariant()}s")"
+                                              PressedChanged="pressed => State.SetTypeFilter(pressed ? type.Value : null)">
+                                    @type.Label<span class="chip__count">@type.Count</span>
+                                </ToggleButton>
+                            }
+                        </div>
+                    }
+
                     @* Nothing at all until something in scope carries a tag: the group
                        is built from what people typed, so a backlog with no tags has
                        no third group rather than a dead chip filtering nothing.
@@ -265,21 +314,28 @@
                         </AppButton>
                     }
 
-                    <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
-                        @foreach (var filter in State.StatusFilters)
-                        {
-                            <AppButton BaseClass="chip chip--filter"
-                                       Variant="ButtonVariant.None"
-                                       CssClass="@(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : null)"
-                                       id="@($"status-filter-{(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)}")"
-                                       TestId="status-filter-option"
-                                       role="radio"
-                                       aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
-                                       OnClick="() => OnFilterChanged(filter.Wire)">
-                                @filter.Label
-                            </AppButton>
-                        }
-                    </div>
+                    @* Off the bar on the Board while its columns are the statuses:
+                       every status is a column there, so narrowing to one would
+                       empty the other three. The list's choice is kept, set aside
+                       rather than cleared — see StatusFilterSuspended. *@
+                    @if (!StatusFilterHidden)
+                    {
+                        <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
+                            @foreach (var filter in State.StatusFilters)
+                            {
+                                <AppButton BaseClass="chip chip--filter"
+                                           Variant="ButtonVariant.None"
+                                           CssClass="@(State.SelectedStatusFilterWire == filter.Wire ? "chip--active" : null)"
+                                           id="@($"status-filter-{(string.IsNullOrEmpty(filter.Wire) ? "all" : filter.Wire)}")"
+                                           TestId="status-filter-option"
+                                           role="radio"
+                                           aria-checked="@(State.SelectedStatusFilterWire == filter.Wire ? "true" : "false")"
+                                           OnClick="() => OnFilterChanged(filter.Wire)">
+                                    @filter.Label
+                                </AppButton>
+                            }
+                        </div>
+                    }
 
                     @* Not a filter either, so its own group beside the statuses it
                        sorts by. It re-ranks only what the bar above leaves in view,
@@ -382,6 +438,74 @@
                                 <Skeleton Shape="SkeletonShape.Block" Width="@width" />
                             }
                         </div>
+                    }
+                    else if (Layout == TasksLayout.Board)
+                    {
+                        @* The Board view: the same filtered rows, in columns, under the
+                           same filter bar and beside the same detail panel. A card
+                           opens its entry the way a row does; a drop runs the same
+                           status change the row's status selector does. An empty
+                           filter result is a board of empty columns rather than the
+                           list's empty state — the columns still say what they are.
+                           A card copies what the entry's row copies, through the same
+                           EntryCopyText, so a brief pasted from the Board is the brief
+                           pasted from the list. *@
+                        <TaskBoard @ref="_board"
+                                   Columns="@BoardColumns()"
+                                   CardCopyValue="@EntryCopyText"
+                                   Draggable="@(BoardGrouping == TaskBoardGrouping.Status)"
+                                   DropRuleFor="@BoardDropRule"
+                                   OnDrop="OnBoardDropAsync"
+                                   OnSelected="OnEntrySelectedAsync"
+                                   OnTagSelected="OnRowTagSelected"
+                                   OnAdd="OnBoardAdd"
+                                   SelectedId="@SelectedTaskId"
+                                   AriaLabel="@($"Tasks by {BoardGroupingWord}")"
+                                   TestId="task-board">
+                            <Badges Context="task">
+                                @* The list row's badges, on the card's terms: what work
+                                   on the entry produced, and what it is about in the
+                                   Devbook. *@
+                                @if (EntryFor(task.Id) is { } entry)
+                                {
+                                    @if (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any())
+                                    {
+                                        @RenderRowWork(entry)
+                                    }
+
+                                    @if (entry.DevbookReferences.Count > 0)
+                                    {
+                                        @RenderRowDevbook(entry)
+                                    }
+                                }
+                            </Badges>
+                        </TaskBoard>
+                    }
+                    else if (Layout == TasksLayout.Calendar)
+                    {
+                        @* The Calendar view: the same filtered rows, placed by due date,
+                           under the same filter bar and beside the same detail panel. A
+                           chip opens its entry the way a row does; a drop writes the
+                           due date the way the detail panel's Due row does. An empty
+                           filter result is an empty month and an empty tray rather
+                           than the list's empty state — the month bar is still the
+                           thing to use. *@
+                        <TaskCalendar @ref="_calendar"
+                                      Tasks="@CalendarTasks()"
+                                      Today="@Today"
+                                      MyDayCount="@MyDayCount"
+                                      SelectedId="@SelectedTaskId"
+                                      OnOpen="OnEntrySelectedAsync"
+                                      OnDueChanged="OnCalendarDueChangedAsync"
+                                      PlansAvailable="@CalendarPlansAvailable"
+                                      ShowPlans="@(_calendarPlans?.Shown ?? false)"
+                                      ShowPlansChanged="OnShowPlansChangedAsync"
+                                      Plans="@CalendarPlanWindows()"
+                                      Milestones="@CalendarMilestones()"
+                                      ShelfPlans="@CalendarShelf()"
+                                      OnPlanStarted="OnCalendarPlanStartedAsync"
+                                      AriaLabel="Tasks by due date"
+                                      TestId="task-calendar" />
                     }
                     else if (State.FilteredRows.Count == 0)
                     {
@@ -599,6 +723,10 @@
     /// only honest way to reach one.</summary>
     private TaskListView? _list;
 
+    /// <summary>The month calendar while the pane is in its Calendar layout; the
+    /// focus goes back to its selected chip where it would go back to a row.</summary>
+    private TaskCalendar? _calendar;
+
     /// <summary>The open entry's panel, held for the same reason and in the other
     /// direction: it is where the focus goes when the reader tabs off the selected
     /// row. The panel names its own controls, so it is asked to focus itself rather
@@ -636,7 +764,15 @@
     [
         $"#{DetailElementId}",
         "[data-testid='backlog-split-separator']",
-        "#backlog-pane .task-item__copy"
+        "#backlog-pane .task-item__copy",
+        // The open entry's own card on the Board, pressed again: it is the entry.
+        "#backlog-pane .task-card[aria-current='true']",
+        // The calendar's month bar and a day's "+N more" move around the month and
+        // say nothing about the open entry; the open entry's own chip or tray item
+        // is the entry, pressed or picked up to move it.
+        "#backlog-pane .task-calendar__bar",
+        "#backlog-pane .task-calendar__more",
+        "#backlog-pane [data-calendar-task][aria-current='true']"
     ];
 
     /// <summary>Which of the selected entry's scheduling rows currently has its
@@ -700,6 +836,9 @@
         _pickerEntry = State.SelectedRow;
         State.Changed += HandleStateChanged;
         Features.Changed += HandleFeaturesChanged;
+
+        _calendarPlans = Services.GetService(typeof(ICalendarPlans)) as ICalendarPlans;
+        if (_calendarPlans is not null) _calendarPlans.Changed += HandleCalendarPlansChanged;
     }
 
     /// <summary>The raw editor's element id, so the caret can be put in it the render
@@ -791,13 +930,15 @@
 
     private async Task FocusSelectedRowAsync()
     {
-        if (_list is null) return;
+        if (Layout switch { TasksLayout.Board => _board is null, TasksLayout.Calendar => _calendar is null, _ => _list is null }) return;
 
         _focusingSelectedRow = true;
 
         try
         {
-            await _list.FocusSelectedAsync();
+            if (Layout == TasksLayout.Board) await _board!.FocusSelectedAsync();
+            else if (Layout == TasksLayout.Calendar) await _calendar!.FocusSelectedAsync();
+            else await _list!.FocusSelectedAsync();
         }
         finally
         {
@@ -877,7 +1018,17 @@
             _ => false
         };
 
-    private void HandleFeaturesChanged() => _ = InvokeAsync(StateHasChanged);
+    /// <summary>A feature switched — the roadmap among them — so the Calendar's plans are
+    /// read again before it next draws them.</summary>
+    private void HandleFeaturesChanged()
+    {
+        _calendarPlansStale = true;
+        _ = InvokeAsync(async () =>
+        {
+            if (Layout == TasksLayout.Calendar) await ReadCalendarPlansAsync();
+            StateHasChanged();
+        });
+    }
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
 
@@ -891,6 +1042,171 @@
     [Parameter]
     public EventCallback<string> OnOpenSession { get; set; }
 
+    /// <summary>How the entries under the filter bar are laid out — the list, the board
+    /// or the month calendar. The shell's view switch picks it.</summary>
+    [Parameter]
+    public TasksLayout Layout { get; set; } = TasksLayout.List;
+
+    /// <summary>
+    /// The filtered entries, as the month calendar needs them: by due date, with the
+    /// lifecycle behind the status dot and the repository mark — which
+    /// <c>RepositoryMarkClass</c> already withholds while the colours are hidden.
+    /// A recurring entry is placed on its due date alone; the next occurrence is
+    /// written when this one is ticked off, so there is no series to draw.
+    /// </summary>
+    private IReadOnlyList<CalendarTask> CalendarTasks() =>
+        [.. State.FilteredRows.Select(row => new CalendarTask(
+            EntryTaskId(row),
+            EntryDisplayTitle(row),
+            row.PreviewDueOn,
+            CalendarStateOf(row),
+            Repeats: row.PreviewRecurrence is not null,
+            CssClass: State.RepositoryMarkClass(row),
+            Effort: FormatEffort(row.PreviewEffort)))];
+
+    /// <summary>The tick wins over the lifecycle, as it does on the list: an entry
+    /// ticked off is done whatever status its text still names.</summary>
+    private static CalendarTaskState CalendarStateOf(EntryRow row) =>
+        row.IsPreviewCompleted
+            ? CalendarTaskState.Done
+            : row.PreviewStatus switch
+            {
+                EntryStatus.Ready => CalendarTaskState.Ready,
+                EntryStatus.InProgress => CalendarTaskState.InProgress,
+                EntryStatus.Done => CalendarTaskState.Done,
+                EntryStatus.Archived => CalendarTaskState.Archived,
+                _ => CalendarTaskState.Draft
+            };
+
+    /// <summary>A task dropped on a day: that day becomes its due date, through the
+    /// same write the detail panel's Due row makes.</summary>
+    private async Task OnCalendarDueChangedAsync(CalendarDueChange change)
+    {
+        if (EntryFor(change.TaskId) is { } row) await State.ChangeDueAsync(row, change.DueOn);
+    }
+
+    /// <summary>
+    /// The roadmap's plans for the Calendar, through Tasks' own port — null in a host
+    /// that composed no roadmap, when the Calendar offers no plans at all. The port's
+    /// adapter reads Roadmap's abstractions; nothing here sizes or places a window.
+    /// </summary>
+    private ICalendarPlans? _calendarPlans;
+
+    /// <summary>The plans as last read, and whether a read is owed before the Calendar
+    /// next draws them.</summary>
+    private Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto _calendarPlansRead =
+        Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto.Empty;
+    private bool _calendarPlansStale = true;
+    private DateOnly? _calendarPlansReadOn;
+    private TasksLayout? _calendarPlansLayout;
+
+    private bool CalendarPlansAvailable => _calendarPlans is not null && _calendarPlansRead.Available;
+
+    /// <summary>
+    /// Reads the plans while the Calendar shows them: on arriving at the Calendar, when
+    /// the plan, its work or the pace changed, and when the day did — not on every
+    /// render, because reading gathers the backlog per plan.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        var arrived = _calendarPlansLayout != Layout && Layout == TasksLayout.Calendar;
+        _calendarPlansLayout = Layout;
+
+        if (Layout == TasksLayout.Calendar && (arrived || _calendarPlansStale || _calendarPlansReadOn != Today))
+        {
+            await ReadCalendarPlansAsync();
+        }
+    }
+
+    private async Task ReadCalendarPlansAsync()
+    {
+        if (_calendarPlans is null) return;
+
+        _calendarPlansStale = false;
+        _calendarPlansReadOn = Today;
+        try
+        {
+            _calendarPlansRead = await _calendarPlans.ReadAsync(Today);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A plan that cannot be read — a file gone, a document that does not parse —
+            // leaves the tasks on the Calendar; the bars are what goes missing, not the
+            // month or the pane.
+            _calendarPlansRead = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.CalendarPlansDto.Empty;
+        }
+    }
+
+    private void HandleCalendarPlansChanged()
+    {
+        _calendarPlansStale = true;
+        if (Layout != TasksLayout.Calendar) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            await ReadCalendarPlansAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task OnShowPlansChangedAsync(bool shown)
+    {
+        if (_calendarPlans is null) return;
+
+        _calendarPlans.SetShown(shown);
+        if (shown) await ReadCalendarPlansAsync();
+    }
+
+    /// <summary>Each window as a bar, wearing the band colour of the first of its
+    /// repositories that has one — <c>RepositoryColours</c> is empty while the colours
+    /// are hidden, so the bar is then neutral grey.</summary>
+    private IReadOnlyList<CalendarPlan> CalendarPlanWindows()
+    {
+        var colours = State.RepositoryColours;
+        return
+        [
+            .. _calendarPlansRead.Windows.Select(window => new CalendarPlan(
+                window.Id.ToString("N"),
+                window.Title,
+                window.Tag,
+                window.Start,
+                window.End,
+                window.DonePoints,
+                window.TotalPoints,
+                window.RepositoryAliases
+                    .Select(alias => colours.TryGetValue(alias, out var band) ? band : (int?)null)
+                    .FirstOrDefault(band => band is not null)))
+        ];
+    }
+
+    private IReadOnlyList<CalendarMilestone> CalendarMilestones() =>
+        [.. _calendarPlansRead.Milestones.Select(milestone => new CalendarMilestone(milestone.Id.ToString("N"), milestone.Title, milestone.On))];
+
+    private IReadOnlyList<CalendarShelfPlan> CalendarShelf() =>
+        [
+            .. _calendarPlansRead.Shelf.Select(plan => new CalendarShelfPlan(
+                plan.Tag,
+                plan.Title,
+                plan.TaskCount,
+                plan.TotalEffort,
+                plan.UnestimatedCount))
+        ];
+
+    /// <summary>A shelf plan dropped on a day: the roadmap places its window from there,
+    /// by its own placement. A refusal is said in a toast; the plan stays on the shelf.
+    /// The redraw comes from the plan's own change signal, which a stored window raises
+    /// and a refusal does not, so the plan is read once.</summary>
+    private async Task OnCalendarPlanStartedAsync(CalendarPlanStart start)
+    {
+        if (_calendarPlans is null) return;
+
+        var refusal = await _calendarPlans.StartAsync(start.Tag, start.Start);
+        if (refusal is not null)
+        {
+            Toasts.Publish(ToastMessage.Warning($"+{start.Tag} could not be planned: {refusal}", "calendar-plan-refused"));
+        }
+    }
+
     private Task OpenSessionAsync(IntegrationLinkRef link) => OnOpenSession.InvokeAsync(link.Id);
 
     /// <summary>
@@ -902,6 +1218,16 @@
     /// </summary>
     [Parameter]
     public EventCallback<DevbookReferenceRequest> OnOpenDevbookReference { get; set; }
+
+    /// <summary>
+    /// The "Sessions and pull requests" section of the detail pane, drawn by the
+    /// host for the selected entry above its body. The host's because the cards
+    /// carry what the Sessions context and GitHub say about the work — titles, last
+    /// activity, checks — and this pane may reach neither. Unset, the pane draws no
+    /// section and the footer's work badges are the record, as before.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<EntryRow>? LinkedWork { get; set; }
 
     /// <summary>The session opener handed to the link, or none when the host wired
     /// nothing, so an unopenable session is inert text.</summary>
@@ -935,6 +1261,13 @@
     /// anything — and only behind the same gate as everything else GitHub draws, so
     /// switching the integration off takes the marks with it.
     /// </para>
+    /// <para>
+    /// Its review state rides along on the same terms: a mark beside the checks for a
+    /// verdict — approved, or changes requested — and the words in the tooltip for
+    /// every state GitHub decided, review required included. The tooltip is the
+    /// badge's accessible name too, so a reader who cannot see the inks hears the
+    /// same sentence.
+    /// </para>
     /// </summary>
     private IntegrationLinkRef Link(EntryRow row, EntryPullRequestLink pr)
     {
@@ -954,9 +1287,22 @@
             _ => IntegrationCheckState.None
         };
         var autoMerge = status?.AutoMergeEnabled == true;
+        var review = status?.ReviewState switch
+        {
+            GitHubReviewState.ReviewRequired => IntegrationReviewState.ReviewRequired,
+            GitHubReviewState.Approved => IntegrationReviewState.Approved,
+            GitHubReviewState.ChangesRequested => IntegrationReviewState.ChangesRequested,
+            _ => IntegrationReviewState.None
+        };
 
         var words = new List<string>();
         if (read) words.Add(GitHubStateLabel(state));
+        if (review is not IntegrationReviewState.None) words.Add(review switch
+        {
+            IntegrationReviewState.Approved => "approved",
+            IntegrationReviewState.ChangesRequested => "changes requested",
+            _ => "review required"
+        });
         if (checks is not IntegrationCheckState.None) words.Add($"checks {checks.ToString().ToLowerInvariant()}");
         if (autoMerge) words.Add("auto-merge on");
 
@@ -971,7 +1317,8 @@
             pr.Url,
             Repository: new IntegrationRepositoryRef(pr.Repository, pr.Repository),
             Checks: checks,
-            AutoMerge: autoMerge);
+            AutoMerge: autoMerge,
+            Review: review);
     }
 
     /// <summary>
@@ -987,15 +1334,48 @@
             ? $"entry-doc__work-link entry-doc__work-link--{GitHubStateClass(state)}"
             : "entry-doc__work-link";
 
-    /// <summary>The short id alone, beside the Claude mark; the words are in the
-    /// tooltip, where the whole id is too.</summary>
-    private static IntegrationLinkRef Link(EntrySessionLink session) =>
-        new(
+    /// <summary>
+    /// The short id alone, beside the Claude mark; the words are in the tooltip,
+    /// where the whole id is too, and the tooltip is the badge's accessible name.
+    /// <para>
+    /// The mark is coloured by the session's state as the Sessions record last
+    /// answered it (<see cref="TasksDesktopState.SessionStates"/>): stalled is the
+    /// state that needs the person, highlighted and worded as what it is — quiet for
+    /// half an hour — rather than as a verdict; running keeps the neutral ink and
+    /// finished is muted. A session the record does not hold, or that has not been
+    /// read yet, has no state and draws as it always did.
+    /// </para>
+    /// </summary>
+    private IntegrationLinkRef Link(EntrySessionLink session)
+    {
+        var state = State.SessionStateOf(session.SessionId);
+
+        return new(
             session.SessionId,
             IntegrationProvider.Claude,
             IntegrationLinkKind.Session,
             session.ShortId,
-            $"Session {session.SessionId} — open in Sessions");
+            state is { } known
+                ? $"Session {session.SessionId} · {SessionStateWords(known)} — open in Sessions"
+                : $"Session {session.SessionId} — open in Sessions",
+            SessionState: state switch
+            {
+                LinkedSessionState.Running => IntegrationSessionState.Running,
+                LinkedSessionState.Stalled => IntegrationSessionState.Stalled,
+                LinkedSessionState.Finished => IntegrationSessionState.Finished,
+                _ => null
+            });
+    }
+
+    /// <summary>A linked session's state in the badge's words. Stalled says what it
+    /// means — nothing has moved for the Sessions threshold — because "stalled" on
+    /// its own reads as a fault, and the session is usually waiting on the person.</summary>
+    private static string SessionStateWords(LinkedSessionState state) => state switch
+    {
+        LinkedSessionState.Stalled => "Quiet 30 min",
+        LinkedSessionState.Finished => "finished",
+        _ => "running"
+    };
 
     /// <summary>
     /// The work links, drawn once for both surfaces: every recorded pull request
@@ -1011,18 +1391,26 @@
 
             foreach (var pr in latestOnly ? pulls.TakeLast(1) : pulls)
             {
-                <IntegrationLink Link="@Link(row, pr)"
+                var prLink = Link(row, pr);
+
+                <IntegrationLink Link="@prLink"
                                  ShowTitle="false"
+                                 AriaLabel="@prLink.Title"
                                  CssClass="@WorkLinkClass(row, pr)"
                                  TestId="@($"{testIdPrefix}pull-request")"
                                  ChecksTestId="@($"{testIdPrefix}pull-request-checks")"
+                                 ReviewTestId="@($"{testIdPrefix}pull-request-review")"
                                  AutoMergeTestId="@($"{testIdPrefix}pull-request-auto-merge")" />
             }
 
             foreach (var session in latestOnly ? sessions.TakeLast(1) : sessions)
             {
-                <IntegrationLink Link="@Link(session)"
+                var sessionLink = Link(session);
+
+                <IntegrationLink Link="@sessionLink"
                                  ShowTitle="false"
+                                 StateAsInk="true"
+                                 AriaLabel="@sessionLink.Title"
                                  CssClass="entry-doc__work-link"
                                  OnOpen="SessionOpener"
                                  TestId="@($"{testIdPrefix}session")" />
@@ -2573,6 +2961,12 @@
                     @RenderEntrySchedule(row)
                 </Details>
                 <Body>
+                    @* Above the body, under the fields: the work on the entry is read
+                       before its text and acted on from here — opened, or linked. *@
+                    @if (LinkedWork is not null && row.IsPersisted)
+                    {
+                        @LinkedWork(row)
+                    }
                     @RenderBodyViews(row)
                 </Body>
                 <Footer>
@@ -3040,6 +3434,17 @@
                 @if (row.PreviewEffort is { } effort)
                 {
                     <Badge Kind="effort" data-testid="entry-effort-badge" title="Effort">@FormatEffort(effort)</Badge>
+                }
+
+                @* The day work started, beside the size and on the same terms:
+                   only when there is one. Read-only, and so a badge rather than a
+                   row in the Scheduling group — nobody sets it; the first move
+                   into progress stamps it (a Board drop, the status selector),
+                   and a row there would offer a picker and a ✕ for a fact the
+                   reader cannot change. *@
+                @if (row.PreviewStartedOn is { } started)
+                {
+                    <Badge Kind="started" data-testid="entry-started-badge" title="Started">Started @FormatDate(started)</Badge>
                 }
 
                 @* Grouped and named after the entry, out loud. Both of these act on
@@ -3802,6 +4207,18 @@
     /// The same move Escape makes, minus the closing.</summary>
     private async Task MoveFocusToListAsync()
     {
+        if (Layout == TasksLayout.Board)
+        {
+            if (_board is not null) await _board.FocusSelectedAsync();
+            return;
+        }
+
+        if (Layout == TasksLayout.Calendar)
+        {
+            if (_calendar is not null) await _calendar.FocusSelectedAsync();
+            return;
+        }
+
         if (_list is null) return;
 
         await _list.FocusSelectedAsync();
@@ -4498,7 +4915,12 @@
     public async ValueTask DisposeAsync()
     {
         State.Changed -= HandleStateChanged;
+
+        // The Board set the status filter aside; whatever shows the rows next —
+        // the list, Ask AI's Tasks area — reads them with it applied again.
+        State.SetStatusFilterSuspended(false);
         Features.Changed -= HandleFeaturesChanged;
+        if (_calendarPlans is not null) _calendarPlans.Changed -= HandleCalendarPlansChanged;
 
         if (_undoKeysReference is null) return;
 

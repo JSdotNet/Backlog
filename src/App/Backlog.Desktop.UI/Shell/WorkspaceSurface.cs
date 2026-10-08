@@ -3,12 +3,11 @@ namespace Backlog.Desktop.UI.Shell;
 /// <summary>
 /// Which surface the shell is showing below its chrome.
 /// <para>
-/// One field with six states, rather than a flag per takeover, and that is the
+/// One field rather than a flag per takeover, and that is the
 /// whole point: a takeover cannot coexist with the workspace, and the takeovers
-/// cannot coexist with each other. Each belongs to one context — Roadmap to
-/// Roadmap, Tools to Dev PC Management, Dashboard to the Dashboard, Sessions and
-/// Pull requests to Sessions — and opening
-/// any of them means the
+/// cannot coexist with each other. Each belongs to one context — Tools to Dev PC
+/// Management, Dashboard to the Dashboard, Sessions and Pull requests to
+/// Sessions — and opening any of them means the
 /// reader has stopped looking at the backlog, so there is no arrangement in which
 /// one shares the screen with the panes or with another. Two booleans would have
 /// to be kept out of the impossible states by hand; this cannot reach any of them.
@@ -51,9 +50,11 @@ internal enum WorkspaceSurface
     /// <summary>The Dashboard context, taking the whole screen.</summary>
     Dashboard,
 
-    /// <summary>The Roadmap context's plan, taking the whole screen. It was a band
-    /// above the panes until a plan read in a strip of the screen proved to be a plan
-    /// paged through; written after the others so their stored names are unchanged.</summary>
+    /// <summary>The roadmap's name while it was a takeover. It is a
+    /// <see cref="ShellView"/> now, opened by the view switch, and nothing assigns
+    /// this member: it stays only because the navigation file stores names, so a
+    /// file from then still reads, and <c>ShellNavigationStore</c> migrates it to
+    /// the Roadmap view over the workspace. Never written again.</summary>
     Roadmap,
 
     /// <summary>The Sessions context's list, taking the whole screen. Written after

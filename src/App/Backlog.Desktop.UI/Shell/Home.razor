@@ -30,25 +30,27 @@
     It used to be called the shell, and it owned the update and feedback windows
     too. Those were never about this page — MainLayout mounts them below every
     route now, in AppFooter — and what is left here is genuinely this screen's:
-    the repository scope, the view switcher, the pane strip, and the surfaces they
-    choose between. The `.shell` class on the wrapper is the older name and stays,
+    the repository scope, the view switch, the side-pane toggles, and the
+    surfaces they choose between. The `.shell` class on the wrapper is the older name and stays,
     because it is what every layout rule in app.css is written against.
 
-    There are six, and exactly one of them renders: the workspace, which is the
-    global panes; the roadmap; the tools surface; the dashboard; the session list;
-    and the pull requests list. The last five are takeovers — Roadmap, Dev PC
-    Management, the Dashboard and Sessions are whole domains, and opening one means
-    the reader has stopped looking at the backlog, so it takes the screen and hides
-    every other domain concern rather than docking beside them. Whichever branch
-    renders owns the page's single <main> landmark.
+    There are five, and exactly one of them renders: the workspace — the main view
+    the view switch picks, Tasks or Roadmap, with the Inbox and the Devbook beside
+    it — the tools surface, the dashboard, the session list and the pull requests
+    list. The last four are takeovers — Dev PC Management, the Dashboard and
+    Sessions are whole domains, and opening one means the reader has stopped
+    looking at the backlog, so it takes the screen and hides every other domain
+    concern rather than docking beside them. The roadmap was one of them until it
+    became a view. Whichever branch renders owns the page's single <main> landmark.
 
     The header follows the surface. Every control in it acts on something, and a
     control whose something is off screen is a dead button: the GitHub check
     refreshes the task list, and Ask AI answers from the content of an open area —
-    so each of them renders only while what it acts on does. The pane strip, the
-    takeover group and the identity region stay, because they are true of the
-    screen whatever is on it; during a takeover the pane strip is the way back,
-    since pressing a pane closes the takeover and shows that pane.
+    so each of them renders only while what it acts on does. The view switch, the
+    side-pane toggles, the takeover groups and the identity region stay, because
+    they are true of the screen whatever is on it; during a takeover the view
+    switch and the side-pane toggles are the way back, since pressing one closes
+    the takeover and shows the workspace.
 
     What is inside a surface is not the shell's business: Inbox, Backlog
     Management, Devbook, Roadmap, Dev PC Management, Sessions and the
@@ -84,13 +86,12 @@
                    to be distinct from, and the markup stays exactly what the single
                    select produced.
 
-                   Fused, because several can be on at once. The header draws its groups
-                   in two shapes and the shape is the cardinality: members touching
-                   inside one border where any number can be pressed, standalone
-                   controls where exactly one can — see Region B. The scope used to be
-                   loose chips, which said "one of these" to a reader who could in fact
-                   take several. The shared ButtonGroup wears the same header-group
-                   shape the panes strip does; the chips inside keep their chip
+                   Fused, because the repositories are siblings read as one control,
+                   several of which can be on at once — see Region B for what each
+                   shape says. The scope used to be loose chips, which said "related
+                   only by kind" of options that are one set. The shared ButtonGroup
+                   wears the same header-group shape the view switch does; the chips
+                   inside keep their chip
                    classes, because the active fill, the identity edge and the anchor
                    mark all key on those. *@
                 <ButtonGroup CssClass="header-group app-header__repository-scope" AriaLabel="Repository scope">
@@ -149,72 +150,43 @@
             }
         </div>
 
-        @* Region B — navigation, and nothing else. Two groups, because there are
-           two different questions: which panes are on screen (any number), and
-           which takeover, if any, has the screen instead (at most one). Two shared
-           ButtonGroups make that difference visible; one undifferentiated row of
-           pills could not. The roadmap was a third question — a band above the
-           panes, on or off — until it became a surface of its own.
+        @* Region B — navigation, and nothing else. Left to right: the Inbox
+           toggle, the view switch, the Devbook toggle, then the takeovers in two
+           groups — the work in progress, and the rest.
 
-           And they are drawn differently, because the count is the difference.
-           Members fused inside one border say "any of these, together": that is the
-           panes strip, and the repository scope in Region A. Standalone controls
-           with a gap between them say "one of these": that is the takeover group.
-           It used to wear the fused shape on the argument that everything here
-           answers "what am I looking at" — but a reader cannot see how many answers
-           a control takes until they press it, and the shape is the one thing they
-           can see first.
+           The view switch is the one question every screen answers: which main
+           view the workspace shows. Exactly one is always showing, so the switch has
+           no "off" and pressing the pressed option changes nothing. The Inbox and
+           the Devbook are not views but panes beside whichever view is showing, and
+           they flank the switch because they are the workspace's too — the reader
+           reads them beside the list or the roadmap, not instead of it. The Tasks
+           pane toggle that used to sit between them is gone with the "side panes
+           only" state it allowed: the task list is the Tasks view now.
 
-           The panes come first and are always there. The way back from a takeover
-           used to be a "Workspace" option at the head of the takeover group, which
-           was a control naming a thing nobody reads as a destination — the reader
-           wants the Tasks pane back, not "the workspace". So the pane options are
-           the way back: pressing one closes the takeover and shows that pane. *@
+           The shapes. A fused group is a set of sibling destinations read as one
+           control — the view switch, and the work in progress (In progress,
+           Sessions and Pull requests) — and the pressed
+           state says which is on. A standalone option is one on-or-off of its own:
+           the two side panes. The loose group is the remaining takeovers, related
+           to each other only by being takeovers.
+
+           The view options and the side-pane toggles are also the way back from a
+           takeover: pressing one closes it and shows the workspace. During a
+           takeover none of them reads pressed, because nothing of the workspace is
+           on screen; the view and the open panes are kept underneath and come
+           back as they were. *@
         <nav class="app-header__nav" aria-label="Workspace views">
-            @* Which panes are on screen below, in one strip. The shared ButtonGroup
-               rather than a hand-rolled div, so its role and label come from the
-               component and its test id reaches the DOM through TestId. Its options
-               are aria-pressed toggles, not tabs: several panes are on screen at once,
-               so this is a multi-select, and the fused shape says so.
-
-               Always rendered, takeover or not. It was hidden during a takeover for
-               a while, because a press on it then changed nothing the reader could
-               see — but a press on it now closes the takeover, so it is the way back
-               and has to stay. While a takeover is up no option reads pressed, since
-               no pane is on screen, and none is disabled: the lone open pane that
-               refuses to close in the workspace is exactly the one a reader presses
-               to return to it. The pane selection lives outside WorkspaceSurface and
-               survives the round trip untouched. *@
-            <ButtonGroup CssClass="header-group header-group--panes"
-                         AriaLabel="Visible panes"
-                         TestId="global-pane-multiselect">
-                @* One pane on a plain press, one more with Ctrl held — the same
-                   convention as the repository scope in Region A, and for the same
-                   reason: several can be on screen at once, and the option is the
-                   one control the reader is already pressing. Each pane used to carry
-                   a pin, railed along its option's top edge, that held it through a
-                   switch; that was a second control on every option for what one
-                   modifier on the option itself now says. The tooltip names the
-                   modifier, because nothing else on screen does — and names it only
-                   while the window fits a second pane, since a Ctrl-press in a window
-                   that fits one is a switch whatever the reader held.
-
-                   OnClick rather than PressedChanged, because the press has to reach
-                   the handler with its modifiers on; the pressed state the button
-                   reports is the selection's answer and not something the handler
-                   needs told. The takeover group after it keeps PressedChanged: it
-                   takes no modifier, because at most one takeover is on at a time. *@
+            <div class="app-header__workspace" data-testid="workspace-navigation">
                 @if (InboxPaneOptionVisible)
                 {
-                    <ToggleButton BaseClass="header-group__option"
+                    <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="PaneOptionPressed(GlobalPane.Inbox)"
                                   id="inbox-pane-option"
                                   TestId="inbox-pane-option"
                                   aria-controls="inbox-pane"
-                                  Disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
                                   Title="@PaneOptionTitle(GlobalPane.Inbox, "Inbox")"
-                                  OnClick="args => PressPane(GlobalPane.Inbox, args)">
+                                  OnClick="() => PressPane(GlobalPane.Inbox)">
                         Inbox
                         <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
                                             Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
@@ -222,109 +194,110 @@
                     </ToggleButton>
                 }
 
-                <ToggleButton BaseClass="header-group__option"
-                              PressedCssClass="header-group__option--selected"
-                              Pressed="PaneOptionPressed(GlobalPane.Tasks)"
-                              id="backlog-pane-option"
-                              TestId="backlog-pane-option"
-                              aria-controls="backlog-pane"
-                              Disabled="@PaneToggleDisabled(GlobalPane.Tasks)"
-                              Title="@PaneOptionTitle(GlobalPane.Tasks, "Tasks")"
-                              OnClick="args => PressPane(GlobalPane.Tasks, args)">
-                    Tasks
-                </ToggleButton>
-
-                @if (DevbookPaneOptionVisible)
-                {
+                @* The view switch. Tasks, Board and Calendar are always offered; the
+                   Roadmap while its flag is on. Tasks' option is still the way back
+                   from a takeover. In progress is a view too, but its option is the
+                   first of the work in progress group further along, not one of these. *@
+                <ButtonGroup CssClass="header-group header-group--views"
+                             AriaLabel="View"
+                             TestId="view-switch">
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
-                                  Pressed="PaneOptionPressed(GlobalPane.Devbook)"
-                                  id="devbook-pane-option"
-                                  TestId="devbook-pane-option"
-                                  aria-controls="repository-devbook-pane"
-                                  Disabled="@PaneToggleDisabled(GlobalPane.Devbook)"
-                                  Title="@PaneOptionTitle(GlobalPane.Devbook, "Devbook")"
-                                  OnClick="args => PressPane(GlobalPane.Devbook, args)">
-                        Devbook
-                        <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.RepositoryDevbook)"
-                                            Title="@FeatureStatusTitle(DevbookFeatures.RepositoryDevbook)"
-                                            TestId="devbook-feature-status" />
+                                  Pressed="ViewOptionPressed(ShellView.Tasks)"
+                                  id="tasks-view-option"
+                                  TestId="tasks-view-option"
+                                  aria-controls="backlog-pane"
+                                  OnClick="() => ShowView(ShellView.Tasks)">
+                        Tasks
                     </ToggleButton>
-                }
-            </ButtonGroup>
 
-            @* The takeovers, in one group. WorkspaceSurface has always been a single
-               enum precisely because a takeover cannot coexist with the workspace or
-               with another takeover — but the header once rendered independent
-               buttons carrying aria-expanded, which described neither the
-               exclusivity nor the fact that a takeover replaces the workspace
-               instead of expanding beside it. A group of pressed states describes
-               both. Pressing the pressed one again, Escape, a takeover's own close
-               button, or any pane option before this group returns to the panes.
+                    @* The Board: the Tasks pane's filtered rows in columns of cards,
+                       right after Tasks because it is the same rows read another way. *@
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="ViewOptionPressed(ShellView.Board)"
+                                  id="board-view-option"
+                                  TestId="board-view-option"
+                                  aria-controls="backlog-pane"
+                                  OnClick="() => ShowView(ShellView.Board)">
+                        Board
+                    </ToggleButton>
 
-               Loose rather than fused: at most one takeover is on at a time, and a
-               fused strip is the shape this header reserves for "several at once".
-               The group is still one group — one role, one label, the options in
-               one tab sequence — it only stops drawing its members as one control.
+                    @* The Calendar: the Tasks pane's filtered rows on a month by due
+                       date. Board sits between it and Tasks. *@
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="ViewOptionPressed(ShellView.Calendar)"
+                                  id="calendar-view-option"
+                                  TestId="calendar-view-option"
+                                  aria-controls="backlog-pane"
+                                  OnClick="() => ShowView(ShellView.Calendar)">
+                        Calendar
+                    </ToggleButton>
 
-               Ask AI keeps aria-expanded further down, because that one really is
-               a disclosure: its panel opens beside the content it belongs to.
-
-               The group renders only when some takeover is offered; with every
-               takeover feature off there is nothing in it. *@
-            @if (SurfaceSwitcherVisible)
-            {
-                <ButtonGroup CssClass="header-group header-group--loose header-group--surface"
-                             AriaLabel="Surface"
-                             TestId="workspace-surface-switcher">
-                    @* The roadmap, as a takeover, and first among them: it sits right
-                       after the pane strip because it is the Tasks pane's plan read on
-                       a timeline, the takeover closest to the panes. It was a band
-                       above the panes with a toggle of its own, and a plan read in
-                       three tenths of the screen was a plan paged through; the panes
-                       under it were never what the reader was planning with. So it
-                       takes the screen the way Tools and the Dashboard do, and choosing
-                       it is choosing what owns the screen — which is this group's
-                       question. *@
-                    @if (RoadmapPaneOptionVisible)
+                    @if (RoadmapViewOffered)
                     {
-                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                        <ToggleButton BaseClass="header-group__option"
                                       PressedCssClass="header-group__option--selected"
-                                      Pressed="RoadmapVisible"
-                                      id="roadmap-toggle-button"
-                                      TestId="roadmap-toggle-button"
-                                      aria-controls="roadmap-surface"
-                                      PressedChanged="ToggleRoadmap">
+                                      Pressed="ViewOptionPressed(ShellView.Roadmap)"
+                                      id="roadmap-view-option"
+                                      TestId="roadmap-view-option"
+                                      aria-controls="roadmap-view"
+                                      OnClick="() => ShowView(ShellView.Roadmap)">
                             Roadmap
                             <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
                                                 Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
                                                 TestId="roadmap-feature-status" />
                         </ToggleButton>
                     }
+                </ButtonGroup>
 
-                    @if (DashboardOffered)
-                    {
-                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
-                                      PressedCssClass="header-group__option--selected"
-                                      Pressed="DashboardVisible"
-                                      id="dashboard-toggle-button"
-                                      TestId="dashboard-toggle-button"
-                                      aria-controls="dashboard-surface"
-                                      PressedChanged="ToggleDashboard">
-                            Dashboard
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(DashboardFeatures.Dashboard)"
-                                                Title="@FeatureStatusTitle(DashboardFeatures.Dashboard)"
-                                                TestId="dashboard-feature-status" />
-                        </ToggleButton>
-                    }
+                @if (DevbookPaneOptionVisible)
+                {
+                    <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="PaneOptionPressed(GlobalPane.Devbook)"
+                                  id="devbook-pane-option"
+                                  TestId="devbook-pane-option"
+                                  aria-controls="repository-devbook-pane"
+                                  Title="@PaneOptionTitle(GlobalPane.Devbook, "Devbook")"
+                                  OnClick="() => PressPane(GlobalPane.Devbook)">
+                        Devbook
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.RepositoryDevbook)"
+                                            Title="@FeatureStatusTitle(DevbookFeatures.RepositoryDevbook)"
+                                            TestId="devbook-feature-status" />
+                    </ToggleButton>
+                }
+            </div>
 
-                    @* Sessions, as a segment of its own. It was the Dashboard's second
-                       tab for a while, which put the list a person opens to see what
-                       the assistants are running one click behind a summary of it.
-                       The Dashboard keeps that summary; the list is here. *@
+            @* The work in progress: what the assistants are running and what they
+               shipped. Two takeovers of the Sessions context, each under its own
+               flag, fused because they are one context's two lists, led by the In
+               progress view that summarises both. Each list is a takeover, so
+               pressing the pressed one, Escape, or the surface's own close button
+               returns to the workspace. Renders only while one of them is offered. *@
+            @if (SessionsOffered || PullRequestsOffered)
+            {
+                <ButtonGroup CssClass="header-group header-group--work"
+                             AriaLabel="Work in progress"
+                             TestId="work-in-progress-switcher">
+                    @* A main view, not a takeover, though it sits with two: pressing
+                       it shows the view as a view-switch option does, the Inbox and
+                       the Devbook stay beside it, and nothing closes it. First,
+                       because it is the summary the other two are the lists behind. *@
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="ViewOptionPressed(ShellView.InProgress)"
+                                  id="in-progress-view-option"
+                                  TestId="in-progress-view-option"
+                                  aria-controls="in-progress-view"
+                                  OnClick="() => ShowView(ShellView.InProgress)">
+                        In progress
+                    </ToggleButton>
+
                     @if (SessionsOffered)
                     {
-                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                        <ToggleButton BaseClass="header-group__option"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="SessionsVisible"
                                       id="sessions-toggle-button"
@@ -338,14 +311,11 @@
                         </ToggleButton>
                     }
 
-                    @* Pull requests, right after Sessions because it is the same
-                       context's second list: what the sessions shipped, across every
-                       registered repository. Its own segment and its own flag, since
-                       it asks GitHub on every opening and the session list asks
-                       nothing. *@
+                    @* Its own option and its own flag, since it asks GitHub on every
+                       opening and the session list asks nothing. *@
                     @if (PullRequestsOffered)
                     {
-                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                        <ToggleButton BaseClass="header-group__option"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="PullRequestsVisible"
                                       id="pull-requests-toggle-button"
@@ -356,6 +326,36 @@
                             <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.PullRequests)"
                                                 Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
                                                 TestId="pull-requests-feature-status" />
+                        </ToggleButton>
+                    }
+                </ButtonGroup>
+            }
+
+            @* The remaining takeovers, loose: the Dashboard and Dev PC Management's
+               Tools, related only by each taking the screen. WorkspaceSurface is a
+               single enum because a takeover cannot coexist with the workspace or
+               with another takeover, and a group of pressed states describes that
+               exclusivity where independent aria-expanded buttons did not. Ask AI
+               keeps aria-expanded further down, because that one really is a
+               disclosure. Renders only while one of them is offered. *@
+            @if (SurfaceSwitcherVisible)
+            {
+                <ButtonGroup CssClass="header-group header-group--loose header-group--surface"
+                             AriaLabel="Surface"
+                             TestId="workspace-surface-switcher">
+                    @if (DashboardOffered)
+                    {
+                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="DashboardVisible"
+                                      id="dashboard-toggle-button"
+                                      TestId="dashboard-toggle-button"
+                                      aria-controls="dashboard-surface"
+                                      PressedChanged="ToggleDashboard">
+                            Dashboard
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(DashboardFeatures.Dashboard)"
+                                                Title="@FeatureStatusTitle(DashboardFeatures.Dashboard)"
+                                                TestId="dashboard-feature-status" />
                         </ToggleButton>
                     }
 
@@ -547,23 +547,7 @@
        focus trap, because the header behind it is not inert — it is where the
        control that closes the surface lives. Modal.razor still owns the modal
        semantics for the update and feedback dialogs, which really are modal. *@
-    @if (RoadmapVisible)
-    {
-        @* No Escape-to-close here, unlike the other takeovers: Escape already means
-           something on this surface — it puts a grabbed bar back and dismisses the
-           planning dialogs — and a key that did that and also threw the reader out
-           of the roadmap would lose them the plan they were arranging. The header's
-           Workspace option is the way back. *@
-        <main class="workspace-surface workspace-surface--roadmap"
-              id="roadmap-surface"
-              data-testid="roadmap-surface"
-              tabindex="-1"
-              @ref="_surfaceElement"
-              aria-label="Roadmap">
-            <RoadmapBand />
-        </main>
-    }
-    else if (ToolsVisible)
+    @if (ToolsVisible)
     {
         <main class="workspace-surface"
               data-testid="tools-surface"
@@ -625,65 +609,80 @@
                               RepositoryColour="@RepositoryColourFor"
                               PullRequestTask="PullRequestTaskFor"
                               OnOpenTask="OpenPlanEntryAsync"
-                              OnOpenSession="OpenSessionAsync" />
+                              OnOpenSession="OpenSessionAsync"
+                              FocusPullRequest="@_focusPullRequest" />
         </main>
     }
     else
     {
         <main class="workspace" id="workspace" data-testid="workspace">
-            @* The pane row. The class, the width variable and the test id are
-               unchanged from when it was the <main> itself, because the resizer's
-               JavaScript finds the layout by that test id. *@
-            <div class="devbook-layout @((TasksPaneVisible && RightSidePaneVisible) ? "devbook-layout--side-open" : "devbook-layout--side-closed") @(InboxBeforeTasksVisible ? "devbook-layout--inbox-before-backlog" : string.Empty)" style="--devbook-panel-width: @_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="devbook-layout">
-                @if (InboxBeforeTasksVisible)
+            @* The pane row: the Inbox, the main view, and the Devbook beside it.
+               The class, the width variable and the test id are unchanged from when
+               it was the <main> itself, because the resizer's JavaScript finds the
+               layout by that test id. *@
+            <div class="devbook-layout @(DevbookPaneVisible ? "devbook-layout--side-open" : "devbook-layout--side-closed") @(InboxPaneVisible ? "devbook-layout--inbox-before-backlog" : string.Empty)" style="--devbook-panel-width: @_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="devbook-layout">
+                @if (InboxPaneVisible)
                 {
                     @InboxPaneContent
                 }
 
-                @if (TasksPaneVisible)
+                @if (RoadmapViewVisible)
                 {
-                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" />
+                    @* No Escape-to-close here, unlike the takeovers: the roadmap is a
+                       view, which the switch replaces and nothing closes — and Escape
+                       already means something on it: it puts a grabbed bar back and
+                       dismisses the planning dialogs. The roadmap carries its own
+                       Planning heading row and no Tasks filter bar; the filter bar is
+                       the Tasks view's. *@
+                    <div class="roadmap-view" id="roadmap-view" data-testid="roadmap-view">
+                        <RoadmapBand />
+                    </div>
+                }
+                else if (InProgressViewVisible)
+                {
+                    @* A view like the roadmap: no Escape, no filter bar. *@
+                    <div class="in-progress-view" id="in-progress-view" data-testid="in-progress-view">
+                        <InProgressView Reader="_work"
+                                        OnOpenTask="OpenEntryAsync"
+                                        OnOpenSession="OpenSessionAsync"
+                                        OnOpenPullRequest="OpenPullRequestAsync"
+                                        ShowSessions="SessionsOffered"
+                                        ShowPullRequests="PullRequestsOffered" />
+                    </div>
+                }
+                else
+                {
+                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" Layout="@TasksPaneLayout" BoardGrouping="@BoardGrouping" BoardGroupingChanged="OnBoardGroupingChanged" LinkedWork="LinkedWorkFor" />
                 }
 
-                @if (RightSidePaneVisible)
+                @if (DevbookPaneVisible)
                 {
-                    @if (TasksPaneVisible)
-                    {
-                        @* The pane edge is the handle. Dragging it is the obvious gesture, so
-                           the slider that used to sit inside the pane is gone; arrow keys on
-                           the same separator carry the keyboard equivalent. *@
-                        <div class="pane-resizer"
-                             data-testid="side-pane-resizer"
-                             data-pane-resizer="true"
-                             role="separator"
-                             aria-orientation="vertical"
-                             aria-label="Side pane width"
-                             aria-valuemin="@MinSidePaneWidthRem"
-                             aria-valuemax="@_maxSidePaneWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                             aria-valuenow="@_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                             tabindex="0"
-                             @onkeydown="OnResizerKeyDown"
-                             @onkeydown:preventDefault="true">
-                            <span class="pane-resizer__grip" aria-hidden="true"></span>
-                        </div>
-                    }
+                    @* The pane edge is the handle. Dragging it is the obvious gesture, so
+                       the slider that used to sit inside the pane is gone; arrow keys on
+                       the same separator carry the keyboard equivalent. *@
+                    <div class="pane-resizer"
+                         data-testid="side-pane-resizer"
+                         data-pane-resizer="true"
+                         role="separator"
+                         aria-orientation="vertical"
+                         aria-label="Side pane width"
+                         aria-valuemin="@MinSidePaneWidthRem"
+                         aria-valuemax="@_maxSidePaneWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                         aria-valuenow="@_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                         tabindex="0"
+                         @onkeydown="OnResizerKeyDown"
+                         @onkeydown:preventDefault="true">
+                        <span class="pane-resizer__grip" aria-hidden="true"></span>
+                    </div>
 
-                    <aside @key=@("side-pane-stack") class="side-pane-stack @(TasksPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Tasks side panes">
-                        @if (!TasksPaneVisible && InboxPaneVisible)
-                        {
-                            @InboxPaneContent
-                        }
-
-                        @if (DevbookPaneVisible)
-                        {
-                            @* The anchor and not the whole scope: the pane reads one
-                               repository's folders, and the first one taken is the one
-                               the reader was already reading beside — unless an entry's
-                               reference asked for another; see DevbookRepositoryAlias. *@
-                            <DevbookPane RepositoryAlias="@DevbookRepositoryAlias"
-                                         OpenReference="@_devbookOpenRequest"
-                                         OnOpenReferenceFollowed="OnDevbookReferenceFollowed" />
-                        }
+                    <aside @key=@("side-pane-stack") class="side-pane-stack" data-testid="side-pane-stack" aria-label="Side panes">
+                        @* The anchor and not the whole scope: the pane reads one
+                           repository's folders, and the first one taken is the one
+                           the reader was already reading beside — unless an entry's
+                           reference asked for another; see DevbookRepositoryAlias. *@
+                        <DevbookPane RepositoryAlias="@DevbookRepositoryAlias"
+                                     OpenReference="@_devbookOpenRequest"
+                                     OnOpenReferenceFollowed="OnDevbookReferenceFollowed" />
                     </aside>
                 }
             </div>
@@ -693,6 +692,10 @@
 
 @code {
     private WorkspaceSurface _surface = WorkspaceSurface.Workspace;
+
+    /// <summary>The main view the workspace shows. Kept while a takeover is up, so
+    /// closing the takeover shows the view the reader left.</summary>
+    private ShellView _view = ShellView.Tasks;
     private bool _aiExpanded;
     private GlobalPaneSelection _globalPanes = new();
     private double _devbookPanelWidthRem = SidePaneWidth.DefaultRem;
@@ -736,7 +739,26 @@
             _surface = restoredSurface;
         }
 
-        // Same restore for which panes were open. This is what makes it survive
+        // The view the workspace was showing. The store already reads a file from
+        // when the roadmap was a takeover as the Roadmap view over the workspace;
+        // the surface is checked again here so that no path can put the old
+        // takeover back on screen.
+        if (Enum.TryParse<ShellView>(ShellNavigation.LastView, out var restoredView)
+            && Enum.IsDefined(restoredView)
+            && char.IsLetter(ShellNavigation.LastView[0]))
+        {
+            _view = restoredView;
+        }
+
+        if (_surface == WorkspaceSurface.Roadmap)
+        {
+            _surface = WorkspaceSurface.Workspace;
+            _view = ShellView.Roadmap;
+        }
+
+        // Same restore for which side panes were open — "Tasks" among them, from
+        // a file written before the view switch, names no pane and is skipped. This
+        // is what makes it survive
         // Settings and back, not only a full relaunch: the Router disposes and
         // reconstructs this component on every route change, so a fresh
         // GlobalPaneSelection is exactly what a bare `new()` field initializer
@@ -747,10 +769,7 @@
             .Select(pane => pane!.Value)
             .ToArray();
 
-        if (restoredPanes.Length > 0)
-        {
-            _globalPanes = new GlobalPaneSelection(restoredPanes);
-        }
+        _globalPanes = new GlobalPaneSelection(restoredPanes);
 
         // First registration wins for a key, so a host that composed two
         // sources for one area gets the one it wrote first rather than a throw
@@ -776,6 +795,8 @@
         // answering questions from outside, so a host that composed no activator
         // simply is not asked, which is the correct behaviour rather than a gap.
         _surfaceAttachment = Services.GetService<SessionsSurfaceActivator>()?.Attach(DescribeSessionsAsync);
+
+        _work = WorkInProgressReader.From(Services);
 
         await State.InitializeAsync();
         SynchronizePaneAvailability();
@@ -926,21 +947,61 @@
 
     private bool PullRequestsOffered => IsFeatureEnabled(SessionFeatures.PullRequests);
 
-    /// <summary>Whether the panes are on screen. Anything that is not a takeover
-    /// is the workspace, including a surface whose feature has been switched off.</summary>
-    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !RoadmapVisible;
+    /// <summary>Whether the workspace — the main view and its side panes — is on
+    /// screen. Anything that is not a takeover is the workspace, including a
+    /// surface whose feature has been switched off.</summary>
+    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible;
 
-    /// <summary>Whether the task list is in front of the reader — on screen in the
-    /// workspace, not merely selected underneath a takeover. The GitHub check acts
+    /// <summary>The view the workspace shows: the one chosen, unless its feature
+    /// has since been switched off — then Tasks, which is always offered. The
+    /// choice itself is kept, so switching the feature back on shows it again.</summary>
+    private ShellView EffectiveView => _view switch
+    {
+        ShellView.Roadmap when !RoadmapViewOffered => ShellView.Tasks,
+        ShellView.InProgress when !InProgressViewOffered => ShellView.Tasks,
+        _ => _view
+    };
+
+    /// <summary>Whether the work in progress group offers In progress: while either
+    /// of the lists it summarises is on.</summary>
+    private bool InProgressViewOffered => SessionsOffered || PullRequestsOffered;
+
+    /// <summary>Whether the In progress view is on screen.</summary>
+    private bool InProgressViewVisible => WorkspaceVisible && EffectiveView == ShellView.InProgress;
+
+    /// <summary>Whether the task list is in front of the reader — the Tasks view, or
+    /// the Board or the Calendar laying out the same filtered rows, on screen in
+    /// the workspace, not merely chosen underneath a takeover. The GitHub check acts
     /// on the list and is offered on this answer; so is the Tasks area of Ask AI.</summary>
-    private bool TasksListOnScreen => WorkspaceVisible && TasksPaneVisible;
+    private bool TasksListOnScreen => WorkspaceVisible && EffectiveView is ShellView.Tasks or ShellView.Board or ShellView.Calendar;
+
+    /// <summary>How the Tasks pane lays out its filtered rows: columns of cards on
+    /// the Board view, the month calendar on the Calendar view, the list otherwise.</summary>
+    private TasksLayout TasksPaneLayout => EffectiveView switch
+    {
+        ShellView.Board => TasksLayout.Board,
+        ShellView.Calendar => TasksLayout.Calendar,
+        _ => TasksLayout.List
+    };
+
+    /// <summary>What the Board's columns are, as the shell remembered them beside
+    /// the view. A name it no longer knows reads as Status.</summary>
+    private TaskBoardGrouping BoardGrouping =>
+        Enum.TryParse<TaskBoardGrouping>(ShellNavigation.BoardColumns, out var grouping)
+        && Enum.IsDefined(grouping)
+        && char.IsLetter(ShellNavigation.BoardColumns[0])
+            ? grouping
+            : TaskBoardGrouping.Status;
+
+    private void OnBoardGroupingChanged(TaskBoardGrouping grouping) =>
+        ShellNavigation.SetBoardColumns(grouping.ToString());
 
     /// <summary>Whether what is on screen can show several repositories at once:
     /// the task list, the Dashboard, the session list, or the pull requests list.
     /// Devbook reads one, and Tools reads none, so on those a chip is a single
     /// select and the scope is kept to its anchor.</summary>
     private bool RepositoryScopeTakesSeveral =>
-        TasksListOnScreen || DashboardVisible || SessionsVisible || PullRequestsVisible;
+        TasksListOnScreen || InProgressViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible;
 
     /// <summary>Offered while the feature is on and there is an area to ask about.
     /// It used to be the task list alone; every area answers now, so the button
@@ -964,8 +1025,8 @@
             var keys = new List<string>(7);
             if (WorkspaceVisible && InboxPaneVisible) keys.Add("inbox");
             if (TasksListOnScreen) keys.Add("tasks");
+            if (RoadmapViewVisible) keys.Add("roadmap");
             if (WorkspaceVisible && DevbookPaneVisible) keys.Add("devbook");
-            if (RoadmapVisible) keys.Add("roadmap");
             if (DashboardVisible) keys.Add("dashboard");
             if (SessionsVisible) keys.Add("sessions");
             if (ToolsVisible) keys.Add("tools");
@@ -1017,7 +1078,6 @@
     private static string AiScopeFor(GlobalPane pane) => pane switch
     {
         GlobalPane.Inbox => "inbox",
-        GlobalPane.Tasks => "tasks",
         GlobalPane.Devbook => "devbook",
         // Exhaustive on purpose: a pane added without an area is a pane whose
         // press would silently point Ask AI at the wrong content, and a throw
@@ -1025,25 +1085,63 @@
         _ => throw new ArgumentOutOfRangeException(nameof(pane), pane, "No Ask AI area is defined for this pane.")
     };
 
-    /// <summary>Whether the takeover group is offered at all: whether any takeover
-    /// is. The group has no member of its own any more — the way back to the
-    /// workspace is the pane strip — so with every takeover feature off it would be
-    /// an empty group. Each takeover keeps its own segment gated on its own feature,
-    /// so this is the "is there any segment" question and nothing more. The name is
-    /// older than that and is kept; nothing persists it.</summary>
-    private bool SurfaceSwitcherVisible =>
-        IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered || SessionsOffered || PullRequestsOffered
-        || RoadmapPaneOptionVisible;
+    private static string AiScopeFor(ShellView view) => view switch
+    {
+        ShellView.Tasks => "tasks",
+        ShellView.Board => "tasks",
+        ShellView.Calendar => "tasks",
+        ShellView.Roadmap => "roadmap",
+        // No Ask AI source answers for it yet, so the panel falls back to the
+        // first open area rather than pointing at this one.
+        ShellView.InProgress => "in-progress",
+        _ => throw new ArgumentOutOfRangeException(nameof(view), view, "No Ask AI area is defined for this view.")
+    };
 
-    /// <summary>Whether the Roadmap option is offered at all. The same two-level
-    /// split as <see cref="InboxPaneOptionVisible"/>: the feature decides whether
-    /// there is an option, the option decides what is on screen.</summary>
-    private bool RoadmapPaneOptionVisible => IsFeatureEnabled(RoadmapFeatures.Roadmap);
+    /// <summary>Whether the loose takeover group — the Dashboard and Tools — is
+    /// offered at all: with both features off it would be an empty group. Sessions
+    /// and Pull requests have a group of their own. The name is older than that and
+    /// is kept; nothing persists it.</summary>
+    private bool SurfaceSwitcherVisible => IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered;
 
-    /// <summary>Whether the roadmap is on screen. The same shape as
-    /// <see cref="ToolsVisible"/>: one surface field, read against the feature, so
-    /// turning the feature off returns the reader to the workspace.</summary>
-    private bool RoadmapVisible => _surface == WorkspaceSurface.Roadmap && RoadmapPaneOptionVisible;
+    /// <summary>Whether the view switch offers the Roadmap. The feature decides
+    /// whether there is an option; the option decides what is on screen.</summary>
+    private bool RoadmapViewOffered => IsFeatureEnabled(RoadmapFeatures.Roadmap);
+
+    /// <summary>Whether the roadmap is on screen: the Roadmap view, in the
+    /// workspace, with its feature on.</summary>
+    private bool RoadmapViewVisible => WorkspaceVisible && EffectiveView == ShellView.Roadmap;
+
+    /// <summary>Whether a view's option reads pressed: it is the view on screen.
+    /// During a takeover no view is on screen, so none reads pressed.</summary>
+    private bool ViewOptionPressed(ShellView view) => WorkspaceVisible && EffectiveView == view;
+
+    /// <summary>
+    /// A press on a view's option: that view becomes the workspace's main view, and
+    /// a takeover that was up closes, so the press is also the way back.
+    /// <para>
+    /// The option already pressed changes nothing — one view is always showing, so
+    /// there is nothing to switch off to. The Inbox and the Devbook stay as they
+    /// were: they are panes beside the view, whichever it is.
+    /// </para>
+    /// </summary>
+    private void ShowView(ShellView view)
+    {
+        if (!WorkspaceVisible) CloseSurface();
+
+        SetView(view);
+    }
+
+    /// <summary>Makes <paramref name="view"/> the main view, remembers it for the
+    /// next fresh shell instance by its enum name, and points Ask AI at it.</summary>
+    private void SetView(ShellView view)
+    {
+        _view = view;
+        ShellNavigation.SetLastView(view.ToString());
+
+        // A view with no Ask AI source leaves the reader's chosen area alone.
+        if (_aiSources.ContainsKey(AiScopeFor(view))) RememberAiScope(AiScopeFor(view));
+        KeepRepositoryScopeSingleWhereOnlyOneFits();
+    }
 
     /// <summary>Opens or closes the panel. Closing it ends an ask in flight: the
     /// answer would land in a panel nobody is looking at, and the quota it costs
@@ -1062,7 +1160,7 @@
     /// It answers and never navigates. Every agent run calls <c>open_dashboard</c> when
     /// it starts, so a window that moved to the Sessions pane here would move whenever
     /// an agent did something, pulling the reader off whatever they were in the middle
-    /// of. Navigating is the reader's act alone: the takeover group and the tab strip.
+    /// of. Navigating is the reader's act alone: the takeover groups in the header.
     /// </para>
     /// <para>
     /// Inside <c>InvokeAsync</c> because the request arrives on a request thread with no
@@ -1096,14 +1194,13 @@
 
     private void TogglePullRequests() => ToggleSurface(WorkspaceSurface.PullRequests);
 
-    private void ToggleRoadmap() => ToggleSurface(WorkspaceSurface.Roadmap);
-
     /// <summary>Opens a surface, or returns to the workspace if it was already the
     /// one on screen. Assigning rather than flipping a flag is what makes the
     /// takeovers exclusive: opening one is the same act as closing the other.</summary>
     private void ToggleSurface(WorkspaceSurface surface)
     {
         _focusSessionId = null;
+        _focusPullRequest = null;
         _surface = _surface == surface ? WorkspaceSurface.Workspace : surface;
         _focusSurfacePending = _surface != WorkspaceSurface.Workspace;
         RememberSurface();
@@ -1123,17 +1220,15 @@
             case WorkspaceSurface.Sessions:
                 RememberAiScope("sessions");
                 break;
-            case WorkspaceSurface.Roadmap:
-                RememberAiScope("roadmap");
-                break;
         }
     }
 
-    /// <summary>Back to the panes. The pane selection was never touched, so there
-    /// is nothing to restore — it is simply visible again.</summary>
+    /// <summary>Back to the workspace. The view and the side panes were never
+    /// touched, so there is nothing to restore — they are simply visible again.</summary>
     private void CloseSurface()
     {
         _focusSessionId = null;
+        _focusPullRequest = null;
         _surface = WorkspaceSurface.Workspace;
         RememberSurface();
         KeepRepositoryScopeSingleWhereOnlyOneFits();
@@ -1183,6 +1278,69 @@
     }
 
     private const string SessionsOffTestId = "tasks-session-sessions-off";
+
+    /// <summary>The pull request a card asked the pull requests list to open on, by
+    /// its <c>owner/name#number</c> key, until the reader leaves the list.</summary>
+    private string? _focusPullRequest;
+
+    /// <summary>
+    /// A pull request a card on the In progress view or a task's side panel names,
+    /// opened from the card: the pull requests list on screen with its row marked.
+    /// The mirror of <see cref="OpenSessionAsync"/>, on the same terms.
+    /// </summary>
+    private Task OpenPullRequestAsync(string key)
+    {
+        if (!PullRequestsOffered)
+        {
+            Toasts.Publish(ToastMessage.Warning(
+                "The pull requests list is switched off, so this pull request cannot be opened here.",
+                PullRequestsOffTestId));
+
+            return Task.CompletedTask;
+        }
+
+        if (_surface != WorkspaceSurface.PullRequests) TogglePullRequests();
+
+        _focusPullRequest = key;
+
+        return Task.CompletedTask;
+    }
+
+    private const string PullRequestsOffTestId = "in-progress-pull-requests-off";
+
+    /// <summary>The sessions and open pull requests the In progress view and a
+    /// task's side panel draw from, read by either and kept for both. Rebuilt with
+    /// the page, which the Router remounts on every route change — so a trip to
+    /// Settings and back reads again, which is what that trip is usually for.</summary>
+    private WorkInProgressReader _work = new(null, null);
+
+    /// <summary>An entry the In progress view names, opened from its title: the
+    /// Tasks view on screen with that entry selected.</summary>
+    private async Task OpenEntryAsync(Guid id)
+    {
+        if (State.Rows.FirstOrDefault(candidate => candidate.Id == id) is not { } row) return;
+
+        ShowView(ShellView.Tasks);
+
+        // In progress shows entries the list's own filters may hide; the list is
+        // widened to it, as a press on the row would be.
+        State.Reveal(row);
+        await State.SelectAsync(row);
+    }
+
+    /// <summary>The Tasks detail panel's "Sessions and pull requests", for the
+    /// selected entry. Offered while the In progress view is: the section is that
+    /// view's cards for one entry, and its "Open in In progress" leads there.</summary>
+    private RenderFragment<EntryRow>? LinkedWorkFor => InProgressViewOffered
+        ? row => @<LinkedWorkSection @key="row.Key"
+                                     Row="row"
+                                     Reader="_work"
+                                     OnOpenSession="OpenSessionAsync"
+                                     OnOpenPullRequest="OpenPullRequestAsync"
+                                     OnOpenInProgress="() => ShowView(ShellView.InProgress)"
+                                     ShowSessions="SessionsOffered"
+                                     ShowPullRequests="PullRequestsOffered" />
+        : null;
 
     /// <summary>
     /// The repository an entry's reference asked the Devbook pane to read, and the
@@ -1240,9 +1398,9 @@
     /// <para>
     /// The mirror of <see cref="OpenSessionAsync"/>: the entry belongs to Tasks and
     /// the chapter to Devbook, and the shell is the one place holding both. Opened
-    /// alongside the open panes rather than switched to — the reader pressed it from
-    /// the list and is still working in it — which on a window that fits one pane is
-    /// a switch, because a request the shell makes for the reader is never dropped.
+    /// beside the view — the reader pressed it from the list and is still working in
+    /// it — and where the window has no room for another side pane, the Inbox makes
+    /// way rather than the request being dropped.
     /// A repository with no devbook to show, or the Devbook switched off, is said out
     /// loud rather than opening an empty pane.
     /// </para>
@@ -1274,7 +1432,7 @@
         // The pane's option may only now be on offer: with nothing scoped there was
         // no repository to read until the request named one.
         SynchronizePaneAvailability();
-        _globalPanes.TryOpenAlongside(GlobalPane.Devbook);
+        _globalPanes.TryOpen(GlobalPane.Devbook);
         RememberAiScope(AiScopeFor(GlobalPane.Devbook));
         PersistPaneSelection();
 
@@ -1331,9 +1489,7 @@
             return;
         }
 
-        CloseSurface();
-        _globalPanes.TrySetEnabled(GlobalPane.Tasks, enabled: true);
-        PersistPaneSelection();
+        ShowView(ShellView.Tasks);
 
         await State.SelectAsync(row);
     }
@@ -1459,7 +1615,8 @@
     [JSInvokable]
     public Task CloseSurfaceOnEscapeAsync()
     {
-        if (WorkspaceVisible || RoadmapVisible) return Task.CompletedTask;
+        // The Roadmap view is the workspace and has no Escape of its own here.
+        if (WorkspaceVisible) return Task.CompletedTask;
 
         CloseSurface();
         StateHasChanged();
@@ -1564,8 +1721,6 @@
     private Task OnAiQuestionKeyDownAsync(KeyboardEventArgs e) =>
         e.Key == "Enter" && (e.CtrlKey || e.MetaKey) ? AskAiAsync() : Task.CompletedTask;
 
-    private bool TasksPaneVisible => _globalPanes.IsEnabled(GlobalPane.Tasks);
-
     private bool InboxFeatureEnabled => IsFeatureEnabled(AppFeatures.InboxPane);
 
     private bool InboxPaneOptionVisible => InboxFeatureEnabled;
@@ -1579,13 +1734,6 @@
         && Devbook.VisibleAreas(DevbookRepositoryAlias).Count > 0;
 
     private bool DevbookPaneVisible => DevbookPaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Devbook);
-
-    private bool InboxBeforeTasksVisible => TasksPaneVisible && InboxPaneVisible;
-
-    /// <summary>Whether the side stack has anything in it. Tools used to count
-    /// here; it no longer lives in the stack at all, so a stack holding only the
-    /// tools pane can no longer happen and the split cannot open for it.</summary>
-    private bool RightSidePaneVisible => DevbookPaneVisible || (InboxPaneVisible && !TasksPaneVisible);
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
 
@@ -1883,21 +2031,19 @@
 
     private void SynchronizePaneAvailability()
     {
-        _globalPanes.TrySetAvailable(GlobalPane.Tasks, available: true);
         _globalPanes.TrySetAvailable(GlobalPane.Inbox, InboxPaneOptionVisible);
         _globalPanes.TrySetAvailable(GlobalPane.Devbook, DevbookPaneOptionVisible);
         PersistPaneSelection();
     }
 
-    /// <summary>Remembers which panes are open, so the next fresh shell
+    /// <summary>Remembers which side panes are open, so the next fresh shell
     /// instance — a relaunch, or the Router rebuilding this component after a
-    /// trip to Settings — reopens on them instead of the single default
-    /// pane.</summary>
+    /// trip to Settings — reopens with them beside its view.</summary>
     private void PersistPaneSelection()
     {
         KeepRepositoryScopeSingleWhereOnlyOneFits();
 
-        var enabled = Enum.GetValues<GlobalPane>().Where(_globalPanes.IsEnabled).Select(pane => pane.ToString()).ToArray();
+        var enabled = _globalPanes.Enabled.Select(pane => pane.ToString()).ToArray();
         ShellNavigation.SetLastPanes(enabled);
     }
 
@@ -1921,84 +2067,58 @@
         if (!RepositoryScopeTakesSeveral) State.NarrowRepositoryScopeToAnchor();
     }
 
-    /// <summary>Whether a pane's option reads pressed: its pane is open and on
-    /// screen. During a takeover no pane is on screen, so none reads pressed —
-    /// the selection is kept underneath, and shows again on the way back.</summary>
+    /// <summary>Whether a side pane's toggle reads pressed: its pane is open and on
+    /// screen. During a takeover no pane is on screen, so none reads pressed — the
+    /// selection is kept underneath, and shows again on the way back.</summary>
     private bool PaneOptionPressed(GlobalPane pane) => WorkspaceVisible && _globalPanes.IsEnabled(pane);
 
-    /// <summary>Whether a pane's option refuses a press. In the workspace, the last
-    /// open pane refuses to close; during a takeover a press closes nothing — it is
-    /// the way back — so an open pane's option never refuses there.</summary>
-    private bool PaneToggleDisabled(GlobalPane pane)
-    {
-        if (_globalPanes.IsEnabled(pane))
-        {
-            return WorkspaceVisible && !_globalPanes.CanDisable(pane);
-        }
-
-        return !_globalPanes.CanEnable(pane);
-    }
-
-    /// <summary>A press on a pane's option, modifiers and all. A closed pane opens
-    /// on its own with a plain press and beside the open ones with Ctrl (Cmd on
-    /// macOS) held; an open pane closes either way, because "this one too" has no
-    /// meaning for a pane already on screen. Same shape as
-    /// <see cref="ScopeRepository"/>, which is the convention the reader learns from
-    /// the chips beside this strip.
+    /// <summary>
+    /// A press on a side pane's toggle: the pane opens beside the main view, or
+    /// closes. Closing is always allowed — the view stays on screen — and opening
+    /// into a window with no room for one more closes the first open side pane.
     /// <para>
     /// During a takeover the press is first the way back: it closes the takeover,
     /// as <see cref="CloseSurface"/> does for Escape. A pane already open is then
-    /// simply shown again with the selection as it was — closing it would answer
-    /// "show me Tasks" by hiding Tasks. A pane not open opens as it would in the
-    /// workspace: a switch on a plain press, beside the others with Ctrl.
-    /// </para></summary>
-    private void PressPane(GlobalPane pane, MouseEventArgs args)
+    /// simply shown again with the workspace as it was — closing it would answer
+    /// "show me the Inbox" by hiding the Inbox.
+    /// </para>
+    /// </summary>
+    private void PressPane(GlobalPane pane)
     {
-        var returning = !WorkspaceVisible;
-        if (returning) CloseSurface();
-
-        if (!_globalPanes.IsEnabled(pane) && (args.CtrlKey || args.MetaKey) && _globalPanes.TakesSeveral)
+        if (!WorkspaceVisible)
         {
-            _globalPanes.TryOpenBeside(pane);
+            CloseSurface();
+            _globalPanes.TryOpen(pane);
         }
-        else if (!returning || !_globalPanes.IsEnabled(pane))
+        else
         {
-            // Returning to an open pane falls through both branches: the
-            // workspace comes back exactly as it was left.
             _globalPanes.Toggle(pane);
         }
 
-        // A press that left the pane open opened it — a switch, a Ctrl-add, or a
-        // plain open — and that is the area the reader wants to ask about next.
+        // A press that left the pane open opened it, and that is the area the
+        // reader wants to ask about next.
         if (_globalPanes.IsEnabled(pane)) RememberAiScope(AiScopeFor(pane));
 
         PersistPaneSelection();
     }
 
-    /// <summary>What the press will do, and the modifier that changes it — named
-    /// here because nothing else on screen does. A window that fits one pane names
-    /// none: Ctrl would only switch there, and a tooltip offering a modifier that
-    /// does nothing is a control lying about itself.</summary>
+    /// <summary>What the press will do, named beside the view it acts on.</summary>
     private string PaneOptionTitle(GlobalPane pane, string name)
     {
-        if (_globalPanes.IsEnabled(pane))
-        {
-            if (!WorkspaceVisible) return $"Back to {name}";
+        if (!WorkspaceVisible) return $"Back to the workspace with {name} open";
 
-            return _globalPanes.CanDisable(pane) ? $"Close {name}" : $"{name} is the only pane open";
-        }
-
-        return _globalPanes.TakesSeveral
-            ? $"Switch to {name} — Ctrl+click to open it beside the open panes"
-            : $"Switch to {name}";
+        return _globalPanes.IsEnabled(pane)
+            ? $"Close {name}"
+            : $"Open {name} beside {EffectiveView}";
     }
 
     /// <summary>Triage: the Inbox turned an item into backlog entries, and the
     /// shell shows them where work actually happens.
     /// <para>
-    /// Alongside rather than a switch: this is the shell opening a pane on the
-    /// reader's behalf, and closing the Inbox they just routed the item from
-    /// would take away the queue they were working through.
+    /// The Tasks view, with the Inbox kept open beside it: the entries are on the
+    /// list, and closing the Inbox they just routed the item from would take away
+    /// the queue they were working through. Routed from beside the Roadmap view, the
+    /// view switches to Tasks, since the new entries are not on the roadmap yet.
     /// </para>
     /// <para>
     /// The Tasks pane is reloaded from the store rather than told what changed.
@@ -2015,8 +2135,10 @@
 
     private void RefreshTasksAfterRouting() => _ = InvokeAsync(async () =>
     {
-        _globalPanes.TryOpenAlongside(GlobalPane.Tasks);
-        PersistPaneSelection();
+        // The entries are on the task list, so that is the view the workspace
+        // shows, unless the Board or the Calendar is already laying the same
+        // rows out; the Inbox stays open beside it.
+        if (EffectiveView is not (ShellView.Tasks or ShellView.Board or ShellView.Calendar)) SetView(ShellView.Tasks);
 
         try
         {

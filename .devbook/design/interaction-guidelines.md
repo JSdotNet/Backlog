@@ -6,8 +6,9 @@ related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-every
 
 > Binding interaction rules for the Backlog product: auto-save (there are no save
 > buttons), drag-and-drop reordering of both items and chapters with mandatory
-> keyboard equivalents, feedback/toasts, motion and reduced-motion, and the
-> empty/loading/error state patterns. Motion tokens and interaction patterns were
+> keyboard equivalents, feedback/toasts, motion and reduced-motion, the
+> empty/loading/error state patterns, and the desktop shell's header, panes and
+> group shapes. Motion tokens and interaction patterns were
 > adapted from the JSdotNet design style guide (`04-motion-and-interaction`,
 > `09-interaction-patterns`); conflict handling aligns with the last-write-wins
 > rule in `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`. Token names are
@@ -131,7 +132,7 @@ affordance language and both with mandatory keyboard equivalents:
 |---|---|
 | Visible handle | Each reorderable row/section MUST expose a drag handle using the `grip-vertical` icon at `icon-md`. On dense rows the handle MAY appear on hover/focus but MUST be reachable by keyboard. |
 | Cursor | Pointer over a handle uses a grab/grabbing cursor. |
-| Lift feedback | On drag start, the dragged item lifts with `shadow-lg` and a subtle `color-background-alt` tint; the rest dims slightly. |
+| Lift feedback | On drag start, the dragged item lifts with `shadow-lg` and a subtle `color-background-alt` tint; the rest dims slightly. A board card lifts as a copy of itself that follows the pointer, slightly tilted, while the card stays faded in its column; the slot in the column under the pointer opens to the card's height, and on release the copy settles into the card's new place — or back into its old one — on the *Drop settle* motion. Under reduced motion the copy still follows the pointer, untilted, and nothing unfolds or glides. |
 | Handle target | The handle MUST meet the ≥ 44 × 44 px target (see `accessibility.md#target-sizes-and-text`). |
 
 ### Drop Indicators
@@ -159,6 +160,8 @@ affordance language and both with mandatory keyboard equivalents:
 |---|---|
 | Handle starts the drag only | The visible handle is the pointer-down / `dragstart` origin; it is not required to also be the drop target. |
 | Drop target covers the row | While a drag is in progress, each candidate row/card MUST expose a drop target spanning its own full width, split into a "before" and "after" half by height — releasing anywhere over the row commits to the nearer half, not just to the handle's footprint. |
+| One scroller per column | A board scrolls sideways only. Given a bounded height it fills it, and each column scrolls its own cards inside itself; a long column MUST show exactly one vertical scrollbar, never one of its own beside the board's or the pane's. |
+| Drop target covers the column | Where a whole column is the drop target — a board's status column — it MUST span the full height of the board — the box the board is given when that has a height, else the tallest column — not only the height of its own cards. A card carried sideways from low in a long column arrives beside a short column's foot, and that space MUST still belong to the short column; otherwise the drop silently writes nothing. |
 | Cancel both dragenter and dragover | A drop target MUST prevent default on both `dragenter` and `dragover`. A `drop` only fires where the immediately preceding `dragover` was cancelled, and a target that only appears once dragging has started needs its `dragenter` cancelled too, or the first `dragover` over it can be missed. |
 | Handle target size still applies | The ≥ 44 × 44 px minimum in `#drag-affordances` (see `accessibility.md#target-sizes-and-text`) governs the handle as an independent pointer/keyboard-focus target, regardless of how large the drop target is. |
 
@@ -185,7 +188,7 @@ both items and chapters.
 
 | Rule | Requirement |
 |---|---|
-| Edge autoscroll | Dragging near the top/bottom edge of a scrollable container MUST autoscroll toward that edge at a bounded speed. |
+| Edge autoscroll | Dragging near the top/bottom edge of a scrollable container MUST autoscroll toward that edge at a bounded speed. On a board whose columns scroll their own cards, the container is the column under the pointer, not the one the card came from. |
 | Reduced motion | Autoscroll MUST remain functional but MUST NOT add parallax/decorative motion under `prefers-reduced-motion`. |
 | Keyboard scroll | Keyboard moves MUST keep the moving item scrolled into view. |
 
@@ -296,7 +299,7 @@ related: [".devbook/design/accessibility.md#focus-visibility", ".devbook/design/
 | Selection distinct from focus | Selected list items use `color-border-focus` border + optional `color-primary` accent strip; selection MUST be visually distinct from hover and from focus. |
 | Multi-select | Bulk selection shows a bulk-action bar with a live count ("3 items selected") and a clear-selection control; "Select all" uses the indeterminate state for partial selection. |
 | Entering a multi-select | A list that supports bulk selection MUST NOT put a selection control on a row until the reader has asked for one — by pressing the toggle that enters the mode, such as a Select chip — and hover or focus alone is not asking. The controls leave again with the mode. A reader who came to scan a list is not offered a selection they did not ask for, and selection never shares a paint with hover or focus (*Selection distinct from focus*). This is the argument of `design-principles.md#low-chrome-content-first` one level down: the bulk-action bar is not on screen until something is picked, and the row's checkbox is not on screen until selecting is; here it overrides that chapter's *Progressive disclosure* allowance for hover and focus. |
-| Modifier-click scope | A scope strip of pressable chips is single-select on a plain press (this one, or none when it was already alone) and additive with Ctrl (Cmd on macOS) held — the file-manager convention. When one consumer of the scope can take only one value (the Devbook pane reads one repository), it follows the **anchor**: the first chip taken, which stays put while others join. The anchor carries `aria-current="true"` and a layout-neutral mark, only while a second chip is pressed; the chip's tooltip names the modifier, since nothing else on screen does. A plural scope exists only while a surface that can show several values is on screen: when that surface leaves (the Tasks pane closes or is trimmed by width), the scope collapses to the anchor and the modifier stops applying. |
+| Modifier-click scope | A scope strip of pressable chips is single-select on a plain press (this one, or none when it was already alone) and additive with Ctrl (Cmd on macOS) held — the file-manager convention. When one consumer of the scope can take only one value (the Devbook pane reads one repository), it follows the **anchor**: the first chip taken, which stays put while others join. The anchor carries `aria-current="true"` and a layout-neutral mark, only while a second chip is pressed; the chip's tooltip names the modifier, since nothing else on screen does. A plural scope exists only while a surface that can show several values is on screen — in the desktop shell the Tasks, Board, Calendar and In progress views and the Dashboard, Sessions and Pull requests takeovers: when the screen turns to one that reads a single value (the Roadmap view, Tools), the scope collapses to the anchor and the modifier stops applying. |
 | Reorder focus retention | After a keyboard reorder, focus MUST stay on the moved item's handle. |
 | Leaving a multi-select | Escape MUST leave the mode from the surfaces that are only ever about the selection — the toggle that entered it, the bulk-action bar, and any row's own line while the mode is on, whether or not that row is picked — and MUST NOT leave it from a control that owns Escape for something of its own. Where a bar holds both a group trigger and the controls that group opens, the trigger answers the key and the controls keep theirs. |
 
@@ -383,53 +386,109 @@ line of a list that may be hundreds long.
 
 Review surface: storybook → *Task list*, and *Task list* → **Prompt tasks**.
 
-## Workspace Panes
+### Board Cards
 
 ```meta
-related: [".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/design/design-principles.md#low-chrome-content-first"]
+related: [".devbook/design/typography-and-layout.md#metadata-lines", ".devbook/design/color-scheme.md#the-identity-edge", ".devbook/design/accessibility.md#iconography-accessibility"]
 ```
 
-The desktop shell's header switches between a small set of panes — Inbox,
-Tasks, Devbook — through one option per pane in a fused strip. Several panes
-can be on screen at once, and the strip says so with its shape (see
-`#group-shape-says-cardinality`); the reader asks for a second one with the
-modifier, the same convention as the repository scope beside it (the
-*Modifier-click scope* row in `#focus-and-selection`). Each pane used to carry
-a pin, railed along its
-option's top edge, that held it through a switch. The pin was a second control
-on every option for what one modifier on the option itself says, and it is gone.
-The roadmap band is not a pane: its toggle stands beside the strip, loose, and
-follows none of the rules below — it is on or off, and no pane press touches it.
+A board card states the same facts a task row does, stacked rather than laid
+along one line, because a board column is narrow and tall where a list is wide
+and short. The rows above hold for the facts; these rules hold for the stack.
 
 | Rule | Requirement |
 |---|---|
-| Switching is exclusive | A plain press on a closed pane MUST open it and close every other open pane. |
-| Beside, with the modifier | A press on a closed pane with Ctrl (Cmd on macOS) held MUST open it beside the open panes. Where the viewport cannot hold one more, the pane asked for MUST open and only as many panes as it needs room for MUST close — the first open ones in the strip's stable order — rather than the request being refused or turned into a switch. |
-| A press on an open pane closes it | With or without the modifier: "this one too" has no meaning for a pane already on screen. |
-| At least one pane stays open | The shell MUST NOT render with zero panes open; the sole remaining pane's own option is disabled rather than left clickable and refused. |
-| The modifier is named where it works | The option's tooltip MUST name the modifier while the viewport fits a second pane, since nothing else on screen does, and MUST NOT name it in a window that fits one — a modifier press there is the switch a plain press would be, and offering it would be a control lying about itself. |
-| Narrowing trims in the stable order | When the viewport loses room, panes MUST close first-in-order first, so the same arrangement always narrows the same way. |
+| Line order | Top to bottom, and nothing absent drawn as a gap: the kind, with the priority mark and the **My Day** marker beside it, and the copy button on that line's far end when the host offers it; the title; `Waits on …` when the chain says the task cannot start, naming what it waits on rather than counting it; the tags; then one quiet line — the repository, the sub-items done of total, the one date that matters (when it is due on an open task, when it was finished on a done one), the work badges — the task's source and the host's — and the effort on the far end. |
+| Effort is always stated | The effort is the one fact a card draws when it is absent: `Not estimated`, because a column that sums its points makes an unestimated card worth stating. |
+| Quiet priority | Only **High** and **Critical** draw a mark — a small up-chevron, named as its priority to a tooltip and to a screen reader, never only a shape. **Medium** and **Low** draw nothing: priority is barely used, and a mark on every card is a mark nobody reads. |
+| One control | The whole card is one focusable control that opens the entry, on a click or on Enter or Space, and it is a control only while the host is listening — per *No inert controls* above. The controls inside it — the copy button, a pressable tag, the badges — are their own tab stops and never open it. |
+| Copy on the card | A card a board lays out carries the row's copy button at the far end of its top line, copying exactly what the task's row copies, and refused the same way on a task marked blocked. Copying is not opening: the button's slot stops the press, the click and the key as the badge slot does, and a drag never starts from it. |
+| Badges are not the card | The work badges are facts to follow, usually links, and following one is not opening the card. Their slot MUST stop the press, the click and the key before the card hears them, as the row's badge slot does; a tag the host is listening to is a control of its own and stops them the same way. |
+| The identity edge is the host's | The repository edge is drawn only when the host passes it, on the seam a list row takes it through, so a card and the row for the same entry cannot disagree about it (see `color-scheme.md#the-identity-edge`). |
 
-No review surface: the header strip is application chrome specific to the
-desktop shell, not a shared-library component, so it carries no storybook page.
+Review surface: storybook → *Task list* → **Task card**.
+
+## Shell Header
+
+```meta
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first"]
+```
+
+The desktop shell's header is four regions in reading order, each answering one
+question. Below it the workspace shows exactly one **main view**, with the side
+panes beside it, unless a **takeover** has the screen (local ADR 0022).
+
+| Region | Answers | Holds |
+|---|---|---|
+| Identity | Over which repositories? | The repository scope, a fused group of chips (see `#focus-and-selection`, *Modifier-click scope*), and the **Colors** switch beside it. Both render only while a repository is configured. |
+| Navigation | What am I looking at? | Left to right: the **Inbox** toggle, the view switch, the **Devbook** toggle, the work in progress group, then the remaining takeovers. |
+| Status | How is the workspace doing? | The GitHub check, only while a task view is on screen. Ambient, the quietest region; its auto margin carries it and the utilities to the right edge. |
+| Utilities | What cuts across all of it? | **Ask AI**, the one accented control in the header, while an area with something to ask about is on screen; then the settings link. |
+
+The navigation region holds three kinds of control, and each MUST look and act
+as its kind:
+
+| Control | Members | Behaves as |
+|---|---|---|
+| View switch | `Tasks`, `Board`, `Calendar`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows. Pressing the pressed option changes nothing. A view is never closed and Escape never leaves it. |
+| Side-pane toggle | `Inbox` before the view switch, `Devbook` after it | An on-or-off of its own that opens the pane beside whichever view is showing. See `#workspace-panes`. |
+| Work in progress group | `In progress` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the Sessions context's work. In progress acts as a view option does; Sessions and Pull requests act as takeovers. Renders while Sessions or Pull requests is offered. |
+| Remaining takeovers | `Dashboard`, `Tools` | A loose group, each under its own flag. Renders while one of them is offered. |
+
+| Rule | Requirement |
+|---|---|
+| The workspace cluster sits close | The Inbox toggle, the view switch and the Devbook toggle MUST sit at the tighter `spacing-xs` gap and the groups after them at the wider navigation gap, so the panes read as belonging to the views they open beside. |
+| A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view and the open side panes underneath; closing it shows them as they were. |
+| Every way back works | A takeover MUST close on Escape, on its own close button and on a second press of its option. Pressing a view option or a side-pane toggle during a takeover MUST close it and show the workspace, with that view or that pane on screen. |
+| Nothing reads pressed under a takeover | During a takeover no view option and no side-pane toggle reads pressed, since nothing of the workspace is on screen. |
+| Takeovers are exclusive | Opening a takeover MUST replace any other takeover; a group of pressed states, not `aria-expanded`, says so. Ask AI keeps `aria-expanded`, because it is a disclosure. |
+| A switched-off view falls back | A view whose flag goes off MUST show Tasks in its place, and MUST come back when the flag does. |
+| The filter bar is the task views' | The Tasks filter bar MUST show on the Tasks, Board and Calendar views — the same filtered rows read three ways — and on no other screen. The Board adds its **Columns** choice first on the bar, a select with no visible word beside it — the grouping it shows says what the columns are — named `Columns` to assistive technology and in its tooltip. The Roadmap view carries its own Planning heading row instead, and In progress carries its own choices. |
+| A control acts on what is on screen | A header control whose target is off screen MUST NOT render: the GitHub check only beside a task view, Ask AI only with an area to ask about. The view switch, the side-pane toggles, the takeover groups and the identity region stay on every screen, since they are the way to everything else. |
+| The shell reopens where it was left | The main view, the open side panes and any open takeover MUST be restored on a fresh shell instance, including after Settings and back. |
+
+Review surface: storybook → *App shell* → **Desktop header navigation**.
+
+## Workspace Panes
+
+```meta
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/design/design-principles.md#low-chrome-content-first"]
+```
+
+The desktop shell has two side panes, the Inbox and the Devbook, and each opens
+beside whichever main view is showing (see `#shell-header`). The task list is
+not a pane: it is the Tasks view, which is never closed. That is why no pane has
+to stay open, and why the old pane strip's rules — an exclusive plain press, a
+Ctrl-press to add one beside, a disabled last option, a pin on every option —
+are gone with it.
+
+| Rule | Requirement |
+|---|---|
+| A toggle of its own | A press on a closed side pane MUST open it beside the view, and a press on an open one MUST close it. No modifier changes what a press does. |
+| No pane is an ordinary state | The shell MUST render with no side pane open, and a side-pane toggle MUST NOT be disabled. |
+| The tooltip says what the press will do | "Open Inbox beside Tasks", "Close Inbox", or during a takeover "Back to the workspace with Inbox open". |
+| The Inbox opens before the view | The Inbox MUST render before the main view and the Devbook after it, as their toggles stand in the header. |
+| A full window trims in the stable order | The viewport sets how many panes fit, the main view included, and leaves at least one side slot. A pane that opens into a full set MUST close the first open side pane in the stable order (Inbox, then Devbook), and a narrowed window MUST trim the same way, so one arrangement always narrows one way. |
+| The edge is the handle | The Devbook's width MUST be set by dragging the pane edge, with arrow keys on the same separator as the keyboard equivalent. |
 
 ## Group Shape Says Cardinality
 
 ```meta
-related: [".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#focus-and-selection"]
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#focus-and-selection"]
 ```
 
 A group of pressable options in application chrome is drawn in one of two
-shapes, and the shape is how many of its options can be on at once — the one
-thing about a group a reader can see before pressing anything.
+shapes, and the shape says how its options belong together — the one thing about
+a group a reader can see before pressing anything. How many are on at once is
+the pressed state's to say, not the shape's.
 
 | Rule | Requirement |
 |---|---|
-| Fused means several | A group whose options can be on together — the desktop header's repository scope, its panes strip — MUST draw its members flush inside one border with hairlines between them. |
-| Loose means one | A group whose options are exclusive — the desktop header's surface switcher — MUST draw its members as standalone bordered controls with a gap between them, and MUST NOT fuse them. |
-| Not one of a set at all | A control that is simply on or off and belongs to no set — the desktop header's roadmap band toggle — MUST stand alone in the loose shape rather than sit fused among options it does not switch with. Inside a fused strip it would read as one more of them and behave as none of them. |
+| Fused means one set | A group whose options are siblings read as one control MUST draw its members flush inside one border with hairlines between them: the desktop header's repository scope (several on with Ctrl), the view switch (exactly one on), and the work in progress group (one context's view and two lists). |
+| Loose means related only by kind | A group whose options merely share a kind MUST draw them as standalone bordered controls with a gap between them, and MUST NOT fuse them: the desktop header's Dashboard and Tools, two takeovers from two contexts. |
+| Not one of a set at all | A control that is simply on or off and belongs to no set — the desktop header's Inbox and Devbook toggles — MUST stand alone in the loose option shape, outside every group. Inside a fused group it would read as one more of its options and behave as none of them. |
 | Still one group | A loose group is still one `role="group"` with one label and one tab sequence; only the drawing changes. |
-| Selected on the edge it has | A fused option carries its selected state on the strip's shared bottom edge (an underline beside the tint); a loose option, having no strip, carries it on its own border. Neither is colour alone. |
+| Selected on the edge it has | A fused option carries its selected state on the group's shared bottom edge (an underline beside the tint); a loose option, having no group edge, carries it on its own border. Neither is colour alone. |
 
 ## Action Density and Overflow
 
@@ -524,7 +583,7 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 | Inline confirmation | `CopyButton` in the shared library: a `role="status"` line beside the button and a glyph that cross-fades into a check for the same few seconds, at `transition-base`/`ease-out` — the same pairing, and the same recorded deviation from `ease-bounce`, as the saved-confirmation flash | Storybook → *Buttons* → **CopyButton** |
 | Focus and selection | Every interactive component declares its own `:focus-visible` outline at `border-width-2` with a 2 px offset | Storybook → every page |
 | Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
-| Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` in `Backlog.UI.Components/wwwroot/components.js` carries the pointer gesture and the edge autoscroll, and `TaskListView.razor` the grip, the drop preview, the keyboard move and the announcement. `RoadmapTimeline` runs the same gesture against a time axis. The module screens are hosts, not owners: `TasksPane.razor` passes `Reorderable`/`OnReorder` and applies the move it is handed | Storybook → *Task list* → **Reordering, by pointer and by key**; *Prompt tasks*, for the link gesture the same pointer machinery drives; *Roadmap* → **Moving a bar, and moving it without a mouse** |
+| Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` in `Backlog.UI.Components/wwwroot/components.js` carries the pointer gesture and the edge autoscroll, and `TaskListView.razor` the grip, the drop preview, the keyboard move and the announcement. `RoadmapTimeline` runs the same gesture against a time axis. The edge autoscroll is one frame loop for every pointer drag: the Board's card drag and the month calendar's drag (a tray item, a chip, a shelf plan) hand themselves to it — the calendar through `window.backlogDragAutoscroll` — rather than each carrying its own bands and cap. The module screens are hosts, not owners: `TasksPane.razor` passes `Reorderable`/`OnReorder` and applies the move it is handed | Storybook → *Task list* → **Reordering, by pointer and by key**; *Prompt tasks*, for the link gesture the same pointer machinery drives; *Roadmap* → **Moving a bar, and moving it without a mouse**; *Task calendar*, for a drag to a day scrolled out of view |
 
 Known gaps:
 

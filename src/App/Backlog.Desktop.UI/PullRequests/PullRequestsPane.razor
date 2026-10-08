@@ -2,6 +2,7 @@
 @using Backlog.UI.Components.Data
 @using Backlog.UI.Components.Integrations
 @inject IServiceProvider Services
+@inject IJSRuntime JS
 @implements IDisposable
 
 @*
@@ -528,6 +529,110 @@
     [Parameter]
     public EventCallback<string> OnOpenSession { get; set; }
 
+    /// <summary>
+    /// The pull request the list was opened on — <c>owner/name#number</c> — from a
+    /// card on the In progress view or a task's side panel, or null. Its row is
+    /// marked current, and the list opens on Everyone's rather than Mine so a pull
+    /// request somebody else opened is still on screen.
+    /// <para>
+    /// One the open read does not hold — merged, closed, or past its fifty — is read
+    /// by number, the way a pin is, and drawn in the open list beside the pins with
+    /// its Merged or Closed said in words; and the list scrolls its row into view.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public string? FocusPullRequest { get; set; }
+
+    private string? _focusApplied;
+
+    /// <summary>The focused pull request read by number when the open read does not
+    /// hold it, else empty.</summary>
+    private GitHubPullRequestListing _focused = GitHubPullRequestListing.Empty;
+
+    /// <summary>Whether the focused row still has to be scrolled into view, once it
+    /// is on screen.</summary>
+    private bool _revealFocus;
+
+    /// <summary>Whether a row is the one the list was opened on. Let through the
+    /// scope and the label filters the way a pin is, because a card asked for it by
+    /// name and a list without it would be no answer.</summary>
+    private bool IsFocused(GitHubOpenPullRequest pull) =>
+        !string.IsNullOrWhiteSpace(FocusPullRequest)
+        && string.Equals(FocusPullRequest, Key(pull), StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.Equals(FocusPullRequest, _focusApplied, StringComparison.OrdinalIgnoreCase)) return;
+
+        _focusApplied = FocusPullRequest;
+        _focused = GitHubPullRequestListing.Empty;
+        if (string.IsNullOrWhiteSpace(FocusPullRequest)) return;
+
+        _mine = false;
+        _view = PullRequestsView.Open;
+        _revealFocus = true;
+
+        // OnInitializedAsync's open read has landed by now, so this reads the focused
+        // one whenever the open read did not hold it; a later Refresh reads it again
+        // in ReadOpenAsync.
+        if (_read) await ReadFocusedAsync();
+    }
+
+    /// <summary>Reads the focused pull request by number when neither the open read
+    /// nor the pinned one holds it — a merged or closed one, from a task's card.</summary>
+    private async Task ReadFocusedAsync()
+    {
+        if (_gitHub is not { IsConfigured: true } gitHub || FocusPin() is not { } pin) return;
+
+        var held = _listing.PullRequests.Concat(_pinned.PullRequests)
+            .Any(pull => string.Equals(Key(pull), FocusPullRequest, StringComparison.OrdinalIgnoreCase));
+        if (held) return;
+
+        var focus = FocusPullRequest;
+        _reads++;
+        try
+        {
+            var listing = await gitHub.ListPinnedPullRequestsAsync([pin]);
+            if (!string.Equals(focus, FocusPullRequest, StringComparison.OrdinalIgnoreCase)) return;
+
+            _focused = listing;
+
+            // Nothing to scroll to: the read failed or found nothing. The flag must not
+            // outlive it and scroll some later render.
+            if (listing.PullRequests.Count == 0) _revealFocus = false;
+        }
+        finally
+        {
+            _reads--;
+        }
+    }
+
+    /// <summary>The focused key, <c>owner/name#number</c>, as a pin to read it by.</summary>
+    private PullRequestPin? FocusPin()
+    {
+        var key = FocusPullRequest;
+        var hash = key?.LastIndexOf('#') ?? -1;
+        if (key is null || hash <= 0) return null;
+
+        return int.TryParse(key.AsSpan(hash + 1), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number) && number > 0
+            ? new PullRequestPin(key[..hash], number)
+            : null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_revealFocus || !Visible.Any(IsFocused)) return;
+        _revealFocus = false;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogRevealRow", "[data-testid='pull-request-row'][data-focused='true']");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
     /// <summary>Whether there is anything to read: the adapter composed, and at least
     /// one repository registered with it.</summary>
     private bool Configured => _gitHub is { IsConfigured: true };
@@ -688,6 +793,13 @@
             await pinned;
             _sessions = await sessions;
             _read = true;
+
+            // A refresh of a list opened on a pull request it does not hold reads that
+            // one again too; the first read leaves it to OnParametersSetAsync.
+            if (_focusApplied is not null && string.Equals(_focusApplied, FocusPullRequest, StringComparison.OrdinalIgnoreCase))
+            {
+                await ReadFocusedAsync();
+            }
         }
         finally
         {
@@ -946,15 +1058,19 @@
 
     /// <summary>Everything the open view can draw: the open list, plus each pinned pull
     /// request it does not hold — merged, closed, or past its fifty — while it is
-    /// still pinned. Newest update first, as read.</summary>
+    /// still pinned, and the one the list was opened on, read by number the same way.
+    /// Newest update first, as read.</summary>
     private IReadOnlyList<GitHubOpenPullRequest> OpenRows
     {
         get
         {
-            if (_pinned.PullRequests.Count == 0) return _listing.PullRequests;
+            if (_pinned.PullRequests.Count == 0 && _focused.PullRequests.Count == 0) return _listing.PullRequests;
 
             var listed = _listing.PullRequests.Select(Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            return [.. _listing.PullRequests, .. _pinned.PullRequests.Where(pull => !listed.Contains(Key(pull)) && IsPinned(pull))];
+            var pinned = _pinned.PullRequests.Where(pull => !listed.Contains(Key(pull)) && IsPinned(pull)).ToList();
+            listed.UnionWith(pinned.Select(Key));
+
+            return [.. _listing.PullRequests, .. pinned, .. _focused.PullRequests.Where(pull => !listed.Contains(Key(pull)) && IsFocused(pull))];
         }
     }
 
@@ -967,7 +1083,7 @@
     /// <summary>The scope, the label filters, then whose — and every pinned pull
     /// request whatever they say.</summary>
     private IReadOnlyList<GitHubOpenPullRequest> Visible =>
-        [.. OpenRows.Where(pull => IsPinned(pull)
+        [.. OpenRows.Where(pull => IsPinned(pull) || IsFocused(pull)
             || (InScope(pull.RepositoryFullName)
                 && PassesLabels(pull.RepositoryFullName, pull.Labels)
                 && (!_mine || IsMine(pull.ViewerDidAuthor, () => TaskSubject(pull)))))];
@@ -1079,7 +1195,7 @@
     private IReadOnlyList<GitHubRepositoryFailure> Failures =>
         Merged
             ? (_merged ?? GitHubMergedPullRequestListing.Empty).Failures
-            : [.. _listing.Failures.Concat(_pinned.Failures)
+            : [.. _listing.Failures.Concat(_pinned.Failures).Concat(_focused.Failures)
                 .DistinctBy(failure => (failure.RepositoryFullName.ToUpperInvariant(), failure.Message))];
 
     /// <summary>The window in words, from the adapter's own constant so the sentence
@@ -1176,6 +1292,12 @@
         };
 
         if (IsPinned(repositoryFullName, number)) attributes["data-pinned"] = "true";
+        if (string.Equals(FocusPullRequest, Key(repositoryFullName, number), StringComparison.OrdinalIgnoreCase))
+        {
+            attributes["aria-current"] = "true";
+            attributes["data-focused"] = "true";
+        }
+
         return attributes;
     }
 
@@ -1344,9 +1466,9 @@
     /// are said even where the repository asks for no decision.</summary>
     private static string? ReviewLabel(GitHubReviewSummary reviews) => reviews.Decision switch
     {
-        GitHubReviewDecision.Approved => "Approved",
-        GitHubReviewDecision.ChangesRequested => "Changes requested",
-        GitHubReviewDecision.ReviewRequired => "Review required",
+        GitHubReviewState.Approved => "Approved",
+        GitHubReviewState.ChangesRequested => "Changes requested",
+        GitHubReviewState.ReviewRequired => "Review required",
         _ => reviews.ChangesRequested > 0 ? "Changes requested" : null
     };
 
@@ -1358,9 +1480,9 @@
 
     private static string? ReviewSlug(GitHubReviewSummary reviews) => reviews.Decision switch
     {
-        GitHubReviewDecision.ChangesRequested => "error",
-        GitHubReviewDecision.ReviewRequired => "warning",
-        GitHubReviewDecision.Approved => null,
+        GitHubReviewState.ChangesRequested => "error",
+        GitHubReviewState.ReviewRequired => "warning",
+        GitHubReviewState.Approved => null,
         _ => reviews.ChangesRequested > 0 ? "error" : null
     };
 

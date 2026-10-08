@@ -19,10 +19,15 @@ namespace Backlog.Infrastructure.FileSystem;
 /// and is the only reader of them.
 /// </para>
 /// <para>
-/// One file for both, not two, because a fresh shell instance restores them
-/// together: which takeover was open and which panes were showing underneath
-/// it are both "what the reader was looking at", read back in the same
-/// <c>OnInitializedAsync</c>.
+/// One file for all three, not three, because a fresh shell instance restores them
+/// together: which takeover was open, which main view the workspace was showing
+/// under it and which side panes were open beside that view are all "what the
+/// reader was looking at", read back in the same <c>OnInitializedAsync</c>.
+/// </para>
+/// <para>
+/// The roadmap was a takeover before it was a view, so a file from then names it
+/// as the surface. Reading such a file is where it migrates — see
+/// <see cref="Normalize"/> — and nothing here ever writes it as a surface again.
 /// </para>
 /// <para>
 /// The roadmap's Hours switch rides here too (local ADR 0019, §4): it is how the
@@ -40,6 +45,20 @@ public sealed class ShellNavigationStore
     };
 
     private static readonly string[] Empty = [];
+
+    /// <summary>The main view a file with no <c>lastView</c> reopens on: before the
+    /// view switch the workspace's main pane was the task list.</summary>
+    public const string DefaultView = "Tasks";
+
+    /// <summary>What the Board's columns are when nothing else was remembered.</summary>
+    public const string DefaultBoardColumns = "Status";
+
+    /// <summary>The surface name the roadmap was stored under while it was a
+    /// takeover, and the view name it is stored under now.</summary>
+    private const string RoadmapName = "Roadmap";
+
+    /// <summary>The surface that is no takeover at all: the workspace.</summary>
+    private const string WorkspaceSurfaceName = "Workspace";
 
     private readonly string _path;
 
@@ -69,10 +88,12 @@ public sealed class ShellNavigationStore
         }
 
         var dto = Read();
-        LastSurface = dto?.LastSurface;
+        (LastSurface, LastView) = Normalize(dto?.LastSurface, dto?.LastView);
         LastEnabledPanes = dto?.LastEnabledPanes ?? Empty;
         RoadmapHoursShown = dto?.RoadmapHoursShown ?? true;
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
+        BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
+        CalendarPlansShown = dto?.CalendarPlansShown ?? false;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -83,9 +104,16 @@ public sealed class ShellNavigationStore
     /// remembered yet — first launch included.</summary>
     public string? LastSurface { get; private set; }
 
-    /// <summary>The panes that were enabled when last set. Empty means nothing
-    /// has been remembered yet, not that every pane was closed — the shell
-    /// never allows that state to begin with.</summary>
+    /// <summary>The main view the workspace was showing when last set — by name,
+    /// <c>Tasks</c>, <c>Board</c>, <c>Calendar</c>, <c>Roadmap</c> or <c>InProgress</c>
+    /// — and <see cref="DefaultView"/> when nothing has been remembered yet.</summary>
+    public string LastView { get; private set; }
+
+    /// <summary>The side panes that were open beside the main view when last set.
+    /// Empty is both "nothing remembered yet" and "no side pane open", which the
+    /// shell reopens the same way. A file from before the view switch may still
+    /// list <c>Tasks</c> here; the shell ignores it, since the task list is a view
+    /// now and no longer a pane.</summary>
     public IReadOnlyList<string> LastEnabledPanes { get; private set; }
 
     /// <summary>Whether the roadmap's day and week heads carry their hours line: on until
@@ -96,15 +124,61 @@ public sealed class ShellNavigationStore
     /// device. Empty until one is folded.</summary>
     public IReadOnlyList<string> RoadmapCollapsedGroups { get; private set; }
 
+    /// <summary>
+    /// What the Board view's columns were last grouped by — the name of a
+    /// <c>TaskBoardGrouping</c> member, kept beside the view it belongs to.
+    /// <para>
+    /// A name rather than the enum, for the reason <see cref="LastView"/> is one:
+    /// this store sits below the module that owns the vocabulary. Left out of the
+    /// file while it is the default, so a file from before the Board keeps its
+    /// shape; a name the shell no longer knows is read back as Status there.
+    /// </para>
+    /// </summary>
+    public string BoardColumns { get; private set; }
+
+    /// <summary>Whether the Tasks Calendar draws the roadmap's plans — its "Show plans"
+    /// box: off until the reader turns it on on this device. A file that carries no
+    /// choice reads as off; one that says <c>false</c>, as a file from when the box
+    /// was on by default does once it was turned off, reads as off too.</summary>
+    public bool CalendarPlansShown { get; private set; }
+
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
 
     public void SetLastSurface(string? surface)
     {
-        if (surface == LastSurface) return;
+        var (normalizedSurface, view) = Normalize(surface, LastView);
+        if (normalizedSurface == LastSurface && view == LastView) return;
 
-        LastSurface = surface;
+        LastSurface = normalizedSurface;
+        LastView = view;
         Save();
+    }
+
+    public void SetLastView(string view)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(view);
+        if (view == LastView) return;
+
+        LastView = view;
+        Save();
+    }
+
+    /// <summary>
+    /// The surface and the view as they are kept: the roadmap as a view, never as a
+    /// surface. A file from before the view switch names <c>Roadmap</c> as its
+    /// surface; it reopens on the Roadmap view over the workspace, and since the
+    /// in-memory surface is then the workspace, the next save cannot write the old
+    /// name back. A missing view is <see cref="DefaultView"/>.
+    /// </summary>
+    private static (string? Surface, string View) Normalize(string? surface, string? view)
+    {
+        if (string.Equals(surface, RoadmapName, StringComparison.Ordinal))
+        {
+            return (WorkspaceSurfaceName, RoadmapName);
+        }
+
+        return (surface, string.IsNullOrWhiteSpace(view) ? DefaultView : view);
     }
 
     public void SetLastPanes(IReadOnlyList<string> enabled)
@@ -132,6 +206,23 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetBoardColumns(string columns)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(columns);
+        if (columns == BoardColumns) return;
+
+        BoardColumns = columns;
+        Save();
+    }
+
+    public void SetCalendarPlansShown(bool shown)
+    {
+        if (shown == CalendarPlansShown) return;
+
+        CalendarPlansShown = shown;
+        Save();
+    }
+
     private void Save()
     {
         try
@@ -139,11 +230,16 @@ public sealed class ShellNavigationStore
             File.WriteAllText(_path, JsonSerializer.Serialize(new ShellNavigationDto
             {
                 LastSurface = LastSurface,
+                LastView = LastView,
                 LastEnabledPanes = [.. LastEnabledPanes],
                 // Left out while on, so a file from before the switch keeps its shape.
                 RoadmapHoursShown = RoadmapHoursShown ? null : false,
                 // Likewise left out while no band is folded.
-                RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups]
+                RoadmapCollapsedGroups = RoadmapCollapsedGroups.Count == 0 ? null : [.. RoadmapCollapsedGroups],
+                // Likewise left out while the columns are the default ones.
+                BoardColumns = BoardColumns == DefaultBoardColumns ? null : BoardColumns,
+                // Left out while off, the default, so only turning it on writes a key.
+                CalendarPlansShown = CalendarPlansShown ? true : null
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -178,6 +274,9 @@ public sealed class ShellNavigationStore
     {
         public string? LastSurface { get; init; }
 
+        /// <summary>Absent from a file written before the view switch.</summary>
+        public string? LastView { get; init; }
+
         public string[]? LastEnabledPanes { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -185,5 +284,11 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RoadmapCollapsedGroups { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? BoardColumns { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? CalendarPlansShown { get; init; }
     }
 }

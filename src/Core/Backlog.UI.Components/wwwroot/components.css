@@ -5040,6 +5040,529 @@ button.task-panel__check:focus-visible {
     display: none;
 }
 
+/* --- Task card ----------------------------------------------------------- */
+/*
+   One task on a board: the row's facts, stacked. See TaskCard.razor for what it
+   states and in what order. The surface and edge are the row's, raised one step
+   so a card reads as a thing sitting in its column rather than a stripe across it.
+*/
+.task-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.task-card--opens {
+    cursor: pointer;
+}
+
+.task-card:hover {
+    border-color: var(--color-border);
+}
+
+/* The card is one control, so its focus is the card's edge — a border rather than
+   a shadow, so High Contrast keeps it, and so it never fights the identity edge,
+   which is an inset shadow. */
+.task-card:focus-visible {
+    border-color: var(--color-border-focus);
+    outline: var(--border-width) solid var(--color-border-focus);
+    outline-offset: 0;
+}
+
+.task-card--selected {
+    border-color: var(--color-border-strong);
+    background: var(--color-background-raised);
+}
+
+/* Room for the identity edge, on the rule .task-item.repo-mark states: only this
+   surface knows what its leading padding was. */
+.task-card.repo-mark {
+    padding-left: calc(var(--spacing-md) + var(--border-width-4));
+}
+
+.task-card__top {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/* The top line's type, wrapping: four facts and a badge do not fit a column. */
+.task-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--spacing-md);
+    row-gap: var(--spacing-xs);
+    min-width: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.task-card__priority {
+    display: inline-flex;
+    color: var(--color-text-secondary);
+}
+
+.task-card__my-day {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+    color: var(--color-primary);
+}
+
+.task-card__title {
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.task-card--done .task-card__title {
+    color: var(--color-text-secondary);
+}
+
+/* The reason the card cannot start, on the error surface with the error ink —
+   the one pairing color-scheme.md sanctions for a bare error statement. */
+.task-card__waiting {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-error);
+    color: var(--color-error-text);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.task-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* The row's smaller tag, for the row's reason: one more fact under a title. */
+.task-card__tag {
+    font-size: var(--font-size-xs);
+    padding: 0 var(--spacing-xs);
+}
+
+.task-card__steps,
+.task-card__date {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.task-card__date--overdue {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-card__date--finished {
+    color: var(--color-success-text);
+}
+
+.task-card__badges {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex: 0 0 auto;
+}
+
+.task-card__badges:empty {
+    display: none;
+}
+
+/* On the far end of the line whatever else is on it. */
+.task-card__effort {
+    margin-left: auto;
+    font-family: var(--font-family-mono);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+}
+
+.task-card__effort--unset {
+    color: var(--color-text-secondary);
+}
+
+/* A card a board lets the reader pick up, and the one in their hand: left in
+   place, faded and dashed, so the column it came from still says where it was. */
+.task-card--draggable {
+    cursor: grab;
+}
+
+.task-card--dragging {
+    opacity: 0.4;
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+}
+
+/* The card in the reader's hand: a copy of the held card that taskListDrag puts
+   on the page and moves with the pointer, raised off the board by a shadow and
+   a slight tilt so it reads as picked up rather than as one more card. Fixed,
+   because it follows the pointer in the viewport whatever scrolls under it, and
+   never a target, so the column under it is what the hit test finds. */
+.task-card--lifted {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    margin: 0;
+    pointer-events: none;
+    border-color: var(--color-border-strong);
+    /* The identity edge travels with the card: .repo-mark's inset shadow would
+       otherwise be replaced by this one. */
+    box-shadow:
+        inset var(--border-width-4) 0 0 0 var(--repo-mark-color, transparent),
+        var(--shadow-lg),
+        0 0 0 var(--border-width) var(--color-border);
+    transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0) rotate(2deg);
+    will-change: transform;
+}
+
+/* Released: the copy glides from the pointer into the card's place and the
+   tilt comes off on the way — the drop settle, transition-base on ease-out. */
+.task-card--lifted.task-card--settling {
+    transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0);
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+    box-shadow: inset var(--border-width-4) 0 0 0 var(--repo-mark-color, transparent);
+}
+
+/* The card in its new place while the copy settles onto it: there, holding its
+   room, but not yet visible, so the reader sees one card arrive rather than two. */
+.task-card--landing {
+    visibility: hidden;
+}
+
+/* The card's copy button: the row's, quiet until the card is hovered or the
+   button focused, on the far end of the top line. After My Day when there is
+   one, which already holds the far end. */
+.task-card__copy {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.task-card__my-day + .task-card__copy {
+    margin-left: 0;
+}
+
+.task-card__copy-wrap {
+    display: inline-flex;
+    align-items: center;
+}
+
+.task-card__copy-button {
+    color: var(--color-text-disabled);
+}
+
+.task-card:hover .task-card__copy-button,
+.task-card__copy-button:hover,
+.task-card__copy-button:focus-visible {
+    color: var(--color-text-primary);
+}
+
+.task-card:hover .task-card__copy-button:disabled,
+.task-card__copy .task-card__copy-button:disabled {
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+}
+
+.task-card__copy .copy-button__glyphs[data-copied="true"] {
+    color: var(--color-primary);
+}
+
+/* Announced, not drawn, for the row's reason: a card's top line does not
+   reflow because someone copied it. */
+.task-card__copy-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* --- Task board ---------------------------------------------------------- */
+/*
+   Columns of TaskCards, side by side. See TaskBoard.razor. The columns never
+   shrink below the width a card reads at; the board scrolls sideways instead,
+   which is what it does once the detail panel opens beside it.
+
+   Every column is as tall as the board. A column is where a held card is
+   dropped, and one only as tall as its cards left the space beside a long
+   column's foot belonging to nobody: a card picked up low in a long Ready
+   column and carried across to a short In progress column was released over
+   the board itself, and the drop did nothing.
+
+   The board scrolls sideways only, and each column scrolls its own cards. The
+   one row is minmax(0, 1fr): in a box with a height — the Tasks pane's
+   scroller, a flex column — the board fills the box and a long column scrolls
+   inside itself, and in a box without one the row is as tall as the tallest
+   column and the box scrolls instead. Before this, overflow-x: auto made the
+   board a vertical scroller as well, which in the pane's flex column shrank it
+   to the pane's height: the board's own scrollbar stood beside the pane's,
+   two for one column (task-views sign-off).
+*/
+.task-board {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(17rem, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: var(--spacing-md);
+    align-items: stretch;
+    flex: 1 1 auto;
+    min-width: 0;
+    /* A floor, so a short pane scrolls to the board's foot rather than clipping
+       a column's head and "+ New entry": room for those and a card or two. */
+    min-height: 16rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+}
+
+/* A card is dragged by pressing and moving, which is also how text is selected;
+   the same reason .task-list--dragging refuses a selection. */
+.task-board--dragging {
+    user-select: none;
+    cursor: grabbing;
+}
+
+.task-board--dragging .task-card {
+    cursor: grabbing;
+}
+
+/* The rest of the board steps back while one card is in the reader's hand, as
+   the list's rows do: a state, not an animation, so it holds under reduced
+   motion too. */
+.task-board--dragging .task-card:not(.task-card--dragging) {
+    opacity: 0.8;
+}
+
+.task-board__column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background);
+}
+
+/* Everything in a column but its cards keeps its size; only the cards give way
+   when the column runs out of room, and they scroll. */
+.task-board__column > :not(.task-board__cards) {
+    flex: none;
+}
+
+/* A column the held card may go to: a dashed edge, solid under the pointer. */
+.task-board__column--target {
+    outline: var(--border-width-2) dashed var(--color-border-strong);
+    outline-offset: calc(-1 * var(--border-width-2));
+}
+
+.task-board__column--target.task-board__column--over {
+    outline-color: var(--color-primary);
+    outline-style: solid;
+}
+
+/* One it may not: quiet, with the reason at its head. */
+.task-board__column--refused .task-board__cards,
+.task-board__column--refused .task-board__head,
+.task-board__column--refused .task-board__add {
+    opacity: 0.55;
+}
+
+/* Wraps rather than shrinks: in a narrow column the points drop under the
+   title instead of the title being cut to "Rea…". */
+.task-board__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    padding: var(--spacing-2xs) var(--spacing-2xs) var(--spacing-xs);
+    min-width: 0;
+}
+
+.task-board__dot {
+    flex: 0 0 auto;
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-border-strong);
+}
+
+.task-board__dot--draft { background: var(--color-text-disabled); }
+.task-board__dot--ready { background: var(--color-info); }
+.task-board__dot--in-progress { background: var(--color-primary); }
+.task-board__dot--done { background: var(--color-success-text); }
+.task-board__dot--critical { background: var(--color-error-text); }
+.task-board__dot--high { background: var(--color-warning); }
+.task-board__dot--medium { background: var(--color-text-secondary); }
+.task-board__dot--low { background: var(--color-text-disabled); }
+
+.task-board__title {
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-board__count {
+    flex: 0 0 auto;
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+}
+
+.task-board__points {
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+/* The column's one vertical scroller. Shrinks only when the column has a height
+   to fit — as tall as its cards otherwise, so "+ New entry" sits under the last
+   card rather than at the column's foot. The padding is the room a card's focus
+   ring draws in, which a scroller would otherwise clip; the margin gives it back. */
+.task-board__cards {
+    display: flex;
+    flex-direction: column;
+    flex: 0 1 auto;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: calc(-1 * var(--border-width-2));
+    padding: var(--border-width-2);
+}
+
+/* Why the held card cannot go here: the error surface and ink, the pairing
+   color-scheme.md sanctions for a bare error statement. */
+.task-board__refusal {
+    margin: 0;
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-error);
+    color: var(--color-error-text);
+    font-size: var(--font-size-xs);
+}
+
+/* Where the held card lands, and what landing there does: the drop on one line,
+   and what else it writes, when the host says, on a quieter one under it. */
+.task-board__slot {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--spacing-2xs);
+    min-height: 3rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width-2) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    transform-origin: top center;
+    transition:
+        border-color var(--transition-fast),
+        color var(--transition-fast);
+    /* transition-base is the ease-out pairing: the slot is an entering element. */
+    animation: task-board-slot-open var(--transition-base);
+}
+
+.task-board__slot strong {
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-board__slot-detail {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* Under the pointer the slot opens to the held card's height — taskListDrag puts
+   it on the board as --task-board-lift-height — so the column shows the room the
+   card will take before the reader lets go. The height is a state and changes at
+   once, since motion here animates transform and opacity and never a layout
+   property; what moves is the slot fading and unfolding in from its top edge
+   when a card is picked up (on .task-board__slot above). None of that travel
+   runs under reduced motion. */
+.task-board__slot--over {
+    min-height: var(--task-board-lift-height, 3rem);
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+@keyframes task-board-slot-open {
+    from {
+        opacity: 0;
+        transform: scaleY(0.6);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .task-board__slot {
+        transition: none;
+        animation: none;
+    }
+
+    .task-card--lifted {
+        transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0);
+    }
+
+    .task-card--lifted.task-card--settling {
+        transition: none;
+    }
+}
+
+.task-board__add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    min-height: 2.75rem;
+    margin-top: var(--spacing-xs);
+    border: var(--border-width) dashed var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.task-board__add:hover {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.task-board__add:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
+}
+
 /* --- Task actions -------------------------------------------------------- */
 /*
    The rows in a task's detail pane. One shape for all of them, because "Remind
@@ -13951,6 +14474,52 @@ select.field__input {
     color: inherit;
 }
 
+/* A pull request's review verdict, beside its checks: the same two semantic
+   foregrounds — success for approved, error for changes requested. Review
+   required draws nothing, so there is no third ink. The bubble outline keeps
+   the shape apart from the checks' tick and cross. */
+.integration-link__review {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+}
+
+.integration-link__review--approved {
+    color: var(--color-success-text);
+}
+
+.integration-link__review--changes-requested {
+    color: var(--color-error-text);
+}
+
+/* A session's state as the colour of its mark. Stalled is the one that asks for
+   the person — quiet past the Sessions threshold — so it is highlighted: the
+   primary ink on the alert surface the chips already spend. Running keeps the
+   neutral ink, finished the muted one. Positioned for the .sr-only copy of the
+   state's words, so colour is never the only carrier. */
+.integration-link--session {
+    position: relative;
+}
+
+.integration-link--session-running .provider-mark {
+    color: var(--integration-ink-muted);
+}
+
+.integration-link--session-finished .provider-mark {
+    color: var(--integration-ink-off);
+}
+
+.integration-link--session-stalled {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: var(--integration-alert-surface);
+}
+
+.integration-link--session-stalled .provider-mark {
+    color: var(--color-primary);
+}
+
 /* State as ink: the link is the one button for its artifact, outlined in the
    state chip's own inks and edges so a row says Open, Draft or Merged once.
    Positioned for the .sr-only copy of the state's words, which keeps colour
@@ -16697,6 +17266,1035 @@ select.field__input {
     border-color: transparent currentColor transparent transparent;
     border-top-right-radius: var(--border-radius-sm);
     pointer-events: none;
+}
+
+/* --- TaskCalendar ---------------------------------------------------------
+   The month of tasks placed by due date, with the tray of tasks without one.
+   Every colour is a palette token or a mix of two: the day shades are the
+   background stepped toward its neighbours, so the grid adds no hue of its own.
+   The status dots differ in shape as well as colour — a hollow ring for a draft —
+   so they still read apart without the colour. */
+.task-calendar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: 0;
+    padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.task-calendar__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.task-calendar__nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    min-height: 2rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.task-calendar__nav--step {
+    min-width: 2rem;
+    font-size: var(--font-size-lg);
+    line-height: 1;
+}
+
+.task-calendar__nav:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.task-calendar__nav:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width-2);
+}
+
+.task-calendar__month {
+    margin: 0 var(--spacing-sm);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-calendar__body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    min-height: 0;
+}
+
+.task-calendar__grid {
+    flex: 999 1 36rem;
+    min-width: 0;
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+}
+
+/* Positioned, for the plan layer laid over it; --task-calendar-lanes is how many
+   rows of plan bars the week needs. The day's top padding, its gap and the head's
+   height are named here because the plan layer is placed below the head by them. */
+.task-calendar__week {
+    --task-calendar-day-top: var(--spacing-xs);
+    --task-calendar-day-gap: 3px;
+    --task-calendar-head-height: 1.75rem;
+    --task-calendar-plan-height: 1.25rem;
+    --task-calendar-plan-gap: 2px;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.task-calendar__weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    border-bottom: var(--border-width) solid var(--color-background-raised);
+    background: color-mix(in srgb, var(--color-background-alt) 50%, var(--color-background));
+}
+
+.task-calendar__weekday {
+    padding: var(--spacing-sm) var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.task-calendar__week + .task-calendar__week {
+    border-top: var(--border-width) solid var(--color-background-raised);
+}
+
+.task-calendar__day {
+    display: flex;
+    flex-direction: column;
+    gap: var(--task-calendar-day-gap);
+    min-width: 0;
+    min-height: 7rem;
+    padding: var(--task-calendar-day-top) var(--spacing-sm) var(--spacing-sm);
+    background: var(--color-background);
+}
+
+.task-calendar__day + .task-calendar__day {
+    border-left: var(--border-width) solid var(--color-background-raised);
+}
+
+.task-calendar__day--weekend {
+    background: color-mix(in srgb, var(--color-background-alt) 35%, var(--color-background));
+}
+
+.task-calendar__day--outside {
+    background: color-mix(in srgb, var(--color-background-overlay) 30%, var(--color-background));
+}
+
+.task-calendar__day--today {
+    background: color-mix(in srgb, var(--color-primary) 6%, var(--color-background));
+}
+
+.task-calendar__day--drop {
+    outline: var(--border-width-2) dashed var(--color-primary);
+    outline-offset: calc(-1 * var(--border-width-2));
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-background));
+}
+
+/* Wraps, so a narrow column puts today's My Day count under the number rather
+   than over the next day. */
+.task-calendar__day-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    min-height: var(--task-calendar-head-height);
+    /* Room under the number for the week's plan lanes, so the chips start below the
+       last bar. */
+    margin-bottom: calc(var(--task-calendar-lanes, 0) * (var(--task-calendar-plan-height) + var(--task-calendar-plan-gap)));
+}
+
+.task-calendar__day-number {
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+.task-calendar__day--outside .task-calendar__day-number {
+    color: var(--color-text-disabled);
+}
+
+/* The ring: today's number on the brand colour, a shape and not only a tint. */
+.task-calendar__day--today .task-calendar__day-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.625rem;
+    height: 1.625rem;
+    padding: 0 0.375rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-calendar__my-day {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--color-primary-light);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.task-calendar__chip {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    width: 100%;
+    min-height: 1.5rem;
+    padding: 0.125rem 0.375rem;
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    cursor: pointer;
+    user-select: none;
+}
+
+.task-calendar__chip:hover {
+    background: var(--color-background-raised);
+}
+
+.task-calendar__chip.repo-mark {
+    padding-left: calc(0.375rem + var(--border-width-4));
+}
+
+.task-calendar__chip-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.task-calendar__chip--overdue {
+    background: var(--color-error);
+    color: var(--color-error-text);
+}
+
+.task-calendar__chip--done {
+    background: color-mix(in srgb, var(--color-background-alt) 50%, var(--color-background));
+    color: var(--color-secondary);
+}
+
+.task-calendar__chip--done .task-calendar__chip-text {
+    text-decoration: line-through;
+}
+
+.task-calendar__chip--selected {
+    outline: var(--border-width) solid var(--color-border-strong);
+    outline-offset: calc(-1 * var(--border-width));
+}
+
+.task-calendar__chip:focus-visible,
+.task-calendar__more:focus-visible,
+.task-calendar__tray-item:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 0;
+}
+
+.task-calendar__more {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 1.5rem;
+    padding: 0.125rem 0.375rem;
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+}
+
+.task-calendar__more:hover {
+    color: var(--color-text-primary);
+}
+
+.task-calendar__dot {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-secondary);
+}
+
+.task-calendar__dot--draft {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--color-secondary);
+}
+
+.task-calendar__dot--in-progress { background: var(--color-primary); }
+.task-calendar__dot--done { background: var(--color-success-text); }
+.task-calendar__dot--overdue { background: var(--color-error-text); }
+
+.task-calendar__dot--archived {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--color-text-disabled);
+}
+
+.task-calendar__tray {
+    flex: 1 1 16rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--color-background-alt) 50%, var(--color-background));
+}
+
+.task-calendar__tray-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+.task-calendar__tray-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: 0.9375rem;
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-calendar__tray-count {
+    padding: 1px var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    font-size: var(--font-size-xs);
+}
+
+.task-calendar__tray-hint {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+}
+
+/* A long backlog has many undated tasks; the tray scrolls on its own rather than
+   growing the month's column past the grid it sits beside. */
+.task-calendar__tray-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    max-height: 36rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.task-calendar__tray-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    min-height: 2.75rem;
+    padding: var(--spacing-sm) 0.625rem;
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: 0.8125rem;
+    text-align: left;
+    cursor: grab;
+    user-select: none;
+}
+
+.task-calendar__tray-item:hover {
+    border-color: var(--color-border);
+}
+
+.task-calendar__tray-item.repo-mark {
+    padding-left: calc(0.625rem + var(--border-width-4));
+}
+
+.task-calendar__tray-item--selected {
+    border-color: var(--color-border-strong);
+}
+
+.task-calendar__tray-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.task-calendar__tray-effort {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.task-calendar--dragging,
+.task-calendar--dragging * {
+    cursor: grabbing;
+}
+
+.task-calendar__item--dragging {
+    opacity: 0.4;
+}
+
+/* ----- Plans on the calendar ---------------------------------------------
+   The roadmap's windows as bars under the day numbers and above the chips. The
+   bars sit in a layer of their own laid over the week — a seven-column grid, one
+   row per lane — and every day head keeps room for the week's lanes beneath it,
+   so the chips start below the last bar. The week says how many lanes it needs
+   through --task-calendar-lanes. */
+.task-calendar__show-plans {
+    margin-left: auto;
+}
+
+/* Below the day head: the day's top padding, the head's height and the day's gap. A
+   head that wraps — today's My Day count on a narrow column — grows past that height,
+   so the head holds its count to one line while the week carries plans. */
+.task-calendar__plans {
+    position: absolute;
+    top: calc(var(--task-calendar-day-top) + var(--task-calendar-head-height) + var(--task-calendar-day-gap));
+    right: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-auto-rows: var(--task-calendar-plan-height);
+    row-gap: var(--task-calendar-plan-gap);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    pointer-events: none;
+}
+
+.task-calendar__week--plans .task-calendar__day-head {
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+
+/* The roadmap's own 24% mix of the band colour, so a plan wears the same tint here
+   as on its chart; neutral grey while the repository colours are hidden. */
+.task-calendar__plan {
+    --task-calendar-plan-color: var(--color-border-strong);
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin: 0 var(--spacing-xs);
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid color-mix(in srgb, var(--task-calendar-plan-color) 60%, var(--color-border));
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--task-calendar-plan-color) 24%, var(--color-background-alt));
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    pointer-events: auto;
+}
+
+.task-calendar__plan--continues-before {
+    margin-left: 0;
+    border-left-width: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.task-calendar__plan--continues-after {
+    margin-right: 0;
+    border-right-width: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.task-calendar__plan--band-1 { --task-calendar-plan-color: var(--color-band-1); }
+.task-calendar__plan--band-2 { --task-calendar-plan-color: var(--color-band-2); }
+.task-calendar__plan--band-3 { --task-calendar-plan-color: var(--color-band-3); }
+.task-calendar__plan--band-4 { --task-calendar-plan-color: var(--color-band-4); }
+.task-calendar__plan--band-5 { --task-calendar-plan-color: var(--color-band-5); }
+
+.task-calendar__plan-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* A milestone: a diamond, a shape and not only a colour, then its title. */
+.task-calendar__milestone {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    padding: 1px var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+}
+
+.task-calendar__diamond {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin: 0 0.125rem;
+    background: var(--color-primary);
+    transform: rotate(45deg);
+}
+
+.task-calendar__milestone-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.task-calendar__tray-head--plans {
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-background-raised);
+}
+
+/* A plan's tag is often one long word, so its card keeps the title to one line and
+   puts the size under it rather than squeezing the two side by side. */
+.task-calendar__shelf-item {
+    flex-wrap: wrap;
+    row-gap: 2px;
+}
+
+.task-calendar__shelf-item .task-calendar__tray-text {
+    white-space: nowrap;
+}
+
+.task-calendar__shelf-item .task-calendar__tray-effort {
+    flex-basis: 100%;
+    padding-left: calc(0.875rem + var(--spacing-sm));
+}
+
+/* A plan on the shelf has no lifecycle dot: a bar's own outline stands in for it. */
+.task-calendar__shelf-mark {
+    flex: none;
+    width: 0.875rem;
+    height: 0.5rem;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--color-border-strong) 24%, var(--color-background-alt));
+}
+
+/* --- Work cards ----------------------------------------------------------------
+   A session or a pull request as a card beside the work it ran or shipped —
+   WorkSessionCard and WorkPullRequestCard, in two columns under WorkLinks. The
+   raised surface over the task's own, so a card reads as a thing sitting on the
+   task rather than a stripe across it. The two states that ask for the person
+   wear an edge: the primary one for a quiet or waiting session, the error one for
+   a failing check or requested changes. The words always say why. */
+.work-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+}
+
+.work-card--opens {
+    cursor: pointer;
+}
+
+.work-card--opens:hover {
+    border-color: var(--color-border-strong);
+}
+
+.work-card--opens:focus-visible {
+    border-color: var(--color-border-focus);
+    outline: var(--border-width) solid var(--color-border-focus);
+    outline-offset: 0;
+}
+
+.work-card--needs-you {
+    border-color: var(--color-primary);
+}
+
+.work-card--fault {
+    border-color: var(--color-error);
+}
+
+.work-card__line {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.work-card__dot {
+    flex: none;
+    width: var(--spacing-sm);
+    height: var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-text-disabled);
+}
+
+.work-card--session-running .work-card__dot {
+    background: var(--color-success-text);
+}
+
+.work-card--session-stalled .work-card__dot,
+.work-card--session-waiting .work-card__dot {
+    background: var(--color-primary);
+}
+
+.work-card__title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: var(--font-weight-semibold);
+}
+
+.work-card__state {
+    flex: none;
+    margin-left: auto;
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.work-card--session-running .work-card__state {
+    color: var(--color-success-text);
+}
+
+.work-card--session-stalled .work-card__state,
+.work-card--session-waiting .work-card__state {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.work-card__number {
+    flex: none;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+}
+
+.work-card__detail {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.work-card__facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+}
+
+.work-card__fact {
+    color: var(--color-text-secondary);
+}
+
+.work-card__fact--fault {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+}
+
+.work-card__fact--settled {
+    color: var(--color-success-text);
+    font-weight: var(--font-weight-semibold);
+}
+
+.work-card__fact--mono {
+    font-family: var(--font-family-mono);
+}
+
+/* The two columns: Sessions, then Pull requests, side by side while there is room
+   and under each other where there is not. Stacked puts them under each other
+   always, for a host as narrow as a side panel. */
+.work-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md) var(--spacing-lg);
+    min-width: 0;
+}
+
+.work-links__column {
+    display: flex;
+    flex: 1 1 16rem;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.work-links--stacked {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.work-links--stacked .work-links__column {
+    flex: none;
+}
+
+.work-links__heading {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.work-links__none {
+    color: var(--color-text-disabled);
+    font-size: var(--font-size-sm);
+}
+
+/* A card with its Unlink beside it: the card takes the width, the quiet button sits
+   at its top edge, so a column of them reads as cards first and actions second. */
+.work-links__item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.work-links__card {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.work-links__unlink {
+    flex: none;
+}
+
+/* The side panel section: the heading with "Open in In progress" beside it, the
+   two columns stacked, and the link action under them. */
+.work-links-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.work-links-panel__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.work-links-panel__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.work-links-panel__open {
+    margin-left: auto;
+}
+
+.work-links-panel__link {
+    align-self: flex-start;
+}
+
+/* The picker behind "Link to a task…": one full-width button per choice, the
+   label over a quiet line of detail. */
+.work-link-picker__description {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.work-link-picker__options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 24rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.work-link-picker__option {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.work-link-picker__option:hover {
+    border-color: var(--color-border-strong);
+}
+
+.work-link-picker__option:focus-visible {
+    border-color: var(--color-border-focus);
+    outline: var(--border-width) solid var(--color-border-focus);
+    outline-offset: 0;
+}
+
+.work-link-picker__label {
+    font-weight: var(--font-weight-semibold);
+}
+
+.work-link-picker__detail {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* --- In progress, by task -------------------------------------------------------
+   InProgressBoard: the header with its two toggles, then one section per rule —
+   Needs you, Moving, and last Not linked to a task — each a dot, a name, a count
+   and a hint over its cards. A task card is the facts on the left and its
+   WorkLinks on the right, wrapping under each other where the view is narrow. */
+.in-progress-board {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.in-progress-board__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.in-progress-board__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.in-progress-board__summary {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.in-progress-board__spacer {
+    flex: 1 1 2.5rem;
+}
+
+.in-progress-board__toggles {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.in-progress-board__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.in-progress-board__section-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.in-progress-board__dot {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-text-disabled);
+}
+
+.in-progress-board__section--needs-you .in-progress-board__dot {
+    background: var(--color-primary);
+}
+
+.in-progress-board__section--moving .in-progress-board__dot,
+.in-progress-board__section--all .in-progress-board__dot {
+    background: var(--color-success-text);
+}
+
+.in-progress-board__section-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.in-progress-board__count {
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    font-size: var(--font-size-xs);
+}
+
+.in-progress-board__hint,
+.in-progress-board__nothing {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.in-progress-task {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md) var(--spacing-lg);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.in-progress-task.repo-mark {
+    padding-left: calc(var(--spacing-md) + var(--border-width-4));
+}
+
+/* The focus a link lands on the card it moved the item under: the shared ring, so
+   the reader sees where the item went. */
+.in-progress-task:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.in-progress-task--loose {
+    border-style: dashed;
+    background: transparent;
+}
+
+.in-progress-task__facts {
+    display: flex;
+    flex: 1 1 18rem;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.in-progress-task__links {
+    flex: 2 1 32rem;
+}
+
+.in-progress-task__top,
+.in-progress-task__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.in-progress-task__status {
+    padding: 0 var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.in-progress-task--finished .in-progress-task__status {
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+}
+
+.in-progress-task__plan {
+    color: var(--color-primary-light);
+    font-family: var(--font-family-mono);
+}
+
+.in-progress-task__effort {
+    font-family: var(--font-family-mono);
+}
+
+.in-progress-task__title {
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.in-progress-task__title--opens {
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.in-progress-task__title--opens:hover {
+    text-decoration: underline;
+}
+
+.in-progress-task__title--opens:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width-2);
+}
+
+.in-progress-task__due--overdue {
+    color: var(--color-error-text);
+    font-weight: var(--font-weight-semibold);
+}
+
+.in-progress-loose__text {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+}
+
+.in-progress-loose__link {
+    align-self: flex-start;
+}
+
+.in-progress-loose__item {
+    display: flex;
+    flex: 2 1 32rem;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
 }
 
 /* --- Notes ----------------------------------------------------------------- */

@@ -17,6 +17,13 @@ related: [.devbook/domain/sessions/domain.md#session-log]
 Answer "what have my agents been doing here" as one list: every session the
 environment has a record of, most recently active first, whichever agent ran it.
 
+The list opens from **Sessions** in the header's work in progress group, between
+[In progress](#in-progress-by-task) and **Pull requests**, the open pull requests
+the sessions shipped. Each of the two lists takes the whole screen while it is
+open, and Escape, its close button or a second press of its option returns to the
+view and the side panes that were showing before. In progress, first in the group,
+is a view instead: it sits with the two lists because it summarises them.
+
 One list rather than one per agent, because the question is about the work and not
 about the vendor. A person who has both agents installed does not think in two
 inventories.
@@ -665,6 +672,88 @@ still appears and the reporting path reads as degraded.
 That answer is more honest than either hiding the reporting layer or pretending no
 external activity exists. A broken path is a fact worth surfacing, and it is separate
 from the session's own `Session State`.
+
+## In progress, by task
+
+```meta
+type: feature
+related: [.devbook/domain/sessions/features.md#open-on-the-session-a-task-names]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.In_progress_is_a_main_view_that_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_sessions_and_pull_requests_off_there_is_no_in_progress_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_card_draws_what_its_entry_links_and_the_rest_is_not_linked_to_a_task, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_no_repository_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_feature_that_is_off_draws_no_column_in_the_view_or_the_side_panel, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_feature_that_is_off_draws_no_column_and_no_count]
+```
+
+Answer "what is moving, and what needs me" as one view: every task in progress in
+the repository scope, each with the sessions and pull requests linked to it beside it
+— a session's title, state and last activity; a pull request's number, title, draft
+or open, review verdict, checks and size. A task with nothing of a kind says "None
+yet". It is the first option of the work in progress group in the header and a main
+view rather than a takeover: the Inbox and the Devbook still open beside it, and it is
+offered while the session list or the pull requests list is.
+
+The scope is the task list's whole repository scope: the repositories chosen in the
+header, and its "No repository" scope too, under which only the tasks filed against
+no repository show and, of the loose work, only a session placed in no registered
+repository. With only one of the session list and the pull requests list on, the
+other kind is not drawn at all — no column, no count in the summary — rather than a
+column saying "None yet" for a list that is switched off.
+
+### Needs you first
+
+```meta
+type: sub-feature
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Needs_you_comes_first_then_moving_each_in_the_hosts_order, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_failing_check_or_requested_changes_on_an_open_pull_request_needs_you, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_quiet_session_needs_you, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_linked_session_that_has_gone_quiet_needs_you_and_says_quiet_30_min]
+```
+
+A task whose linked session has gone quiet — `Stalled`, shown as "Quiet 30 min" — or
+whose open pull request has a failing check or requested changes is under **Needs
+you**; the rest are under **Moving**. Switched off, the tasks are one list in the task
+list's order. "Include finished today" adds the tasks done today in a section of
+their own. Neither choice is remembered past the session.
+
+### Link what no task claims
+
+```meta
+type: sub-feature
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Link_to_a_task_records_a_loose_session_on_the_chosen_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Link_to_a_task_records_a_loose_pull_request_on_the_chosen_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Linking_what_the_entry_already_holds_writes_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Linking_moves_the_focus_to_the_card_the_item_now_sits_under, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Each_task_card_is_a_focus_target_a_host_can_name]
+```
+
+Live sessions and the reader's own open pull requests that no task links are listed
+last, under **Not linked to a task**, each with "Link to a task…". Linking records the
+session or the pull request on the chosen entry through the same write the
+`link_session` and `link_change` tools make, so a link made by hand and one an agent
+made are one kind of record. A link the entry already holds is not written twice.
+Once the link lands, the card that opened the picker is gone, so the focus moves to
+the card of the task the item now sits under — or to the view's title when that task
+is not in the view — rather than dropping to the page.
+
+### Unlink what was linked
+
+```meta
+type: sub-feature
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Unlink_on_a_card_takes_the_session_off_and_it_is_not_linked_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Unlink_in_the_side_panel_takes_a_pull_request_off_its_entry, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Unlink_beside_a_card_hands_the_host_the_task_and_the_item, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories]
+```
+
+Every linked session and pull request on a task's card, and in its side panel, has an
+"Unlink" beside it. Unlinking takes the link off the entry through the entries
+module's own unlink — the counterpart of the write linking makes — under the
+repository it was recorded with; the entry's repositories stay. A session still live
+or a pull request of the reader's still open goes back under **Not linked to a task**,
+one link away from the right task. The focus stays on the task's card.
+
+### From a task's side panel
+
+```meta
+type: sub-feature
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_side_panel_section_links_a_session_or_pull_request_to_its_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.An_in_progress_title_opens_the_entry_in_the_tasks_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.A_merged_or_closed_pull_request_opened_from_a_task_is_listed_and_scrolled_to]
+```
+
+A task's side panel carries the same cards under "Sessions and pull requests", with
+"Link a session or pull request…" and "Open in In progress"; with one of the two
+features off, the heading and the link action name only the kind left. A task's title
+on the view opens it in the Tasks view; a session or a pull request opens the session
+list or the pull requests list on that item. A pull request that has merged or closed
+is not on the pull requests list's open read, so it is read by number and drawn in the
+open list beside the pins, saying Merged or Closed, and the list scrolls its row into
+view.
 
 ## Turn the area off
 

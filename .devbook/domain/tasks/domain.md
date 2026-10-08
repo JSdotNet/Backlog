@@ -431,6 +431,12 @@ it creates one GitHub issue and/or CLI task per `repo_id`, recording each as a
 because it coordinates the task with external systems (GitHub, Copilot CLI) and
 spans multiple downstream artifacts rather than a single aggregate mutation. Invocation semantics: event-triggered policy / process manager. It reacts to `TaskProjected` and `TaskCompleted`; it is not invoked as part of a synchronous aggregate command.
 
+A `Projection Ref` recorded by hand — a session or pull request linked to a task —
+can be taken off again: the unlink use case removes every ref naming that repository,
+external id and target type, compared without regard to case, and leaves the task's
+`repo_id`s as they are. A ref the task does not hold changes nothing and is not a
+failure.
+
 ## Occurrence Spawning
 
 ```meta
