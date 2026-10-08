@@ -239,15 +239,20 @@ public sealed class InboxDesktopState
         Lists.Where(list => list.GroupId == groupId).Sum(list => ListCount(list.Id));
 
     /// <summary>How long an item may wait unprocessed before the queue health
-    /// strip calls it out (features.md#queue-health).</summary>
+    /// bar calls it out (features.md#queue-health-bar).</summary>
     public const int StaleAfterDays = 14;
 
+    /// <summary>The first part of the queue health bar: items captured fewer
+    /// than this many days ago are fresh.</summary>
+    public const int FreshUnderDays = 3;
+
     /// <summary>
-    /// The queue health strip's three numbers, over every unprocessed item in
-    /// every list: how many, how long the oldest has waited, and how many have
-    /// waited longer than <see cref="StaleAfterDays"/>. Deferred items are left
-    /// out — put aside is not waiting — and age runs from the capture, the same
-    /// instant each row's own age is read from.
+    /// The queue health bar's numbers, over every unprocessed item in every
+    /// list: how many, how long the oldest has waited, and how they split by
+    /// age — under <see cref="FreshUnderDays"/>, from there up to
+    /// <see cref="StaleAfterDays"/>, and longer than that. Deferred items are
+    /// left out — put aside is not waiting — and age runs from the capture, the
+    /// same instant each row's own age is read from.
     /// </summary>
     public InboxQueueHealth QueueHealth
     {
@@ -259,10 +264,80 @@ public sealed class InboxDesktopState
             var now = _clock.GetUtcNow();
             var oldest = waiting.Min(item => item.CapturedAt);
             var stale = waiting.Count(item => now - item.CapturedAt > TimeSpan.FromDays(StaleAfterDays));
+            var fresh = waiting.Count(item => now - item.CapturedAt < TimeSpan.FromDays(FreshUnderDays));
 
-            return new InboxQueueHealth(waiting.Count, oldest, stale);
+            return new InboxQueueHealth(waiting.Count, oldest, stale)
+            {
+                Fresh = fresh,
+                Aging = waiting.Count - fresh - stale,
+            };
         }
     }
+
+    /// <summary>The header's short form of the queue's health: "3 waiting ·
+    /// oldest 12 days", or "Nothing waiting".</summary>
+    public string WaitingSummary
+    {
+        get
+        {
+            var health = QueueHealth;
+            return health.OldestCapturedAt is { } oldest
+                ? $"{health.Unprocessed} waiting · oldest {Waited(oldest)}"
+                : "Nothing waiting";
+        }
+    }
+
+    /// <summary>How long something captured at <paramref name="at"/> has
+    /// waited, in words: "under an hour", "5 hours", "12 days".</summary>
+    public string Waited(DateTimeOffset at) => Waited(_clock.GetUtcNow() - at);
+
+    /// <summary>The span in words, pure so a test can pin the wording.</summary>
+    internal static string Waited(TimeSpan span) => span switch
+    {
+        _ when span < TimeSpan.FromHours(1) => "under an hour",
+        _ when span < TimeSpan.FromDays(1) => Counted((int)span.TotalHours, "hour", "hours"),
+        _ => Counted((int)span.TotalDays, "day", "days"),
+    };
+
+    /// <summary>
+    /// The rows on screen in the groups the list draws them under: Today (since
+    /// local midnight), This week (the seven days before now) and Older than a
+    /// week, each in the rows' own order and none that would be empty. The
+    /// Deferred slice is one group: its rows run in the order they come back,
+    /// and splitting them by capture would scramble that.
+    /// </summary>
+    public IReadOnlyList<InboxAgeGroup> VisibleGroups
+    {
+        get
+        {
+            var rows = VisibleItems;
+            if (rows.Count == 0) return [];
+            if (DeferredSelected) return [new InboxAgeGroup(AllGroupKey, "Deferred", rows)];
+
+            // Midnight at the offset in force at midnight, not now: on the day the
+            // clocks change the two differ by an hour.
+            var local = _clock.GetLocalNow();
+            var midnight = new DateTimeOffset(local.Date, _clock.LocalTimeZone.GetUtcOffset(local.Date));
+            var weekAgo = local.AddDays(-7);
+
+            var groups = new List<InboxAgeGroup>(3);
+            Add(TodayGroupKey, "Today", rows.Where(item => item.CapturedAt >= midnight));
+            Add(WeekGroupKey, "This week", rows.Where(item => item.CapturedAt < midnight && item.CapturedAt >= weekAgo));
+            Add(OlderGroupKey, "Older than a week", rows.Where(item => item.CapturedAt < weekAgo));
+            return groups;
+
+            void Add(string key, string label, IEnumerable<InboxItemDto> items)
+            {
+                var list = items.ToList();
+                if (list.Count > 0) groups.Add(new InboxAgeGroup(key, label, list));
+            }
+        }
+    }
+
+    internal const string TodayGroupKey = "today";
+    internal const string WeekGroupKey = "week";
+    internal const string OlderGroupKey = "older";
+    internal const string AllGroupKey = "all";
 
     /// <summary>Whether the group's lists are showing.</summary>
     public bool IsGroupExpanded(Guid groupId) => !_collapsedGroups.Contains(groupId);
@@ -504,12 +579,11 @@ public sealed class InboxDesktopState
 
     // --- Capture and the item's own acts ------------------------------------
 
-    /// <summary>Captures what was typed into the pane's Add dialog: a title and,
-    /// optionally, notes that become the item's body. Returns whether it was
-    /// kept; a refusal is a toast under <c>inbox-add-error</c>, because the
-    /// dialog has closed by the time the answer arrives and there is nowhere in
-    /// the pane for a one-off failure to sit. The new item is selected so the
-    /// detail opens on it.</summary>
+    /// <summary>Captures what was typed into the pane's capture field: a title
+    /// and, optionally, notes that become the item's body. Returns whether it
+    /// was kept; a refusal is a toast under <c>inbox-add-error</c>, because the
+    /// field is a line in the header and there is nowhere in it for a one-off
+    /// failure to sit. The new item is selected so the detail opens on it.</summary>
     public async Task<bool> CaptureAsync(InboxCapture capture)
     {
         ArgumentNullException.ThrowIfNull(capture);
@@ -691,6 +765,86 @@ public sealed class InboxDesktopState
         // so a second press of the same digit cannot reach a chip already refused.
         Suggestions = [.. Suggestions.Where(other => other.Key != suggestion.Key)];
         await ReloadAsync();
+    }
+
+    // --- The rows' "suggested" marker ------------------------------------------
+
+    /// <summary>Per row on screen: the reload it was asked after, and whether
+    /// Classification had anything to propose for it. Any reload makes every
+    /// answer stale — a tag just added, a suggestion just turned down, a rule
+    /// the backlog's tags now meet — for the reason <see cref="_suggestionsFor"/>
+    /// is cleared by one; the old answer stays on screen until the new one is
+    /// in, so the marker does not flicker.</summary>
+    private readonly Dictionary<Guid, (int Reload, bool Has)> _rowSuggestions = [];
+
+    private bool _rowSuggestionsLoading;
+
+    /// <summary>Whether the row carries the "suggested" marker: the item is
+    /// still open and has a rule-based suggestion the reader has not turned
+    /// down.</summary>
+    public bool HasSuggestions(Guid itemId) =>
+        _rowSuggestions.TryGetValue(itemId, out var entry) && entry.Has;
+
+    /// <summary>Asks, in one batch, for the suggestions of every open row on
+    /// screen whose answer is missing or older than the last reload, and raises
+    /// <see cref="Changed"/> once if any marker moved. Called whenever the list's
+    /// parameters are set, and a no-op when nothing is stale. One pass at a
+    /// time: a reload that lands mid-pass is caught by the pass going round
+    /// again. Only a suggestion that can be taken counts — the marker promises
+    /// something the detail lets the reader do. A failure, or a throw from the
+    /// store, counts as nothing to suggest, as it does for the detail's chips:
+    /// a marker is an offer, never an error.</summary>
+    public async Task LoadRowSuggestionsAsync()
+    {
+        if (_rowSuggestionsLoading) return;
+
+        _rowSuggestionsLoading = true;
+        var moved = false;
+
+        try
+        {
+            while (VisibleItems.Where(IsRowSuggestionStale).Select(item => item.Id).ToList() is { Count: > 0 } stale)
+            {
+                var version = _reloadVersion;
+                IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>> answers;
+                try
+                {
+                    var answer = await _inbox.SuggestManyAsync(stale);
+                    answers = answer.IsSuccess ? answer.Value : new Dictionary<Guid, IReadOnlyList<InboxSuggestionDto>>();
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    answers = new Dictionary<Guid, IReadOnlyList<InboxSuggestionDto>>();
+                }
+
+                foreach (var id in stale)
+                {
+                    var has = answers.TryGetValue(id, out var offered) && offered.Any(suggestion => suggestion.Available);
+                    moved |= !_rowSuggestions.TryGetValue(id, out var before) || before.Has != has;
+                    _rowSuggestions[id] = (version, has);
+                }
+            }
+
+            // Rows that have left the snapshot — archived away, deleted — are
+            // forgotten rather than carried for the session.
+            foreach (var gone in _rowSuggestions.Keys.Where(id => Items.All(item => item.Id != id)).ToList())
+            {
+                _rowSuggestions.Remove(gone);
+            }
+        }
+        finally
+        {
+            _rowSuggestionsLoading = false;
+        }
+
+        if (moved) Changed?.Invoke();
+    }
+
+    private bool IsRowSuggestionStale(InboxItemDto item)
+    {
+        if (item.Status is not (InboxStatus.Unprocessed or InboxStatus.Deferred)) return false;
+
+        return !_rowSuggestions.TryGetValue(item.Id, out var entry) || entry.Reload != _reloadVersion;
     }
 
     // --- Relations ------------------------------------------------------------
@@ -1954,13 +2108,24 @@ public sealed class InboxDesktopState
 /// item, and whether it is still open.</summary>
 public sealed record InboxTaskChoice(Guid Id, string Title, string? Reason, bool IsOpen);
 
-/// <summary>What the queue health strip shows: the unprocessed count, when the
-/// oldest of them was captured (null with none), and how many have waited too
-/// long.</summary>
+/// <summary>What the queue health bar shows: the unprocessed count, when the
+/// oldest of them was captured (null with none), how many have waited too long,
+/// and how the rest split between fresh and aging.</summary>
 public sealed record InboxQueueHealth(int Unprocessed, DateTimeOffset? OldestCapturedAt, int Stale)
 {
     public static readonly InboxQueueHealth Clear = new(0, null, 0);
+
+    /// <summary>Captured under <see cref="InboxDesktopState.FreshUnderDays"/> ago.</summary>
+    public int Fresh { get; init; }
+
+    /// <summary>From <see cref="InboxDesktopState.FreshUnderDays"/> up to
+    /// <see cref="InboxDesktopState.StaleAfterDays"/>.</summary>
+    public int Aging { get; init; }
 }
+
+/// <summary>One heading of the list and the rows under it: Today, This week or
+/// Older than a week.</summary>
+public sealed record InboxAgeGroup(string Key, string Label, IReadOnlyList<InboxItemDto> Items);
 
 /// <summary>One kind chip: the slug the marker draws, the word beside it, and
 /// how many rows of the slice it stands for.</summary>

@@ -25,6 +25,7 @@ related: [.devbook/domain/inbox/features.md#incoming-queue, .devbook/domain/inbo
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Enter_in_the_field_files_the_title_and_empties_the_field, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Enter_on_a_blank_field_files_nothing]
 ```
 
 The system SHALL file the text in the header's capture field as the title of a new unfiled item when the reader presses Enter, and empty the field.
@@ -40,6 +41,7 @@ The system SHALL file the text in the header's capture field as the title of a n
 ```meta
 type: requirement
 status: draft
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Shift_enter_opens_the_notes_editor_and_files_nothing
 ```
 
 The system SHALL open a notes editor under the capture field when the reader presses Shift+Enter in it, and file nothing.
@@ -55,6 +57,7 @@ The system SHALL open a notes editor under the capture field when the reader pre
 ```meta
 type: requirement
 status: draft
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Ctrl_enter_files_the_title_and_the_notes_and_closes_the_notes
 ```
 
 The system SHALL file the capture field's title together with the notes editor's text as one new item when the reader presses Ctrl+Enter, and empty and close both.
@@ -70,6 +73,7 @@ The system SHALL file the capture field's title together with the notes editor's
 ```meta
 type: requirement
 status: draft
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Escape_closes_the_notes_keeps_the_title_and_files_nothing
 ```
 
 The system SHALL close the notes editor when the reader presses Escape in it, keeping the title in the capture field and filing nothing.
@@ -85,6 +89,7 @@ The system SHALL close the notes editor when the reader presses Escape in it, ke
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Rows_are_grouped_by_age_with_a_count_per_heading, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Today_starts_at_midnight_and_an_empty_heading_is_not_shown, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Today_is_counted_from_local_midnight, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.This_week_reaches_back_exactly_seven_days]
 ```
 
 The system SHALL group the rows under the headings Today, This week and Older than a week by capture time, each with its count, and SHALL not show a heading with no rows.
@@ -106,6 +111,7 @@ The system SHALL group the rows under the headings Today, This week and Older th
 ```meta
 type: requirement
 status: draft
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Kind_pills_are_led_by_all_show_the_kinds_in_the_slice_with_counts_and_toggle_the_rows
 ```
 
 The system SHALL show the kind filters as pills led by an All pill carrying the slice's count, pressed while no kind is, and SHALL clear every kind filter when All is pressed.
@@ -121,6 +127,7 @@ The system SHALL show the kind filters as pills led by an All pill carrying the 
 ```meta
 type: requirement
 status: draft
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_four_decisions_sit_in_a_bar_at_the_foot_of_the_detail_with_their_keys
 ```
 
 The system SHALL show Move to backlog, Move to list, Defer and Archive in a bar fixed at the foot of the detail, each naming its key, that stays in view however far the detail scrolls.
@@ -136,6 +143,7 @@ The system SHALL show Move to backlog, Move to list, Defer and Archive in a bar 
 ```meta
 type: requirement
 status: draft
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Sources_take_the_body_and_back_to_inbox_returns_the_queue
 ```
 
 The system SHALL open the watched sources from a Sources button in the pane's header.

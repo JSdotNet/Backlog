@@ -224,6 +224,24 @@ public interface IInboxItems
     /// item already routed or archived.</summary>
     Task<Result<IReadOnlyList<InboxSuggestionDto>>> SuggestAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>What Classification proposes for each of several items, by id —
+    /// what the list's "suggested" markers read. An id with no item is left out.
+    /// The default asks <see cref="SuggestAsync"/> once per id; the module's own
+    /// port reads the backlog's tags and the rules once for the lot.</summary>
+    async Task<Result<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>> SuggestManyAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var answers = new Dictionary<Guid, IReadOnlyList<InboxSuggestionDto>>();
+        foreach (var id in ids.Distinct())
+        {
+            var answer = await SuggestAsync(id, cancellationToken).ConfigureAwait(false);
+            if (answer.IsSuccess) answers[id] = answer.Value;
+        }
+
+        return Result.Success<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>(answers);
+    }
+
     /// <summary>Turns a suggestion down for the item, by its key, so it is never
     /// offered for that item again. Idempotent.</summary>
     Task<Result> DismissSuggestionAsync(Guid id, string key, CancellationToken cancellationToken = default);

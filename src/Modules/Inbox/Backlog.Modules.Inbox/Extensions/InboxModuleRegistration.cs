@@ -109,6 +109,7 @@ public static class InboxModuleRegistration
         // drafter: a host without them is offered what the item's own text
         // supports.
         services.AddScoped<IQueryHandler<SuggestQuery, Result<IReadOnlyList<InboxSuggestionDto>>>, SuggestQueryHandler>();
+        services.AddScoped<IQueryHandler<SuggestManyQuery, Result<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>>, SuggestQueryHandler>();
         services.AddScoped<ICommandHandler<DismissSuggestionCommand, Result>, DismissSuggestionCommandHandler>();
 
         // What an item already has to do with the rest of the backlog, and the

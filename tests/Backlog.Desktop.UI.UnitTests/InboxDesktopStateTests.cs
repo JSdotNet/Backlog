@@ -39,6 +39,17 @@ public sealed class InboxDesktopStateTests : IDisposable
             inbox.Renames);
     }
 
+    /// <summary>The header's "oldest …" in words: hours under a day, days
+    /// after, singular where it is one.</summary>
+    [Theory]
+    [InlineData(0, 30, "under an hour")]
+    [InlineData(1, 0, "1 hour")]
+    [InlineData(5, 59, "5 hours")]
+    [InlineData(24, 0, "1 day")]
+    [InlineData(24 * 12 + 3, 0, "12 days")]
+    public void Waited_says_the_span_in_words(int hours, int minutes, string expected) =>
+        Assert.Equal(expected, InboxDesktopState.Waited(TimeSpan.FromHours(hours) + TimeSpan.FromMinutes(minutes)));
+
     [Fact]
     public async Task An_older_reload_that_finishes_after_a_newer_one_is_ignored()
     {

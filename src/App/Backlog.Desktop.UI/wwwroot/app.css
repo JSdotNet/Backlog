@@ -3412,20 +3412,126 @@ h1, h2, h3 {
     min-width: 0;
 }
 
-/* The header's text and its actions side by side, the way the tools pane lays
-   its header out; the actions keep their width and the text takes the rest. */
+/* One line that wraps: the title with the queue's short health beside it, then
+   the capture field taking whatever the line leaves, then the pane's acts. */
 .inbox-pane__header {
     display: flex;
-    gap: var(--spacing-md);
-    align-items: flex-start;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
+    align-items: center;
+}
+
+.inbox-pane__heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
 }
 
 .inbox-pane__header-actions {
     display: flex;
-    flex: none;
+    flex: 1 1 32rem;
+    flex-wrap: wrap;
     gap: var(--spacing-xs);
     align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+}
+
+/* The capture field: a framed line with the plus at its start and the keys at
+   its end, the input itself borderless inside the frame. The frame takes the
+   focus ring, since the input inside it is what holds the focus. */
+.inbox-pane__capture {
+    display: flex;
+    flex: 1 1 20rem;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0 var(--spacing-xs) 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+}
+
+.inbox-pane__capture:focus-within {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.inbox-pane__capture-mark,
+.inbox-pane__icon {
+    flex: none;
+}
+
+.inbox-pane__capture-keys {
+    display: inline-flex;
+    flex: none;
+    gap: var(--spacing-2xs);
+}
+
+.inbox-pane__capture-field {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.inbox-pane__capture-input {
+    width: 100%;
+    min-width: 0;
+    padding: var(--spacing-xs) 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    outline: none;
+}
+
+.inbox-pane__capture-input::placeholder {
+    color: var(--color-text-secondary);
+}
+
+/* The notes under the field: the editor, then a line with the keys and the
+   two ways out. */
+.inbox-pane__capture-notes {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.inbox-pane__capture-notes-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.inbox-pane__capture-notes-foot > .inbox-pane__hint {
+    margin-right: auto;
+}
+
+/* The header's acts: an icon and its word on one line. */
+.inbox-pane__header-act {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+/* A key named inside a primary button wears the button's own ink rather
+   than the key's raised plate. */
+.inbox-pane__key.inbox-pane__key--on-primary {
+    border-color: currentColor;
+    background: transparent;
+    color: inherit;
+}
+
+/* Quiet small print: what a key does, beside the thing it does it to. */
+.inbox-pane__hint {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
 .inbox-pane__eyebrow,
@@ -3443,42 +3549,26 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-/* --- The Inbox's two tabs ------------------------------------------------ */
+/* --- The sources ------------------------------------------------------------ */
 /*
-   When the shell fills the sources slot the pane grows a tab strip, bare, so
-   the list and both panels are children of the pane's own flex column. Each
-   panel takes all the height the strip leaves: the queue as a column its body
-   or triage view grows into, the sources as a region that scrolls on its own.
-   The panel not chosen stays in the DOM, empty and hidden, and its display
-   rule would beat the hidden attribute without the rule after these two.
+   The header's Sources button swaps the pane's body for the sources the shell
+   put in the slot: a region that takes the whole height the header leaves and
+   scrolls on its own, with "Back to Inbox" over it.
 */
-.inbox-pane__queue {
+.inbox-pane__sources {
     display: flex;
     flex: 1 1 0;
     flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-}
-
-.inbox-pane__sources {
-    flex: 1 1 0;
+    gap: var(--spacing-sm);
     min-width: 0;
     min-height: 0;
     overflow-y: auto;
 }
 
-.inbox-pane__queue[hidden],
-.inbox-pane__sources[hidden] {
-    display: none;
-}
-
-.inbox-pane__tabs {
+.inbox-pane__sources-bar {
+    display: flex;
     flex: none;
-}
-
-.inbox-pane__add-form {
-    display: grid;
-    gap: var(--spacing-md);
+    align-items: center;
 }
 
 .inbox-pane__eyebrow {
@@ -3516,7 +3606,12 @@ h1, h2, h3 {
     min-height: var(--inbox-queue-min-height);
 }
 
+/* The side menu is a column: the lists at the top, queue health pushed to the
+   foot by its auto margin. */
 .inbox-pane__nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
     min-width: 0;
     min-height: 0;
     padding-right: var(--spacing-sm);
@@ -3556,37 +3651,79 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
-/* A chip is the library's toggle button wearing the pane's modifier: the mark,
-   the word, and the count as one unit. The pressed look is the toggle's own. */
-.inbox-pane__chip {
+/* A pill is the library's toggle button under the pane's own name: the word
+   and the count as one rounded unit, outlined at rest and filled in the
+   primary ink when pressed. "All" leads, and Select wears the ghost shape at
+   the end of the line. */
+.inbox-pane__pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.35em;
+    gap: 0.4em;
+    min-height: 2rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 
-.inbox-pane__chip-mark {
-    flex: none;
+.inbox-pane__pill:hover {
+    border-color: var(--color-text-secondary);
+    color: var(--color-text-primary);
+}
+
+.inbox-pane__pill:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.inbox-pane__pill--pressed,
+.inbox-pane__pill--pressed:hover {
+    border-color: var(--color-text-primary);
+    background: var(--color-text-primary);
+    color: var(--color-text-inverse);
+}
+
+.inbox-pane__pill--ghost {
+    border-color: transparent;
 }
 
 .inbox-pane__chip-count {
-    min-width: 1.4em;
-    padding: 0 var(--spacing-xs);
-    border-radius: var(--border-radius-full);
-    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
     font-variant-numeric: tabular-nums;
-    text-align: center;
 }
 
 /* --- Rows ---------------------------------------------------------------- */
 
 .inbox-pane__list {
     display: grid;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-2xs);
     margin: 0;
     padding: 0;
     list-style: none;
+}
+
+/* An age heading among the rows: small capitals in the secondary ink, the
+   count beside it in the ordinary weight. */
+.inbox-pane__group {
+    padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-2xs);
+}
+
+.inbox-pane__group-title {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.inbox-pane__group-total {
+    font-weight: normal;
+    letter-spacing: 0;
 }
 
 .inbox-pane__item {
@@ -3598,25 +3735,79 @@ h1, h2, h3 {
 
 /* --- Queue health -------------------------------------------------------- */
 
-/* One quiet line over the queue: a reading, not a toolbar, so muted text
-   and the stale chip as its only colour. */
+/* A framed reading at the foot of the side menu: the heading and the open
+   count, a bar in three parts, and a line per part. The parts are the primary
+   ink, a darker step of it, and the error ink for what has waited too long —
+   the one line that asks for attention is in the error text colour too. */
 .inbox-pane__health {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs) var(--spacing-sm);
-    font-size: var(--font-size-sm);
+    display: grid;
+    gap: var(--spacing-xs);
+    margin-top: auto;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
 }
 
-.inbox-pane__health-count {
+.inbox-pane__health-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pane__health-title {
+    margin: 0;
     color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
+}
+
+.inbox-pane__health-total {
+    font-variant-numeric: tabular-nums;
+}
+
+.inbox-pane__health-bar {
+    display: flex;
+    gap: var(--spacing-2xs);
+    height: 0.5rem;
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+}
+
+.inbox-pane__health-part {
+    flex-basis: 0;
+}
+
+.inbox-pane__health-part--fresh {
+    background: var(--color-primary);
+}
+
+.inbox-pane__health-part--aging {
+    background: var(--color-primary-dark);
+}
+
+.inbox-pane__health-part--over {
+    background: var(--color-error);
+}
+
+.inbox-pane__health-lines {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-pane__health-over {
+    color: var(--color-error-text);
 }
 
 /* --- Picking several ----------------------------------------------------- */
 
-/* The chips and the Select toggle on one wrapping line, the toggle pushed to
+/* The pills and the Select toggle on one wrapping line, the toggle pushed to
    the end so it does not read as one more kind. */
 .inbox-pane__toolbar {
     display: flex;
@@ -3626,7 +3817,8 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
-/* Triage and Select together at the end: two ways of working the rows. */
+/* Move list to backlog and Select together at the end: ways of working the
+   rows rather than a kind. */
 .inbox-pane__modes {
     display: flex;
     align-items: center;
@@ -3830,9 +4022,9 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
     width: 100%;
     padding: var(--spacing-sm);
-    border: var(--border-width) solid color-mix(in srgb, var(--color-text-disabled) 24%, transparent);
-    border-radius: var(--border-radius-sm);
-    background: color-mix(in srgb, var(--color-background) 40%, transparent);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    background: transparent;
     color: var(--color-text-primary);
     font: inherit;
     text-align: left;
@@ -3841,7 +4033,7 @@ h1, h2, h3 {
 }
 
 .inbox-pane__row:hover {
-    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    background: var(--color-background-raised);
 }
 
 .inbox-pane__row:focus-visible {
@@ -3852,45 +4044,72 @@ h1, h2, h3 {
 .inbox-pane__row--selected,
 .inbox-pane__row--selected:hover {
     border-color: var(--color-border-focus);
-    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    background: var(--color-background-raised);
     box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
-/* The kind: a mark and the word, one unit that never breaks apart. */
-.inbox-pane__kind {
+/* The kind's mark on a square tile at the row's start. */
+.inbox-pane__kind-tile {
     display: inline-flex;
+    flex: none;
     align-items: center;
-    gap: 0.3em;
-    padding-top: 0.1em;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
     color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    white-space: nowrap;
 }
 
 .inbox-pane__row-body {
     display: grid;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-2xs);
     min-width: 0;
 }
 
 .inbox-pane__row-title {
     font-weight: var(--font-weight-semibold);
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-/* The meta line: provenance, tags and targets, as one wrapping row of small
-   text. Quiet on purpose — provenance is read, not acted on, so nothing here
-   is filled. */
+/* "Article · Web clipper": what the thing is and where it came from, one line
+   of small text that clips rather than wraps. */
 .inbox-pane__row-meta {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    overflow: hidden;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+    white-space: nowrap;
 }
 
-.inbox-pane__source {
+.inbox-pane__kind,
+.inbox-pane__source,
+.inbox-pane__person {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The age, with the markers stacked under it at the row's end. */
+.inbox-pane__row-end {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--spacing-2xs);
+}
+
+/* "suggested": a tag-sized marker in the primary ink on a faint wash of it. */
+.inbox-pane__suggested {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    color: var(--color-primary-light);
     font-size: var(--font-size-xs);
 }
 
@@ -3926,10 +4145,44 @@ h1, h2, h3 {
 
 /* --- Detail -------------------------------------------------------------- */
 
+/* The detail column is a column of two: the article, which scrolls, and the
+   decisions bar under it, which does not. */
+.inbox-pane__column--detail {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+}
+
 .inbox-pane__detail {
     display: grid;
+    flex: 1 1 0;
+    align-content: start;
     gap: var(--spacing-md);
     min-width: 0;
+    min-height: 0;
+    padding-bottom: var(--spacing-md);
+    overflow: auto;
+}
+
+/* The four decisions, fixed at the foot of the detail, each naming its key. */
+.inbox-pane__decide {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) 0;
+    border-top: var(--border-width) solid var(--color-border);
+    background: var(--color-background-alt);
+}
+
+.inbox-pane__decide-hint {
+    margin-left: auto;
+}
+
+.inbox-pane__decide .inbox-pane__key {
+    margin-left: var(--spacing-2xs);
 }
 
 .inbox-pane__detail-header {
@@ -4163,11 +4416,73 @@ h1, h2, h3 {
     letter-spacing: 0.04em;
 }
 
-.inbox-pane__suggestion-chips {
+.inbox-pane__suggestions-head {
     display: flex;
     flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.inbox-pane__suggestion-list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* One suggestion: a framed row the reader takes by its number, the reason at
+   its end, and the × that turns it down beside it. */
+.inbox-pane__suggestion {
+    display: flex;
     align-items: center;
     gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.inbox-pane__suggestion-take {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.inbox-pane__suggestion-take:hover:not(:disabled) {
+    border-color: var(--color-primary);
+}
+
+.inbox-pane__suggestion-take:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.inbox-pane__suggestion-take--unavailable {
+    border-style: dashed;
+    color: var(--color-text-secondary);
+    cursor: default;
+}
+
+.inbox-pane__suggestion-text {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pane__suggestion-reason {
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-align: right;
 }
 
 /* Related: the items and tasks this one already has to do with, under the same
@@ -4276,6 +4591,36 @@ h1, h2, h3 {
         height: auto;
         max-height: 24rem;
         padding: 0;
+    }
+
+    /* Stacked, the detail has no height of its own to divide, so the column
+       scrolls whole and the article takes its natural height above the bar. */
+    .inbox-pane__column--detail {
+        overflow: auto;
+    }
+
+    .inbox-pane__detail {
+        flex: none;
+        overflow: visible;
+    }
+
+    /* The column scrolls whole, so the decisions hold to its foot by
+       sticking rather than by being outside what scrolls. */
+    .inbox-pane__decide {
+        position: sticky;
+        bottom: 0;
+    }
+
+    /* The side menu is a short strip here, and the header already says how
+       many wait and how old the oldest is. */
+    .inbox-pane__health {
+        display: none;
+    }
+
+    /* The field needs the width more than its keys need saying; the field
+       still names them to a screen reader through its description. */
+    .inbox-pane__capture-keys {
+        display: none;
     }
 }
 
