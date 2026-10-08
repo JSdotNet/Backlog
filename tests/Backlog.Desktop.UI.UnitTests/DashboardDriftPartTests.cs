@@ -10,8 +10,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The dashboard's Drift at a glance part: the devbook sync units by direction, each with
-/// its last verdict, the open drift issues, and the sync-failed ones called out.
+/// The dashboard's Drift at a glance part: a bar of the last verdict per unit, the units
+/// that need a look filtered by direction with the aligned ones behind Show all, the open
+/// drift issues beside them, and the sync-failed ones called out.
 /// <para>
 /// Through the module's own derivation over scripted ports, so what is asserted is what a
 /// host shows.
@@ -42,7 +43,7 @@ public sealed class DashboardDriftPartTests
         "https://github.com/JSdotNet/Backlog/issues/914", SyncFailed: false);
 
     [Fact]
-    public void Units_read_grouped_by_direction_with_their_last_verdict()
+    public void The_units_that_need_a_look_read_with_their_last_verdict_and_the_aligned_are_folded_away()
     {
         using var context = Context(new ScriptedUnits(Sessions, Inbox, Tasks), new ScriptedIssues(OtherIssue, InboxIssue));
 
@@ -50,25 +51,120 @@ public sealed class DashboardDriftPartTests
 
         Assert.Equal("Drift at a glance", part.Find("[data-testid='dashboard-drift'] .dashboard-part__title").TextContent);
 
+        // One table, no per-direction sections: the direction is a column and a filter.
         var table = part.Find("[data-testid='dashboard-drift-units-table']");
-        Assert.Equal(
-            ["push — chapter to code", "pull — code to chapter", "report — verdicts only"],
-            table.QuerySelectorAll(".data-table__group-name").Select(name => name.TextContent));
+        Assert.Empty(table.QuerySelectorAll(".data-table__group-name"));
 
         var verdicts = part.FindAll("[data-testid='dashboard-drift-unit-verdict']");
-        Assert.Equal(["spec-ahead", "code-ahead", "aligned"], verdicts.Select(badge => badge.TextContent));
+        Assert.Equal(["spec-ahead", "code-ahead"], verdicts.Select(badge => badge.TextContent));
         Assert.Contains("badge--sync-verdict-spec-ahead", verdicts[0].ClassName, StringComparison.Ordinal);
 
         // The badge leads to what the sweep opened, where there is something.
         Assert.Equal("https://github.com/JSdotNet/Backlog/pull/950", verdicts[0].GetAttribute("href"));
-        Assert.Equal("SPAN", verdicts[2].TagName);
+        Assert.Equal("SPAN", verdicts[1].TagName);
 
-        // The shared folder is dropped from the label and kept in the title.
-        var first = table.QuerySelector("tbody tr:not(.data-table__group) td")!;
+        // The shared folder is dropped from the label and kept in the title, with the kind.
+        var first = table.QuerySelector("tbody tr td")!;
         Assert.StartsWith("domain/sessions/domain.md#delivery-run", first.TextContent.Trim(), StringComparison.Ordinal);
-        Assert.Equal(Sessions.Unit, first.GetAttribute("title"));
+        Assert.Equal($"{Sessions.Unit} (aggregate)", first.GetAttribute("title"));
+
+        // The direction reads as the way the sweep carries the change.
+        Assert.Equal(
+            ["Chapter → code", "Code → chapter"],
+            table.QuerySelectorAll("tbody tr").Select(row => row.QuerySelectorAll("td")[1].TextContent));
 
         Assert.Contains("3", part.Find("[data-testid='dashboard-drift-units']").TextContent, StringComparison.Ordinal);
+
+        // The aligned unit is hidden behind Show all N, and Show all reveals it.
+        var note = part.Find("[data-testid='dashboard-drift-aligned-note']");
+        Assert.Contains("1 aligned unit hidden.", note.TextContent, StringComparison.Ordinal);
+        Assert.Equal("Show all 3", part.Find("[data-testid='dashboard-drift-show-all']").TextContent);
+
+        part.Find("[data-testid='dashboard-drift-show-all']").Click();
+
+        part.WaitForAssertion(() => Assert.Equal(
+            ["spec-ahead", "code-ahead", "aligned"],
+            part.FindAll("[data-testid='dashboard-drift-unit-verdict']").Select(badge => badge.TextContent)));
+        var toggle = part.Find("[data-testid='dashboard-drift-show-all']");
+        Assert.Equal("Hide the 1 aligned", toggle.TextContent);
+        Assert.Equal("true", toggle.GetAttribute("aria-expanded"));
+
+        // And Hide folds it away again.
+        toggle.Click();
+
+        part.WaitForAssertion(() => Assert.Equal(
+            ["spec-ahead", "code-ahead"],
+            part.FindAll("[data-testid='dashboard-drift-unit-verdict']").Select(badge => badge.TextContent)));
+        Assert.Equal("false", part.Find("[data-testid='dashboard-drift-show-all']").GetAttribute("aria-expanded"));
+    }
+
+    [Fact]
+    public void The_verdict_bar_counts_the_last_verdict_of_every_unit()
+    {
+        var conflict = Sessions with { Unit = ".devbook/domain/sync/domain.md#sync", Verdict = "conflict" };
+        using var context = Context(new ScriptedUnits(Sessions, Inbox, Tasks, conflict), new ScriptedIssues());
+
+        var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        // The legend names all five verdicts, in the vocabulary's order, with a count each.
+        var legend = part.FindAll("[data-testid='dashboard-drift-verdict-count']");
+        Assert.Equal(
+            ["aligned", "code-ahead", "spec-ahead", "conflict", "unresolved"],
+            legend.Select(item => item.GetAttribute("data-verdict")));
+        Assert.Equal(
+            ["1", "1", "1", "1", "0"],
+            legend.Select(item => item.QuerySelector(".dashboard-drift__verdict-count")!.TextContent));
+
+        // The bar draws only the verdicts some unit holds, each as wide as its count.
+        var segments = part.FindAll("[data-testid='dashboard-drift-verdict-segment']");
+        Assert.Equal(["aligned", "code-ahead", "spec-ahead", "conflict"], segments.Select(segment => segment.GetAttribute("data-verdict")));
+        Assert.All(segments, segment => Assert.Equal("flex-grow: 1", segment.GetAttribute("style")));
+        Assert.Equal("true", part.Find(".dashboard-drift__verdict-track").GetAttribute("aria-hidden"));
+    }
+
+    [Fact]
+    public void The_direction_filter_narrows_the_units_to_pull_or_push()
+    {
+        var reportDrift = Tasks with { Unit = ".devbook/domain/tasks/domain.md#plan", Verdict = "unresolved" };
+        using var context = Context(new ScriptedUnits(Sessions, Inbox, Tasks, reportDrift), new ScriptedIssues());
+
+        var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        Assert.Equal("true", part.Find("[data-testid='dashboard-drift-direction-all']").GetAttribute("aria-pressed"));
+        Assert.Equal(3, part.FindAll("[data-testid='dashboard-drift-unit-verdict']").Count);
+
+        // Code → chapter is the pull direction.
+        part.Find("[data-testid='dashboard-drift-direction-pull']").Click();
+        part.WaitForAssertion(() => Assert.Equal(
+            ["code-ahead"],
+            part.FindAll("[data-testid='dashboard-drift-unit-verdict']").Select(badge => badge.TextContent)));
+        Assert.Equal("true", part.Find("[data-testid='dashboard-drift-direction-pull']").GetAttribute("aria-pressed"));
+
+        // Chapter → code is the push direction.
+        part.Find("[data-testid='dashboard-drift-direction-push']").Click();
+        part.WaitForAssertion(() => Assert.Equal(
+            ["spec-ahead"],
+            part.FindAll("[data-testid='dashboard-drift-unit-verdict']").Select(badge => badge.TextContent)));
+
+        // The bar is every unit's whatever the filter says.
+        Assert.Equal(4, part.FindAll("[data-testid='dashboard-drift-verdict-segment']").Count);
+    }
+
+    [Fact]
+    public void A_direction_with_only_aligned_units_says_so_and_offers_them()
+    {
+        var pulledAligned = Inbox with { Verdict = "aligned" };
+        using var context = Context(new ScriptedUnits(Sessions, pulledAligned), new ScriptedIssues());
+
+        var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        part.Find("[data-testid='dashboard-drift-direction-pull']").Click();
+
+        part.WaitForAssertion(() => Assert.Contains(
+            "Every unit here is aligned with its code.",
+            part.Find("[data-testid='dashboard-drift-units-table']").TextContent,
+            StringComparison.Ordinal));
+        Assert.Equal("Show all 1", part.Find("[data-testid='dashboard-drift-show-all']").TextContent);
     }
 
     [Fact]
@@ -84,10 +180,19 @@ public sealed class DashboardDriftPartTests
         Assert.Contains("2", part.Find("[data-testid='dashboard-drift-issues-open']").TextContent, StringComparison.Ordinal);
         Assert.Contains("1", part.Find("[data-testid='dashboard-drift-sync-failed']").TextContent, StringComparison.Ordinal);
 
-        // Sync-failed first: those are the ones waiting on a person.
-        var links = part.FindAll("[data-testid='dashboard-drift-issue-link']");
+        // A side list, sync-failed first: those are the ones waiting on a person.
+        var list = part.Find("aside[data-testid='dashboard-drift-issues']");
+        var links = list.QuerySelectorAll("[data-testid='dashboard-drift-issue-link']");
         Assert.Equal(["https://github.com/JSdotNet/Backlog/issues/913", "https://github.com/JSdotNet/Backlog/issues/914"], links.Select(link => link.GetAttribute("href")));
-        Assert.Single(part.FindAll("[data-testid='dashboard-drift-issue-failed']"));
+
+        // The failed one wears the badge and the tint; the title reads without its prefix.
+        var badge = Assert.Single(list.QuerySelectorAll("[data-testid='dashboard-drift-issue-failed']"));
+        Assert.Equal("sync-failed", badge.TextContent);
+        var items = list.QuerySelectorAll("[data-testid='dashboard-drift-issue']");
+        Assert.Contains("dashboard-drift__issue--failed", items[0].ClassName, StringComparison.Ordinal);
+        Assert.DoesNotContain("dashboard-drift__issue--failed", items[1].ClassName, StringComparison.Ordinal);
+        Assert.Contains("domain/inbox/features.md#quick-capture", items[0].TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("[Devbook drift]", items[0].TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -101,7 +206,7 @@ public sealed class DashboardDriftPartTests
         Assert.Contains("—", part.Find("[data-testid='dashboard-drift-issues-open']").TextContent, StringComparison.Ordinal);
         // One sentence, the reason, rather than a heading and a note disagreeing about how
         // much was read.
-        var table = part.Find("[data-testid='dashboard-drift-issues-table']").TextContent;
+        var table = part.Find("[data-testid='dashboard-drift-issues']").TextContent;
         Assert.Contains("The drift issues could not be read: GitHub is not signed in.", table, StringComparison.Ordinal);
         Assert.DoesNotContain("Some repositories", table, StringComparison.Ordinal);
 

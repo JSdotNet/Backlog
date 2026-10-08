@@ -354,17 +354,23 @@ related: [.devbook/domain/devbook/features.md#sync-verdicts-beside-a-chapter, .d
 ```
 
 Show how far each repository's devbook has drifted from its code, without opening a
-chapter. This part is the Devbook tab. It lists every sync unit a devbook sweep has
-verified, grouped by the direction the unit goes — push, pull, sync, report, or off —
-each with the last verdict the sweep reached on it, what the sweep did about it, and
-when. The units that need a look come first, and the aligned units are folded away.
-A verdict leads to the pull request or drift issue the sweep opened. Below the units it lists the `devbook-drift` issues still open, those
-labelled `sync-failed` first: a sweep tried that unit, did not finish, and will not
-try again until a person clears the label. A unit whose drift issue carries the
-label is marked in its row too.
+chapter. This part is the Devbook tab. A stacked bar sums up the last verdict a sweep
+reached on every unit it has verified — aligned, code-ahead, spec-ahead, conflict, and
+unresolved — with a legend that gives the count of each. Under it, the units that need a
+look are listed with their direction, their last verdict, what the sweep did about it,
+and when. The aligned units are folded away behind a "Show all" link that names how
+many units there are.
 
-The direction is the one the sweep read when it verified the unit, so a group is
-also the sweep that owns its units. A unit no sweep has verified is not listed.
+A direction filter narrows the list to All, Code → chapter, or Chapter → code. Code →
+chapter is the pull direction, and Chapter → code is the push direction. A unit a sync,
+report, or off sweep owns shows under All only. A verdict leads to the pull request or
+drift issue the sweep opened. Beside the units, a side list holds the `devbook-drift`
+issues still open, those labelled `sync-failed` first and marked with the label's badge:
+a sweep tried that unit, did not finish, and will not try again until a person clears
+the label. A unit whose drift issue carries the label is marked in its row too.
+
+The direction is the one the sweep read when it verified the unit, so the filter also
+picks the sweep that owns the units. A unit no sweep has verified is not listed.
 The repository chips narrow the tab. The window and the machine do not, because a
 verdict is the latest a sweep left and an issue is open now, and the tab says so.
 The verdicts are this machine's and the issues are GitHub's, and either shows without the other: issues
