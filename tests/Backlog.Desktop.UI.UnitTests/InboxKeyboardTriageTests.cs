@@ -281,9 +281,11 @@ public sealed class InboxKeyboardTriageTests
             Assert.Equal("Three", DetailTitle(pane));
         });
 
-        // A button is a decision too.
+        // A button is a decision too. Nothing in the Inbox is waiting any more,
+        // so triage gives way to Inbox zero.
         await pane.Find("[data-testid='inbox-archive']").ClickAsync(new());
-        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-triage-done']")));
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-triage'] [data-testid='inbox-zero']")));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-triage-done']"));
         Assert.Equal(InboxStatus.Triaged, harness.Inbox.Find(items[1].Id)!.Status);
     }
 

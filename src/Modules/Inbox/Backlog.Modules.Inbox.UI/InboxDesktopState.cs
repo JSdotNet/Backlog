@@ -1508,10 +1508,6 @@ public sealed class InboxDesktopState
     /// the reload that brought it, so an item the reader can step to has one.</summary>
     public int TriageNumber => SelectedItemId is { } id ? _triageStartedWith.IndexOf(id) + 1 : 0;
 
-    /// <summary>The decisions this app session made and kept — the "m decided
-    /// this session" over triage.</summary>
-    public int DecidedThisSession => _undo.Counts.Values.Sum();
-
     /// <summary>The AI cards shown for the item being read in triage, in the
     /// order they are numbered: the duplicate first, then the plan. Empty outside
     /// triage, for a decided item, and whenever <see cref="TriageAdvice"/> is

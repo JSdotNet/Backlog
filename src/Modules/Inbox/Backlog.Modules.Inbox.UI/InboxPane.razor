@@ -284,10 +284,19 @@
                                    OnClick="LeaveTriage"
                                    TestId="inbox-triage-leave">Back to the list</AppButton>
                     </div>
-                    <EmptyState Title="@($"Nothing left to triage in {State.SliceName}")"
-                                Description="Every item here has been decided on. Go back to the list to see where they went."
-                                BaseClass="empty-state inbox-pane__empty-state"
-                                TestId="inbox-triage-done" />
+                    @if (State.ShowsInboxZero)
+                    {
+                        @* Triage gives way to Inbox zero once the unfiled Inbox
+                           has nothing left waiting (features.md#triage-mode). *@
+                        <InboxZero State="State" />
+                    }
+                    else
+                    {
+                        <EmptyState Title="@($"Nothing left to triage in {State.SliceName}")"
+                                    Description="Every item here has been decided on. Go back to the list to see where they went."
+                                    BaseClass="empty-state inbox-pane__empty-state"
+                                    TestId="inbox-triage-done" />
+                    }
                 }
                 else
                 {

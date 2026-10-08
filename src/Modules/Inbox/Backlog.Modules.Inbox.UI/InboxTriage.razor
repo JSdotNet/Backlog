@@ -27,7 +27,7 @@
     var open = InboxDesktopState.IsOpen(item);
     var progressed = Math.Min(State.TriageProgressed, State.TriageTotal);
     var total = State.TriageTotal;
-    var decided = State.DecidedThisSession;
+    var decided = State.SessionDecisionTotal;
     var cards = State.TriageCards;
     var advice = State.TriageAdvice;
 
