@@ -20,7 +20,7 @@ type: aggregate
 status: draft
 related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/capture/domain.md#capture, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.NoteTests]
-aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions]
+aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions, DuplicateOf, DuplicateOfTask, duplicate_of, duplicate_of_task]
 ```
 
 A single unit of captured, unprocessed information moving through triage. The
@@ -53,6 +53,12 @@ by its key: `tag:sync`, `repository:owner/name` or `destination:tasks`. The
 key names what was proposed, not why, so a suggestion the reader refused is
 not offered again, even when something new would propose it. It sits on the
 item because the refusal is the reader's decision about this item.
+
+An item archived as the same capture as something else remembers what, as
+`DuplicateOf`. That is another inbox item for "Archive as duplicate of…" —
+the one kept, at the root of its own chain — or a backlog task the item was
+merged into ([Triage](#triage)), and `DuplicateOfTask` says which. The Inbox
+cannot see a task, so a link to one ends a duplicate chain.
 
 An item is born one of two ways. A capture pulled from the replica becomes an
 item that **reuses the capture's id**, which is what makes intake idempotent: a
@@ -302,8 +308,8 @@ and then removes the group, so no list is ever deleted by deleting its group.
 type: domain-service
 status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#import, .devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Creating_a_plan_hands_the_items_folder_to_the_import_as_its_attachment]
-aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, ArchiveItemCommand]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxMergeIntoTaskTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Creating_a_plan_hands_the_items_folder_to_the_import_as_its_attachment]
+aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, ArchiveItemCommand, MergeIntoTaskCommand, InboxMergeRequestDto]
 ```
 
 Coordinates the triage decision for an Inbox Item and the resulting cross-context
@@ -340,6 +346,17 @@ Three doors lead to Tasks and all end in the same `Routing Target`:
 An item with attachments hands its [attachment folder](#attachment-folder) to
 every task Route to backlog, Route a batch or Create plan creates, as that
 task's attachment. The file goes where the work goes.
+
+A fourth decision reaches Tasks without making anything. **Merge into a task**
+folds an open item into a task it repeats: the item's title, then its link
+when it has one, then its notes are written on the task as one comment, through
+the same comment rule the `backlog` MCP server's `comment` tool writes through,
+and the item is archived with `DuplicateOf` naming the task. The Inbox refuses
+what it can before writing anything — an item already decided, a task the
+backlog no longer has — and a comment Tasks will not take as prose (a heading,
+a checklist item or a fence among the notes) leaves the item open. The comment
+is written first, so a failure never leaves an item archived against a task
+that never heard of it.
 
 Routing to Devbook is modelled and not built.
 

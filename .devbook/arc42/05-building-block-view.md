@@ -213,7 +213,7 @@ graph TB
       SyncClient["Infrastructure.Sync\n(Sync Client, optional)"]
       Mcp["Infrastructure.Mcp\n(MCP server, loopback only)"]
       CaptureInfra["Infrastructure.Capture\n(YouTube, Website / Feeds, Import\n→ InboxCaptureDelivery)"]
-      Foundry["Infrastructure.AzureFoundry\n(IInboxPlanDrafter, Ask AI)"]
+      Foundry["Infrastructure.AzureFoundry\n(IInboxPlanDrafter, IInboxTriageAdvisor,\nAsk AI)"]
       Claude["Infrastructure.Claude"]
       Copilot["Infrastructure.Copilot"]
       GitHubInfra["Infrastructure.GitHub"]
@@ -248,7 +248,7 @@ graph TB
   Inbox --> Sqlite
   Inbox -->|IInboxBacklogTarget| FileSystem
   FileSystem -->|ITaskItems| Tasks
-  Inbox -->|IInboxPlanDrafter| Foundry
+  Inbox -->|IInboxPlanDrafter, IInboxTriageAdvisor| Foundry
   Claude -->|Dashboard.Abstractions| Dashboard
 
   Capture -->|ICaptureDelivery| CaptureInfra
@@ -313,7 +313,12 @@ place an inbox item becomes entry text. A batch of items goes through the same
 port's `CreateBatchTasksAsync` as one multi-entry document into Tasks'
 `ImportPlanAsync`. The adapter maps the created entries back to items by
 `import_item_id` and names each entry's own item as its source. The Inbox reaches the AI plan drafter through
-`IInboxPlanDrafter`, answered in `Backlog.Infrastructure.AzureFoundry`. The
+`IInboxPlanDrafter`, and the AI triage of local ADR 0023 — the cards over an
+item in triage and the triage pass — through `IInboxTriageAdvisor`, both
+answered in `Backlog.Infrastructure.AzureFoundry` over the one configured
+deployment. Either port may be left unregistered, and the Inbox then reads the
+feature as unavailable; the desktop web harness swaps a deterministic advisor
+in for the Foundry one so the triage surfaces can be driven without Azure. The
 `Backlog.Modules.Inbox.UI` pane references its own module's Abstractions and
 nothing of Tasks; the earlier Tasks.UI → Inbox.UI edge is gone. See local ADR 0009.
 

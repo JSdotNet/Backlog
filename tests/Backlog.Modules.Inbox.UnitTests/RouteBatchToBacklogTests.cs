@@ -81,6 +81,32 @@ public sealed class RouteBatchToBacklogTests
         Assert.Equal(result.Value.Routed[0].TaskIds, both.Routing.TaskIds);
     }
 
+    /// <summary>A batch carries each item whole — its id and every repository —
+    /// so the adapter can link a two- and a three-repository item's siblings
+    /// inside the one document. The text is pinned in
+    /// <c>InboxBacklogTargetTests</c>.</summary>
+    [Fact]
+    public async Task Two_and_three_repository_items_go_whole_so_their_siblings_can_name_each_other()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var two = Items.Manual("Ship the thing");
+        two.SetRepoIds(["jsdotnet/backlog", "jsdotnet/other"]);
+        var three = Items.Manual("Read the contract");
+        three.SetRepoIds(["jsdotnet/backlog", "jsdotnet/other", "jsdotnet/third"]);
+        store.Seed(two);
+        store.Seed(three);
+
+        await Route(store, target, [two.Id, three.Id]);
+
+        var request = Assert.Single(target.BatchRequests);
+        Assert.Equal([two.Id, three.Id], request.Items.Select(item => item.InboxItemId));
+        Assert.Equal(["jsdotnet/backlog", "jsdotnet/other"], request.Items[0].RepoIds);
+        Assert.Equal(["jsdotnet/backlog", "jsdotnet/other", "jsdotnet/third"], request.Items[1].RepoIds);
+        Assert.Equal(2, two.Routing!.TaskIds.Count);
+        Assert.Equal(3, three.Routing!.TaskIds.Count);
+    }
+
     [Fact]
     public async Task Routed_archived_and_missing_items_are_refused_up_front_and_the_rest_still_go()
     {

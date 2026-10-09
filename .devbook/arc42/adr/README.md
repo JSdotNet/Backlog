@@ -49,6 +49,7 @@ between inherited ADRs 0005 and 0009.
 - **[0020 — Items from GitHub and spec-manager arrive as linked tasks, through one connector contract](0020-external-items-arrive-as-linked-tasks.md)** *(proposed)*
 - **[0021 — The GitHub accounts and the repository registry ride the task feed as two whole documents](0021-github-accounts-and-repository-registry-ride-the-task-feed.md)** *(accepted, built; amends 0005)*
 - **[0022 — The desktop shell shows one main view, picked by a view switch; side panes open beside it and takeovers replace it](0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md)** *(proposed, built)*
+- **[0023 — Inbox items may be read by the Foundry model](0023-inbox-items-may-be-read-by-the-foundry-model.md)** *(proposed; reverses the "no model reads the item" line of the Inbox features)*
 
 ## Inherited decisions
 

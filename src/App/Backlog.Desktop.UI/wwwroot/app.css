@@ -3489,20 +3489,126 @@ h1, h2, h3 {
     min-width: 0;
 }
 
-/* The header's text and its actions side by side, the way the tools pane lays
-   its header out; the actions keep their width and the text takes the rest. */
+/* One line that wraps: the title with the queue's short health beside it, then
+   the capture field taking whatever the line leaves, then the pane's acts. */
 .inbox-pane__header {
     display: flex;
-    gap: var(--spacing-md);
-    align-items: flex-start;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
+    align-items: center;
+}
+
+.inbox-pane__heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
 }
 
 .inbox-pane__header-actions {
     display: flex;
-    flex: none;
+    flex: 1 1 32rem;
+    flex-wrap: wrap;
     gap: var(--spacing-xs);
     align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+}
+
+/* The capture field: a framed line with the plus at its start and the keys at
+   its end, the input itself borderless inside the frame. The frame takes the
+   focus ring, since the input inside it is what holds the focus. */
+.inbox-pane__capture {
+    display: flex;
+    flex: 1 1 20rem;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0 var(--spacing-xs) 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+}
+
+.inbox-pane__capture:focus-within {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.inbox-pane__capture-mark,
+.inbox-pane__icon {
+    flex: none;
+}
+
+.inbox-pane__capture-keys {
+    display: inline-flex;
+    flex: none;
+    gap: var(--spacing-2xs);
+}
+
+.inbox-pane__capture-field {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.inbox-pane__capture-input {
+    width: 100%;
+    min-width: 0;
+    padding: var(--spacing-xs) 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    outline: none;
+}
+
+.inbox-pane__capture-input::placeholder {
+    color: var(--color-text-secondary);
+}
+
+/* The notes under the field: the editor, then a line with the keys and the
+   two ways out. */
+.inbox-pane__capture-notes {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.inbox-pane__capture-notes-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.inbox-pane__capture-notes-foot > .inbox-pane__hint {
+    margin-right: auto;
+}
+
+/* The header's acts: an icon and its word on one line. */
+.inbox-pane__header-act {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+/* A key named inside a primary button wears the button's own ink rather
+   than the key's raised plate. */
+.inbox-pane__key.inbox-pane__key--on-primary {
+    border-color: currentColor;
+    background: transparent;
+    color: inherit;
+}
+
+/* Quiet small print: what a key does, beside the thing it does it to. */
+.inbox-pane__hint {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
 .inbox-pane__eyebrow,
@@ -3520,42 +3626,26 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-/* --- The Inbox's two tabs ------------------------------------------------ */
+/* --- The sources ------------------------------------------------------------ */
 /*
-   When the shell fills the sources slot the pane grows a tab strip, bare, so
-   the list and both panels are children of the pane's own flex column. Each
-   panel takes all the height the strip leaves: the queue as a column its body
-   or triage view grows into, the sources as a region that scrolls on its own.
-   The panel not chosen stays in the DOM, empty and hidden, and its display
-   rule would beat the hidden attribute without the rule after these two.
+   The header's Sources button swaps the pane's body for the sources the shell
+   put in the slot: a region that takes the whole height the header leaves and
+   scrolls on its own, with "Back to Inbox" over it.
 */
-.inbox-pane__queue {
+.inbox-pane__sources {
     display: flex;
     flex: 1 1 0;
     flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-}
-
-.inbox-pane__sources {
-    flex: 1 1 0;
+    gap: var(--spacing-sm);
     min-width: 0;
     min-height: 0;
     overflow-y: auto;
 }
 
-.inbox-pane__queue[hidden],
-.inbox-pane__sources[hidden] {
-    display: none;
-}
-
-.inbox-pane__tabs {
+.inbox-pane__sources-bar {
+    display: flex;
     flex: none;
-}
-
-.inbox-pane__add-form {
-    display: grid;
-    gap: var(--spacing-md);
+    align-items: center;
 }
 
 .inbox-pane__eyebrow {
@@ -3593,7 +3683,12 @@ h1, h2, h3 {
     min-height: var(--inbox-queue-min-height);
 }
 
+/* The side menu is a column: the lists at the top, queue health pushed to the
+   foot by its auto margin. */
 .inbox-pane__nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
     min-width: 0;
     min-height: 0;
     padding-right: var(--spacing-sm);
@@ -3633,37 +3728,79 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
-/* A chip is the library's toggle button wearing the pane's modifier: the mark,
-   the word, and the count as one unit. The pressed look is the toggle's own. */
-.inbox-pane__chip {
+/* A pill is the library's toggle button under the pane's own name: the word
+   and the count as one rounded unit, outlined at rest and filled in the
+   primary ink when pressed. "All" leads, and Select wears the ghost shape at
+   the end of the line. */
+.inbox-pane__pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.35em;
+    gap: 0.4em;
+    min-height: 2rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 
-.inbox-pane__chip-mark {
-    flex: none;
+.inbox-pane__pill:hover {
+    border-color: var(--color-text-secondary);
+    color: var(--color-text-primary);
+}
+
+.inbox-pane__pill:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.inbox-pane__pill--pressed,
+.inbox-pane__pill--pressed:hover {
+    border-color: var(--color-text-primary);
+    background: var(--color-text-primary);
+    color: var(--color-text-inverse);
+}
+
+.inbox-pane__pill--ghost {
+    border-color: transparent;
 }
 
 .inbox-pane__chip-count {
-    min-width: 1.4em;
-    padding: 0 var(--spacing-xs);
-    border-radius: var(--border-radius-full);
-    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
     font-variant-numeric: tabular-nums;
-    text-align: center;
 }
 
 /* --- Rows ---------------------------------------------------------------- */
 
 .inbox-pane__list {
     display: grid;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-2xs);
     margin: 0;
     padding: 0;
     list-style: none;
+}
+
+/* An age heading among the rows: small capitals in the secondary ink, the
+   count beside it in the ordinary weight. */
+.inbox-pane__group {
+    padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-2xs);
+}
+
+.inbox-pane__group-title {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.inbox-pane__group-total {
+    font-weight: normal;
+    letter-spacing: 0;
 }
 
 .inbox-pane__item {
@@ -3675,25 +3812,79 @@ h1, h2, h3 {
 
 /* --- Queue health -------------------------------------------------------- */
 
-/* One quiet line over the queue: a reading, not a toolbar, so muted text
-   and the stale chip as its only colour. */
+/* A framed reading at the foot of the side menu: the heading and the open
+   count, a bar in three parts, and a line per part. The parts are the primary
+   ink, a darker step of it, and the error ink for what has waited too long —
+   the one line that asks for attention is in the error text colour too. */
 .inbox-pane__health {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs) var(--spacing-sm);
-    font-size: var(--font-size-sm);
+    display: grid;
+    gap: var(--spacing-xs);
+    margin-top: auto;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
 }
 
-.inbox-pane__health-count {
+.inbox-pane__health-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pane__health-title {
+    margin: 0;
     color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
+}
+
+.inbox-pane__health-total {
+    font-variant-numeric: tabular-nums;
+}
+
+.inbox-pane__health-bar {
+    display: flex;
+    gap: var(--spacing-2xs);
+    height: 0.5rem;
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+}
+
+.inbox-pane__health-part {
+    flex-basis: 0;
+}
+
+.inbox-pane__health-part--fresh {
+    background: var(--color-primary);
+}
+
+.inbox-pane__health-part--aging {
+    background: var(--color-primary-dark);
+}
+
+.inbox-pane__health-part--over {
+    background: var(--color-error-text);
+}
+
+.inbox-pane__health-lines {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-pane__health-over {
+    color: var(--color-error-text);
 }
 
 /* --- Picking several ----------------------------------------------------- */
 
-/* The chips and the Select toggle on one wrapping line, the toggle pushed to
+/* The pills and the Select toggle on one wrapping line, the toggle pushed to
    the end so it does not read as one more kind. */
 .inbox-pane__toolbar {
     display: flex;
@@ -3703,7 +3894,8 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
-/* Triage and Select together at the end: two ways of working the rows. */
+/* Move list to backlog and Select together at the end: ways of working the
+   rows rather than a kind. */
 .inbox-pane__modes {
     display: flex;
     align-items: center;
@@ -3733,14 +3925,678 @@ h1, h2, h3 {
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
-.inbox-pane__triage-leave {
+/* Triage's own screen (InboxTriage.razor, artboard B): it scrolls as one,
+   inside the pane's column, so a long item never pushes the decisions out of
+   reach of the scrollbar. */
+.inbox-triage {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+.inbox-triage:focus {
+    outline: none;
+}
+
+/* The way back, the session's progress and the two steps, wrapping onto a
+   second line rather than squeezing the progress line. */
+.inbox-triage__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.inbox-triage__progress {
+    display: flex;
+    flex: 1 1 16rem;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.inbox-triage__progress-line {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-triage__slice {
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__position {
+    color: var(--color-text-secondary);
+}
+
+.inbox-triage__position strong {
+    color: var(--color-text-primary);
+}
+
+.inbox-triage__bar {
+    height: var(--spacing-2xs);
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+}
+
+.inbox-triage__bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-primary);
+}
+
+.inbox-triage__nav {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+/* The item and its acts beside Up next; the aside drops under the item when
+   the pane is too narrow for both. */
+.inbox-triage__main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+    min-width: 0;
+}
+
+.inbox-triage__body {
+    display: flex;
+    flex: 1 1 560px;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    max-width: 780px;
+}
+
+.inbox-triage__aside {
+    display: flex;
+    flex: 0 1 300px;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.inbox-triage__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-triage__kind {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__title {
+    margin: var(--spacing-xs) 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.inbox-triage__notes {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.inbox-triage__tags {
+    margin-top: var(--spacing-sm);
+}
+
+.inbox-triage__ai,
+.inbox-triage__repos,
+.inbox-triage__aside-part {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.inbox-triage__section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.inbox-triage__section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__section-hint {
+    color: var(--color-text-secondary);
+    font-weight: normal;
+}
+
+.inbox-triage__ai-icon {
+    color: var(--color-primary);
+}
+
+/* An AI card: the primary edge marks it as the model's, the label in its
+   heading says so in words (design-principles.md#ai-first-surfaces). */
+.inbox-triage__card {
+    border-color: var(--color-primary-dark);
+}
+
+.inbox-triage__card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-triage__card-title {
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__card-reason {
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-triage__sides,
+.inbox-triage__compare {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm) 0;
+}
+
+.inbox-triage__side,
+.inbox-triage__compare-side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.inbox-triage__side-label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: normal;
+}
+
+.inbox-triage__side-title {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.inbox-triage__side-note {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-triage__members {
+    margin: var(--spacing-xs) 0;
+    padding-left: var(--spacing-lg);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-triage__card-acts {
+    flex-wrap: wrap;
+}
+
+/* One box per repository, wrapping; the identity edge (`repo-mark`) sits on
+   the box's leading edge, so the padding leaves room for it. */
+.inbox-triage__repo-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.inbox-triage__repo {
+    min-height: var(--spacing-xl);
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.inbox-triage__ai-mark {
+    margin-left: var(--spacing-2xs);
+}
+
+.inbox-triage__footnote {
+    margin: 0;
+}
+
+/* The four decisions: large, one row where there is room and two or four
+   where there is not. */
+.inbox-triage__decisions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.inbox-triage__decision {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: var(--spacing-2xs);
+    height: auto;
+    min-height: 6rem;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-lg);
+    text-align: left;
+    white-space: normal;
+}
+
+.inbox-triage__decision-label {
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__decision-hint {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+}
+
+.inbox-triage__next-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-triage__next {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.inbox-triage__next-title {
+    overflow-wrap: anywhere;
+}
+
+.inbox-triage__next-meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-triage__decided {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-triage__decided-line {
+    flex: 1 1 10rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--font-size-sm);
+}
+
+/* "Let AI propose the rest" sits at the end of triage's header line. */
+.inbox-triage__propose {
+    gap: var(--spacing-xs);
+}
+
+/* The AI triage pass under review (InboxTriagePass.razor, artboard D). It
+   takes triage's place in the pane's column and scrolls as one, like triage. */
+.inbox-pass {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* Back, what this is, the count and the two acts on one line where there is
+   room, wrapping under the title where there is not. */
+.inbox-pass__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.inbox-pass__heading-block {
+    display: flex;
+    flex: 1 1 20rem;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.inbox-pass__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    line-height: var(--line-height-tight);
+}
+
+.inbox-pass__subtitle,
+.inbox-pass__count {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pass__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+}
+
+.inbox-pass__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.inbox-pass__section-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-pass__section-sub {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: normal;
+}
+
+.inbox-pass__card .card__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.inbox-pass__card-head,
+.inbox-pass__repos-row,
+.inbox-pass__card-foot,
+.inbox-pass__rest-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+}
+
+.inbox-pass__plan-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pass__meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__tag {
+    font-family: var(--font-family-mono);
+    color: var(--color-text-primary);
+}
+
+/* The Accept toggle sits at the end of its line; on, it reads as accepted in
+   the success colours as well as in words and a tick. */
+.inbox-pass__card-head > .inbox-pass__accept,
+.inbox-pass__repos-row > .inbox-pass__edit {
     margin-left: auto;
 }
 
-.inbox-pane__triage > .inbox-pane__column--detail {
-    flex: 1 1 0;
-    min-height: 0;
-    overflow: auto;
+.inbox-pass__accept {
+    gap: var(--spacing-2xs);
+}
+
+.btn--toggle.inbox-pass__accept--on {
+    border-color: var(--color-success-text);
+    background: var(--color-success);
+    color: var(--color-text-primary);
+}
+
+/* Some of a row's proposals accepted and some not: the edge says "partly"
+   without claiming the accepted colours. */
+.btn--toggle.inbox-pass__accept--mixed {
+    border-style: dashed;
+    border-color: var(--color-success-text);
+    color: var(--color-text-primary);
+}
+
+.inbox-pass__tick {
+    color: var(--color-success-text);
+}
+
+.inbox-pass__members {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pass__editor {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.inbox-pass__member {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pass__member-title {
+    flex: 1 1 12rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.inbox-pass__member--left-out .inbox-pass__member-title {
+    color: var(--color-text-secondary);
+    text-decoration: line-through;
+}
+
+/* A repository chip: the identity edge (`repo-mark`) on its leading edge. */
+.inbox-pass__repo {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--spacing-lg);
+    padding: 0 var(--spacing-xs) 0 var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__repos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs);
+}
+
+.inbox-pass__why {
+    display: flex;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__card-foot > .inbox-pass__why {
+    margin-left: auto;
+}
+
+/* The two sides of a duplicate pair, side by side where there is room and
+   stacked where there is not. */
+.inbox-pass__sides {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pass__side {
+    display: flex;
+    flex: 1 1 14rem;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.inbox-pass__side--entry {
+    box-shadow: inset var(--border-width-4) 0 0 0 var(--color-primary);
+}
+
+.inbox-pass__side-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__side-title {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pass__arrow {
+    display: flex;
+    align-items: center;
+    color: var(--color-text-secondary);
+}
+
+.inbox-pass__choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs);
+}
+
+.inbox-pass__choice--on {
+    border-color: var(--color-success-text);
+    background: var(--color-success);
+    color: var(--color-text-primary);
+}
+
+/* The single routes: a table that keeps its columns and scrolls sideways in
+   its own box when the pane is narrower than they are. */
+.inbox-pass__table-box {
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+}
+
+.inbox-pass__table {
+    min-width: 640px;
+}
+
+.inbox-pass__row {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 2fr) 8rem;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pass__row--head {
+    border-top: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__cell-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.inbox-pass__row-title {
+    overflow: hidden;
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The rest: one line per list, one for the archives, one for what is left. */
+.inbox-pass__rest-row + .inbox-pass__rest-row {
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.inbox-pass__rest-text {
+    flex: 1 1 14rem;
+    min-width: 0;
+}
+
+.inbox-pass__rest-text--quiet,
+.inbox-pass__rest-reason {
+    color: var(--color-text-secondary);
+    font-style: normal;
+}
+
+.inbox-pass__shown {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-xs) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-pass__shown-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pass .btn:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /* The shortcuts dialog: the key in a fixed column, what it does beside it. */
@@ -3907,9 +4763,9 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
     width: 100%;
     padding: var(--spacing-sm);
-    border: var(--border-width) solid color-mix(in srgb, var(--color-text-disabled) 24%, transparent);
-    border-radius: var(--border-radius-sm);
-    background: color-mix(in srgb, var(--color-background) 40%, transparent);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    background: transparent;
     color: var(--color-text-primary);
     font: inherit;
     text-align: left;
@@ -3918,7 +4774,7 @@ h1, h2, h3 {
 }
 
 .inbox-pane__row:hover {
-    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    background: var(--color-background-raised);
 }
 
 .inbox-pane__row:focus-visible {
@@ -3929,45 +4785,72 @@ h1, h2, h3 {
 .inbox-pane__row--selected,
 .inbox-pane__row--selected:hover {
     border-color: var(--color-border-focus);
-    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    background: var(--color-background-raised);
     box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
-/* The kind: a mark and the word, one unit that never breaks apart. */
-.inbox-pane__kind {
+/* The kind's mark on a square tile at the row's start. */
+.inbox-pane__kind-tile {
     display: inline-flex;
+    flex: none;
     align-items: center;
-    gap: 0.3em;
-    padding-top: 0.1em;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
     color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    white-space: nowrap;
 }
 
 .inbox-pane__row-body {
     display: grid;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-2xs);
     min-width: 0;
 }
 
 .inbox-pane__row-title {
     font-weight: var(--font-weight-semibold);
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-/* The meta line: provenance, tags and targets, as one wrapping row of small
-   text. Quiet on purpose — provenance is read, not acted on, so nothing here
-   is filled. */
+/* "Article · Web clipper": what the thing is and where it came from, one line
+   of small text that clips rather than wraps. */
 .inbox-pane__row-meta {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    overflow: hidden;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+    white-space: nowrap;
 }
 
-.inbox-pane__source {
+.inbox-pane__kind,
+.inbox-pane__source,
+.inbox-pane__person {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The age, with the markers stacked under it at the row's end. */
+.inbox-pane__row-end {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--spacing-2xs);
+}
+
+/* "suggested": a tag-sized marker in the primary ink on a faint wash of it. */
+.inbox-pane__suggested {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    color: var(--color-primary-light);
     font-size: var(--font-size-xs);
 }
 
@@ -4001,12 +4884,184 @@ h1, h2, h3 {
     padding: var(--spacing-lg) var(--spacing-md);
 }
 
+/* --- Inbox zero ------------------------------------------------------------ */
+
+/* The session's summary in the rows' and the detail's place (artboard C): one
+   centred column, a reading width wide, that scrolls on its own like the
+   columns it replaces. */
+.inbox-zero {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    width: 100%;
+    max-width: 40rem;
+    min-width: 0;
+    min-height: 0;
+    justify-self: center;
+    padding: var(--spacing-xl) var(--spacing-md);
+    overflow: auto;
+}
+
+.inbox-zero__lead {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    text-align: center;
+}
+
+.inbox-zero__mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 4rem;
+    height: 4rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-success);
+    color: var(--color-success-text);
+}
+
+.inbox-zero__title {
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.inbox-zero__summary {
+    margin: 0;
+    max-width: 46ch;
+    color: var(--color-text-secondary);
+}
+
+/* The numbers: MetricGrid and MetricTile wearing this screen's classes, so the
+   tile is the library's while the figure sits over its words as the artboard
+   draws it. A wrapping row rather than the grid, so five fit one line and a
+   wrapped tile takes the width left. */
+.inbox-zero__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.inbox-zero__stat {
+    flex: 1 1 7rem;
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.inbox-zero__stat__label {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.inbox-zero__stat__value {
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    line-height: var(--line-height-tight);
+}
+
+.inbox-zero__back {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.inbox-zero__back-title {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+}
+
+.inbox-zero__back-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-zero__back-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.inbox-zero__back-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.inbox-zero__back-when {
+    flex: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.inbox-zero__acts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
 /* --- Detail -------------------------------------------------------------- */
+
+/* The detail column is a column of two: the article, which scrolls, and the
+   decisions bar under it, which does not. */
+.inbox-pane__column--detail {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+}
 
 .inbox-pane__detail {
     display: grid;
+    flex: 1 1 0;
+    align-content: start;
     gap: var(--spacing-md);
     min-width: 0;
+    min-height: 0;
+    padding-bottom: var(--spacing-md);
+    overflow: auto;
+}
+
+/* The four decisions, fixed at the foot of the detail, each naming its key. */
+.inbox-pane__decide {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) 0;
+    border-top: var(--border-width) solid var(--color-border);
+    background: var(--color-background-alt);
+}
+
+.inbox-pane__decide-hint {
+    margin-left: auto;
+}
+
+.inbox-pane__decide .inbox-pane__key {
+    margin-left: var(--spacing-2xs);
 }
 
 .inbox-pane__detail-header {
@@ -4246,11 +5301,73 @@ h1, h2, h3 {
     letter-spacing: 0.04em;
 }
 
-.inbox-pane__suggestion-chips {
+.inbox-pane__suggestions-head {
     display: flex;
     flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.inbox-pane__suggestion-list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* One suggestion: a framed row the reader takes by its number, the reason at
+   its end, and the × that turns it down beside it. */
+.inbox-pane__suggestion {
+    display: flex;
     align-items: center;
     gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.inbox-pane__suggestion-take {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.inbox-pane__suggestion-take:hover:not(:disabled) {
+    border-color: var(--color-primary);
+}
+
+.inbox-pane__suggestion-take:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.inbox-pane__suggestion-take--unavailable {
+    border-style: dashed;
+    color: var(--color-text-secondary);
+    cursor: default;
+}
+
+.inbox-pane__suggestion-text {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pane__suggestion-reason {
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-align: right;
 }
 
 /* Related: the items and tasks this one already has to do with, under the same
@@ -4359,6 +5476,36 @@ h1, h2, h3 {
         height: auto;
         max-height: 24rem;
         padding: 0;
+    }
+
+    /* Stacked, the detail has no height of its own to divide, so the column
+       scrolls whole and the article takes its natural height above the bar. */
+    .inbox-pane__column--detail {
+        overflow: auto;
+    }
+
+    .inbox-pane__detail {
+        flex: none;
+        overflow: visible;
+    }
+
+    /* The column scrolls whole, so the decisions hold to its foot by
+       sticking rather than by being outside what scrolls. */
+    .inbox-pane__decide {
+        position: sticky;
+        bottom: 0;
+    }
+
+    /* The side menu is a short strip here, and the header already says how
+       many wait and how old the oldest is. */
+    .inbox-pane__health {
+        display: none;
+    }
+
+    /* The field needs the width more than its keys need saying; the field
+       still names them to a screen reader through its description. */
+    .inbox-pane__capture-keys {
+        display: none;
     }
 }
 

@@ -176,11 +176,18 @@ public sealed class InboxItem
     /// synced, so the stamp is bookkeeping rather than a tie-break.</summary>
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    /// <summary>The item this one was archived as a duplicate of, or null. Set
-    /// only by <see cref="Archive(DateTimeOffset, Guid?)"/> with an item named,
-    /// and never cleared: an archived item stays archived, and so does what it
-    /// was archived as.</summary>
+    /// <summary>What this item was archived as a duplicate of, or null: another
+    /// inbox item, or — when <see cref="DuplicateOfTask"/> — the backlog task it
+    /// was merged into. Set only by <see cref="Archive(DateTimeOffset, Guid?, bool)"/>
+    /// with something named, and cleared only by <see cref="Restore"/> — the
+    /// session undo taking the archive back; otherwise an archived item stays
+    /// archived, and so does what it was archived as.</summary>
     public Guid? DuplicateOf { get; private set; }
+
+    /// <summary>Whether <see cref="DuplicateOf"/> names a backlog task rather
+    /// than an inbox item — the capture was merged into a task it repeats.
+    /// False whenever <see cref="DuplicateOf"/> is null.</summary>
+    public bool DuplicateOfTask { get; private set; }
 
     /// <summary>
     /// The note's own last-write-wins stamp: when its title, body or files last
@@ -514,8 +521,13 @@ public sealed class InboxItem
     /// item named may be in any state; whether it still exists is the handler's
     /// to check, since the aggregate cannot see another item.
     /// </para>
+    /// <para>
+    /// With <paramref name="task"/> the id is a backlog task's — the item was
+    /// merged into a task it repeats — under the same two rules. The aggregate
+    /// cannot see a task either, so whether it exists is the handler's too.
+    /// </para>
     /// </summary>
-    public void Archive(DateTimeOffset now, Guid? duplicateOf = null)
+    public void Archive(DateTimeOffset now, Guid? duplicateOf = null, bool task = false)
     {
         if (IsRouted || Status is InboxStatus.Archived)
             throw new InvalidInboxTransitionException(Status, "archived");
@@ -526,6 +538,7 @@ public sealed class InboxItem
             if (!IsOpen) throw new InvalidInboxTransitionException(Status, "archived as a duplicate");
 
             DuplicateOf = original;
+            DuplicateOfTask = task;
         }
 
         Status = InboxStatus.Archived;
@@ -592,6 +605,66 @@ public sealed class InboxItem
         if (IsRouted || !IsOpen) throw new InvalidInboxTransitionException(Status, "linked to a task");
 
         RouteToBacklog([taskId], repoIds, now);
+    }
+
+    // --- Taking a decision back -----------------------------------------------
+    //
+    // The session undo history's two ways back (interaction-guidelines.md, "Undo
+    // and history"). Each returns the item to unprocessed — the state a decision
+    // is made from — rather than to whatever it was before, because a decision
+    // already cleared the deferral date and the list is the item's own and was
+    // never changed by one.
+
+    /// <summary>
+    /// Undoes an archive — plain, as a duplicate, or as the merge into a task:
+    /// the item is unprocessed again and no longer a duplicate of anything. A
+    /// merge's comment is on the task, and the task is not this aggregate's to
+    /// change, so it stays.
+    /// <para>
+    /// An acknowledgement still waiting in the outbox is withdrawn: the capture
+    /// is open again and the replica may keep it. One already sent cannot be
+    /// called back: the replica has dropped the capture, and a tombstone echo
+    /// still on its way may archive this item again on the next pull — a
+    /// window of one sync cycle, accepted for an undo taken seconds later.
+    /// </para>
+    /// </summary>
+    public void Restore(DateTimeOffset now)
+    {
+        if (Status is not InboxStatus.Archived || IsRouted)
+            throw new InvalidInboxTransitionException(Status, "restored");
+
+        Status = InboxStatus.Unprocessed;
+        DeferredUntil = null;
+        DuplicateOf = null;
+        DuplicateOfTask = false;
+        ReplicaAckPending = false;
+
+        // An archived note owed the phone its tombstone; restored, it goes back
+        // out live, stamped after that tombstone so the replica takes it.
+        if (IsNote)
+        {
+            EditedAt = NextEdit(now);
+            NotePushPending = true;
+        }
+        Touch(now);
+    }
+
+    /// <summary>
+    /// Undoes a route or a link: the item no longer names where it went and is
+    /// unprocessed again. Whether the entries the route made are deleted is the
+    /// handler's to settle with the backlog first — the aggregate cannot see
+    /// them. The outbox acknowledgement is withdrawn as <see cref="Restore"/>
+    /// withdraws it.
+    /// </summary>
+    public void ReturnFromBacklog(DateTimeOffset now)
+    {
+        if (!IsRouted) throw new InvalidInboxTransitionException(Status, "returned from the backlog");
+
+        Routing = null;
+        Status = InboxStatus.Unprocessed;
+        DeferredUntil = null;
+        ReplicaAckPending = false;
+        Touch(now);
     }
 
     // --- Notes ----------------------------------------------------------------
@@ -746,11 +819,13 @@ public sealed class InboxItem
         bool replicaAckPending,
         DateTimeOffset updatedAt,
         Guid? duplicateOf = null,
+        bool duplicateOfTask = false,
         DateTimeOffset? editedAt = null,
         bool notePushPending = false)
     {
         Status = status;
         DuplicateOf = duplicateOf;
+        DuplicateOfTask = duplicateOf is not null && duplicateOfTask;
         DeferredUntil = deferredUntil;
         Routing = routing;
         ReplicaAckPending = replicaAckPending;

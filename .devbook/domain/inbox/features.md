@@ -23,21 +23,51 @@ timestamp. Every row leads with its `Content Kind` and its `Source`, so the
 reader sees what a thing is and who sent it before deciding on it, and the
 selected item opens in a detail view shaped by its kind.
 
+The rows are grouped by how long ago they were captured: **Today**, **This
+week** and **Older than a week**, each heading with its count. A group with no
+rows is not shown. The pane is three columns: the side menu, the rows, and the
+detail of the chosen item. **Deferred** is the one slice without age headings:
+its rows run in the order they come back, soonest review date first, and
+splitting them by capture would scramble that.
+
+A row is a tile with the kind's mark, the title, a line saying what kind of
+thing it is and where it came from ("Article · Web clipper"), and how long ago
+it arrived. A row whose item has a [suggestion](#classification-and-enrichment)
+the reader can take and has not turned down says **suggested** under its age,
+so the rows worth a second look stand out before they are opened. Tags and
+repositories are shown in the detail, not on the row.
+
 ### Add by hand
 
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/inbox/domain.md#capture-source, .devbook/domain/capture/domain.md#capture-source, .devbook/domain/capture/features.md#run-capture-now]
+related: [.devbook/domain/inbox/domain.md#capture-source, .devbook/domain/capture/domain.md#capture-source, .devbook/domain/capture/features.md#run-capture-now, .devbook/domain/inbox/requirements.md#columns]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureItemTests]
 ```
 
-The queue offers the two ways something gets into it from its own header:
-**Add**, for a thing the reader has in their head right now, and **Capture**,
-which runs the watched sources. Add asks for a title and, optionally, notes —
-nothing else, because the Inbox is where deciding happens and a dialog that
-asked where the item goes would be asking for triage before the item exists.
+The queue offers the two ways something gets into it from its own header: a
+**capture field**, for a thing the reader has in their head right now, and
+**Capture now**, which runs the watched sources. A **Sources** button beside it
+opens the sources those runs watch
+([Run capture now](../capture/features.md#run-capture-now)).
+
+The capture field replaces the Add dialog. It sits in the header, always open:
+
+- **Enter** files what is typed as the title.
+- **Shift+Enter** opens a notes editor under the field.
+- **Ctrl+Enter** files the title and the notes together.
+- **Escape** closes the notes editor.
+
+It asks for a title and, optionally, notes — nothing else, because the Inbox is
+where deciding happens and a field that asked where the item goes would be
+asking for triage before the item exists. While the notes are open, Enter in
+the field files the notes with the title too, so nothing written under it is
+dropped; Escape discards the notes with the editor, so notes nobody can see are
+never filed with the next Enter. A capture that fails leaves the title in the
+field to try again with.
+
 The result is a [Capture (manual)](domain.md#capture-manual), captured and received at the same instant; it lands unfiled in the
 queue the reader is filling and opens in the detail beside it rather than
 anywhere else. It needs no paired device, which makes it the offline path and
@@ -98,13 +128,15 @@ with a default set to start from.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/inbox/domain.md#content-kind]
+related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/requirements.md#columns]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
-One chip per `Content Kind` present in the selected slice, each with its count;
-toggling chips narrows the rows to those kinds. The chips are a lens over a
-list, never a place an item goes.
+A row of pills over the rows, led by **All** with the slice's count, then one
+pill per `Content Kind` present in the selected slice, each with its count.
+Toggling kind pills narrows the rows to those kinds; **All** clears them and is
+the pressed pill while no kind is. The pills are a lens over a list, never a
+place an item goes.
 
 ## Triage workflow
 
@@ -121,11 +153,18 @@ Review unprocessed items one by one or in batch and take an action per item.
 ```meta
 type: sub-feature
 status: draft
+related: [.devbook/domain/inbox/requirements.md#columns]
 ```
 
 Route to Tasks, store as knowledge, defer, archive, or delete — while tagging,
 assigning repositories, and annotating, and preserving the original source link
 and capture timestamp.
+
+The four decisions — **Move to backlog**, **Move to list**, **Defer** and
+**Archive** — sit in a bar fixed at the foot of the detail, each naming its key.
+The bar stays in place while the detail scrolls, so a long article never pushes
+the decisions out of reach. Delete, tags and repositories stay in the detail
+itself, because they are not the decision the item is waiting for.
 
 ### Act on several at once
 
@@ -173,8 +212,12 @@ A triage session is a run of small decisions, and it is kept short by taking
 them from the keyboard. With the Inbox pane in use, **j** and **k** move to the
 next and previous row, **a** archives, **d** offers review dates to defer to —
 tomorrow, next week, next month, or without a date — **l** opens Move to list,
-**r** moves the item to the backlog, **t** goes to its tags, and **x** picks it
-for an act on several at once. The Tasks pane binds no letters, so the one key
+**r** moves the item to the backlog, **g** goes to its tags, and **x** picks it
+for an act on several at once. **t** starts [triage mode](#triage-mode), and
+**u** undoes the latest decision of the session ([Undo a
+decision](#undo-a-decision)). Tags moved from **t** to **g** so that **t** could
+start triage, the key the header's **Start triage** button names; every other
+key kept its letter. The Tasks pane binds no letters, so the one key
 the two panes share is **Escape**, which in both leaves the mode the reader is
 in. A key offers only the acts the item's detail offers: a routed or archived
 item is not archived again from the keyboard.
@@ -184,16 +227,230 @@ dialog, with Ctrl, Alt or Meta held, or while the focus is in another pane is
 left to what it was pressed in. That is decided in the browser at the moment
 the key goes down, because a decision made on the server arrives one key late.
 
-**Triage mode** shows one item at a time, full width, with where it stands in
-the rows — "12 of 40" — and the keys under the count. Each decision (archive,
-defer, move to a list, move to the backlog) moves on to the next row; past the
-last it goes back to the first item still waiting, which is where a reader who
-skipped some with **j** left them, and when none is left it says so. Tags and
+The keys are listed in the **Shortcuts** dialog in the pane's header, which **?**
+also opens, and the buttons they stand for name them in their titles.
+
+### Triage mode
+
+```meta
+type: sub-feature
+status: draft
+depends-on: [.devbook/domain/inbox/features.md#quick-triage-shortcuts]
+related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/domain/inbox/features.md#ai-triage-cards, .devbook/domain/inbox/features.md#undo-a-decision, .devbook/domain/inbox/features.md#inbox-zero]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests]
+```
+
+**Start triage** in the header, or **t**, shows one item at a time, full width.
+From the top down the screen holds:
+
+- **Progress.** **Back to the list** (**Esc**), a bar, and beside it the line
+  "n of total · m decided this session": where the item stands among the rows
+  the slice held when triage began, and how many decisions the reader has taken
+  since the app opened. The bar fills with the rows decided since triage began.
+  An item that arrives during triage is counted after those rows. Previous
+  (**k**) and **Skip** (**j**) step without deciding.
+- **The item**: its kind, its source, when it was captured, its title, notes and
+  tags; the tags are the field **g** goes to.
+- **AI cards**, up to two, numbered **1** and **2** — see [AI triage
+  cards](#ai-triage-cards). The rule-based suggestions follow, numbered after
+  them. With no AI card shown, the suggestions are numbered from 1.
+- **Move to backlog in**: a repository picker that takes several repositories at
+  once, one box per configured repository, each with its [identity
+  edge](../../design/color-scheme.md#the-identity-edge). The boxes start from
+  the repositories the AI card answer named, marked **AI**, else from the
+  item's own; ticking one writes the item's repositories. The hint says what
+  **r** makes: "one entry", "n linked entries", or "one entry, no repository".
+  Picking more than one makes one task per repository, linked to each other
+  ([Route to Tasks](#route-to-tasks)).
+- **The four decisions** as large buttons, each naming its key: Move to
+  backlog (**r**), Move to list (**l**), Defer (**d**) and Archive (**a**).
+
+Beside the item an **Up next** list shows the next four items in the order
+triage will show them, and under it **Just decided**: the session's last
+decision as "*title* → *what became of it*", with **Undo** (**u**).
+
+Each decision (archive, defer, move to a list, move to the backlog, merge into a
+task) moves on to the next row. Past the last it goes back to the first item
+still waiting, which is where a reader who skipped some with **j** left them.
+When none is left, triage gives way to [Inbox zero](#inbox-zero). Tags and
 repositories are not decisions and leave the reader where they are. Escape, or
 **Back to the list**, returns to the rows on the item the session stopped at.
 
-The keys are listed in the **Shortcuts** dialog in the pane's header, which **?**
-also opens, and the buttons they stand for name them in their titles.
+### AI triage cards
+
+```meta
+type: sub-feature
+status: draft
+depends-on: [.devbook/domain/inbox/features.md#triage-mode]
+related: [.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md, .devbook/domain/inbox/requirements.md#ai-triage, .devbook/domain/inbox/features.md#merge-into-a-task, .devbook/domain/inbox/features.md#route-a-batch-to-tasks]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageAdviceStateTests]
+```
+
+When the reader opens an item in triage, the Azure Foundry model reads it
+against the open backlog and the rest of the inbox, and triage shows what it
+noticed as at most two cards, under the heading **AI noticed**. What is sent,
+and when, is settled in
+`.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md`.
+
+- **Probably a duplicate.** The open backlog task, or the other unprocessed
+  capture, this item seems to repeat, with the reason in a few words, both
+  shown side by side. Its main act is **Merge into the entry** ([Merge into a
+  task](#merge-into-a-task)); for another capture it is **Archive as a
+  duplicate**. When another unprocessed capture also matches the item, it is
+  shown too, and **Merge all three** folds both captures into the task as one
+  decision. **Compare** opens the two side by side; **Not a duplicate** turns
+  the card down.
+- **Group into a plan.** A plan name, and the other unprocessed captures that
+  belong with this one, with the reason. Its main act, **Make the plan**, opens
+  the [batch](#route-a-batch-to-tasks) panel on the item and those captures;
+  **Add to an existing plan…** is shown disabled until the Inbox can list the
+  backlog's plans; **Dismiss** turns the card down.
+
+A card shown is numbered **1**, or **2** when both are, and is taken with its
+number key, as a suggestion is. The rule-based suggestions are numbered after
+the cards. A card the model has nothing to say about is not shown.
+
+Without Foundry configured, or when the call fails, no card is shown, and
+triage reads as it would without AI.
+
+### Merge into a task
+
+```meta
+type: sub-feature
+status: draft
+depends-on: [.devbook/domain/inbox/features.md#ai-triage-cards]
+related: [.devbook/domain/inbox/requirements.md#merge-into-a-task, .devbook/domain/inbox/features.md#archive, .devbook/domain/tasks/features.md#task-creation]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+```
+
+A capture that repeats a task already in the backlog is folded into that task
+rather than filed a second time. The capture's title, link and notes are added
+to the task as a comment, and the capture is archived as a duplicate of the
+task: its `DuplicateOf` names the task. The task keeps everything it had.
+Merging counts as a decision of the session and can be undone ([Undo a
+decision](#undo-a-decision)).
+
+### Undo a decision
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/inbox/requirements.md#undo-a-decision, .devbook/domain/inbox/features.md#triage-mode]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+```
+
+Every decision taken in this session can be taken back, newest first, until the
+app closes: archive, defer, move to a list, move to the backlog, and merge into
+a task. **u**, or **Undo** beside the last decision, takes back the newest one
+not yet undone, and the item is open again where it was before.
+
+Two decisions reach outside the Inbox, and undoing them is bounded by that:
+
+- **Move to backlog.** Undo deletes the tasks the move made, but only while
+  none of them has started. Once one has, the undo is refused with a sentence
+  that names the started task, and nothing changes.
+- **Merge into a task.** Undo restores the capture as it was. The comment stays
+  on the task, because by then it may have been read or answered.
+
+**Link to task** and **Archive as duplicate** are decisions too and are taken
+back the same way; undoing a link leaves the task it named alone. A gesture over
+several items — a bulk archive, a bulk move, a batch route with the duplicates it
+merged — is one decision to undo, and brings every item back at once.
+
+An undo that is refused is dropped rather than kept on top, so the next **u**
+reaches the decision before it.
+
+Decisions are not remembered past the app: a decision from an earlier session is
+changed by deciding again, not by undo.
+
+### Inbox zero
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/inbox/requirements.md#inbox-zero, .devbook/domain/inbox/features.md#defer]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+```
+
+When nothing in the Inbox — the unfiled slice — is still waiting and this
+session has decided something, the pane says the inbox is clear and shows what
+the session did in place of the list and the detail; the side menu stays:
+
+- how many items the session decided, and its count per decision — moved to
+  backlog, filed in lists, deferred, archived, merged — a kind with no
+  decisions left out. A link to a task counts in the total only, because it
+  leaves the item where it was;
+- **Coming back**: the deferred items whose review date is set, soonest first,
+  at most five, each with when it comes back — today, tomorrow, a weekday
+  within the week, else the date;
+- **Open *list* · *n***, the list with the most items still waiting, left out
+  when no list has any, and **Open Deferred**.
+
+The counts are the undo history's, so a decision taken back stops counting, and
+undoing the last one brings the item back into the list. With no decision this
+session the plain first-use empty state stays: there is no session to report
+on. A list, or Deferred, that is empty shows its own empty state.
+
+### AI triage pass
+
+```meta
+type: sub-feature
+status: draft
+depends-on: [.devbook/domain/inbox/features.md#ai-triage-cards]
+related: [.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md, .devbook/domain/inbox/requirements.md#ai-triage-pass, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/domain/inbox/features.md#merge-into-a-task, .devbook/domain/inbox/features.md#undo-a-decision]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.TriagePassApplyTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriagePassDraftTests]
+```
+
+**Let AI propose the rest**, in triage's header, asks the model to read every
+unprocessed item of the slice against the backlog at once, and opens a review
+screen of what it proposes in place of the item being triaged. It is drawn only
+when Foundry is configured; while the model reads, it says how many items it is
+reading, and a failed pass is one sentence under the header that triage carries
+on beneath.
+
+The screen groups the proposals:
+
+- **Plans to make**: items that belong together, with a plan name, the plan tag
+  it will carry (`+tasks-sync-polish-…`, the digits minted on Apply), the
+  members and the repositories, to go to the backlog as one batch. **Edit plan**
+  renames it or leaves a member out; a plan left with one member is not applied;
+- **Likely duplicates**: an item and the open task or capture it repeats, side by
+  side, with a choice of acts — for a task, merge into the entry, keep both, or
+  archive the capture; for another capture, keep that one and archive this one
+  as its duplicate, or keep both;
+- **Move to backlog on their own**: single routes, each with the entry type the
+  model reads it as and its repositories;
+- **The rest**: items to file, one row per list, and items to archive, each row
+  accepted as a whole and opened with **Show** to accept them one by one; and
+  the items the model could not place, as **Left for you**, with **Triage them**.
+
+Every proposal carries its reason. Each one is accepted or not by a toggle — a
+duplicate by its choice, **Keep both** being the unaccepted one; a proposal
+below confidence 0.6 starts unaccepted and the rest start accepted. The header
+counts "*accepted* of *total* accepted" and names what Apply will do, "Apply *n*
+decisions". Nothing changes until **Apply**; **Discard**, **Back** and Esc leave
+the screen for triage and change nothing, and while the screen is open the
+decision keys act on no item.
+
+**Apply** takes every accepted proposal as the decision it names, in the order
+the screen lists them: a plan through the batch route with a plan tag of its own,
+a duplicate through merge into a task or archive as a duplicate, a single route
+by writing its repositories to the item and moving it to the backlog, a filing
+and an archive through their own acts. Each decision lands as one step of the
+[undo history](#undo-a-decision), so U takes them back newest first. The first
+decision refused stops the rest: what already landed stays, the screen keeps the
+proposals not yet taken (a plan that routed only some of its members leaves, and
+its members still waiting are left for the reader), and a note names the item
+that was refused and why. Applied whole, the screen closes and a toast counts the
+decisions taken and the items left for the reader. A pass with nothing to propose
+opens no screen and says so under triage's header. **Triage them** puts the pass away and opens triage on the first item left
+for the reader.
+
+The entry type a single route shows is the model's reading only: the route makes
+the entries Move to backlog makes.
 
 ## Classification and enrichment
 
@@ -249,7 +506,13 @@ Still modelled and not built:
   Devbook](#route-to-devbook) is not built. The chip says so, has no number,
   and can still be turned down.
 - Enriching an item with links to related tasks or knowledge notes.
-- Suggestions from anything other than these rules: no model reads the item.
+
+These suggestions are rules, not AI, and they stay as they are with or without a
+model configured. Since
+`.devbook/arc42/adr/0023-inbox-items-may-be-read-by-the-foundry-model.md`, a
+model may also read the item, in triage only: its proposals are the [AI triage
+cards](#ai-triage-cards) and the [AI triage pass](#ai-triage-pass). In triage
+the suggestions are numbered after the AI cards.
 
 ## Routing
 
@@ -267,7 +530,7 @@ Routing is the terminal outcome of triage and happens exactly once.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder]
+related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/domain/inbox/requirements.md#route-to-tasks]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment]
 ```
 
@@ -276,6 +539,15 @@ untargeted task when none is — each carrying the item's id as its provenance.
 An item with attachments gives each task its attachment folder as the task's
 attachment. The item records the tasks it became and is routed exactly once; a
 failure on the Tasks side leaves it unrouted.
+
+An item assigned to several repositories still makes one task per repository,
+and the tasks it makes are siblings that know about each other. Each sibling's
+body carries the line "Same capture in: <repository> — <title>" for every other
+sibling, and all of them share the general tag `#from-inbox-` followed by the
+last eight hex digits of the item's id. A single task needs neither. The lines
+come before the item's notes, so notes ending in a chapter or an open code block
+cannot take them in, and they name each sibling by its repository id. A batch
+links the siblings of each of its items the same way.
 
 ### Create plan from an item
 
@@ -481,7 +753,7 @@ related: [.devbook/domain/monitoring/features.md#inbox-and-queue-health]
 Track unprocessed count and oldest item age, surface items unprocessed for too
 long, and raise configurable alerts when the queue exceeds a threshold.
 
-### Queue health strip
+### Queue health bar
 
 ```meta
 type: sub-feature
@@ -491,9 +763,18 @@ feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
 ```
 
-The Inbox half of queue health: one line over the queue that says how many
-items wait unprocessed, how long ago the oldest was captured, and — only when
-there are any — a chip counting those unprocessed for more than fourteen days.
+The Inbox half of queue health, at the foot of the side menu: how many items
+wait unprocessed, and a bar in three parts that splits them by age —
+
+- captured under 3 days ago;
+- from 3 days up to the stale threshold;
+- over the stale threshold, with the age of the oldest.
+
+The stale threshold is fourteen days. Each part is labelled with its count, and
+the bar reads the same counts to a screen reader. A part with no items takes no
+room. The header beside the pane's title repeats the short form, "n waiting ·
+oldest d days".
+
 It reads the whole queue, whichever list is open, because how the queue is doing
 is not a question about one list. The dashboard half, and the configurable
 alerts, are Monitoring's.

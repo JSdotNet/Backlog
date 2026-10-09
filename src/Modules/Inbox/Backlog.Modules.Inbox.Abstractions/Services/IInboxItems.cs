@@ -77,6 +77,16 @@ public interface IInboxItems
     /// <c>inbox.link.task_not_found</c> for a task the backlog no longer has.</summary>
     Task<Result> LinkToTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default);
 
+    /// <summary>Folds the item into the backlog task <paramref name="taskId"/> it
+    /// repeats — "Merge into a task": the item's title, then its link when it has
+    /// one, then its notes are written on the task as one comment, and the item is
+    /// archived as a duplicate of the task (<c>DuplicateOf</c> names it,
+    /// <c>DuplicateOfTask</c> says so). Only an open item. Fails with
+    /// <c>inbox.merge.task_not_found</c> for a task the backlog no longer has,
+    /// and with Tasks' <c>comment.not_prose</c> when a line of the item would
+    /// become structure on the task; either way nothing is written.</summary>
+    Task<Result> MergeIntoTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default);
+
     /// <summary>What the item already has to do with the rest of the backlog:
     /// the other items that look like the same capture and the tasks that carry
     /// it, each with the reason, and the open tasks "Link to task…" can offer.
@@ -97,6 +107,21 @@ public interface IInboxItems
     /// <summary>Returns a deferred item to the queue now, whatever its review
     /// date.</summary>
     Task<Result> ResurfaceAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Takes an archive back — Archive, "Archive as duplicate of…" or
+    /// "Merge into a task": the item is unprocessed again and <c>DuplicateOf</c>
+    /// is cleared. A merge's comment stays on the task. Only an archived item;
+    /// the session undo history is the one caller.</summary>
+    Task<Result> RestoreAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Takes a route back: the item is unprocessed again and no longer
+    /// routed. With <paramref name="deleteTasks"/> the entries the route made are
+    /// deleted first — all or none, refused with
+    /// <c>inbox.undo.task_started</c> ("Can't undo — <i>title</i> has started")
+    /// when any of them is no longer a draft or ready, which leaves the item
+    /// routed. Without it — undoing "Link to task…" — the task is left alone.
+    /// Only a routed item; the session undo history is the one caller.</summary>
+    Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default);
 
     /// <summary>The resurface sweep: every deferred item whose review date is
     /// today or earlier becomes unprocessed. Answers how many moved. The pane
@@ -232,6 +257,24 @@ public interface IInboxItems
     /// item already routed or archived.</summary>
     Task<Result<IReadOnlyList<InboxSuggestionDto>>> SuggestAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>What Classification proposes for each of several items, by id —
+    /// what the list's "suggested" markers read. An id with no item is left out.
+    /// The default asks <see cref="SuggestAsync"/> once per id; the module's own
+    /// port reads the backlog's tags and the rules once for the lot.</summary>
+    async Task<Result<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>> SuggestManyAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var answers = new Dictionary<Guid, IReadOnlyList<InboxSuggestionDto>>();
+        foreach (var id in ids.Distinct())
+        {
+            var answer = await SuggestAsync(id, cancellationToken).ConfigureAwait(false);
+            if (answer.IsSuccess) answers[id] = answer.Value;
+        }
+
+        return Result.Success<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>(answers);
+    }
+
     /// <summary>Turns a suggestion down for the item, by its key, so it is never
     /// offered for that item again. Idempotent.</summary>
     Task<Result> DismissSuggestionAsync(Guid id, string key, CancellationToken cancellationToken = default);
@@ -240,6 +283,31 @@ public interface IInboxItems
     /// Read by the pane on render so the control is shown disabled with its
     /// reason rather than hidden — unavailability never hides an act.</summary>
     (bool Available, string? Reason) PlanDrafterAvailability { get; }
+
+    /// <summary>Whether a triage advisor is registered and can run. Unlike
+    /// <see cref="PlanDrafterAvailability"/> there is no reason to show: while it
+    /// is false every AI triage surface is hidden, not disabled (local ADR 0023 §4).</summary>
+    bool TriageAdvisorAvailable { get; }
+
+    /// <summary>The AI cards for one unprocessed item opened in triage: at most
+    /// one duplicate and one plan grouping, and the repositories it would go
+    /// to, held to what the inbox and the backlog hold. <paramref name="repositories"/>
+    /// are the ones configured in Settings. One model call per ask. Fails with
+    /// <c>inbox.triage.not_configured</c> when <see cref="TriageAdvisorAvailable"/>
+    /// is false and <c>inbox.triage.failed</c> when the advisor could not answer.</summary>
+    Task<Result<InboxTriageAdviceDto>> AdviseTriageAsync(
+        Guid id,
+        IReadOnlyList<string>? repositories = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The AI triage pass over the unprocessed items of
+    /// <paramref name="ids"/>: plans, duplicate pairs, single routes, list
+    /// filings, archives, and the items it could not place. A proposal only —
+    /// nothing changes. Fails as <see cref="AdviseTriageAsync"/> does.</summary>
+    Task<Result<InboxTriagePassDto>> ProposeTriagePassAsync(
+        IReadOnlyList<Guid> ids,
+        IReadOnlyList<string>? repositories = null,
+        CancellationToken cancellationToken = default);
 
     Task<Result<InboxListDto>> CreateListAsync(string name, Guid? groupId = null, CancellationToken cancellationToken = default);
 

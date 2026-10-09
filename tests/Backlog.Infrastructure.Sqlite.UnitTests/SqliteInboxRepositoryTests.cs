@@ -414,6 +414,24 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         Assert.Equal(original.Id, loaded.DuplicateOf);
         Assert.Equal(duplicate.UpdatedAt, loaded.UpdatedAt);
         Assert.Null(kept!.DuplicateOf);
+        Assert.False(loaded.DuplicateOfTask);
+    }
+
+    [Fact]
+    public async Task An_item_merged_into_a_task_comes_back_naming_the_task_as_a_task()
+    {
+        var task = Guid.CreateVersion7();
+        var merged = Manual("Scroll jumps to top");
+        merged.Archive(Noon.AddHours(1), task, task: true);
+        await _repository.SaveAsync(merged, TestContext.Current.CancellationToken);
+
+        var loaded = await _repository.GetAsync(merged.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(InboxStatus.Archived, loaded.Status);
+        Assert.Equal(task, loaded.DuplicateOf);
+        Assert.True(loaded.DuplicateOfTask);
+        Assert.Equal(merged.UpdatedAt, loaded.UpdatedAt);
     }
 
     [Fact]
@@ -448,6 +466,7 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         Assert.Equal("Written before", only.Title);
         Assert.Empty(only.DismissedSuggestions);
         Assert.Null(only.DuplicateOf);
+        Assert.False(only.DuplicateOfTask);
 
         only.DismissSuggestion("tag:sync");
         await _repository.SaveAsync(only, TestContext.Current.CancellationToken);

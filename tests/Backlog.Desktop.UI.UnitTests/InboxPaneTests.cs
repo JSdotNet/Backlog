@@ -102,10 +102,10 @@ public sealed class InboxPaneTests
         Assert.Equal(["Newest", "Middle", "Older"], Titles(pane));
     }
 
-    // --- Kind chips ---------------------------------------------------------
+    // --- Kind pills ---------------------------------------------------------
 
     [Fact]
-    public async Task Kind_chips_show_the_kinds_in_the_slice_with_counts_and_toggle_the_rows()
+    public async Task Kind_pills_are_led_by_all_show_the_kinds_in_the_slice_with_counts_and_toggle_the_rows()
     {
         using var harness = Harness.Create();
         harness.Inbox.Seed("A video", ContentKind.YouTube, sourceUrl: "https://www.youtube.com/watch?v=abc123");
@@ -115,16 +115,19 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
 
-        // Library order: text, article, youtube — and only the kinds present.
+        // All first, then library order: text, article, youtube — and only the kinds present.
         Assert.Equal(
-            ["inbox-kind-text", "inbox-kind-article", "inbox-kind-youtube"],
+            ["inbox-kind-all", "inbox-kind-text", "inbox-kind-article", "inbox-kind-youtube"],
             pane.FindAll("[data-testid='inbox-pane-filters'] [aria-pressed]").Select(chip => chip.GetAttribute("data-testid")));
+        Assert.Equal("4", pane.Find("[data-testid='inbox-kind-all-count']").TextContent.Trim());
+        Assert.Equal("true", pane.Find("[data-testid='inbox-kind-all']").GetAttribute("aria-pressed"));
         Assert.Equal("2", pane.Find("[data-testid='inbox-kind-youtube-count']").TextContent.Trim());
         Assert.Equal("false", pane.Find("[data-testid='inbox-kind-youtube']").GetAttribute("aria-pressed"));
 
         await pane.Find("[data-testid='inbox-kind-youtube']").ClickAsync(new());
 
         Assert.Equal("true", pane.Find("[data-testid='inbox-kind-youtube']").GetAttribute("aria-pressed"));
+        Assert.Equal("false", pane.Find("[data-testid='inbox-kind-all']").GetAttribute("aria-pressed"));
         Assert.Equal(2, Titles(pane).Count);
         Assert.All(Titles(pane), title => Assert.Contains("video", title));
 
@@ -135,10 +138,12 @@ public sealed class InboxPaneTests
         Assert.Equal(3, Titles(pane).Count);
         Assert.Equal("1", pane.Find("[data-testid='inbox-kind-article-count']").TextContent.Trim());
 
-        await pane.Find("[data-testid='inbox-kind-clear']").ClickAsync(new());
+        // All clears every kind, and is the pressed pill again.
+        await pane.Find("[data-testid='inbox-kind-all']").ClickAsync(new());
 
         Assert.Equal(4, Titles(pane).Count);
-        Assert.Empty(pane.FindAll("[data-testid='inbox-kind-clear']"));
+        Assert.Equal("true", pane.Find("[data-testid='inbox-kind-all']").GetAttribute("aria-pressed"));
+        Assert.Equal("false", pane.Find("[data-testid='inbox-kind-youtube']").GetAttribute("aria-pressed"));
     }
 
     [Fact]
@@ -182,7 +187,7 @@ public sealed class InboxPaneTests
     // --- What a row says ----------------------------------------------------
 
     [Fact]
-    public async Task A_row_says_its_kind_with_a_mark_and_the_word_its_channel_its_person_its_tags_and_its_repositories()
+    public async Task A_row_is_a_kind_tile_the_title_a_kind_and_source_line_and_the_age()
     {
         using var harness = Harness.Create();
         harness.GitHub.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")]);
@@ -197,27 +202,151 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
 
-        var kind = pane.Find("[data-testid='inbox-pane-item-kind']");
-        var mark = kind.QuerySelector("svg");
+        // The mark on a tile, hidden from a screen reader because the word is on the line below.
+        var tile = pane.Find("[data-testid='inbox-pane-item-tile']");
+        Assert.Equal("true", tile.GetAttribute("aria-hidden"));
+        var mark = tile.QuerySelector("svg");
         Assert.NotNull(mark);
         Assert.Contains("capture-kind-marker--article", mark.ClassList);
-        Assert.Equal("true", mark.GetAttribute("aria-hidden"));
-        Assert.Contains("Article", kind.TextContent);
         Assert.Equal("article", pane.Find("[data-testid='inbox-pane-item']").GetAttribute("data-inbox-kind"));
 
+        // "<kind> · <source>", and who shared it.
+        Assert.Equal("Article", pane.Find("[data-testid='inbox-pane-item-kind']").TextContent.Trim());
         var source = pane.Find("[data-testid='inbox-pane-item-source']");
-        Assert.Contains("badge--source", source.ClassList);
         Assert.Equal("Web clipper", source.TextContent.Trim());
+        Assert.Equal("Captured via Web clipper", source.GetAttribute("title"));
+        Assert.Equal("shared by @maria", pane.Find("[data-testid='inbox-pane-item-person']").TextContent.Trim());
+        Assert.Matches(@"^Article\s*·\s*Web clipper\s*·\s*shared by @maria$", pane.Find(".inbox-pane__row-meta").TextContent.Trim());
 
-        var person = pane.Find("[data-testid='inbox-pane-item-person']");
-        Assert.Contains("tag-chip--person", person.ClassList);
-        Assert.Equal("@maria", person.TextContent.Trim());
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-item-age']"));
 
-        Assert.Equal(["#sync", "#aspire"], pane.FindAll("[data-testid='inbox-pane-item-tag']").Select(chip => chip.TextContent.Trim()));
-        // The alias, which is what a reader recognises; the id rides on the title.
-        var repository = pane.Find("[data-testid='inbox-pane-item-repository']");
-        Assert.Equal("backlog", repository.TextContent.Trim());
-        Assert.Equal("Repository: JSdotNet/Backlog", repository.GetAttribute("title"));
+        // Tags and repositories are the detail's, not the row's.
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-item-tag']"));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-item-repository']"));
+    }
+
+    /// <summary>The rows sit under Today (since local midnight), This week (the
+    /// seven days before now) and Older than a week, each heading with its
+    /// count; a heading with no rows is not drawn.</summary>
+    [Fact]
+    public async Task Rows_are_grouped_by_age_with_a_count_per_heading()
+    {
+        var now = new DateTimeOffset(2026, 9, 14, 15, 0, 0, TimeSpan.Zero);
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now);
+        clock.SetLocalTimeZone(TimeZoneInfo.Utc);
+        using var harness = Harness.Create(clock);
+        harness.Inbox.Seed("This morning", capturedAt: now.AddHours(-3));
+        harness.Inbox.Seed("Just now", capturedAt: now.AddMinutes(-5));
+        harness.Inbox.Seed("Four days ago", capturedAt: now.AddDays(-4));
+        harness.Inbox.Seed("Nine days ago", capturedAt: now.AddDays(-9));
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal(
+            ["Today · 2", "This week · 1", "Older than a week · 1"],
+            pane.FindAll(".inbox-pane__group-title").Select(heading => System.Text.RegularExpressions.Regex.Replace(heading.TextContent.Trim(), @"\s+", " ")));
+        Assert.Equal("2", pane.Find("[data-testid='inbox-group-today-count']").TextContent.Trim().TrimStart('·').Trim());
+        // Still one run of rows, newest first.
+        Assert.Equal(["Just now", "This morning", "Four days ago", "Nine days ago"], Titles(pane));
+    }
+
+    /// <summary>Yesterday evening is not today: the line is midnight, not
+    /// twenty-four hours — and a heading with no rows is not drawn.</summary>
+    [Fact]
+    public async Task Today_starts_at_midnight_and_an_empty_heading_is_not_shown()
+    {
+        var now = new DateTimeOffset(2026, 9, 14, 1, 0, 0, TimeSpan.Zero);
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now);
+        clock.SetLocalTimeZone(TimeZoneInfo.Utc);
+        using var harness = Harness.Create(clock);
+        harness.Inbox.Seed("Late yesterday", capturedAt: now.AddHours(-2));
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-group-today']"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-group-week']"));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-group-older']"));
+    }
+
+    /// <summary>Midnight is the reader's own: at 00:30 in a +02:00 zone an item
+    /// captured at 23:00 UTC the day before is today, though it was yesterday
+    /// in UTC.</summary>
+    [Fact]
+    public async Task Today_is_counted_from_local_midnight()
+    {
+        var zone = TimeZoneInfo.CreateCustomTimeZone("Plus two", TimeSpan.FromHours(2), "Plus two", "Plus two");
+        var now = new DateTimeOffset(2026, 9, 14, 0, 30, 0, TimeSpan.FromHours(2));
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now);
+        clock.SetLocalTimeZone(zone);
+        using var harness = Harness.Create(clock);
+        harness.Inbox.Seed("Just after local midnight", capturedAt: new DateTimeOffset(2026, 9, 13, 22, 10, 0, TimeSpan.Zero));
+        harness.Inbox.Seed("Before local midnight", capturedAt: new DateTimeOffset(2026, 9, 13, 21, 50, 0, TimeSpan.Zero));
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal("1", pane.Find("[data-testid='inbox-group-today-count']").TextContent.Trim().TrimStart('·').Trim());
+        Assert.Equal("1", pane.Find("[data-testid='inbox-group-week-count']").TextContent.Trim().TrimStart('·').Trim());
+    }
+
+    /// <summary>This week is the seven days before now: exactly seven days ago
+    /// is still this week, a minute more is older.</summary>
+    [Fact]
+    public async Task This_week_reaches_back_exactly_seven_days()
+    {
+        var now = new DateTimeOffset(2026, 9, 14, 15, 0, 0, TimeSpan.Zero);
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now);
+        clock.SetLocalTimeZone(TimeZoneInfo.Utc);
+        using var harness = Harness.Create(clock);
+        harness.Inbox.Seed("Seven days", capturedAt: now.AddDays(-7));
+        harness.Inbox.Seed("Seven days and a minute", capturedAt: now.AddDays(-7).AddMinutes(-1));
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal("1", pane.Find("[data-testid='inbox-group-week-count']").TextContent.Trim().TrimStart('·').Trim());
+        Assert.Equal("1", pane.Find("[data-testid='inbox-group-older-count']").TextContent.Trim().TrimStart('·').Trim());
+    }
+
+    /// <summary>The marker promises something the detail lets the reader take,
+    /// so a suggestion that cannot be taken yet does not earn it.</summary>
+    [Fact]
+    public async Task A_row_whose_only_suggestion_cannot_be_taken_is_not_marked()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Local-first patterns", ContentKind.Article);
+        harness.Inbox.SeedSuggestion(item.Id, InboxSuggestionKind.Destination, "devbook", "Collected material.", "Keeping an item as knowledge is not built yet.");
+
+        var pane = await harness.RenderAsync();
+
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-item']"));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-item-suggested']"));
+    }
+
+    /// <summary>A row whose item has a rule-based suggestion the reader has
+    /// not turned down says "suggested"; turning the last one down takes the
+    /// marker off.</summary>
+    [Fact]
+    public async Task A_row_with_an_open_suggestion_is_marked_suggested_until_it_is_dismissed()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "Sync the replicas", "Nothing to say");
+        harness.Inbox.SeedSuggestion(items[0].Id, InboxSuggestionKind.Tag, "sync");
+
+        var pane = await harness.RenderAsync();
+
+        pane.WaitForAssertion(() =>
+        {
+            var marked = pane.FindAll("[data-testid='inbox-pane-item']")
+                .Where(row => row.QuerySelector("[data-testid='inbox-pane-item-suggested']") is not null)
+                .Select(row => row.QuerySelector("[data-testid='inbox-pane-item-title']")!.TextContent.Trim());
+            Assert.Equal(["Sync the replicas"], marked);
+        });
+        Assert.Equal("suggested", pane.Find("[data-testid='inbox-pane-item-suggested']").TextContent.Trim());
+
+        await harness.SelectAsync(pane, items[0].Id);
+        pane.WaitForElement("[data-testid='inbox-suggestion-tag-sync']");
+        await pane.Find("[data-testid='inbox-suggestion-tag-sync'] [aria-label='Dismiss #sync']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-pane-item-suggested']")));
     }
 
     [Fact]
@@ -228,9 +357,8 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
 
-        var kind = pane.Find("[data-testid='inbox-pane-item-kind']");
-        Assert.Null(kind.QuerySelector("svg"));
-        Assert.Equal("hologram", kind.TextContent.Trim());
+        Assert.Null(pane.Find("[data-testid='inbox-pane-item-tile']").QuerySelector("svg"));
+        Assert.Equal("hologram", pane.Find("[data-testid='inbox-pane-item-kind']").TextContent.Trim());
         Assert.Equal("hologram", pane.Find("[data-testid='inbox-kind-hologram'] .inbox-pane__chip-label").TextContent.Trim());
     }
 
@@ -355,7 +483,7 @@ public sealed class InboxPaneTests
         var pane = await harness.RenderAsync();
 
         Assert.Equal(
-            ["inbox-kind-text", "inbox-kind-note"],
+            ["inbox-kind-all", "inbox-kind-text", "inbox-kind-note"],
             pane.FindAll("[data-testid='inbox-pane-filters'] [aria-pressed]").Select(chip => chip.GetAttribute("data-testid")));
         Assert.Contains("Note", pane.Find("[data-testid='inbox-kind-note']").TextContent);
 
@@ -576,6 +704,9 @@ public sealed class InboxPaneTests
     {
         using var harness = Harness.Create();
         var item = harness.Inbox.Seed("Route me", repoIds: [Repo, "JSdotNet/Other"]);
+        // A second item still waiting keeps the Inbox from being cleared, so the
+        // inbox-zero summary (InboxZeroTests) does not take the detail away.
+        harness.Inbox.Seed("Still waiting");
         var routed = new List<InboxRoutedDto>();
         harness.State.Routed += routed.Add;
 
@@ -583,7 +714,7 @@ public sealed class InboxPaneTests
         await harness.SelectAsync(pane, item.Id);
 
         var button = pane.Find("[data-testid='inbox-move-to-backlog']");
-        Assert.Equal("Move to backlog → 2 tasks", button.TextContent.Trim());
+        Assert.Equal("Move to backlog → 2 tasks", button.QuerySelector(".inbox-pane__decision-label")!.TextContent.Trim());
 
         await button.ClickAsync(new());
 
@@ -598,8 +729,39 @@ public sealed class InboxPaneTests
         Assert.Empty(pane.FindAll("[data-testid='inbox-move-to-backlog']"));
         Assert.Empty(pane.FindAll("[data-testid='inbox-archive']"));
         Assert.NotEmpty(pane.FindAll("[data-testid='inbox-move-to-list']"));
-        // And it no longer counts as waiting.
-        Assert.Equal("0", pane.Find("[data-testid='inbox-nav-inbox-count']").TextContent.Trim());
+        // And it no longer counts as waiting: only the other item does.
+        Assert.Equal("1", pane.Find("[data-testid='inbox-nav-inbox-count']").TextContent.Trim());
+    }
+
+    /// <summary>The four decisions sit in one bar at the foot of the detail,
+    /// outside the part that scrolls, each naming its key.</summary>
+    [Fact]
+    public async Task The_four_decisions_sit_in_a_bar_at_the_foot_of_the_detail_with_their_keys()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Decide me", bodyMd: string.Join("\n\n", Enumerable.Repeat("A long paragraph.", 40)));
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        var bar = pane.Find("[data-testid='inbox-detail-decisions']");
+        Assert.Equal("FOOTER", bar.TagName);
+        Assert.Equal("Decide", bar.GetAttribute("aria-label"));
+        // Beside the scrolling article, not inside it.
+        Assert.Empty(pane.FindAll("[data-testid='inbox-detail'] [data-testid='inbox-detail-decisions']"));
+
+        var decisions = bar.QuerySelectorAll("button")
+            .Select(button => (
+                Label: button.QuerySelector(".inbox-pane__decision-label")!.TextContent.Trim(),
+                Key: button.QuerySelector("kbd")!.TextContent.Trim()))
+            .ToList();
+        Assert.Equal(
+            [("Move to backlog", "R"), ("Move to list", "L"), ("Defer", "D"), ("Archive", "A")],
+            decisions);
+
+        // Defer in the bar offers the quick review dates.
+        await pane.Find("[data-testid='inbox-decide-defer']").ClickAsync(new());
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-defer-choices']"));
     }
 
     [Fact]
@@ -681,6 +843,9 @@ public sealed class InboxPaneTests
     {
         using var harness = Harness.Create();
         var item = harness.Inbox.Seed("Dismiss me");
+        // A second item still waiting keeps the Inbox from being cleared, so the
+        // inbox-zero summary (InboxZeroTests) does not take the detail away.
+        harness.Inbox.Seed("Still waiting");
 
         var pane = await harness.RenderAsync();
         await harness.SelectAsync(pane, item.Id);
@@ -693,7 +858,7 @@ public sealed class InboxPaneTests
     // --- Queue health ---------------------------------------------------------
 
     [Fact]
-    public async Task The_queue_health_strip_counts_every_unprocessed_item_and_calls_out_the_stale_ones()
+    public async Task The_queue_health_bar_splits_every_unprocessed_item_by_age_and_calls_out_the_stale_ones()
     {
         var now = new FakeInboxItems().Now;
         using var harness = Harness.Create(new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now));
@@ -706,23 +871,56 @@ public sealed class InboxPaneTests
 
         var pane = await harness.RenderAsync();
 
-        Assert.Equal("3 unprocessed items", pane.Find("[data-testid='inbox-queue-health-count']").TextContent.Trim());
-        Assert.Equal("oldest captured 20d ago", pane.Find("[data-testid='inbox-queue-health-oldest']").TextContent.Trim());
-        Assert.Equal("2 over 14 days", pane.Find("[data-testid='inbox-queue-health-stale']").TextContent.Trim());
+        // At the foot of the side menu, whichever list is open.
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-nav'] [data-testid='inbox-queue-health']"));
+        Assert.Equal("3 open", pane.Find("[data-testid='inbox-queue-health-count']").TextContent.Trim());
+        Assert.Equal("1 under 3 days", pane.Find("[data-testid='inbox-queue-health-fresh']").TextContent.Trim());
+        Assert.Equal("0 from 3 to 14 days", pane.Find("[data-testid='inbox-queue-health-aging']").TextContent.Trim());
+
+        var over = pane.Find("[data-testid='inbox-queue-health-stale']");
+        Assert.Equal("2 over 14 days — oldest 20 days", System.Text.RegularExpressions.Regex.Replace(over.TextContent.Trim(), @"\s+", " "));
+        Assert.Contains("inbox-pane__health-over", over.ClassList);
+
+        // The bar draws only the parts with something in them, and reads the counts aloud.
+        var bar = pane.Find("[data-testid='inbox-queue-health-bar']");
+        Assert.Equal("img", bar.GetAttribute("role"));
+        Assert.Equal("1 under 3 days, 0 from 3 to 14 days, 2 over 14 days, oldest 20 days", bar.GetAttribute("aria-label"));
+        Assert.Equal(
+            ["inbox-pane__health-part--fresh", "inbox-pane__health-part--over"],
+            bar.Children.Select(part => part.ClassList.Last()));
     }
 
     [Fact]
-    public async Task The_queue_health_strip_has_no_chip_when_nothing_has_waited_too_long()
+    public async Task The_middle_part_counts_from_three_days_up_to_the_stale_threshold()
+    {
+        var now = new FakeInboxItems().Now;
+        using var harness = Harness.Create(new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now));
+        harness.Inbox.Seed("Exactly three days", capturedAt: now.AddDays(-3));
+        harness.Inbox.Seed("Exactly fourteen days", capturedAt: now.AddDays(-14));
+        harness.Inbox.Seed("Under three days", capturedAt: now.AddDays(-3).AddMinutes(1));
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal("1 under 3 days", pane.Find("[data-testid='inbox-queue-health-fresh']").TextContent.Trim());
+        Assert.Equal("2 from 3 to 14 days", pane.Find("[data-testid='inbox-queue-health-aging']").TextContent.Trim());
+        Assert.Equal("0 over 14 days", pane.Find("[data-testid='inbox-queue-health-stale']").TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task The_queue_health_over_line_is_quiet_when_nothing_has_waited_too_long()
     {
         // Pinned to the fake's own now: on the system clock the item grows stale
-        // fourteen days after FakeInboxItems.Now, and the chip appears.
+        // fourteen days after FakeInboxItems.Now, and the line turns.
         var now = new FakeInboxItems().Now;
         using var harness = Harness.Create(new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now));
         harness.Inbox.Seed("Fresh", capturedAt: now);
 
         var pane = await harness.RenderAsync();
 
-        Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-stale']"));
+        var over = pane.Find("[data-testid='inbox-queue-health-stale']");
+        Assert.Equal("0 over 14 days", over.TextContent.Trim());
+        Assert.DoesNotContain("inbox-pane__health-over", over.ClassList);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-oldest']"));
     }
 
     [Fact]
@@ -734,6 +932,7 @@ public sealed class InboxPaneTests
         var pane = await harness.RenderAsync();
 
         Assert.Equal("Nothing waiting", pane.Find("[data-testid='inbox-queue-health-count']").TextContent.Trim());
+        Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-bar']"));
         Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-oldest']"));
     }
 
@@ -767,6 +966,9 @@ public sealed class InboxPaneTests
     {
         using var harness = Harness.Create();
         var item = harness.Inbox.Seed("Someday");
+        // A second item still waiting keeps the Inbox from being cleared, so the
+        // inbox-zero summary (InboxZeroTests) does not take the detail away.
+        harness.Inbox.Seed("Still waiting");
 
         var pane = await harness.RenderAsync();
         await harness.SelectAsync(pane, item.Id);
@@ -778,7 +980,7 @@ public sealed class InboxPaneTests
         await pane.Find("[data-testid='inbox-return']").ClickAsync(new());
 
         Assert.Equal(InboxStatus.Unprocessed, harness.Inbox.Find(item.Id)!.Status);
-        Assert.Equal(["Someday"], Titles(pane));
+        Assert.Contains("Someday", Titles(pane));
         Assert.Empty(pane.FindAll("[data-testid='inbox-return']"));
     }
 
@@ -873,173 +1075,251 @@ public sealed class InboxPaneTests
         Assert.Contains(harness.Toasts.Visible, toast => toast.TestId == "inbox-error" && toast.Severity == ToastSeverity.Error);
     }
 
-    // --- Add and Capture ----------------------------------------------------
+    // --- The header: the capture field and Capture now ------------------------
 
-    /// <summary>Both actions sit in the header whether or not there is anything
-    /// in the queue: an empty Inbox is exactly where somebody reaches for Add.</summary>
+    /// <summary>Everything in the header is there whether or not there is
+    /// anything in the queue: an empty Inbox is exactly where somebody reaches
+    /// for the field.</summary>
     [Fact]
-    public async Task The_header_offers_add_and_capture_when_the_inbox_is_empty()
+    public async Task The_header_offers_the_field_capture_now_shortcuts_and_triage_when_the_inbox_is_empty()
     {
         using var harness = Harness.Create();
 
         var pane = await harness.RenderAsync();
 
-        Assert.Equal("Add", pane.Find("[data-testid='inbox-pane-add']").TextContent.Trim());
-        Assert.Equal("Capture", pane.Find("[data-testid='inbox-pane-capture']").TextContent.Trim());
+        Assert.Equal("Capture a thought", pane.Find("[data-testid='inbox-pane-capture-field'] input").GetAttribute("aria-label"));
+        Assert.Equal("Capture now", pane.Find("[data-testid='inbox-pane-capture']").TextContent.Trim());
+        Assert.Equal("Keyboard shortcuts", pane.Find("[data-testid='inbox-pane-shortcuts']").GetAttribute("aria-label"));
+        // Nothing to triage, so Start triage is there and off.
+        Assert.True(pane.Find("[data-testid='inbox-triage-start']").HasAttribute("disabled"));
+        Assert.Equal("Nothing waiting", pane.Find("[data-testid='inbox-pane-waiting']").TextContent.Trim());
     }
 
+    /// <summary>The short form of queue health sits beside the title: how many
+    /// wait, and how long the oldest has.</summary>
     [Fact]
-    public async Task The_header_offers_add_and_capture_when_there_are_items()
+    public async Task The_header_says_how_many_wait_and_how_old_the_oldest_is()
     {
-        using var harness = Harness.Create();
-        harness.Inbox.Seed("One");
-        harness.Inbox.Seed("Two");
+        var now = new FakeInboxItems().Now;
+        using var harness = Harness.Create(new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now));
+        harness.Inbox.Seed("One", capturedAt: now.AddHours(-2));
+        harness.Inbox.Seed("Two", capturedAt: now.AddDays(-12));
+        harness.Inbox.Seed("Put aside", status: InboxStatus.Deferred, capturedAt: now.AddDays(-30));
 
         var pane = await harness.RenderAsync();
 
-        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-add']"));
-        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-capture']"));
+        Assert.Equal("2 waiting · oldest 12 days", pane.Find("[data-testid='inbox-pane-waiting']").TextContent.Trim());
+        Assert.False(pane.Find("[data-testid='inbox-triage-start']").HasAttribute("disabled"));
     }
 
+    /// <summary>Enter files what is typed as the title of an unfiled item with
+    /// no notes, empties the field and opens the item.</summary>
     [Fact]
-    public async Task Add_opens_a_dialog_with_a_title_and_notes()
+    public async Task Enter_in_the_field_files_the_title_and_empties_the_field()
     {
         using var harness = Harness.Create();
 
         var pane = await harness.RenderAsync();
-        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-add-dialog']"));
 
-        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
+        await TypeTitleAsync(pane, "  Ask about the Cosmos emulator ");
+        await pane.Find(FieldInput).KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
 
-        var dialog = pane.Find("[data-testid='inbox-pane-add-dialog']");
-        Assert.Equal("dialog", dialog.GetAttribute("role"));
-        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-add-title']"));
-        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-add-notes']"));
+        var item = Assert.Single(harness.Inbox.Items);
+        Assert.Equal("Ask about the Cosmos emulator", item.Title);
+        Assert.Equal(string.Empty, item.BodyMd);
+        Assert.Equal("manual", item.Channel);
+
+        Assert.Equal(string.Empty, pane.Find(FieldInput).GetAttribute("value"));
+        Assert.Equal(["Ask about the Cosmos emulator"], Titles(pane));
+        Assert.Equal("Manual", pane.Find("[data-testid='inbox-pane-item-source']").TextContent.Trim());
+        // The new item is selected, so the detail opens on it.
+        Assert.Equal("Ask about the Cosmos emulator", pane.Find("[data-testid='inbox-detail'] #inbox-detail-title").TextContent.Trim());
+        // And the focus goes back to the field, for the next thought.
+        Assert.Contains(
+            harness.Context.JSInterop.Invocations["backlogFocus"],
+            call => Equals(call.Arguments[0], InboxPane.CaptureInputId));
+    }
+
+    /// <summary>The module refuses an item without a title, so the field does
+    /// not offer to try.</summary>
+    [Fact]
+    public async Task Enter_on_a_blank_field_files_nothing()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync();
+
+        await TypeTitleAsync(pane, "   ");
+        await pane.Find(FieldInput).KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+
+        Assert.Empty(harness.Inbox.Items);
+
+        // The same key on a real title does file, so the nothing above is the
+        // blank title's and not a key that went unheard.
+        await TypeTitleAsync(pane, "Now with words");
+        await pane.Find(FieldInput).KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+
+        Assert.Equal("Now with words", Assert.Single(harness.Inbox.Items).Title);
+    }
+
+    /// <summary>Shift+Enter opens the notes under the field and files nothing;
+    /// the title stays where it was typed.</summary>
+    [Fact]
+    public async Task Shift_enter_opens_the_notes_editor_and_files_nothing()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync();
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-capture-notes']"));
+
+        await TypeTitleAsync(pane, "Ask about the trial length");
+        await pane.Find(FieldInput).KeyDownAsync(new KeyboardEventArgs { Key = "Enter", ShiftKey = true });
+
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-capture-notes']"));
+        Assert.Empty(harness.Inbox.Items);
+        Assert.Equal("Ask about the trial length", pane.Find(FieldInput).GetAttribute("value"));
+        Assert.Contains(
+            harness.Context.JSInterop.Invocations["backlogFocus"],
+            call => Equals(call.Arguments[0], InboxPane.NotesInputId));
     }
 
     /// <summary>The notes land in <c>BodyMd</c> and the detail pane reads them
     /// back as markdown, so the box they are written in is the shared markdown
     /// editor — a formatting toolbar over the source — rather than a plain
-    /// textarea. Labelled "Notes", and the label is the textarea's own name.</summary>
+    /// textarea, named "Notes".</summary>
     [Fact]
     public async Task Notes_are_written_in_the_markdown_editor()
     {
         using var harness = Harness.Create();
 
         var pane = await harness.RenderAsync();
-        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
+        await OpenNotesAsync(pane);
 
-        var notes = pane.Find("[data-testid='inbox-pane-add-notes']");
+        var notes = pane.Find("[data-testid='inbox-pane-capture-notes']");
         Assert.Contains("markdown-editor", notes.ClassList);
         Assert.NotEmpty(notes.QuerySelectorAll("[role='toolbar'] button"));
         Assert.NotNull(notes.QuerySelector("[data-testid='markdown-editor-bullet']"));
 
         var textarea = notes.QuerySelector("textarea");
         Assert.NotNull(textarea);
-        var label = pane.Find($"label[for='{textarea.GetAttribute("id")}']");
-        Assert.Equal("Notes", label.TextContent);
+        Assert.Equal("Notes", textarea.GetAttribute("aria-label"));
     }
 
-    /// <summary>The module refuses an item without a title, so the dialog does
-    /// not offer to try.</summary>
+    /// <summary>Ctrl+Enter in the notes files the title and the notes as one
+    /// item, and empties and closes both. Asserted on what the module received
+    /// and on what the pane shows, never on a throw: bUnit swallows a handler's
+    /// exception, so a key that did nothing would look exactly like one that
+    /// threw.</summary>
     [Fact]
-    public async Task Submit_is_disabled_until_a_title_is_typed()
+    public async Task Ctrl_enter_files_the_title_and_the_notes_and_closes_the_notes()
     {
         using var harness = Harness.Create();
 
         var pane = await harness.RenderAsync();
-        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
-
-        Assert.True(pane.Find("[data-testid='inbox-pane-add-submit']").HasAttribute("disabled"));
-
-        await pane.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new ChangeEventArgs { Value = "   " });
-        Assert.True(pane.Find("[data-testid='inbox-pane-add-submit']").HasAttribute("disabled"));
-        Assert.Empty(harness.Inbox.Items);
-
-        await pane.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new ChangeEventArgs { Value = "Ask about the trial length" });
-        Assert.False(pane.Find("[data-testid='inbox-pane-add-submit']").HasAttribute("disabled"));
-    }
-
-    /// <summary>Asserted on what the module received and on what the pane shows,
-    /// never on a throw: bUnit swallows a handler's exception, so a submit that
-    /// did nothing would look exactly like one that threw.</summary>
-    [Fact]
-    public async Task Submitting_files_a_manual_item_with_the_notes_as_its_body_and_opens_it()
-    {
-        using var harness = Harness.Create();
-
-        var pane = await harness.RenderAsync();
-
-        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
-        await pane.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new ChangeEventArgs { Value = "  Ask about the trial length " });
-        await pane.Find("[data-testid='inbox-pane-add-notes'] textarea").InputAsync(new ChangeEventArgs { Value = "Before Friday.\n" });
-        await pane.Find("[data-testid='inbox-pane-add-submit']").ClickAsync(new());
+        await TypeTitleAsync(pane, "  Ask about the trial length ");
+        await OpenNotesAsync(pane);
+        await pane.Find(NotesTextarea).InputAsync(new ChangeEventArgs { Value = "Before Friday.\nAnd in writing.\n" });
+        await pane.Find(NotesTextarea).KeyDownAsync(new KeyboardEventArgs { Key = "Enter", CtrlKey = true });
 
         var item = Assert.Single(harness.Inbox.Items);
         Assert.Equal("Ask about the trial length", item.Title);
-        Assert.Equal("Before Friday.", item.BodyMd);
-        Assert.Equal("manual", item.Channel);
+        Assert.Equal("Before Friday.\nAnd in writing.", item.BodyMd);
 
-        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-add-dialog']"));
-        Assert.Equal(["Ask about the trial length"], Titles(pane));
-        Assert.Equal("Manual", pane.Find("[data-testid='inbox-pane-item-source']").TextContent.Trim());
-        // The new item is selected, so the detail opens on it with the notes as its body.
-        Assert.Equal("Ask about the trial length", pane.Find("[data-testid='inbox-detail'] #inbox-detail-title").TextContent.Trim());
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-capture-notes-panel']"));
+        Assert.Equal(string.Empty, pane.Find(FieldInput).GetAttribute("value"));
         Assert.Contains("Before Friday.", pane.Find("[data-testid='inbox-detail']").TextContent, StringComparison.Ordinal);
 
-        // The next Add starts clean rather than with the last one still in it.
-        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
-        Assert.Equal(string.Empty, pane.Find("[data-testid='inbox-pane-add-title'] input").GetAttribute("value"));
+        // The next thought starts clean rather than with the last notes in it.
+        await OpenNotesAsync(pane);
+        Assert.Equal(string.Empty, pane.Find(NotesTextarea).GetAttribute("value") ?? string.Empty);
     }
 
+    /// <summary>The notes' own button does what Ctrl+Enter does, for a reader
+    /// on the mouse; it is off without a title.</summary>
     [Fact]
-    public async Task Notes_are_optional_and_none_is_an_empty_body()
+    public async Task The_notes_add_button_files_and_is_off_without_a_title()
     {
         using var harness = Harness.Create();
 
         var pane = await harness.RenderAsync();
+        await OpenNotesAsync(pane);
 
-        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
-        await pane.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new ChangeEventArgs { Value = "Just a title" });
-        await pane.Find("[data-testid='inbox-pane-add-submit']").ClickAsync(new());
+        Assert.True(pane.Find("[data-testid='inbox-pane-capture-submit']").HasAttribute("disabled"));
+
+        await TypeTitleAsync(pane, "Just a title");
+        Assert.False(pane.Find("[data-testid='inbox-pane-capture-submit']").HasAttribute("disabled"));
+
+        await pane.Find("[data-testid='inbox-pane-capture-submit']").ClickAsync(new());
 
         var item = Assert.Single(harness.Inbox.Items);
         Assert.Equal("Just a title", item.Title);
         Assert.Equal(string.Empty, item.BodyMd);
-        Assert.Equal(["Just a title"], Titles(pane));
     }
 
+    /// <summary>Escape in the notes closes them and files nothing; the title is
+    /// still in the field, and the focus goes back to it.</summary>
     [Fact]
-    public async Task Cancel_closes_the_dialog_and_files_nothing()
+    public async Task Escape_closes_the_notes_keeps_the_title_and_files_nothing()
     {
         using var harness = Harness.Create();
 
         var pane = await harness.RenderAsync();
+        await TypeTitleAsync(pane, "Something");
+        await OpenNotesAsync(pane);
+        await pane.Find(NotesTextarea).InputAsync(new ChangeEventArgs { Value = "Not yet" });
 
-        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
-        await pane.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new ChangeEventArgs { Value = "Something" });
-        await pane.Find("[data-testid='inbox-pane-add-cancel']").ClickAsync(new());
+        await pane.Find(NotesTextarea).KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
 
         Assert.Empty(harness.Inbox.Items);
-        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-add-dialog']"));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-capture-notes-panel']"));
+        Assert.Equal("Something", pane.Find(FieldInput).GetAttribute("value"));
+        Assert.Contains(
+            harness.Context.JSInterop.Invocations["backlogFocus"],
+            call => Equals(call.Arguments[0], InboxPane.CaptureInputId));
+
+        // The notes went with the editor: Enter now files the title alone,
+        // never notes nobody can see.
+        await pane.Find(FieldInput).KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+
+        var item = Assert.Single(harness.Inbox.Items);
+        Assert.Equal("Something", item.Title);
+        Assert.Equal(string.Empty, item.BodyMd);
     }
 
-    /// <summary>The dialog has closed by the time the module answers, so a
-    /// refusal is a toast of its own rather than the item acts' one.</summary>
+    /// <summary>A capture made with the sources on screen brings the queue
+    /// back, so the row it made is seen.</summary>
     [Fact]
-    public async Task A_refused_add_is_a_toast_under_its_own_id()
+    public async Task Capturing_with_the_sources_shown_returns_to_the_queue()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync(parameters => parameters
+            .Add(p => p.Sources, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p data-testid='sources-content'>switches</p>"))));
+        await pane.Find("[data-testid='inbox-pane-sources-open']").ClickAsync(new());
+
+        await TypeTitleAsync(pane, "Seen at once");
+        await pane.Find(FieldInput).KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+
+        Assert.False(harness.State.SourcesShown);
+        Assert.Equal(["Seen at once"], Titles(pane));
+    }
+
+    /// <summary>The field is a line in the header with nowhere to hold a
+    /// one-off failure, so a refusal is a toast of its own rather than the item
+    /// acts' one — and the words typed stay in the field to try again with.</summary>
+    [Fact]
+    public async Task A_refused_capture_is_a_toast_under_its_own_id_and_keeps_the_title()
     {
         using var harness = Harness.Create();
         harness.Inbox.NextCaptureError = Error.Unexpected("inbox.store_failed", "The inbox database is locked.");
 
         var pane = await harness.RenderAsync();
 
-        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
-        await pane.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new ChangeEventArgs { Value = "Ask about the trial length" });
-        await pane.Find("[data-testid='inbox-pane-add-submit']").ClickAsync(new());
+        await TypeTitleAsync(pane, "Ask about the trial length");
+        await pane.Find(FieldInput).KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
 
         Assert.Empty(harness.Inbox.Items);
-        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-add-dialog']"));
+        Assert.Equal("Ask about the trial length", pane.Find(FieldInput).GetAttribute("value"));
         var toast = Assert.Single(harness.Toasts.Visible);
         Assert.Equal("inbox-add-error", toast.TestId);
         Assert.Equal(ToastSeverity.Error, toast.Severity);
@@ -1101,63 +1381,66 @@ public sealed class InboxPaneTests
         Assert.Empty(pane.FindAll("[data-testid='inbox-pane-capture-result']"));
     }
 
-    // --- The Sources tab ----------------------------------------------------
+    // --- Sources ---------------------------------------------------------------
 
-    /// <summary>With nothing in the sources slot there is nothing to switch
-    /// to, so the pane draws the queue with no tab strip over it.</summary>
+    /// <summary>With nothing in the sources slot there is nothing to show, so
+    /// the header has no Sources button and the pane draws the queue.</summary>
     [Fact]
-    public async Task Without_sources_the_queue_has_no_tab_strip()
+    public async Task Without_sources_there_is_no_sources_button()
     {
         using var harness = Harness.Create();
 
         var pane = await harness.RenderAsync();
 
-        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-tabs']"));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-sources-open']"));
         Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-body']"));
     }
 
-    /// <summary>The sources are a tab of their own beside the queue, so they
-    /// take the pane's whole body rather than a strip above the rows. The
-    /// queue is the tab a pane opens on.</summary>
+    /// <summary>The queue is what a pane opens on; the sources are behind the
+    /// header's button, and there is no tab strip any more.</summary>
     [Fact]
-    public async Task Sources_are_a_tab_beside_the_queue_and_the_queue_is_shown_first()
+    public async Task The_queue_is_shown_first_and_sources_wait_behind_the_header_button()
     {
         using var harness = Harness.Create();
 
         var pane = await harness.RenderAsync(parameters => parameters
             .Add(p => p.Sources, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p data-testid='sources-content'>switches</p>"))));
 
-        var tabs = pane.FindAll("[data-testid='inbox-pane-tabs'] [role='tab']");
-        Assert.Equal(["Inbox", "Sources"], tabs.Select(tab => tab.TextContent.Trim()));
-        Assert.Equal("true", pane.Find("[data-testid='inbox-pane-tab-queue']").GetAttribute("aria-selected"));
+        Assert.Equal("Sources", pane.Find("[data-testid='inbox-pane-sources-open']").TextContent.Trim());
+        Assert.Equal("false", pane.Find("[data-testid='inbox-pane-sources-open']").GetAttribute("aria-pressed"));
+        Assert.Empty(pane.FindAll("[role='tablist']"));
         Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-body']"));
         Assert.Empty(pane.FindAll("[data-testid='sources-content']"));
     }
 
+    /// <summary>Sources take the pane's whole body in place of the queue, with
+    /// "Back to Inbox" over them.</summary>
     [Fact]
-    public async Task Choosing_the_sources_tab_gives_them_the_body_in_place_of_the_queue()
+    public async Task Sources_take_the_body_and_back_to_inbox_returns_the_queue()
     {
         using var harness = Harness.Create();
 
         var pane = await harness.RenderAsync(parameters => parameters
             .Add(p => p.Sources, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p data-testid='sources-content'>switches</p>"))));
 
-        await pane.Find("[data-testid='inbox-pane-tab-sources']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-pane-sources-open']").ClickAsync(new());
 
         Assert.True(harness.State.SourcesShown);
         Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-sources'] [data-testid='sources-content']"));
+        Assert.Equal("Back to Inbox", pane.Find("[data-testid='inbox-pane-sources-back']").TextContent.Trim());
         Assert.Empty(pane.FindAll("[data-testid='inbox-pane-body']"));
 
-        await pane.Find("[data-testid='inbox-pane-tab-queue']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-pane-sources-back']").ClickAsync(new());
 
         Assert.False(harness.State.SourcesShown);
         Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-body']"));
+        Assert.Empty(pane.FindAll("[data-testid='sources-content']"));
     }
 
-    /// <summary>The tab is held on the state, not the pane, so a pane that
-    /// re-mounts in another slot opens on the tab the reader left it on.</summary>
+    /// <summary>Which is shown is held on the state, not the pane, so a pane
+    /// that re-mounts in another slot opens on what the reader left it on.</summary>
     [Fact]
-    public async Task A_remounted_pane_opens_on_the_tab_it_was_left_on()
+    public async Task A_remounted_pane_opens_on_the_sources_when_it_was_left_on_them()
     {
         using var harness = Harness.Create();
         harness.State.ShowSources(true);
@@ -1165,8 +1448,21 @@ public sealed class InboxPaneTests
         var pane = await harness.RenderAsync(parameters => parameters
             .Add(p => p.Sources, (RenderFragment)(builder => builder.AddMarkupContent(0, "<p data-testid='sources-content'>switches</p>"))));
 
-        Assert.Equal("true", pane.Find("[data-testid='inbox-pane-tab-sources']").GetAttribute("aria-selected"));
+        Assert.Equal("true", pane.Find("[data-testid='inbox-pane-sources-open']").GetAttribute("aria-pressed"));
         Assert.NotEmpty(pane.FindAll("[data-testid='sources-content']"));
+    }
+
+    private const string FieldInput = "[data-testid='inbox-pane-capture-field'] input";
+
+    private const string NotesTextarea = "[data-testid='inbox-pane-capture-notes'] textarea";
+
+    private static Task TypeTitleAsync(IRenderedComponent<InboxPane> pane, string title) =>
+        pane.Find(FieldInput).InputAsync(new ChangeEventArgs { Value = title });
+
+    private static async Task OpenNotesAsync(IRenderedComponent<InboxPane> pane)
+    {
+        await pane.Find(FieldInput).KeyDownAsync(new KeyboardEventArgs { Key = "Enter", ShiftKey = true });
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll(NotesTextarea)));
     }
 
     // --- The context menu ---------------------------------------------------
@@ -2268,7 +2564,7 @@ public sealed class InboxPaneTests
     // --- Suggestions ----------------------------------------------------------
 
     [Fact]
-    public async Task An_open_items_suggestions_are_numbered_chips_and_nothing_is_applied_until_one_is_taken()
+    public async Task An_open_items_suggestions_are_numbered_rows_and_nothing_is_applied_until_one_is_taken()
     {
         using var harness = Harness.Create();
         harness.GitHub.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")]);
@@ -2282,12 +2578,17 @@ public sealed class InboxPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var chips = pane.FindAll("[data-testid='inbox-detail-suggestions'] .tag-chip");
+            var rows = pane.FindAll("[data-testid='inbox-detail-suggestions'] .inbox-pane__suggestion");
             Assert.Equal(
-                ["1#sync", "2Repository backlog", "3Move to backlog"],
-                chips.Select(chip => chip.TextContent.Replace("×", string.Empty, StringComparison.Ordinal).Trim()));
+                [("1", "#sync"), ("2", "Repository backlog"), ("3", "Move to backlog")],
+                rows.Select(row => (
+                    row.QuerySelector(".inbox-pane__suggestion-key")!.TextContent.Trim(),
+                    row.QuerySelector(".inbox-pane__suggestion-text")!.TextContent.Trim())));
         });
-        var tag = pane.Find("[data-testid='inbox-suggestion-tag-sync'] .tag-chip__label");
+        Assert.Equal(
+            "The backlog files entries under #sync.",
+            pane.Find("[data-testid='inbox-suggestion-tag-sync'] .inbox-pane__suggestion-reason").TextContent.Trim());
+        var tag = pane.Find("[data-testid='inbox-suggestion-tag-sync'] .inbox-pane__suggestion-take");
         Assert.Equal("Add #sync: The backlog files entries under #sync.", tag.GetAttribute("aria-label"));
         Assert.Equal("1", tag.GetAttribute("aria-keyshortcuts"));
 
@@ -2298,7 +2599,7 @@ public sealed class InboxPaneTests
     }
 
     [Fact]
-    public async Task Pressing_a_chip_adds_its_tag_and_the_chip_leaves_the_row()
+    public async Task Pressing_a_suggestion_adds_its_tag_and_the_suggestion_leaves_the_list()
     {
         using var harness = Harness.Create();
         var item = harness.Inbox.Seed("About sync", tags: ["infra"]);
@@ -2308,7 +2609,7 @@ public sealed class InboxPaneTests
         await harness.SelectAsync(pane, item.Id);
         pane.WaitForElement("[data-testid='inbox-suggestion-tag-sync']");
 
-        await pane.Find("[data-testid='inbox-suggestion-tag-sync'] .tag-chip__label").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-suggestion-tag-sync'] .inbox-pane__suggestion-take").ClickAsync(new());
 
         pane.WaitForAssertion(() =>
         {
@@ -2387,7 +2688,7 @@ public sealed class InboxPaneTests
         {
             Assert.Empty(pane.FindAll("[data-testid='inbox-suggestion-tag-sync']"));
             // The one left is now number 1.
-            Assert.Equal("1", pane.Find("[data-testid='inbox-suggestion-destination-tasks'] .tag-chip__key").TextContent);
+            Assert.Equal("1", pane.Find("[data-testid='inbox-suggestion-destination-tasks'] .inbox-pane__suggestion-key").TextContent);
         });
     }
 
@@ -2413,7 +2714,7 @@ public sealed class InboxPaneTests
 
         await harness.SelectAsync(pane, digest.Id);
         pane.WaitForElement("[data-testid='inbox-suggestion-destination-archive']");
-        await pane.Find("[data-testid='inbox-suggestion-destination-archive'] .tag-chip__label").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-suggestion-destination-archive'] .inbox-pane__suggestion-take").ClickAsync(new());
 
         pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Archived, harness.Inbox.Find(digest.Id)!.Status));
     }
@@ -2431,8 +2732,8 @@ public sealed class InboxPaneTests
 
         Assert.Contains("Keep as knowledge", chip.TextContent, StringComparison.Ordinal);
         Assert.Contains("not built yet", chip.GetAttribute("title"), StringComparison.Ordinal);
-        Assert.Empty(chip.QuerySelectorAll("button.tag-chip__label"));
-        Assert.Empty(chip.QuerySelectorAll(".tag-chip__key"));
+        Assert.Empty(chip.QuerySelectorAll("button.inbox-pane__suggestion-take"));
+        Assert.Empty(chip.QuerySelectorAll(".inbox-pane__suggestion-key"));
 
         await pane.Find("[data-testid='inbox-detail']").KeyDownAsync(new KeyboardEventArgs { Key = "1" });
         Assert.Equal(InboxStatus.Unprocessed, harness.Inbox.Find(item.Id)!.Status);

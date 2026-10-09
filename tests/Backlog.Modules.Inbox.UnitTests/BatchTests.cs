@@ -166,6 +166,8 @@ public sealed class BatchTests
             delete: new DeleteItemCommandHandler(store, Clock),
             defer: null!,
             resurface: null!,
+            restore: null!,
+            returnToInbox: null!,
             resurfaceDue: null!,
             routeToBacklog: null!,
             createPlan: null!,
@@ -184,8 +186,12 @@ public sealed class BatchTests
             readAttachment: null!,
             openAttachment: null!,
             suggest: null!,
+            suggestMany: null!,
             dismissSuggestion: null!,
             related: null!,
             linkToTask: null!,
+            mergeIntoTask: null!,
+            adviseTriage: null!,
+            proposeTriagePass: null!,
             editNote: null!);
 }

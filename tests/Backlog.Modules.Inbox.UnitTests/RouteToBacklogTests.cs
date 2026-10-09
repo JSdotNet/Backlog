@@ -43,6 +43,29 @@ public sealed class RouteToBacklogTests
         Assert.Equal(Decision, item.Routing.RoutedAt);
     }
 
+    /// <summary>The siblings of a route to several repositories name each other
+    /// and share a tag made from the item's id, which only works because every
+    /// repository goes to the target in one request with that id — never one
+    /// request per repository. The text itself is the adapter's, pinned in
+    /// <c>InboxBacklogTargetTests</c>.</summary>
+    [Fact]
+    public async Task Three_repositories_go_to_the_target_as_one_request_so_the_siblings_can_name_each_other()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual("Ship the thing");
+        item.SetRepoIds(["jsdotnet/backlog", "jsdotnet/other", "jsdotnet/third"]);
+        store.Seed(item);
+
+        var result = await Route(store, target, item.Id);
+
+        Assert.True(result.IsSuccess);
+        var request = Assert.Single(target.Requests);
+        Assert.Equal(item.Id, request.InboxItemId);
+        Assert.Equal(["jsdotnet/backlog", "jsdotnet/other", "jsdotnet/third"], request.RepoIds);
+        Assert.Equal(3, item.Routing!.TaskIds.Count);
+    }
+
     [Fact]
     public async Task No_repository_makes_one_untargeted_entry()
     {

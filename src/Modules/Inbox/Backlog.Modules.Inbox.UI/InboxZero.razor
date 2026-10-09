@@ -1,0 +1,88 @@
+@using Backlog.UI.Components.Metrics
+
+@*
+    Inbox zero (features.md#inbox-zero): what the pane shows in place of the
+    rows and the detail once the unfiled Inbox has nothing left waiting and
+    this session decided something. A finished triage deserves a line saying
+    so, not an empty column — and the next question, "what now?", is answered
+    on the same screen: what was decided, what is coming back, and the two
+    places worth going next.
+
+    The numbers are the undo history's tally, so a decision taken back with U
+    stops being counted. A kind with no decisions is left out rather than shown
+    as a zero. The pane decides whether this screen is drawn
+    (InboxDesktopState.ShowsInboxZero); this component only draws it.
+*@
+
+<div class="inbox-zero" data-testid="inbox-zero">
+    <div class="inbox-zero__lead">
+        <div class="inbox-zero__mark" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"></path></svg>
+        </div>
+        <h3 class="inbox-zero__title" data-testid="inbox-zero-title">Inbox is clear</h3>
+        <p class="inbox-zero__summary" data-testid="inbox-zero-summary">
+            You decided on @InboxDesktopState.Counted(State.SessionDecisionTotal, "item", "items") in this session.
+        </p>
+    </div>
+
+    @if (State.ZeroStats is { Count: > 0 } stats)
+    {
+        <MetricGrid Label="What this session decided"
+                    BaseClass="inbox-zero__stats"
+                    TestId="inbox-zero-stats">
+            @foreach (var stat in stats)
+            {
+                <MetricTile Label="@stat.Label"
+                            Value="@stat.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                            BaseClass="inbox-zero__stat"
+                            TestId="@($"inbox-zero-stat-{StatSlug(stat.Kind)}")" />
+            }
+        </MetricGrid>
+    }
+
+    @if (State.ComingBack is { Count: > 0 } back)
+    {
+        <section class="inbox-zero__back" aria-labelledby="inbox-zero-back-title" data-testid="inbox-zero-coming-back">
+            <h4 class="inbox-zero__back-title" id="inbox-zero-back-title">Coming back</h4>
+            <ul class="inbox-zero__back-list">
+                @foreach (var item in back)
+                {
+                    <li class="inbox-zero__back-row" data-testid="inbox-zero-back-@item.Id.ToString("D")">
+                        <span class="inbox-zero__back-name">@item.Title</span>
+                        <span class="inbox-zero__back-when">@State.ComesBackLabel(item.DeferredUntil!.Value)</span>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    <div class="inbox-zero__acts">
+        @if (State.BusiestList is { } busiest)
+        {
+            <AppButton Size="ButtonSize.Small"
+                       CssClass="inbox-zero__act"
+                       OnClick="() => State.SelectSlice(InboxDesktopState.ListNavId(busiest.List.Id))"
+                       TestId="inbox-zero-open-list">Open @busiest.List.Name · @busiest.Count</AppButton>
+        }
+        <AppButton Size="ButtonSize.Small"
+                   CssClass="inbox-zero__act"
+                   OnClick="() => State.SelectSlice(InboxDesktopState.DeferredSliceId)"
+                   TestId="inbox-zero-open-deferred">Open Deferred</AppButton>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public InboxDesktopState State { get; set; } = default!;
+
+    /// <summary>A stat's test id, in the words a test reads rather than the enum's.</summary>
+    internal static string StatSlug(InboxDecisionKind kind) => kind switch
+    {
+        InboxDecisionKind.MoveToBacklog => "backlog",
+        InboxDecisionKind.MoveToList => "lists",
+        InboxDecisionKind.Defer => "deferred",
+        InboxDecisionKind.Archive => "archived",
+        InboxDecisionKind.MergeIntoTask => "merged",
+        _ => kind.ToString().ToLowerInvariant(),
+    };
+}

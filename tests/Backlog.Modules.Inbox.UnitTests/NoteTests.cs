@@ -204,6 +204,20 @@ public sealed class NoteTests
         Assert.True(item.ReplicaAckPending);
     }
 
+    [Fact]
+    public void Restoring_an_archived_note_withdraws_its_tombstone_and_pushes_it_live_again()
+    {
+        var archivedAt = Items.Noon.AddMinutes(6);
+        var item = PhoneNote();
+        item.Archive(archivedAt);
+
+        item.Restore(Arrival);
+
+        Assert.False(item.ReplicaAckPending);
+        Assert.True(item.NotePushPending);
+        Assert.Equal(Arrival, item.EditedAt);
+    }
+
     // --- Editing ---------------------------------------------------------------
 
     [Fact]

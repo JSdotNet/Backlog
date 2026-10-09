@@ -373,6 +373,12 @@ public sealed class SettingsRepositoryRenameTests
 
         public (bool Available, string? Reason) PlanDrafterAvailability => (false, null);
 
+        public bool TriageAdvisorAvailable => false;
+
+        public Task<Result<InboxTriageAdviceDto>> AdviseTriageAsync(Guid id, IReadOnlyList<string>? repositories = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Result<InboxTriagePassDto>> ProposeTriagePassAsync(IReadOnlyList<Guid> ids, IReadOnlyList<string>? repositories = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public Task<Result<IReadOnlyList<InboxSuggestionDto>>> SuggestAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(Result.Success<IReadOnlyList<InboxSuggestionDto>>([]));
 
@@ -387,11 +393,14 @@ public sealed class SettingsRepositoryRenameTests
         public Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> ArchiveAsDuplicateAsync(Guid id, Guid duplicateOf, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> LinkToTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result> MergeIntoTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<InboxRelationsDto>> RelatedAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(Result.Success(InboxRelationsDto.None(id)));
         public Task<Result> DeleteAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> DeferAsync(Guid id, DateOnly? until, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> ResurfaceAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result> RestoreAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<int>> ResurfaceDueAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<InboxBatchResultDto> SetTagsAsync(IReadOnlyDictionary<Guid, IReadOnlyList<string>> tagsByItem, CancellationToken cancellationToken = default) => throw new NotSupportedException();

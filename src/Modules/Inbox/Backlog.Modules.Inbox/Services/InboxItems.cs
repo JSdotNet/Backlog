@@ -1,6 +1,7 @@
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Inbox.Features.AdviseTriage;
 using Backlog.Modules.Inbox.Features.ArchiveItem;
 using Backlog.Modules.Inbox.Features.AssignRepositories;
 using Backlog.Modules.Inbox.Features.RenameRepository;
@@ -16,11 +17,13 @@ using Backlog.Modules.Inbox.Features.EditNote;
 using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.LinkToTask;
+using Backlog.Modules.Inbox.Features.MergeIntoTask;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
 using Backlog.Modules.Inbox.Features.InferBatchOrder;
 using Backlog.Modules.Inbox.Features.ProposeBatch;
+using Backlog.Modules.Inbox.Features.ProposeTriagePass;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.Related;
 using Backlog.Modules.Inbox.Features.RenameGroup;
@@ -28,6 +31,8 @@ using Backlog.Modules.Inbox.Features.RenameList;
 using Backlog.Modules.Inbox.Features.RetryAttachment;
 using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
 using Backlog.Modules.Inbox.Features.ResurfaceItem;
+using Backlog.Modules.Inbox.Features.RestoreItem;
+using Backlog.Modules.Inbox.Features.ReturnToInbox;
 using Backlog.Modules.Inbox.Features.RouteBatchToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.SetTags;
@@ -42,8 +47,9 @@ namespace Backlog.Modules.Inbox.Services;
 /// The published <see cref="IInboxItems"/> port, wired to the feature slices
 /// behind it. Deliberately nothing but mapping, as <c>TaskItems</c> is: every
 /// rule lives in a handler or in the aggregate, so there is no third place to
-/// look. The one thing it answers itself is <see cref="PlanDrafterAvailability"/>,
-/// which is a read of the drafter's own property and not a rule.
+/// look. The two things it answers itself are <see cref="PlanDrafterAvailability"/>
+/// and <see cref="TriageAdvisorAvailable"/>, which are reads of the drafter's and
+/// the advisor's own property and not rules.
 /// </summary>
 internal sealed class InboxItems(
     IQueryHandler<GetInboxQuery, InboxSnapshotDto> snapshot,
@@ -56,6 +62,8 @@ internal sealed class InboxItems(
     ICommandHandler<DeleteItemCommand, Result> delete,
     ICommandHandler<DeferItemCommand, Result> defer,
     ICommandHandler<ResurfaceItemCommand, Result> resurface,
+    ICommandHandler<RestoreItemCommand, Result> restore,
+    ICommandHandler<ReturnToInboxCommand, Result> returnToInbox,
     ICommandHandler<ResurfaceDueItemsCommand, Result<int>> resurfaceDue,
     ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>> routeToBacklog,
     ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>> createPlan,
@@ -74,11 +82,16 @@ internal sealed class InboxItems(
     IQueryHandler<ReadAttachmentQuery, Result<byte[]>> readAttachment,
     ICommandHandler<OpenAttachmentCommand, Result> openAttachment,
     IQueryHandler<SuggestQuery, Result<IReadOnlyList<InboxSuggestionDto>>> suggest,
+    IQueryHandler<SuggestManyQuery, Result<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>> suggestMany,
     ICommandHandler<DismissSuggestionCommand, Result> dismissSuggestion,
     IQueryHandler<RelatedQuery, Result<InboxRelationsDto>> related,
     ICommandHandler<LinkToTaskCommand, Result> linkToTask,
+    ICommandHandler<MergeIntoTaskCommand, Result> mergeIntoTask,
+    IQueryHandler<AdviseTriageQuery, Result<InboxTriageAdviceDto>> adviseTriage,
+    IQueryHandler<ProposeTriagePassQuery, Result<InboxTriagePassDto>> proposeTriagePass,
     ICommandHandler<EditNoteCommand, Result> editNote,
-    IInboxPlanDrafter? drafter = null) : IInboxItems
+    IInboxPlanDrafter? drafter = null,
+    IInboxTriageAdvisor? triageAdvisor = null) : IInboxItems
 {
     public Task<InboxSnapshotDto> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
         snapshot.Handle(new GetInboxQuery(), cancellationToken);
@@ -114,6 +127,9 @@ internal sealed class InboxItems(
     public Task<Result> LinkToTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default) =>
         linkToTask.Handle(new LinkToTaskCommand(id, taskId), cancellationToken);
 
+    public Task<Result> MergeIntoTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default) =>
+        mergeIntoTask.Handle(new MergeIntoTaskCommand(id, taskId), cancellationToken);
+
     public Task<Result<InboxRelationsDto>> RelatedAsync(Guid id, CancellationToken cancellationToken = default) =>
         related.Handle(new RelatedQuery(id), cancellationToken);
 
@@ -125,6 +141,12 @@ internal sealed class InboxItems(
 
     public Task<Result> ResurfaceAsync(Guid id, CancellationToken cancellationToken = default) =>
         resurface.Handle(new ResurfaceItemCommand(id), cancellationToken);
+
+    public Task<Result> RestoreAsync(Guid id, CancellationToken cancellationToken = default) =>
+        restore.Handle(new RestoreItemCommand(id), cancellationToken);
+
+    public Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default) =>
+        returnToInbox.Handle(new ReturnToInboxCommand(id, deleteTasks), cancellationToken);
 
     public Task<Result<int>> ResurfaceDueAsync(CancellationToken cancellationToken = default) =>
         resurfaceDue.Handle(new ResurfaceDueItemsCommand(), cancellationToken);
@@ -196,6 +218,9 @@ internal sealed class InboxItems(
     public Task<Result<IReadOnlyList<InboxSuggestionDto>>> SuggestAsync(Guid id, CancellationToken cancellationToken = default) =>
         suggest.Handle(new SuggestQuery(id), cancellationToken);
 
+    public Task<Result<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>> SuggestManyAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) =>
+        suggestMany.Handle(new SuggestManyQuery(ids), cancellationToken);
+
     public Task<Result> DismissSuggestionAsync(Guid id, string key, CancellationToken cancellationToken = default) =>
         dismissSuggestion.Handle(new DismissSuggestionCommand(id, key), cancellationToken);
 
@@ -203,6 +228,20 @@ internal sealed class InboxItems(
         drafter is { IsAvailable: true }
             ? (true, null)
             : (false, InboxErrors.PlanNotConfigured(drafter?.UnavailableReason).Message);
+
+    public bool TriageAdvisorAvailable => triageAdvisor is { IsAvailable: true };
+
+    public Task<Result<InboxTriageAdviceDto>> AdviseTriageAsync(
+        Guid id,
+        IReadOnlyList<string>? repositories = null,
+        CancellationToken cancellationToken = default) =>
+        adviseTriage.Handle(new AdviseTriageQuery(id, repositories), cancellationToken);
+
+    public Task<Result<InboxTriagePassDto>> ProposeTriagePassAsync(
+        IReadOnlyList<Guid> ids,
+        IReadOnlyList<string>? repositories = null,
+        CancellationToken cancellationToken = default) =>
+        proposeTriagePass.Handle(new ProposeTriagePassQuery(ids, repositories), cancellationToken);
 
     public Task<Result<InboxListDto>> CreateListAsync(string name, Guid? groupId = null, CancellationToken cancellationToken = default) =>
         createList.Handle(new CreateListCommand(name, groupId), cancellationToken);

@@ -99,6 +99,11 @@ public sealed class InboxDesktopState
     /// raised when nothing was routed.</summary>
     public event Action<InboxBatchRoutedDto>? BatchRouted;
 
+    /// <summary>Raised after an undo deleted the entries a route made, so the
+    /// shell refreshes the Tasks pane and they leave it. Not raised for an undone
+    /// link, which deleted nothing.</summary>
+    public event Action? RouteUndone;
+
     // --- The snapshot -------------------------------------------------------
 
     /// <summary>Every item the module knows, archived included. Which of them a
@@ -239,15 +244,20 @@ public sealed class InboxDesktopState
         Lists.Where(list => list.GroupId == groupId).Sum(list => ListCount(list.Id));
 
     /// <summary>How long an item may wait unprocessed before the queue health
-    /// strip calls it out (features.md#queue-health).</summary>
+    /// bar calls it out (features.md#queue-health-bar).</summary>
     public const int StaleAfterDays = 14;
 
+    /// <summary>The first part of the queue health bar: items captured fewer
+    /// than this many days ago are fresh.</summary>
+    public const int FreshUnderDays = 3;
+
     /// <summary>
-    /// The queue health strip's three numbers, over every unprocessed item in
-    /// every list: how many, how long the oldest has waited, and how many have
-    /// waited longer than <see cref="StaleAfterDays"/>. Deferred items are left
-    /// out — put aside is not waiting — and age runs from the capture, the same
-    /// instant each row's own age is read from.
+    /// The queue health bar's numbers, over every unprocessed item in every
+    /// list: how many, how long the oldest has waited, and how they split by
+    /// age — under <see cref="FreshUnderDays"/>, from there up to
+    /// <see cref="StaleAfterDays"/>, and longer than that. Deferred items are
+    /// left out — put aside is not waiting — and age runs from the capture, the
+    /// same instant each row's own age is read from.
     /// </summary>
     public InboxQueueHealth QueueHealth
     {
@@ -259,10 +269,80 @@ public sealed class InboxDesktopState
             var now = _clock.GetUtcNow();
             var oldest = waiting.Min(item => item.CapturedAt);
             var stale = waiting.Count(item => now - item.CapturedAt > TimeSpan.FromDays(StaleAfterDays));
+            var fresh = waiting.Count(item => now - item.CapturedAt < TimeSpan.FromDays(FreshUnderDays));
 
-            return new InboxQueueHealth(waiting.Count, oldest, stale);
+            return new InboxQueueHealth(waiting.Count, oldest, stale)
+            {
+                Fresh = fresh,
+                Aging = waiting.Count - fresh - stale,
+            };
         }
     }
+
+    /// <summary>The header's short form of the queue's health: "3 waiting ·
+    /// oldest 12 days", or "Nothing waiting".</summary>
+    public string WaitingSummary
+    {
+        get
+        {
+            var health = QueueHealth;
+            return health.OldestCapturedAt is { } oldest
+                ? $"{health.Unprocessed} waiting · oldest {Waited(oldest)}"
+                : "Nothing waiting";
+        }
+    }
+
+    /// <summary>How long something captured at <paramref name="at"/> has
+    /// waited, in words: "under an hour", "5 hours", "12 days".</summary>
+    public string Waited(DateTimeOffset at) => Waited(_clock.GetUtcNow() - at);
+
+    /// <summary>The span in words, pure so a test can pin the wording.</summary>
+    internal static string Waited(TimeSpan span) => span switch
+    {
+        _ when span < TimeSpan.FromHours(1) => "under an hour",
+        _ when span < TimeSpan.FromDays(1) => Counted((int)span.TotalHours, "hour", "hours"),
+        _ => Counted((int)span.TotalDays, "day", "days"),
+    };
+
+    /// <summary>
+    /// The rows on screen in the groups the list draws them under: Today (since
+    /// local midnight), This week (the seven days before now) and Older than a
+    /// week, each in the rows' own order and none that would be empty. The
+    /// Deferred slice is one group: its rows run in the order they come back,
+    /// and splitting them by capture would scramble that.
+    /// </summary>
+    public IReadOnlyList<InboxAgeGroup> VisibleGroups
+    {
+        get
+        {
+            var rows = VisibleItems;
+            if (rows.Count == 0) return [];
+            if (DeferredSelected) return [new InboxAgeGroup(AllGroupKey, "Deferred", rows)];
+
+            // Midnight at the offset in force at midnight, not now: on the day the
+            // clocks change the two differ by an hour.
+            var local = _clock.GetLocalNow();
+            var midnight = new DateTimeOffset(local.Date, _clock.LocalTimeZone.GetUtcOffset(local.Date));
+            var weekAgo = local.AddDays(-7);
+
+            var groups = new List<InboxAgeGroup>(3);
+            Add(TodayGroupKey, "Today", rows.Where(item => item.CapturedAt >= midnight));
+            Add(WeekGroupKey, "This week", rows.Where(item => item.CapturedAt < midnight && item.CapturedAt >= weekAgo));
+            Add(OlderGroupKey, "Older than a week", rows.Where(item => item.CapturedAt < weekAgo));
+            return groups;
+
+            void Add(string key, string label, IEnumerable<InboxItemDto> items)
+            {
+                var list = items.ToList();
+                if (list.Count > 0) groups.Add(new InboxAgeGroup(key, label, list));
+            }
+        }
+    }
+
+    internal const string TodayGroupKey = "today";
+    internal const string WeekGroupKey = "week";
+    internal const string OlderGroupKey = "older";
+    internal const string AllGroupKey = "all";
 
     /// <summary>Whether the group's lists are showing.</summary>
     public bool IsGroupExpanded(Guid groupId) => !_collapsedGroups.Contains(groupId);
@@ -296,6 +376,11 @@ public sealed class InboxDesktopState
         _gitHubSettings.Current.Repositories
             .FirstOrDefault(repository => string.Equals(repository.FullName, repoId, StringComparison.OrdinalIgnoreCase))
             ?.Alias ?? repoId;
+
+    /// <summary>The identity hue (1–5) a repository's mark may wear, or null when
+    /// Settings shows no repository colours or does not list the alias — the
+    /// two look the same on screen (color-scheme.md#the-identity-edge).</summary>
+    public int? RepositoryColourFor(string alias) => _gitHubSettings.Current.VisibleColourFor(alias);
 
     /// <summary>The list an item is filed in, or null for the unfiled inbox.</summary>
     public InboxListDto? FindList(Guid listId) => Lists.FirstOrDefault(list => list.Id == listId);
@@ -399,6 +484,10 @@ public sealed class InboxDesktopState
         BacklogTags = backlogTags;
         Loaded = true;
 
+        // A capture that arrived in the slice being triaged is counted after
+        // the rows triage began with (requirements.md, "Triage counts the session").
+        if (TriageMode) TakeInTriageArrivals();
+
         // Whatever the item now carries — a tag just accepted, a suggestion just
         // turned down, a rule the backlog's tags now meet — the suggestions are
         // asked for again on the next render rather than trusted from before.
@@ -444,6 +533,7 @@ public sealed class InboxDesktopState
             SelectedListId = null;
             DeferredSelected = true;
             SelectedItemId = null;
+            ForgetTriagePassForNewRows();
             _kindFilter.Clear();
             ForgetSelection();
             Changed?.Invoke();
@@ -464,6 +554,7 @@ public sealed class InboxDesktopState
         SelectedListId = listId;
         DeferredSelected = false;
         SelectedItemId = null;
+        ForgetTriagePassForNewRows();
         _kindFilter.Clear();
         ForgetSelection();
         Changed?.Invoke();
@@ -483,6 +574,7 @@ public sealed class InboxDesktopState
     public void ToggleKind(string slug)
     {
         if (!_kindFilter.Add(slug)) _kindFilter.Remove(slug);
+        ForgetTriagePassForNewRows();
         PruneSelection();
         Changed?.Invoke();
     }
@@ -492,6 +584,7 @@ public sealed class InboxDesktopState
         if (_kindFilter.Count == 0) return;
 
         _kindFilter.Clear();
+        ForgetTriagePassForNewRows();
         PruneSelection();
         Changed?.Invoke();
     }
@@ -504,12 +597,11 @@ public sealed class InboxDesktopState
 
     // --- Capture and the item's own acts ------------------------------------
 
-    /// <summary>Captures what was typed into the pane's Add dialog: a title and,
-    /// optionally, notes that become the item's body. Returns whether it was
-    /// kept; a refusal is a toast under <c>inbox-add-error</c>, because the
-    /// dialog has closed by the time the answer arrives and there is nowhere in
-    /// the pane for a one-off failure to sit. The new item is selected so the
-    /// detail opens on it.</summary>
+    /// <summary>Captures what was typed into the pane's capture field: a title
+    /// and, optionally, notes that become the item's body. Returns whether it
+    /// was kept; a refusal is a toast under <c>inbox-add-error</c>, because the
+    /// field is a line in the header and there is nowhere in it for a one-off
+    /// failure to sit. The new item is selected so the detail opens on it.</summary>
     public async Task<bool> CaptureAsync(InboxCapture capture)
     {
         ArgumentNullException.ThrowIfNull(capture);
@@ -553,10 +645,14 @@ public sealed class InboxDesktopState
     /// null. The item stays selected: it moved, the reader did not — except in
     /// triage mode, where every decision moves on to the next item.</summary>
     public Task MoveToListAsync(Guid? listId) =>
-        DecideAsync(item => _inbox.MoveToListAsync(item.Id, listId));
+        DecideAsync(
+            item => _inbox.MoveToListAsync(item.Id, listId),
+            item => item.ListId == listId ? null : new InboxMoveUndoStep("Move to list", item.Id, item.ListId));
 
     public Task ArchiveAsync() =>
-        DecideAsync(item => _inbox.ArchiveAsync(item.Id));
+        DecideAsync(
+            item => _inbox.ArchiveAsync(item.Id),
+            item => new InboxRestoreUndoStep(InboxDecisionKind.Archive, "Archive", item.Id, DeferralOf(item)));
 
     /// <summary>Changes the selected note's title and body, the edit that reaches
     /// the phone on the next sync (<c>.devbook/domain/inbox/features.md#notes-on-the-desktop</c>).
@@ -601,16 +697,19 @@ public sealed class InboxDesktopState
     public IReadOnlyList<InboxSuggestionDto> Suggestions { get; private set; } = [];
 
     /// <summary>The suggestions a key takes, in order: the ones that can be taken
-    /// at all, up to nine, so the digit on each chip is its position here.</summary>
+    /// at all, as many as the digits left after triage's AI cards, so the digit
+    /// on each chip is its position here plus the number of cards.</summary>
     public IReadOnlyList<InboxSuggestionDto> ShortcutSuggestions =>
-        [.. Suggestions.Where(suggestion => suggestion.Available).Take(9)];
+        [.. Suggestions.Where(suggestion => suggestion.Available).Take(9 - TriageCards.Count)];
 
     /// <summary>The digit that takes <paramref name="suggestion"/>, or null for
-    /// one no key takes.</summary>
+    /// one no key takes. Numbered after the AI cards triage shows, from 1 when
+    /// there are none (requirements.md, "AI cards come first and the
+    /// suggestions are numbered after them").</summary>
     public string? ShortcutFor(InboxSuggestionDto suggestion)
     {
         var index = ShortcutSuggestions.ToList().IndexOf(suggestion);
-        return index < 0 ? null : (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return index < 0 ? null : (index + 1 + TriageCards.Count).ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
     /// <summary>Asks for the selected item's suggestions when the ones on screen
@@ -666,7 +765,8 @@ public sealed class InboxDesktopState
                 break;
 
             case InboxSuggestionKind.Destination when suggestion.Value == InboxEnumMap.ToWire(RoutingDomain.Tasks):
-                await RouteToBacklogAsync();
+                // In triage the boxes ticked under "Move to backlog in" go with it.
+                await (TriageMode ? RouteFromTriageAsync() : RouteToBacklogAsync());
                 break;
 
             case InboxSuggestionKind.Destination when suggestion.Value == InboxEnumMap.ToWire(RoutingDomain.Archive):
@@ -683,10 +783,17 @@ public sealed class InboxDesktopState
         if (key is not { Length: 1 } || key[0] is < '1' or > '9') return false;
 
         var index = key[0] - '1';
-        var shortcuts = ShortcutSuggestions;
-        if (index >= shortcuts.Count) return false;
+        var cards = TriageCards.Count;
+        if (index < cards)
+        {
+            await TakeTriageCardAsync(index);
+            return true;
+        }
 
-        await AcceptSuggestionAsync(shortcuts[index]);
+        var shortcuts = ShortcutSuggestions;
+        if (index - cards >= shortcuts.Count) return false;
+
+        await AcceptSuggestionAsync(shortcuts[index - cards]);
         return true;
     }
 
@@ -705,6 +812,86 @@ public sealed class InboxDesktopState
         // so a second press of the same digit cannot reach a chip already refused.
         Suggestions = [.. Suggestions.Where(other => other.Key != suggestion.Key)];
         await ReloadAsync();
+    }
+
+    // --- The rows' "suggested" marker ------------------------------------------
+
+    /// <summary>Per row on screen: the reload it was asked after, and whether
+    /// Classification had anything to propose for it. Any reload makes every
+    /// answer stale — a tag just added, a suggestion just turned down, a rule
+    /// the backlog's tags now meet — for the reason <see cref="_suggestionsFor"/>
+    /// is cleared by one; the old answer stays on screen until the new one is
+    /// in, so the marker does not flicker.</summary>
+    private readonly Dictionary<Guid, (int Reload, bool Has)> _rowSuggestions = [];
+
+    private bool _rowSuggestionsLoading;
+
+    /// <summary>Whether the row carries the "suggested" marker: the item is
+    /// still open and has a rule-based suggestion the reader has not turned
+    /// down.</summary>
+    public bool HasSuggestions(Guid itemId) =>
+        _rowSuggestions.TryGetValue(itemId, out var entry) && entry.Has;
+
+    /// <summary>Asks, in one batch, for the suggestions of every open row on
+    /// screen whose answer is missing or older than the last reload, and raises
+    /// <see cref="Changed"/> once if any marker moved. Called whenever the list's
+    /// parameters are set, and a no-op when nothing is stale. One pass at a
+    /// time: a reload that lands mid-pass is caught by the pass going round
+    /// again. Only a suggestion that can be taken counts — the marker promises
+    /// something the detail lets the reader do. A failure, or a throw from the
+    /// store, counts as nothing to suggest, as it does for the detail's chips:
+    /// a marker is an offer, never an error.</summary>
+    public async Task LoadRowSuggestionsAsync()
+    {
+        if (_rowSuggestionsLoading) return;
+
+        _rowSuggestionsLoading = true;
+        var moved = false;
+
+        try
+        {
+            while (VisibleItems.Where(IsRowSuggestionStale).Select(item => item.Id).ToList() is { Count: > 0 } stale)
+            {
+                var version = _reloadVersion;
+                IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>> answers;
+                try
+                {
+                    var answer = await _inbox.SuggestManyAsync(stale);
+                    answers = answer.IsSuccess ? answer.Value : new Dictionary<Guid, IReadOnlyList<InboxSuggestionDto>>();
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    answers = new Dictionary<Guid, IReadOnlyList<InboxSuggestionDto>>();
+                }
+
+                foreach (var id in stale)
+                {
+                    var has = answers.TryGetValue(id, out var offered) && offered.Any(suggestion => suggestion.Available);
+                    moved |= !_rowSuggestions.TryGetValue(id, out var before) || before.Has != has;
+                    _rowSuggestions[id] = (version, has);
+                }
+            }
+
+            // Rows that have left the snapshot — archived away, deleted — are
+            // forgotten rather than carried for the session.
+            foreach (var gone in _rowSuggestions.Keys.Where(id => Items.All(item => item.Id != id)).ToList())
+            {
+                _rowSuggestions.Remove(gone);
+            }
+        }
+        finally
+        {
+            _rowSuggestionsLoading = false;
+        }
+
+        if (moved) Changed?.Invoke();
+    }
+
+    private bool IsRowSuggestionStale(InboxItemDto item)
+    {
+        if (item.Status is not (InboxStatus.Unprocessed or InboxStatus.Deferred)) return false;
+
+        return !_rowSuggestions.TryGetValue(item.Id, out var entry) || entry.Reload != _reloadVersion;
     }
 
     // --- Relations ------------------------------------------------------------
@@ -819,13 +1006,45 @@ public sealed class InboxDesktopState
     /// same capture as <paramref name="duplicateOf"/>. A decision like Archive,
     /// so triage moves on from it.</summary>
     public Task ArchiveAsDuplicateAsync(Guid duplicateOf) =>
-        DecideAsync(item => _inbox.ArchiveAsDuplicateAsync(item.Id, duplicateOf));
+        DecideAsync(
+            item => _inbox.ArchiveAsDuplicateAsync(item.Id, duplicateOf),
+            item => new InboxRestoreUndoStep(InboxDecisionKind.Archive, ArchiveAsDuplicateLabel, item.Id, DeferralOf(item)));
 
     /// <summary>"Link to task…": records that the selected item is already the
     /// task <paramref name="taskId"/>, so it leaves the queue routed to it and no
     /// new task is made.</summary>
     public Task LinkToTaskAsync(Guid taskId) =>
-        DecideAsync(item => _inbox.LinkToTaskAsync(item.Id, taskId));
+        DecideAsync(
+            item => _inbox.LinkToTaskAsync(item.Id, taskId),
+            item => new InboxRouteUndoStep(InboxDecisionKind.LinkToTask, "Link to task", item.Id, DeleteTasks: false, DeferralOf(item)));
+
+    /// <summary>"Merge into a task": folds the item <paramref name="itemId"/>
+    /// into the backlog task <paramref name="taskId"/> it repeats — its title,
+    /// link and notes become a comment on the task, and it is archived as a
+    /// duplicate of the task. A decision like Archive, so when the item is the
+    /// one selected, triage moves on from it; any other item is merged where it
+    /// is and the selection stays. A refusal is toasted and changes nothing.</summary>
+    public async Task MergeIntoTaskAsync(Guid itemId, Guid taskId)
+    {
+        if (SelectedItem?.Id == itemId)
+        {
+            await DecideAsync(item => _inbox.MergeIntoTaskAsync(item.Id, taskId), MergeUndo);
+            return;
+        }
+
+        var merged = Items.FirstOrDefault(item => item.Id == itemId);
+
+        if (Report(await _inbox.MergeIntoTaskAsync(itemId, taskId))) return;
+
+        _undo.Record(merged is not null
+            ? MergeUndo(merged)
+            : new InboxRestoreUndoStep(InboxDecisionKind.MergeIntoTask, "Merge into a task", itemId));
+
+        await ReloadAsync();
+    }
+
+    private static InboxUndoStep MergeUndo(InboxItemDto item) =>
+        new InboxRestoreUndoStep(InboxDecisionKind.MergeIntoTask, "Merge into a task", item.Id, DeferralOf(item));
 
     private static bool Matches(string title, string? query) =>
         string.IsNullOrWhiteSpace(query) || (title ?? string.Empty).Contains(query.Trim(), StringComparison.OrdinalIgnoreCase);
@@ -911,7 +1130,11 @@ public sealed class InboxDesktopState
     /// the date. The item stays selected: it leaves the queue's rows, and the
     /// detail still owes the reader the line that says until when.</summary>
     public Task DeferAsync(DateOnly? until) =>
-        DecideAsync(item => _inbox.DeferAsync(item.Id, until));
+        DecideAsync(
+            item => _inbox.DeferAsync(item.Id, until),
+            item => item.Status == InboxStatus.Deferred && item.DeferredUntil == until
+                ? null
+                : new InboxDeferUndoStep("Defer", item.Id, item.Status == InboxStatus.Deferred, item.DeferredUntil));
 
     /// <summary>The reader's calendar date, which is what a review date is
     /// counted from — the same local "today" the resurface sweep uses.</summary>
@@ -943,6 +1166,8 @@ public sealed class InboxDesktopState
             var routed = await _inbox.RouteToBacklogAsync(item.Id);
             if (Report(routed)) return;
 
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Move to backlog", item.Id, DeleteTasks: true, DeferralOf(item)));
+
             await ReloadAsync();
             if (TriageMode) AdvancePast(before, item.Id);
             Routed?.Invoke(routed.Value);
@@ -970,6 +1195,8 @@ public sealed class InboxDesktopState
             var routed = await _inbox.CreatePlanAsync(item.Id);
             if (Report(routed)) return;
 
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Create plan", item.Id, DeleteTasks: true, DeferralOf(item)));
+
             await ReloadAsync();
             _toasts?.Publish(ToastMessage.Info(
                 $"Planned {Counted(routed.Value.TaskIds.Count, "entry", "entries")} from \"{item.Title}\".",
@@ -996,6 +1223,391 @@ public sealed class InboxDesktopState
     //
     // Leaving the mode changes nothing but the view: the item the reader stopped
     // at stays selected, so the queue opens on it.
+
+    // --- AI triage (local ADR 0023) ----------------------------------------------
+    // Asked of the module only while the advisor says it can run. While it
+    // cannot — no Foundry, or none registered — nothing is asked and nothing is
+    // exposed, so the pane draws no AI surface at all (ADR 0023 §4). A call that
+    // fails, or throws, is the same as no answer: the item shows no cards, the
+    // pass shows nothing, and triage carries on with the rule-based suggestions.
+
+    /// <summary>The cards already asked for, by item, for the app session — one
+    /// model call per item opened in triage (ADR 0023 §2). An item whose call
+    /// failed is kept too, as no advice, so moving back to it does not ask again.</summary>
+    private readonly Dictionary<Guid, InboxTriageAdviceDto?> _triageAdvice = [];
+
+    /// <summary>The items whose cards are being asked for right now.</summary>
+    private readonly HashSet<Guid> _triageAdvicePending = [];
+
+    /// <summary>Whether any AI triage surface may be shown: the advisor is
+    /// registered and can run. Read live, so configuring Foundry in Settings
+    /// shows the surfaces without a restart, and removing it hides them.</summary>
+    public bool TriageAdvisorAvailable => _inbox.TriageAdvisorAvailable;
+
+    /// <summary>The AI cards for <paramref name="itemId"/>, or null — before
+    /// they were asked for, when the call failed, when the advisor is not
+    /// available, and when the answer has no card left to show. The answer is
+    /// kept for the session, but the inbox moves on under it: a duplicate of a
+    /// capture since decided, and plan members since decided, are left out, so
+    /// a card never names what the reader can no longer find.</summary>
+    public InboxTriageAdviceDto? TriageAdviceFor(Guid itemId)
+    {
+        if (!TriageAdvisorAvailable || !_triageAdvice.TryGetValue(itemId, out var advice) || advice is null) return null;
+
+        var waiting = Items.Where(IsUndecided).Select(item => item.Id).ToHashSet();
+
+        var duplicate = advice.Duplicate is { TargetKind: InboxTriageTargetKind.InboxItem } twin && !waiting.Contains(twin.TargetId)
+            ? null
+            : advice.Duplicate;
+        if (_dismissedTriageCards.Contains((itemId, InboxTriageCardKind.Duplicate))) duplicate = null;
+
+        var plan = _dismissedTriageCards.Contains((itemId, InboxTriageCardKind.Plan)) ? null : advice.Plan;
+        if (plan is not null)
+        {
+            var members = plan.ItemIds.Where(waiting.Contains).ToList();
+            plan = members.Count >= 2 ? plan with { ItemIds = members } : null;
+        }
+
+        var current = advice with { Duplicate = duplicate, Plan = plan };
+        return current.HasCards ? current : null;
+    }
+
+    /// <summary>The AI cards for the item being read, as <see cref="TriageAdviceFor"/>.</summary>
+    public InboxTriageAdviceDto? TriageAdvice =>
+        SelectedItemId is { } id ? TriageAdviceFor(id) : null;
+
+    /// <summary>
+    /// Asks for the AI cards of the item being read, when triage mode is on, the
+    /// advisor can run, and they were not asked for before in this app session.
+    /// Called when an item is opened in triage, and a no-op otherwise — never on
+    /// intake, on a timer or while the list is browsed (ADR 0023 §2). The
+    /// repositories sent are the ones Settings lists.
+    /// </summary>
+    public async Task LoadTriageAdviceAsync()
+    {
+        if (!TriageMode || SelectedItem is not { } item || !IsUndecided(item)) return;
+        if (!TriageAdvisorAvailable) return;
+        if (_triageAdvice.ContainsKey(item.Id) || !_triageAdvicePending.Add(item.Id)) return;
+
+        InboxTriageAdviceDto? advice = null;
+        try
+        {
+            var answer = await _inbox.AdviseTriageAsync(item.Id, ConfiguredRepositories());
+            advice = answer.IsSuccess ? answer.Value : null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A card is a proposal; one that could not be made is no card, not
+            // an error the reader has to deal with.
+            advice = null;
+        }
+        finally
+        {
+            _triageAdvicePending.Remove(item.Id);
+        }
+
+        _triageAdvice[item.Id] = advice;
+        Changed?.Invoke();
+    }
+
+    /// <summary>The AI triage pass on screen, or null — before it was asked
+    /// for, after it was put away, when it failed, and while the advisor is not
+    /// available.</summary>
+    public InboxTriagePassDto? TriagePass => TriageAdvisorAvailable ? _triagePass : null;
+
+    private InboxTriagePassDto? _triagePass;
+
+    /// <summary>The one sentence that names why the last pass failed, or null —
+    /// and null while the advisor is not available, like every AI surface.
+    /// The reader stays in triage and nothing changed (ADR 0023 §4).</summary>
+    public string? TriagePassError => TriageAdvisorAvailable ? _triagePassError : null;
+
+    private string? _triagePassError;
+
+    /// <summary>The number of the latest pass asked for, so an answer that
+    /// lands after the pass was put away, or asked again, is dropped.</summary>
+    private int _triagePassVersion;
+
+    /// <summary>While the pass is being asked for.</summary>
+    public bool TriagePassRunning { get; private set; }
+
+    /// <summary>How many items the latest pass was asked about — the items
+    /// still waiting in the slice when it was asked. "Reading n items…" while it
+    /// runs, and "Read the n items still waiting" over its review.</summary>
+    public int TriagePassItemCount { get; private set; }
+
+    /// <summary>
+    /// "Let AI propose the rest": asks for the pass over every unprocessed item
+    /// of the slice being triaged, and answers whether one came back. Asked only
+    /// when the advisor can run and a pass is not already running; a failure,
+    /// thrown or returned, leaves no pass and one sentence in
+    /// <see cref="TriagePassError"/>. Nothing is applied — the pass is a
+    /// proposal until the reader presses Apply (ADR 0023 §5).
+    /// </summary>
+    public async Task<bool> ProposeTriagePassAsync()
+    {
+        if (TriagePassRunning || RoutingInFlight || !TriageAdvisorAvailable) return false;
+
+        var ids = SliceItems.Where(IsUndecided).Select(item => item.Id).ToList();
+        if (ids.Count == 0) return false;
+
+        var version = ++_triagePassVersion;
+        TriagePassRunning = true;
+        TriagePassItemCount = ids.Count;
+        _triagePassError = null;
+        _triagePass = null;
+        _triagePassDraft = null;
+        _triagePassApplyError = null;
+        Changed?.Invoke();
+
+        InboxTriagePassDto? pass = null;
+        string? error = null;
+        try
+        {
+            var answer = await _inbox.ProposeTriagePassAsync(ids, ConfiguredRepositories());
+            if (answer.IsSuccess) pass = answer.Value;
+            else error = answer.Error.Message;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            error = $"The AI triage pass failed: {ex.Message}";
+        }
+        finally
+        {
+            TriagePassRunning = false;
+        }
+
+        // Put away, or asked again, while this one was out: its answer is stale.
+        if (version != _triagePassVersion)
+        {
+            Changed?.Invoke();
+            return false;
+        }
+
+        _triagePass = pass;
+        _triagePassError = error;
+
+        // The review is drawn over what the pass proposes for items still
+        // waiting; a pass with nothing in it has nothing to review, and says so
+        // rather than opening an empty screen.
+        if (pass is not null)
+        {
+            var draft = new InboxTriagePassDraft(pass, Items, Lists);
+            if (draft.IsEmpty) _triagePassError = NothingProposed;
+            else _triagePassDraft = draft;
+        }
+
+        Changed?.Invoke();
+
+        return pass is not null;
+    }
+
+    /// <summary>What triage says when the pass came back with nothing for the
+    /// items still waiting.</summary>
+    internal const string NothingProposed = "The AI had nothing to propose for the items still waiting.";
+
+    /// <summary>Puts the pass, or its failure, away — Discard and Back on the
+    /// review screen, and Escape while it is shown. Nothing it proposed is
+    /// applied.</summary>
+    public void DismissTriagePass()
+    {
+        // Never under an Apply in flight: it is applying this draft, and what
+        // it stops at is reported on it.
+        if (BulkRunning) return;
+
+        // A pass still out is put away too: its answer will be dropped.
+        _triagePassVersion++;
+
+        if (_triagePass is null && _triagePassError is null && _triagePassDraft is null && _triagePassApplyError is null) return;
+
+        ForgetTriagePass();
+        Changed?.Invoke();
+    }
+
+    /// <summary>The pass was asked about one slice and its rows: opening
+    /// another, or filtering these, puts it away — but never under an Apply in
+    /// flight, which is applying it.</summary>
+    private void ForgetTriagePassForNewRows()
+    {
+        if (BulkRunning) return;
+
+        _triagePassVersion++;
+        ForgetTriagePass();
+    }
+
+    private void ForgetTriagePass()
+    {
+        _triagePass = null;
+        _triagePassError = null;
+        _triagePassDraft = null;
+        _triagePassApplyError = null;
+    }
+
+    // --- Reviewing and applying the pass -----------------------------------------
+    //
+    // The pass is a proposal until the reader presses Apply (ADR 0023 §5). The
+    // review screen edits a draft of it; Apply runs the accepted decisions through
+    // the port, one act each, and every one that lands goes onto the undo history
+    // as its own step, so U takes them back one at a time.
+
+    /// <summary>The pass under review, or null — before a pass came back, after
+    /// it was applied or put away, and while the advisor is not available.
+    /// While it is not null the triage body is the review screen.</summary>
+    public InboxTriagePassDraft? TriagePassDraft => TriageAdvisorAvailable ? _triagePassDraft : null;
+
+    private InboxTriagePassDraft? _triagePassDraft;
+
+    /// <summary>The sentence saying which decision Apply stopped at and why, or
+    /// null. The draft stays open on what is left.</summary>
+    public string? TriagePassApplyError => TriageAdvisorAvailable ? _triagePassApplyError : null;
+
+    private string? _triagePassApplyError;
+
+    /// <summary>The toast an Apply answers with, applied or stopped.</summary>
+    public const string TriagePassResultTestId = "inbox-pass-result";
+
+    /// <summary>
+    /// Apply on the review screen: runs the accepted decisions in order through
+    /// <see cref="InboxTriagePassApply"/>, records each one that landed as its
+    /// own undo step, and reloads. Applied whole, the review closes with a
+    /// sentence counting what was done and what is left for the reader. Stopped
+    /// part way, the review stays open on what was not applied, with the
+    /// sentence naming the item it stopped at, and what did land stays — and
+    /// can be undone. Answers whether every decision was applied.
+    /// </summary>
+    public async Task<bool> ApplyTriagePassAsync()
+    {
+        if (TriagePassDraft is not { DecisionCount: > 0 } draft || RoutingInFlight) return false;
+
+        var decisions = draft.Decisions();
+        var before = Items.ToDictionary(item => item.Id);
+        var titles = draft.Titles;
+
+        BulkRunning = true;
+        _triagePassApplyError = null;
+        Changed?.Invoke();
+
+        try
+        {
+            var outcome = await InboxTriagePassApply.ApplyAsync(_inbox, decisions, titles);
+
+            foreach (var applied in outcome.Applied) RecordApplied(applied, before);
+
+            await ReloadAsync();
+
+            if (outcome.Failure is { } failure)
+            {
+                draft.Remove(outcome.Applied.Select(applied => applied.Decision), Items, SliceItems);
+                _triagePassApplyError = failure.Sentence;
+                _toasts?.Publish(ToastMessage.Warning(failure.Sentence, TriagePassResultTestId));
+            }
+            else
+            {
+                var left = draft.Unplaced.Count(id => Items.Any(item => item.Id == id && IsUndecided(item)));
+                _triagePassVersion++;
+                ForgetTriagePass();
+
+                var sentence = $"Applied {Counted(outcome.Applied.Count, "decision", "decisions")}."
+                    + (left > 0 ? $" {left} left for you." : string.Empty);
+                _toasts?.Publish(ToastMessage.Info(sentence, TriagePassResultTestId));
+            }
+
+            // The item triage was reading may be one the pass decided: triage
+            // goes on from the first item still waiting.
+            if (TriageMode && (SelectedItem is not { } reading || !IsUndecided(reading)))
+            {
+                SelectedItemId = VisibleItems.FirstOrDefault(IsUndecided)?.Id;
+                RememberPosition();
+            }
+
+            foreach (var applied in outcome.Applied)
+            {
+                if (applied.Batch is { Routed.Count: > 0 } batch) BatchRouted?.Invoke(batch);
+                if (applied.Routed is { } routed) Routed?.Invoke(routed);
+            }
+
+            return outcome.Succeeded;
+        }
+        finally
+        {
+            BulkRunning = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>"Triage them": puts the review away — nothing applied — and opens
+    /// triage on the first item the pass left for the reader. Triage still walks
+    /// the whole slice from there.</summary>
+    public void TriageLeftOver()
+    {
+        if (RoutingInFlight) return;
+
+        // Only an item triage can land on: one in the rows on screen.
+        var first = TriagePassDraft?.Unplaced
+            .Select(id => VisibleItems.FirstOrDefault(item => item.Id == id))
+            .FirstOrDefault(item => item is not null && IsUndecided(item));
+
+        DismissTriagePass();
+
+        if (first is null) return;
+
+        SelectedItemId = first.Id;
+        RememberPosition();
+        Changed?.Invoke();
+    }
+
+    /// <summary>One applied decision as one undo step — a plan as one group of
+    /// its routed members and the duplicates its batch archived.</summary>
+    private void RecordApplied(InboxTriageApplied applied, IReadOnlyDictionary<Guid, InboxItemDto> before)
+    {
+        InboxDeferral? Deferral(Guid id) => before.TryGetValue(id, out var item) ? DeferralOf(item) : null;
+
+        switch (applied.Decision)
+        {
+            case InboxTriagePlanDecision when applied.Batch is { } batch:
+                RecordGroup(
+                    InboxDecisionKind.MoveToBacklog,
+                    "Move to backlog",
+                    [
+                        .. batch.Routed.Select(routed => (InboxUndoStep)new InboxRouteUndoStep(
+                            InboxDecisionKind.MoveToBacklog, "Move to backlog", routed.InboxItemId, DeleteTasks: true, Deferral(routed.InboxItemId))),
+                        .. batch.Archived.Select(archived => (InboxUndoStep)new InboxRestoreUndoStep(
+                            InboxDecisionKind.Archive, ArchiveAsDuplicateLabel, archived, Deferral(archived))),
+                    ]);
+                break;
+            case InboxTriageDuplicateDecision { Choice: InboxTriageDuplicateChoice.Merge, TargetKind: InboxTriageTargetKind.Task } merge:
+                _undo.Record(before.TryGetValue(merge.ItemId, out var merged)
+                    ? MergeUndo(merged)
+                    : new InboxRestoreUndoStep(InboxDecisionKind.MergeIntoTask, "Merge into a task", merge.ItemId));
+                break;
+            case InboxTriageDuplicateDecision { Choice: InboxTriageDuplicateChoice.Merge } duplicate:
+                _undo.Record(new InboxRestoreUndoStep(InboxDecisionKind.Archive, ArchiveAsDuplicateLabel, duplicate.ItemId, Deferral(duplicate.ItemId)));
+                break;
+            case InboxTriageDuplicateDecision archived:
+                _undo.Record(new InboxRestoreUndoStep(InboxDecisionKind.Archive, "Archive", archived.ItemId, Deferral(archived.ItemId)));
+                break;
+            case InboxTriageArchiveDecision archive:
+                _undo.Record(new InboxRestoreUndoStep(InboxDecisionKind.Archive, "Archive", archive.ItemId, Deferral(archive.ItemId)));
+                break;
+            case InboxTriageRouteDecision route:
+                _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Move to backlog", route.ItemId, DeleteTasks: true, Deferral(route.ItemId)));
+                break;
+            case InboxTriageFilingDecision filing:
+                // Filed where it already was: nothing moved, so nothing to take back.
+                var previous = before.TryGetValue(filing.ItemId, out var filed) ? filed.ListId : null;
+                if (previous != filing.ListId) _undo.Record(new InboxMoveUndoStep("Move to list", filing.ItemId, previous));
+                break;
+        }
+    }
+
+    /// <summary>Waiting for its first decision: unprocessed and never routed.</summary>
+    private static bool IsUndecided(InboxItemDto item) =>
+        item.Status == InboxStatus.Unprocessed && item.Routing is null;
+
+    /// <summary>The repositories Settings lists, <c>owner/name</c>, as the
+    /// advisor may name them.</summary>
+    private IReadOnlyList<string> ConfiguredRepositories() =>
+        [.. _gitHubSettings.Current.Repositories.Select(repository => repository.FullName)];
 
     /// <summary>Where the item being read sat in the rows, the last time it was
     /// in them. A decision takes an item out of the rows while it stays
@@ -1025,26 +1637,393 @@ public sealed class InboxDesktopState
     public int TriagePosition => SelectedItemId is { } id ? IndexOf(VisibleItems, id) : -1;
 
     /// <summary>Opens or leaves triage mode. Opening it on nothing, or on an
-    /// item no longer in the rows, starts at the first row.</summary>
+    /// item no longer in the rows, starts at the first row still waiting for a
+    /// decision; opening it on a routed row starts at the first waiting row
+    /// after it — triage reads only what is still open.</summary>
     public void SetTriageMode(bool on)
     {
         if (TriageMode == on) return;
 
         TriageMode = on;
-        if (on && TriagePosition < 0)
+
+        // The pass, and its review, belong to the triage it was asked from.
+        if (!on) ForgetTriagePassForNewRows();
+
+        if (on && (TriagePosition < 0 || SelectedItem is { } chosen && !IsOpen(chosen)))
         {
-            SelectedItemId = VisibleItems.Count > 0 ? VisibleItems[0].Id : null;
+            var rows = VisibleItems;
+            var from = Math.Max(TriagePosition, 0);
+            SelectedItemId = (rows.Skip(from).FirstOrDefault(IsOpen) ?? rows.FirstOrDefault(IsOpen))?.Id;
             RememberPosition();
         }
 
+        // The session is counted against the rows it began with: a decision
+        // takes a row out of the slice, and a total that shrank with every one
+        // would never say how far along the reader is.
+        _triageStartedWith.Clear();
+        _triageStartedAs.Clear();
+        _triageRepositoryPicks.Clear();
+        if (on) TakeInTriageArrivals();
+
         Changed?.Invoke();
     }
+
+    // --- Triage's progress, picker, cards and aside ----------------------------
+
+    /// <summary>The ids of the rows triage has counted, in order: the rows on
+    /// screen when it began, then any row that arrived in the slice since — a
+    /// capture made during the session — after them. Empty outside triage.</summary>
+    private readonly List<Guid> _triageStartedWith = [];
+
+    /// <summary>What each counted row looked like when triage first counted it,
+    /// so progress can tell which of them a decision has since changed.</summary>
+    private readonly Dictionary<Guid, TriageRowState> _triageStartedAs = [];
+
+    private readonly record struct TriageRowState(InboxStatus Status, bool Routed, Guid? ListId, DateOnly? DeferredUntil)
+    {
+        public static TriageRowState Of(InboxItemDto item) =>
+            new(item.Status, item.Routing is not null, item.ListId, item.DeferredUntil);
+    }
+
+    /// <summary>Counts every open row on screen not counted yet, after the ones
+    /// that are: an arrival gets the next number and grows the total, so no two
+    /// items share a number and none reads "0 of N". A row already routed when it
+    /// is first seen is not counted: triage never lands on it, so a total that
+    /// held it could never be reached. A counted row that is decided stays counted.</summary>
+    private void TakeInTriageArrivals()
+    {
+        foreach (var item in VisibleItems)
+        {
+            if (_triageStartedAs.ContainsKey(item.Id) || !IsOpen(item)) continue;
+
+            _triageStartedWith.Add(item.Id);
+            _triageStartedAs[item.Id] = TriageRowState.Of(item);
+        }
+    }
+
+    /// <summary>How many of the rows triage counts have been decided since it
+    /// began — their status, routing, list or review date changed, or they left
+    /// the inbox — which is what the progress bar fills with. An undone decision
+    /// puts the row back as it was, and it stops counting.</summary>
+    public int TriageProgressed
+    {
+        get
+        {
+            var byId = Items.ToDictionary(item => item.Id);
+            return _triageStartedWith.Count(id =>
+                !byId.TryGetValue(id, out var item) || TriageRowState.Of(item) != _triageStartedAs[id]);
+        }
+    }
+
+    /// <summary>The repositories ticked in triage, by item, for the session —
+    /// a pick made here wins over the advisor's and the item's own.</summary>
+    private readonly Dictionary<Guid, IReadOnlyList<string>> _triageRepositoryPicks = [];
+
+    /// <summary>The AI cards turned down this app session, by item and kind.</summary>
+    private readonly HashSet<(Guid ItemId, InboxTriageCardKind Kind)> _dismissedTriageCards = [];
+
+    /// <summary>How many items the slice held still waiting for a decision when
+    /// triage began, plus any that arrived since — the "total" of "n of total"
+    /// (requirements.md, "Triage counts the session"). A row already routed is
+    /// not counted: triage never lands on it.</summary>
+    public int TriageTotal => _triageStartedWith.Count;
+
+    /// <summary>The one-based place of the item shown among the rows triage
+    /// counts; 0 only when no item is shown. Every row on screen is counted by
+    /// the reload that brought it, so an item the reader can step to has one.</summary>
+    public int TriageNumber => SelectedItemId is { } id ? _triageStartedWith.IndexOf(id) + 1 : 0;
+
+    /// <summary>The AI cards shown for the item being read in triage, in the
+    /// order they are numbered: the duplicate first, then the plan. Empty outside
+    /// triage, for a decided item, and whenever <see cref="TriageAdvice"/> is
+    /// null — the advisor unavailable, failed, or with nothing left to say.</summary>
+    public IReadOnlyList<InboxTriageCardKind> TriageCards
+    {
+        get
+        {
+            if (!TriageMode || SelectedItem is not { } item || !IsUndecided(item) || TriageAdvice is not { } advice) return [];
+
+            var cards = new List<InboxTriageCardKind>(2);
+            if (advice.Duplicate is not null) cards.Add(InboxTriageCardKind.Duplicate);
+            if (advice.Plan is not null) cards.Add(InboxTriageCardKind.Plan);
+            return cards;
+        }
+    }
+
+    /// <summary>Turns an AI card down for the item for this app session — "Not
+    /// a duplicate" and "Dismiss". Nothing is recorded with the module: the
+    /// card is a proposal, and one turned down simply is not shown again.</summary>
+    public void DismissTriageCard(Guid itemId, InboxTriageCardKind kind)
+    {
+        if (!_dismissedTriageCards.Add((itemId, kind))) return;
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>Takes the card with the zero-based <paramref name="index"/> in
+    /// <see cref="TriageCards"/> through its main act, as its number key does.</summary>
+    public async Task TakeTriageCardAsync(int index)
+    {
+        var cards = TriageCards;
+        if (index < 0 || index >= cards.Count) return;
+
+        switch (cards[index])
+        {
+            case InboxTriageCardKind.Duplicate:
+                await MergeTriageDuplicateAsync();
+                break;
+
+            case InboxTriageCardKind.Plan:
+                await MakeTriagePlanAsync();
+                break;
+        }
+    }
+
+    /// <summary>The duplicate card's main act: merge the item into the backlog
+    /// task it repeats, or archive it as a duplicate of the inbox item it
+    /// repeats. A decision, so triage moves on.</summary>
+    public Task MergeTriageDuplicateAsync()
+    {
+        if (SelectedItem is not { } item || RoutingInFlight || TriageAdvice?.Duplicate is not { } duplicate) return Task.CompletedTask;
+
+        return duplicate.TargetKind == InboxTriageTargetKind.Task
+            ? MergeIntoTaskAsync(item.Id, duplicate.TargetId)
+            : ArchiveAsDuplicateAsync(duplicate.TargetId);
+    }
+
+    /// <summary>The other undecided inbox item that relates to the one being
+    /// read, when the duplicate card's target is a backlog task — the third of
+    /// "Merge all three". Null otherwise.</summary>
+    public InboxItemDto? TriageDuplicateCompanion
+    {
+        get
+        {
+            if (SelectedItem is not { } item || TriageAdvice?.Duplicate is not { TargetKind: InboxTriageTargetKind.Task }) return null;
+
+            var byId = Items.ToDictionary(other => other.Id);
+            return (RelationsOf(item)?.Items ?? [])
+                .Select(relation => byId.GetValueOrDefault(relation.Id))
+                .OfType<InboxItemDto>()
+                .FirstOrDefault(other => other.Id != item.Id && IsUndecided(other));
+        }
+    }
+
+    /// <summary>"Merge all three": merges <see cref="TriageDuplicateCompanion"/>
+    /// and then the item being read into the backlog task, recorded as one undo
+    /// step, and moves triage on as a decision does. The companion is merged
+    /// first, so a refusal there leaves the item being read untouched.</summary>
+    public async Task MergeAllIntoTaskAsync()
+    {
+        if (SelectedItem is not { } item
+            || RoutingInFlight
+            || TriageAdvice?.Duplicate is not { TargetKind: InboxTriageTargetKind.Task } duplicate
+            || TriageDuplicateCompanion is not { } companion)
+        {
+            return;
+        }
+
+        var before = VisibleItems;
+        RememberPosition();
+
+        if (Report(await _inbox.MergeIntoTaskAsync(companion.Id, duplicate.TargetId))) return;
+
+        var steps = new List<InboxUndoStep> { MergeUndo(companion) };
+        var merged = !Report(await _inbox.MergeIntoTaskAsync(item.Id, duplicate.TargetId));
+        if (merged) steps.Add(MergeUndo(item));
+
+        RecordGroup(InboxDecisionKind.MergeIntoTask, MergeAllLabel, steps);
+
+        await ReloadAsync();
+        if (merged && TriageMode) AdvancePast(before, item.Id);
+    }
+
+    internal const string MergeAllLabel = "Merge all into a task";
+
+    /// <summary>The members of the plan card other than the item being read, as
+    /// the inbox has them, in the card's order.</summary>
+    public IReadOnlyList<InboxItemDto> TriagePlanMembers
+    {
+        get
+        {
+            if (SelectedItemId is not { } id || TriageAdvice?.Plan is not { } plan) return [];
+
+            var byId = Items.ToDictionary(item => item.Id);
+            return [.. plan.ItemIds
+                .Where(member => member != id)
+                .Select(member => byId.GetValueOrDefault(member))
+                .OfType<InboxItemDto>()];
+        }
+    }
+
+    /// <summary>The plan card's main act: opens "Before you route" on the item
+    /// and the captures the card groups with it — the batch path the bulk bar
+    /// takes. A batch that routes the item moves triage on.</summary>
+    public Task<InboxBulkOutcome> MakeTriagePlanAsync()
+    {
+        if (SelectedItem is null || TriageAdvice?.Plan is not { } plan) return Task.FromResult(InboxBulkOutcome.Nothing);
+
+        var byId = Items.ToDictionary(item => item.Id);
+        IReadOnlyList<InboxItemDto> members = [.. plan.ItemIds.Select(id => byId.GetValueOrDefault(id)).OfType<InboxItemDto>()];
+
+        return BeginRouteAsync(members, listId: null);
+    }
+
+    /// <summary>The repositories the advisor would route the item being read
+    /// to, as far as Settings still lists them — the boxes marked "AI". Empty
+    /// outside triage, for a decided item, and while the advisor is unavailable.</summary>
+    public IReadOnlyList<string> TriageSuggestedRepositories
+    {
+        get
+        {
+            if (!TriageMode || !TriageAdvisorAvailable || SelectedItem is not { } item || !IsOpen(item)) return [];
+            if (!_triageAdvice.TryGetValue(item.Id, out var advice) || advice is null) return [];
+
+            var configured = ConfiguredRepositories();
+            return [.. advice.Repositories
+                .Where(repository => configured.Contains(repository, StringComparer.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)];
+        }
+    }
+
+    /// <summary>The boxes ticked under "Move to backlog in" for the item being
+    /// read: a pick made in triage, else the advisor's repositories, else the
+    /// item's own.</summary>
+    public IReadOnlyList<string> TriageRepositories
+    {
+        get
+        {
+            if (SelectedItem is not { } item) return [];
+            if (_triageRepositoryPicks.TryGetValue(item.Id, out var picked)) return picked;
+
+            return TriageSuggestedRepositories is { Count: > 0 } suggested ? suggested : item.RepoIds;
+        }
+    }
+
+    /// <summary>What Move to backlog makes with the boxes ticked now.</summary>
+    public string TriageRouteHint => RouteHint(TriageRepositories.Count);
+
+    internal static string RouteHint(int repositories) => repositories switch
+    {
+        0 => "one entry, no repository",
+        1 => "one entry",
+        _ => $"{repositories} linked entries",
+    };
+
+    /// <summary>Ticks or unticks one repository for the item being read and
+    /// writes the new set to the item — ticking writes its repositories.</summary>
+    public async Task SetTriageRepositoryAsync(string repoId, bool picked)
+    {
+        if (string.IsNullOrWhiteSpace(repoId) || SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return;
+
+        var current = TriageRepositories.Where(id => !string.Equals(id, repoId, StringComparison.OrdinalIgnoreCase));
+        var chosen = (picked ? current.Append(repoId) : current).ToList();
+
+        // Settings' order, so the set reads the same whichever box was ticked first.
+        var order = ConfiguredRepositories();
+        IReadOnlyList<string> next = [.. chosen.OrderBy(id => IndexOrLast(order, id))];
+
+        _triageRepositoryPicks[item.Id] = next;
+        if (!await TryAssignRepositoriesAsync(item.Id, next))
+        {
+            _triageRepositoryPicks.Remove(item.Id);
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>Move to backlog from triage, by R or its button: the ticked
+    /// repositories are written first when they are not what the item carries —
+    /// the advisor's preselection, say — and then the item is routed.</summary>
+    public async Task RouteFromTriageAsync()
+    {
+        if (SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return;
+
+        var picked = TriageRepositories;
+        if (!SameRepositories(picked, item.RepoIds) && !await TryAssignRepositoriesAsync(item.Id, picked)) return;
+
+        await RouteToBacklogAsync();
+    }
+
+    private async Task<bool> TryAssignRepositoriesAsync(Guid itemId, IReadOnlyList<string> repoIds)
+    {
+        if (Report(await _inbox.AssignRepositoriesAsync(itemId, repoIds))) return false;
+
+        await ReloadAsync();
+        return true;
+    }
+
+    private static bool SameRepositories(IReadOnlyList<string> one, IReadOnlyList<string> other) =>
+        one.Count == other.Count && one.All(id => other.Contains(id, StringComparer.OrdinalIgnoreCase));
+
+    private static int IndexOrLast(IReadOnlyList<string> order, string id)
+    {
+        for (var i = 0; i < order.Count; i++)
+        {
+            if (string.Equals(order[i], id, StringComparison.OrdinalIgnoreCase)) return i;
+        }
+
+        return order.Count;
+    }
+
+    /// <summary>"Up next", at most four, in the order triage will show them:
+    /// the open rows after the item shown, then — the way a decision past the
+    /// last row goes back to the first item still waiting — the open rows above
+    /// it. A routed row stays in the slice but is never shown in triage.</summary>
+    public IReadOnlyList<InboxItemDto> TriageUpNext
+    {
+        get
+        {
+            var rows = VisibleItems;
+            var at = TriagePosition;
+
+            var after = (at >= 0 ? rows.Skip(at + 1) : rows.Where(row => row.Id != SelectedItemId)).Where(IsOpen);
+            var before = at >= 0 ? rows.Take(at).Where(IsOpen) : [];
+
+            return [.. after.Concat(before).Take(UpNextCount)];
+        }
+    }
+
+    internal const int UpNextCount = 4;
+
+    /// <summary>What U would take back, in words — the item and what became of
+    /// it — or null when the session has decided nothing yet.</summary>
+    public InboxLatestDecision? LatestDecision => _undo.Latest is { } step ? Describe(step) : null;
+
+    private InboxLatestDecision Describe(InboxUndoStep step)
+    {
+        if (step is InboxGroupUndoStep group)
+        {
+            return new InboxLatestDecision($"{InboxUndoHistory.Decisions(group).Count()} items", group.Label);
+        }
+
+        var item = ItemOf(step) is { } id ? Items.FirstOrDefault(candidate => candidate.Id == id) : null;
+        var title = item is null ? "An item" : ItemTitle(item);
+
+        var outcome = step switch
+        {
+            InboxRestoreUndoStep { Kind: InboxDecisionKind.MergeIntoTask } => "Merged into a task",
+            InboxRestoreUndoStep { Label: ArchiveAsDuplicateLabel } => "Archived as a duplicate",
+            InboxRestoreUndoStep => "Archived",
+            InboxDeferUndoStep when item?.DeferredUntil is { } until =>
+                $"Deferred until {until.ToString("d MMM", System.Globalization.CultureInfo.InvariantCulture)}",
+            InboxDeferUndoStep => "Deferred",
+            InboxMoveUndoStep => item?.ListId is { } listId ? FindList(listId)?.Name ?? "a list" : "Inbox",
+            InboxRouteUndoStep { Kind: InboxDecisionKind.LinkToTask } => "Linked to a task",
+            InboxRouteUndoStep => "Backlog",
+            _ => step.Label,
+        };
+
+        return new InboxLatestDecision(title, outcome);
+    }
+
+    internal const string ArchiveAsDuplicateLabel = "Archive as duplicate";
 
     /// <summary>Reads the next row (<paramref name="delta"/> 1) or the previous
     /// one (-1), stopping at either end rather than wrapping — a reader who
     /// pressed past the last row has read them all, and landing back on the first
     /// would hide that. From an item that has just left the rows, next is the row
-    /// now in its place and previous the one above it.</summary>
+    /// now in its place and previous the one above it. In triage a routed row is
+    /// stepped over, as if it were not there; with no open row left that way,
+    /// the reader stays where they are.</summary>
     public void Step(int delta)
     {
         var order = VisibleItems;
@@ -1055,7 +2034,37 @@ public sealed class InboxDesktopState
             ? at + delta
             : delta > 0 ? _lastPosition : _lastPosition - 1;
 
-        SelectItem(order[Math.Clamp(next, 0, order.Count - 1)].Id);
+        if (!TriageMode)
+        {
+            SelectItem(order[Math.Clamp(next, 0, order.Count - 1)].Id);
+            return;
+        }
+
+        if (at < 0) next = Math.Clamp(next, 0, order.Count - 1);
+
+        var direction = Math.Sign(delta);
+        for (var index = next; index >= 0 && index < order.Count; index += direction)
+        {
+            if (IsOpen(order[index]))
+            {
+                SelectItem(order[index].Id);
+                return;
+            }
+        }
+
+        // Nothing open that way. An item that has left the rows still needs a
+        // successor, so take the nearest open row the other way.
+        if (at < 0)
+        {
+            for (var index = next - direction; index >= 0 && index < order.Count; index -= direction)
+            {
+                if (IsOpen(order[index]))
+                {
+                    SelectItem(order[index].Id);
+                    return;
+                }
+            }
+        }
     }
 
     private void RememberPosition()
@@ -1066,35 +2075,38 @@ public sealed class InboxDesktopState
 
     /// <summary>One decision on the selected item: the module's act, a reload,
     /// and in triage mode the step on to the next item.</summary>
-    private async Task DecideAsync(Func<InboxItemDto, Task<Result>> act)
+    private async Task DecideAsync(Func<InboxItemDto, Task<Result>> act, Func<InboxItemDto, InboxUndoStep?> undo)
     {
-        if (SelectedItem is not { } item) return;
+        if (SelectedItem is not { } item || UndoRunning) return;
 
         var before = VisibleItems;
         RememberPosition();
 
         if (Report(await act(item))) return;
 
+        if (undo(item) is { } step) _undo.Record(step);
+
         await ReloadAsync();
         if (TriageMode) AdvancePast(before, item.Id);
     }
 
     /// <summary>Selects what comes after <paramref name="decided"/> in the rows as
-    /// they were before the decision — the first of them still on screen, so an
-    /// item that left the rows is not landed on. Past the last row it goes back
+    /// they were before the decision — the first of them still on screen and
+    /// still open, so neither an item that left the rows nor a routed one that
+    /// stays in them is landed on. Past the last row it goes back
     /// to the first item still waiting for a decision, which is where a reader
     /// who skipped some with j left them; with none left, nothing is selected
     /// and the mode says the queue is done.</summary>
     private void AdvancePast(IReadOnlyList<InboxItemDto> before, Guid decided)
     {
         var now = VisibleItems;
-        var onScreen = now.Select(item => item.Id).ToHashSet();
+        var open = now.Where(IsOpen).Select(item => item.Id).ToHashSet();
         var at = IndexOf(before, decided);
 
         Guid? next = null;
         for (var index = at + 1; at >= 0 && index < before.Count && next is null; index++)
         {
-            if (onScreen.Contains(before[index].Id)) next = before[index].Id;
+            if (open.Contains(before[index].Id)) next = before[index].Id;
         }
 
         next ??= now.FirstOrDefault(item => item.Id != decided && IsOpen(item))?.Id;
@@ -1102,6 +2114,253 @@ public sealed class InboxDesktopState
         SelectedItemId = next;
         RememberPosition();
         Changed?.Invoke();
+    }
+
+    // --- Taking a decision back ---------------------------------------------------
+    //
+    // Every decision above records its inverse as it lands, and U takes the
+    // newest back (interaction-guidelines.md, "Undo and history"). The history
+    // lives here, in the one object that outlives the pane's re-mounts, for the
+    // life of the app; it is never written anywhere.
+
+    private readonly InboxUndoHistory _undo = new();
+
+    /// <summary>The toast an undo answers with — what it took back, or why it
+    /// could not.</summary>
+    public const string UndoResultTestId = "inbox-undo-result";
+
+    /// <summary>Whether U has anything to take back.</summary>
+    public bool CanUndo => _undo.CanUndo;
+
+    /// <summary>An undo is in flight; another U waits for it.</summary>
+    public bool UndoRunning { get; private set; }
+
+    /// <summary>How many decisions of <paramref name="kind"/> this session made
+    /// and kept — what the inbox-zero screen sums up.</summary>
+    public int DecisionCount(InboxDecisionKind kind) => _undo.CountOf(kind);
+
+    /// <summary>Every decision kind the session made and kept, with its count.</summary>
+    public IReadOnlyDictionary<InboxDecisionKind, int> DecisionCounts => _undo.Counts;
+
+    // --- Inbox zero -----------------------------------------------------------
+    //
+    // When the unfiled Inbox has nothing left waiting and this session decided
+    // something, the columns give way to a summary of the session
+    // (features.md#inbox-zero): what was decided, what comes back, and where
+    // to go next. With no decision this session the first-use empty state
+    // stays, because a summary of nothing would say nothing.
+
+    /// <summary>How many coming-back rows the inbox-zero screen lists.</summary>
+    public const int ComingBackLimit = 5;
+
+    /// <summary>The decision kinds the summary counts, in its order, with the
+    /// words under each number. "Link to task" is not one: it leaves the item
+    /// where it was, so it is counted in the session's total and nowhere else.</summary>
+    internal static readonly IReadOnlyList<(InboxDecisionKind Kind, string Label)> ZeroStatKinds =
+    [
+        (InboxDecisionKind.MoveToBacklog, "moved to backlog"),
+        (InboxDecisionKind.MoveToList, "filed in lists"),
+        (InboxDecisionKind.Defer, "deferred"),
+        (InboxDecisionKind.Archive, "archived"),
+        (InboxDecisionKind.MergeIntoTask, "merged"),
+    ];
+
+    /// <summary>Every decision this session made and kept, of every kind.</summary>
+    public int SessionDecisionTotal => _undo.Counts.Values.Sum();
+
+    /// <summary>Whether the inbox-zero screen takes the place of the rows and
+    /// the detail: the unfiled Inbox is open, nothing in it is still waiting,
+    /// and the session has decided something. Not while a route, a bulk act or
+    /// a list's confirmation is under way — their panels live in the rows.</summary>
+    public bool ShowsInboxZero =>
+        Loaded
+        && !DeferredSelected
+        && SelectedListId is null
+        && InboxCount == 0
+        && SessionDecisionTotal > 0
+        && !SelectionMode
+        && !RoutingInFlight
+        && RouteDraft is null
+        && !ListRouteConfirmOpen;
+
+    /// <summary>The session's count per decision kind, in the summary's order,
+    /// a kind with no decisions left out.</summary>
+    public IReadOnlyList<InboxZeroStat> ZeroStats =>
+    [
+        .. ZeroStatKinds
+            .Select(stat => new InboxZeroStat(stat.Kind, stat.Label, _undo.CountOf(stat.Kind)))
+            .Where(stat => stat.Count > 0)
+    ];
+
+    /// <summary>The deferred items with a review date, soonest first, at most
+    /// <see cref="ComingBackLimit"/>. An undated deferral has no "when" to show.</summary>
+    public IReadOnlyList<InboxItemDto> ComingBack =>
+    [
+        .. Items
+            .Where(item => item.Status == InboxStatus.Deferred && item.DeferredUntil is not null)
+            .OrderBy(item => item.DeferredUntil)
+            .ThenByDescending(item => item.CapturedAt)
+            .Take(ComingBackLimit)
+    ];
+
+    /// <summary>The list holding the most items still waiting, the first in the
+    /// side menu's order on a tie; null when no list holds any.</summary>
+    public (InboxListDto List, int Count)? BusiestList
+    {
+        get
+        {
+            (InboxListDto List, int Count)? busiest = null;
+            foreach (var list in Lists)
+            {
+                var count = ListCount(list.Id);
+                if (count > 0 && (busiest is null || count > busiest.Value.Count)) busiest = (list, count);
+            }
+
+            return busiest;
+        }
+    }
+
+    /// <summary>When a deferred item comes back, said the way a person says it:
+    /// today, tomorrow, the weekday within the week, else the date.</summary>
+    public string ComesBackLabel(DateOnly until)
+    {
+        var today = DateOnly.FromDateTime(_clock.GetLocalNow().Date);
+        var days = until.DayNumber - today.DayNumber;
+
+        return days switch
+        {
+            <= 0 => "today",
+            1 => "tomorrow",
+            < 7 => until.ToString("dddd", System.Globalization.CultureInfo.InvariantCulture),
+            _ => until.ToString("d MMM", System.Globalization.CultureInfo.InvariantCulture),
+        };
+    }
+
+    /// <summary>The history itself, for tests that assert what a decision recorded.</summary>
+    internal InboxUndoHistory UndoHistory => _undo;
+
+    /// <summary>
+    /// Takes the newest decision back through the module, reloads, and selects
+    /// the item it brought back. A refusal — the item changed since, or a route
+    /// whose entry has started — is toasted in the module's own words and the
+    /// step is dropped, so the next U reaches the decision before it. Answers
+    /// whether anything was taken back.
+    /// </summary>
+    public async Task<bool> UndoLatestAsync()
+    {
+        if (RoutingInFlight) return false;
+
+        if (_undo.TakeLatest() is not { } step)
+        {
+            _toasts?.Publish(ToastMessage.Info("Nothing to undo.", UndoResultTestId));
+            return false;
+        }
+
+        UndoRunning = true;
+        Changed?.Invoke();
+
+        try
+        {
+            var undone = new List<InboxUndoStep>();
+            Error? refusal = null;
+
+            foreach (var decision in InboxUndoHistory.Decisions(step))
+            {
+                var result = await InverseAsync(decision);
+                if (result.IsSuccess) undone.Add(decision);
+                else refusal ??= result.Error;
+            }
+
+            _undo.Undone(undone);
+            await ReloadAsync();
+
+            // An undo taken while the pass is under review changes what it is
+            // about: what came back and no proposal covers is left for the reader.
+            _triagePassDraft?.Prune(Items, SliceItems);
+
+            if (undone.Any(decision => decision is InboxRouteUndoStep { DeleteTasks: true })) RouteUndone?.Invoke();
+
+            if (undone.Count > 0 && ItemOf(undone[^1]) is { } id && Items.Any(item => item.Id == id))
+            {
+                SelectedItemId = id;
+                RememberPosition();
+            }
+
+            _toasts?.Publish(refusal is { } error
+                ? ToastMessage.Error(undone.Count == 0 ? error.Message : $"{error.Message}. The rest was undone.", UndoResultTestId)
+                : ToastMessage.Info($"Undid {step.Label.ToLowerInvariant()}.", UndoResultTestId));
+
+            return undone.Count > 0;
+        }
+        finally
+        {
+            UndoRunning = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>The module's way back for one decision, and the deferral the
+    /// decision cleared put back — the module's way back ends unprocessed, and
+    /// the item is to be as it was.</summary>
+    private async Task<Result> InverseAsync(InboxUndoStep step)
+    {
+        var result = await ModuleInverseAsync(step);
+
+        var deferred = step switch
+        {
+            InboxRestoreUndoStep restore => restore.Deferred,
+            InboxRouteUndoStep route => route.Deferred,
+            _ => null,
+        };
+
+        if (result.IsFailure || deferred is null || ItemOf(step) is not { } id) return result;
+
+        // The decision itself is taken back by now; a deferral that will not go
+        // back on is said, but the undo still counts as done.
+        Report(await _inbox.DeferAsync(id, deferred.Until));
+        return result;
+    }
+
+    private static InboxDeferral? DeferralOf(InboxItemDto item) =>
+        item.Status == InboxStatus.Deferred ? new InboxDeferral(item.DeferredUntil) : null;
+
+    private static InboxDeferral? DeferralOf(IReadOnlyList<InboxItemDto> items, Guid id) =>
+        items.FirstOrDefault(item => item.Id == id) is { } item ? DeferralOf(item) : null;
+
+    private Task<Result> ModuleInverseAsync(InboxUndoStep step) => step switch
+    {
+        InboxRestoreUndoStep restore => _inbox.RestoreAsync(restore.ItemId),
+        InboxDeferUndoStep { WasDeferred: true } defer => _inbox.DeferAsync(defer.ItemId, defer.PreviousUntil),
+        InboxDeferUndoStep defer => _inbox.ResurfaceAsync(defer.ItemId),
+        InboxMoveUndoStep move => _inbox.MoveToListAsync(move.ItemId, move.PreviousListId),
+        InboxRouteUndoStep route => _inbox.ReturnToInboxAsync(route.ItemId, route.DeleteTasks),
+        _ => throw new InvalidOperationException($"No way back for {step.GetType().Name}."),
+    };
+
+    private static Guid? ItemOf(InboxUndoStep step) => step switch
+    {
+        InboxRestoreUndoStep restore => restore.ItemId,
+        InboxDeferUndoStep defer => defer.ItemId,
+        InboxMoveUndoStep move => move.ItemId,
+        InboxRouteUndoStep route => route.ItemId,
+        _ => null,
+    };
+
+    /// <summary>Records one gesture over several items as one step — or as the
+    /// single step it is when it changed one item, and nothing when it changed none.</summary>
+    private void RecordGroup(InboxDecisionKind kind, string label, IReadOnlyList<InboxUndoStep> steps)
+    {
+        switch (steps.Count)
+        {
+            case 0:
+                return;
+            case 1:
+                _undo.Record(steps[0]);
+                return;
+            default:
+                _undo.Record(new InboxGroupUndoStep(kind, label, steps));
+                return;
+        }
     }
 
     // --- Picking several items -------------------------------------------------
@@ -1143,7 +2402,7 @@ public sealed class InboxDesktopState
     /// <summary>A route of any kind is in flight — one item, a drafted plan, or
     /// an act across the selection, a batch route among them. Each waits for
     /// the others: two routes at once could send one item to the backlog twice.</summary>
-    public bool RoutingInFlight => RouteRunning || PlanRunning || BulkRunning;
+    public bool RoutingInFlight => RouteRunning || PlanRunning || BulkRunning || UndoRunning;
 
     /// <summary>Turns the boxes on, or off and empty.</summary>
     public void SetSelectionMode(bool on)
@@ -1225,7 +2484,8 @@ public sealed class InboxDesktopState
             "archived",
             refuse: _ => null,
             alreadyThere: item => item.Status == InboxStatus.Archived,
-            apply: items => _inbox.ArchiveAsync(Ids(items)));
+            apply: items => _inbox.ArchiveAsync(Ids(items)),
+            undo: item => new InboxRestoreUndoStep(InboxDecisionKind.Archive, "Archive", item.Id, DeferralOf(item)));
 
     /// <summary>Deletes every picked item for good — the bar asks first. Nothing
     /// is already there: an item on screen has not been deleted.</summary>
@@ -1246,7 +2506,8 @@ public sealed class InboxDesktopState
             $"moved to {name}",
             refuse: _ => null,
             alreadyThere: item => item.ListId == listId,
-            apply: items => _inbox.MoveToListAsync(Ids(items), listId));
+            apply: items => _inbox.MoveToListAsync(Ids(items), listId),
+            undo: item => new InboxMoveUndoStep("Move to list", item.Id, item.ListId));
     }
 
     /// <summary>
@@ -1546,6 +2807,11 @@ public sealed class InboxDesktopState
             else pending.Add(item);
         }
 
+        // A batch that takes the item being read in triage — the plan card's —
+        // is a decision on it, so triage moves on as it does after any other.
+        var before = VisibleItems;
+        var reading = SelectedItemId;
+
         BulkRunning = true;
         Changed?.Invoke();
 
@@ -1566,6 +2832,16 @@ public sealed class InboxDesktopState
 
                 batch = result.Value;
                 foreach (var failure in batch.Failed) refused[failure.Id] = failure.Error;
+
+                RecordGroup(
+                    InboxDecisionKind.MoveToBacklog,
+                    "Move to backlog",
+                    [
+                        .. batch.Routed.Select(routed => (InboxUndoStep)new InboxRouteUndoStep(
+                            InboxDecisionKind.MoveToBacklog, "Move to backlog", routed.InboxItemId, DeleteTasks: true, DeferralOf(pending, routed.InboxItemId))),
+                        .. batch.Archived.Select(archived => (InboxUndoStep)new InboxRestoreUndoStep(
+                            InboxDecisionKind.Archive, ArchiveAsDuplicateLabel, archived, DeferralOf(pending, archived))),
+                    ]);
             }
 
             var failures = picked
@@ -1576,6 +2852,14 @@ public sealed class InboxDesktopState
             var outcome = new InboxBulkOutcome(batch?.Routed.Count ?? 0, 0, failures);
 
             await ReloadAsync();
+
+            if (TriageMode
+                && reading is { } read
+                && batch is not null
+                && (batch.Routed.Any(routed => routed.InboxItemId == read) || batch.Archived.Contains(read)))
+            {
+                AdvancePast(before, read);
+            }
 
             var message = BatchRouteMessage(outcome, batch?.PlanTag);
             _toasts?.Publish(failures.Count > 0
@@ -1641,10 +2925,11 @@ public sealed class InboxDesktopState
         string did,
         Func<InboxItemDto, Error?> refuse,
         Func<InboxItemDto, bool> alreadyThere,
-        Func<IReadOnlyList<InboxItemDto>, Task<InboxBatchResultDto>> apply)
+        Func<IReadOnlyList<InboxItemDto>, Task<InboxBatchResultDto>> apply,
+        Func<InboxItemDto, InboxUndoStep>? undo = null)
     {
         var picked = SelectedItems;
-        if (picked.Count == 0 || BulkRunning) return InboxBulkOutcome.Nothing;
+        if (picked.Count == 0 || BulkRunning || UndoRunning) return InboxBulkOutcome.Nothing;
 
         var refused = new Dictionary<Guid, Error>();
         var unchanged = 0;
@@ -1665,6 +2950,12 @@ public sealed class InboxDesktopState
             var result = pending.Count == 0 ? InboxBatchResultDto.Nothing : await apply(pending);
 
             foreach (var failure in result.Failed) refused[failure.Id] = failure.Error;
+
+            if (undo is not null)
+            {
+                var landed = pending.Where(item => result.Changed.Contains(item.Id)).Select(undo).ToList();
+                if (landed.Count > 0) RecordGroup(landed[0].Kind, landed[0].Label, landed);
+            }
 
             var failures = picked
                 .Where(item => refused.ContainsKey(item.Id))
@@ -1896,7 +3187,7 @@ public sealed class InboxDesktopState
 
     /// <summary>Still open to a decision: unprocessed or deferred. A deferred
     /// item can still be tagged, filed, archived or routed.</summary>
-    private static bool IsOpen(InboxItemDto item) => item.Status is InboxStatus.Unprocessed or InboxStatus.Deferred;
+    internal static bool IsOpen(InboxItemDto item) => item.Status is InboxStatus.Unprocessed or InboxStatus.Deferred;
 
     /// <summary>Still in the queue: not routed, not archived, not put aside.</summary>
     private static bool IsWaiting(InboxItemDto item) =>
@@ -1968,13 +3259,43 @@ public sealed class InboxDesktopState
 /// item, and whether it is still open.</summary>
 public sealed record InboxTaskChoice(Guid Id, string Title, string? Reason, bool IsOpen);
 
-/// <summary>What the queue health strip shows: the unprocessed count, when the
-/// oldest of them was captured (null with none), and how many have waited too
-/// long.</summary>
+/// <summary>An AI card triage can show for an item (local ADR 0023), in the
+/// order the cards are numbered.</summary>
+public enum InboxTriageCardKind
+{
+    /// <summary>"Probably a duplicate".</summary>
+    Duplicate,
+
+    /// <summary>"Group into a plan".</summary>
+    Plan,
+}
+
+/// <summary>The session's latest decision as triage's "Just decided" reads it:
+/// "<paramref name="Title"/> → <paramref name="Outcome"/>".</summary>
+public sealed record InboxLatestDecision(string Title, string Outcome);
+
+/// <summary>What the queue health bar shows: the unprocessed count, when the
+/// oldest of them was captured (null with none), how many have waited too long,
+/// and how the rest split between fresh and aging.</summary>
 public sealed record InboxQueueHealth(int Unprocessed, DateTimeOffset? OldestCapturedAt, int Stale)
 {
     public static readonly InboxQueueHealth Clear = new(0, null, 0);
+
+    /// <summary>Captured under <see cref="InboxDesktopState.FreshUnderDays"/> ago.</summary>
+    public int Fresh { get; init; }
+
+    /// <summary>From <see cref="InboxDesktopState.FreshUnderDays"/> up to
+    /// <see cref="InboxDesktopState.StaleAfterDays"/>.</summary>
+    public int Aging { get; init; }
 }
+
+/// <summary>One heading of the list and the rows under it: Today, This week or
+/// Older than a week.</summary>
+public sealed record InboxAgeGroup(string Key, string Label, IReadOnlyList<InboxItemDto> Items);
+
+/// <summary>One number on the inbox-zero screen: how many decisions of a kind
+/// the session made and kept, and the words under it.</summary>
+public sealed record InboxZeroStat(InboxDecisionKind Kind, string Label, int Count);
 
 /// <summary>One kind chip: the slug the marker draws, the word beside it, and
 /// how many rows of the slice it stands for.</summary>

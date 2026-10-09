@@ -115,6 +115,50 @@ internal sealed class FakeInboxItems : IInboxItems
     public (bool Available, string? Reason) PlanDrafterAvailability { get; set; } =
         (false, "Configure Azure Foundry in Settings to create plans.");
 
+    /// <summary>Whether a triage advisor can run. Off by default — the state
+    /// of an app with no Foundry, where no AI triage surface is drawn.</summary>
+    public bool TriageAdvisorAvailable { get; set; }
+
+    /// <summary>What the advisor answers per item; an item with no entry is
+    /// answered with no cards.</summary>
+    public Dictionary<Guid, Result<InboxTriageAdviceDto>> TriageAdvice { get; } = [];
+
+    /// <summary>What the pass answers.</summary>
+    public Result<InboxTriagePassDto> TriagePassAnswer { get; set; } = Result.Success(InboxTriagePassDto.Nothing);
+
+    /// <summary>Thrown by both triage asks instead of answering, for the
+    /// "a call throws" path.</summary>
+    public Exception? TriageThrows { get; set; }
+
+    /// <summary>Every ask for cards, by item, with the repositories it carried.</summary>
+    public List<(Guid Id, IReadOnlyList<string>? Repositories)> AdviceRequests { get; } = [];
+
+    /// <summary>Every ask for the pass, with the items and repositories it carried.</summary>
+    public List<(IReadOnlyList<Guid> Ids, IReadOnlyList<string>? Repositories)> PassRequests { get; } = [];
+
+    public Task<Result<InboxTriageAdviceDto>> AdviseTriageAsync(Guid id, IReadOnlyList<string>? repositories = null, CancellationToken cancellationToken = default)
+    {
+        AdviceRequests.Add((id, repositories));
+        if (TriageThrows is { } thrown) throw thrown;
+        if (!TriageAdvisorAvailable) return Task.FromResult(Result.Failure<InboxTriageAdviceDto>(InboxErrors.TriageNotConfigured));
+
+        return Task.FromResult(TriageAdvice.TryGetValue(id, out var answer) ? answer : Result.Success(InboxTriageAdviceDto.None(id)));
+    }
+
+    /// <summary>Awaited before the pass answers, so a test can act while it
+    /// is out. Null answers at once.</summary>
+    public Func<Task>? BeforeTriagePass { get; set; }
+
+    public async Task<Result<InboxTriagePassDto>> ProposeTriagePassAsync(IReadOnlyList<Guid> ids, IReadOnlyList<string>? repositories = null, CancellationToken cancellationToken = default)
+    {
+        PassRequests.Add((ids, repositories));
+        if (BeforeTriagePass is { } before) await before();
+        if (TriageThrows is { } thrown) throw thrown;
+        if (!TriageAdvisorAvailable) return Result.Failure<InboxTriagePassDto>(InboxErrors.TriageNotConfigured);
+
+        return TriagePassAnswer;
+    }
+
     /// <summary>The clock captures are stamped with; advanced by a test that
     /// cares about order.</summary>
     public DateTimeOffset Now { get; set; } = new(2026, 9, 14, 9, 0, 0, TimeSpan.Zero);
@@ -319,8 +363,17 @@ internal sealed class FakeInboxItems : IInboxItems
         return Task.FromResult(Result.Success(0));
     }
 
+    /// <summary>Single-item acts refused on cue, by act — <c>merge</c>,
+    /// <c>archive</c>, <c>duplicate</c>, <c>move</c>, <c>route</c> — and item:
+    /// the way a test makes one decision of the AI pass's Apply fail.</summary>
+    public Dictionary<(string Act, Guid Id), Error> FailAct { get; } = [];
+
+    private bool Fails(string act, Guid id, out Error error) => FailAct.TryGetValue((act, id), out error);
+
     public Task<Result> MoveToListAsync(Guid id, Guid? listId, CancellationToken cancellationToken = default)
     {
+        if (Fails("move", id, out var refused)) return Task.FromResult(Result.Failure(refused));
+
         if (listId is { } target && _lists.All(list => list.Id != target))
         {
             return Task.FromResult(Result.Failure(InboxErrors.ListNotFound));
@@ -342,6 +395,7 @@ internal sealed class FakeInboxItems : IInboxItems
     }
 
     public Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Fails("archive", id, out var refused) ? Task.FromResult(Result.Failure(refused)) :
         Update(id, item => item.Status == InboxStatus.Archived
             ? throw new InvalidOperationException("Already archived.")
             : item with { Status = InboxStatus.Archived, DeferredUntil = null });
@@ -377,6 +431,7 @@ internal sealed class FakeInboxItems : IInboxItems
     /// exist, and only an open item.</summary>
     public Task<Result> ArchiveAsDuplicateAsync(Guid id, Guid duplicateOf, CancellationToken cancellationToken = default)
     {
+        if (Fails("duplicate", id, out var refused)) return Task.FromResult(Result.Failure(refused));
         if (id == duplicateOf) return Task.FromResult(Result.Failure(InboxErrors.DuplicateOfItself));
         if (Find(duplicateOf) is null) return Task.FromResult(Result.Failure(InboxErrors.DuplicateTargetNotFound));
         if (Find(duplicateOf)!.DuplicateOf == id) return Task.FromResult(Result.Failure(InboxErrors.DuplicateCircular));
@@ -410,6 +465,31 @@ internal sealed class FakeInboxItems : IInboxItems
         });
     }
 
+    /// <summary>Every merge asked of the port, by item and task.</summary>
+    public List<(Guid Id, Guid TaskId)> Merges { get; } = [];
+
+    /// <summary>The module's merge, restated: only an open item, archived as a
+    /// duplicate of the task. The comment is the adapter's and has its own tests.</summary>
+    public Task<Result> MergeIntoTaskAsync(Guid id, Guid taskId, CancellationToken cancellationToken = default)
+    {
+        Merges.Add((id, taskId));
+
+        if (Fails("merge", id, out var refused)) return Task.FromResult(Result.Failure(refused));
+
+        if (Find(id) is { } item && (item.Routing is not null || item.Status is not (InboxStatus.Unprocessed or InboxStatus.Deferred)))
+        {
+            return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Only an open item can be merged.")));
+        }
+
+        return Update(id, current => current with
+        {
+            Status = InboxStatus.Archived,
+            DeferredUntil = null,
+            DuplicateOf = taskId,
+            DuplicateOfTask = true,
+        });
+    }
+
     /// <summary>Every id deleted, in order.</summary>
     public List<Guid> Deleted { get; } = [];
 
@@ -440,6 +520,51 @@ internal sealed class FakeInboxItems : IInboxItems
         }
 
         return Update(id, current => current with { Status = InboxStatus.Unprocessed, DeferredUntil = null });
+    }
+
+    /// <summary>Every undo's way back the pane asked for, in order: the act and
+    /// the item.</summary>
+    public List<(string Act, Guid Id)> Undos { get; } = [];
+
+    /// <summary>What a returned route answers with instead of success, standing
+    /// in for the backlog's "has started" refusal.</summary>
+    public Error? RefuseReturn { get; set; }
+
+    /// <summary>The items <see cref="RefuseReturn"/> applies to; empty means every one.</summary>
+    public HashSet<Guid> RefuseReturnOf { get; } = [];
+
+    public Task<Result> RestoreAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        Undos.Add(("restore", id));
+
+        if (Find(id) is { Status: not InboxStatus.Archived })
+        {
+            return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Only an archived item can be restored.")));
+        }
+
+        return Update(id, current => current with
+        {
+            Status = InboxStatus.Unprocessed,
+            DuplicateOf = null,
+            DuplicateOfTask = false,
+        });
+    }
+
+    public Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default)
+    {
+        Undos.Add((deleteTasks ? "return" : "unlink", id));
+
+        if (Find(id) is { Routing: null })
+        {
+            return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Only a routed item can return.")));
+        }
+
+        if (deleteTasks && RefuseReturn is { } refusal && (RefuseReturnOf.Count == 0 || RefuseReturnOf.Contains(id)))
+        {
+            return Task.FromResult(Result.Failure(refusal));
+        }
+
+        return Update(id, current => current with { Status = InboxStatus.Unprocessed, Routing = null });
     }
 
     /// <summary>How many times the sweep ran, so a test can assert the pane ran
@@ -511,6 +636,8 @@ internal sealed class FakeInboxItems : IInboxItems
     {
         SingleRouteCalls++;
         if (BeforeRoute is { } gate) await gate();
+
+        if (Fails("route", id, out var refused)) return Result.Failure<InboxRoutedDto>(refused);
 
         if (Find(id) is not { } item) return Result.Failure<InboxRoutedDto>(InboxErrors.ItemNotFound);
         if (item.Routing is not null) return Result.Failure<InboxRoutedDto>(InboxErrors.InvalidTransition("Already routed."));

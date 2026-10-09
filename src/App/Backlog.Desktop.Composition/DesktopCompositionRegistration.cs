@@ -206,6 +206,10 @@ public static class DesktopCompositionRegistration
         // The Inbox's plan drafter over the same chat client, as long-lived as the
         // window's state that reaches it through IInboxItems.
         services.Add(new ServiceDescriptor(typeof(IInboxPlanDrafter), typeof(AzureFoundryInboxPlanDrafter), options.WindowStateLifetime));
+        // The Inbox's triage advisor (local ADR 0023) over the same deployment and
+        // settings, for the drafter's reasons and with its lifetime. A host that
+        // wants a stand-in replaces this registration after the call.
+        services.Add(new ServiceDescriptor(typeof(IInboxTriageAdvisor), typeof(AzureFoundryInboxTriageAdvisor), options.WindowStateLifetime));
         // The embedding deployment beside the chat one, registered and dormant:
         // local ADR 0004's semantic tier is wired and nothing writes vectors yet.
         services.AddHttpClient<IAzureFoundryEmbeddingsClient, AzureFoundryEmbeddingsClient>();
