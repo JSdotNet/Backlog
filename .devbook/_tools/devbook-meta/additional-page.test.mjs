@@ -80,6 +80,19 @@ const dump = (list) => JSON.stringify(list, null, 2);
 }
 
 {
+    // A scenario page is an additional page whose type is `scenario`, not its
+    // filename: the one file type a context page may carry beside its name.
+    const e = errors(".devbook/domain/financieel/close-the-books.md", "scenario");
+    check(e.length === 0, "an additional page typed scenario is accepted", dump(e));
+}
+
+{
+    // The freedom stays `.domain`'s: elsewhere the type is an error.
+    const e = errors(".devbook/design/close-the-books.md", "scenario");
+    check(e.some((i) => i.message.includes("lives only in .devbook/domain/")), "a scenario page outside .domain is an error", dump(e));
+}
+
+{
     // Chapter level is unchanged: the vocabulary is closed inside a file.
     const doc = "# Financieel\n\n```meta\ntype: domain\n```\n\n## Order\n\n```meta\ntype: order\n```\n\nProse.\n";
     const e = validateDocument(".devbook/domain/financieel/domain.md", doc).filter((i) => i.severity === "error");

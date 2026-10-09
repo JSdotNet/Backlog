@@ -988,16 +988,16 @@ public sealed class PullRequestsPaneTests : IDisposable
             {
                 Checks = GitHubCheckState.Failing,
                 CheckCounts = new GitHubCheckCounts(Passed: 7, Failed: 1, Pending: 2),
-                Reviews = new GitHubReviewSummary(GitHubReviewDecision.ReviewRequired, Approvals: 1, ChangesRequested: 0)
+                Reviews = new GitHubReviewSummary(GitHubReviewState.ReviewRequired, Approvals: 1, ChangesRequested: 0)
             },
             Pull("JSdotNet/Backlog", 2) with
             {
                 CheckCounts = new GitHubCheckCounts(Passed: 9, Failed: 0, Pending: 0),
-                Reviews = new GitHubReviewSummary(GitHubReviewDecision.Approved, Approvals: 2, ChangesRequested: 0)
+                Reviews = new GitHubReviewSummary(GitHubReviewState.Approved, Approvals: 2, ChangesRequested: 0)
             },
             Pull("JSdotNet/Backlog", 3) with
             {
-                Reviews = new GitHubReviewSummary(GitHubReviewDecision.ChangesRequested, Approvals: 0, ChangesRequested: 1)
+                Reviews = new GitHubReviewSummary(GitHubReviewState.ChangesRequested, Approvals: 0, ChangesRequested: 1)
             });
         using var context = Context(client);
 
@@ -1187,6 +1187,37 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         pane.WaitForAssertion(() => Assert.Equal(["JSdotNet/Backlog#1"], RowKeys(pane)));
         Assert.False(pins.IsPinned("JSdotNet/Backlog", 5));
+    }
+
+    /// <summary>A merged or closed pull request opened from a task's card — In progress
+    /// or the side panel — is not on the open read, so it is read by number and drawn
+    /// in the open list, marked current and saying Merged or Closed, and its row is
+    /// scrolled into view.</summary>
+    [Theory]
+    [InlineData(true, "Merged")]
+    [InlineData(false, "Closed")]
+    public void A_merged_or_closed_pull_request_opened_from_a_task_is_listed_and_scrolled_to(bool merged, string words)
+    {
+        var client = new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1));
+        client.Finds(Pull("JSdotNet/Backlog", 7, mine: false) with { IsMerged = merged, IsClosed = !merged, MergedAt = merged ? Noon.AddHours(-1) : null });
+        using var context = Context(client);
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters
+            .Add(p => p.FocusPullRequest, "JSdotNet/Backlog#7"));
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = Row(pane, "JSdotNet/Backlog#7");
+            Assert.Equal("true", row.GetAttribute("data-focused"));
+            Assert.Equal(words, Text(row, "pull-request-closed"));
+            Assert.Equal("true", pane.Find("[data-testid='pull-requests-view-open']").GetAttribute("aria-pressed"));
+            Assert.Contains("JSdotNet/Backlog 7", client.PinnedListed);
+        });
+        pane.WaitForAssertion(() =>
+            Assert.Equal(
+                "[data-testid='pull-request-row'][data-focused='true']",
+                Assert.Single(context.JSInterop.Invocations["backlogRevealRow"]).Arguments[0]));
     }
 
     /// <summary>A pull request pinned from the merged view is read by number, so the

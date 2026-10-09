@@ -1,5 +1,7 @@
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Infrastructure.GitHub;
+using Backlog.UI.Components.Integrations;
 using Bunit;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -298,6 +300,211 @@ public sealed class EntryWorkLinksTests
         Assert.Empty(pane.FindAll("[data-testid='entry-pull-request-auto-merge']"));
     }
 
+    /// <summary>An open pull request's review state is carried onto the link model
+    /// the row and the open entry hand <see cref="IntegrationLink"/>, and worded in
+    /// its tooltip after the state.</summary>
+    [Theory]
+    [InlineData(GitHubReviewState.ReviewRequired, IntegrationReviewState.ReviewRequired, " · review required")]
+    [InlineData(GitHubReviewState.Approved, IntegrationReviewState.Approved, " · approved")]
+    [InlineData(GitHubReviewState.ChangesRequested, IntegrationReviewState.ChangesRequested, " · changes requested")]
+    [InlineData(GitHubReviewState.None, IntegrationReviewState.None, "")]
+    public async Task An_open_pull_requests_review_state_rides_on_its_link(GitHubReviewState review, IntegrationReviewState expected, string words)
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, GitHubCheckState.Passing, review: review);
+
+        var pane = host.Render();
+
+        var links = pane.FindComponents<IntegrationLink>()
+            .Select(link => link.Instance.Link)
+            .Where(link => link.Kind == IntegrationLinkKind.PullRequest)
+            .ToList();
+        Assert.NotEmpty(links);
+        Assert.All(links, link => Assert.Equal(expected, link.Review));
+        Assert.Equal(
+            $"Pull request JSdotNet/Backlog#708 — open{words} · checks passing",
+            pane.Find("[data-testid='entry-pull-request']").GetAttribute("title"));
+    }
+
+    /// <summary>A verdict is a mark beside the checks, on the row and the open
+    /// entry, in its own ink; review required and no review draw nothing.</summary>
+    [Theory]
+    [InlineData(GitHubReviewState.Approved, "approved")]
+    [InlineData(GitHubReviewState.ChangesRequested, "changes-requested")]
+    public async Task A_review_verdict_is_a_mark_beside_the_checks(GitHubReviewState review, string slug)
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, GitHubCheckState.Failing, review: review);
+
+        var pane = host.Render();
+
+        foreach (var prefix in new[] { "row-", "entry-" })
+        {
+            var mark = pane.Find($"[data-testid='{prefix}pull-request-review']");
+            Assert.Contains($"integration-link__review--{slug}", mark.ClassList);
+
+            // Next to the checks glyph, after it.
+            var checks = pane.Find($"[data-testid='{prefix}pull-request-checks']");
+            Assert.Equal(mark.OuterHtml, checks.NextElementSibling?.OuterHtml);
+        }
+    }
+
+    [Theory]
+    [InlineData(GitHubReviewState.ReviewRequired)]
+    [InlineData(GitHubReviewState.None)]
+    public async Task No_verdict_draws_no_review_mark(GitHubReviewState review)
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, GitHubCheckState.Passing, review: review);
+
+        var pane = host.Render();
+
+        Assert.Empty(pane.FindAll("[data-testid='row-pull-request-review']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-pull-request-review']"));
+    }
+
+    /// <summary>The badge's accessible name is its whole tooltip, so a reader who
+    /// cannot see the inks hears the state, the verdict and the checks.</summary>
+    [Fact]
+    public async Task A_pull_request_badge_is_named_by_its_full_state()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 1018, GitHubCheckState.Failing, review: GitHubReviewState.ChangesRequested);
+
+        var pane = host.Render();
+
+        foreach (var prefix in new[] { "row-", "entry-" })
+        {
+            var link = pane.Find($"[data-testid='{prefix}pull-request']");
+            const string expected = "Pull request JSdotNet/Backlog#1018 — open · changes requested · checks failing";
+            Assert.Equal(expected, link.GetAttribute("title"));
+            Assert.Equal(expected, link.GetAttribute("aria-label"));
+        }
+    }
+
+    /// <summary>
+    /// A linked session's mark wears the state the Sessions record answered: stalled
+    /// highlighted and worded "Quiet 30 min", running neutral, finished muted — in the
+    /// tooltip and the accessible name as well as the ink, and with no chip beside
+    /// the id.
+    /// </summary>
+    [Theory]
+    [InlineData(LinkedSessionState.Stalled, "stalled", "Quiet 30 min")]
+    [InlineData(LinkedSessionState.Running, "running", "running")]
+    [InlineData(LinkedSessionState.Finished, "finished", "finished")]
+    public async Task A_session_badge_wears_its_state(LinkedSessionState state, string slug, string words)
+    {
+        var sessions = new FakeSessionStates { ["e711d47d-3e09-4254"] = state };
+        using var host = await TasksPaneHost.CreateAsync(
+            roadmapTags: null, ["JSdotNet/Backlog"], sessionStates: sessions);
+        var row = await host.WriteEntryAsync(Entry);
+        row.SessionLinks = [new EntrySessionLink("JSdotNet/Backlog", "e711d47d-3e09-4254")];
+
+        await host.State.ReadSessionStatesAsync();
+        var pane = host.Context.Render<TasksPane>(parameters => parameters.Add(p => p.OnOpenSession, (string _) => { }));
+
+        foreach (var prefix in new[] { "row-", "entry-" })
+        {
+            var session = pane.Find($"[data-testid='{prefix}session']");
+            Assert.Contains($"integration-link--session-{slug}", session.ClassList);
+
+            var expected = $"Session e711d47d-3e09-4254 · {words} — open in Sessions";
+            Assert.Equal(expected, session.GetAttribute("title"));
+            Assert.Equal(expected, session.GetAttribute("aria-label"));
+            Assert.Null(session.QuerySelector(".integration-chip__glyph"));
+        }
+    }
+
+    /// <summary>A session the record does not hold has no state to wear, and draws
+    /// as a session badge always did.</summary>
+    [Fact]
+    public async Task A_session_the_record_does_not_hold_draws_without_a_state()
+    {
+        using var host = await TasksPaneHost.CreateAsync(
+            roadmapTags: null, ["JSdotNet/Backlog"], sessionStates: new FakeSessionStates());
+        var row = await host.WriteEntryAsync(Entry);
+        row.SessionLinks = [new EntrySessionLink("JSdotNet/Backlog", "gone")];
+
+        await host.State.ReadSessionStatesAsync();
+        var pane = host.Render();
+
+        var session = pane.Find("[data-testid='entry-session']");
+        Assert.DoesNotContain(session.ClassList, name => name.StartsWith("integration-link--session", StringComparison.Ordinal));
+        Assert.Equal("Session gone — open in Sessions", session.GetAttribute("title"));
+    }
+
+    /// <summary>The read asks once for every linked session across the rows.</summary>
+    [Fact]
+    public async Task The_session_read_asks_once_for_every_linked_session()
+    {
+        var sessions = new FakeSessionStates();
+        using var host = await TasksPaneHost.CreateAsync(
+            roadmapTags: null, ["JSdotNet/Backlog"], sessionStates: sessions);
+        var first = await host.WriteEntryAsync(Entry);
+        var second = await host.WriteEntryAsync("# Second\n`prompt`\n");
+        first.SessionLinks = [new EntrySessionLink("JSdotNet/Backlog", "a"), new EntrySessionLink("JSdotNet/Backlog", "b")];
+        second.SessionLinks = [new EntrySessionLink("JSdotNet/Backlog", "B")];
+        var before = sessions.Asked.Count;
+
+        await host.State.ReadSessionStatesAsync();
+
+        Assert.Equal(before + 1, sessions.Asked.Count);
+        Assert.Equal(["a", "b"], sessions.Asked[^1]);
+    }
+
+    /// <summary>A merged pull request's review state is history, gated exactly as
+    /// its checks are.</summary>
+    [Fact]
+    public async Task A_merged_pull_request_carries_no_review_state()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, GitHubCheckState.Passing, state: GitHubItemState.Merged, review: GitHubReviewState.Approved);
+
+        var pane = host.Render();
+
+        Assert.All(
+            pane.FindComponents<IntegrationLink>().Select(link => link.Instance.Link).Where(link => link.Kind == IntegrationLinkKind.PullRequest),
+            link => Assert.Equal(IntegrationReviewState.None, link.Review));
+    }
+
+    [Fact]
+    public async Task No_review_state_rides_on_the_link_while_the_integration_is_off()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, GitHubCheckState.Passing, review: GitHubReviewState.Approved);
+        host.Features.SetEnabled(TasksFeatures.GitHubIntegration, enabled: false);
+
+        var pane = host.Render();
+
+        Assert.All(
+            pane.FindComponents<IntegrationLink>().Select(link => link.Instance.Link).Where(link => link.Kind == IntegrationLinkKind.PullRequest),
+            link => Assert.Equal(IntegrationReviewState.None, link.Review));
+    }
+
+    private sealed class FakeSessionStates : Dictionary<string, LinkedSessionState>, ILinkedSessionStates
+    {
+        public FakeSessionStates() : base(StringComparer.OrdinalIgnoreCase)
+        {
+        }
+
+        public List<IReadOnlyCollection<string>> Asked { get; } = [];
+
+        public Task<IReadOnlyDictionary<string, LinkedSessionState>> StatesOfAsync(
+            IReadOnlyCollection<string> sessionIds,
+            CancellationToken cancellationToken = default)
+        {
+            Asked.Add(sessionIds);
+            return Task.FromResult<IReadOnlyDictionary<string, LinkedSessionState>>(
+                sessionIds.Where(ContainsKey).ToDictionary(id => id, id => this[id]));
+        }
+    }
+
     /// <summary>A row with one recorded pull request whose status has been read, the
     /// way <c>RefreshPullRequestStatesAsync</c> leaves one.</summary>
     private static EntryPullRequestLink WithStatus(
@@ -305,7 +512,8 @@ public sealed class EntryWorkLinksTests
         int number,
         GitHubCheckState checks,
         bool autoMerge = false,
-        GitHubItemState state = GitHubItemState.Open)
+        GitHubItemState state = GitHubItemState.Open,
+        GitHubReviewState review = GitHubReviewState.None)
     {
         var pr = new EntryPullRequestLink("JSdotNet/Backlog", number);
         row.PullRequestLinks = [pr];
@@ -313,6 +521,9 @@ public sealed class EntryWorkLinksTests
         row.PullRequestStatuses = new Dictionary<EntryPullRequestLink, GitHubPullRequestStatus>
         {
             [pr] = new(number, pr.Repository, $"PR_{number}", state, checks, autoMerge, MergeReady: false, GitHubMergeMethod.Merge)
+            {
+                ReviewState = review
+            }
         };
         return pr;
     }

@@ -101,6 +101,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private readonly TasksCopilotCli _copilot;
     private readonly IRoadmapTagSource _roadmapTags;
 
+    /// <summary>Where the state of a linked agent session is read from, or null in a
+    /// host that composes no Sessions record. See <see cref="ReadSessionStatesAsync"/>.</summary>
+    private readonly ILinkedSessionStates? _sessionStates;
+
     /// <summary>What an entry's Devbook references point at, and what a picker may
     /// offer. <see cref="UnavailableDevbookReferenceResolver"/> in a host that
     /// composes no Devbook.</summary>
@@ -209,7 +213,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ITaskChangeSignal? taskWrites = null,
         TimeProvider? timeProvider = null,
         IDevbookReferenceResolver? devbookReferences = null,
-        LinkedTaskSources? linkedSources = null)
+        LinkedTaskSources? linkedSources = null,
+        ILinkedSessionStates? sessionStates = null)
     {
         _store = store;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -227,6 +232,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (_taskWrites is not null) _taskWrites.Changed += OnTaskWritten;
 
         LinkedSources = linkedSources ?? LinkedTaskSources.None;
+        _sessionStates = sessionStates;
     }
 
     /// <summary>The installed connectors and connected targets the source badge
@@ -256,6 +262,42 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         SelectedSource = string.IsNullOrEmpty(source) ? null : source;
         ApplyFilter();
+    }
+
+    /// <summary>
+    /// The task type the view is narrowed to — prompts, tasks, ideas or tests — or
+    /// null for every type. A scope like the source: a task has exactly one type, so
+    /// pressing another lets go of the first, and it narrows the one set of rows the
+    /// list, the Board and the Calendar all read. Held here with the other filters,
+    /// so switching views keeps it.
+    /// </summary>
+    public EntryType? SelectedType { get; private set; }
+
+    /// <summary>The type filter's chips: one per task type in what the scopes ahead
+    /// of it left in view, with how many of those rows are of it, in the type's own
+    /// order. Empty while that is fewer than two types and none is picked, so a
+    /// backlog of one type has no chip that could not narrow anything.</summary>
+    public IReadOnlyList<TypeFilterOption> TypeFilters { get; private set; } = [];
+
+    /// <summary>Narrows the view to one task type, or widens it again for null.</summary>
+    public void SetTypeFilter(EntryType? type)
+    {
+        SelectedType = type;
+        ApplyFilter();
+    }
+
+    private void RebuildTypeFilters(IReadOnlyCollection<EntryRow> scoped)
+    {
+        var counts = scoped.Where(row => row.IsPersisted)
+            .GroupBy(row => row.PreviewType)
+            .ToDictionary(group => group.Key, group => group.Count());
+        if (SelectedType is { } selected) counts.TryAdd(selected, 0);
+
+        TypeFilters = counts.Count < 2 && SelectedType is null
+            ? []
+            : [.. Enum.GetValues<EntryType>()
+                .Where(counts.ContainsKey)
+                .Select(type => new TypeFilterOption(type, type.ToString(), counts[type]))];
     }
 
     /// <summary>Whether a row is in the source <paramref name="source"/> names.</summary>
@@ -392,6 +434,16 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     public bool NoRepositoryOnly { get; private set; }
 
     /// <summary>
+    /// The rows the whole repository scope leaves in view — <see cref="ScopedRows"/>,
+    /// narrowed to the entries filed against no repository while
+    /// <see cref="NoRepositoryOnly"/> — for a view beside the list that draws its own
+    /// selection from the scope, such as In progress. Asked the way the list asks it:
+    /// "resolves to no configured repository".
+    /// </summary>
+    public IEnumerable<EntryRow> RowsInRepositoryScope =>
+        NoRepositoryOnly ? ScopedRows.Where(row => RepositoryFor(row) is null) : ScopedRows;
+
+    /// <summary>
     /// True while the view is narrowed to the entries marked <c>!ready</c> that
     /// are filed under a <c>+plan</c>: the work a plan has lined up to pick up.
     /// <para>
@@ -511,6 +563,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// different repositories for one row.
     /// </summary>
     public string? RepositoryAliasFor(string? repository) => _gitHub.Settings.Current.Find(repository)?.Alias;
+
+    /// <summary>The <c>owner/name</c> of a repository registered here, named by its
+    /// full name or its alias, or null for one this workspace does not know: the
+    /// check the Backlog server makes before it records a link.</summary>
+    public string? RegisteredRepository(string? repository) => _gitHub.Settings.Current.Find(repository)?.FullName;
 
     /// <summary>Whether the repository identity hues are being drawn. The shell's header
     /// carries the control, so the shell has to be able to read the state it is
@@ -938,6 +995,60 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         Changed?.Invoke();
+
+        _ = ReadSessionStatesAsync();
+    }
+
+    /// <summary>
+    /// The last known state of each agent session a task links to, keyed by session
+    /// id without regard to case; a session never read, or no longer in the record, is
+    /// absent. Not persisted, for the reason <see cref="EntryRow.Snapshot"/> is not: it
+    /// is a view of something the Sessions record owns.
+    /// <para>
+    /// Held on the list rather than on each row, because a session id means the same
+    /// session on every row that links it, and a reload that replaces every row has
+    /// nothing to carry across.
+    /// </para>
+    /// </summary>
+    public IReadOnlyDictionary<string, LinkedSessionState> SessionStates { get; private set; } =
+        new Dictionary<string, LinkedSessionState>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The last known state of one linked session, or null when none is
+    /// known.</summary>
+    public LinkedSessionState? SessionStateOf(string sessionId) =>
+        SessionStates.TryGetValue(sessionId, out var state) ? state : null;
+
+    /// <summary>
+    /// Reads the state of every session the rows link to, in one ask, and redraws.
+    /// Started after the first load and after every reload somebody else asked for,
+    /// and never awaited there: the list is already on screen, and a session record
+    /// that cannot be read leaves the badges as they were. Ends quietly at
+    /// <see cref="Dispose"/>.
+    /// </summary>
+    public async Task ReadSessionStatesAsync()
+    {
+        if (_sessionStates is null || _untilDisposed.IsCancellationRequested) return;
+
+        var ids = Rows.SelectMany(row => row.SessionLinks)
+            .Select(link => link.SessionId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (ids.Count == 0) return;
+
+        IReadOnlyDictionary<string, LinkedSessionState> read;
+        try
+        {
+            read = await _sessionStates.StatesOfAsync(ids, _untilDisposed);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        if (_untilDisposed.IsCancellationRequested) return;
+
+        SessionStates = new Dictionary<string, LinkedSessionState>(read, StringComparer.OrdinalIgnoreCase);
+        Changed?.Invoke();
     }
 
     /// <summary>Whether the first load of a freshly opened view is still out.
@@ -948,6 +1059,28 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         SelectedStatusFilterWire = wire ?? string.Empty;
         ApplyFilter();
+    }
+
+    /// <summary>
+    /// True while the status filter is set aside rather than applied — the Board
+    /// with its columns by status, where every status is a column and the
+    /// radiogroup is off the bar.
+    /// <para>
+    /// Set aside rather than cleared, so the list's choice survives a visit to the
+    /// Board: the reader who had narrowed the list to Ready finds it narrowed to
+    /// Ready again on the way back. Every other part of the filter still applies,
+    /// which is what lets the Board read <see cref="FilteredRows"/> unchanged.
+    /// </para>
+    /// </summary>
+    public bool StatusFilterSuspended { get; private set; }
+
+    public void SetStatusFilterSuspended(bool suspended)
+    {
+        if (StatusFilterSuspended == suspended) return;
+
+        StatusFilterSuspended = suspended;
+        ApplyFilter();
+        Changed?.Invoke();
     }
 
     /// <summary>Scopes the backlog to one repository, replacing whatever the scope
@@ -1017,6 +1150,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         NoRepositoryOnly = only;
         ApplyFilter();
+        Changed?.Invoke();
     }
 
     /// <summary>Turns the "ready in a plan" scope on or off. See
@@ -1127,6 +1261,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             widened = true;
         }
 
+        if (SelectedType is { } type && row.PreviewType != type)
+        {
+            SelectedType = null;
+            widened = true;
+        }
+
         if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire)
             && StatusWire(row.PreviewStatus) != SelectedStatusFilterWire)
         {
@@ -1165,20 +1305,28 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// entry with no <c>`repo:`</c> token already belongs to it, so a draft created
     /// under it stays in view without being told to.
     /// </para>
+    /// <para>
+    /// A <paramref name="status"/> seeds the entry in that status — the Board's
+    /// "+ New entry" at the foot of a status column, which creates the entry in
+    /// the column it was pressed in. Draft, or none, seeds nothing, because a
+    /// silent entry is a draft already.
+    /// </para>
     /// </summary>
-    public void NewRow()
+    public void NewRow(EntryStatus? status = null)
     {
         var row = new EntryRow();
 
         var seedRepository = AnchorRepositoryAlias.Length > 0 ? AnchorRepositoryAlias : null;
+        var seedStatus = status is { } wanted && wanted != EntryStatus.Draft ? wanted : (EntryStatus?)null;
 
-        if (seedRepository is not null || MyDayOn is not null)
+        if (seedRepository is not null || MyDayOn is not null || seedStatus is not null || SelectedType is not null)
         {
-            var tokens = "`task` `*medium` `!draft`";
+            var tokens = $"`{EntryTextParser.TypeToken(SelectedType ?? EntryType.Task)}` `*medium` `!draft`";
             if (seedRepository is not null) tokens += $" `repo:{seedRepository}`";
 
             row.RawText = $"# \n{tokens}\n";
             if (MyDayOn is { } myDay) row.RawText = EntryTextParser.WithMyDay(row.RawText, myDay);
+            if (seedStatus is { } seeded) row.RawText = EntryTextParser.WithStatus(row.RawText, seeded);
             row.SeedText = row.RawText;
         }
 
@@ -2857,6 +3005,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (_untilDisposed.IsCancellationRequested) return;
 
         Changed?.Invoke();
+
+        // A reload is how an agent's link_session reaches the list, so a session just
+        // linked is read here rather than waiting for the next launch.
+        _ = ReadSessionStatesAsync();
     }
 
     /// <summary>
@@ -3230,8 +3382,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         return WriteDevbookReferencesAsync(row, _ => whole);
     }
 
-    /// <summary>One reference write at a time. See
-    /// <see cref="WriteDevbookReferencesAsync"/>.</summary>
+    /// <summary>One write of the entry's own fields at a time — its Devbook references
+    /// and its planned hours. See <see cref="WriteDevbookReferencesAsync"/>.</summary>
     private readonly SemaphoreSlim _devbookWrites = new(1, 1);
 
     /// <summary>
@@ -3359,6 +3511,116 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
     }
 
+    // --- Planned hours -------------------------------------------------------
+
+    /// <summary>The test id of the toast a refused planned-hours write raises.</summary>
+    private const string PlannedHoursRefusedTestId = "entry-planned-hours-refused";
+
+    /// <summary>
+    /// Sets aside <paramref name="hours"/> for the entry on <paramref name="on"/> — a new
+    /// block, or a new figure for the day's block — or, for null, takes the day's block
+    /// away. The other days' blocks stand.
+    /// <para>
+    /// Saved at once, through the module, the way a Devbook reference is: a figure set or
+    /// a block removed is a decision, not typing. A refusal — hours of zero or less, or
+    /// more than a day — is said on the entry and on a toast, and the band reads Error.
+    /// The person's own plan for the Calendar: nothing here reaches the roadmap.
+    /// </para>
+    /// <para>
+    /// A row the store has not seen has nowhere to keep them, so this does nothing for
+    /// one; nor does it for a read-only row.
+    /// </para>
+    /// </summary>
+    public async Task SetPlannedHoursAsync(EntryRow row, DateOnly on, decimal? hours)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        if (row.IsReadOnly || row.Id is not { } id) return;
+
+        try
+        {
+            // The same gate as the Devbook references: both are written by loading and
+            // saving the whole entry, so two in flight would each save the other's
+            // field as it was before.
+            await _devbookWrites.WaitAsync(_untilDisposed);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        try
+        {
+            var current = _entries.TryGetValue(id, out var known) ? known.PlannedHours : row.PlannedHours;
+            var held = current.FirstOrDefault(block => block.On == on);
+            if (hours is null && held is null) return;
+            if (hours is { } same && held is not null && held.Hours == same) return;
+
+            List<PlannedHoursDto> next = [.. current.Where(block => block.On != on)];
+            if (hours is { } figure) next.Add(new PlannedHoursDto(on, figure));
+
+            await SavePlannedHoursAsync(row, id, [.. next.OrderBy(block => block.On)]);
+        }
+        finally
+        {
+            _devbookWrites.Release();
+        }
+    }
+
+    /// <summary>
+    /// Every block of planned hours in the filtered rows, with the row it belongs to —
+    /// what the Calendar draws on its days. Read from the filtered rows, so the filter
+    /// bar narrows the blocks as it narrows the chips.
+    /// </summary>
+    public IEnumerable<(EntryRow Row, PlannedHoursDto Block)> FilteredPlannedHours() =>
+        FilteredRows.SelectMany(row => row.PlannedHours.Select(block => (row, block)));
+
+    private async Task SavePlannedHoursAsync(EntryRow row, Guid id, IReadOnlyList<PlannedHoursDto> blocks)
+    {
+        SetSaveState(AppSaveState.Saving);
+
+        Result<TaskItemDto> saved;
+        try
+        {
+            saved = await _entryUseCases.SetPlannedHoursAsync(id, blocks, _untilDisposed);
+        }
+        catch (OperationCanceledException) when (_untilDisposed.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception)
+        {
+            RefusePlannedHours(row, "Couldn't save the planned hours.");
+            return;
+        }
+
+        if (saved.IsFailure)
+        {
+            RefusePlannedHours(row, saved.Error.Message);
+            return;
+        }
+
+        var entry = saved.Value;
+        _entries[entry.Id] = entry;
+
+        foreach (var shown in Rows.Where(candidate => candidate.Id == id).Append(row).Distinct())
+        {
+            shown.PlannedHours = entry.PlannedHours;
+            shown.PlannedHoursError = null;
+        }
+
+        SetSaveState(AppSaveState.Saved);
+        FlashSaved(row);
+        Changed?.Invoke();
+    }
+
+    private void RefusePlannedHours(EntryRow row, string message)
+    {
+        row.PlannedHoursError = message;
+        SetSaveState(AppSaveState.Error);
+        AnnounceRowFailure(row, message, PlannedHoursRefusedTestId);
+        Changed?.Invoke();
+    }
+
     private void RefuseDevbookReferences(EntryRow row, string message)
     {
         row.DevbookReferenceError = message;
@@ -3371,6 +3633,160 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// to GitHub — an issue, or a pull request its work recorded — which is what
     /// makes a whole-list sync worth offering.</summary>
     public bool HasLinkedRows => Rows.Any(r => r.IssueLink is not null || r.PullRequestLinks.Count > 0);
+
+    /// <summary>
+    /// Links an AI session or a pull request to an entry, by hand — the In progress
+    /// view's "Link to a task…" and the detail panel's "Link a session or pull
+    /// request…" — through the same use case the Backlog server's <c>link_session</c>
+    /// and <c>link_change</c> write through, so a link made here and one an agent
+    /// made are one kind of record.
+    /// <para>
+    /// A link the entry already holds is answered as done and not written again: the
+    /// session tool is idempotent on the same grounds, and a pull request recorded
+    /// twice would draw twice. Returns null on success, else the sentence to show.
+    /// </para>
+    /// </summary>
+    /// <param name="repository">The repository as <c>owner/name</c>.</param>
+    /// <param name="externalId">The session id, or the pull request number.</param>
+    /// <param name="targetType"><see cref="EntryProjectionDto.SessionTargetType"/> or
+    /// <see cref="EntryProjectionDto.PullRequestTargetType"/>.</param>
+    public async Task<string?> LinkWorkAsync(EntryRow row, string repository, string externalId, string targetType)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (row.Id is not { } id) return "Save the entry before linking work to it.";
+
+        var key = (externalId ?? string.Empty).Trim();
+        var repo = (repository ?? string.Empty).Trim();
+        if (key.Length == 0 || repo.Length == 0) return "There is nothing to link.";
+
+        var already = string.Equals(targetType, EntryProjectionDto.SessionTargetType, StringComparison.OrdinalIgnoreCase)
+            ? row.SessionLinks.Any(link => string.Equals(link.SessionId, key, StringComparison.OrdinalIgnoreCase))
+            : row.PullRequestLinks.Any(link =>
+                string.Equals(link.Repository, repo, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(link.Number.ToString(System.Globalization.CultureInfo.InvariantCulture), key, StringComparison.Ordinal));
+        if (already) return null;
+
+        if (await FlushBeforeWorkLinkAsync(row, "Save the entry before linking work to it.") is { } refused) return refused;
+
+        Result<TaskItemDto> linked;
+        try
+        {
+            linked = await _entryUseCases.LinkToIssueAsync(id, repo, key, targetType, _untilDisposed);
+        }
+        catch (Exception) when (!_untilDisposed.IsCancellationRequested)
+        {
+            const string failed = "Couldn't link it to the entry.";
+            AnnounceRowFailure(row, failed, WorkLinkFailureTestId);
+            return failed;
+        }
+
+        if (!linked.TryGetValue(out var updated))
+        {
+            var message = string.IsNullOrWhiteSpace(linked.Error.Message) ? "Couldn't link it to the entry." : linked.Error.Message;
+            AnnounceRowFailure(row, message, WorkLinkFailureTestId);
+            return message;
+        }
+
+        _entries[id] = updated;
+
+        // LinkToIssueAsync may have added the repository to the entry's `repo:`
+        // tokens, off to the side of the parse-and-save path — the same catch-up
+        // PushToGitHubAsync makes, for the same reason.
+        RefreshRowFromEntry(row, updated, rewriteText: true);
+        SetSaveState(AppSaveState.Saved);
+        ApplyFilter();
+        Changed?.Invoke();
+
+        if (string.Equals(targetType, EntryProjectionDto.SessionTargetType, StringComparison.OrdinalIgnoreCase))
+        {
+            _ = ReadSessionStatesAsync();
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Takes an AI session or a pull request off an entry, by hand — the unlink on
+    /// each linked card of the In progress view and the detail panel — through
+    /// <see cref="ITaskItems.UnlinkFromIssueAsync"/>, the counterpart of the use
+    /// case <see cref="LinkWorkAsync"/> writes through. A session still live, or a
+    /// pull request of the reader's still open, goes back to "Not linked to a task".
+    /// <para>
+    /// A link the entry does not hold is answered as done. Returns null on success,
+    /// else the sentence to show.
+    /// </para>
+    /// </summary>
+    /// <param name="repository">The repository the link was recorded under, as
+    /// <c>owner/name</c>.</param>
+    /// <param name="externalId">The session id, or the pull request number.</param>
+    /// <param name="targetType"><see cref="EntryProjectionDto.SessionTargetType"/> or
+    /// <see cref="EntryProjectionDto.PullRequestTargetType"/>.</param>
+    public async Task<string?> UnlinkWorkAsync(EntryRow row, string repository, string externalId, string targetType)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (row.Id is not { } id) return "Save the entry before unlinking work from it.";
+
+        var key = (externalId ?? string.Empty).Trim();
+        var repo = (repository ?? string.Empty).Trim();
+        if (key.Length == 0) return "There is nothing to unlink.";
+
+        if (await FlushBeforeWorkLinkAsync(row, "Save the entry before unlinking work from it.") is { } refused) return refused;
+
+        Result<TaskItemDto> unlinked;
+        try
+        {
+            unlinked = await _entryUseCases.UnlinkFromIssueAsync(id, repo, key, targetType, _untilDisposed);
+        }
+        catch (Exception) when (!_untilDisposed.IsCancellationRequested)
+        {
+            const string failed = "Couldn't unlink it from the entry.";
+            AnnounceRowFailure(row, failed, WorkLinkFailureTestId);
+            return failed;
+        }
+
+        if (!unlinked.TryGetValue(out var updated))
+        {
+            var message = string.IsNullOrWhiteSpace(unlinked.Error.Message) ? "Couldn't unlink it from the entry." : unlinked.Error.Message;
+            AnnounceRowFailure(row, message, WorkLinkFailureTestId);
+            return message;
+        }
+
+        _entries[id] = updated;
+        RefreshRowFromEntry(row, updated, rewriteText: true);
+        SetSaveState(AppSaveState.Saved);
+        ApplyFilter();
+        Changed?.Invoke();
+
+        return null;
+    }
+
+    /// <summary>Whatever is typed into the entry and not yet saved goes first: a link
+    /// or an unlink rewrites the row's text from the store, and an edit still waiting
+    /// on its debounce would otherwise be replaced by the text from before it. Null
+    /// when the write may go ahead, else why not.</summary>
+    private async Task<string?> FlushBeforeWorkLinkAsync(EntryRow row, string refusal)
+    {
+        bool pending;
+        lock (_debounceTimers)
+        {
+            pending = _debounceTimers.ContainsKey(row.Key);
+        }
+
+        if (!pending) return null;
+
+        CancelDebounce(row);
+        var saved = await SaveRowAsync(row, isFlush: true);
+
+        // A refused save keeps the text on screen; writing the link now would replace
+        // it with the stored text, which is the loss the flush is here to prevent.
+        if (saved.IsSuccess) return null;
+
+        return string.IsNullOrWhiteSpace(saved.Error.Message) ? refusal : saved.Error.Message;
+    }
+
+    private const string WorkLinkFailureTestId = "tasks-work-link-failed";
 
     public bool GitHubSyncing { get; private set; }
 
@@ -4494,6 +4910,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         row.PullRequestLinks = EntryLinks.PullRequests(entry);
         row.SessionLinks = EntryLinks.Sessions(entry);
         row.DevbookReferences = entry.DevbookReferences;
+        row.PlannedHours = entry.PlannedHours;
         row.CreatedAt = entry.CreatedAt;
         row.ImportPlanId = entry.ImportPlanId;
         row.SourceRef = entry.SourceRef;
@@ -4620,6 +5037,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             rows = rows.Where(row => IsFromSource(row, source));
         }
 
+        // And the task type, on the same terms again.
+        var typeScopedRows = rows.ToList();
+        RebuildTypeFilters(typeScopedRows);
+        rows = typeScopedRows;
+        if (SelectedType is { } type)
+        {
+            rows = rows.Where(row => row.PreviewType == type);
+        }
+
         // The tag bar is built from what every scope left in view, not the
         // repository scope alone: a tag whose entries a scope took out is a chip
         // that could only ever empty the list. Status and the tags themselves come
@@ -4628,7 +5054,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         RebuildTagFilters(scopedRows);
         rows = scopedRows;
 
-        if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
+        if (!StatusFilterSuspended && !string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
         {
             rows = rows.Where(x => StatusWire(x.PreviewStatus) == SelectedStatusFilterWire);
         }
@@ -4974,6 +5400,10 @@ public sealed record MetaReading(string Kind, string Value, bool Explicit, strin
 /// and how many tasks it would keep.</summary>
 public sealed record SourceFilterOption(string Value, string Label, int Count);
 
+/// <summary>One chip of the type filter: the task type, its label and how many rows
+/// in scope are of it.</summary>
+public sealed record TypeFilterOption(EntryType Value, string Label, int Count);
+
 public sealed class EntryRow
 {
     private string? _renderedFrom;
@@ -5043,6 +5473,16 @@ public sealed class EntryRow
     /// a token in its text, so it is read off the entry like <see cref="CreatedAt"/>
     /// and written only through <see cref="TasksDesktopState.SetDevbookReferencesAsync"/>.</summary>
     public IReadOnlyList<string> DevbookReferences { get; set; } = [];
+
+    /// <summary>The hours set aside for the entry on given days — the Calendar's planned
+    /// hours — one block a day, in date order. The entry's own field and never a token
+    /// in its text, read off the entry as <see cref="DevbookReferences"/> are and written
+    /// only through <see cref="TasksDesktopState.SetPlannedHoursAsync"/>.</summary>
+    public IReadOnlyList<PlannedHoursDto> PlannedHours { get; set; } = [];
+
+    /// <summary>Why the last change to <see cref="PlannedHours"/> was refused, in words
+    /// fit to read, or null. Cleared by the next one that lands.</summary>
+    public string? PlannedHoursError { get; set; }
 
     /// <summary>Why the last change to <see cref="DevbookReferences"/> was refused,
     /// in words fit to read, or null. Cleared by the next one that lands.</summary>
@@ -5251,6 +5691,13 @@ public sealed class EntryRow
     public DateOnly? PreviewDueOn
     {
         get { Render(); return _parsed!.DueOn; }
+    }
+
+    /// <summary>The day work on the entry started, from its <c>started:</c> token, or
+    /// null where the text carries none.</summary>
+    public DateOnly? PreviewStartedOn
+    {
+        get { Render(); return _parsed!.StartedOn; }
     }
 
     public DateTime? PreviewRemindAt

@@ -1,0 +1,105 @@
+@*
+    One pull request as a card beside the work it shipped: its number and title,
+    then one line of draft or open, the reviewers' verdict, the checks and the
+    diff size.
+
+    A failing check and requested changes are the two states that ask for the
+    person, so those cards wear the error edge, and the words that say why are in
+    the error ink — with the words always there, so the colour never carries the
+    meaning alone. Approved and passing checks are in the success ink; everything
+    else is quiet.
+
+    A button when the host can open it, inert otherwise, on the rule
+    WorkSessionCard follows.
+*@
+@if (OnOpen.HasDelegate)
+{
+    <button type="button"
+            class="@ClassValue"
+            title="@TitleValue"
+            data-testid="@TestId"
+            data-pull-request="@PullRequest.Key"
+            @onclick="() => OnOpen.InvokeAsync(PullRequest)">@Body()</button>
+}
+else
+{
+    <div class="@ClassValue" title="@TitleValue" data-testid="@TestId" data-pull-request="@PullRequest.Key">@Body()</div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public WorkPullRequest PullRequest { get; set; } = default!;
+
+    /// <summary>How the host opens the pull request. Without it the card is inert.</summary>
+    [Parameter]
+    public EventCallback<WorkPullRequest> OnOpen { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "work-pull-request";
+
+    private string? Review => WorkStates.ReviewWords(PullRequest.Review);
+
+    private string? Checks => PullRequest.ChecksText ?? WorkStates.ChecksWords(PullRequest.Checks);
+
+    private string? Diff => WorkStates.DiffWords(PullRequest.Additions, PullRequest.Deletions);
+
+    private string TitleValue =>
+        string.Join(" · ", new[]
+        {
+            $"Pull request #{PullRequest.Number} {PullRequest.Title}",
+            WorkStates.PullRequestWords(PullRequest.State),
+            Review,
+            Checks
+        }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    private string ClassValue
+    {
+        get
+        {
+            var value = "work-card work-card--pull-request";
+            if (WorkStates.NeedsYou(PullRequest)) value += " work-card--fault";
+            if (OnOpen.HasDelegate) value += " work-card--opens";
+            return string.IsNullOrWhiteSpace(CssClass) ? value : $"{value} {CssClass}";
+        }
+    }
+
+    private static string Tone(IntegrationReviewState review) => review switch
+    {
+        IntegrationReviewState.ChangesRequested => "work-card__fact work-card__fact--fault",
+        IntegrationReviewState.Approved => "work-card__fact work-card__fact--settled",
+        _ => "work-card__fact"
+    };
+
+    private static string Tone(IntegrationCheckState checks) => checks switch
+    {
+        IntegrationCheckState.Failing => "work-card__fact work-card__fact--fault",
+        IntegrationCheckState.Passing => "work-card__fact work-card__fact--settled",
+        _ => "work-card__fact"
+    };
+
+    private RenderFragment Body() =>
+        @<text>
+            <span class="work-card__line">
+                <span class="work-card__number" data-testid="work-pull-request-number">#@PullRequest.Number</span>
+                <span class="work-card__title" data-testid="work-pull-request-title">@PullRequest.Title</span>
+            </span>
+            <span class="work-card__facts">
+                <span class="work-card__fact" data-testid="work-pull-request-state">@WorkStates.PullRequestWords(PullRequest.State)</span>
+                @if (Review is not null)
+                {
+                    <span class="@Tone(PullRequest.Review)" data-testid="work-pull-request-review">@Review</span>
+                }
+                @if (Checks is not null)
+                {
+                    <span class="@Tone(PullRequest.Checks)" data-testid="work-pull-request-checks">@Checks</span>
+                }
+                @if (Diff is not null)
+                {
+                    <span class="work-card__fact work-card__fact--mono" data-testid="work-pull-request-diff">@Diff</span>
+                }
+            </span>
+        </text>;
+}

@@ -258,6 +258,59 @@ html, body {
     border-radius: var(--border-radius-md);
 }
 
+/* A board column's width, for the cards that live in one: a card shown at the
+   full width of this page is a card no board will ever draw. */
+.sb-board-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    width: 18rem;
+    max-width: 100%;
+}
+
+/* A board sample: the whole width of the story, or a narrow box that makes the
+   board scroll sideways. */
+.sb-board {
+    width: 100%;
+    min-width: 0;
+}
+
+/* A pane's worth of height, in the shape the desktop Board's pane has: a flex
+   column that scrolls, so the board is handed a height to fill exactly as it is
+   in .backlog-list__scroll, and a long column scrolls inside itself. */
+.sb-board--scroller {
+    display: flex;
+    flex-direction: column;
+    height: 28rem;
+    overflow-y: auto;
+    border: var(--border-width) dashed var(--color-border);
+}
+
+.sb-board--narrow {
+    width: 40rem;
+    max-width: 100%;
+    border: var(--border-width) dashed var(--color-border);
+}
+
+/* The calendar is a pane's content, so it gets a pane's room and its own scroll
+   at a width narrower than its grid. */
+.sb-calendar {
+    max-width: 100%;
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-md);
+}
+
+/* A detail panel's width, for a section of the Tasks panel shown on its own. */
+.sb-panel {
+    width: 26rem;
+    max-width: 100%;
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-md);
+}
+
 .sb-stack {
     display: flex;
     flex-direction: column;
@@ -338,6 +391,24 @@ html, body {
    far apart say nothing about where a thumb lands. */
 .sb-phone {
     max-width: 23.4375rem;
+}
+
+/* The desktop header's nav, laid out the way the shell lays it out: the
+   workspace's own three controls close together, the takeover groups further
+   apart, wrapping on a narrow page rather than scrolling. */
+.sb-header-nav,
+.sb-header-nav__workspace {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.sb-header-nav {
+    gap: var(--spacing-md);
+}
+
+.sb-header-nav__workspace {
+    gap: var(--spacing-xs);
 }
 
 /* A phone's whole screen, for something that covers one — the capture sheet

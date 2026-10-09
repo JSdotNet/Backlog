@@ -293,6 +293,14 @@ Devbook module's Abstractions, so the builder, the MCP chapter read and the
 Domain devbook pane apply one rule. `tools/devbook/build-database.mjs` writes the
 same tables, and `DevbookBuilderParityTests` compares the two writers.
 
+The same project reads scenario pages, outside the database. `Scenarios/` ports
+devbook's page parser and page signature, and `ScenarioSignatureVectorTests` holds
+the port to devbook's shared vector. It also reads a committed `run.json` in both
+of its versions and devbook's `_meta/scenarios.json` register, and it does the
+disk reads behind them. The Devbook UI's `DevbookScenarioStore` keeps one catalog
+per repository from those reads. The menu, the Domain panel, and every chapter's
+`scenario:` images draw from that catalog.
+
 **Inbox Service** is `Backlog.Modules.Inbox` since 2026-09-15 — a module with its
 own `Abstractions` project and its own tables in `backlog.db` (`inbox_items`,
 `inbox_lists`, `inbox_groups`), no longer a projection over draft tasks. It holds

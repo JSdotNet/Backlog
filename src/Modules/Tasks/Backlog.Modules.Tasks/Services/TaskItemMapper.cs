@@ -41,5 +41,6 @@ internal static class TaskItemMapper
         [.. entry.DevbookReferences],
         entry.BlockedSince,
         entry.SourceRef,
-        entry.AgendaTime);
+        entry.AgendaTime,
+        [.. entry.PlannedHours.Select(block => new PlannedHoursDto(block.On, block.Hours))]);
 }

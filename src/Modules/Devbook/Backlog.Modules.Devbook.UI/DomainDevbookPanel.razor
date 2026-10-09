@@ -376,6 +376,46 @@
         // draws the chapters without them.
         _syncVerdicts = Services.GetService<IDevbookSyncVerdicts>();
         if (_syncVerdicts is not null) _syncVerdicts.Changed += OnSyncVerdictsChanged;
+
+        // Optional for the same reason: a host that composed no scenario store
+        // draws its pages as the additional pages they otherwise are.
+        _scenarioStore = Services.GetService<DevbookScenarioStore>();
+        if (_scenarioStore is not null) _scenarioStore.Changed += OnScenariosChanged;
+        _scenarioImages = new DevbookScenarioImages(_scenarioStore);
+    }
+
+    private DevbookScenarioStore? _scenarioStore;
+
+    /// <summary>The store dropped its catalogs — the folder moved. Only the
+    /// scenarios are read again here: the domain store announces the same change
+    /// and its reload re-reads the rest, and the two can land in either order.</summary>
+    private void OnScenariosChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            if (_disposed) return;
+
+            await LoadScenariosAsync();
+            StateHasChanged();
+        });
+    }
+    private DevbookScenarioCatalog _scenarios = DevbookScenarioCatalog.Empty;
+    private DevbookScenarioImages _scenarioImages = null!;
+
+    /// <summary>The repository's scenario pages and their runs, from the store's
+    /// cache; read with the view, so an open page and its run are one answer.</summary>
+    private async Task LoadScenariosAsync()
+    {
+        var alias = RepositoryAlias;
+        var catalog = _scenarioStore is null ? DevbookScenarioCatalog.Empty : await _scenarioStore.LoadAsync(alias);
+
+        // A load the scope has moved on from is dropped, as the view's is.
+        if (!string.Equals(alias, RepositoryAlias, StringComparison.Ordinal) || ReferenceEquals(catalog, _scenarios)) return;
+
+        _scenarios = catalog;
+        _scenarioImages.Catalog = catalog;
     }
 
     private IDevbookSyncVerdicts? _syncVerdicts;
@@ -432,6 +472,7 @@
         // from its own cache, and a parent-supplied View never comes through the
         // reload path at all — so this is the only place that branch would get it.
         _c4 = _c4Store is null ? C4Catalog.Off : await _c4Store.LoadAsync(RepositoryAlias);
+        await LoadScenariosAsync();
 
         // Before the selection is derived, because deriving it searches the same
         // documents the render will then draw — and both would otherwise read
@@ -676,6 +717,7 @@
         // without it and the failure alert is drawn before the view.
         _loadError = null;
         _c4 = _c4Store is null ? C4Catalog.Off : await _c4Store.LoadAsync(RepositoryAlias);
+        await LoadScenariosAsync();
         _loadedRepositoryAlias = RepositoryAlias;
         await MaterializeSelectionAsync();
         await LoadSelectedChapterAsync(force: true);
@@ -1209,6 +1251,16 @@
                state, a failed write, the Copilot launch, and the linked knowledge
                issue. *@
             <Alert Message="@_chapterSaveError" TestId="domain-chapter-save-error" Role="status" />
+            @* A scenario page's run, above the page it proves: the setup it ran
+               under, how each part went, and the screenshots each part took. The
+               body below stays the page as written. *@
+            @if (_scenarios.ForPath(document.Path) is { } scenario)
+            {
+                <DevbookScenarioPage Scenario="@scenario" Images="@_scenarioImages" Store="@_scenarioStore" />
+            }
+            @* Every `scenario:` image in the chapter, and a scenario page's own
+               `shot:` points, resolve through this. *@
+            <CascadingValue TValue="IDevbookImageSource" Value="@_scenarioImages" IsFixed="true">
             <CascadingValue Value="@_syncScope" IsFixed="false">
             <FileView @ref="_chapterView"
                       Name="@document.Title"
@@ -1241,6 +1293,7 @@
                       CompareBaselines="@ChapterBaselines()"
                       CompareBaselineId="@_baselineId"
                       CompareBaselineIdChanged="OnBaselineChangedAsync" />
+            </CascadingValue>
             </CascadingValue>
 
             @* The link out to the architecture model.
@@ -1632,5 +1685,6 @@
         if (_c4Store is not null) _c4Store.Changed -= OnDevbookChanged;
         _annotations.Changed -= OnAnnotationsChanged;
         if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
+        if (_scenarioStore is not null) _scenarioStore.Changed -= OnScenariosChanged;
     }
 }

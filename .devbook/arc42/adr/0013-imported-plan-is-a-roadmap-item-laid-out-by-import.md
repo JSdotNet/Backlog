@@ -770,7 +770,18 @@ Changed on the owner's request, on 2026-10-07:
     later than its planned start. The owner decided this on 2026-10-07.
     Ruling 5's `part start = kept, from its earliest task start` line already
     states it. A hand-placed plan in flight therefore starts on its first
-    task's start rather than on its stored start.
+    task's start rather than on its stored start. *Clarified later on
+    2026-10-07, pending the owner's validation: the importer places a plan
+    dropped on a Calendar day from that day even when some of its work has
+    begun. The QA run of plan `task-views` (scenario C6) dropped such a plan
+    on a later day, and its stored window opened on the day the work began,
+    although the shelf says "Drag onto a day to start its window there". The
+    importer now holds every open part back to the chosen day, a begun part
+    included, and counts the open points from there. The stored window and
+    the Calendar both show that day. The drawing rule above is unchanged, so
+    the roadmap still draws the in-flight bar from the day its work began.
+    Drawing it from the chosen day would need a start a person pins, kept
+    beside the pinned end, and the owner has not decided that.*
 
 ## Consequences
 

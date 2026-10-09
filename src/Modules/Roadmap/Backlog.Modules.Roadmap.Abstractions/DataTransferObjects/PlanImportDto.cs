@@ -21,6 +21,11 @@ namespace Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 /// <param name="After">The entry's <c>after:</c> values: a sibling's local id, the tag
 /// of an item already on the plan, or a node id.</param>
 /// <param name="Notes">The entry's body, verbatim.</param>
+/// <param name="Start">The day a person chose for the window to open — a plan dropped on
+/// a day of the Calendar. Never read from a document. When given, the import's own
+/// placement opens the window on the first worked day on or after the latest of it, today
+/// and the day after the predecessors end, sizes it as it would from today, and leaves it
+/// as the person's placement: the keep-up projection no longer moves it.</param>
 public sealed record PlanImportEntryDto(
     string Title,
     string? Tag,
@@ -29,7 +34,8 @@ public sealed record PlanImportEntryDto(
     PlanningPriority Priority = PlanningPriority.Medium,
     DateOnly? Due = null,
     IReadOnlyList<string>? After = null,
-    string? Notes = null);
+    string? Notes = null,
+    DateOnly? Start = null);
 
 /// <summary>
 /// What the caller already knows about the work gathered under one plan tag: the

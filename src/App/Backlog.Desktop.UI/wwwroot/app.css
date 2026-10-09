@@ -271,10 +271,21 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
-/* The two groups inside are separate controls, so they take more air between
+/* The groups inside are separate controls, so they take more air between
    them than the members within either one. */
 .app-header__nav {
     gap: var(--spacing-md);
+}
+
+/* The workspace's own controls — the Inbox toggle, the view switch and the Devbook
+   toggle — sit closer to each other than to the takeover groups: the side panes
+   open beside whichever view the switch shows, so the three read as one cluster. */
+.app-header__workspace {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-width: 0;
 }
 
 .app-header__status {
@@ -589,6 +600,50 @@ h1, h2, h3 {
    drifting to the right edge. */
 .filter-group--select {
     flex: 0 0 auto;
+}
+
+/* The Board's "Columns" picker: a lone select, first on the bar — the grouping
+   it shows says what the columns are, so no word stands beside it, and its name
+   is the select's aria-label. Pinned like Select, because it decides what
+   everything under the bar is. The select is drawn as a chip so it sits level
+   with the chips beside it. */
+.filter-group--columns {
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.board-columns {
+    display: inline-flex;
+}
+
+.board-columns__select {
+    font: inherit;
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    border: var(--border-width) solid var(--color-border);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    cursor: pointer;
+}
+
+.board-columns__select:hover {
+    border-color: var(--color-border-strong);
+}
+
+.board-columns__select:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* With the statuses off the bar — the Board by status — nothing carries the
+   acts after them to the right edge, so the first of those takes the margin
+   the status group's would have. */
+.filter-bar:not(:has(.filter-group--status)) .filter-group--arrange {
+    margin-left: auto;
 }
 
 /* Pinned against the pile, and free to wrap on a row of its own. It used to
@@ -2992,22 +3047,19 @@ h1, h2, h3 {
 
 /* --- Header groups -------------------------------------------------------- */
 /*
-  Three of these sit in the header, and the shape each one takes is how many of
-  its options can be on at once. The base shape is fused — a single border
-  around the group, members flush inside it, hairlines between them — and it
-  says "any of these, together": the panes strip, where several panes share the
-  width, and the repository scope, where Ctrl takes a second repository. The
-  `--loose` modifiers below say "one of these": the takeover group, where at
-  most one takeover owns the screen. The takeover group used to share the
-  fused shape on the argument that every group here answers "what am I looking
-  at" and only the pressed state needs to carry the count — but the pressed
-  state is what a reader sees after pressing, and the shape is what they see
-  before.
+  The shape a group takes says how its options belong together. The base shape is
+  fused — a single border around the group, members flush inside it, hairlines
+  between them — and it says "these are siblings, read as one control": the
+  repository scope, where Ctrl takes a second repository; the view switch, where
+  exactly one view is always on; and the work in progress, Sessions and Pull
+  requests, one context's two lists. The pressed state, not the shape, says how
+  many are on. The `--loose` modifiers below say "related only by kind": the
+  Dashboard and Tools, two takeovers from two contexts.
 
-  A loose option can also stand entirely alone. The roadmap toggle is one: not
-  one of a set at all, a single on-or-off beside the panes strip, and it wears
-  `header-group__option--loose` with no group around it so it keeps the look of
-  navigation rather than of a utility.
+  A loose option can also stand entirely alone. The Inbox and Devbook toggles are
+  two: not one of a set at all, each a single on-or-off beside the view switch,
+  and each wears `header-group__option--loose` with no group around it so it
+  keeps the look of navigation rather than of a utility.
 
   `border-radius-md`, not the 999px this used to be: the layout guidance
   reserves the full radius for pills and avatars and asks interactive controls
@@ -3167,7 +3219,7 @@ h1, h2, h3 {
   border the base takes away, at the same specificity, so it has to come later
   in the sheet to win. It is the option's own modifier rather than a descendant
   rule of the loose group, because a loose option does not need a group at all —
-  the roadmap toggle wears it alone.
+  the Inbox and Devbook toggles wear it alone.
 */
 .header-group__option--loose {
     border: var(--border-width) solid var(--color-border);
@@ -6071,8 +6123,8 @@ h1, h2, h3 {
 }
 
 /* The workspace: the pane row, and nothing above it. The roadmap used to be a band
-   in a capped track over the panes; it is a takeover of its own now, so the
-   workspace has one row and it is the panes'. */
+   in a capped track over the panes, then a takeover; it is the workspace's main
+   view now, in the row's main column, so the workspace still has one row. */
 .workspace {
     display: grid;
     grid-template-rows: minmax(0, 1fr);
@@ -6082,7 +6134,7 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* A takeover: the Roadmap, Tools, the Dashboard or Sessions, filling everything below the header. The
+/* A takeover: Tools, the Dashboard, Sessions or Pull requests, filling everything below the header. The
    panel inside owns the scrollbar rather than this landmark, so the header — and
    the control that closes the surface — can never be scrolled out of reach. */
 .workspace-surface {
@@ -6103,10 +6155,37 @@ h1, h2, h3 {
     overflow: auto;
 }
 
-/* The roadmap takeover. The view fills the surface, and the chart inside it owns the
-   scrollbar, so the heading and the filters stay on screen while the rows scroll. */
-.workspace-surface > .roadmap-band {
+/* The Roadmap view, in the pane row's main column. The view fills the column, and
+   the chart inside it owns the scrollbar, so the heading and the filters stay on
+   screen while the rows scroll. */
+.roadmap-view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.roadmap-view > .roadmap-band {
     flex: 1 1 auto;
+}
+
+/* The In progress view, in the same column. Unlike the roadmap it scrolls as a
+   whole: its cards are a list, read top to bottom, with nothing to keep pinned. */
+.in-progress-view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.in-progress-view__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
 }
 
 .roadmap-band {
@@ -7259,6 +7338,16 @@ h1, h2, h3 {
     outline-offset: -2px;
 }
 
+/* The pull request a card opened the list on, marked the way the session list
+   marks the session a task opened it on. */
+tr[data-testid="pull-request-row"][data-focused="true"] > td {
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+tr[data-testid="pull-request-row"][data-focused="true"] > td:first-child {
+    box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
 /* Two short figures, read across rather than wrapped. */
 .sessions-table__tokens {
     white-space: nowrap;
@@ -7794,27 +7883,6 @@ h1, h2, h3 {
     min-height: 0;
 }
 
-.side-pane-stack > .inbox-pane {
-    flex: 0 1 auto;
-    overflow: auto;
-}
-
-.side-pane-stack--full {
-    position: static;
-    top: auto;
-    max-height: none;
-    overflow: auto;
-}
-
-/* The inbox on its own — the backlog hidden — is the whole row, and the stack
-   it sits in is already stretched to that row. The pane grows to fill it for
-   the reason the sticky variant above stretches: a pane sized by a short queue
-   left the rest of the window empty and its detail column with no room for a
-   picker's popup. With another pane in the stack the inbox keeps its content
-   height and shares the column, as before. */
-.side-pane-stack--full > .inbox-pane {
-    flex: 1 1 auto;
-}
 
 /* A column, so the split inside it inherits the height instead of measuring its
    own contents. The split asks for `flex: 1 1 auto` and this box is where that

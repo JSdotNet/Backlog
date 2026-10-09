@@ -1,0 +1,306 @@
+@using Backlog.UI.Components.Integrations
+@*
+    Everything in progress, by task: one card per task with its facts on the left
+    and the sessions and pull requests linked to it beside them, in sections —
+    Needs you, then Moving — and, last, the sessions and pull requests no task
+    links, each with "Link to a task…".
+
+    The section rules are InProgressSections', not this file's, so a host and its
+    tests read the same answer. This draws them, the two header toggles that change
+    them, and nothing else: no filter bar, because the view is already the answer
+    to one filter — what is moving now — and a second set of chips over it would
+    be a list view wearing a board's clothes.
+
+    The toggles are the host's state: it may remember them, and the view only
+    reports a press. The repository identity edge is the host's too, through each
+    task's Colour, null while the host's colours are hidden.
+
+    Each task card and the title are focus targets of their own (tabindex -1, an id
+    from TaskCardId), so a host can put the focus on the card a link just landed
+    on rather than leave it on the page body where the removed control dropped it.
+*@
+<div class="@ClassValue" data-testid="@TestId">
+    <div class="in-progress-board__header">
+        <h2 class="in-progress-board__title" id="@TitleId" tabindex="-1">In progress</h2>
+        <span class="in-progress-board__summary" data-testid="in-progress-summary">@Summary</span>
+        <span class="in-progress-board__spacer"></span>
+        @Actions
+        <ButtonGroup CssClass="in-progress-board__toggles" AriaLabel="Show" TestId="in-progress-toggles">
+            <ToggleButton Pressed="NeedsYouFirst"
+                          TestId="in-progress-needs-you-first"
+                          PressedChanged="value => NeedsYouFirstChanged.InvokeAsync(value)">Needs you first</ToggleButton>
+            <ToggleButton Pressed="IncludeFinishedToday"
+                          TestId="in-progress-include-finished"
+                          PressedChanged="value => IncludeFinishedTodayChanged.InvokeAsync(value)">Include finished today</ToggleButton>
+        </ButtonGroup>
+    </div>
+
+    @if (Sections.Count == 0 && Loose.Count == 0)
+    {
+        <EmptyState Title="Nothing in progress"
+                    Description="Tasks you start show here with the sessions and pull requests working on them."
+                    TestId="in-progress-empty" />
+    }
+
+    @foreach (var section in Sections)
+    {
+        <section class="@($"in-progress-board__section in-progress-board__section--{Slug(section.Kind)}")"
+                 aria-label="@section.Name"
+                 data-testid="in-progress-section"
+                 data-section="@Slug(section.Kind)">
+            <div class="in-progress-board__section-header">
+                <span class="in-progress-board__dot" aria-hidden="true"></span>
+                <h3 class="in-progress-board__section-title">@section.Name</h3>
+                <span class="in-progress-board__count" data-testid="in-progress-section-count">@section.Tasks.Count</span>
+                <span class="in-progress-board__hint">@section.Hint</span>
+            </div>
+
+            @if (section.Tasks.Count == 0)
+            {
+                <span class="in-progress-board__nothing" data-testid="in-progress-section-nothing">@NothingIn(section.Kind)</span>
+            }
+
+            @foreach (var task in section.Tasks)
+            {
+                <article @key="task.Id"
+                         class="@TaskClass(task)"
+                         id="@TaskCardId(task.Id)"
+                         tabindex="-1"
+                         aria-label="@task.Title"
+                         data-testid="in-progress-task"
+                         data-task-id="@task.Id">
+                    <div class="in-progress-task__facts">
+                        <div class="in-progress-task__top">
+                            <span class="in-progress-task__status" data-testid="in-progress-task-status">@task.Status</span>
+                            @if (!string.IsNullOrWhiteSpace(task.Plan))
+                            {
+                                <span class="in-progress-task__plan" data-testid="in-progress-task-plan">@task.Plan</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(task.Repository))
+                            {
+                                <span class="in-progress-task__repository" data-testid="in-progress-task-repository">@task.Repository</span>
+                            }
+                        </div>
+                        @if (OnOpenTask.HasDelegate)
+                        {
+                            <AppButton Variant="ButtonVariant.None"
+                                       BaseClass="in-progress-task__title in-progress-task__title--opens"
+                                       TestId="in-progress-task-title"
+                                       OnClick="() => OnOpenTask.InvokeAsync(task)">@task.Title</AppButton>
+                        }
+                        else
+                        {
+                            <span class="in-progress-task__title" data-testid="in-progress-task-title">@task.Title</span>
+                        }
+                        <div class="in-progress-task__meta">
+                            @if (task.SubItems is { } subItems)
+                            {
+                                <span data-testid="in-progress-task-sub-items">@subItems</span>
+                            }
+                            @if (task.Started is { } started)
+                            {
+                                <span data-testid="in-progress-task-started">@started</span>
+                            }
+                            @if (task.Due is { } due)
+                            {
+                                <span class="@(task.Overdue ? "in-progress-task__due in-progress-task__due--overdue" : "in-progress-task__due")" data-testid="in-progress-task-due">@due</span>
+                            }
+                            @if (task.Effort is { } effort)
+                            {
+                                <span class="in-progress-task__effort" data-testid="in-progress-task-effort">@effort</span>
+                            }
+                        </div>
+                    </div>
+                    @if (ShowSessions || ShowPullRequests)
+                    {
+                        <WorkLinks Sessions="task.Sessions"
+                                   PullRequests="task.PullRequests"
+                                   OnOpenSession="OnOpenSession"
+                                   OnOpenPullRequest="OnOpenPullRequest"
+                                   OnUnlinkSession="UnlinkSession(task)"
+                                   OnUnlinkPullRequest="UnlinkPullRequest(task)"
+                                   ShowSessions="ShowSessions"
+                                   ShowPullRequests="ShowPullRequests"
+                                   CssClass="in-progress-task__links" />
+                    }
+                </article>
+            }
+        </section>
+    }
+
+    @if (Loose.Count > 0)
+    {
+        <section class="in-progress-board__section in-progress-board__section--loose"
+                 aria-label="@InProgressSections.LooseName"
+                 data-testid="in-progress-section"
+                 data-section="loose">
+            <div class="in-progress-board__section-header">
+                <span class="in-progress-board__dot" aria-hidden="true"></span>
+                <h3 class="in-progress-board__section-title">@InProgressSections.LooseName</h3>
+                <span class="in-progress-board__count" data-testid="in-progress-section-count">@Loose.Count</span>
+                <span class="in-progress-board__hint">Running sessions and open pull requests no task links.</span>
+            </div>
+
+            @foreach (var loose in Loose)
+            {
+                <article @key="loose.Key"
+                         class="@LooseClass(loose)"
+                         data-testid="in-progress-loose"
+                         data-loose-key="@loose.Key">
+                    <div class="in-progress-task__facts">
+                        @if (!string.IsNullOrWhiteSpace(loose.Repository))
+                        {
+                            <span class="in-progress-task__repository">@loose.Repository</span>
+                        }
+                        <span class="in-progress-loose__text">Not linked to a task. Link it so it shows under the task, or leave it here.</span>
+                        @if (OnLink.HasDelegate)
+                        {
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Size="ButtonSize.Small"
+                                       CssClass="in-progress-loose__link"
+                                       TestId="in-progress-link"
+                                       OnClick="() => OnLink.InvokeAsync(loose)">Link to a task…</AppButton>
+                        }
+                    </div>
+                    <div class="in-progress-loose__item">
+                        @if (loose.Session is { } session)
+                        {
+                            <WorkSessionCard Session="session" OnOpen="OnOpenSession" />
+                        }
+                        @if (loose.PullRequest is { } pull)
+                        {
+                            <WorkPullRequestCard PullRequest="pull" OnOpen="OnOpenPullRequest" />
+                        }
+                    </div>
+                </article>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    /// <summary>The tasks in progress, in the host's order, done-today ones included
+    /// and marked <see cref="InProgressTask.Finished"/>.</summary>
+    [Parameter]
+    public IReadOnlyList<InProgressTask> Tasks { get; set; } = [];
+
+    /// <summary>The running sessions and open pull requests no task links.</summary>
+    [Parameter]
+    public IReadOnlyList<InProgressLoose> Loose { get; set; } = [];
+
+    [Parameter]
+    public bool NeedsYouFirst { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<bool> NeedsYouFirstChanged { get; set; }
+
+    [Parameter]
+    public bool IncludeFinishedToday { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> IncludeFinishedTodayChanged { get; set; }
+
+    /// <summary>A task's title was pressed. Without a listener the title is text.</summary>
+    [Parameter]
+    public EventCallback<InProgressTask> OnOpenTask { get; set; }
+
+    [Parameter]
+    public EventCallback<WorkSession> OnOpenSession { get; set; }
+
+    [Parameter]
+    public EventCallback<WorkPullRequest> OnOpenPullRequest { get; set; }
+
+    /// <summary>"Link to a task…" was pressed on a loose session or pull request.
+    /// Without a listener there is no button.</summary>
+    [Parameter]
+    public EventCallback<InProgressLoose> OnLink { get; set; }
+
+    /// <summary>"Unlink" was pressed beside a session or pull request a task's card
+    /// carries. Without a listener there is no button.</summary>
+    [Parameter]
+    public EventCallback<InProgressUnlink> OnUnlink { get; set; }
+
+    /// <summary>Whether the cards draw a Sessions column — off while the host's
+    /// session list is off.</summary>
+    [Parameter]
+    public bool ShowSessions { get; set; } = true;
+
+    /// <summary>Whether the cards draw a Pull requests column — off while the host's
+    /// pull requests list is off.</summary>
+    [Parameter]
+    public bool ShowPullRequests { get; set; } = true;
+
+    /// <summary>The id a task's card carries, for a host that moves the focus to it.</summary>
+    public static string TaskCardId(string taskId) => $"in-progress-task-{taskId}";
+
+    /// <summary>The id the board's title carries: where the focus goes when no card
+    /// is left to take it.</summary>
+    public const string TitleId = "in-progress-board-title";
+
+    private EventCallback<WorkSession> UnlinkSession(InProgressTask task) =>
+        OnUnlink.HasDelegate
+            ? EventCallback.Factory.Create<WorkSession>(this, session => OnUnlink.InvokeAsync(new InProgressUnlink(task, Session: session)))
+            : default;
+
+    private EventCallback<WorkPullRequest> UnlinkPullRequest(InProgressTask task) =>
+        OnUnlink.HasDelegate
+            ? EventCallback.Factory.Create<WorkPullRequest>(this, pull => OnUnlink.InvokeAsync(new InProgressUnlink(task, PullRequest: pull)))
+            : default;
+
+    /// <summary>Header controls of the host's own — a Refresh, a reading time — drawn
+    /// before the toggles.</summary>
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "in-progress-board";
+
+    private IReadOnlyList<InProgressSection> Sections =>
+        InProgressSections.Arrange(Tasks, NeedsYouFirst, IncludeFinishedToday);
+
+    /// <summary>"4 tasks · 5 sessions · 4 pull requests", over what is drawn.</summary>
+    private string Summary
+    {
+        get
+        {
+            var tasks = Sections.SelectMany(section => section.Tasks).ToList();
+            var sessions = tasks.Sum(task => task.Sessions.Count) + Loose.Count(loose => loose.Session is not null);
+            var pulls = tasks.Sum(task => task.PullRequests.Count) + Loose.Count(loose => loose.PullRequest is not null);
+
+            var parts = new List<string>(3) { Count(tasks.Count, "task") };
+            if (ShowSessions) parts.Add(Count(sessions, "session"));
+            if (ShowPullRequests) parts.Add(Count(pulls, "pull request"));
+
+            return string.Join(" · ", parts);
+        }
+    }
+
+    private static string Count(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
+
+    private static string Slug(InProgressSectionKind kind) => kind switch
+    {
+        InProgressSectionKind.NeedsYou => "needs-you",
+        InProgressSectionKind.Moving => "moving",
+        InProgressSectionKind.FinishedToday => "finished-today",
+        _ => "all"
+    };
+
+    private static string NothingIn(InProgressSectionKind kind) => kind switch
+    {
+        InProgressSectionKind.NeedsYou => "Nothing needs you right now.",
+        InProgressSectionKind.Moving => "Nothing else is moving.",
+        _ => "Nothing here."
+    };
+
+    private static string Mark(int? colour) => colour is null ? string.Empty : $" repo-mark repo-mark--{colour}";
+
+    private static string TaskClass(InProgressTask task) =>
+        "in-progress-task" + (task.Finished ? " in-progress-task--finished" : string.Empty) + Mark(task.Colour);
+
+    private static string LooseClass(InProgressLoose loose) => "in-progress-task in-progress-task--loose" + Mark(loose.Colour);
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "in-progress-board" : $"in-progress-board {CssClass}";
+}

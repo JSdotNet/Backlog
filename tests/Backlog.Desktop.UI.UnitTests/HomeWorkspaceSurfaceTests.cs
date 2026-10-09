@@ -23,16 +23,15 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The shell shows one surface at a time. The Roadmap, Tools and the Dashboard
-/// are whole domains rather than panes: opening one takes the screen and hides
-/// every other domain concern, and closing it puts the reader back exactly where
-/// they were. The session list is the Dashboard's second
-/// tab rather than a surface of its own, so it is reached through the Dashboard
-/// segment and then the tab strip.
+/// The shell shows one surface at a time. The workspace is one of them: the main
+/// view the view switch picks — Tasks or Roadmap — with the Inbox and the Devbook
+/// beside it. Tools, the Dashboard, Sessions and Pull requests are takeovers: opening
+/// one takes the screen and hides every other domain concern, and closing it puts
+/// the reader back exactly where they were.
 /// <para>
 /// That last part is worth a test even though no code implements it. The surface
-/// is a field of its own and the pane selection is never touched to open one, so
-/// the selection is simply revealed again rather than saved and restored. A future
+/// is a field of its own and neither the view nor the side panes are touched to open
+/// one, so they are simply revealed again rather than saved and restored. A future
 /// change that folds the surfaces into <c>GlobalPaneSelection</c> would pass every
 /// markup assertion and quietly break this.
 /// </para>
@@ -232,54 +231,54 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// During a takeover the pane strip stays in the header, because it is the way
-    /// back: no option reads pressed, since no pane is on screen, and none is
-    /// disabled — the lone open Tasks pane, which refuses to close in the
-    /// workspace, is exactly the one pressed to return to it. The pane selection
-    /// underneath is untouched: the strip comes back with the same pane pressed.
+    /// During a takeover the view switch and the side-pane toggles stay in the
+    /// header, because they are the way back: no option reads pressed, since nothing
+    /// of the workspace is on screen. The view underneath is untouched: the switch
+    /// comes back with the same view pressed.
     /// </summary>
     [Fact]
-    public void A_takeover_keeps_the_pane_strip_unpressed_and_a_pane_option_returns_to_the_workspace()
+    public void A_takeover_keeps_the_view_switch_unpressed_and_a_view_option_returns_to_the_workspace()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='global-pane-multiselect']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='view-switch']")));
 
-        foreach (var surface in new[] { "roadmap", "tools", "dashboard", "sessions", "pull-requests" })
+        foreach (var surface in new[] { "tools", "dashboard", "sessions", "pull-requests" })
         {
             component.Find($"[data-testid='{surface}-toggle-button']").Click();
 
             component.WaitForAssertion(() =>
             {
                 Assert.NotEmpty(component.FindAll($"[data-testid='{surface}-surface']"));
-                Assert.NotEmpty(component.FindAll("[data-testid='global-pane-multiselect']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='view-switch']"));
 
-                var tasks = component.Find("[data-testid='backlog-pane-option']");
+                var tasks = component.Find("[data-testid='tasks-view-option']");
                 Assert.Equal("false", tasks.GetAttribute("aria-pressed"));
                 Assert.False(tasks.HasAttribute("disabled"));
-                Assert.Equal("Back to Tasks", tasks.GetAttribute("title"));
-                Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("false", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
 
-                Assert.NotEmpty(component.FindAll("[data-testid='workspace-surface-switcher']"));
+                var devbook = component.Find("[data-testid='devbook-pane-option']");
+                Assert.Equal("false", devbook.GetAttribute("aria-pressed"));
+                Assert.Equal("Back to the workspace with Devbook open", devbook.GetAttribute("title"));
             });
 
-            component.Find("[data-testid='backlog-pane-option']").Click();
+            component.Find("[data-testid='tasks-view-option']").Click();
 
             component.WaitForAssertion(() =>
             {
                 Assert.Empty(component.FindAll($"[data-testid='{surface}-surface']"));
                 Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-                Assert.Equal("true", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
                 Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
             });
         }
     }
 
     /// <summary>
-    /// The way back keeps the selection as it was: pressing an option whose pane is
-    /// already open closes the takeover and shows the workspace with every open
-    /// pane still open — it does not toggle that pane off.
+    /// The way back keeps the workspace as it was: pressing a side pane's toggle
+    /// whose pane is already open closes the takeover and shows the workspace with
+    /// that pane still open — it does not toggle the pane off.
     /// </summary>
     [Fact]
     public void Pressing_an_open_pane_during_a_takeover_returns_with_the_selection_unchanged()
@@ -288,7 +287,7 @@ public sealed class HomeWorkspaceSurfaceTests
         var component = Render(harness);
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
-        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.Find("[data-testid='devbook-pane-option']").Click();
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
@@ -305,18 +304,18 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-            Assert.Equal("true", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
             Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
             Assert.Equal("false", component.Find("[data-testid='dashboard-toggle-button']").GetAttribute("aria-pressed"));
         });
     }
 
     /// <summary>
-    /// A pane that was not open opens as it would in the workspace: a plain press
-    /// switches to it, closing the takeover on the way.
+    /// A side pane that was not open opens beside the view the workspace was showing,
+    /// closing the takeover on the way: the view is never replaced by a pane.
     /// </summary>
     [Fact]
-    public void Pressing_a_closed_pane_during_a_takeover_switches_to_it()
+    public void Pressing_a_closed_pane_during_a_takeover_opens_it_beside_the_view()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
@@ -330,66 +329,65 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             Assert.Empty(component.FindAll("[data-testid='tools-surface']"));
-            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-            Assert.Equal("false", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
-            Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-        });
-    }
-
-    /// <summary>And Ctrl adds it beside the open ones, the same as in the workspace.</summary>
-    [Fact]
-    public void A_modifier_press_on_a_closed_pane_during_a_takeover_opens_it_beside()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']")));
-        component.Find("[data-testid='sessions-toggle-button']").Click();
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface']")));
-
-        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-            Assert.Equal("true", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
             Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
         });
     }
 
     /// <summary>
-    /// The header's nav leads with the pane strip, then the takeovers with Roadmap
-    /// first — it is the Tasks pane's plan — and no "Workspace" option anywhere.
+    /// The header's nav, left to right, as the design draws it: the Inbox toggle, the
+    /// fused view switch, the Devbook toggle; then the fused work in progress —
+    /// Sessions and Pull requests — and the loose Dashboard and Tools. No Tasks pane
+    /// toggle, and no "Workspace" option anywhere.
     /// </summary>
     [Fact]
-    public void The_nav_reads_panes_then_roadmap_first_among_the_takeovers()
+    public void The_nav_reads_inbox_views_devbook_then_the_work_in_progress_and_the_other_takeovers()
     {
-        using var harness = CreateHarness();
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
         var component = Render(harness);
 
         component.WaitForAssertion(() =>
         {
             var nav = component.Find(".app-header__nav");
-            var groups = nav.Children.ToList();
-            Assert.Equal("global-pane-multiselect", groups[0].GetAttribute("data-testid"));
-            Assert.Equal("workspace-surface-switcher", groups[1].GetAttribute("data-testid"));
+            var groups = nav.Children.Select(child => child.GetAttribute("data-testid")).ToList();
+            Assert.Equal(["workspace-navigation", "work-in-progress-switcher", "workspace-surface-switcher"], groups);
 
-            var takeovers = groups[1].Children.Select(option => option.GetAttribute("data-testid")).ToList();
+            var workspace = component.Find("[data-testid='workspace-navigation']").Children
+                .Select(child => child.GetAttribute("data-testid")).ToList();
+            Assert.Equal(["inbox-pane-option", "view-switch", "devbook-pane-option"], workspace);
+
             Assert.Equal(
-                ["roadmap-toggle-button", "dashboard-toggle-button", "sessions-toggle-button", "pull-requests-toggle-button", "tools-toggle-button"],
-                takeovers);
+                ["tasks-view-option", "board-view-option", "calendar-view-option", "roadmap-view-option"],
+                OptionIds(component, "view-switch"));
+            Assert.Equal(
+                ["in-progress-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
+                OptionIds(component, "work-in-progress-switcher"));
+            Assert.Equal(
+                ["dashboard-toggle-button", "tools-toggle-button"],
+                OptionIds(component, "workspace-surface-switcher"));
 
+            // Fused where the design fuses, loose where it does not.
+            Assert.DoesNotContain("header-group--loose", component.Find("[data-testid='view-switch']").ClassName);
+            Assert.DoesNotContain("header-group--loose", component.Find("[data-testid='work-in-progress-switcher']").ClassName);
+            Assert.Contains("header-group--loose", component.Find("[data-testid='workspace-surface-switcher']").ClassName);
+            Assert.Contains("header-group__option--loose", component.Find("[data-testid='inbox-pane-option']").ClassName);
+            Assert.Contains("header-group__option--loose", component.Find("[data-testid='devbook-pane-option']").ClassName);
+
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane-option']"));
+            Assert.Empty(component.FindAll("[data-testid='global-pane-multiselect']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-toggle-button']"));
             Assert.Empty(component.FindAll("[data-testid='workspace-surface-option']"));
         });
+
+        static List<string?> OptionIds(IRenderedComponent<Home> rendered, string group) =>
+            [.. rendered.Find($"[data-testid='{group}']").Children.Select(option => option.GetAttribute("data-testid"))];
     }
 
     /// <summary>
     /// Ask AI answers from whichever area is open, so it stays offered across a
-    /// takeover — the Dashboard is an area too — and while the task list is closed
-    /// in favour of another pane. An open panel goes with its button and comes back
+    /// takeover — the Dashboard is an area too. An open panel goes with its button and comes back
     /// with it: the flag behind it is not reset by a takeover. The sentence under
     /// the title names the one area on screen, because with one there are no chips.
     /// </summary>
@@ -421,22 +419,23 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
             Assert.Equal("Answers from the Sessions content.", component.Find(".ai-panel__body").TextContent.Trim()));
 
-        // Devbook alone on screen: pressing its option leaves the takeover and
-        // switches to it, so the list is closed and the devbook answers.
+        // Pressing the Devbook's toggle leaves the takeover and opens it beside the
+        // task list: two areas, and the Devbook, opened last, is the one asked.
         component.Find("[data-testid='devbook-pane-option']").Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
             Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']"));
-            Assert.Equal("Answers from the Devbook content.", component.Find(".ai-panel__body").TextContent.Trim());
+            Assert.Equal("true", component.Find("[data-testid='ai-scope-devbook']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='ai-scope-tasks']").GetAttribute("aria-pressed"));
         });
     }
 
-    /// <summary>The Inbox is an area like the others: with it open and the task
-    /// list closed, the button is still there and the Inbox is what answers.</summary>
+    /// <summary>The Inbox is an area like the others: opened beside the task list,
+    /// it is the one asked by default, and the list is still a choice.</summary>
     [Fact]
-    public void Ask_ai_is_offered_with_the_inbox_open_and_the_task_list_closed()
+    public void Ask_ai_offers_the_inbox_opened_beside_the_task_list()
     {
         using var harness = CreateHarness(features =>
         {
@@ -450,7 +449,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
             Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
             Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']"));
         });
@@ -458,8 +457,8 @@ public sealed class HomeWorkspaceSurfaceTests
         component.Find("[data-testid='ai-toggle-button']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='ai-scope']"));
-            Assert.Equal("Answers from the Inbox content.", component.Find(".ai-panel__body").TextContent.Trim());
+            Assert.Equal("true", component.Find("[data-testid='ai-scope-inbox']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='ai-scope-tasks']").GetAttribute("aria-pressed"));
         });
     }
 
@@ -491,7 +490,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal("group", group.GetAttribute("role"));
             Assert.Equal("Ask about", group.GetAttribute("aria-label"));
 
-            // Two chips, in the shell's fixed order — the panes left to right — and
+            // Two chips, in the shell's fixed order — the workspace left to right — and
             // the Devbook, opened last, is the one pressed.
             Assert.Equal("false", component.Find("[data-testid='ai-scope-tasks']").GetAttribute("aria-pressed"));
             Assert.Equal("true", component.Find("[data-testid='ai-scope-devbook']").GetAttribute("aria-pressed"));
@@ -822,12 +821,12 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Switching to a pane has to be remembered, not just shown, or a fresh shell
+    /// Opening a side pane has to be remembered, not just shown, or a fresh shell
     /// instance — a relaunch, or the Router rebuilding this component after a trip
     /// to Settings — has nothing to reopen on.
     /// </summary>
     [Fact]
-    public void Switching_to_a_pane_remembers_it_for_next_time()
+    public void Opening_a_side_pane_remembers_it_for_next_time()
     {
         var path = NewShellNavigationPath();
 
@@ -850,13 +849,13 @@ public sealed class HomeWorkspaceSurfaceTests
     /// <summary>
     /// The bug this pins: navigating to Settings and back tears down and rebuilds
     /// this component — the Router disposes it on every route change — so a fresh
-    /// <c>GlobalPaneSelection</c> field initializer used to reopen on Backlog no
-    /// matter what the reader had been looking at. A brand-new shell instance backed
-    /// by the same store is the same situation without needing an actual Settings
-    /// round trip in the test.
+    /// <c>GlobalPaneSelection</c> field initializer used to reopen with no side pane
+    /// no matter what the reader had open. A brand-new shell instance backed by the
+    /// same store is the same situation without needing an actual Settings round trip
+    /// in the test.
     /// </summary>
     [Fact]
-    public void A_fresh_shell_instance_reopens_on_the_pane_that_was_last_open()
+    public void A_fresh_shell_instance_reopens_with_the_side_pane_that_was_last_open()
     {
         var path = NewShellNavigationPath();
 
@@ -871,7 +870,7 @@ public sealed class HomeWorkspaceSurfaceTests
             component.WaitForAssertion(() =>
             {
                 Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-                Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
             });
         }
         finally
@@ -881,28 +880,151 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Two panes the reader had open beside each other come back beside each other:
-    /// the restore is the arrangement, not just the last pane pressed.
+    /// A file from before the view switch lists the task list among its panes —
+    /// "Tasks", or "Backlog" before that. It names no pane now and is ignored: the
+    /// Tasks view is showing, and the Inbox and the Devbook keep their state.
     /// </summary>
-    [Fact]
-    public void A_fresh_shell_instance_restores_two_open_panes()
+    [Theory]
+    [InlineData("Backlog")]
+    [InlineData("Tasks")]
+    public void A_tasks_pane_from_before_the_view_switch_is_ignored_and_the_side_panes_keep_their_state(string legacyTasks)
     {
         var path = NewShellNavigationPath();
 
         try
         {
+            WriteShellNavigation(path, $$"""
+                { "lastSurface": "Workspace", "lastEnabledPanes": ["{{legacyTasks}}", "Inbox", "Devbook"] }
+                """);
             var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastPanes(["Backlog", "Devbook"]);
+
+            using var harness = CreateHarness(
+                features => features.SetEnabled(AppFeatures.InboxPane, true),
+                shellNavigation: shellNavigation);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+                Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("true", component.Find("[data-testid='inbox-pane-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+            });
+
+            // The next save writes the side panes alone.
+            component.Find("[data-testid='inbox-pane-option']").Click();
+            component.WaitForAssertion(() => Assert.Equal(["Devbook"], shellNavigation.LastEnabledPanes));
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The "side panes only" state is gone with the Tasks pane toggle: a file that
+    /// left the Inbox open on its own reopens with the Inbox beside the Tasks view,
+    /// since one view is always showing.
+    /// </summary>
+    [Fact]
+    public void A_side_panes_only_file_reopens_with_the_panes_beside_the_tasks_view()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            WriteShellNavigation(path, """
+                { "lastSurface": "Workspace", "lastEnabledPanes": ["Inbox"] }
+                """);
+            var shellNavigation = new ShellNavigationStore(path);
+
+            using var harness = CreateHarness(
+                features => features.SetEnabled(AppFeatures.InboxPane, true),
+                shellNavigation: shellNavigation);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
+                Assert.Empty(component.FindAll("[data-testid='side-pane-stack']"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The roadmap was a takeover before it was a view, and a file from then names it
+    /// as the surface. It reopens on the Roadmap view in the workspace, with the
+    /// remembered side panes beside it, and the shell never writes the old surface
+    /// name back.
+    /// </summary>
+    [Fact]
+    public void A_roadmap_surface_from_before_the_view_switch_reopens_as_the_roadmap_view()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            WriteShellNavigation(path, """
+                { "lastSurface": "Roadmap", "lastEnabledPanes": ["Devbook"] }
+                """);
+            var shellNavigation = new ShellNavigationStore(path);
 
             using var harness = CreateHarness(shellNavigation: shellNavigation);
             var component = Render(harness);
 
             component.WaitForAssertion(() =>
             {
-                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='roadmap-view'] [data-testid='roadmap-band']"));
                 Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-                Assert.Equal("true", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
-                Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+                Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+                Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
+            });
+
+            component.Find("[data-testid='dashboard-toggle-button']").Click();
+            component.WaitForAssertion(() => Assert.Equal("Dashboard", shellNavigation.LastSurface));
+            component.Find("[data-testid='dashboard-toggle-button']").Click();
+            component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
+
+            Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", File.ReadAllText(path), StringComparison.Ordinal);
+            Assert.Equal("Roadmap", new ShellNavigationStore(path).LastView);
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>Picking a view is remembered by its name, and a fresh shell instance
+    /// reopens on it.</summary>
+    [Fact]
+    public void The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            using (var harness = CreateHarness(shellNavigation: shellNavigation))
+            {
+                var component = Render(harness);
+                OpenTheRoadmap(component);
+                component.WaitForAssertion(() => Assert.Equal("Roadmap", shellNavigation.LastView));
+            }
+
+            using var reopened = CreateHarness(shellNavigation: new ShellNavigationStore(path));
+            var again = Render(reopened);
+
+            again.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(again.FindAll("[data-testid='roadmap-band']"));
+                Assert.Equal("true", again.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
             });
         }
         finally
@@ -940,11 +1062,6 @@ public sealed class HomeWorkspaceSurfaceTests
     /// A non-default pane selection has to survive a takeover. Devbook is turned
     /// on first precisely so the assertion is about the reader's choice rather than
     /// about the default the shell would fall back to anyway.
-    /// <para>
-    /// Devbook is opened with Ctrl held, because a plain press would switch to it and
-    /// close Tasks. The two-pane arrangement this test is about is something the
-    /// reader has to ask for, and the modifier is how.
-    /// </para>
     /// </summary>
     [Fact]
     public void Closing_a_surface_restores_the_workspace_with_the_pane_selection_unchanged()
@@ -953,7 +1070,7 @@ public sealed class HomeWorkspaceSurfaceTests
         var component = Render(harness);
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
-        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.Find("[data-testid='devbook-pane-option']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -983,30 +1100,215 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// The Board is a main view over the same Tasks pane: the filter bar stays,
+    /// the list gives way to the columns, and the switch reads Board pressed. Its
+    /// name is what the shell remembers, and the Columns choice is remembered
+    /// beside it, so a fresh shell reopens on the Board grouped the same way.
+    /// </summary>
     [Fact]
-    public void The_roadmap_takes_the_screen_in_place_of_the_panes()
+    public void The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            using (var harness = CreateHarness(shellNavigation: shellNavigation))
+            {
+                var component = Render(harness);
+
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='entry-list'], [data-testid='empty-state']")));
+                component.Find("[data-testid='board-view-option']").Click();
+
+                component.WaitForAssertion(() =>
+                {
+                    Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane'] .filter-bar"));
+                    Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane'] [data-testid='task-board']"));
+                    Assert.Empty(component.FindAll("[data-testid='entry-list']"));
+                    Assert.Equal("true", component.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
+                    Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+                    Assert.Equal("Board", shellNavigation.LastView);
+                    Assert.Equal("Status", shellNavigation.BoardColumns);
+                });
+
+                component.Find("#board-columns").Change("Priority");
+                component.WaitForAssertion(() =>
+                {
+                    Assert.Equal("Priority", shellNavigation.BoardColumns);
+                    Assert.Equal("Critical", component.Find("[data-testid='board-column-title']").TextContent);
+                });
+
+                component.Find("[data-testid='tasks-view-option']").Click();
+                component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='task-board']")));
+            }
+
+            var reopenedNavigation = new ShellNavigationStore(path);
+            reopenedNavigation.SetLastView("Board");
+            using var reopened = CreateHarness(shellNavigation: reopenedNavigation);
+            var again = Render(reopened);
+
+            again.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(again.FindAll("[data-testid='task-board']"));
+                Assert.Equal("true", again.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("Priority", again.Find("#board-columns").GetAttribute("value"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The Calendar is a main view over the same Tasks pane: the filter bar stays,
+    /// the list gives way to the month, and the switch reads Calendar pressed. Its
+    /// name is what the shell remembers, and a fresh shell reopens on it.
+    /// </summary>
+    [Fact]
+    public void The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            using (var harness = CreateHarness(shellNavigation: shellNavigation))
+            {
+                var component = Render(harness);
+
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='entry-list'], [data-testid='empty-state']")));
+                component.Find("[data-testid='calendar-view-option']").Click();
+
+                component.WaitForAssertion(() =>
+                {
+                    Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane'] .filter-bar"));
+                    Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane'] [data-testid='task-calendar']"));
+                    Assert.Empty(component.FindAll("[data-testid='entry-list']"));
+                    Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+                    Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+                    Assert.Equal("Calendar", shellNavigation.LastView);
+                });
+
+                component.Find("[data-testid='tasks-view-option']").Click();
+                component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='task-calendar']")));
+                component.Find("[data-testid='calendar-view-option']").Click();
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='task-calendar']")));
+            }
+
+            using var reopened = CreateHarness(shellNavigation: new ShellNavigationStore(path));
+            var again = Render(reopened);
+
+            again.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(again.FindAll("[data-testid='task-calendar']"));
+                Assert.Equal("true", again.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The roadmap is a main view, not a takeover: it shows in the workspace's own
+    /// <c>main</c>, in the place of the task list, and the Tasks filter bar goes with
+    /// the list. The view switch reads Roadmap pressed and Tasks not.
+    /// </summary>
+    [Fact]
+    public void The_roadmap_view_replaces_the_task_list_inside_the_workspace()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.NotEmpty(component.FindAll(".filter-bar"));
+        });
 
         OpenTheRoadmap(component);
 
         component.WaitForAssertion(() =>
         {
-            var surface = component.Find("[data-testid='roadmap-surface']");
-            Assert.Equal("MAIN", surface.TagName);
-            Assert.NotNull(surface.QuerySelector("[data-testid='roadmap-band']"));
+            var main = Assert.Single(component.FindAll("main"));
+            Assert.Equal("workspace", main.GetAttribute("data-testid"));
+            Assert.NotNull(main.QuerySelector("[data-testid='devbook-layout'] > [data-testid='roadmap-view'] > [data-testid='roadmap-band']"));
 
-            // Never beside the task list: the workspace, and every pane with it, is gone.
-            Assert.Empty(component.FindAll("[data-testid='workspace']"));
-            Assert.Empty(component.FindAll("[data-testid='devbook-layout']"));
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-surface']"));
+            Assert.Empty(component.FindAll(".filter-bar"));
 
-            // The strip stays as the way back, with no pane reading as on screen.
-            Assert.NotEmpty(component.FindAll("[data-testid='global-pane-multiselect']"));
-            Assert.Equal("false", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+        });
+    }
 
-            Assert.Equal("true", component.Find("[data-testid='roadmap-toggle-button']").GetAttribute("aria-pressed"));
+    /// <summary>
+    /// Exactly one view is always showing, so the view switch has no "off": pressing
+    /// the pressed option again changes nothing, and the other option is the only way
+    /// to another view.
+    /// </summary>
+    [Fact]
+    public void Pressing_the_pressed_view_again_changes_nothing()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']")));
+        component.Find("[data-testid='tasks-view-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+        });
+
+        OpenTheRoadmap(component);
+        component.Find("[data-testid='roadmap-view-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+        });
+
+        component.Find("[data-testid='tasks-view-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
+        });
+    }
+
+    /// <summary>
+    /// The side panes open beside whichever view is showing: the Inbox to the left of
+    /// the roadmap, the Devbook to its right, as they sit beside the task list.
+    /// </summary>
+    [Fact]
+    public void The_inbox_and_devbook_open_beside_the_roadmap_view()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
+        var component = Render(harness);
+
+        OpenTheRoadmap(component);
+        component.Find("[data-testid='inbox-pane-option']").Click();
+        component.Find("[data-testid='devbook-pane-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var layout = component.Find("[data-testid='devbook-layout']");
+            var columns = layout.Children
+                .Select(child => child.GetAttribute("data-testid"))
+                .ToList();
+
+            Assert.Equal("inbox-pane", columns[0]);
+            Assert.Equal("roadmap-view", columns[1]);
+            Assert.Equal("side-pane-stack", columns[^1]);
+            Assert.NotNull(layout.QuerySelector("[data-testid='side-pane-stack'] [data-testid='devbook-stack']"));
+            Assert.Contains("devbook-layout--side-open", layout.ClassList);
+            Assert.Contains("devbook-layout--inbox-before-backlog", layout.ClassList);
+            Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
         });
     }
 
@@ -1018,12 +1320,15 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() =>
         {
-            // No option offering it: the flag decides whether the option exists.
-            Assert.Empty(component.FindAll("[data-testid='roadmap-toggle-button']"));
+            // No option offering it: the flag decides whether the option exists. The
+            // switch stays, with Tasks, the Board and the Calendar as its options.
+            Assert.Empty(component.FindAll("[data-testid='roadmap-view-option']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
 
-            Assert.NotEmpty(component.FindAll("[data-testid='global-pane-multiselect']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='devbook-layout']"));
+            Assert.Equal(
+                ["tasks-view-option", "board-view-option", "calendar-view-option"],
+                component.Find("[data-testid='view-switch']").Children.Select(option => option.GetAttribute("data-testid")));
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });
     }
 
@@ -1143,33 +1448,31 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The roadmap is offered as one more surface: its option sits in the takeover
-    /// group, loose like its neighbours, unpressed until the reader chooses it, and
-    /// never blocked — it has no capacity rule, because it competes with nothing for
-    /// width. The shell opens on the workspace, so the roadmap is off screen until
-    /// asked for.
+    /// The roadmap's option sits in the view switch beside Tasks, fused with it,
+    /// unpressed until the reader chooses it. The shell opens on the Tasks view, so
+    /// the roadmap is off screen until asked for, and it keeps its own Planning
+    /// heading row once it is.
     /// </summary>
     [Fact]
-    public void The_roadmap_option_starts_unpressed_in_the_surface_switcher()
+    public void The_roadmap_option_starts_unpressed_in_the_view_switch()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
         component.WaitForAssertion(() =>
         {
-            var option = component.Find("[data-testid='roadmap-toggle-button']");
+            var option = component.Find("[data-testid='roadmap-view-option']");
 
             Assert.Equal("false", option.GetAttribute("aria-pressed"));
-            Assert.Equal("roadmap-surface", option.GetAttribute("aria-controls"));
+            Assert.Equal("roadmap-view", option.GetAttribute("aria-controls"));
             Assert.Equal("Roadmap", LabelWithoutFlag(option));
             Assert.False(option.HasAttribute("disabled"));
 
-            Assert.NotNull(option.Closest("[data-testid='workspace-surface-switcher']"));
-            Assert.Null(option.Closest("[data-testid='global-pane-multiselect']"));
-            Assert.Contains("header-group__option--loose", option.ClassList);
+            Assert.Equal("view-switch", option.ParentElement?.GetAttribute("data-testid"));
+            Assert.DoesNotContain("header-group__option--loose", option.ClassList);
 
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });
 
         OpenTheRoadmap(component);
@@ -1184,39 +1487,39 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Both ways back land on the workspace with the panes the reader left: a second
-    /// press on the roadmap's own option, and the open pane's option. The pane
-    /// selection was never touched to open the roadmap, so there is nothing to
-    /// restore — and pressing the open Tasks option does not close Tasks.
+    /// A takeover opened from the Roadmap view closes back onto it: the view is kept
+    /// underneath, as the side panes are.
     /// </summary>
-    [Theory]
-    [InlineData("roadmap-toggle-button")]
-    [InlineData("backlog-pane-option")]
-    public void Leaving_the_roadmap_returns_to_the_workspace_as_it_was(string wayBack)
+    [Fact]
+    public void Closing_a_takeover_opened_from_the_roadmap_returns_to_the_roadmap()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
         OpenTheRoadmap(component);
-        component.Find($"[data-testid='{wayBack}']").Click();
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Equal("false", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
+        });
+
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='roadmap-surface']"));
-            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
-
-            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Equal("true", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
-            Assert.Equal("false", component.Find("[data-testid='roadmap-toggle-button']").GetAttribute("aria-pressed"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
         });
     }
 
     /// <summary>
-    /// A resize may not touch the roadmap. The pane selection has a viewport-driven
-    /// capacity and trims itself to fit; the roadmap is a surface, outside that
-    /// selection, so a narrowed window can never close it. Driven through the shell's
-    /// own capacity entry point — the path the window's resize listener calls.
+    /// A resize may not touch the view. The side panes have a viewport-driven
+    /// capacity and trim themselves to fit; the view is outside that selection, so a
+    /// narrowed window can never close it. Driven through the shell's own capacity
+    /// entry point — the path the window's resize listener calls.
     /// </summary>
     [Fact]
     public async Task A_window_resize_never_closes_the_roadmap()
@@ -1236,30 +1539,29 @@ public sealed class HomeWorkspaceSurfaceTests
             rendered.WaitForAssertion(() =>
             {
                 Assert.NotEmpty(rendered.FindAll("[data-testid='roadmap-band']"));
-                Assert.Equal("true", rendered.Find("[data-testid='roadmap-toggle-button']").GetAttribute("aria-pressed"));
+                Assert.Equal("true", rendered.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
             });
     }
 
     /// <summary>
-    /// The roadmap is a surface, not a fourth pane, and nothing may quietly make it
-    /// one. Folding it into <see cref="GlobalPane"/> would hand it a viewport-driven
-    /// capacity and the "one is always on screen" invariant — a narrowed window would
-    /// start evicting the reader's roadmap through <c>TrimToCapacity</c>. A tripwire on
-    /// a later tidy-up rather than a test of behaviour, which is why it counts members.
+    /// The views are not panes, and nothing may quietly make one a pane again:
+    /// folding a view into <see cref="GlobalPane"/> would hand it the side panes'
+    /// capacity rule, and a narrowed window would start evicting it. A tripwire on a
+    /// later tidy-up rather than a test of behaviour, which is why it counts members.
     /// </summary>
     [Fact]
-    public void The_global_pane_enum_still_describes_three_panes_and_no_roadmap()
+    public void The_side_panes_are_the_inbox_and_the_devbook_and_no_view()
     {
-        GlobalPane[] expected = [GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Devbook];
+        GlobalPane[] expected = [GlobalPane.Inbox, GlobalPane.Devbook];
 
         Assert.Equal(expected, Enum.GetValues<GlobalPane>());
     }
 
     /// <summary>
-    /// The feature and the surface are independent, the way they are for every
-    /// takeover: turning the feature off puts the reader on the workspace and takes
-    /// the option away, and turning it back on returns them to the roadmap they were
-    /// on, because the surface field was never reset.
+    /// The feature and the chosen view are independent: turning the feature off
+    /// shows the Tasks view and takes the option away, and turning it back on
+    /// returns the reader to the roadmap they were on, because the choice was
+    /// never reset.
     /// </summary>
     [Fact]
     public void The_roadmap_survives_its_feature_going_off_and_back_on()
@@ -1274,16 +1576,17 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='roadmap-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-view-option']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
         });
 
         _ = features.SetEnabled(RoadmapFeatures.Roadmap, true);
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("true", component.Find("[data-testid='roadmap-toggle-button']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
         });
     }
@@ -1331,7 +1634,7 @@ public sealed class HomeWorkspaceSurfaceTests
             // Present and unflagged.
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']"));
             Assert.Empty(component.FindAll("[data-testid='devbook-feature-status']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-toggle-button']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view-option']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-feature-status']"));
 
             // Present and flagged — proving the absence above is the status
@@ -1342,200 +1645,86 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Pressing a section is asking to look at it. The pane that was there makes way,
-    /// because a reader who wanted both would have said so — with Ctrl held, which is
-    /// the fact after this one.
+    /// A side pane opens beside the view on a plain press and closes on the next:
+    /// there is no switch to make, because the view is not a pane, and no modifier to
+    /// learn. Closing the last side pane is allowed — the view is still on screen —
+    /// so neither toggle is ever disabled.
     /// </summary>
     [Fact]
-    public void Switching_to_a_pane_closes_the_one_it_replaces()
+    public void A_side_pane_toggle_opens_it_beside_the_view_and_closes_it_again()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']")));
-
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
         component.Find("[data-testid='devbook-pane-option']").Click();
 
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Equal("false", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
-        });
-    }
-
-    /// <summary>
-    /// "This one too." The modifier press opens the pane beside the open one rather
-    /// than in its place — Ctrl here, Cmd on macOS, the convention the repository
-    /// scope in the same header already follows. Both options read pressed, because
-    /// both panes are on screen.
-    /// </summary>
-    [Fact]
-    public void A_modifier_press_opens_the_pane_beside_the_open_one()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
-        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Equal("true", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
             Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+            Assert.False(component.Find("[data-testid='devbook-pane-option']").HasAttribute("disabled"));
         });
-    }
 
-    [Fact]
-    public void The_meta_key_opens_beside_too()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
-        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { MetaKey = true });
+        component.Find("[data-testid='devbook-pane-option']").Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
         });
     }
 
-    /// <summary>
-    /// "This one too" has no meaning for a pane already on screen, so a press on an
-    /// open pane closes it whether or not the modifier is held — the same act the
-    /// plain press has always been.
-    /// </summary>
+    /// <summary>The tooltip says what the press will do: open the pane beside the
+    /// view on screen, or close it.</summary>
     [Fact]
-    public void Pressing_an_open_pane_closes_it_whatever_the_reader_held()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
-        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']")));
-
-        component.Find("[data-testid='backlog-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-        });
-    }
-
-    /// <summary>
-    /// In a window that fits one pane there is no beside, so the modifier press is
-    /// the switch the plain press would have been — and the tooltip stops offering
-    /// a modifier that does nothing.
-    /// </summary>
-    [Fact]
-    public async Task A_single_pane_window_turns_the_modifier_press_into_a_switch()
+    public void The_side_pane_tooltip_says_what_the_press_will_do()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
         component.WaitForAssertion(() =>
-            Assert.Contains("Ctrl+click", component.Find("[data-testid='devbook-pane-option']").GetAttribute("title")));
+            Assert.Equal("Open Devbook beside Tasks", component.Find("[data-testid='devbook-pane-option']").GetAttribute("title")));
 
-        await component.InvokeAsync(() => component.Instance.SetGlobalPaneCapacityAsync(1));
-
+        OpenTheRoadmap(component);
         component.WaitForAssertion(() =>
-            Assert.DoesNotContain("Ctrl+click", component.Find("[data-testid='devbook-pane-option']").GetAttribute("title")));
+            Assert.Equal("Open Devbook beside Roadmap", component.Find("[data-testid='devbook-pane-option']").GetAttribute("title")));
 
-        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
-
+        component.Find("[data-testid='devbook-pane-option']").Click();
         component.WaitForAssertion(() =>
-        {
-            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-        });
+            Assert.Equal("Close Devbook", component.Find("[data-testid='devbook-pane-option']").GetAttribute("title")));
     }
 
     /// <summary>
-    /// The tooltip is the one place the modifier is named, so it says what the press
-    /// will do in every state: switch, with the modifier offered; close; or nothing,
-    /// because the pane is the last one and its option is disabled to say so.
+    /// A window too narrow for the view and two side panes has to drop one, and it
+    /// drops the first in the stable order — the Inbox before the Devbook. The view
+    /// itself is never dropped. This is the resize path rather than the press path.
     /// </summary>
     [Fact]
-    public void The_option_tooltip_says_what_the_press_will_do()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Equal(
-                "Switch to Devbook — Ctrl+click to open it beside the open panes",
-                component.Find("[data-testid='devbook-pane-option']").GetAttribute("title"));
-            Assert.Equal("Tasks is the only pane open", component.Find("[data-testid='backlog-pane-option']").GetAttribute("title"));
-            Assert.True(component.Find("[data-testid='backlog-pane-option']").HasAttribute("disabled"));
-        });
-
-        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Equal("Close Tasks", component.Find("[data-testid='backlog-pane-option']").GetAttribute("title"));
-            Assert.Equal("Close Devbook", component.Find("[data-testid='devbook-pane-option']").GetAttribute("title"));
-            Assert.False(component.Find("[data-testid='backlog-pane-option']").HasAttribute("disabled"));
-        });
-    }
-
-    /// <summary>
-    /// The strip holds bare pane options only: no rail, no cell, nothing beside or
-    /// above an option but the option, and no roadmap option — that is a surface,
-    /// not a pane, and sits in the takeover group. Every one of the three is a direct child of the
-    /// group, which is what the fused hairlines key on.
-    /// </summary>
-    [Fact]
-    public void Every_option_stands_bare_in_the_strip()
+    public async Task A_narrowed_window_drops_the_first_side_pane_in_the_stable_order()
     {
         using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
         var component = Render(harness);
 
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']")));
+        component.Find("[data-testid='inbox-pane-option']").Click();
+        component.Find("[data-testid='devbook-pane-option']").Click();
+
         component.WaitForAssertion(() =>
         {
-            var options = component.FindAll("[data-testid$='-pane-option']");
-
-            Assert.Equal(3, options.Count);
-            Assert.Empty(component.Find("[data-testid='global-pane-multiselect']").QuerySelectorAll("[data-testid='roadmap-toggle-button']"));
-            Assert.All(options, option =>
-                Assert.Equal("global-pane-multiselect", option.ParentElement?.GetAttribute("data-testid")));
-            Assert.Empty(component.FindAll("[data-testid$='-pane-pin']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
         });
-    }
 
-    /// <summary>
-    /// A window too narrow for both has to drop one, and it drops the first in the
-    /// stable order — Tasks before Devbook — the same order every trim takes. This is
-    /// the resize path rather than the switch path.
-    /// </summary>
-    [Fact]
-    public async Task A_narrowed_window_drops_the_first_pane_in_the_stable_order()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
-        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
+        await component.InvokeAsync(() => component.Instance.SetGlobalPaneCapacityAsync(2));
 
         component.WaitForAssertion(() =>
         {
+            Assert.Empty(component.FindAll("[data-testid='inbox-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-        });
-
-        await component.InvokeAsync(() => component.Instance.SetGlobalPaneCapacityAsync(1));
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
         });
     }
 
@@ -1645,8 +1834,8 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Single(component.FindAll("main"));
             Assert.Equal("true", component.Find("[data-testid='pull-requests-toggle-button']").GetAttribute("aria-pressed"));
 
-            // Next to Sessions in the switcher, as the same context's second list.
-            var options = component.FindAll("[data-testid='workspace-surface-switcher'] > *")
+            // Next to Sessions in the work in progress, as the same context's second list.
+            var options = component.FindAll("[data-testid='work-in-progress-switcher'] > *")
                 .Select(option => option.GetAttribute("data-testid"))
                 .ToList();
             Assert.Equal(options.IndexOf("sessions-toggle-button") + 1, options.IndexOf("pull-requests-toggle-button"));
@@ -1711,7 +1900,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.Empty(component.FindAll("[data-testid='workspace']"));
             });
 
-            component.Find("[data-testid='backlog-pane-option']").Click();
+            component.Find("[data-testid='tasks-view-option']").Click();
             component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
             component.Find("[data-testid='pull-requests-toggle-button']").Click();
 
@@ -1876,8 +2065,9 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
-    /// <summary>The Roadmap keeps Escape for its own grabbed bars and dialogs, so it
-    /// carries no marker for the document listener and the callback leaves it open.</summary>
+    /// <summary>The Roadmap is a view, not a takeover, and keeps Escape for its own
+    /// grabbed bars and dialogs: nothing on it carries the marker for the document
+    /// listener, and the callback leaves it on screen.</summary>
     [Fact]
     public async Task Escape_heard_at_the_document_leaves_the_roadmap_open()
     {
@@ -1886,11 +2076,12 @@ public sealed class HomeWorkspaceSurfaceTests
 
         OpenTheRoadmap(component);
 
-        Assert.False(component.Find("[data-testid='roadmap-surface']").HasAttribute("data-escape-closes"));
+        Assert.Empty(component.FindAll("[data-escape-closes]"));
 
         await component.InvokeAsync(component.Instance.CloseSurfaceOnEscapeAsync);
 
         Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
+        Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
     }
 
     [Fact]
@@ -1905,6 +2096,103 @@ public sealed class HomeWorkspaceSurfaceTests
         await harness.Context.DisposeAsync();
 
         Assert.Single(harness.Context.JSInterop.Invocations["backlogTakeoverEscape.unregister"]);
+    }
+
+    private const string InProgressEntryText = "# Wire the In progress view\n`prompt` `!in-progress`\n";
+
+    /// <summary>
+    /// In progress leads the work in progress group, and it is a main view rather
+    /// than a takeover: pressing it puts the view in the workspace, where the panes
+    /// still open beside it, and its option reads pressed in place of the Tasks one.
+    /// </summary>
+    [Fact]
+    public void In_progress_is_a_main_view_that_leads_the_work_in_progress_group()
+    {
+        using var harness = CreateHarness(seed: InProgressEntryText);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-view-option']")));
+        component.Find("[data-testid='in-progress-view-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='in-progress-view'] [data-testid='in-progress-board']"));
+            Assert.Single(component.FindAll("main"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
+            Assert.Equal("true", component.Find("[data-testid='in-progress-view-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+
+            var title = Assert.Single(component.FindAll("[data-testid='in-progress-task-title']"));
+            Assert.Equal("Wire the In progress view", title.TextContent.Trim());
+        });
+
+        // Remembered as a view, by its name.
+        Assert.Equal("InProgress", harness.Context.Services.GetRequiredService<ShellNavigationStore>().LastView);
+    }
+
+    /// <summary>The entry's title on a card is the way back to the entry itself: the
+    /// Tasks view, with that entry selected.</summary>
+    [Fact]
+    public void An_in_progress_title_opens_the_entry_in_the_tasks_view()
+    {
+        using var harness = CreateHarness(seed: InProgressEntryText);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-view-option']")));
+        component.Find("[data-testid='in-progress-view-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-task-title']")));
+
+        component.Find("[data-testid='in-progress-task-title']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='in-progress-view']"));
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+            Assert.NotEmpty(component.FindAll("[data-testid='entry-detail']"));
+
+            // The detail panel carries the same work, with the way back.
+            Assert.NotEmpty(component.FindAll("[data-testid='entry-detail'] [data-testid='entry-linked-work']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='work-links-open-in-progress']"));
+        });
+
+        component.Find("[data-testid='work-links-open-in-progress']").Click();
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-view']")));
+    }
+
+    /// <summary>The view follows the two lists it summarises: with both switched off
+    /// there is no option, and a remembered In progress opens on Tasks.</summary>
+    [Fact]
+    public void With_sessions_and_pull_requests_off_there_is_no_in_progress_view()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            shellNavigation.SetLastView("InProgress");
+
+            using var harness = CreateHarness(
+                features =>
+                {
+                    features.SetEnabled(SessionFeatures.Sessions, false);
+                    features.SetEnabled(SessionFeatures.PullRequests, false);
+                },
+                shellNavigation,
+                seed: InProgressEntryText);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.Empty(component.FindAll("[data-testid='in-progress-view-option']"));
+                Assert.Empty(component.FindAll("[data-testid='in-progress-view']"));
+                Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
     }
 
     /// <summary>Presses the Pull requests segment and waits for the list to take the
@@ -1925,27 +2213,35 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']")));
     }
 
-    /// <summary>Presses the roadmap's option in the surface switcher and waits for
-    /// it to take the screen — through the same affordance the reader has, rather
-    /// than by reaching into shell state.</summary>
+    /// <summary>Presses the roadmap's option in the view switch and waits for it to
+    /// show — through the same affordance the reader has, rather than by reaching
+    /// into shell state.</summary>
     private static void OpenTheRoadmap(IRenderedComponent<Home> component)
     {
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-toggle-button']")));
-        component.Find("[data-testid='roadmap-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view-option']")));
+        component.Find("[data-testid='roadmap-view-option']").Click();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']")));
     }
 
-    /// <summary>Opens the Devbook beside the task list with the modifier press, so
-    /// two areas are on screen and Ask AI offers a chip for each.</summary>
+    /// <summary>Opens the Devbook beside the task list, so two areas are on screen
+    /// and Ask AI offers a chip for each.</summary>
     private static void OpenTheDevbookBeside(IRenderedComponent<Home> component)
     {
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
-        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
+        component.Find("[data-testid='devbook-pane-option']").Click();
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
             Assert.NotEmpty(component.FindAll("[data-testid='ai-scope-devbook']"));
         });
+    }
+
+    /// <summary>Writes a navigation file the way an earlier build left it, so the
+    /// shell reads a shape this build would never write itself.</summary>
+    private static void WriteShellNavigation(string path, string json)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, json);
     }
 
     private static string NewShellNavigationPath() =>

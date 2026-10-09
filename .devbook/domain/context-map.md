@@ -83,12 +83,14 @@ flowchart LR
     Environment -->|Customer/Supplier<br/>Launchable environment links| Tasks
     Environment -->|Customer/Supplier<br/>Environment shortcuts| DevPC
 
-    %% Sessions. The Sessions -> Productivity edge is built, through an
-    %% infrastructure adapter rather than a published event; the other two
+    %% Sessions. The Sessions -> Productivity and Sessions -> Tasks edges are
+    %% built, each through an infrastructure adapter rather than a published
+    %% event; the other two
     %% below remain named and not built: see the strategic rules below and
     %% .devbook/domain/sessions/dependencies.md.
     DevPC -.->|"Customer/Supplier (not built)<br/>Machine identity for an environment"| Sessions
     Sessions -->|Customer/Supplier<br/>Agent session facts| Productivity
+    Sessions -->|Customer/Supplier<br/>Linked session state| Tasks
     Sessions -.->|"Customer/Supplier (not built)<br/>Stalled-session observation"| Monitor
 
     Repo -->|Customer/Supplier<br/>Repo registry lookup| Tasks

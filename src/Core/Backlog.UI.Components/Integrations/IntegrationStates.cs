@@ -82,6 +82,27 @@ internal static class IntegrationStates
     /// on.</summary>
     public const string AutoMergeLabel = "Auto-merge on";
 
+    // --- Reviews -----------------------------------------------------------
+
+    public static string SlugOf(IntegrationReviewState review) => BadgeSlug.Of(review switch
+    {
+        IntegrationReviewState.ReviewRequired => "review-required",
+        IntegrationReviewState.Approved => "approved",
+        IntegrationReviewState.ChangesRequested => "changes-requested",
+        _ => Fallback
+    }, Fallback);
+
+    /// <summary>GitHub's own words for its review decision, which already name what
+    /// they are about. <see cref="IntegrationReviewState.None"/> has none, because it
+    /// draws nothing.</summary>
+    public static string LabelOf(IntegrationReviewState review) => review switch
+    {
+        IntegrationReviewState.ReviewRequired => "Review required",
+        IntegrationReviewState.Approved => "Approved",
+        IntegrationReviewState.ChangesRequested => "Changes requested",
+        _ => string.Empty
+    };
+
     // --- Sessions ----------------------------------------------------------
 
     public static string SlugOf(IntegrationSessionState state) => BadgeSlug.Of(state switch

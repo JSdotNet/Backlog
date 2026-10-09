@@ -17,6 +17,7 @@ public sealed class TaskItem
     private readonly List<string> _tags = new();
     private readonly List<string> _dependsOn = new();
     private readonly List<string> _devbookReferences = new();
+    private readonly List<PlannedHoursBlock> _plannedHours = new();
 
     /// <summary>Creates a new, manually authored entry. It starts at
     /// <see cref="EntryStatus.Draft"/> with no source inbox id.</summary>
@@ -260,6 +261,15 @@ public sealed class TaskItem
     /// has since been renamed.
     /// </para></summary>
     public IReadOnlyList<string> DevbookReferences => _devbookReferences;
+
+    /// <summary>The hours the person set aside for this task on given days, one block
+    /// per day, in date order. The task's own field and never text in it, as
+    /// <see cref="DevbookReferences"/> are, so the text save leaves them as they are.
+    /// <para>
+    /// The person's plan for the Calendar alone: nothing the roadmap counts — its pace,
+    /// its windows, what an item gathered — reads these.
+    /// </para></summary>
+    public IReadOnlyList<PlannedHoursBlock> PlannedHours => _plannedHours;
 
     public IReadOnlyList<SubItem> SubItems => _subItems;
 
@@ -584,6 +594,24 @@ public sealed class TaskItem
         Touch();
     }
 
+    /// <summary>Replaces the whole list of planned-hours blocks. A later block on a day
+    /// an earlier one names wins, so a day holds one block; the list is kept in date
+    /// order. Null and empty both clear it.</summary>
+    public void SetPlannedHours(IEnumerable<PlannedHoursBlock>? blocks)
+    {
+        var byDay = new SortedDictionary<DateOnly, PlannedHoursBlock>();
+        foreach (var block in blocks ?? [])
+        {
+            ArgumentNullException.ThrowIfNull(block);
+            byDay[block.On] = block;
+        }
+
+        _plannedHours.Clear();
+        _plannedHours.AddRange(byDay.Values);
+
+        Touch();
+    }
+
     // --- Lifecycle ----------------------------------------------------------
 
     // The graph these two answer from is EntryStatusFlow, in this module's
@@ -773,6 +801,30 @@ public sealed class TaskItem
         ArgumentNullException.ThrowIfNull(projectionRef);
         _projectionRefs.Add(projectionRef);
         Touch();
+    }
+
+    /// <summary>Forgets every link to the one external artifact named — the
+    /// counterpart of <see cref="AddProjectionRef"/>. The repository and the external
+    /// id are compared without regard to case, because GitHub is case-preserving but
+    /// not case-sensitive and a session id is matched that way everywhere; the external
+    /// id is trimmed on both sides, as it is when a link is read. With
+    /// <paramref name="anyRepository"/> the repository is not compared at all — a
+    /// session is one link whatever repository it was recorded under. Answers whether
+    /// anything was removed; nothing removed is not an edit.</summary>
+    public bool RemoveProjectionRef(ProjectionRef projectionRef, bool anyRepository = false)
+    {
+        ArgumentNullException.ThrowIfNull(projectionRef);
+
+        var externalId = (projectionRef.ExternalId ?? string.Empty).Trim();
+        var removed = _projectionRefs.RemoveAll(existing =>
+            string.Equals(existing.TargetType, projectionRef.TargetType, StringComparison.OrdinalIgnoreCase)
+            && string.Equals((existing.ExternalId ?? string.Empty).Trim(), externalId, StringComparison.OrdinalIgnoreCase)
+            && (anyRepository || string.Equals(existing.RepoId, projectionRef.RepoId, StringComparison.OrdinalIgnoreCase)));
+
+        if (removed == 0) return false;
+
+        Touch();
+        return true;
     }
 
     /// <summary>Records where the task came from, replaces it with what the source

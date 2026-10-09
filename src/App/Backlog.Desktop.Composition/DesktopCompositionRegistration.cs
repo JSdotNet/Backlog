@@ -11,6 +11,7 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Infrastructure.FileSystem.Roadmap;
+using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Infrastructure.SpecManager;
@@ -140,6 +141,10 @@ public static class DesktopCompositionRegistration
         // because only an adapter may see both contexts. Scoped, like the module
         // services they capture.
         services.AddRoadmapCrossContextAdapters();
+
+        // The backlog's work badges ask what state a linked agent session is in; the
+        // answer comes from the Sessions record through an adapter, for the same reason.
+        services.AddTasksCrossContextAdapters();
 
         // The reader's routing rules, which Settings writes and Classification reads.
         services.AddSingleton(options.InboxRoutingRules);

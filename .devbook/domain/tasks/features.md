@@ -502,16 +502,30 @@ umbrella step, as the connected target's setting says.
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/devbook/features.md#bi-directional-linking]
+related: [.devbook/domain/devbook/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it]
 ```
 
 Search across title, body, tags, and linked knowledge notes; filter by area
 (a self-chosen grouping such as "repos", "projects", or "inbox"), repo, type,
 status, priority, and recency; grouped views; and inline embedding of
 Devbook content. The repository scope can hold several repositories at once while
-the list is on screen — the list shows work filed against any of them — and
-narrows back to one when the list is not, since the list is the only surface
-that can show more than one.
+a screen that can show several is in front of the reader — the task views, In
+progress, the Dashboard, the session list and the pull requests list — and
+narrows back to one on the roadmap and on Tools, which read one repository or
+none.
+
+The filtered tasks can be read three ways, picked in the header's view switch:
+**Tasks**, the list with the open task beside it; the
+[Board](#board-view); and the [Calendar](#calendar-view). The three share one
+filter bar, one open task and one selection, so switching between them never
+loses what the reader narrowed to or was looking at. Among its filters is the
+[Task Type](domain.md#task-type) — prompt, task, idea or test, one at a time — so
+the Board and the Calendar, its tray of tasks with no due date included, narrow
+by type the way the list does. The filter bar belongs to
+these three and to nothing else in the shell. The view last chosen is the one the
+app reopens on, and Tasks when nothing was remembered. The Inbox and the Devbook
+open beside any of them.
 
 ### Manual ordering
 
@@ -523,6 +537,103 @@ status: draft
 Hand-sequence tasks within the backlog by dragging them into a preferred
 order, independent of recency or priority. A task that has never been
 manually ranked falls back to recency.
+
+### Board view
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/tasks/flow.md#task-lifecycle, .devbook/domain/tasks/domain.md#effort, .devbook/domain/tasks/domain.md#roadmap-tag]
+```
+
+The same filtered tasks laid out as columns of cards, under the same filters
+and beside the same open task. The columns are by status by default — Draft,
+Ready, In progress and Done — and can be by plan instead, one per
+[Roadmap Tag](domain.md#roadmap-tag) in view and then the tasks in no plan, by
+repository, or by [Priority](domain.md#priority). Each column says how many
+tasks it holds, the [Effort](domain.md#effort) they add up to, and how many of
+them nobody has estimated. A task under two plans is in both plan columns. The
+choice of columns is remembered with the view.
+
+While the columns are by status the status filter steps aside, since every
+status is a column, and a task can be dragged to another column. Only a move
+the [task lifecycle](flow.md#task-lifecycle) allows is taken: while a task is
+held, the columns it may go to are marked, and the others say why not and what
+has to happen first — a ready task has to be started before it can be done.
+Dropping it makes the same status change the task's own status picker makes.
+Each status column ends in a way to write a new task straight into that
+status. Opening a task from a card opens it as the list would; with the task
+open beside it the board scrolls sideways rather than squeezing its columns.
+
+### Calendar view
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/features.md#my-day, .devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first]
+```
+
+The same filtered tasks laid out on a month by their
+[Due Date](domain.md#due-date), under the same filters and beside the same open
+task. The month runs Monday to Sunday in whole weeks, so its first and last
+rows reach into the neighbouring months; those days are dimmed and weekends are
+shaded. Today is marked and says how many tasks are in [My Day](#my-day).
+
+Each day lists its tasks with where each one is in its lifecycle: an open task
+past its due date stands out as overdue, a finished one is struck through, and
+past two a day folds the rest behind a count that opens the whole day. A
+recurring task shows on its due date only — the next occurrence is written when
+this one is finished, so there is no series to place. The open tasks with no due
+date wait beside the month; dragging one onto a day gives it that due date, and
+dragging a task to another day moves it. Opening a task from the month opens it
+as the list would. Only the due date places a task here, and the range is a
+month.
+
+The roadmap's plans can be drawn over the month: a **Show plans** choice beside
+the month's name, off until the reader turns it on and remembered on this device.
+Each planned item's window is a bar across the days it spans, cut at every week,
+under the day numbers and above the tasks; plans that overlap in a week each take
+a row of their own, and a bar carried on from the week before opens with "…". A
+bar says its title, its plan tag and how many of its points are finished out of
+the total. It wears its repository's colour, as on the roadmap, while repository
+colours are showing, and a neutral grey while they are not. A milestone is a
+diamond on its date. Beside the tasks with no due date, **Plans without a
+window** lists the plans waiting on the roadmap's
+[shelf](../roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first);
+dropping one on a day starts its window there, and the roadmap — never the Tasks
+view — works out where it ends from its points and the pace, as it places any
+plan. The drop is a pointer gesture; the keyboard way to the same result is the
+roadmap's own shelf, whose **Plan it** places the plan from today, and the roadmap's
+item editor, which moves its window to any day. The plans are the roadmap's: the
+Calendar reads them and starts a shelf plan, and changes nothing else about them.
+
+### Planned hours
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/tasks/features.md#calendar-view, .devbook/domain/roadmap/features.md]
+```
+
+The person can set hours aside for a task on a day of the
+[Calendar](#calendar-view) — [Planned Hours](domain.md#planned-hours), a day and a
+number of hours, never a time of day. A task can have hours on several days, one
+figure a day. A day shows each task with hours on it as a chip of its own with the
+figure — "Refactor sync · 3h" — drawn apart from the due-date chips, and adds the
+day's hours up against the hours the person works that day, read from the roadmap's
+working week and days off. A day holding more than that is marked, and says by how
+much.
+
+Hours are set from a day's **Add hours…**, which asks for the task and the figure,
+or by dragging a task — from the month or from the tasks with no due date — onto a
+day with Shift held, which asks for the figure only and leaves the due date where
+it was. Pressing a task's hours on a day changes or removes them; the open task's
+**Planned hours** lists every day it has hours on, to change, remove or add one.
+The hours follow the filters and the repository colours the way the task chips do.
+
+The hours are the person's own plan for their days. The roadmap never reads them:
+a plan's window and the pace it is placed at still come from points and the work
+finished, so setting hours aside moves no bar on the roadmap or the Calendar.
 
 ## Prompt features
 
@@ -782,7 +893,11 @@ anything.
 
 A task that moves to in progress is [Started](domain.md#started), shown as
 `started:` on its metadata line beside `completed:`. The roadmap reads the two
-together to draw a finished plan where its work actually ran.
+together to draw a finished plan where its work actually ran. The detail panel
+shows the day as a read-only **Started** badge beside the effort, only on a task
+that has one, and the Board's In progress slot says the drop will stamp it —
+"Moves to In progress and stamps Started" under "Drop to start" — only when the
+task has no stamp yet, since an earlier one is kept.
 
 ## Refresh from shared storage
 

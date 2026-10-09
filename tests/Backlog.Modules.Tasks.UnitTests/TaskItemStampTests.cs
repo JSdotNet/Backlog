@@ -71,6 +71,9 @@ public sealed class TaskItemStampTests
 
         // Clearing is an edit here for the reason it is on SetDependsOn.
         ["SetDevbookReferences(null)"] = task => task.SetDevbookReferences(null),
+        // The person's planned hours are an edit to the task like its references: they
+        // travel to the other devices, so the stamp has to move.
+        [nameof(TaskItem.SetPlannedHours)] = task => task.SetPlannedHours([PlannedHoursBlock.Create(new DateOnly(2026, 10, 12), 3m)]),
 
         [nameof(TaskItem.SetStatus)] = task => task.SetStatus(EntryStatus.Done, new DateOnly(2026, 1, 1)),
         [nameof(TaskItem.ChangeStatus)] = task => task.ChangeStatus(EntryStatus.Ready, new DateOnly(2026, 1, 1)),
@@ -93,6 +96,14 @@ public sealed class TaskItemStampTests
             task.SetRepoIds(["JSdotNet/Backlog"]);
             task.LoadStamps(Stamped, null);
             task.RenameRepository("JSdotNet/Backlog", "JSdotNet/Backlog-renamed");
+        },
+        // An unlink that removed a link is an edit; seeded first, because one that
+        // finds nothing to remove leaves the stamp alone by design.
+        [nameof(TaskItem.RemoveProjectionRef)] = task =>
+        {
+            task.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", "pull-request"));
+            task.LoadStamps(Stamped, null);
+            task.RemoveProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", "pull-request"));
         },
         [nameof(TaskItem.RemoveSubItem)] = task => task.RemoveSubItem(FirstSubItem(task)),
         [nameof(TaskItem.ToggleSubItem)] = task => task.ToggleSubItem(FirstSubItem(task)),

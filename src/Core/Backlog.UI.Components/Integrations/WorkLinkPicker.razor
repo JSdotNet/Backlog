@@ -1,0 +1,82 @@
+@*
+    The choice behind "Link to a task…" and "Link a session or pull request…": a
+    dialog listing what can be linked, one button per choice, and nothing else.
+
+    One component for both directions, because both are the same act — pick the
+    other half of a link — and the only difference is which half is listed. The
+    host says what the choices are and what the dialog is called; choosing one
+    closes the dialog and hands the choice back. Nothing to choose says so, in the
+    host's sentence, rather than drawing an empty list.
+*@
+<Modal Open="Open"
+       OpenChanged="OpenChanged"
+       Title="@Title"
+       CssClass="work-link-picker"
+       TestId="@TestId">
+    @if (!string.IsNullOrWhiteSpace(Description))
+    {
+        <p class="work-link-picker__description">@Description</p>
+    }
+
+    @if (Options.Count == 0)
+    {
+        <EmptyState Title="@EmptyTitle" TestId="work-link-picker-empty" />
+    }
+    else
+    {
+        <ul class="work-link-picker__options" role="list">
+            @foreach (var option in Options)
+            {
+                <li @key="option.Id">
+                    <AppButton Variant="ButtonVariant.None"
+                               BaseClass="work-link-picker__option"
+                               TestId="work-link-picker-option"
+                               AdditionalAttributes="@(new Dictionary<string, object> { ["data-option-id"] = option.Id })"
+                               OnClick="() => ChooseAsync(option)">
+                        <span class="work-link-picker__label">@option.Label</span>
+                        @if (!string.IsNullOrWhiteSpace(option.Detail))
+                        {
+                            <span class="work-link-picker__detail">@option.Detail</span>
+                        }
+                    </AppButton>
+                </li>
+            }
+        </ul>
+    }
+</Modal>
+
+@code {
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "Link to a task";
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<WorkLinkOption> Options { get; set; } = [];
+
+    /// <summary>What the dialog says when there is nothing to choose.</summary>
+    [Parameter]
+    public string EmptyTitle { get; set; } = "Nothing to link";
+
+    /// <summary>Raised with the choice, before the dialog reports itself closed — so
+    /// a host that keeps what the choice is for beside <see cref="Open"/> still has
+    /// it when the choice arrives.</summary>
+    [Parameter]
+    public EventCallback<WorkLinkOption> OnChosen { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "work-link-picker";
+
+    private async Task ChooseAsync(WorkLinkOption option)
+    {
+        await OnChosen.InvokeAsync(option);
+        await OpenChanged.InvokeAsync(false);
+    }
+}
