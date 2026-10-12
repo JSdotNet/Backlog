@@ -1676,6 +1676,25 @@
         event.preventDefault();
     });
 
+    // The keys a RadioGroup choice moves the selection with. Without this they
+    // also scroll the nearest scroll container — End checks the last choice and
+    // throws the triage pass to its bottom. The same reasoning and contract as
+    // the row keys above: refused at the keydown because a state-bound
+    // `@onkeydown:preventDefault` is one key late, only the default, the event
+    // keeps bubbling. Matched on role rather than class, because a host replaces
+    // the group's classes through its hooks. Space and Enter are left alone: a
+    // choice is a button, and its native click is what checks it.
+    const RADIO_SWALLOWED_KEYS = new Set(['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
+
+    document.addEventListener('keydown', (event) => {
+        if (!RADIO_SWALLOWED_KEYS.has(event.key)) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.matches('[role="radiogroup"] > [role="radio"]')) return;
+
+        event.preventDefault();
+    });
+
     // Space on a focused TaskCard. The card opens on Space from its keydown
     // handler, as a button would, but it is an <article> and not a button, so the
     // browser still takes Space as "scroll the page" — and in a Board column that

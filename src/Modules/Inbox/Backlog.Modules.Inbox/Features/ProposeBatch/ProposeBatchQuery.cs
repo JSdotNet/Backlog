@@ -10,8 +10,10 @@ namespace Backlog.Modules.Inbox.Features.ProposeBatch;
 
 /// <summary>What routing these items as one batch would do, asked before it is
 /// done — the "Before you route" panel's question. <paramref name="ListId"/>
-/// names the list the batch is, as it does on the route.</summary>
-public sealed record ProposeBatchQuery(IReadOnlyList<Guid> Ids, Guid? ListId = null);
+/// names the list the batch is, as it does on the route, and
+/// <paramref name="PlanTitle"/> the plan it makes, when the person named one —
+/// the tag's stem, ahead of the list's name.</summary>
+public sealed record ProposeBatchQuery(IReadOnlyList<Guid> Ids, Guid? ListId = null, string? PlanTitle = null);
 
 /// <summary>
 /// Sorts the ids the way the route will, reads the backlog's open tasks, and
@@ -42,7 +44,7 @@ public sealed class ProposeBatchQueryHandler(
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(query.Ids);
 
-        var planTag = await RouteBatchToBacklogCommandHandler.MintPlanTagAsync(organizer, query.ListId, cancellationToken).ConfigureAwait(false);
+        var planTag = await RouteBatchToBacklogCommandHandler.MintPlanTagAsync(organizer, query.ListId, query.PlanTitle, cancellationToken).ConfigureAwait(false);
         if (planTag.IsFailure) return Result.Failure<InboxBatchProposalDto>(planTag.Error);
 
         var (failed, routable) = await RouteBatchToBacklogCommandHandler.SortAsync(items, query.Ids, cancellationToken).ConfigureAwait(false);

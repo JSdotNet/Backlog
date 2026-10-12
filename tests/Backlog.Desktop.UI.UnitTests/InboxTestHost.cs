@@ -350,8 +350,15 @@ internal sealed class FakeInboxItems : IInboxItems
     public Task<Result> SetTagsAsync(Guid id, IReadOnlyList<string> tags, CancellationToken cancellationToken = default) =>
         Update(id, item => item with { Tags = [.. tags.Select(tag => new InboxTagDto(tag, false))] });
 
-    public Task<Result> AssignRepositoriesAsync(Guid id, IReadOnlyList<string> repoIds, CancellationToken cancellationToken = default) =>
-        Update(id, item => item with { RepoIds = repoIds });
+    public Task<Result> AssignRepositoriesAsync(Guid id, IReadOnlyList<string> repoIds, CancellationToken cancellationToken = default)
+    {
+        RepositoryAssignments.Add((id, repoIds));
+        if (Fails("repositories", id, out var refused)) return Task.FromResult(Result.Failure(refused));
+        return Update(id, item => item with { RepoIds = repoIds });
+    }
+
+    /// <summary>Every single-item repository write asked of the port, in order.</summary>
+    public List<(Guid Id, IReadOnlyList<string> RepoIds)> RepositoryAssignments { get; } = [];
 
     /// <summary>Every rename asked of the store, in order: the pass on start
     /// that follows the registry's record is asserted against this.</summary>
@@ -364,7 +371,7 @@ internal sealed class FakeInboxItems : IInboxItems
     }
 
     /// <summary>Single-item acts refused on cue, by act — <c>merge</c>,
-    /// <c>archive</c>, <c>duplicate</c>, <c>move</c>, <c>route</c> — and item:
+    /// <c>archive</c>, <c>duplicate</c>, <c>move</c>, <c>route</c>, <c>repositories</c> — and item:
     /// the way a test makes one decision of the AI pass's Apply fail.</summary>
     public Dictionary<(string Act, Guid Id), Error> FailAct { get; } = [];
 
@@ -632,9 +639,13 @@ internal sealed class FakeInboxItems : IInboxItems
         return new InboxBatchResultDto(changed, failed);
     }
 
-    public async Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<Result<InboxRoutedDto>> RouteToBacklogAsync(
+        Guid id,
+        string? entryType = null,
+        CancellationToken cancellationToken = default)
     {
         SingleRouteCalls++;
+        SingleRoutes.Add((id, entryType));
         if (BeforeRoute is { } gate) await gate();
 
         if (Fails("route", id, out var refused)) return Result.Failure<InboxRoutedDto>(refused);
@@ -687,16 +698,26 @@ internal sealed class FakeInboxItems : IInboxItems
     /// <summary>Every proposal asked of the port, with the ids and the list.</summary>
     public List<(IReadOnlyList<Guid> Ids, Guid? ListId)> Proposals { get; } = [];
 
+    /// <summary>The plan title each proposal and each batch route was asked
+    /// with, in the order asked — null when none was given.</summary>
+    public List<string?> PlanTitles { get; } = [];
+
+    /// <summary>Every single route asked of the port, with the entry type it
+    /// named — null when none was given.</summary>
+    public List<(Guid Id, string? EntryType)> SingleRoutes { get; } = [];
+
     /// <summary>The module's proposal, restated: the tag minted as the route
     /// would, decided items refused, the seeded dependencies among the rest.</summary>
     public Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
         IReadOnlyList<Guid> ids,
         Guid? listId = null,
+        string? planTitle = null,
         CancellationToken cancellationToken = default)
     {
         Proposals.Add((ids, listId));
+        PlanTitles.Add(planTitle);
 
-        if (PlanTagFor(listId) is not { } tag) return Task.FromResult(Result.Failure<InboxBatchProposalDto>(InboxErrors.ListNotFound));
+        if (PlanTagFor(listId, planTitle) is not { } tag) return Task.FromResult(Result.Failure<InboxBatchProposalDto>(InboxErrors.ListNotFound));
 
         var refused = new List<InboxBatchFailureDto>();
         var routable = new List<InboxItemDto>();
@@ -753,7 +774,7 @@ internal sealed class FakeInboxItems : IInboxItems
 
     /// <summary>A new tag named after the list or <c>inbox-batch</c>, or null
     /// for a list that is gone.</summary>
-    private string? PlanTagFor(Guid? listId)
+    private string? PlanTagFor(Guid? listId, string? planTitle)
     {
         var stem = "inbox-batch";
         if (listId is { } named)
@@ -761,6 +782,8 @@ internal sealed class FakeInboxItems : IInboxItems
             if (_lists.FirstOrDefault(list => list.Id == named) is not { } list) return null;
             stem = list.Name;
         }
+
+        if (!string.IsNullOrWhiteSpace(planTitle)) stem = planTitle;
 
         return "+" + InboxPlanTag.For(stem, Guid.NewGuid());
     }
@@ -773,9 +796,11 @@ internal sealed class FakeInboxItems : IInboxItems
         IReadOnlyList<Guid> ids,
         Guid? listId = null,
         InboxBatchRouteChoicesDto? choices = null,
+        string? planTitle = null,
         CancellationToken cancellationToken = default)
     {
-        if (PlanTagFor(listId) is not { } minted) return Result.Failure<InboxBatchRoutedDto>(InboxErrors.ListNotFound);
+        PlanTitles.Add(planTitle);
+        if (PlanTagFor(listId, planTitle) is not { } minted) return Result.Failure<InboxBatchRoutedDto>(InboxErrors.ListNotFound);
 
         var tag = choices?.PlanTag ?? minted;
         BatchRoutes.Add((ids, listId, tag, choices));

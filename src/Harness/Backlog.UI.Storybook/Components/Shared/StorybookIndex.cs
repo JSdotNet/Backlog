@@ -90,6 +90,12 @@ internal static class StorybookIndex
             // than splitting the set across two chapters.
             new("inputs", "Inputs", "TextField, TextArea, SearchBox, Toggle, Checkbox — plus the dates, times and repeats a scheduled thing is set with, and TaskAction over them."),
 
+            // Directly after Inputs and not a story on it: a set of choices
+            // that is one stop in the tab order, with the arrows moving through
+            // it, is a keyboard convention of its own. It draws only its own
+            // component, whose choices wear the toggle button Buttons introduced.
+            new("radio-group", "Radio group", "RadioGroup: one choice out of several, one tab stop, the arrow keys moving the choice and the focus together."),
+
             // Directly after Inputs and not folded into it. Every control on that
             // page hands back what the user typed; this one hands back the contents
             // of a file it read and size-checked itself, which is a different

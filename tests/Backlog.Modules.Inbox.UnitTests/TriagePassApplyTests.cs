@@ -129,6 +129,24 @@ public sealed class TriagePassApplyTests : IDisposable
         Assert.Equal(InboxStatus.Unprocessed, kept.Status);
     }
 
+    /// <summary>"Keep one, attach the other": the capture is archived as the
+    /// kept item's duplicate and goes with it — title and link — when the kept
+    /// item is routed, in the same Apply or a later one.</summary>
+    [Fact]
+    public async Task Keeping_one_attaches_the_other_to_its_route()
+    {
+        var kept = Seed("Aspire 13 dashboard walkthrough");
+        var item = Seed("What is new in the Aspire 13 dashboard");
+
+        var outcome = await ApplyAsync(
+            new InboxTriageDuplicateDecision(item.Title, item.Id, InboxTriageTargetKind.InboxItem, kept.Id, InboxTriageDuplicateChoice.Merge),
+            new InboxTriageRouteDecision(kept.Title, kept.Id, []));
+
+        Assert.Null(outcome.Failure);
+        var attached = Assert.Single(Assert.Single(_target.Requests).Attached ?? []);
+        Assert.Equal("What is new in the Aspire 13 dashboard", attached.Title);
+    }
+
     [Fact]
     public async Task Archiving_the_capture_of_a_duplicate_archives_it_and_leaves_the_task_alone()
     {
@@ -156,6 +174,21 @@ public sealed class TriagePassApplyTests : IDisposable
         Assert.Equal(InboxStatus.Triaged, item.Status);
         var applied = Assert.Single(outcome.Applied);
         Assert.Equal(item.Id, applied.Routed?.InboxItemId);
+    }
+
+    /// <summary>The type the pass shows on a single route is the type the
+    /// route makes.</summary>
+    [Theory]
+    [InlineData("prompt")]
+    [InlineData("test")]
+    public async Task A_single_route_sends_its_entry_type(string entryType)
+    {
+        var item = Seed("Write the release notes prompt");
+
+        var outcome = await ApplyAsync(new InboxTriageRouteDecision(item.Title, item.Id, [], entryType));
+
+        Assert.Null(outcome.Failure);
+        Assert.Equal(entryType, Assert.Single(_target.Requests).EntryType);
     }
 
     [Fact]

@@ -14,14 +14,16 @@ namespace Backlog.Modules.Inbox.Features.RouteBatchToBacklog;
 /// <summary>Routes several items to the backlog as one batch: one plan import
 /// whose entries share a new plan tag, named after <paramref name="ListId"/>'s
 /// list when the batch is a list's open items and <c>inbox-batch</c> when it is
-/// a selection. <paramref name="Choices"/> are what the person decided in the
-/// panel first — the tag the proposal minted, a repository per item, the
-/// dependencies left on — and a batch routed without them is routed as it
-/// always was.</summary>
+/// a selection — or after <paramref name="PlanTitle"/>, ahead of both, when the
+/// batch is a plan the person named. <paramref name="Choices"/> are what the
+/// person decided in the panel first — the tag the proposal minted, a
+/// repository per item, the dependencies left on — and a batch routed without
+/// them is routed as it always was.</summary>
 public sealed record RouteBatchToBacklogCommand(
     IReadOnlyList<Guid> Ids,
     Guid? ListId = null,
-    InboxBatchRouteChoicesDto? Choices = null);
+    InboxBatchRouteChoicesDto? Choices = null,
+    string? PlanTitle = null);
 
 /// <summary>
 /// <c>RouteToBacklog</c> once for several items, with the one difference that
@@ -91,7 +93,7 @@ public sealed partial class RouteBatchToBacklogCommandHandler(
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(command.Ids);
 
-        var minted = await MintPlanTagAsync(organizer, command.ListId, cancellationToken).ConfigureAwait(false);
+        var minted = await MintPlanTagAsync(organizer, command.ListId, command.PlanTitle, cancellationToken).ConfigureAwait(false);
         if (minted.IsFailure) return minted.Error;
 
         var planTag = minted.Value;
@@ -136,10 +138,17 @@ public sealed partial class RouteBatchToBacklogCommandHandler(
         var repositories = routable.ToDictionary(entry => entry.Item.Id, entry => RepositoriesFor(entry.Item, command.Choices));
         var byId = routable.ToDictionary(entry => entry.Item.Id, entry => entry.Item);
 
+        // "Keep one, attach the other" holds whichever door the kept item
+        // leaves by: its archived duplicates go with it as on a single route.
+        // A merge made in this batch is not among them — those items are
+        // archived only once the kept one has gone.
+        var all = await items.ListAsync(cancellationToken).ConfigureAwait(false);
+
         var request = new InboxBatchRouteRequestDto(
             [.. InboxBatchOrder.Order(going, edges).Select(id => RouteToBacklogCommandHandler.RequestFor(byId[id], attachmentFiles) with
             {
                 RepoIds = repositories[id],
+                Attached = RouteToBacklogCommandHandler.AttachedTo(id, all),
                 AfterItems = [.. edges.Where(edge => edge.From == id).Select(edge => edge.To).Distinct()],
                 AfterTasks = [.. dependencies
                     .Where(dependency => dependency.From == id && dependency.To.Kind == DependencyTargetKind.Task)
@@ -282,12 +291,15 @@ public sealed partial class RouteBatchToBacklogCommandHandler(
     }
 
     /// <summary>A new plan tag for a batch, sigil included: named after the
-    /// list when there is one, else <see cref="SelectionTagStem"/>. Fails with
-    /// <c>inbox.list.not_found</c> for a list that is gone. Shared with the
-    /// proposal, which mints the tag the panel shows.</summary>
+    /// plan's title when the person gave one, else the list when there is one,
+    /// else <see cref="SelectionTagStem"/>. Fails with
+    /// <c>inbox.list.not_found</c> for a list that is gone, title or not — the
+    /// list is still the batch's. Shared with the proposal, which mints the tag
+    /// the panel shows.</summary>
     internal static async Task<Result<string>> MintPlanTagAsync(
         IInboxOrganizerRepository organizer,
         Guid? listId,
+        string? planTitle,
         CancellationToken cancellationToken)
     {
         var stem = SelectionTagStem;
@@ -297,6 +309,8 @@ public sealed partial class RouteBatchToBacklogCommandHandler(
             if (lists.FirstOrDefault(list => list.Id == id) is not { } list) return Result.Failure<string>(InboxErrors.ListNotFound);
             stem = list.Name;
         }
+
+        if (!string.IsNullOrWhiteSpace(planTitle)) stem = planTitle;
 
         return "+" + InboxPlanTag.For(stem, Guid.CreateVersion7());
     }

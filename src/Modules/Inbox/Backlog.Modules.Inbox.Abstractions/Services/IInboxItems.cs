@@ -164,8 +164,19 @@ public interface IInboxItems
 
     /// <summary>Turns the item into backlog entries — one per assigned
     /// repository, or one untargeted entry — and records where they went. An
-    /// item routes exactly once.</summary>
-    Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default);
+    /// item routes exactly once.
+    /// <para>
+    /// <paramref name="entryType"/> is the kind of entry to make: one of
+    /// <see cref="InboxTriagePassDto.EntryTypes"/>, compared case-insensitively,
+    /// or null for a task. Any other word fails with
+    /// <c>inbox.route.unknown_entry_type</c> before the backlog is asked. The
+    /// captures archived as the item's duplicates go with it, title and link,
+    /// written on every entry it becomes.
+    /// </para></summary>
+    Task<Result<InboxRoutedDto>> RouteToBacklogAsync(
+        Guid id,
+        string? entryType = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Routes several items as one batch — one plan import whose
     /// entries share a new plan tag. It overloads the single route by name, but
@@ -184,8 +195,10 @@ public interface IInboxItems
     /// <para>
     /// With <paramref name="listId"/> the tag is the list's name
     /// (<c>+reading-1a2b3c4d</c>), otherwise <c>+inbox-batch-…</c>; the list is
-    /// only where the name comes from, and is left as it is. Fails whole only
-    /// when <paramref name="listId"/> names no list.
+    /// only where the name comes from, and is left as it is. With
+    /// <paramref name="planTitle"/> — a plan the person named — the tag is the
+    /// title's, ahead of the list's. Fails whole only when
+    /// <paramref name="listId"/> names no list.
     /// </para>
     /// <para>
     /// <paramref name="choices"/> are the "Before you route" panel's: the tag
@@ -199,6 +212,7 @@ public interface IInboxItems
         IReadOnlyList<Guid> ids,
         Guid? listId = null,
         InboxBatchRouteChoicesDto? choices = null,
+        string? planTitle = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>What routing these items as one batch would do, without doing
@@ -206,11 +220,14 @@ public interface IInboxItems
     /// the route — the items that can go, the dependencies the Inbox can see
     /// between them and on the backlog's open tasks, each with the text that
     /// stated it, and the items that cannot go and why. For a list, also how
-    /// many of its items are deferred and stay behind. Fails only when
-    /// <paramref name="listId"/> names no list.</summary>
+    /// many of its items are deferred and stay behind. The tag is named after
+    /// <paramref name="planTitle"/> when given, else the list, else
+    /// <c>inbox-batch</c>. Fails only when <paramref name="listId"/> names no
+    /// list.</summary>
     Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
         IReadOnlyList<Guid> ids,
         Guid? listId = null,
+        string? planTitle = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Asks the plan drafter for the order it reads into a batch, as

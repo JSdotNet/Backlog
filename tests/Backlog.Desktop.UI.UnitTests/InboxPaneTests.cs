@@ -2436,7 +2436,7 @@ public sealed class InboxPaneTests
         await pane.Find($"[data-testid='inbox-nav-{InboxDesktopState.ListNavId(reading.Id)}']").ClickAsync(new());
 
         // Routed behind the pane's back, so the pane still counts two.
-        await harness.Inbox.RouteToBacklogAsync(second.Id, TestContext.Current.CancellationToken);
+        await harness.Inbox.RouteToBacklogAsync(second.Id, cancellationToken: TestContext.Current.CancellationToken);
         await pane.Find("[data-testid='inbox-list-to-backlog']").ClickAsync(new());
 
         Assert.Single(harness.Inbox.Proposals);

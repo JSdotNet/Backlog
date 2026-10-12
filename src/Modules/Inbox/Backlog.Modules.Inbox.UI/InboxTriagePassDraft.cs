@@ -149,7 +149,7 @@ public sealed class InboxTriagePassDraft
 
         decisions.AddRange(_routes
             .Where(route => route.Accepted)
-            .Select(route => new InboxTriageRouteDecision(TitleOf(route.ItemId), route.ItemId, route.Repositories)));
+            .Select(route => new InboxTriageRouteDecision(TitleOf(route.ItemId), route.ItemId, route.Repositories, route.EntryType)));
 
         decisions.AddRange(FilingGroups
             .SelectMany(group => group.Items)

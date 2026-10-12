@@ -298,6 +298,50 @@ public sealed class RouteBatchToBacklogTests
         Assert.True(item.IsRouted);
     }
 
+    /// <summary>"Make the plan" with too few items to propose routes straight
+    /// away, with no choices: the tag is still named after the plan.</summary>
+    [Fact]
+    public async Task A_plan_title_names_the_tag_when_no_choices_were_made()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var list = InboxList.Create("Reading List", null, 0, Items.Noon);
+        store.Seed(list);
+        var item = Items.Manual("An article");
+        item.MoveToList(list.Id);
+        store.Seed(item);
+
+        var result = await Route(store, target, [item.Id], list.Id, planTitle: "Tasks sync polish");
+
+        Assert.True(result.IsSuccess);
+        Assert.Matches(@"^\+tasks-sync-polish-[0-9a-f]{8}$", Assert.Single(target.BatchRequests).PlanTag);
+    }
+
+    /// <summary>"Keep one, attach the other" holds whichever door the kept item
+    /// leaves by: routed in a batch, it carries the captures archived as its
+    /// duplicates as a single route would, and an item with none carries none.</summary>
+    [Fact]
+    public async Task A_kept_item_routed_in_a_batch_carries_its_attached_captures()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var kept = Items.Manual("Read the caching article");
+        var other = Items.Manual("Something else");
+        var capture = new InboxItem(Guid.CreateVersion7(), "Caching article", string.Empty, "https://example.com/caching", Items.Noon, Items.Noon,
+            ContentKind.Text, new InboxSource(InboxEnumMap.ManualChannel, null), replicaBacked: false);
+        store.Seed(kept);
+        store.Seed(other);
+        store.Seed(capture);
+        capture.Archive(Items.Noon, kept.Id);
+
+        await Route(store, target, [kept.Id, other.Id]);
+
+        var items = Assert.Single(target.BatchRequests).Items.ToDictionary(item => item.InboxItemId);
+        var attached = Assert.Single(items[kept.Id].Attached ?? []);
+        Assert.Equal(("Caching article", (string?)"https://example.com/caching"), (attached.Title, attached.SourceUrl));
+        Assert.Empty(items[other.Id].Attached ?? []);
+    }
+
     /// <summary>The pane shows the tag before the module mints it: the sigil
     /// and the slug, with the digits left out.</summary>
     [Theory]
@@ -527,7 +571,8 @@ public sealed class RouteBatchToBacklogTests
         FakeBacklogTarget target,
         IReadOnlyList<Guid> ids,
         Guid? listId = null,
-        InboxBatchRouteChoicesDto? choices = null) =>
+        InboxBatchRouteChoicesDto? choices = null,
+        string? planTitle = null) =>
         new RouteBatchToBacklogCommandHandler(store, store, target, new FakeTimeProvider(Decision))
-            .Handle(new RouteBatchToBacklogCommand(ids, listId, choices), TestContext.Current.CancellationToken);
+            .Handle(new RouteBatchToBacklogCommand(ids, listId, choices, planTitle), TestContext.Current.CancellationToken);
 }

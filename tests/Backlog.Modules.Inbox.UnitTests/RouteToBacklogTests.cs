@@ -136,10 +136,146 @@ public sealed class RouteToBacklogTests
         Assert.True(item.ReplicaAckPending);
     }
 
+    /// <summary>The pass shows each single route's entry type and sends it:
+    /// the type travels as a fact, in the advisor's lower-case words, and the
+    /// adapter writes the type word.</summary>
+    [Theory]
+    [InlineData("prompt", "prompt")]
+    [InlineData("test", "test")]
+    [InlineData("Task", "task")]
+    [InlineData(" PROMPT ", "prompt")]
+    public async Task An_entry_type_reaches_the_target(string entryType, string expected)
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        var result = await Route(store, target, item.Id, entryType);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(expected, Assert.Single(target.Requests).EntryType);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    public async Task No_entry_type_leaves_the_type_to_the_target(string? entryType)
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        await Route(store, target, item.Id, entryType);
+
+        Assert.Null(Assert.Single(target.Requests).EntryType);
+    }
+
+    /// <summary>Only the types a single route may name reach the target — never
+    /// a word the entry grammar would read as something else.</summary>
+    [Theory]
+    [InlineData("bug")]
+    [InlineData("plan")]
+    [InlineData("task` `#x")]
+    public async Task An_unknown_entry_type_is_refused_before_the_target_is_asked(string entryType)
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        var result = await Route(store, target, item.Id, entryType);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("inbox.route.unknown_entry_type", result.Error.Code);
+        Assert.Empty(target.Requests);
+        Assert.False(item.IsRouted);
+        Assert.Empty(store.ItemWrites);
+    }
+
+    /// <summary>"Keep one, attach the other": the captures archived as
+    /// duplicates of the kept item travel with it as facts — title and link —
+    /// oldest capture first. Ones archived as another item's, or merged into a
+    /// task, are not its.</summary>
+    [Fact]
+    public async Task The_captures_archived_as_its_duplicates_travel_with_the_kept_item()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var kept = Items.Manual("Read the caching article");
+        var older = Captured("Caching article", "https://example.com/caching", Items.Noon.AddMinutes(1));
+        var newer = Captured("Same article again", null, Items.Noon.AddMinutes(2));
+        var other = Items.Manual("Something else");
+        var elsewhere = Captured("Not this one", "https://example.com/other", Items.Noon.AddMinutes(3));
+        var merged = Captured("Merged into a task", "https://example.com/task", Items.Noon.AddMinutes(4));
+        foreach (var seeded in new[] { kept, older, newer, other, elsewhere, merged }) store.Seed(seeded);
+        newer.Archive(Items.Noon, kept.Id);
+        older.Archive(Items.Noon, kept.Id);
+        elsewhere.Archive(Items.Noon, other.Id);
+        merged.Archive(Items.Noon, Guid.CreateVersion7(), task: true);
+
+        await Route(store, target, kept.Id);
+
+        var attached = Assert.Single(target.Requests).Attached;
+        Assert.NotNull(attached);
+        Assert.Equal(
+            [("Caching article", (string?)"https://example.com/caching"), ("Same article again", null)],
+            attached.Select(duplicate => (duplicate.Title, duplicate.SourceUrl)));
+    }
+
+    /// <summary>Archiving names the root only for the item archived: a kept
+    /// item that is itself archived later as another's duplicate keeps its own
+    /// duplicates pointing at it. Routing the new root still carries every
+    /// capture of the thought, however many steps away.</summary>
+    [Fact]
+    public async Task Captures_a_chain_of_duplicates_away_still_travel_with_the_root()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var root = Captured("Read the caching article", null, Items.Noon);
+        var middle = Captured("Caching article", "https://example.com/caching", Items.Noon.AddMinutes(2));
+        var leaf = Captured("Same article again", "https://example.com/again", Items.Noon.AddMinutes(1));
+        foreach (var seeded in new[] { root, middle, leaf }) store.Seed(seeded);
+        leaf.Archive(Items.Noon, middle.Id);
+        middle.Archive(Items.Noon, root.Id);
+
+        await Route(store, target, root.Id);
+
+        Assert.Equal(
+            ["Same article again", "Caching article"],
+            (Assert.Single(target.Requests).Attached ?? []).Select(duplicate => duplicate.Title));
+    }
+
+    /// <summary>Undo of the attach is the restore that takes the archive back:
+    /// the capture is no longer a duplicate, so the next route carries none.</summary>
+    [Fact]
+    public async Task A_restored_capture_no_longer_travels_with_the_kept_item()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var kept = Items.Manual("Read the caching article");
+        var capture = Captured("Caching article", "https://example.com/caching", Items.Noon.AddMinutes(1));
+        store.Seed(kept);
+        store.Seed(capture);
+        capture.Archive(Items.Noon, kept.Id);
+        capture.Restore(Items.Noon);
+
+        await Route(store, target, kept.Id);
+
+        Assert.Empty(Assert.Single(target.Requests).Attached ?? []);
+    }
+
+    private static InboxItem Captured(string title, string? sourceUrl, DateTimeOffset capturedAt) =>
+        new(Guid.CreateVersion7(), title, string.Empty, sourceUrl, capturedAt, capturedAt,
+            ContentKind.Text, new InboxSource(InboxEnumMap.ManualChannel, null), replicaBacked: false);
+
     private static Task<Result<Abstractions.DataTransferObjects.InboxRoutedDto>> Route(
         InMemoryInboxStore store,
         FakeBacklogTarget target,
-        Guid id) =>
+        Guid id,
+        string? entryType = null) =>
         new RouteToBacklogCommandHandler(store, target, new FakeTimeProvider(Decision))
-            .Handle(new RouteToBacklogCommand(id), TestContext.Current.CancellationToken);
+            .Handle(new RouteToBacklogCommand(id, entryType), TestContext.Current.CancellationToken);
 }

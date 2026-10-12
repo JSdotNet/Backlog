@@ -272,6 +272,17 @@ public static class InboxErrors
         "inbox.batch.merge_save_failed",
         $"The item it duplicates was routed, but this one could not be archived ({detail}). It is still in the Inbox.");
 
+    /// <summary>The code <see cref="UnknownEntryType"/> answers with.</summary>
+    public const string UnknownEntryTypeCode = "inbox.route.unknown_entry_type";
+
+    /// <summary>A single route named an entry type a route may not make — not
+    /// one of <see cref="DataTransferObjects.InboxTriagePassDto.EntryTypes"/>.
+    /// The pass only sends the types it shows, so this guards the port rather
+    /// than a path a person reaches; nothing was routed.</summary>
+    public static Error UnknownEntryType(string entryType) => Error.Validation(
+        UnknownEntryTypeCode,
+        $"\"{entryType}\" is not an entry type a route can make, so nothing was routed.");
+
     /// <summary>The code <see cref="UndoTaskStarted"/> answers with, so a screen
     /// can tell this refusal from any other without matching its sentence.</summary>
     public const string UndoTaskStartedCode = "inbox.undo.task_started";

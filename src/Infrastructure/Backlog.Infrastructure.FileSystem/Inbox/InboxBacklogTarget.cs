@@ -396,6 +396,12 @@ internal sealed partial class InboxBacklogTarget(
     /// title that way already; this is the adapter refusing to depend on it,
     /// because the layout it writes is its own to keep.
     /// </para>
+    /// <para>
+    /// The type word is the request's entry type, <c>task</c> when it names
+    /// none. The captures attached to the item — archived as its duplicates —
+    /// go ahead of the notes, one line each with their title and link, through
+    /// Tasks' prose writer as the sibling lines do.
+    /// </para>
     /// </summary>
     internal static string Compose(
         InboxRouteRequestDto request,
@@ -410,7 +416,7 @@ internal sealed partial class InboxBacklogTarget(
         var siblings = Siblings(request, repo);
 
         text.Append("# ").Append(title).Append('\n');
-        text.Append("`task` `!draft`");
+        text.Append('`').Append(TypeWord(request.EntryType)).Append("` `!draft`");
 
         IEnumerable<string> tags = request.Tags;
         if (siblings.Count > 0) tags = tags.Append(SiblingTag(request.InboxItemId));
@@ -444,6 +450,20 @@ internal sealed partial class InboxBacklogTarget(
                 .Append('\n');
         }
 
+        // A capture's title is what arrived and may hold anything: one line
+        // each, through the same prose writer, so none of it becomes a heading,
+        // a step or a fence.
+        var attached = (request.Attached ?? [])
+            .Select(AttachedLine)
+            .Where(line => line.Length > 0)
+            .ToList();
+        if (attached.Count > 0)
+        {
+            text.Append('\n')
+                .Append(EntryTextParser.AsProse(string.Join("\n\n", attached)))
+                .Append('\n');
+        }
+
         var body = request.BodyMd.Trim();
         if (body.Length > 0) text.Append('\n').Append(body).Append('\n');
 
@@ -458,6 +478,25 @@ internal sealed partial class InboxBacklogTarget(
         return Attachment.From(request.AttachmentPath) is { } attachment
             ? EntryTextParser.WithAttachment(text.ToString(), attachment)
             : text.ToString();
+    }
+
+    /// <summary>The metadata line's type word for a route's entry type: the
+    /// type itself when it is one a route may make, else <c>task</c>. The
+    /// module refuses any other; this is the adapter not letting a word it did
+    /// not check reach the metadata line.</summary>
+    private static string TypeWord(string? entryType) => InboxTriagePassDto.EntryTypeOf(entryType) ?? "task";
+
+    /// <summary>One attached capture as a line of prose: its title, and its
+    /// link after a dash when it arrived with one. Every whitespace run is one
+    /// space, so the line stays one line.</summary>
+    private static string AttachedLine(InboxAttachedDuplicateDto duplicate)
+    {
+        var title = WhitespaceRun().Replace((duplicate.Title ?? string.Empty).Trim(), " ");
+        var link = WhitespaceRun().Replace((duplicate.SourceUrl ?? string.Empty).Trim(), " ");
+
+        if (title.Length == 0) return link.Length == 0 ? string.Empty : $"Attached: {link}";
+
+        return link.Length == 0 ? $"Attached: {title}" : $"Attached: {title} — {link}";
     }
 
     public async Task<Result> CommentOnTaskAsync(InboxMergeRequestDto request, CancellationToken cancellationToken = default)

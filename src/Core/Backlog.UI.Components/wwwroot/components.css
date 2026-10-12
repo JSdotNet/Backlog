@@ -7245,6 +7245,21 @@ body.is-resizing-pane {
     border-bottom-right-radius: var(--border-radius-md);
 }
 
+/* --- Radio group --------------------------------------------------------- */
+/*
+  One choice out of several (Inputs/RadioGroup.razor). Each choice is a toggle
+  button, so it borrows `.btn--toggle`'s boundary, hover, pressed fill and
+  `.btn`'s focus ring rather than restating them; the group only lays the
+  choices out. Spaced rather than touching like `.btn-group`, because a choice
+  label can run to a sentence and the row wraps.
+*/
+.radio-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
 /* --- Tag chip parts ------------------------------------------------------ */
 
 .tag-chip__label {
