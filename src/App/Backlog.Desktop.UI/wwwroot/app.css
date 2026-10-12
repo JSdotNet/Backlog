@@ -6859,7 +6859,13 @@ h1, h2, h3 {
     background: color-mix(in srgb, var(--dashboard-timeline-tone) 28%, transparent);
 }
 
-.dashboard-timeline__bar--behind { --dashboard-timeline-tone: var(--color-band-4); }
+/* A late bar is outlined in its tone as well: with nothing done it has no fill, and
+   the faint wash alone reads as a planned bar on the dark theme. */
+.dashboard-timeline__bar--behind {
+    --dashboard-timeline-tone: var(--color-band-4);
+    box-shadow: inset 0 0 0 calc(var(--border-width) * 2) var(--dashboard-timeline-tone);
+}
+
 .dashboard-timeline__bar--finished { --dashboard-timeline-tone: var(--color-success-text); }
 
 .dashboard-timeline__bar--clipped-start {
