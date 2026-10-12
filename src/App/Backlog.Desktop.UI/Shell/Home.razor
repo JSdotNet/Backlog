@@ -769,6 +769,11 @@
             _view = ShellView.Roadmap;
         }
 
+        // A surface reopened on start is opened as much as one the reader
+        // toggled, and takes focus the same way: left on the body, the Inbox's
+        // keys and every takeover's Escape would wait for a click first.
+        _focusSurfacePending = _surface != WorkspaceSurface.Workspace;
+
         // Same restore for which side panes were open — "Tasks" among them, from
         // a file written before the view switch, names no pane and is skipped. This
         // is what makes it survive
@@ -868,10 +873,15 @@
         // After every render rather than on a toggle handler, because there are
         // three ways the Inbox opens (its own option, a restored surface, and the
         // feature switching on) and one place to notice is better than three.
+        //
+        // Every opening also mounts a fresh pane with nothing in it focused, so
+        // focus is asked for here, below, whichever of the three it was — the
+        // toggle asks too, the other two would not.
         if (InboxVisible && !_inboxInitialized)
         {
             _inboxInitialized = true;
             _inboxWasVisible = true;
+            _focusSurfacePending = true;
             await InboxState.InitializeAsync();
         }
         else if (InboxVisible != _inboxWasVisible)
@@ -881,7 +891,11 @@
             // reads the queue. The flag moves first: the sweep re-renders, and
             // the render after it must not see a second opening.
             _inboxWasVisible = InboxVisible;
-            if (InboxVisible) await InboxState.OpenedAsync();
+            if (InboxVisible)
+            {
+                _focusSurfacePending = true;
+                await InboxState.OpenedAsync();
+            }
         }
 
         // The two branches below run on every render, not only the first: a

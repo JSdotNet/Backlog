@@ -45,7 +45,7 @@ type: sub-feature
 status: draft
 related: [.devbook/domain/inbox/domain.md#capture-source, .devbook/domain/capture/domain.md#capture-source, .devbook/domain/capture/features.md#run-capture-now, .devbook/domain/inbox/requirements.md#columns]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureItemTests]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureItemTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageNavigationTests]
 ```
 
 The queue offers the two ways something gets into it from its own header: a
@@ -73,6 +73,11 @@ The result is a [Capture (manual)](domain.md#capture-manual), captured and recei
 queue the reader is filling and opens in the detail beside it rather than
 anywhere else. It needs no paired device, which makes it the offline path and
 the way an inbox is seeded without a phone.
+
+In [triage mode](#triage-mode) the field stays in the header, and a capture
+moves nothing else. It lands unfiled, and the slice, the kind filter and the
+item being read stay as they were. Triaging the unfiled Inbox, the capture is an
+arrival there and is counted after the rows triage began with.
 
 ### Capture attachments
 
@@ -206,7 +211,7 @@ type: sub-feature
 status: draft
 related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/design/accessibility.md#keyboard-navigation]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeInboxWiringTests]
 ```
 
 A triage session is a run of small decisions, and it is kept short by taking
@@ -228,6 +233,16 @@ dialog, with Ctrl, Alt or Meta held, or while the focus is in another pane is
 left to what it was pressed in. That is decided in the browser at the moment
 the key goes down, because a decision made on the server arrives one key late.
 
+A box or a radio button is not a field. A letter pressed on one, such as **r**
+on a box under Move to backlog in, is the pane's. A key pressed with the focus
+on nothing goes to the Inbox while it is on screen, because the Inbox then has
+the screen to itself. The focus lands on nothing when a decision removes the
+button that had it.
+
+However the Inbox opens, the focus goes inside it, so the keys work without a
+click first. It opens by its option, by the shell reopening on it, or by its
+switch coming back on.
+
 The keys are listed in the **Shortcuts** dialog in the pane's header, which **?**
 also opens, and the buttons they stand for name them in their titles.
 
@@ -239,7 +254,7 @@ status: draft
 depends-on: [.devbook/domain/inbox/features.md#quick-triage-shortcuts]
 related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/domain/inbox/features.md#ai-triage-cards, .devbook/domain/inbox/features.md#undo-a-decision, .devbook/domain/inbox/features.md#inbox-zero]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageNavigationTests]
 ```
 
 **Start triage** in the header, or **t**, shows one item at a time, full width.
@@ -250,7 +265,9 @@ From the top down the screen holds:
   the slice held when triage began, and how many decisions the reader has taken
   since the app opened. The bar fills with the rows decided since triage began.
   An item that arrives during triage is counted after those rows. Previous
-  (**k**) and **Skip** (**j**) step without deciding.
+  (**k**) and **Skip** (**j**) step without deciding. An item decided
+  elsewhere while it is shown, on the phone or by a sync, stays on screen and
+  counts as decided. **j** and **k** step on from the place it held.
 - **The item**: its kind, its source, when it was captured, its title, notes and
   tags; the tags are the field **g** goes to.
 - **AI cards**, up to two, numbered **1** and **2** — see [AI triage

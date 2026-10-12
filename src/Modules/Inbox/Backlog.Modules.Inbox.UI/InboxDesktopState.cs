@@ -601,7 +601,17 @@ public sealed class InboxDesktopState
     /// and, optionally, notes that become the item's body. Returns whether it
     /// was kept; a refusal is a toast under <c>inbox-add-error</c>, because the
     /// field is a line in the header and there is nowhere in it for a one-off
-    /// failure to sit. The new item is selected so the detail opens on it.</summary>
+    /// failure to sit. Outside triage the unfiled Inbox opens with the new item
+    /// selected, so the detail opens on it.
+    /// <para>
+    /// In triage mode the capture is filed and nothing else moves: the slice,
+    /// the kind filter, the item being read and its "n of total" stay as they
+    /// were, because the field is a way to set a passing thought down without
+    /// leaving the session. Triaging the unfiled Inbox, the new item is an
+    /// arrival in that slice and the reload counts it after the rows triage
+    /// began with (requirements.md, "Triage counts the session"); triaging a
+    /// list or Deferred, it is not in the slice and is not counted.
+    /// </para></summary>
     public async Task<bool> CaptureAsync(InboxCapture capture)
     {
         ArgumentNullException.ThrowIfNull(capture);
@@ -610,6 +620,12 @@ public sealed class InboxDesktopState
 
         var captured = await _inbox.CaptureAsync(capture.Title.Trim(), capture.Notes);
         if (Report(captured, AddErrorTestId)) return false;
+
+        if (TriageMode)
+        {
+            await ReloadAsync();
+            return true;
+        }
 
         // A capture lands in the unfiled inbox. Opening it there rather than in
         // whatever list was showing, so the row the reader just made is on

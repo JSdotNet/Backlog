@@ -294,6 +294,51 @@ public sealed class HomeInboxWiringTests
         Assert.Equal("-1", component.Find("[data-testid='inbox-pane']").GetAttribute("tabindex"));
     }
 
+    /// <summary>A reload — or Settings and back, which builds the page anew —
+    /// reopens on the Inbox the reader left, and focus goes into its pane as it
+    /// does when the option opens it. Left on the body, the keys would wait for a
+    /// click first.</summary>
+    [Fact]
+    public async Task Reopening_on_the_inbox_moves_focus_into_its_pane()
+    {
+        using var harness = CreateHarness();
+
+        var component = Render(harness);
+        await OpenInboxAsync(component);
+
+        component.WaitForAssertion(() => Assert.Contains(
+            harness.Context.JSInterop.Invocations["backlogFocus"],
+            invocation => Equals(invocation.Arguments[0], "inbox-pane")));
+    }
+
+    /// <summary>The Inbox's flag switched off and on again with the Inbox the
+    /// chosen surface brings it back on screen — another way it opens, and
+    /// focus goes into the pane that way too.</summary>
+    [Fact]
+    public async Task The_inbox_coming_back_on_screen_with_its_flag_moves_focus_into_its_pane()
+    {
+        using var harness = CreateHarness();
+        var features = harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
+
+        var component = Render(harness);
+        await OpenInboxAsync(component);
+        component.WaitForAssertion(() => Assert.Contains(
+            harness.Context.JSInterop.Invocations["backlogFocus"],
+            invocation => Equals(invocation.Arguments[0], "inbox-pane")));
+
+        await component.InvokeAsync(() => { _ = features.SetEnabled(AppFeatures.InboxPane, false); });
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='inbox-pane']")));
+        var before = InboxPaneFocusCount(harness);
+
+        await component.InvokeAsync(() => { _ = features.SetEnabled(AppFeatures.InboxPane, true); });
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']")));
+        component.WaitForAssertion(() => Assert.True(InboxPaneFocusCount(harness) > before));
+    }
+
+    private static int InboxPaneFocusCount(Harness harness) =>
+        harness.Context.JSInterop.Invocations["backlogFocus"].Count(invocation => Equals(invocation.Arguments[0], "inbox-pane"));
+
     // --- Driving it -------------------------------------------------------
 
     private static async Task OpenInboxAsync(IRenderedComponent<Home> component)
