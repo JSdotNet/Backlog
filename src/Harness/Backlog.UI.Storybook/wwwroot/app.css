@@ -411,6 +411,14 @@ html, body {
     gap: var(--spacing-xs);
 }
 
+/* An option's glyph sits before its word on one line, as the shell's
+   `.header-group__option` lays it out. */
+.sb-header-nav .btn--toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
 /* A phone's whole screen, for something that covers one — the capture sheet
    rises from the bottom edge over a dimmed screen. The transform makes this box
    the containing block of the sheet's fixed layers, so the sheet covers the

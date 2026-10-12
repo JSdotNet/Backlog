@@ -3,7 +3,7 @@
 <PageTitle>Task calendar — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Task calendar"
-           Summary="`TaskCalendar`: a month of tasks placed by their due date, Monday-first and in whole weeks, with the open tasks that have no due date in a tray beside it. A chip or a tray item opens its task; dragging one onto a day gives it that due date. The roadmap's plans can be drawn over it: each window a bar across its days, each milestone a diamond, and the plans with no window yet in the tray. Hours the person sets aside for a task on a day are chips of their own, added up against the day's working hours. The Tasks pane that hands it the filtered rows is not this page's subject."
+           Summary="`TaskCalendar`: a month of tasks placed by their due date, Monday-first and in whole weeks, with the open tasks that have no due date in a tray beside it, or one week of tall columns when the range is Week. A chip or a tray item opens its task; dragging one onto a day gives it that due date. The roadmap's plans can be drawn over it: each window a bar across its days, each milestone a diamond, and the plans with no window yet in the tray. Hours the person sets aside for a task on a day are chips of their own, added up against the day's working hours. The Tasks pane that hands it the filtered rows is not this page's subject."
            Guidelines="@Rules">
 
     <Story Name="A month of tasks"
@@ -23,6 +23,36 @@ Drag a chip to another day, or a tray item onto a day: the line under the sample
                           TestId="calendar" />
         </div>
         <p class="sb-state" data-testid="task-calendar-state">@(_lastEvent ?? "Nothing opened or moved yet.")</p>
+    </Story>
+
+    <Story Name="A week of tasks"
+           Description="The month bar's **Month | Week** control is one of two, so a fused group with one pressed. The host keeps the choice (`Range`, `RangeChanged`) and remembers only the range, never the date. Week shows the seven days of one Monday-first week as tall columns, each listing every chip it holds with no `+N more`. The plan bars, milestones, planned-hours blocks and day totals are drawn as on the month, and the drags and **Add hours…** work the same, because a Week column is the same day.
+
+Previous and next step a week and say so (**Previous week**, **Next week**); the heading names the week's days, and its months and years where it crosses one. Week opens on the week holding today when today is in the month shown, else on the month's first week. Back on Month, the calendar shows the month holding the week's Thursday, so a week spanning two months lands in the one holding most of its days."
+           Code="@WeekCode">
+        <div class="sb-calendar" data-testid="task-calendar-week">
+            <TaskCalendar Tasks="@_tasks"
+                          Today="@Today"
+                          MyDayCount="2"
+                          Range="@_range"
+                          RangeChanged="range => _range = range"
+                          SelectedId="@_opened"
+                          OnOpen="Open"
+                          OnDueChanged="Move"
+                          PlansAvailable="true"
+                          ShowPlans="@_showPlans"
+                          ShowPlansChanged="shown => _showPlans = shown"
+                          Plans="@Plans"
+                          Milestones="@Milestones"
+                          ShelfPlans="@_shelf"
+                          OnPlanStarted="StartPlan"
+                          HoursAvailable="true"
+                          HoursBlocks="@HoursBlocks"
+                          CapacityOn="CapacityOn"
+                          OnHoursChanged="ChangeHours"
+                          TestId="week" />
+        </div>
+        <p class="sb-state" data-testid="task-calendar-week-state">The host keeps the range: @_range.</p>
     </Story>
 
     <Story Name="The repository identity edge"
@@ -69,9 +99,9 @@ The tray's second section, **Plans without a window**, lists the `ShelfPlans`. D
     <Story Name="Planned hours"
            Description="With `HoursAvailable` the person can set hours aside for a task on a day — a date and a number of hours, never a time of day. Each `CalendarHoursBlock` is a chip on its day, **Title · 3h**, dashed and tinted with a bar for a mark, apart from the solid due-date chips. The day head adds the day's blocks up against what `CapacityOn` says the day has — **3h / 8h** — and a day holding more is drawn in the error colour, its tooltip naming the numbers: the 12th here, and the Saturday with no working hours.
 
-Make a block from a day's **Add hours…** (it shows while the day is pointed at or focused), or drag a chip or a tray item onto a day with **Shift** held. Either opens the day's editor; press a block's chip to change or remove it. The calendar reports `OnHoursChanged` and writes nothing — here the host keeps the blocks in memory. The roadmap never reads them.
+Make a block from a day's **Add hours…** (it shows while the day is pointed at or focused), or drag a chip or a tray item onto a day with **Shift** held. Either opens the day's editor; press a block's chip to change or remove it. The editor's figure is a `Combobox` suggesting 0.5, 1, 2, 3, 4, 6 and 8 hours over a field that takes any figure: a suggestion fills it, Enter or the button keeps it, and closing the editor puts the focus back on what opened it. The calendar reports `OnHoursChanged` and writes nothing — here the host keeps the blocks in memory. The roadmap never reads them.
 
-Under it, `PlannedHoursEditor`: the same blocks for one task, as the Tasks detail panel's **Planned hours** section edits them."
+Under it, `PlannedHoursEditor`: the same blocks for one task, as the Tasks detail panel's **Planned hours** section edits them. There a suggestion taken for a day is kept at once, a typed figure on Enter or on leaving the field, and a refused figure puts the field back to the day's own."
            Code="@HoursCode">
         <div class="sb-calendar" data-testid="task-calendar-hours">
             <TaskCalendar Tasks="@_tasks"
@@ -107,6 +137,8 @@ Under it, `PlannedHoursEditor`: the same blocks for one task, as the Tasks detai
     private static readonly DesignGuideline[] Rules =
     [
         new("interaction-guidelines.md#drag-and-drop-reordering", "Why a drag is a pointer gesture with a threshold, and what a press that does not travel stays."),
+        new("interaction-guidelines.md#group-shape-says-cardinality", "Why Month | Week is a fused group with one pressed."),
+        new("interaction-guidelines.md#combobox", "The hours field's suggestions: a pick fills the figure, a typed one is still taken, and Escape closes the list before the editor."),
         new("color-scheme.md#the-identity-edge", "The 4px repository edge, and that it is never the only thing naming the repository."),
         new("accessibility.md#iconography-accessibility", "Why a status dot differs in shape as well as colour.")
     ];
@@ -136,6 +168,33 @@ Under it, `PlannedHoursEditor`: the same blocks for one task, as the Tasks detai
     private string? _opened;
     private string? _lastEvent;
     private bool _colours = true;
+
+    /// <summary>Opens on Week, so the story shows what it is about; the control turns it back.</summary>
+    private CalendarRange _range = CalendarRange.Week;
+
+    private const string WeekCode = """
+        <TaskCalendar Tasks="@tasks"
+                      Today="@today"
+                      @bind-Range="range"
+                      PlansAvailable="true"
+                      @bind-ShowPlans="showPlans"
+                      Plans="@plans"
+                      HoursAvailable="true"
+                      HoursBlocks="@blocks"
+                      CapacityOn="day => workingWeek.HoursOn(day)" />
+
+        @code {
+            // The host remembers the range by name; only the range, never the date.
+            // A name only: TryParse also takes a number, so "5" would parse to a
+            // range the calendar does not draw, with neither option pressed.
+            CalendarRange range = shell.CalendarRange is [var first, ..]
+                && char.IsLetter(first)
+                && Enum.TryParse<CalendarRange>(shell.CalendarRange, out var kept)
+                && Enum.IsDefined(kept)
+                    ? kept
+                    : CalendarRange.Month;
+        }
+        """;
 
     private bool _showPlans = true;
     private bool _planColours = true;

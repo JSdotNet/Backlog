@@ -281,4 +281,74 @@ public class TasksRepositoryScopeTests
         Assert.Equal(["backlog"], host.State.SelectedRepositoryAliases);
         Assert.Equal(before, changes);
     }
+
+    // --- Restoring a remembered scope ----------------------------------------------
+    //
+    // The shell remembers the scope across a restart (shell-navigation.json) and
+    // hands it back in one call. One call rather than a toggle per alias, because
+    // every toggle filters the list again and announces a change: a restore is one
+    // decision and is announced once.
+
+    [Fact]
+    public async Task A_restored_scope_keeps_its_order_so_the_anchor_comes_back_first()
+    {
+        using var host = await TasksPaneHost.CreateAsync(
+            "backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs", "site = JSdotNet/Site");
+        var theirs = await host.WriteEntryAsync("# Write it up\n`task` `repo:docs`\n");
+        var elsewhere = await host.WriteEntryAsync("# Publish it\n`task` `repo:site`\n");
+
+        host.State.RestoreRepositoryScope(["docs", "backlog"]);
+
+        Assert.Equal(["docs", "backlog"], host.State.SelectedRepositoryAliases);
+        Assert.Equal("docs", host.State.AnchorRepositoryAlias);
+        Assert.Contains(theirs, host.State.FilteredRows);
+        Assert.DoesNotContain(elsewhere, host.State.FilteredRows);
+    }
+
+    /// <summary>The file outlives Settings: a repository removed since the scope
+    /// was written leaves it, and the rest stay in their order. When nothing is
+    /// left the scope is every repository, which is what an unremembered scope
+    /// reads as.</summary>
+    [Fact]
+    public async Task A_restored_alias_no_longer_configured_is_dropped_and_the_rest_keep_their_order()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+
+        host.State.RestoreRepositoryScope(["retired", "docs", "backlog"]);
+
+        Assert.Equal(["docs", "backlog"], host.State.SelectedRepositoryAliases);
+
+        host.State.RestoreRepositoryScope(["retired"]);
+
+        Assert.Empty(host.State.SelectedRepositoryAliases);
+    }
+
+    [Fact]
+    public async Task A_restored_alias_takes_its_configured_spelling_and_a_repeat_is_kept_once()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+
+        host.State.RestoreRepositoryScope(["Backlog", "docs", "backlog"]);
+
+        Assert.Equal(["backlog", "docs"], host.State.SelectedRepositoryAliases);
+    }
+
+    [Fact]
+    public async Task A_restore_is_announced_once_and_restoring_the_scope_already_held_announces_nothing()
+    {
+        using var host = await TasksPaneHost.CreateAsync(
+            "backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs", "site = JSdotNet/Site");
+        var changes = 0;
+        host.State.Changed += () => changes++;
+
+        host.State.RestoreRepositoryScope(["backlog", "docs", "site"]);
+        Assert.Equal(1, changes);
+
+        host.State.RestoreRepositoryScope(["backlog", "docs", "site"]);
+        Assert.Equal(1, changes);
+
+        host.State.RestoreRepositoryScope([]);
+        Assert.Empty(host.State.SelectedRepositoryAliases);
+        Assert.Equal(2, changes);
+    }
 }

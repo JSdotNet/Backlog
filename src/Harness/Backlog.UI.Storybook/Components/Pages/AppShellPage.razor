@@ -8,26 +8,29 @@
            Guidelines="@Rules">
 
     <Story Name="Desktop header navigation"
-           Description="The desktop header's nav, left to right: the Inbox toggle, the view switch, the Devbook toggle, then the work in progress and the other takeovers. The view switch is a fused ButtonGroup of ToggleButtons with exactly one pressed — a view is replaced, never closed, so pressing the pressed one changes nothing. The Devbook is a standalone toggle that opens beside whichever view is showing. The Inbox is a standalone toggle too, but it takes the whole screen: pressing it again returns to the view, and Escape stays with the Inbox's own keys rather than closing it. Sessions and Pull requests are one context's two lists, fused; Dashboard and Tools stand loose.
+           Description="The desktop header's nav, left to right: the Inbox toggle, the view switch, the Devbook toggle, then the work in progress and the other takeovers. The view switch is a fused ButtonGroup of ToggleButtons with exactly one pressed — a view is replaced, never closed, so pressing the pressed one changes nothing. The Devbook is a standalone toggle that opens beside whichever view is showing. The Inbox is a standalone toggle too, but it takes the whole screen: pressing it again returns to the view, and Escape stays with the Inbox's own keys rather than closing it. The work in progress group is led by In progress, a view that summarises the two lists after it; Sessions and Pull requests are one context's two lists, fused with it. Dashboard and Tools stand loose.
 
-The sample is live: pick a view, open the side pane beside it, or press the Inbox or a takeover — the line under it says what the shell would show. Board lays the Tasks rows out in columns and Calendar on a month; In progress joins these groups in a later step."
+Each view and work-in-progress option leads with a glyph from the library's Icons folder. The glyph is decorative and hidden from assistive technology, so each option's name is still its word.
+
+The sample is live: pick a view, open the side pane beside it, or press the Inbox or a takeover — the line under it says what the shell would show. Board lays the Tasks rows out in columns and Calendar by due date, on a month or a week as the calendar's Month | Week range says."
            Code="@HeaderCode">
         <nav class="sb-header-nav" aria-label="Workspace views" data-testid="sb-header-nav">
             <div class="sb-header-nav__workspace">
                 <ToggleButton Pressed="@(_takeover == InboxTakeover)" OnClick="() => ToggleTakeover(InboxTakeover)" TestId="sb-inbox-toggle">Inbox</ToggleButton>
                 <ButtonGroup AriaLabel="View" TestId="sb-view-switch">
-                    @foreach (var view in Views)
-                    {
-                        <ToggleButton Pressed="@(_takeover is null && _view == view)" OnClick="() => ShowView(view)">@view</ToggleButton>
-                    }
+                    <ToggleButton Pressed="@ViewPressed("Tasks")" OnClick="@(() => ShowView("Tasks"))"><ListIcon />Tasks</ToggleButton>
+                    <ToggleButton Pressed="@ViewPressed("Board")" OnClick="@(() => ShowView("Board"))"><Columns3Icon />Board</ToggleButton>
+                    <ToggleButton Pressed="@ViewPressed("Calendar")" OnClick="@(() => ShowView("Calendar"))"><CalendarIcon />Calendar</ToggleButton>
+                    <ToggleButton Pressed="@ViewPressed("Roadmap")" OnClick="@(() => ShowView("Roadmap"))"><ChartGanttIcon />Roadmap</ToggleButton>
                 </ButtonGroup>
                 <ToggleButton Pressed="@(_takeover is null && _devbook)" OnClick="() => PressSidePane(ref _devbook)" TestId="sb-devbook-toggle">Devbook</ToggleButton>
             </div>
+            @* In progress leads the group though it is a view, not a takeover: it is
+               the summary the two lists are behind, so a press shows it as a view. *@
             <ButtonGroup AriaLabel="Work in progress" TestId="sb-work-in-progress">
-                @foreach (var takeover in WorkInProgress)
-                {
-                    <ToggleButton Pressed="@(_takeover == takeover)" OnClick="() => ToggleTakeover(takeover)">@takeover</ToggleButton>
-                }
+                <ToggleButton Pressed="@ViewPressed("In progress")" OnClick="@(() => ShowView("In progress"))"><ActivityIcon />In progress</ToggleButton>
+                <ToggleButton Pressed="@(_takeover == "Sessions")" OnClick="@(() => ToggleTakeover("Sessions"))"><SquareTerminalIcon />Sessions</ToggleButton>
+                <ToggleButton Pressed="@(_takeover == "Pull requests")" OnClick="@(() => ToggleTakeover("Pull requests"))"><GitPullRequestIcon />Pull requests</ToggleButton>
             </ButtonGroup>
             <div class="sb-row" role="group" aria-label="Surface">
                 @foreach (var takeover in Surfaces)
@@ -90,13 +93,13 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes
         new("app-shell/notes", "Notes")
     ];
 
-    private static readonly string[] Views = ["Tasks", "Board", "Calendar", "Roadmap"];
-    private static readonly string[] WorkInProgress = ["Sessions", "Pull requests"];
     private static readonly string[] Surfaces = ["Dashboard", "Tools"];
 
     /// <summary>The Inbox takes the screen like a takeover, though it sits with the
     /// workspace's controls rather than in a takeover group.</summary>
     private const string InboxTakeover = "Inbox";
+
+    private bool ViewPressed(string view) => _takeover is null && _view == view;
 
     private string _view = "Tasks";
     private string? _takeover;
@@ -141,6 +144,8 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes
         new("interaction-guidelines.md#shell-header", "The header's four regions, and what the view switch, the side-pane toggles and the takeover groups each behave as."),
         new("interaction-guidelines.md#workspace-panes", "How the side panes open beside the view, and how a narrow window trims them."),
         new("interaction-guidelines.md#group-shape-says-cardinality", "What a fused group and a standalone option say before anything is pressed."),
+        new("typography-and-layout.md#iconography", "The glyph each header option leads with: its library, its size, and where its colour comes from."),
+        new("accessibility.md#iconography-accessibility", "Why the glyph is hidden and the option's word stays its name."),
         new("accessibility.md#target-sizes-and-text", "How large a tab has to be under a thumb, and why the lit tab is not told apart by colour alone."),
         new("interaction-guidelines.md#offline", "Why offline is a calm, persistent line rather than an error."),
         new("accessibility.md#screen-reader--announcements", "What a status line announces, and that it never interrupts.")
@@ -164,16 +169,17 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes
             <div class="app-header__workspace">
                 <ToggleButton Pressed="InboxVisible" OnClick="ToggleInbox">Inbox</ToggleButton>
                 <ButtonGroup CssClass="header-group header-group--views" AriaLabel="View">
-                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Tasks)" OnClick="() => ShowView(ShellView.Tasks)">Tasks</ToggleButton>
-                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Board)" OnClick="() => ShowView(ShellView.Board)">Board</ToggleButton>
-                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Calendar)" OnClick="() => ShowView(ShellView.Calendar)">Calendar</ToggleButton>
-                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Roadmap)" OnClick="() => ShowView(ShellView.Roadmap)">Roadmap</ToggleButton>
+                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Tasks)" OnClick="() => ShowView(ShellView.Tasks)"><ListIcon />Tasks</ToggleButton>
+                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Board)" OnClick="() => ShowView(ShellView.Board)"><Columns3Icon />Board</ToggleButton>
+                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Calendar)" OnClick="() => ShowView(ShellView.Calendar)"><CalendarIcon />Calendar</ToggleButton>
+                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Roadmap)" OnClick="() => ShowView(ShellView.Roadmap)"><ChartGanttIcon />Roadmap</ToggleButton>
                 </ButtonGroup>
                 <ToggleButton Pressed="PaneOptionPressed(GlobalPane.Devbook)" OnClick="() => PressPane(GlobalPane.Devbook)">Devbook</ToggleButton>
             </div>
             <ButtonGroup CssClass="header-group header-group--work" AriaLabel="Work in progress">
-                <ToggleButton Pressed="SessionsVisible" PressedChanged="ToggleSessions">Sessions</ToggleButton>
-                <ToggleButton Pressed="PullRequestsVisible" PressedChanged="TogglePullRequests">Pull requests</ToggleButton>
+                <ToggleButton Pressed="ViewOptionPressed(ShellView.InProgress)" OnClick="() => ShowView(ShellView.InProgress)"><ActivityIcon />In progress</ToggleButton>
+                <ToggleButton Pressed="SessionsVisible" PressedChanged="ToggleSessions"><SquareTerminalIcon />Sessions</ToggleButton>
+                <ToggleButton Pressed="PullRequestsVisible" PressedChanged="TogglePullRequests"><GitPullRequestIcon />Pull requests</ToggleButton>
             </ButtonGroup>
             <ButtonGroup CssClass="header-group header-group--loose header-group--surface" AriaLabel="Surface">
                 <ToggleButton Pressed="DashboardVisible" PressedChanged="ToggleDashboard">Dashboard</ToggleButton>

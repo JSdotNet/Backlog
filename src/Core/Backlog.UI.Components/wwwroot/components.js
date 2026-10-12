@@ -1750,7 +1750,8 @@
     // `@onkeydown:preventDefault` flag proved exactly that — rendered after the
     // handler, it applied to the key *after* the one that set it, so the arrow was
     // never stopped and the letter typed next was eaten. So the decision lives
-    // here, by class, on every picker at once. The same reasoning as
+    // here, by class, on every picker at once — and on Combobox's input, whose keys
+    // are the same four for the same reasons. The same reasoning as
     // backlogGuardTab above, minus the id: a picker's input is never re-minted.
     //
     // Only the default is refused. The event keeps bubbling: TasksPane's bulk bar
@@ -1764,7 +1765,7 @@
         if (!TAG_SELECT_SWALLOWED_KEYS.has(event.key)) return;
 
         const target = event.target instanceof Element ? event.target : null;
-        if (!target || !target.matches('.tag-select__input')) return;
+        if (!target || !target.matches('.tag-select__input, .combobox__input')) return;
 
         event.preventDefault();
     });
@@ -1897,7 +1898,9 @@
     // deliberately has no interop of its own. This watches every subtree
     // mutation on the page and does nothing on all but the one it is for, which
     // is cheap: the check is one class test per added element.
-    const TAG_SELECT_LIST_CLASS = 'tag-select__list';
+    // Combobox's list is the same popup in the same columns — the detail panel's
+    // Planned hours sits near the bottom of one — so it is revealed the same way.
+    const REVEALED_LIST_CLASSES = ['tag-select__list', 'combobox__list'];
 
     const revealTagSelectList = (list) => {
         let container = list.parentElement;
@@ -1915,7 +1918,7 @@
     new MutationObserver((records) => {
         for (const record of records) {
             for (const node of record.addedNodes) {
-                if (node instanceof Element && node.classList.contains(TAG_SELECT_LIST_CLASS)) {
+                if (node instanceof Element && REVEALED_LIST_CLASSES.some(name => node.classList.contains(name))) {
                     revealTagSelectList(node);
                 }
             }

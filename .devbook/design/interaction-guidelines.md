@@ -7,8 +7,8 @@ related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-every
 > Binding interaction rules for the Backlog product: auto-save (there are no save
 > buttons), drag-and-drop reordering of both items and chapters with mandatory
 > keyboard equivalents, feedback/toasts, motion and reduced-motion, the
-> empty/loading/error state patterns, and the desktop shell's header, panes and
-> group shapes. Motion tokens and interaction patterns were
+> empty/loading/error state patterns, the desktop shell's header, panes and
+> group shapes, and the combobox. Motion tokens and interaction patterns were
 > adapted from the JSdotNet design style guide (`04-motion-and-interaction`,
 > `09-interaction-patterns`); conflict handling aligns with the last-write-wins
 > rule in `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`. Token names are
@@ -413,7 +413,7 @@ Review surface: storybook → *Task list* → **Task card**.
 ## Shell Header
 
 ```meta
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility"]
 ```
 
 The desktop shell's header is four regions in reading order, each answering one
@@ -449,7 +449,8 @@ as its kind:
 | A switched-off view falls back | A view whose flag goes off MUST show Tasks in its place, and MUST come back when the flag does. |
 | The filter bar is the task views' | The Tasks filter bar MUST show on the Tasks, Board and Calendar views — the same filtered rows read three ways — and on no other screen. The Board adds its **Columns** choice first on the bar, a select with no visible word beside it — the grouping it shows says what the columns are — named `Columns` to assistive technology and in its tooltip. The Roadmap view carries its own Planning heading row instead, and In progress carries its own choices. |
 | A control acts on what is on screen | A header control whose target is off screen MUST NOT render: the GitHub check only beside a task view, Ask AI only with an area to ask about. The view switch, the side-pane toggles, the takeover groups and the identity region stay on every screen, since they are the way to everything else. |
-| The shell reopens where it was left | The main view, the open side pane and any open takeover or the Inbox MUST be restored on a fresh shell instance, including after Settings and back. |
+| The shell reopens where it was left | The main view, the open side pane, any open takeover or the Inbox, and the repository scope MUST be restored on a fresh shell instance, including after Settings and back. The scope comes back in its order, so the anchor is still first, and a repository no longer configured is dropped from it. |
+| Views and work lead with a glyph | Each view-switch option and each member of the work in progress group MUST lead with a decorative glyph before its word: a list for Tasks, three columns for Board, a calendar for Calendar, staggered bars for Roadmap, a pulse line for In progress, a terminal prompt for Sessions and a pull-request branch for Pull requests. Each glyph is a Lucide outline per `typography-and-layout.md#iconography`, hidden from assistive technology per `accessibility.md#iconography-accessibility`, so every option's name stays its word. The Inbox toggle, the side-pane toggle and the remaining takeovers carry none. |
 
 Review surface: storybook → *App shell* → **Desktop header navigation**.
 
@@ -495,6 +496,34 @@ the pressed state's to say, not the shape's.
 | Not one of a set at all | A control that is simply on or off and belongs to no set — the desktop header's Inbox and Devbook toggles — MUST stand alone in the loose option shape, outside every group. Inside a fused group it would read as one more of its options and behave as none of them. |
 | Still one group | A loose group is still one `role="group"` with one label and one tab sequence; only the drawing changes. |
 | Selected on the edge it has | A fused option carries its selected state on the group's shared bottom edge (an underline beside the tint); a loose option, having no group edge, carries it on its own border. Neither is colour alone. |
+
+## Combobox
+
+```meta
+status: draft
+related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/domain/tasks/features.md#planned-hours"]
+```
+
+A combobox is a text field with a list of suggestions under it. The reader may
+type anything, or take a suggestion instead of typing, and typing never narrows
+the list. It follows the ARIA 1.2 editable combobox with list autocomplete. The
+planned-hours figure is its first use.
+
+| Rule | Requirement |
+|---|---|
+| The focus stays in the field | The keyboard focus MUST stay in the text field while the list is open. The field carries `role="combobox"`, `aria-expanded`, `aria-controls` naming the list and `aria-autocomplete="list"`, and `aria-activedescendant` names the active suggestion. The list is a `role="listbox"` of `role="option"` items. |
+| Opening the list | Down, Up and Alt+Down MUST open the list, and so does a click in the field. Down opens on the suggestion matching the field, else the first; Up opens on the matching one, else the last. Alt+Down opens with none active. |
+| Moving through it | While the list is open, Down and Up MUST move the active suggestion and wrap at either end. |
+| Taking a suggestion | Enter on the active suggestion, or a click on one, MUST take it and close the list. Enter with none active MUST commit the typed text. |
+| Escape | Escape MUST close an open list and keep the text. With the list already closed, Escape clears the field, and a host listening around the field hears it too. |
+| A key the list used is not the host's | A host that listens for Escape or Enter around the field, such as an editor that cancels on Escape, MUST NOT hear the Escape that closed the list or the Enter that took a suggestion. |
+| Tab | Tab MUST close the list without taking anything and move the focus on as usual. |
+| One commit per value | A value MUST be committed once, whichever way it arrives: a pick, Enter, or leaving the field. The browser's change event after an Enter is not a second commit. |
+| A refused value goes back | When the host refuses a committed value, the field MUST go back to the last value that stood, and the host says why beside it. |
+| Never clipped | The open list MUST be at least as wide as its field, and MUST NOT be cut off by a container that clips its content. |
+
+Review surface: storybook → *Inputs* → **Combobox** (empty, a suggestion taken, a
+figure typed, a figure refused).
 
 ## Action Density and Overflow
 

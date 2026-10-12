@@ -35,6 +35,12 @@ namespace Backlog.Infrastructure.FileSystem;
 /// carries it. Roadmap reads it through its own port, answered over this store. The
 /// bands the reader folded to one lane are the same kind of choice and ride beside it.
 /// </para>
+/// <para>
+/// So do the Calendar's Month | Week range, the In progress view's two toggles and the
+/// header's repository scope: each is how the reader last had a screen, kept on this
+/// device only. Every key is additive and left out while at its default, so a file
+/// written before it keeps its shape and an older build reads a newer file.
+/// </para>
 /// </summary>
 public sealed class ShellNavigationStore
 {
@@ -52,6 +58,9 @@ public sealed class ShellNavigationStore
 
     /// <summary>What the Board's columns are when nothing else was remembered.</summary>
     public const string DefaultBoardColumns = "Status";
+
+    /// <summary>The Calendar's range when nothing else was remembered.</summary>
+    public const string DefaultCalendarRange = "Month";
 
     /// <summary>The surface name the roadmap was stored under while it was a
     /// takeover, and the view name it is stored under now.</summary>
@@ -98,6 +107,10 @@ public sealed class ShellNavigationStore
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
         CalendarPlansShown = dto?.CalendarPlansShown ?? false;
+        CalendarRange = string.IsNullOrWhiteSpace(dto?.CalendarRange) ? DefaultCalendarRange : dto.CalendarRange;
+        InProgressNeedsYouFirst = dto?.InProgressNeedsYouFirst ?? true;
+        InProgressIncludeFinishedToday = dto?.InProgressIncludeFinishedToday ?? false;
+        RepositoryScope = dto?.RepositoryScope ?? Empty;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -146,6 +159,29 @@ public sealed class ShellNavigationStore
     /// choice reads as off; one that says <c>false</c>, as a file from when the box
     /// was on by default does once it was turned off, reads as off too.</summary>
     public bool CalendarPlansShown { get; private set; }
+
+    /// <summary>
+    /// The Tasks Calendar's range — <c>Month</c> or <c>Week</c> — as the reader last
+    /// left it on this device; <see cref="DefaultCalendarRange"/> until changed. A name,
+    /// for the reason <see cref="BoardColumns"/> is one: the shell reads a name it does
+    /// not know as Month. Only the range is kept, never the date it showed.
+    /// </summary>
+    public string CalendarRange { get; private set; }
+
+    /// <summary>Whether the In progress view puts the sessions waiting on the reader
+    /// first — its "Needs you first" toggle: on until turned off on this device.</summary>
+    public bool InProgressNeedsYouFirst { get; private set; }
+
+    /// <summary>Whether the In progress view also lists what finished today — its
+    /// "Include finished today" toggle: off until turned on on this device.</summary>
+    public bool InProgressIncludeFinishedToday { get; private set; }
+
+    /// <summary>
+    /// The header's repository scope by alias, in the order it was chosen: the first is
+    /// the anchor. Empty is every repository, the scope nobody narrowed. Aliases are
+    /// kept as written; the shell drops one no longer configured when it restores them.
+    /// </summary>
+    public IReadOnlyList<string> RepositoryScope { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
@@ -248,6 +284,42 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetCalendarRange(string range)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(range);
+        if (range == CalendarRange) return;
+
+        CalendarRange = range;
+        Save();
+    }
+
+    public void SetInProgressNeedsYouFirst(bool needsYouFirst)
+    {
+        if (needsYouFirst == InProgressNeedsYouFirst) return;
+
+        InProgressNeedsYouFirst = needsYouFirst;
+        Save();
+    }
+
+    public void SetInProgressIncludeFinishedToday(bool include)
+    {
+        if (include == InProgressIncludeFinishedToday) return;
+
+        InProgressIncludeFinishedToday = include;
+        Save();
+    }
+
+    /// <summary>Keeps <paramref name="aliases"/> in the order given — the anchor first —
+    /// so the same aliases reordered are a change.</summary>
+    public void SetRepositoryScope(IReadOnlyList<string> aliases)
+    {
+        ArgumentNullException.ThrowIfNull(aliases);
+        if (aliases.SequenceEqual(RepositoryScope, StringComparer.Ordinal)) return;
+
+        RepositoryScope = [.. aliases];
+        Save();
+    }
+
     private void Save()
     {
         try
@@ -264,7 +336,12 @@ public sealed class ShellNavigationStore
                 // Likewise left out while the columns are the default ones.
                 BoardColumns = BoardColumns == DefaultBoardColumns ? null : BoardColumns,
                 // Left out while off, the default, so only turning it on writes a key.
-                CalendarPlansShown = CalendarPlansShown ? true : null
+                CalendarPlansShown = CalendarPlansShown ? true : null,
+                // Each of these is left out while at its default, the same way.
+                CalendarRange = CalendarRange == DefaultCalendarRange ? null : CalendarRange,
+                InProgressNeedsYouFirst = InProgressNeedsYouFirst ? null : false,
+                InProgressIncludeFinishedToday = InProgressIncludeFinishedToday ? true : null,
+                RepositoryScope = RepositoryScope.Count == 0 ? null : [.. RepositoryScope]
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -315,5 +392,17 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? CalendarPlansShown { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? CalendarRange { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? InProgressNeedsYouFirst { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? InProgressIncludeFinishedToday { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string[]? RepositoryScope { get; init; }
     }
 }

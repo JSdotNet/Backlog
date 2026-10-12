@@ -201,7 +201,11 @@
                 @* The view switch. Tasks, Board and Calendar are always offered; the
                    Roadmap while its flag is on. Tasks' option is still the way back
                    from a takeover. In progress is a view too, but its option is the
-                   first of the work in progress group further along, not one of these. *@
+                   first of the work in progress group further along, not one of these.
+                   Each option, and each of that group's, leads with a glyph from
+                   the library's Icons folder: decorative, hidden from assistive
+                   technology by the glyph itself, so every option's name is still
+                   its word (typography-and-layout.md#iconography). *@
                 <ButtonGroup CssClass="header-group header-group--views"
                              AriaLabel="View"
                              TestId="view-switch">
@@ -212,6 +216,7 @@
                                   TestId="tasks-view-option"
                                   aria-controls="backlog-pane"
                                   OnClick="() => ShowView(ShellView.Tasks)">
+                        <ListIcon />
                         Tasks
                     </ToggleButton>
 
@@ -224,6 +229,7 @@
                                   TestId="board-view-option"
                                   aria-controls="backlog-pane"
                                   OnClick="() => ShowView(ShellView.Board)">
+                        <Columns3Icon />
                         Board
                     </ToggleButton>
 
@@ -236,6 +242,7 @@
                                   TestId="calendar-view-option"
                                   aria-controls="backlog-pane"
                                   OnClick="() => ShowView(ShellView.Calendar)">
+                        <CalendarIcon />
                         Calendar
                     </ToggleButton>
 
@@ -248,6 +255,7 @@
                                       TestId="roadmap-view-option"
                                       aria-controls="roadmap-view"
                                       OnClick="() => ShowView(ShellView.Roadmap)">
+                            <ChartGanttIcon />
                             Roadmap
                             <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
                                                 Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
@@ -296,6 +304,7 @@
                                   TestId="in-progress-view-option"
                                   aria-controls="in-progress-view"
                                   OnClick="() => ShowView(ShellView.InProgress)">
+                        <ActivityIcon />
                         In progress
                     </ToggleButton>
 
@@ -308,6 +317,7 @@
                                       TestId="sessions-toggle-button"
                                       aria-controls="sessions-surface"
                                       PressedChanged="ToggleSessions">
+                            <SquareTerminalIcon />
                             Sessions
                             <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
                                                 Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
@@ -326,6 +336,7 @@
                                       TestId="pull-requests-toggle-button"
                                       aria-controls="pull-requests-surface"
                                       PressedChanged="TogglePullRequests">
+                            <GitPullRequestIcon />
                             Pull requests
                             <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.PullRequests)"
                                                 Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
@@ -661,12 +672,16 @@
                                         OnOpenSession="OpenSessionAsync"
                                         OnOpenPullRequest="OpenPullRequestAsync"
                                         ShowSessions="SessionsOffered"
-                                        ShowPullRequests="PullRequestsOffered" />
+                                        ShowPullRequests="PullRequestsOffered"
+                                        NeedsYouFirst="@ShellNavigation.InProgressNeedsYouFirst"
+                                        NeedsYouFirstChanged="OnNeedsYouFirstChanged"
+                                        IncludeFinishedToday="@ShellNavigation.InProgressIncludeFinishedToday"
+                                        IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged" />
                     </div>
                 }
                 else
                 {
-                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" Layout="@TasksPaneLayout" BoardGrouping="@BoardGrouping" BoardGroupingChanged="OnBoardGroupingChanged" LinkedWork="LinkedWorkFor" />
+                    <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" Layout="@TasksPaneLayout" BoardGrouping="@BoardGrouping" BoardGroupingChanged="OnBoardGroupingChanged" CalendarRange="@CalendarRange" CalendarRangeChanged="OnCalendarRangeChanged" LinkedWork="LinkedWorkFor" />
                 }
 
                 @if (DevbookPaneVisible)
@@ -757,12 +772,7 @@
         // when the roadmap was a takeover as the Roadmap view over the workspace;
         // the surface is checked again here so that no path can put the old
         // takeover back on screen.
-        if (Enum.TryParse<ShellView>(ShellNavigation.LastView, out var restoredView)
-            && Enum.IsDefined(restoredView)
-            && char.IsLetter(ShellNavigation.LastView[0]))
-        {
-            _view = restoredView;
-        }
+        _view = Remembered(ShellNavigation.LastView, _view);
 
         if (_surface == WorkspaceSurface.Roadmap)
         {
@@ -784,6 +794,18 @@
             .ToArray();
 
         _globalPanes = new GlobalPaneSelection(restoredPanes);
+
+        // And the repository scope, anchor first, so the Devbook option — which reads
+        // the anchor — is there without pressing a chip. Before the state is
+        // listened to, because every change it announces is written back to the file
+        // (HandleStateChanged), and the list's first load must not write the empty
+        // scope over the remembered one. A repository removed from Settings since is
+        // dropped by the state; a plural scope on a screen that shows one is narrowed
+        // to the anchor by the pane sync after the load. With the repository registry
+        // unreadable this launch cannot tell a removed repository from one it merely
+        // failed to read, so the restore waits for a readable registry
+        // (RememberRepositoryScope) and nothing is written over the file meanwhile.
+        RememberRepositoryScope();
 
         // First registration wins for a key, so a host that composed two
         // sources for one area gets the one it wrote first rather than a throw
@@ -1007,15 +1029,44 @@
 
     /// <summary>What the Board's columns are, as the shell remembered them beside
     /// the view. A name it no longer knows reads as Status.</summary>
-    private TaskBoardGrouping BoardGrouping =>
-        Enum.TryParse<TaskBoardGrouping>(ShellNavigation.BoardColumns, out var grouping)
-        && Enum.IsDefined(grouping)
-        && char.IsLetter(ShellNavigation.BoardColumns[0])
-            ? grouping
-            : TaskBoardGrouping.Status;
+    private TaskBoardGrouping BoardGrouping => Remembered(ShellNavigation.BoardColumns, TaskBoardGrouping.Status);
 
     private void OnBoardGroupingChanged(TaskBoardGrouping grouping) =>
         ShellNavigation.SetBoardColumns(grouping.ToString());
+
+    /// <summary>The calendar's Month | Week range, as the shell remembered it beside
+    /// the view. A name it no longer knows reads as Month; the date it showed is never
+    /// kept.</summary>
+    private Backlog.UI.Components.Tasks.CalendarRange CalendarRange =>
+        Remembered(ShellNavigation.CalendarRange, Backlog.UI.Components.Tasks.CalendarRange.Month);
+
+    private void OnCalendarRangeChanged(Backlog.UI.Components.Tasks.CalendarRange range) =>
+        ShellNavigation.SetCalendarRange(range.ToString());
+
+    /// <summary>
+    /// A choice the shell stored by its enum name, read back as that member, or
+    /// <paramref name="fallback"/> when the name is not one this build defines.
+    /// <para>
+    /// A member's name only: <see cref="Enum.TryParse{TEnum}(string?, out TEnum)"/>
+    /// also takes a number, so "5" would parse to an undefined member and "1" to
+    /// whichever member happens to sit there today — a stored name must start with
+    /// a letter and name a defined member. A newer build's name this build does not
+    /// know is kept in the file by the store and read here as the default.
+    /// </para>
+    /// </summary>
+    private static TEnum Remembered<TEnum>(string? stored, TEnum fallback) where TEnum : struct, Enum =>
+        !string.IsNullOrEmpty(stored)
+        && char.IsLetter(stored[0])
+        && Enum.TryParse<TEnum>(stored, out var value)
+        && Enum.IsDefined(value)
+            ? value
+            : fallback;
+
+    // The In progress view's two choices, kept by the shell as the Board's columns
+    // are, so a relaunch reopens the board as the reader left it.
+    private void OnNeedsYouFirstChanged(bool value) => ShellNavigation.SetInProgressNeedsYouFirst(value);
+
+    private void OnIncludeFinishedTodayChanged(bool value) => ShellNavigation.SetInProgressIncludeFinishedToday(value);
 
     /// <summary>Whether what is on screen can show several repositories at once:
     /// the task list, the Dashboard, the session list, or the pull requests list —
@@ -1804,8 +1855,41 @@
         // identity would not show, so any change rebuilds the pull request matcher.
         _pullRequestMatcher = null;
         SynchronizePaneAvailability();
+
+        RememberRepositoryScope();
         StateHasChanged();
     });
+
+    /// <summary>Whether the remembered repository scope is still to be handed to the
+    /// state: true until a pass finds the repository registry readable.</summary>
+    private bool _repositoryScopeRestorePending = true;
+
+    /// <summary>
+    /// Keeps the repository scope and <c>shell-navigation.json</c> in step. The first
+    /// pass that finds the registry readable restores the remembered scope; every
+    /// later one writes the scope as it now stands — pressed, narrowed or pruned by
+    /// Settings — for the next fresh shell instance, and the store writes only on a
+    /// change.
+    /// <para>
+    /// While the registry is unreadable it does neither. The state's scope is then
+    /// built against a list nobody could read, and writing it would replace the
+    /// reader's scope with that failure's: the next launch with a readable registry
+    /// must still find the scope as it was left.
+    /// </para>
+    /// </summary>
+    private void RememberRepositoryScope()
+    {
+        if (!State.RepositoryRegistryReadable) return;
+
+        if (_repositoryScopeRestorePending)
+        {
+            _repositoryScopeRestorePending = false;
+            State.RestoreRepositoryScope(ShellNavigation.RepositoryScope);
+            return;
+        }
+
+        ShellNavigation.SetRepositoryScope(State.SelectedRepositoryAliases);
+    }
 
     private void HandleFeaturesChanged() => _ = InvokeAsync(() =>
     {

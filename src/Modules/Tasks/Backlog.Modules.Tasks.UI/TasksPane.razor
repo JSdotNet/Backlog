@@ -493,6 +493,8 @@
                         <TaskCalendar @ref="_calendar"
                                       Tasks="@CalendarTasks()"
                                       Today="@Today"
+                                      Range="@CalendarRange"
+                                      RangeChanged="OnCalendarRangeChangedAsync"
                                       MyDayCount="@MyDayCount"
                                       SelectedId="@SelectedTaskId"
                                       OnOpen="OnEntrySelectedAsync"
@@ -730,6 +732,23 @@
     /// <summary>The month calendar while the pane is in its Calendar layout; the
     /// focus goes back to its selected chip where it would go back to a row.</summary>
     private TaskCalendar? _calendar;
+
+    /// <summary>How much of the calendar shows — its Month | Week control. The shell
+    /// holds the choice, as it holds the Board's columns, and hands it back here.</summary>
+    [Parameter]
+    public CalendarRange CalendarRange { get; set; } = CalendarRange.Month;
+
+    /// <summary>Raised when the reader picks the other range in the calendar's bar.</summary>
+    [Parameter]
+    public EventCallback<CalendarRange> CalendarRangeChanged { get; set; }
+
+    private async Task OnCalendarRangeChangedAsync(CalendarRange range)
+    {
+        // Taken at once, as the Board's columns are, so a host that does not hand
+        // the choice back still sees the calendar keep it.
+        CalendarRange = range;
+        await CalendarRangeChanged.InvokeAsync(range);
+    }
 
     /// <summary>The open entry's panel, held for the same reason and in the other
     /// direction: it is where the focus goes when the reader tabs off the selected

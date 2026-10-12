@@ -532,7 +532,7 @@ umbrella step, as the connected target's setting says.
 type: feature
 status: draft
 related: [.devbook/domain/devbook/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key]
 ```
 
 Search across title, body, tags, and linked knowledge notes; filter by area
@@ -543,6 +543,13 @@ a screen that can show several is in front of the reader — the task views, In
 progress, the Dashboard, the session list and the pull requests list — and
 narrows back to one on the roadmap and on Tools, which read one repository or
 none.
+
+The repository scope is remembered on this device in the order it was chosen, so
+the app reopens on the same repositories with the first one chosen still first.
+The Devbook beside them is then offered straight away, with no chip to press. A
+repository that is no longer configured is dropped when the scope comes back, and
+a scope with none left is every repository. The scope is remembered as it stands
+after any narrowing, so a scope narrowed back to one comes back as that one.
 
 The filtered tasks can be read three ways, picked in the header's view switch:
 **Tasks**, the list with the open task beside it; the
@@ -599,24 +606,37 @@ open beside it the board scrolls sideways rather than squeezing its columns.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/features.md#my-day, .devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first]
+related: [.devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/features.md#my-day, .devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first, .devbook/design/interaction-guidelines.md#group-shape-says-cardinality]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_range_is_remembered_and_a_fresh_shell_reopens_on_it]
 ```
 
-The same filtered tasks laid out on a month by their
+The same filtered tasks laid out on a month or on a week by their
 [Due Date](domain.md#due-date), under the same filters and beside the same open
-task. The month runs Monday to Sunday in whole weeks, so its first and last
-rows reach into the neighbouring months; those days are dimmed and weekends are
-shaded. Today is marked and says how many tasks are in [My Day](#my-day).
+task. A **Month | Week** choice beside the month's name picks the range. One of
+the two is always pressed, and the choice is remembered on this device. The month
+runs Monday to Sunday in whole weeks, so its first and last rows reach into the
+neighbouring months; those days are dimmed and weekends are shaded. Today is
+marked and says how many tasks are in [My Day](#my-day).
 
 Each day lists its tasks with where each one is in its lifecycle: an open task
-past its due date stands out as overdue, a finished one is struck through, and
-past two a day folds the rest behind a count that opens the whole day. A
-recurring task shows on its due date only — the next occurrence is written when
+past its due date stands out as overdue, and a finished one is struck through. On
+the month, past two a day folds the rest behind a count that opens the whole day.
+A recurring task shows on its due date only — the next occurrence is written when
 this one is finished, so there is no series to place. The open tasks with no due
-date wait beside the month; dragging one onto a day gives it that due date, and
-dragging a task to another day moves it. Opening a task from the month opens it
-as the list would. Only the due date places a task here, and the range is a
-month.
+date wait beside the calendar; dragging one onto a day gives it that due date, and
+dragging a task to another day moves it. Opening a task from the calendar opens it
+as the list would. Only the due date places a task here.
+
+The week shows its seven days, Monday first, as tall columns. Each day there lists
+every one of its tasks with nothing folded, and no day is dimmed: the reader picked
+the week, so a day of the neighbouring month is part of it. The plans, the
+[planned hours](#planned-hours) and the drags work there as they do on the month.
+Previous and next step a week at a time and say so, and the heading names the
+week's days, such as "5 – 11 October 2026". Switching to the week opens on the
+week holding today when today is in the month shown, and on the month's first week
+otherwise. Switching back to the month shows the month holding the week's
+Thursday, so a week across two months lands in the month that holds most of its
+days. Only the range is remembered, never the date shown.
 
 The roadmap's plans can be drawn over the month: a **Show plans** choice beside
 the month's name, off until the reader turns it on and remembered on this device.
@@ -641,7 +661,8 @@ Calendar reads them and starts a shelf plan, and changes nothing else about them
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/tasks/features.md#calendar-view, .devbook/domain/roadmap/features.md]
+related: [.devbook/domain/tasks/domain.md#planned-hours, .devbook/domain/tasks/features.md#calendar-view, .devbook/domain/roadmap/features.md, .devbook/design/interaction-guidelines.md#combobox]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.TaskCalendarHoursTests, unit:dotnet:Backlog.UI.Components.UnitTests.PlannedHoursEditorTests, unit:dotnet:Backlog.UI.Components.UnitTests.CalendarHoursTests]
 ```
 
 The person can set hours aside for a task on a day of the
@@ -659,6 +680,21 @@ day with Shift held, which asks for the figure only and leaves the due date wher
 it was. Pressing a task's hours on a day changes or removes them; the open task's
 **Planned hours** lists every day it has hours on, to change, remove or add one.
 The hours follow the filters and the repository colours the way the task chips do.
+
+The figure is typed, or taken from a short list of suggestions: half an hour, and
+1, 2, 3, 4, 6 and 8 hours. A typed figure is rounded to the quarter hour. A figure
+that is not a number, is none, or is more than a whole day is refused with a
+sentence that says why. In
+the open task's **Planned hours**, a refused figure on a day goes back to the
+figure that stood. Taking a suggestion for a day there changes that day at once,
+and a typed figure is kept on Enter or when the field is left. On the line that
+adds a day, a suggestion only fills in the figure, and **Add hours** adds the day
+and the figure together.
+
+When the day's hours editor closes, the keyboard focus goes back to what opened
+it. That is the task's hours on the day, or the day's **Add hours…** when the
+editor was opened from there or by a Shift drag. After the hours are removed, the
+focus goes to **Add hours…**, since the hours it came from are gone.
 
 The hours are the person's own plan for their days. The roadmap never reads them:
 a plan's window and the pace it is placed at still come from points and the work

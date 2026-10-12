@@ -478,6 +478,245 @@ public sealed class ShellNavigationStoreTests
         }
     }
 
+    /// <summary>
+    /// The Calendar's Month | Week range survives a restart. Month is the default and
+    /// writes no key, so a file from before the Week view keeps its shape.
+    /// </summary>
+    [Fact]
+    public void The_calendar_range_survives_a_restart_and_month_writes_no_key()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.Equal("Month", store.CalendarRange);
+
+            store.SetLastView("Calendar");
+            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.False(none.RootElement.TryGetProperty("calendarRange", out _));
+            }
+
+            store.SetCalendarRange("Week");
+            using (var week = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.Equal("Week", week.RootElement.GetProperty("calendarRange").GetString());
+            }
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.Equal("Week", restarted.CalendarRange);
+            Assert.Equal("Calendar", restarted.LastView);
+
+            restarted.SetCalendarRange("Month");
+            Assert.Equal("Month", new ShellNavigationStore(path).CalendarRange);
+            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.False(cleared.RootElement.TryGetProperty("calendarRange", out _));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The In progress view's two toggles survive a restart: "Needs you first" is on
+    /// and "Include finished today" is off until changed, and each key is written only
+    /// while its toggle is away from that default.
+    /// </summary>
+    [Fact]
+    public void The_in_progress_toggles_survive_a_restart_and_their_defaults_write_no_key()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.True(store.InProgressNeedsYouFirst);
+            Assert.False(store.InProgressIncludeFinishedToday);
+
+            store.SetLastView("InProgress");
+            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.False(none.RootElement.TryGetProperty("inProgressNeedsYouFirst", out _));
+                Assert.False(none.RootElement.TryGetProperty("inProgressIncludeFinishedToday", out _));
+            }
+
+            store.SetInProgressNeedsYouFirst(false);
+            store.SetInProgressIncludeFinishedToday(true);
+            using (var changed = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.False(changed.RootElement.GetProperty("inProgressNeedsYouFirst").GetBoolean());
+                Assert.True(changed.RootElement.GetProperty("inProgressIncludeFinishedToday").GetBoolean());
+            }
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.False(restarted.InProgressNeedsYouFirst);
+            Assert.True(restarted.InProgressIncludeFinishedToday);
+            Assert.Equal("InProgress", restarted.LastView);
+
+            restarted.SetInProgressNeedsYouFirst(true);
+            restarted.SetInProgressIncludeFinishedToday(false);
+            var restartedAgain = new ShellNavigationStore(path);
+            Assert.True(restartedAgain.InProgressNeedsYouFirst);
+            Assert.False(restartedAgain.InProgressIncludeFinishedToday);
+            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.False(cleared.RootElement.TryGetProperty("inProgressNeedsYouFirst", out _));
+            Assert.False(cleared.RootElement.TryGetProperty("inProgressIncludeFinishedToday", out _));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The header's repository scope survives a restart in the order it was chosen, so
+    /// its anchor — the first alias — stays first. An empty scope is every repository
+    /// and writes no key.
+    /// </summary>
+    [Fact]
+    public void The_repository_scope_survives_a_restart_in_order_and_empty_writes_no_key()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.Empty(store.RepositoryScope);
+
+            store.SetLastSurface("Tools");
+            using (var none = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.False(none.RootElement.TryGetProperty("repositoryScope", out _));
+            }
+
+            store.SetRepositoryScope(["docs", "backlog"]);
+            using (var scoped = JsonDocument.Parse(File.ReadAllText(path)))
+            {
+                Assert.Equal(
+                    ["docs", "backlog"],
+                    scoped.RootElement.GetProperty("repositoryScope").EnumerateArray().Select(e => e.GetString()));
+            }
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.Equal(["docs", "backlog"], restarted.RepositoryScope);
+
+            restarted.SetRepositoryScope([]);
+            Assert.Empty(new ShellNavigationStore(path).RepositoryScope);
+            using var cleared = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.False(cleared.RootElement.TryGetProperty("repositoryScope", out _));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// A file written before any of this release's keys reads as their defaults —
+    /// Month, Needs you first on, finished today off, every repository — and the next
+    /// save adds none of them.
+    /// </summary>
+    [Fact]
+    public void A_file_without_the_new_keys_reads_as_their_defaults_and_is_saved_without_them()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """
+                {
+                  "lastSurface": "Workspace",
+                  "lastView": "Board",
+                  "lastEnabledPanes": ["Devbook"],
+                  "boardColumns": "Plan"
+                }
+                """);
+
+            var store = new ShellNavigationStore(path);
+
+            Assert.Equal("Month", store.CalendarRange);
+            Assert.True(store.InProgressNeedsYouFirst);
+            Assert.False(store.InProgressIncludeFinishedToday);
+            Assert.Empty(store.RepositoryScope);
+            Assert.Equal("Plan", store.BoardColumns);
+
+            store.SetLastPanes([]);
+
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.False(document.RootElement.TryGetProperty("calendarRange", out _));
+            Assert.False(document.RootElement.TryGetProperty("inProgressNeedsYouFirst", out _));
+            Assert.False(document.RootElement.TryGetProperty("inProgressIncludeFinishedToday", out _));
+            Assert.False(document.RootElement.TryGetProperty("repositoryScope", out _));
+            Assert.Equal("Plan", document.RootElement.GetProperty("boardColumns").GetString());
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>A blank stored range is no range at all and reads as Month; a name the
+    /// shell does not know is kept for the shell to read as Month.</summary>
+    [Fact]
+    public void A_blank_calendar_range_reads_as_month()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """{"calendarRange":"  "}""");
+
+            Assert.Equal("Month", new ShellNavigationStore(path).CalendarRange);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>Each new choice is announced when it changes and is silent when set to
+    /// what it already is, so the shell is not woken by a write that changed nothing.</summary>
+    [Fact]
+    public void Setting_a_new_choice_to_its_current_value_is_a_no_op_and_changing_it_says_so()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            var changes = 0;
+            store.Changed += () => changes++;
+
+            store.SetCalendarRange("Month");
+            store.SetInProgressNeedsYouFirst(true);
+            store.SetInProgressIncludeFinishedToday(false);
+            store.SetRepositoryScope([]);
+            Assert.Equal(0, changes);
+            Assert.False(File.Exists(path));
+
+            store.SetCalendarRange("Week");
+            store.SetInProgressNeedsYouFirst(false);
+            store.SetInProgressIncludeFinishedToday(true);
+            store.SetRepositoryScope(["backlog", "docs"]);
+            Assert.Equal(4, changes);
+
+            store.SetRepositoryScope(["backlog", "docs"]);
+            Assert.Equal(4, changes);
+
+            // The order is the anchor, so the same aliases in another order are a change.
+            store.SetRepositoryScope(["docs", "backlog"]);
+            Assert.Equal(5, changes);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
     [Fact]
     public void Setting_the_same_view_again_is_a_no_op()
     {
