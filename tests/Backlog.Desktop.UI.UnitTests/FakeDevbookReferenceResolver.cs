@@ -43,6 +43,25 @@ internal sealed class FakeDevbookReferenceResolver : IDevbookReferenceResolver
         return this;
     }
 
+    /// <summary>A reference to a scenario page or a requirement that stands for
+    /// these parts, as the real adapter answers one.</summary>
+    public FakeDevbookReferenceResolver Scenario(string reference, string title, params ScenarioPartEvidence[] parts)
+    {
+        var hash = reference.IndexOf('#');
+        _known[reference] = new ResolvedDevbookReference(
+            reference,
+            hash < 0 ? reference : reference[..hash],
+            hash < 0 ? null : reference[(hash + 1)..],
+            hash < 0 ? DevbookReferenceState.Page : DevbookReferenceState.Chapter,
+            title,
+            null,
+            "domain")
+        {
+            ScenarioParts = parts
+        };
+        return this;
+    }
+
     public FakeDevbookReferenceResolver Broken(string reference, DevbookReferenceState state)
     {
         var hash = reference.IndexOf('#');
