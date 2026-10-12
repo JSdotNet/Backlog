@@ -29,10 +29,10 @@ status: draft
 type: feature-flag
 key: inbox-pane
 default: off
-related: [".devbook/domain/inbox/features.md#incoming-queue", ".devbook/domain/capture/features.md#run-capture-now"]
+related: [".devbook/domain/inbox/features.md#incoming-queue", ".devbook/domain/capture/features.md#run-capture-now", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md"]
 ```
 
-Turning it on shows the Inbox option and its pane in the Home shell, the only way to reach the incoming queue on the desktop. It ships off and marked `DEV` while triage is under construction. The Shell is its only reader, so the key sits on the Shell's own catalog (`AppFeatures.InboxPane`). The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the Inbox is released and the pane is simply there.
+Turning it on shows the Inbox option in the Home shell's header, the only way to reach the incoming queue on the desktop. The option gives the Inbox the whole screen in place of the main view, and pressed again returns to that view (local ADR 0022, amendment of 2026-10-12). It ships off and marked `DEV` while triage is under construction. The Shell is its only reader, so the key sits on the Shell's own catalog (`AppFeatures.InboxPane`). The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the Inbox is released and the pane is simply there.
 
 ## Inbox routing rules
 

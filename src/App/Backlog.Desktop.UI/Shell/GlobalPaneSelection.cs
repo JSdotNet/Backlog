@@ -3,14 +3,18 @@ using System.Collections.ObjectModel;
 namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
-/// The side panes the shell can open beside its main view. The task list used to be
-/// a third member; it is a <see cref="ShellView"/> now, the one the view switch
-/// shows when nothing else is chosen, so it is no longer something that can be
-/// closed or opened beside itself.
+/// The side panes the shell can open beside its main view. The task list used to
+/// be a member; it is a <see cref="ShellView"/> now, the one the view switch shows
+/// when nothing else is chosen, so it is no longer something that can be closed or
+/// opened beside itself. The Inbox was a member too, until it took the whole screen
+/// as <see cref="WorkspaceSurface.Inbox"/>: triage reads one item at a time and
+/// wants the width, and beside the main view the pane's container trapped its own
+/// dialogs. The navigation file stores pane names, so an <c>Inbox</c> there is a
+/// stored value: <c>ShellNavigationStore</c> reads it as the surface, and
+/// <see cref="GlobalPaneSelection.TryParsePersistedPane"/> refuses it.
 /// </summary>
 internal enum GlobalPane
 {
-    Inbox,
     Devbook
 }
 
@@ -28,14 +32,14 @@ internal enum GlobalPane
 /// The viewport decides how many panes fit, the main view included, so the side
 /// panes get the slots it leaves — but never fewer than one: below the two-pane
 /// width the layout stacks its columns instead of squeezing them, and a window that
-/// could open no side pane at all would turn the Inbox and Devbook toggles into
-/// dead buttons. Where a pane opens into a full set, the first open one in the
+/// could open no side pane at all would turn the Devbook toggle into a
+/// dead button. Where a pane opens into a full set, the first open one in the
 /// stable order makes way.
 /// </para>
 /// </summary>
 internal sealed class GlobalPaneSelection
 {
-    private static readonly GlobalPane[] KnownPaneOrder = [GlobalPane.Inbox, GlobalPane.Devbook];
+    private static readonly GlobalPane[] KnownPaneOrder = [GlobalPane.Devbook];
     private static readonly HashSet<GlobalPane> KnownPanes = [.. KnownPaneOrder];
 
     /// <summary>The panes the viewport fits at most, the main view included.</summary>
@@ -69,8 +73,9 @@ internal sealed class GlobalPaneSelection
     /// an identifier: "Knowledge" still reads as Devbook. "Tasks", and "Backlog"
     /// before it, read as nothing — the task list is a view now, and a file from
     /// before the view switch listing it among the panes simply had the Tasks view
-    /// showing, which is what it reopens on. The Inbox and Devbook beside it keep
-    /// their state.
+    /// showing, which is what it reopens on. "Inbox" reads as nothing too: the
+    /// store has already turned an Inbox that was on screen into the Inbox surface.
+    /// The Devbook beside them keeps its state.
     /// </para>
     /// </summary>
     public static bool TryParsePersistedPane(string? name, out GlobalPane pane)

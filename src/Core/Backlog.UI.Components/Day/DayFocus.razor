@@ -1,12 +1,13 @@
 @using System.Globalization
+@implements IDisposable
 @*
     One timed task, worked on now: what it is filed under and when its block
     ends, the title, a ring counting down to that end, the step being worked on,
     the steps in order, and the one thing to do next — tick the step, or, with
     none left, complete the task.
 
-    Every fact is handed in already worked out. The component reads no clock and
-    decides nothing about the day: how long is left, how much of the block that
+    Every fact is handed in already worked out. The component reads no time of
+    day and decides nothing about it: how long is left, how much of the block that
     is, and where Back, Task details and Capture lead are the host's, so the same
     markup serves the phone and the storybook.
 
@@ -16,6 +17,13 @@
 
     There is no Pause: the countdown is the agenda block itself, which runs
     whether or not anyone is looking at it.
+
+    Complete task takes Step done's place once the last step is ticked, under
+    the same finger. So that a double tap on the last step does not finish the
+    task, the Complete task that replaces Step done holds still — shown, not
+    pressable — for CompleteHold, measured on the Clock handed in. One shown
+    because no step was left to begin with replaced nothing and is pressable
+    at once.
 *@
 
 <article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -107,8 +115,8 @@
         }
         else
         {
-            <AppButton Variant="ButtonVariant.Primary" CssClass="focus__primary" Disabled="@(Busy || !OnComplete.HasDelegate)"
-                       OnClick="() => OnComplete.InvokeAsync()" TestId="@PartTestId("complete")">Complete task</AppButton>
+            <AppButton Variant="ButtonVariant.Primary" CssClass="focus__primary" Disabled="@(Busy || _holding || !OnComplete.HasDelegate)"
+                       OnClick="CompleteAsync" TestId="@PartTestId("complete")">Complete task</AppButton>
         }
         @if (!string.IsNullOrWhiteSpace(CaptureHref))
         {
@@ -124,6 +132,13 @@
 
 @code {
     private const int RingRadius = 88;
+
+    /// <summary>The default <see cref="CompleteHold"/>.</summary>
+    public static readonly TimeSpan DefaultCompleteHold = TimeSpan.FromMilliseconds(600);
+
+    private bool? _hadStep;
+    private bool _holding;
+    private ITimer? _hold;
     private static readonly double Circumference = 2 * Math.PI * RingRadius;
 
     [Parameter, EditorRequired]
@@ -188,6 +203,16 @@
     [Parameter]
     public bool Busy { get; set; }
 
+    /// <summary>How long the Complete task that has just replaced Step done
+    /// ignores a tap: long enough to see it, short enough not to wait for.</summary>
+    [Parameter]
+    public TimeSpan CompleteHold { get; set; } = DefaultCompleteHold;
+
+    /// <summary>What <see cref="CompleteHold"/> is measured on; the system
+    /// clock unless the host — or a test — hands in its own.</summary>
+    [Parameter]
+    public TimeProvider? Clock { get; set; }
+
     [Parameter]
     public string? CssClass { get; set; }
 
@@ -223,10 +248,10 @@
     /// down, so a running block never reads 00:00 and the overrun counts whole
     /// seconds past the end.</summary>
     private string TimeText => IsOver
-        ? $"Over by {Clock((long)Math.Floor(-Remaining.TotalSeconds))}"
-        : Clock((long)Math.Ceiling(Remaining.TotalSeconds));
+        ? $"Over by {Reading((long)Math.Floor(-Remaining.TotalSeconds))}"
+        : Reading((long)Math.Ceiling(Remaining.TotalSeconds));
 
-    private static string Clock(long seconds)
+    private static string Reading(long seconds)
     {
         var hours = seconds / 3600;
         var minutes = seconds % 3600 / 60;
@@ -287,6 +312,49 @@
 
         builder.CloseElement();
     };
+
+    /// <summary>
+    /// Starts the hold when the steps handed in go from one left to none: the
+    /// moment Complete task appears where Step done was.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        var hasStep = CurrentIndex is not null;
+
+        if (_hadStep == true && !hasStep && CompleteHold > TimeSpan.Zero)
+        {
+            _holding = true;
+            _hold?.Dispose();
+            _hold = (Clock ?? TimeProvider.System).CreateTimer(_ => _ = InvokeAsync(EndHold), null, CompleteHold, Timeout.InfiniteTimeSpan);
+        }
+        else if (hasStep)
+        {
+            EndHoldQuietly();
+        }
+
+        _hadStep = hasStep;
+    }
+
+    private void EndHold()
+    {
+        if (!_holding) return;
+        EndHoldQuietly();
+        StateHasChanged();
+    }
+
+    private void EndHoldQuietly()
+    {
+        _holding = false;
+        _hold?.Dispose();
+        _hold = null;
+    }
+
+    /// <summary>A tap on Complete task while it holds is one meant for the
+    /// Step done it replaced, and is dropped.</summary>
+    private Task CompleteAsync() =>
+        _holding || Busy || CurrentIndex is not null ? Task.CompletedTask : OnComplete.InvokeAsync();
+
+    public void Dispose() => EndHoldQuietly();
 
     private Task StepDoneAsync() =>
         CurrentIndex is { } index ? OnStepDone.InvokeAsync(Steps[index] with { Done = true }) : Task.CompletedTask;

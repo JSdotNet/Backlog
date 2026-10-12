@@ -2,6 +2,8 @@ using System.Globalization;
 
 using Backlog.UI.Components.Day;
 
+using Microsoft.Extensions.Time.Testing;
+
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
@@ -114,6 +116,41 @@ public sealed class DayFocusTests
         focus.Find("[data-testid='focus-complete']").Click();
 
         Assert.True(completed);
+    }
+
+    [Fact]
+    public void The_Complete_task_that_replaces_Step_done_ignores_a_tap_until_it_can_have_been_seen()
+    {
+        using var context = new BunitContext();
+        var clock = new FakeTimeProvider();
+        var completed = 0;
+        IReadOnlyList<DayStep> lastLeft = [.. Steps.Select(step => step with { Done = step != Steps[2] })];
+
+        var focus = context.Render<DayFocus>(parameters => parameters
+            .Add(p => p.Title, "Write sync conflict tests")
+            .Add(p => p.Until, "11:30")
+            .Add(p => p.Remaining, TimeSpan.FromMinutes(10))
+            .Add(p => p.Steps, lastLeft)
+            .Add(p => p.OnStepDone, _ => { })
+            .Add(p => p.OnComplete, () => completed++)
+            .Add(p => p.Clock, clock)
+            .Add(p => p.TestId, "focus"));
+
+        // The last step ticked: Complete task takes Step done's place, held.
+        focus.Render(parameters => parameters.Add(p => p.Steps, [.. Steps.Select(step => step with { Done = true })]));
+
+        Assert.True(focus.Find("[data-testid='focus-complete']").HasAttribute("disabled"));
+        focus.Find("[data-testid='focus-complete']").Click();
+        Assert.Equal(0, completed);
+
+        clock.Advance(DayFocus.DefaultCompleteHold - TimeSpan.FromMilliseconds(1));
+        Assert.True(focus.Find("[data-testid='focus-complete']").HasAttribute("disabled"));
+
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        focus.WaitForAssertion(() => Assert.False(focus.Find("[data-testid='focus-complete']").HasAttribute("disabled")));
+
+        focus.Find("[data-testid='focus-complete']").Click();
+        Assert.Equal(1, completed);
     }
 
     [Fact]

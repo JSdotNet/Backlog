@@ -218,6 +218,7 @@ h1, h2, h3 {
     flex: 0 0 auto;
     height: 0;
     min-height: 0;
+    anchor-name: --app-toast-anchor;
 }
 
 /* The library's host is fixed to the viewport's bottom-right corner, which on this
@@ -235,6 +236,21 @@ h1, h2, h3 {
     inset-block-start: auto;
     inset-block-end: var(--spacing-sm);
     inset-inline-end: var(--spacing-lg);
+}
+
+/* Lifted into the top layer above an open Modal (components.js), the tray's
+   containing block is the viewport rather than the anchor line, so it is put back
+   on that line by anchor positioning instead. Only where anchor positioning
+   exists: elsewhere the rule above still applies, measured from the viewport, so
+   the tray sits in the window's bottom corner until the last modal closes and
+   components.js lets it down again. */
+@supports (anchor-name: --a) {
+    .toast-host.app-toast-tray:popover-open {
+        position: fixed;
+        position-anchor: --app-toast-anchor;
+        top: auto;
+        bottom: calc(anchor(top) + var(--spacing-sm));
+    }
 }
 
 .app-header {
@@ -3193,6 +3209,9 @@ h1, h2, h3 {
 .header-group__option {
     display: inline-flex;
     align-items: center;
+    /* Between an option's glyph and its word. The feature flag is absolutely
+       placed (below), so it takes no share of the gap. */
+    gap: var(--spacing-xs);
     min-height: 2.25rem;
     padding: var(--spacing-xs) var(--spacing-md);
     border: 0;
@@ -6171,7 +6190,7 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* A takeover: Tools, the Dashboard, Sessions or Pull requests, filling everything below the header. The
+/* A takeover: Tools, the Dashboard, Sessions, Pull requests or the Inbox, filling everything below the header. The
    panel inside owns the scrollbar rather than this landmark, so the header — and
    the control that closes the surface — can never be scrolled out of reach. */
 .workspace-surface {
@@ -6182,11 +6201,14 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* The panel inside a takeover is the scroll container. */
+/* The panel inside a takeover is the scroll container. The Inbox pane is one too,
+   and stays the inbox-pane container its @container rules read, so it still
+   restacks when the window is narrow. */
 .workspace-surface > .tools-panel,
 .workspace-surface > .dashboard-panel,
 .workspace-surface > .sessions-panel,
-.workspace-surface > .pull-requests-panel {
+.workspace-surface > .pull-requests-panel,
+.workspace-surface > .inbox-pane {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
@@ -9731,32 +9753,6 @@ a.pull-request-detail-checks__name:hover {
     gap: var(--spacing-sm);
 }
 
-.devbook-layout--inbox-before-backlog.devbook-layout--side-closed {
-    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
-}
-
-.devbook-layout--inbox-before-backlog.devbook-layout--side-open {
-    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr) auto minmax(24rem, min(var(--devbook-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
-}
-
-/* Stretched to the row rather than sized by its contents. It used to
-   `align-self: start` and measure its own height, capped at the row: with a
-   short queue the pane stopped a third of the way down and the detail column —
-   which scrolls on its own and takes the pane's height — had no height to give
-   a picker's popup, so the list opened into the column's overflow and was cut
-   off at the pane's edge. The row is a sized track, so filling it is what gives
-   the columns their height and leaves the space below the pane to the pane. */
-.devbook-layout--inbox-before-backlog > .inbox-pane {
-    position: sticky;
-    top: var(--spacing-lg);
-    align-self: stretch;
-    /* The pane row does not start below the header alone — the app-shell footer
-       sits below it — so a cap measured off the viewport overflows. The row is
-       already a sized grid track, so its own height is the honest ceiling. */
-    max-height: 100%;
-    overflow: auto;
-}
-
 .devbook-layout--side-closed .backlog-workspace {
     width: 100%;
 }
@@ -9951,17 +9947,6 @@ a.pull-request-detail-checks__name:hover {
     .devbook-layout,
     .devbook-layout--side-open {
         grid-template-columns: 1fr;
-    }
-
-    .devbook-layout--inbox-before-backlog.devbook-layout--side-open,
-    .devbook-layout--inbox-before-backlog.devbook-layout--side-closed {
-        grid-template-columns: 1fr;
-    }
-
-    .devbook-layout--inbox-before-backlog > .inbox-pane {
-        position: static;
-        top: auto;
-        max-height: none;
     }
 
     .side-pane-stack,

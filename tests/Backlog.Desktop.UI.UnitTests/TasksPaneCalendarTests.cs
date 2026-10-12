@@ -388,6 +388,35 @@ public sealed class TasksPaneCalendarTests
         Assert.Equal(shown, pane.FindAll($"[data-testid='{PlanTestId}']").Count > 0);
     }
 
+    /// <summary>The Month | Week range is the shell's to keep, as the Board's columns
+    /// are: the pane hands the range it is given to the calendar and passes a press
+    /// back up, and the calendar answers the press at once.</summary>
+    [Fact]
+    public async Task The_calendar_range_is_handed_down_from_the_host_and_a_pick_is_passed_back_up()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var reported = new List<CalendarRange>();
+
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.Layout, TasksLayout.Calendar)
+            .Add(p => p.CalendarRange, CalendarRange.Week)
+            .Add(p => p.CalendarRangeChanged, (CalendarRange range) => reported.Add(range)));
+
+        var monday = Today.AddDays(-(((int)Today.DayOfWeek + 6) % 7));
+        Assert.Equal("true", pane.Find("[data-testid='task-calendar-range-week']").GetAttribute("aria-pressed"));
+        Assert.Equal(7, pane.FindAll("[data-testid='task-calendar'] [data-calendar-day]").Count);
+        Assert.NotEmpty(pane.FindAll($"[data-calendar-day='{Iso(monday)}']"));
+
+        pane.Find("[data-testid='task-calendar-range-month']").Click();
+
+        Assert.Equal([CalendarRange.Month], reported);
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", pane.Find("[data-testid='task-calendar-range-month']").GetAttribute("aria-pressed"));
+            Assert.True(pane.FindAll("[data-testid='task-calendar'] [data-calendar-day]").Count >= 28);
+        });
+    }
+
     /// <summary>The shelf drop: the pane hands the tag and the day to the port — whose
     /// adapter has the roadmap's own import place the window — and draws what it reads
     /// back.</summary>

@@ -2966,6 +2966,80 @@ button.devbook-chip__label:focus-visible {
     border: var(--border-width) dashed var(--color-text-secondary);
 }
 
+/* Scenario parts as a checklist: a task's acceptance evidence, a run's verify
+   evidence. One row per part — dot, part, page, last run — under a count. */
+.scenario-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.scenario-checklist__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.scenario-checklist__heading { font-weight: 600; }
+
+.scenario-checklist__count { color: var(--color-text-secondary); }
+
+.badge--scenario-proved {
+    background: var(--color-success);
+    color: var(--color-success-text);
+}
+
+/* One grid for the list and a subgrid per row, so the columns line up from
+   row to row and the last run keeps the width it needs. */
+.scenario-checklist__list {
+    display: grid;
+    grid-template-columns: auto minmax(0, 3fr) minmax(0, 2fr) max-content;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.scenario-checklist__row {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: center;
+    min-width: 0;
+}
+
+.scenario-checklist__part {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.scenario-checklist__part--link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.scenario-checklist__part--link:hover,
+.scenario-checklist__part--link:focus-visible { text-decoration: underline; }
+
+.scenario-checklist__page,
+.scenario-checklist__run {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* The run above an open scenario page. */
 .devbook-scenario-page {
     display: flex;
@@ -7846,6 +7920,23 @@ button.tag-chip__label {
     pointer-events: none;
 }
 
+/* components.js turns the tray into a manual popover to lift it above an open
+   Modal in the top layer. The user agent dresses a popover as a centred, bordered
+   box; this undoes that so the host keeps the corner and the look it has above.
+   Only the start edges are reset — the end edges are the host's own placement. */
+.toast-host[popover] {
+    inset-block-start: auto;
+    inset-inline-start: auto;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    overflow: visible;
+}
+
 .toast {
     display: flex;
     align-items: center;
@@ -8544,6 +8635,54 @@ select.field__input {
     color: var(--color-text-primary);
 }
 
+/* --- Combobox -------------------------------------------------------------
+   A text field with suggestions under it (Combobox.razor). The field is the
+   library's own input; the list is the tag picker's popup at the field's width or
+   its options', whichever is wider, because the first host is an hours field a
+   few characters wide whose options would otherwise wrap. `top: 100%` for the
+   reason `.tag-select__list` gives. */
+.combobox {
+    position: relative;
+    display: inline-grid;
+    min-width: 0;
+}
+
+.combobox__list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 10;
+    min-width: 100%;
+    width: max-content;
+    max-height: 14rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    margin: var(--spacing-2xs) 0 0;
+    padding: var(--spacing-2xs);
+    list-style: none;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    box-shadow: var(--shadow-lg);
+}
+
+.combobox__option {
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/* The focus stays in the input, so the active option is the only thing that
+   can show where the keyboard is. */
+.combobox__option--active,
+.combobox__option:hover {
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    color: var(--color-text-primary);
+}
+
 /* --- Menus --------------------------------------------------------------- */
 
 .menu-list {
@@ -8841,6 +8980,30 @@ select.field__input {
 }
 
 /* --- Modal and confirm dialog -------------------------------------------- */
+
+/* The native dialog Modal opens with showModal() so the dialog lives in the top
+   layer, out of reach of a pane's container-type, transform or filter. It is a
+   carrier only: every user-agent box rule is undone so it is the viewport and
+   draws nothing, and its ::backdrop is transparent because .modal-backdrop below
+   already paints the scrim and takes the clicks. */
+.modal-layer {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    overflow: visible;
+}
+
+.modal-layer::backdrop {
+    background: transparent;
+}
 
 .modal-backdrop {
     position: fixed;
@@ -17861,6 +18024,15 @@ select.field__input {
     overflow: hidden;
 }
 
+/* The clip above is only there to round the corner days. An hours editor's open
+   list of suggestions hangs below its day, and in the bottom row — the whole Week
+   view is one — the clip would cut it off at the grid's edge. So the clip is lifted
+   while a list is open: the corners go square for as long as the list is up, which
+   is the cheaper loss than suggestions that cannot be seen or clicked. */
+.task-calendar__grid:has(.combobox--open) {
+    overflow: visible;
+}
+
 /* Positioned, for the plan layer laid over it; --task-calendar-lanes is how many
    rows of plan bars the week needs. The day's top padding, its gap and the head's
    height are named here because the plan layer is placed below the head by them. */
@@ -17907,6 +18079,17 @@ select.field__input {
 
 .task-calendar__day + .task-calendar__day {
     border-left: var(--border-width) solid var(--color-background-raised);
+}
+
+/* The Month | Week control, a fused group beside the heading. */
+.task-calendar__range {
+    flex: none;
+}
+
+/* Week: one row, its days tall enough to list every chip a day holds, since a Week
+   column folds nothing behind "+N more". */
+.task-calendar--week .task-calendar__day {
+    min-height: 24rem;
 }
 
 .task-calendar__day--weekend {
@@ -18486,7 +18669,12 @@ select.field__input {
     min-width: 0;
 }
 
+/* The unit keeps its own width and a little air before the editor's edge: in a
+   narrow month day the field shrinks first, so the "h" is never squeezed against
+   the border. */
 .task-calendar__hours-unit {
+    flex: none;
+    padding-right: var(--spacing-xs);
     color: var(--color-text-secondary);
 }
 

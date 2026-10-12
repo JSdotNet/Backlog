@@ -3,6 +3,7 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
+using Backlog.Modules.Tasks.Services;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -135,6 +136,43 @@ public sealed class RecurringTaskTests
         await Save(store, id, Text(Ticked) + "\nAnd a note typed afterwards.\n");
 
         Assert.Equal(2, store.Entries.Count);
+    }
+
+    /// <summary>
+    /// An untick leaves the successor in place — unticking clears the day and
+    /// nothing else — and the tick after it finds that successor and makes no
+    /// second one. The successor's id is derived from the occurrence it follows,
+    /// which is also what lets the replica merge spawn the same task on another
+    /// machine.
+    /// </summary>
+    [Fact]
+    public async Task Unticking_and_ticking_again_keeps_the_one_successor()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var id = await Save(store, null, Text(Open));
+        await Save(store, id, Text(Ticked));
+        await Save(store, id, Text(Open));
+
+        var successor = store.Successor(id);
+        Assert.Equal(OccurrenceSpawning.SuccessorId(id), successor.Id);
+        Assert.False(store.Entries[id].IsCompleted);
+
+        var again = await SaveResult(store, id, Text(Ticked));
+
+        Assert.Null(again.SpawnedOccurrenceId);
+        Assert.Equal(2, store.Entries.Count);
+    }
+
+    [Fact]
+    public void The_successor_id_is_the_same_for_the_same_occurrence_and_differs_between_occurrences()
+    {
+        var occurrence = Guid.NewGuid();
+
+        Assert.Equal(OccurrenceSpawning.SuccessorId(occurrence), OccurrenceSpawning.SuccessorId(occurrence));
+        Assert.NotEqual(OccurrenceSpawning.SuccessorId(occurrence), OccurrenceSpawning.SuccessorId(Guid.NewGuid()));
+        Assert.NotEqual(occurrence, OccurrenceSpawning.SuccessorId(occurrence));
+        Assert.Equal(8, OccurrenceSpawning.SuccessorId(occurrence).Version);
     }
 
     [Fact]

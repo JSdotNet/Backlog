@@ -3,8 +3,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The side panes beside the shell's main view. The task list used to be a pane in
-/// this selection and is a view now, so the selection may be empty, and the viewport
-/// capacity counts the view as one of the panes it fits.
+/// this selection and is a view now, and the Inbox was one until it took the whole
+/// screen as a surface, so the Devbook is the one side pane left; the selection may
+/// be empty, and the viewport capacity counts the view as one of the panes it fits.
 /// </summary>
 public sealed class GlobalPaneSelectionTests
 {
@@ -15,7 +16,6 @@ public sealed class GlobalPaneSelectionTests
     /// </summary>
     [Theory]
     [InlineData("Knowledge", "Devbook")]
-    [InlineData("Inbox", "Inbox")]
     [InlineData("Devbook", "Devbook")]
     public void A_persisted_pane_name_is_read_including_the_name_it_was_saved_under_before_the_rename(
         string persisted, string expected)
@@ -26,17 +26,20 @@ public sealed class GlobalPaneSelectionTests
 
     /// <summary>
     /// "Tasks" — and "Backlog", its name before that — is what every file written
-    /// before the view switch lists among its panes. The task list is a view now,
-    /// so the entry names no pane and is ignored; the panes beside it keep their
-    /// state.
+    /// before the view switch lists among its panes; "Inbox" is what every file
+    /// from before the Inbox took the whole screen lists. Neither names a side pane
+    /// now, so the entry is ignored — the store has already read an Inbox that was
+    /// on screen as the Inbox surface — and the panes beside it keep their state.
     /// </summary>
     [Theory]
     [InlineData("Tasks")]
     [InlineData("Backlog")]
+    [InlineData("Inbox")]
     [InlineData("")]
     [InlineData("Roadmap")]
     [InlineData("knowledge")]
     [InlineData("1")]
+    [InlineData("0")]
     [InlineData(null)]
     public void A_pane_name_that_names_no_side_pane_is_refused(string? persisted)
     {
@@ -48,7 +51,6 @@ public sealed class GlobalPaneSelectionTests
     {
         var selection = new GlobalPaneSelection();
 
-        Assert.False(selection.IsEnabled(GlobalPane.Inbox));
         Assert.False(selection.IsEnabled(GlobalPane.Devbook));
         Assert.Equal(0, selection.EnabledCount);
         Assert.Equal(3, selection.Capacity);
@@ -60,13 +62,7 @@ public sealed class GlobalPaneSelectionTests
     {
         var selection = new GlobalPaneSelection();
 
-        Assert.True(selection.Toggle(GlobalPane.Inbox));
-        Assert.True(selection.IsEnabled(GlobalPane.Inbox));
-
         Assert.True(selection.Toggle(GlobalPane.Devbook));
-        Assert.Equal([GlobalPane.Inbox, GlobalPane.Devbook], selection.Enabled);
-
-        Assert.True(selection.Toggle(GlobalPane.Inbox));
         Assert.Equal([GlobalPane.Devbook], selection.Enabled);
 
         // The last side pane closes too: the main view is still on screen.
@@ -74,42 +70,27 @@ public sealed class GlobalPaneSelectionTests
         Assert.Empty(selection.Enabled);
     }
 
-    /// <summary>Two panes' width fits the view and one side pane, so opening the
-    /// second side pane closes the first.</summary>
-    [Fact]
-    public void A_two_pane_window_holds_one_side_pane_and_the_new_one_wins()
-    {
-        var selection = new GlobalPaneSelection(GlobalPane.Inbox);
-        selection.TrySetCapacity(2);
-
-        Assert.Equal(1, selection.SideSlots);
-        Assert.True(selection.TryOpen(GlobalPane.Devbook));
-
-        Assert.Equal([GlobalPane.Devbook], selection.Enabled);
-    }
-
     /// <summary>A window that fits one pane still opens a side pane: the layout
     /// stacks its columns there, and a toggle that could never open would be a dead
     /// button.</summary>
     [Fact]
-    public void A_one_pane_window_still_opens_one_side_pane()
+    public void A_one_pane_window_still_opens_the_side_pane()
     {
         var selection = new GlobalPaneSelection();
         selection.TrySetCapacity(1);
 
         Assert.Equal(1, selection.SideSlots);
-        Assert.True(selection.TryOpen(GlobalPane.Inbox));
         Assert.True(selection.TryOpen(GlobalPane.Devbook));
 
         Assert.Equal([GlobalPane.Devbook], selection.Enabled);
     }
 
     [Fact]
-    public void Narrowing_the_window_trims_the_first_open_pane_in_the_stable_order()
+    public void Narrowing_the_window_keeps_the_side_pane_open()
     {
-        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Devbook);
+        var selection = new GlobalPaneSelection(GlobalPane.Devbook);
 
-        Assert.True(selection.TrySetCapacity(2));
+        Assert.True(selection.TrySetCapacity(1));
 
         Assert.Equal([GlobalPane.Devbook], selection.Enabled);
     }
@@ -126,10 +107,10 @@ public sealed class GlobalPaneSelectionTests
     [Fact]
     public void Unavailable_panes_cannot_be_opened_and_close_when_they_go()
     {
-        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Devbook);
+        var selection = new GlobalPaneSelection(GlobalPane.Devbook);
 
         Assert.True(selection.TrySetAvailable(GlobalPane.Devbook, available: false));
-        Assert.Equal([GlobalPane.Inbox], selection.Enabled);
+        Assert.Empty(selection.Enabled);
         Assert.False(selection.TryOpen(GlobalPane.Devbook));
         Assert.False(selection.Toggle(GlobalPane.Devbook));
 
@@ -140,11 +121,13 @@ public sealed class GlobalPaneSelectionTests
     [Fact]
     public void Opening_an_open_pane_or_closing_a_closed_one_changes_nothing()
     {
-        var selection = new GlobalPaneSelection(GlobalPane.Inbox);
+        var selection = new GlobalPaneSelection(GlobalPane.Devbook);
 
-        Assert.False(selection.TryOpen(GlobalPane.Inbox));
+        Assert.False(selection.TryOpen(GlobalPane.Devbook));
+        Assert.Equal([GlobalPane.Devbook], selection.Enabled);
+
+        Assert.True(selection.TryClose(GlobalPane.Devbook));
         Assert.False(selection.TryClose(GlobalPane.Devbook));
-        Assert.Equal([GlobalPane.Inbox], selection.Enabled);
     }
 
     [Fact]

@@ -9,6 +9,7 @@ using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Tasks.Services;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -34,7 +35,10 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// It is deliberately the only caller of <see cref="ITaskRepository.SaveAsync"/>
 /// in this project. A second writer would be a second answer to "which copy
 /// wins", and the two would disagree the first time somebody edited a task on
-/// both machines in the same minute.
+/// both machines in the same minute. The one other write it makes is not a
+/// remote copy at all: the next occurrence of a repeating task a pulled copy
+/// ticked off, spawned through <see cref="OccurrenceSpawning"/> as the desktop's
+/// own tick spawns it (<c>SpawnOccurrenceAsync</c>).
 /// </para>
 /// <para>
 /// <b>Two decisions, and they are not the same one.</b> Reducing a page to one
@@ -607,7 +611,46 @@ public sealed class TaskReplicaMerge(
             SyncDirection.Received, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
             task.DeletedAt is null ? null : "deleted");
 
+        await SpawnOccurrenceAsync(local, task, cancellationToken).ConfigureAwait(false);
+
         return ApplyOutcome.Written;
+    }
+
+    /// <summary>
+    /// Runs Occurrence Spawning when the copy just written ticked off a repeating
+    /// task this machine held unticked — the tick the phone makes through
+    /// <c>TaskEdits.MarkDoneAsync</c>, or another desktop's — exactly as the
+    /// desktop's own save does when it ticks one
+    /// (<c>.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push</c>).
+    /// <para>
+    /// Only the step counts, read against the local copy from before the write. A
+    /// task never seen here arriving ticked is a record of something done, not an
+    /// occurrence finishing now — the rule the desktop's create applies — so a
+    /// fresh device pulling a whole history spawns nothing. A re-pull of the same
+    /// document never reaches here, because <see cref="ShouldApply"/> refuses the
+    /// version already held.
+    /// </para>
+    /// <para>
+    /// Once is kept by the successor's id, derived from the ticked occurrence's
+    /// (<see cref="OccurrenceSpawning.SuccessorId"/>): a second desktop spawns the
+    /// same task, and the replica keeps one. The successor is saved outside the
+    /// change-signal suppression, because unlike the pulled copy it is this
+    /// machine's own write and has to be pushed.
+    /// </para>
+    /// </summary>
+    private async Task SpawnOccurrenceAsync(TaskItem? local, TaskItem written, CancellationToken cancellationToken)
+    {
+        if (local is null || local.IsCompleted || local.DeletedAt is not null) return;
+
+        var successor = await OccurrenceSpawning.SpawnAsync(written, _tasks, cancellationToken).ConfigureAwait(false);
+
+        if (successor is not null)
+        {
+            _log.LogInformation(
+                "Spawned occurrence {SuccessorId} of repeating task {TaskId}, ticked off on another device.",
+                successor.Id,
+                written.Id);
+        }
     }
 
     /// <summary>

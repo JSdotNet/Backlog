@@ -34,6 +34,14 @@ public sealed record ReceiveCaptureCommand(InboxCaptureDto Capture);
 /// an id it has never seen is nothing to act on.
 /// </para>
 /// <para>
+/// One exception to the tombstone that archives an open item: the item is open
+/// because the reader undid the decision whose acknowledgement this is. The
+/// replica keeps that tombstone and a later pull delivers it again, so a
+/// tombstone stamped at or before <see cref="InboxItem.RestoredAt"/> changes
+/// nothing; one stamped after it still archives
+/// (<see cref="InboxItem.IsRestoredSince"/>).
+/// </para>
+/// <para>
 /// Never a failed <see cref="Result"/>, and never a throw. The caller is the
 /// sync client, and an error here would be an error it cannot correct; every
 /// case has a right answer, so every case answers. That includes a live
@@ -205,6 +213,17 @@ public sealed class ReceiveCaptureCommandHandler(
         // A deferred item was put aside, not decided, and the phone dismissing
         // it is the same dismissal it would be on an unprocessed one.
         if (!existing.IsOpen) return InboxIntakeOutcome.AlreadyKnown;
+
+        // Open again because the reader took the decision back: a tombstone
+        // stamped at or before that is this desktop's own acknowledgement
+        // coming back round — the replica keeps it, and any pull may deliver
+        // it, a full replay included. Only a tombstone stamped after the
+        // reopening is a dismissal made since. InboxItem.IsRestoredSince says
+        // what clock skew costs this rule.
+        if (capture.WithdrawnAt is { } withdrawnAt && existing.IsRestoredSince(withdrawnAt))
+        {
+            return InboxIntakeOutcome.AlreadyKnown;
+        }
 
         existing.Archive(clock.GetUtcNow());
 

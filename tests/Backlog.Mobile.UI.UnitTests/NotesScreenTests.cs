@@ -1,6 +1,8 @@
 using Backlog.Mobile.UI.Components;
 using Backlog.Mobile.UI.Components.Pages;
 using Backlog.Mobile.UI.Notes;
+using Backlog.Mobile.UI.Outbox;
+using Backlog.Mobile.UI.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 using Microsoft.Extensions.Time.Testing;
@@ -234,6 +236,37 @@ public sealed class NotesScreenTests
             app.Find("[data-testid='note-row-title']").TextContent));
         Assert.EndsWith("/notes", host.Navigation.Uri, StringComparison.Ordinal);
         Assert.Single(tasks.Pushed);
+    }
+
+    /// <summary>
+    /// The phone sends the app to the background half a second after the last
+    /// keystroke: the edit is written then, not a second later when the OS may
+    /// already have ended the app.
+    /// </summary>
+    [Fact]
+    public void The_app_going_to_the_background_before_the_second_is_up_saves_the_edit_at_once()
+    {
+        var clock = new FakeTimeProvider(Now);
+        var tasks = new ScriptedTaskService { State = InboxServiceState.Unreachable };
+        using var host = ShellHost.Paired(clock: clock, tasks: tasks);
+        var notes = host.Service<NoteViewProjection>();
+        var app = OpenEditor(host, "notes/new");
+
+        app.Find("[data-testid='note-editor-body'] textarea").Input("Written as the train went into the tunnel.");
+        clock.Advance(TimeSpan.FromMilliseconds(500));
+        Assert.Empty(notes.Notes());
+
+        host.Service<AppLifecycle>().Pause();
+
+        app.WaitForAssertion(() => Assert.Equal(
+            "Written as the train went into the tunnel.",
+            Assert.Single(notes.Notes()).Body));
+        Assert.Equal(NoteOutboxKind.Token, Assert.Single(host.Outbox.Entries).Kind);
+
+        // The cancelled wait does not write the note a second time.
+        clock.Advance(NotePage.SaveDelay);
+        Assert.Single(host.Outbox.Entries);
+        Assert.Single(notes.Notes());
     }
 
     [Fact]

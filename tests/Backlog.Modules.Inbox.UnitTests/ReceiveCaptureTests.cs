@@ -250,6 +250,70 @@ public sealed class ReceiveCaptureTests
         Assert.False(store.Items[capture.Id].ReplicaAckPending);
     }
 
+    /// <summary>The reader archived the item, the acknowledgement went out, and
+    /// the reader took the archive back. The tombstone the replica now holds is
+    /// this desktop's own, stamped before the restore, and a pull may deliver it
+    /// at any later time — the next cycle, or a full replay after the cursor is
+    /// retired. It must not archive the item the reader just reopened.</summary>
+    [Fact]
+    public async Task A_tombstone_stamped_before_the_item_was_restored_leaves_it_open()
+    {
+        var store = new InMemoryInboxStore();
+        var capture = Capture("Call the dentist");
+        await Receive(store, capture);
+        var item = store.Items[capture.Id];
+        item.Archive(Items.Noon.AddMinutes(15));
+        item.MarkReplicaAcknowledged();
+        item.Restore(Items.Noon.AddMinutes(30));
+
+        var outcome = await Receive(store, capture with { WithdrawnAt = Items.Noon.AddMinutes(15) });
+
+        Assert.Equal(InboxIntakeOutcome.AlreadyKnown, outcome);
+        Assert.Equal(InboxStatus.Unprocessed, item.Status);
+        Assert.False(item.ReplicaAckPending);
+    }
+
+    /// <summary>The same echo after a route the reader took back: the routed
+    /// tombstone left before the return, so it is not news to this desktop.</summary>
+    [Fact]
+    public async Task A_tombstone_stamped_before_the_item_was_returned_from_the_backlog_leaves_it_open()
+    {
+        var store = new InMemoryInboxStore();
+        var capture = Capture("Call the dentist");
+        await Receive(store, capture);
+        var item = store.Items[capture.Id];
+        item.RouteToBacklog([Guid.CreateVersion7()], [], Items.Noon.AddMinutes(15));
+        item.MarkReplicaAcknowledged();
+        item.ReturnFromBacklog(Items.Noon.AddMinutes(30));
+
+        var outcome = await Receive(store, capture with { WithdrawnAt = Items.Noon.AddMinutes(15) });
+
+        Assert.Equal(InboxIntakeOutcome.AlreadyKnown, outcome);
+        Assert.Equal(InboxStatus.Unprocessed, item.Status);
+        Assert.False(item.IsRouted);
+    }
+
+    /// <summary>A tombstone stamped after the restore is not the echo: it is the
+    /// phone, or another desktop, dismissing the thought since — and it closes
+    /// the item here as it would one never restored.</summary>
+    [Fact]
+    public async Task A_tombstone_stamped_after_the_restore_still_archives_the_item()
+    {
+        var store = new InMemoryInboxStore();
+        var capture = Capture("Call the dentist");
+        await Receive(store, capture);
+        var item = store.Items[capture.Id];
+        item.Archive(Items.Noon.AddMinutes(15));
+        item.MarkReplicaAcknowledged();
+        item.Restore(Items.Noon.AddMinutes(30));
+
+        var outcome = await Receive(store, capture with { WithdrawnAt = Items.Noon.AddMinutes(45) });
+
+        Assert.Equal(InboxIntakeOutcome.Withdrawn, outcome);
+        Assert.Equal(InboxStatus.Archived, item.Status);
+        Assert.False(item.ReplicaAckPending);
+    }
+
     /// <summary>The push endpoint validates nothing, so a capture with no title
     /// can arrive. There is no item to make of it, and the aggregate would say
     /// so by throwing — which, from the sync client's side, would pin the pull

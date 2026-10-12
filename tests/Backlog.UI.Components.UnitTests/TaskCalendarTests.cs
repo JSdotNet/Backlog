@@ -354,4 +354,268 @@ public sealed class TaskCalendarTests : IDisposable
         // And no frame loop of its own.
         Assert.DoesNotContain("requestAnimationFrame", calendar, StringComparison.Ordinal);
     }
+
+    // --- The Week range --------------------------------------------------------
+    // Today is Tuesday the 6th of October 2026, so today's week runs Monday the 5th to
+    // Sunday the 11th.
+
+    private static string Heading(IRenderedComponent<TaskCalendar> calendar) =>
+        calendar.Find("[data-testid='cal-month']").TextContent.Trim();
+
+    private static string Pressed(IRenderedComponent<TaskCalendar> calendar, string part) =>
+        calendar.Find($"[data-testid='cal-range-{part}']").GetAttribute("aria-pressed")!;
+
+    [Fact]
+    public void The_range_control_is_a_fused_pair_with_month_pressed_until_week_is_picked()
+    {
+        using var context = new BunitContext();
+
+        var calendar = Render(context, []);
+
+        var group = calendar.Find("[data-testid='cal-range']");
+        Assert.Contains("btn-group", group.ClassName);
+        Assert.Equal("group", group.GetAttribute("role"));
+        Assert.Equal("Range", group.GetAttribute("aria-label"));
+        Assert.Equal(["Month", "Week"], group.QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
+        Assert.Equal("true", Pressed(calendar, "month"));
+        Assert.Equal("false", Pressed(calendar, "week"));
+        Assert.Equal("Previous month", calendar.Find("[data-testid='cal-previous']").GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public void Week_shows_the_seven_days_of_todays_week_monday_first_as_one_tall_row_named_by_its_range()
+    {
+        using var context = new BunitContext();
+
+        var calendar = Render(context, [], p => p.Add(c => c.Range, CalendarRange.Week));
+
+        Assert.Contains("task-calendar--week", calendar.Find("[data-testid='cal']").ClassName);
+        Assert.Single(calendar.FindAll("[data-testid='cal-week']"));
+        Assert.Equal(
+            ["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11"],
+            Days(calendar));
+        Assert.Equal(
+            ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+            calendar.FindAll(".task-calendar__weekday").Select(day => day.TextContent));
+        Assert.Equal("5 – 11 October 2026", Heading(calendar));
+        Assert.Equal("true", Pressed(calendar, "week"));
+        Assert.Equal("false", Pressed(calendar, "month"));
+        Assert.Contains("task-calendar__day--today", calendar.Find("[data-calendar-day='2026-10-06']").ClassName);
+        Assert.Contains("task-calendar__day--weekend", calendar.Find("[data-calendar-day='2026-10-10']").ClassName);
+    }
+
+    [Fact]
+    public void In_week_the_steps_move_a_week_say_so_and_today_comes_back_to_todays_week()
+    {
+        using var context = new BunitContext();
+
+        var calendar = Render(context, [], p => p.Add(c => c.Range, CalendarRange.Week));
+        var previous = calendar.Find("[data-testid='cal-previous']");
+        Assert.Equal("Previous week", previous.GetAttribute("aria-label"));
+        Assert.Equal("Previous week", previous.GetAttribute("title"));
+        Assert.Equal("Next week", calendar.Find("[data-testid='cal-next']").GetAttribute("aria-label"));
+
+        calendar.Find("[data-testid='cal-next']").Click();
+        Assert.Equal("12 – 18 October 2026", Heading(calendar));
+        Assert.Equal("2026-10-12", Days(calendar)[0]);
+
+        calendar.Find("[data-testid='cal-next']").Click();
+        calendar.Find("[data-testid='cal-next']").Click();
+        // A week across two months names both; neither of its days is dimmed.
+        Assert.Equal("26 October – 1 November 2026", Heading(calendar));
+        Assert.DoesNotContain("task-calendar__day--outside", calendar.Find("[data-calendar-day='2026-11-01']").ClassName);
+
+        calendar.Find("[data-testid='cal-previous']").Click();
+        Assert.Equal("19 – 25 October 2026", Heading(calendar));
+
+        calendar.Find("[data-testid='cal-today']").Click();
+        Assert.Equal("5 – 11 October 2026", Heading(calendar));
+    }
+
+    [Fact]
+    public void A_week_across_the_new_year_names_both_years()
+    {
+        using var context = new BunitContext();
+
+        // January 2027 opens on a Friday, so its first week starts on the 28th of December.
+        var calendar = Render(context, [], p => p
+            .Add(c => c.Month, new DateOnly(2027, 1, 15))
+            .Add(c => c.Range, CalendarRange.Week));
+
+        Assert.Equal("28 December 2026 – 3 January 2027", Heading(calendar));
+        Assert.Equal("2026-12-28", Days(calendar)[0]);
+    }
+
+    /// <summary>The navigation rule the person settled (scope, decision 1): Week opens on
+    /// the week holding today when today is in the month shown, else on the month's
+    /// first week; Month after Week is the month holding that week's Thursday.</summary>
+    [Fact]
+    public void Week_opens_on_todays_week_in_todays_month_and_on_the_first_week_of_another()
+    {
+        using var context = new BunitContext();
+
+        var calendar = Render(context, []);
+
+        calendar.Find("[data-testid='cal-range-week']").Click();
+        Assert.Equal("5 – 11 October 2026", Heading(calendar));
+
+        calendar.Find("[data-testid='cal-range-month']").Click();
+        calendar.Find("[data-testid='cal-next']").Click();
+        Assert.Equal("November 2026", Heading(calendar));
+
+        // The 1st of November 2026 is a Sunday: its week starts in October.
+        calendar.Find("[data-testid='cal-range-week']").Click();
+        Assert.Equal("26 October – 1 November 2026", Heading(calendar));
+    }
+
+    [Theory]
+    // Thursday the 29th of October: back to October, though the week reaches November.
+    [InlineData("2026-10-26", "October 2026")]
+    // Thursday the 1st of October: forward to October, though the week opens in September.
+    [InlineData("2026-09-28", "October 2026")]
+    // Thursday the 3rd of December.
+    [InlineData("2026-11-30", "December 2026")]
+    public void Month_after_week_is_the_month_holding_the_weeks_thursday(string weekStart, string month)
+    {
+        using var context = new BunitContext();
+        var start = DateOnly.ParseExact(weekStart, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var calendar = Render(context, [], p => p.Add(c => c.Range, CalendarRange.Week));
+        var steps = (start.DayNumber - new DateOnly(2026, 10, 5).DayNumber) / 7;
+        var button = steps < 0 ? "cal-previous" : "cal-next";
+        for (var step = 0; step < Math.Abs(steps); step++) calendar.Find($"[data-testid='{button}']").Click();
+        Assert.Equal(weekStart, Days(calendar)[0]);
+
+        calendar.Find("[data-testid='cal-range-month']").Click();
+
+        Assert.Equal(month, Heading(calendar));
+        Assert.Equal(CalendarMonth.MonthOfWeek(start), CalendarMonth.FirstOf(calendar.Instance.ShownMonth));
+    }
+
+    [Theory]
+    [InlineData("2026-10-20", "2026-10-06", "2026-10-05")]
+    [InlineData("2026-11-03", "2026-10-06", "2026-10-26")]
+    [InlineData("2027-02-10", "2026-10-06", "2027-02-01")]
+    [InlineData("2026-11-03", "2026-11-18", "2026-11-16")]
+    public void The_opening_week_is_todays_in_todays_month_else_the_one_holding_the_first(string month, string today, string monday)
+    {
+        static DateOnly Date(string iso) => DateOnly.ParseExact(iso, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        Assert.Equal(Date(monday), CalendarMonth.OpeningWeek(Date(month), Date(today)));
+    }
+
+    [Fact]
+    public void Picking_a_range_reports_it_and_picking_the_pressed_one_reports_nothing()
+    {
+        using var context = new BunitContext();
+        var reported = new List<CalendarRange>();
+
+        var calendar = Render(context, [], p => p.Add(c => c.RangeChanged, (CalendarRange range) => reported.Add(range)));
+
+        calendar.Find("[data-testid='cal-range-month']").Click();
+        Assert.Empty(reported);
+
+        calendar.Find("[data-testid='cal-range-week']").Click();
+        calendar.Find("[data-testid='cal-range-week']").Click();
+        calendar.Find("[data-testid='cal-range-month']").Click();
+
+        Assert.Equal([CalendarRange.Week, CalendarRange.Month], reported);
+    }
+
+    /// <summary>The host keeps the range and hands it back after a press. That echo is
+    /// not a new choice, so it leaves the week the reader stepped to where it is; a
+    /// range the host changes on its own does switch the calendar.</summary>
+    [Fact]
+    public void The_hosts_echo_of_a_picked_range_keeps_the_week_and_a_new_range_from_the_host_switches()
+    {
+        using var context = new BunitContext();
+
+        var calendar = Render(context, []);
+        calendar.Find("[data-testid='cal-range-week']").Click();
+        calendar.Find("[data-testid='cal-next']").Click();
+        Assert.Equal("12 – 18 October 2026", Heading(calendar));
+
+        calendar.Render(p => p.Add(c => c.Range, CalendarRange.Week));
+        Assert.Equal("12 – 18 October 2026", Heading(calendar));
+
+        calendar.Render(p => p.Add(c => c.Range, CalendarRange.Month));
+        Assert.Equal("October 2026", Heading(calendar));
+        Assert.Equal(5, calendar.FindAll("[data-testid='cal-week']").Count);
+    }
+
+    [Fact]
+    public void A_week_column_lists_every_chip_of_its_day_with_nothing_folded()
+    {
+        using var context = new BunitContext();
+        var day = new DateOnly(2026, 10, 8);
+
+        var calendar = Render(context,
+        [
+            new("a", "Board view: status columns", day, CalendarTaskState.Ready),
+            new("b", "Drag follows status flow", day, CalendarTaskState.Ready),
+            new("c", "Release notes for task views", day, CalendarTaskState.Draft),
+            new("d", "Week view", day, CalendarTaskState.InProgress)
+        ], p => p.Add(c => c.Range, CalendarRange.Week));
+
+        Assert.Equal(4, calendar.Find("[data-calendar-day='2026-10-08']").QuerySelectorAll(".task-calendar__chip").Length);
+        Assert.Empty(calendar.FindAll("[data-testid='cal-day-2026-10-08-more']"));
+        Assert.Empty(calendar.FindAll("[data-testid='cal-day-2026-10-08-fewer']"));
+    }
+
+    [Fact]
+    public void A_week_draws_the_plan_bars_milestones_hours_and_day_totals_as_the_month_does()
+    {
+        using var context = new BunitContext();
+
+        var calendar = Render(context,
+            [new("sync", "Refactor sync", null, CalendarTaskState.Ready)],
+            p => p
+                .Add(c => c.Range, CalendarRange.Week)
+                .Add(c => c.PlansAvailable, true)
+                .Add(c => c.ShowPlans, true)
+                .Add(c => c.Plans, [new CalendarPlan("p", "Calendar plans", "task-views", new DateOnly(2026, 10, 8), new DateOnly(2026, 10, 21))])
+                .Add(c => c.Milestones, [new CalendarMilestone("m", "Week view ships", new DateOnly(2026, 10, 9))])
+                .Add(c => c.HoursAvailable, true)
+                .Add(c => c.HoursBlocks, [new CalendarHoursBlock("sync", "Refactor sync", new DateOnly(2026, 10, 7), 10m)])
+                .Add(c => c.CapacityOn, (Func<DateOnly, decimal?>)(_ => 8m)));
+
+        // The bar opens on Thursday, the 4th column, and carries on past Sunday.
+        var week = calendar.Find("[data-testid='cal-week']");
+        Assert.Contains("task-calendar__week--plans", week.ClassName);
+        var bar = calendar.Find("[data-testid='cal-plan-p']");
+        Assert.Contains("grid-column: 4 / span 4", bar.GetAttribute("style"));
+        Assert.Contains("task-calendar__plan--continues-after", bar.ClassName);
+        Assert.NotNull(calendar.Find("[data-calendar-day='2026-10-09']").QuerySelector("[data-testid='cal-milestone-m']"));
+
+        var wednesday = calendar.Find("[data-calendar-day='2026-10-07']");
+        Assert.NotNull(wednesday.QuerySelector("[data-testid='cal-block-sync-2026-10-07']"));
+        var total = calendar.Find("[data-testid='cal-day-2026-10-07-hours']");
+        Assert.Equal("true", total.GetAttribute("data-over"));
+        Assert.Contains("task-calendar__day--over", wednesday.ClassName);
+
+        // "Add hours…" opens the editor in its column.
+        calendar.Find("[data-testid='cal-day-2026-10-08-add-hours']").Click();
+        Assert.NotNull(calendar.Find("[data-calendar-day='2026-10-08']").QuerySelector("[data-testid='cal-hours-editor']"));
+    }
+
+    [Fact]
+    public async Task A_drop_on_a_week_column_reports_the_new_due_date_as_on_the_month()
+    {
+        using var context = new BunitContext();
+        var changes = new List<CalendarDueChange>();
+
+        var calendar = Render(context,
+            [new("undated", "Persist the last view", null, CalendarTaskState.Ready)],
+            p => p
+                .Add(c => c.Range, CalendarRange.Week)
+                .Add(c => c.OnDueChanged, (CalendarDueChange change) => changes.Add(change)));
+
+        // The drag's hit test finds a day by this attribute alone, so a column without
+        // it is a column nothing can be dropped on.
+        Assert.Equal(7, calendar.FindAll("[data-calendar-day]").Count);
+
+        await calendar.InvokeAsync(() => calendar.Instance.DropOnDay("undated", "2026-10-09"));
+
+        Assert.Equal([new CalendarDueChange("undated", new DateOnly(2026, 10, 9))], changes);
+    }
 }

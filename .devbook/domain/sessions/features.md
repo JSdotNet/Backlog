@@ -598,6 +598,23 @@ a chapter in the Devbook pane sees what the last sweep said about it without fin
 the run. A run that names no repository keeps its verdicts on itself alone: a verdict
 that cannot say which repository it is about matches no chapter.
 
+### Scenario evidence from a verify stage
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts]
+```
+
+A run's verify stage can say which parts of which scenario pages it ran. It reports
+each part as the page's name, the part, the part's outcome and when the run ran,
+read from the run the page committed. The stage keeps what it was last sent, and a
+later report about the same stage without evidence leaves it in place.
+
+The run shows this evidence under the stage that reported it, one row per part with
+the part's dot, and a count of how many passed. A run is evidence and not a task, so
+it never says proved. A run that reported no evidence shows nothing for it.
+
 ### What a run cost, reported by the session itself
 
 ```meta
@@ -1297,7 +1314,7 @@ the repository scope, each with the sessions and pull requests linked to it besi
 — a session's title, state and last activity; a pull request's number, title, draft
 or open, review verdict, checks and size. A task with nothing of a kind says "None
 yet". It is the first option of the work in progress group in the header and a main
-view rather than a takeover: the Inbox and the Devbook still open beside it, and it is
+view rather than a takeover: the Devbook still opens beside it, and it is
 offered while the session list or the pull requests list is.
 
 The scope is the task list's whole repository scope: the repositories chosen in the
@@ -1311,14 +1328,16 @@ column saying "None yet" for a list that is switched off.
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Needs_you_comes_first_then_moving_each_in_the_hosts_order, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_failing_check_or_requested_changes_on_an_open_pull_request_needs_you, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_quiet_session_needs_you, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_linked_session_that_has_gone_quiet_needs_you_and_says_quiet_30_min]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Needs_you_comes_first_then_moving_each_in_the_hosts_order, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_failing_check_or_requested_changes_on_an_open_pull_request_needs_you, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_quiet_session_needs_you, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_linked_session_that_has_gone_quiet_needs_you_and_says_quiet_30_min, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_in_progress_toggles_are_remembered_and_a_fresh_shell_reopens_on_them]
 ```
 
 A task whose linked session has gone quiet — `Stalled`, shown as "Quiet 30 min" — or
 whose open pull request has a failing check or requested changes is under **Needs
 you**; the rest are under **Moving**. Switched off, the tasks are one list in the task
 list's order. "Include finished today" adds the tasks done today in a section of
-their own. Neither choice is remembered past the session.
+their own. Both choices are remembered on this device, so In progress reopens as
+the reader left it. Until the reader changes them, "Needs you first" is on and
+"Include finished today" is off.
 
 ### Link what no task claims
 

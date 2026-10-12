@@ -179,13 +179,14 @@ public sealed class SaveTaskFromTextCommandHandler(
             writeBack?.Request(entry.Id);
         }
 
-        if (!wasCompleted && entry.IsCompleted && entry.Recurrence is not null)
+        // Saved after the completed occurrence, so a failure here cannot lose the
+        // completion that has already been recorded. Occurrence Spawning answers
+        // null when the successor already exists — an untick and a second tick,
+        // or a tick the replica merge already spawned for — so a repeat gets one
+        // next occurrence however often it is ticked.
+        if (!wasCompleted && entry.IsCompleted
+            && await OccurrenceSpawning.SpawnAsync(entry, entries, cancellationToken) is { } successor)
         {
-            // Saved after the completed occurrence, so a failure here cannot lose
-            // the completion that has already been recorded.
-            var successor = RecurrencePolicy.NextOccurrence(entry);
-            await entries.SaveAsync(successor, cancellationToken);
-
             // Named in the result rather than left for the caller to notice. A
             // list that only ever refreshes the row it saved has no other way to
             // learn that a second entry now exists.

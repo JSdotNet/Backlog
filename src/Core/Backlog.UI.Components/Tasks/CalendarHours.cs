@@ -62,6 +62,17 @@ public static class CalendarHours
     /// <summary>The most one block can hold: the whole day.</summary>
     public const decimal MaxHours = 24m;
 
+    /// <summary>The figures an hours field suggests: the blocks a working day is
+    /// usually cut into. Suggestions only — any figure <see cref="Parse"/> keeps can be
+    /// typed.</summary>
+    public static IReadOnlyList<decimal> Presets { get; } = [0.5m, 1m, 2m, 3m, 4m, 6m, 8m];
+
+    /// <summary>The presets as a <see cref="Inputs.Combobox"/>'s options: the field takes
+    /// the invariant figure <see cref="Edit"/> writes, and the list reads "0.5h" in the
+    /// reader's culture at the time of the call.</summary>
+    public static IReadOnlyList<Selects.SelectorOption> PresetOptions() =>
+        [.. Presets.Select(hours => new Selects.SelectorOption(Edit(hours), Format(hours)))];
+
     /// <summary>"3h", "2.5h", "0.75h" — the shortest figure that is exact, in the
     /// reader's culture.</summary>
     public static string Format(decimal hours) =>

@@ -46,10 +46,10 @@
 
     <InProgressBoard Tasks="@Tasks"
                      Loose="@Loose"
-                     NeedsYouFirst="_needsYouFirst"
-                     NeedsYouFirstChanged="value => _needsYouFirst = value"
-                     IncludeFinishedToday="_includeFinishedToday"
-                     IncludeFinishedTodayChanged="value => _includeFinishedToday = value"
+                     NeedsYouFirst="NeedsYouFirst"
+                     NeedsYouFirstChanged="OnNeedsYouFirstChangedAsync"
+                     IncludeFinishedToday="IncludeFinishedToday"
+                     IncludeFinishedTodayChanged="OnIncludeFinishedTodayChangedAsync"
                      OnOpenTask="OpenTaskAsync"
                      OnOpenSession="session => OnOpenSession.InvokeAsync(session.Id)"
                      OnOpenPullRequest="pull => OnOpenPullRequest.InvokeAsync(pull.Key)"
@@ -110,11 +110,38 @@
         Reader.ReadsPullRequests = ShowPullRequests;
     }
 
-    /// <summary>On by default: the view is opened to find what needs the person.
-    /// Session-only, like the scope of Ask AI — a relaunch opens on the default.</summary>
-    private bool _needsYouFirst = true;
+    /// <summary>Whether the cards that need the person come first. On by default:
+    /// the view is opened to find what needs the person. The shell keeps it, as it
+    /// keeps the Board's columns, so a relaunch reopens on the reader's choice.</summary>
+    [Parameter]
+    public bool NeedsYouFirst { get; set; } = true;
 
-    private bool _includeFinishedToday;
+    /// <summary>Raised when the reader turns "Needs you first" on or off.</summary>
+    [Parameter]
+    public EventCallback<bool> NeedsYouFirstChanged { get; set; }
+
+    /// <summary>Whether the entries finished today stay on the board. Off by
+    /// default; kept by the shell the same way.</summary>
+    [Parameter]
+    public bool IncludeFinishedToday { get; set; }
+
+    /// <summary>Raised when the reader turns "Include finished today" on or off.</summary>
+    [Parameter]
+    public EventCallback<bool> IncludeFinishedTodayChanged { get; set; }
+
+    // Each choice is taken at once, as TasksPane takes the Board's columns, so a host
+    // that does not hand it back still sees the board keep it.
+    private async Task OnNeedsYouFirstChangedAsync(bool value)
+    {
+        NeedsYouFirst = value;
+        await NeedsYouFirstChanged.InvokeAsync(value);
+    }
+
+    private async Task OnIncludeFinishedTodayChangedAsync(bool value)
+    {
+        IncludeFinishedToday = value;
+        await IncludeFinishedTodayChanged.InvokeAsync(value);
+    }
 
     /// <summary>The loose session or pull request whose "Link to a task…" is open.</summary>
     private InProgressLoose? _linking;

@@ -4,8 +4,9 @@
 
 @*
     Draws nothing. Hands the page's visibilitychange and online events to
-    AppLifecycle, which is how the browser harness hears a resume at all and a
-    second way the MAUI head does. Lives in the layout, so it runs on every tab.
+    AppLifecycle, which is how the browser harness hears a resume or a pause at
+    all and a second way the MAUI head does. Lives in the layout, so it runs on
+    every tab.
 *@
 
 @code {
@@ -34,6 +35,9 @@
 
     [JSInvokable]
     public void OnResumed() => Lifecycle.Resume();
+
+    [JSInvokable]
+    public void OnPaused() => Lifecycle.Pause();
 
     public async ValueTask DisposeAsync()
     {

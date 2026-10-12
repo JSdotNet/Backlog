@@ -15,9 +15,16 @@
     for. The screens that publish take a hard @inject instead — see TasksPane —
     because a publisher that silently lost the user's only feedback is worse than
     one that fails to construct.
+
+    `data-backlog-top-layer` asks `components.js` to lift the tray into the
+    browser's top layer above each Modal as it opens, and to let it down when the
+    last one closes. A Modal lives there, over every z-index in the page, and a
+    toast raised while one is up has to be seen. Seen, not used: a modal makes
+    everything outside it inert, the tray included, so its dismiss buttons do not
+    answer while a Modal is up. Each toast's own timer still dismisses it.
 *@
 
-<ToastHost CssClass="@CssClass" TestId="@TestId">
+<ToastHost CssClass="@CssClass" TestId="@TestId" data-backlog-top-layer="true">
     @foreach (var message in _channel?.Visible ?? [])
     {
         @* Keyed on the message's own id, which is what makes Toast's dismiss timer
