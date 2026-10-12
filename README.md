@@ -466,13 +466,16 @@ it over USB or onto a running emulator:
 ./build/Install-AndroidApp.ps1
 ```
 
-It creates a throwaway developer keystore under `build/.local/` (gitignored) on
-first run — that is a local identity only, never the release one, so an APK it
-signs cannot upgrade a release-signed install. Enable **Developer options → USB
-debugging** on the phone and accept the authorization prompt first. Use
-`-Device <serial>` when more than one device is attached, `-VersionCode <n>` to
-install over a previous local build, and `-SkipInstall` to produce the APK
-without installing it.
+It creates a throwaway developer keystore under the main checkout's
+`build/.local/` (gitignored) on first run, shared by every worktree so their
+builds update each other. That is a local identity only, never the release one,
+so an APK it signs cannot update a release-signed install: the script then offers
+to uninstall it first, which erases the app's data on the device (`-Reinstall`
+agrees without asking). A build with a lower versionCode than the installed one
+is installed as a downgrade. Enable **Developer options → USB debugging** on the
+phone and accept the authorization prompt first. Use `-Device <serial>` when more
+than one device is attached and `-SkipInstall` to produce the APK without
+installing it.
 
 The script needs the `maui-android` workload, a JDK, and the Android SDK
 platform-tools; it locates the Visual Studio installations of the latter two
