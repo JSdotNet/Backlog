@@ -116,6 +116,16 @@
                         <span>@Format(Ceiling(index - 1)) – @Format(Ceiling(index))</span>
                     </li>
                 }
+                @* The edge says what it means here as well as in each cell's hidden
+                   text: a sighted reader sees the edge on every marked cell and would
+                   otherwise have nothing to read it against. *@
+                @if (HasMarks)
+                {
+                    <li class="@($"{Part("legend-item")} {Part("legend-item")}--marked")">
+                        <span class="@($"{Part("swatch")} {Part("swatch")}--marked")" aria-hidden="true"></span>
+                        <span>@MarkedLabel</span>
+                    </li>
+                }
                 @if (HasFlags)
                 {
                     @foreach (var flag in NamedFlags)

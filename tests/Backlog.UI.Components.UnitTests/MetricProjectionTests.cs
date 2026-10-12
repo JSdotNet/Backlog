@@ -124,6 +124,27 @@ public sealed class MetricProjectionTests
         Assert.NotNull(opus.QuerySelector(".metric-breakdown__share-cell .metric-breakdown__share-fill"));
     }
 
+    /// <summary>A host that writes money its own way hands the format in, so the table
+    /// and the figures around it say an amount the same way - verify read "€23.28" in a
+    /// headline over "23.28 EUR" in this table. Each cost cell and the total use it.</summary>
+    [Fact]
+    public void A_host_can_write_the_cost_in_its_own_format()
+    {
+        using var context = new BunitContext();
+
+        var table = context.Render<MetricBreakdown>(parameters => parameters
+            .Add(b => b.Rows,
+            [
+                new MetricRow("opus", 1_000L, new MoneyAmount(20m, "EUR")),
+                new MetricRow("sonnet", 1_000L, new MoneyAmount(3.28m, "EUR"))
+            ])
+            .Add(b => b.FormatCost, money => "€" + money.Amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)));
+
+        Assert.Contains("€20.00", table.FindAll("tbody tr")[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("€23.28", table.Find("tfoot").TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("EUR", table.Markup, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Without_a_split_the_breakdown_keeps_its_columns()
     {

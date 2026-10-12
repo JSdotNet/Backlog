@@ -898,8 +898,13 @@ aliases: [AgentSessionLimits.History, ReplicatedSessionLimits.History, AgentSess
 related: [.devbook/domain/sessions/features.md#say-how-much-was-left-out, .devbook/domain/sessions/domain.md#session-limit]
 ```
 
-How far back a reading since a horizon is promised to reach on every source: twelve
+How far back a reading since a horizon is promised to reach on every source: 26
 weeks, the longest period the Dashboard offers.
+
+The Dashboard's longest window and this promise move together. A window longer than
+the history would show figures for weeks no source was asked to keep. The weeks before
+the history are never read, so a 26-week window has no earlier 26 weeks to compare
+with.
 
 A reading since a horizon describes every session active at or after it, however
 many, so a consumer that counts is never handed the session limit as its total. The

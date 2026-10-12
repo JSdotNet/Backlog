@@ -61,14 +61,66 @@ public static class WeeklyBriefSentences
     }
 
     /// <summary>The Shipping block's supporting sentence: the issues closed the same
-    /// week, and the median wait for a first review when a merge that week had one.</summary>
+    /// week, and the median wait for a first review — or that no merge that week was
+    /// reviewed, rather than nothing at all (entry 19, AC35). Null is "no reviewed
+    /// merge"; a zero is a review that arrived within the hour.</summary>
     public static string ShippingDetail(int issuesClosed, decimal? medianReviewHours)
     {
         var issues = Count(issuesClosed, "issue", "issues") + " closed";
 
-        return medianReviewHours is > 0m
-            ? $"{issues}, and a first review took a median of {DashboardFormat.Hours(medianReviewHours.Value)}."
-            : $"{issues}.";
+        return medianReviewHours is { } hours
+            ? $"{issues}, and a first review took a median of {DashboardFormat.Hours(hours)}."
+            : $"{issues}, and no merge that week was reviewed.";
+    }
+
+    /// <summary>
+    /// The brief's title (decision Q5, AC33): "Your best shipping week this quarter" when
+    /// the week merged the most of the weeks read, "Your quietest …" when the fewest,
+    /// otherwise the week's counts — and ", at a cost" when any provider is projected
+    /// past its budget. A quarter where every week merged the same names no best and no
+    /// quietest: there is nothing to tell apart.
+    /// </summary>
+    /// <param name="merged">The reported week's merged pull requests.</param>
+    /// <param name="quarter">Every week read up to and including the reported one.</param>
+    /// <param name="points">The week's story points done, or null when not read.</param>
+    /// <param name="atACost">Whether a provider is projected past its budget.</param>
+    public static string Title(decimal merged, IReadOnlyList<decimal> quarter, decimal? points, bool atACost)
+    {
+        ArgumentNullException.ThrowIfNull(quarter);
+
+        var max = quarter.Count == 0 ? merged : Math.Max(merged, quarter.Max());
+        var min = quarter.Count == 0 ? merged : Math.Min(merged, quarter.Min());
+        var varied = max != min;
+
+        var title = varied && merged == max && merged > 0m
+            ? "Your best shipping week this quarter"
+            : varied && merged == min
+                ? "Your quietest shipping week this quarter"
+                : points is { } done
+                    ? $"{Count(merged, "pull request merged", "pull requests merged")}, {Count(done, "story point done", "story points done")}"
+                    : Count(merged, "pull request merged", "pull requests merged");
+
+        return atACost ? $"{title}, at a cost." : $"{title}.";
+    }
+
+    /// <summary>The Plan block's figure: the running total against the plan, "41 of 55"
+    /// (AC34). The week's own points are the headline's.</summary>
+    public static string PlanFigure(int done, int planned) =>
+        $"{MetricFormat.Compact(done)} of {MetricFormat.Compact(planned)}";
+
+    /// <summary>
+    /// The Cost block's figure: each provider's month to date against its budget —
+    /// "€178 of €250 · €34 of €50" — in its own currency, never summed (AC34, decision
+    /// Q3); a provider with no budget shows its month to date alone. Null with no provider.
+    /// The week's own spend is the headline's.
+    /// </summary>
+    public static string? CostFigure(SpendProjectionInsight? projection)
+    {
+        if (projection is null || projection.Providers.Count == 0) return null;
+
+        return string.Join(" · ", projection.Providers.Select(provider => provider.Budget is { } budget
+            ? $"{DashboardHeadlines.Money(provider.MonthToDate)} of {DashboardHeadlines.Money(budget)}"
+            : DashboardHeadlines.Money(provider.MonthToDate)));
     }
 
     /// <summary>The Plan block's supporting sentence, from the roadmap the Tasks tab
@@ -80,18 +132,15 @@ public static class WeeklyBriefSentences
         if (!plan.RoadmapEnabled) return "The roadmap is switched off.";
         if (plan.Items.Count == 0) return "No roadmap item falls in the window.";
 
-        // Behind is the outlook the Overview's tile and Needs you count, so the brief
-        // counts the same; an item already past its end is said apart, never as on pace.
-        var behind = plan.Items.Count(item => item.Outlook == PlanOutlook.Behind);
-        var overdue = plan.Items.Count(item => item.Outlook == PlanOutlook.Overdue);
+        // Behind pace is one count everywhere - projected past its end, or already past
+        // it with work open - so the brief, the Overview's tile, Needs you and the Tasks
+        // tab cannot disagree about the same roadmap.
+        var behind = plan.ItemsBehind;
         var done = $"with {Count(plan.DoneEffort, "point", "points")} of {plan.PlannedEffort} done";
 
-        return (behind, overdue) switch
-        {
-            (> 0, _) => $"{Count(behind, "roadmap item is", "roadmap items are")} behind pace, {done}.",
-            (0, > 0) => $"{Count(overdue, "roadmap item is past its end", "roadmap items are past their end")} with work open, {done}.",
-            _ => $"Every roadmap item in view is on pace, {done}."
-        };
+        return behind > 0
+            ? $"{Count(behind, "roadmap item is", "roadmap items are")} behind pace, {done}."
+            : $"Every roadmap item in view is on pace, {done}.";
     }
 
     /// <summary>The Sessions block's supporting sentence.</summary>
@@ -112,7 +161,7 @@ public static class WeeklyBriefSentences
         return passing.Count switch
         {
             0 => "Every budgeted provider is on course to stay within budget this month.",
-            1 => $"{Name(passing[0].Provider)} is on course to pass its budget this month.",
+            1 => $"{passing[0].Provider.DisplayName()} is on course to pass its budget this month.",
             _ => $"{passing.Count} providers are on course to pass their budgets this month."
         };
     }
@@ -160,15 +209,7 @@ public static class WeeklyBriefSentences
     }
 
     private static string Money(decimal amount, string currency) =>
-        MetricFormat.Money(new MoneyAmount(amount, currency));
-
-    private static string Name(SpendProvider provider) => provider switch
-    {
-        SpendProvider.Claude => "Claude",
-        SpendProvider.Copilot => "Copilot",
-        SpendProvider.AzureFoundry => "Azure Foundry",
-        _ => provider.ToString()
-    };
+        DashboardMoney.Format(amount, currency);
 
     /// <summary>The week a brief covers as its eyebrow says it: <c>Week 41 · 05 Oct – 11 Oct</c>.</summary>
     public static string WeekLabel(BriefWeek week)

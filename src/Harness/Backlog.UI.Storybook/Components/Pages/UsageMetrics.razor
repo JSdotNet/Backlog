@@ -106,6 +106,32 @@ The y scale runs zero to max rather than min to max, so a series that moved two 
         </div>
     </Story>
 
+    <Story Name="MetricBars naming the columns worth naming"
+           Description="AxisLabel names a column by its index, or leaves it unnamed with null, in place of every nth date. The Cost tab names the month's first day, today and its last; the table under the chart keeps every day's own label.
+
+A named label is wider than a day's column, so it is laid over the column rather than clipped to it: centred on it, or hung from the first column's start and the last column's end so it stays on the chart."
+           Code="@BarsAxisLabelCode">
+        <MetricBars Points="CumulativeCost"
+                    Label="@($"Spend so far, in {UsageFixtures.Currency}")"
+                    BucketHeading="Day"
+                    ValueHeading="Cost"
+                    ProjectedFrom="@(CumulativeCost.Count - 4)"
+                    AxisLabel="@(index => index == 0 ? "First day" : index == CumulativeCost.Count - 5 ? "Today" : index == CumulativeCost.Count - 1 ? "Last day" : null)"
+                    FormatValue="UsageFixtures.Money"
+                    TestId="bars-axis-label" />
+    </Story>
+
+    <Story Name="MetricSparkline against an axis"
+           Description="Axis names the buckets the line is drawn across. A series that leaves out the buckets it has no reading for, such as a weekly median over weeks with nothing to take one of, keeps each point over its own bucket, so the two readings below sit a gap apart instead of side by side."
+           Code="@SparklineAxisCode">
+        <div class="sb-stack">
+            <MetricSparkline Points="GappedMedians"
+                             Axis="GappedWeeks"
+                             Description="Median hours to a first review, in the weeks that had one."
+                             TestId="sparkline-axis" />
+        </div>
+    </Story>
+
     <Story Name="MetricBars"
            Description="The same series with an axis, for when a reader takes figures off it rather than glancing at the shape. Columns are CSS boxes rather than SVG, so the axis labels are real text that scales with the reader's font size.
 
@@ -280,6 +306,18 @@ Rows that split their tokens by direction get input and output columns of their 
         </div>
     </Story>
 
+    <Story Name="MetricBreakdown in the host's money format"
+           Description="FormatCost hands the table the host's way of writing an amount, so the cost cells and the total say it the way the figures around the table do. The dashboard writes a currency sign rather than a code, and a table that said 23.28 EUR under a headline saying €23.28 read as two figures."
+           Code="@BreakdownFormatCode">
+        <MetricBreakdown Rows="SplitTokens"
+                         Label="By model, in the host's format"
+                         NameHeading="Model"
+                         CostHeading="Spend"
+                         ShareFirst="true"
+                         FormatCost="@(money => $"{money.Amount:0.00} ({money.Currency}, written by the host)")"
+                         TestId="breakdown-format-cost" />
+    </Story>
+
     <Story Name="MetricBreakdown with nothing to report"
            Description="Every measure on a row is nullable, because the providers disagree about what they report. A column nobody reported anything into is dropped rather than printed as a stack of em dashes: GitHub publishes no figures per Copilot seat, so a seat table is a name and a detail line and that is all.
 
@@ -364,6 +402,19 @@ A total across two currencies is a wrong number rather than a missing one, so th
     private decimal _seats = 9m;
 
     private static readonly IReadOnlyList<MetricPoint> OnePoint = [new("18 Aug", 42m)];
+
+    private static readonly IReadOnlyList<string> GappedWeeks = ["W34", "W35", "W36", "W37", "W38", "W39", "W40", "W41"];
+
+    private static readonly IReadOnlyList<MetricPoint> GappedMedians = [new("W34", 5m), new("W35", 4m), new("W39", 3m), new("W41", 3.5m)];
+
+    private const string BarsAxisLabelCode = """
+        <MetricBars Points="days"
+                    AxisLabel="@(index => index == 0 ? "1 Oct" : index == today ? $"Today, {date:d MMM}" : index == last ? "31 Oct" : null)" />
+        """;
+
+    private const string SparklineAxisCode = """
+        <MetricSparkline Points="medians" Axis="weeks" Description="Median hours to a first review." />
+        """;
 
     private static readonly IReadOnlyList<MetricPart> EmptyParts =
     [
@@ -550,6 +601,12 @@ A total across two currencies is a wrong number rather than a missing one, so th
                          NameHeading="Model"
                          ShareOf="MetricShareOf.Cost"
                          CostDecimals="2" />
+        """;
+
+    private const string BreakdownFormatCode = """
+        <MetricBreakdown Rows="byModel"
+                         Label="By model"
+                         FormatCost="@(money => DashboardMoney.Format(money.Amount, money.Currency))" />
         """;
 
     private const string BreakdownNullCode = """

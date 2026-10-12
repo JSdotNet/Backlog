@@ -12,6 +12,28 @@ public enum SpendProvider
 }
 
 /// <summary>
+/// What each provider is called on screen — the one place that is decided, so the cost
+/// cards, the Overview tile, the model table and the weekly brief say the same word for
+/// the same provider.
+/// <para>
+/// Display words only. The <see cref="SpendProvider"/> member names are what settings keys,
+/// slugs and test ids are built from, and stay as they are: the company is named for the
+/// Claude spend because the report is Anthropic's bill, not the assistant's.
+/// </para>
+/// </summary>
+public static class SpendProviderNames
+{
+    /// <summary>The provider's name as the screen prints it.</summary>
+    public static string DisplayName(this SpendProvider provider) => provider switch
+    {
+        SpendProvider.Claude => "Anthropic",
+        SpendProvider.Copilot => "Copilot",
+        SpendProvider.AzureFoundry => "Azure AI Foundry",
+        _ => provider.ToString()
+    };
+}
+
+/// <summary>
 /// One provider's spend so far this calendar month.
 /// </summary>
 /// <remarks>
@@ -66,15 +88,6 @@ public sealed record SpendThisMonthInsight(IReadOnlyList<MonthlySpend> Providers
 }
 
 /// <summary>
-/// Spend over time, one series per provider, bucketed by day within a month or by
-/// month across a longer window.
-/// </summary>
-public sealed record SpendTrendInsight(IReadOnlyList<InsightSeries> ByProvider, string Currency, SpendBucket Bucket)
-{
-    public static SpendTrendInsight Empty { get; } = new([], "USD", SpendBucket.Day);
-}
-
-/// <summary>
 /// Spend per ISO week, the providers that report by the day added up — what the weekly
 /// brief's Cost block reads.
 /// </summary>
@@ -94,13 +107,6 @@ public sealed record SpendTrendInsight(IReadOnlyList<InsightSeries> ByProvider, 
 /// <param name="Currency">The currency every point is in.</param>
 /// <param name="IsEstimate">True when a provider added in calls its figure an estimate.</param>
 public sealed record SpendByWeekInsight(IReadOnlyList<InsightPoint> Weeks, string Currency, bool IsEstimate);
-
-/// <summary>How wide a bucket a spend trend is drawn in.</summary>
-public enum SpendBucket
-{
-    Day,
-    Month
-}
 
 /// <summary>
 /// Where the money went, by model, across every provider.

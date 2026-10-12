@@ -118,7 +118,7 @@ public sealed class DashboardDeltaPartTests
     }
 
     [Fact]
-    public void The_effort_part_puts_the_story_points_done_above_the_columns_with_the_comparison()
+    public void The_figures_row_carries_the_story_points_done_with_the_comparison()
     {
         var throughput = new TaskThroughputInsight(
             [new InsightPoint("W37", 1), new InsightPoint("W38", 2)],
@@ -130,21 +130,20 @@ public sealed class DashboardDeltaPartTests
 
         using var context = Context(services => services.AddSingleton<ITaskInsights>(new ScriptedTasks(throughput)));
 
-        var part = context.Render<TaskEffortPart>(parameters => parameters.Add(p => p.Scope, FourWeeks));
+        var part = context.Render<TaskFiguresPart>(parameters => parameters.Add(p => p.Scope, FourWeeks));
 
         part.WaitForAssertion(() =>
         {
-            var tile = part.Find("[data-testid='dashboard-tasks-effort-done']");
+            var tile = part.Find("[data-testid='dashboard-tasks-figure-points']");
             Assert.Contains("Story points done", tile.TextContent, StringComparison.Ordinal);
             Assert.Equal("8", tile.QuerySelector(".metric-tile__value")!.TextContent.Trim());
             Assert.Contains("up 2 vs previous 4 weeks", tile.TextContent, StringComparison.Ordinal);
         });
 
-        // Above the columns, in the order a reader meets them.
-        var stack = part.Find("[data-testid='dashboard-tasks-effort'] .dashboard-part__stack");
-        Assert.Equal(
-            ["dashboard-tasks-effort-done", "dashboard-tasks-effort-bars"],
-            stack.Children.Select(child => child.GetAttribute("data-testid")));
+        // Said once on the tab: the effort chart carries no tile of its own.
+        var chart = context.Render<TaskEffortPart>(parameters => parameters.Add(p => p.Scope, FourWeeks));
+        chart.WaitForAssertion(() => Assert.NotNull(chart.Find("[data-testid='dashboard-tasks-effort-bars']")));
+        Assert.Empty(chart.FindAll("[data-testid='dashboard-tasks-effort-done']"));
     }
 
     [Fact]
@@ -154,10 +153,10 @@ public sealed class DashboardDeltaPartTests
 
         using var context = Context(services => services.AddSingleton<ITaskInsights>(new ScriptedTasks(throughput)));
 
-        var part = context.Render<TaskEffortPart>(parameters => parameters.Add(p => p.Scope, FourWeeks));
+        var part = context.Render<TaskFiguresPart>(parameters => parameters.Add(p => p.Scope, FourWeeks));
 
-        part.WaitForAssertion(() => Assert.NotNull(part.Find("[data-testid='dashboard-tasks-effort-done']")));
-        Assert.DoesNotContain("vs previous", part.Find("[data-testid='dashboard-tasks-effort-done']").TextContent, StringComparison.Ordinal);
+        part.WaitForAssertion(() => Assert.Contains("5", part.Find("[data-testid='dashboard-tasks-figure-points']").TextContent, StringComparison.Ordinal));
+        Assert.DoesNotContain("vs previous", part.Find("[data-testid='dashboard-tasks-figure-points']").TextContent, StringComparison.Ordinal);
     }
 
     private static BunitContext Context(Action<IServiceCollection> configure)
@@ -187,9 +186,6 @@ public sealed class DashboardDeltaPartTests
         public Task<InsightResult<ProductivityScoreInsight>> GetScoreAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<ProductivityScoreInsight>.Unavailable(DashboardTestHost.UnavailableReason));
 
-        public Task<InsightResult<ProductivityTrend>> GetTrendAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<ProductivityTrend>.Unavailable(DashboardTestHost.UnavailableReason));
-
         public Task<InsightResult<ReworkInsight>> GetReworkAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<ReworkInsight>.Unavailable(DashboardTestHost.UnavailableReason));
 
@@ -213,14 +209,14 @@ public sealed class DashboardDeltaPartTests
         public Task<InsightResult<SpendThisMonthInsight>> GetThisMonthAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendThisMonthInsight>.Ready(month));
 
-        public Task<InsightResult<SpendTrendInsight>> GetTrendAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<SpendTrendInsight>.Unavailable(DashboardTestHost.UnavailableReason));
-
         public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendByModelInsight>.Unavailable(DashboardTestHost.UnavailableReason));
 
         public Task<InsightResult<SpendProjectionInsight>> GetProjectionAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendProjectionInsight>.Unavailable(DashboardTestHost.UnavailableReason));
+
+        public Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByWeekInsight>.Unavailable("Not used by this test."));
 
         public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendByDayInsight>.Unavailable(DashboardTestHost.UnavailableReason));

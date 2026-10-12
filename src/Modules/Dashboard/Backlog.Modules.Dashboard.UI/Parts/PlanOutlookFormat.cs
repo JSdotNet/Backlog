@@ -21,6 +21,30 @@ public static class PlanOutlookFormat
         _ => "Placed by effort"
     };
 
+    /// <summary>
+    /// The outlook as the board's chip says it: <c>Done</c>, <c>On track</c>,
+    /// <c>Behind</c> or <c>Not started</c> (decisions Q8 and AC9).
+    /// <para>
+    /// Overdue reads Behind: both are work landing later than planned, in one tone. Any
+    /// item that is not late and has nothing done yet reads Not started, whatever its
+    /// outlook, whether it starts after today or started with nothing ticked off. Once
+    /// something is done, the outlooks the board has no word for (unsized, no pace,
+    /// placed by effort) read On track, the nearest, and keep their precise
+    /// <see cref="Word"/> for the tooltip and the sentence beside the bar.
+    /// </para>
+    /// </summary>
+    public static string Chip(PlanItemInsight row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (row.Outlook == PlanOutlook.Finished) return "Done";
+        if (IsLate(row.Outlook)) return "Behind";
+
+        var nothingDone = row.Item.DoneEffort == 0 && row.Item.DoneCount == 0;
+
+        return nothingDone ? "Not started" : "On track";
+    }
+
     /// <summary>Whether the item's work is landing later than planned — behind or
     /// overdue, the two outlooks the timeline draws in the behind tone.</summary>
     public static bool IsLate(PlanOutlook outlook) =>

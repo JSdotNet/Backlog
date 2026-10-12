@@ -107,11 +107,6 @@ internal static class DashboardTestHost
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<ProductivityScoreInsight>.Unavailable(UnavailableReason));
 
-        public Task<InsightResult<ProductivityTrend>> GetTrendAsync(
-            DashboardScope scope,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<ProductivityTrend>.Unavailable(UnavailableReason));
-
         public Task<InsightResult<ReworkInsight>> GetReworkAsync(
             DashboardScope scope,
             CancellationToken cancellationToken = default) =>
@@ -141,6 +136,10 @@ internal static class DashboardTestHost
             DashboardScope scope,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<DriftInsight>.Unavailable(UnavailableReason));
+
+        public void Invalidate()
+        {
+        }
     }
 
     /// <summary>The Needs-you derivation over sources none of which answered: nothing
@@ -167,9 +166,6 @@ internal static class DashboardTestHost
         public Task<InsightResult<SpendThisMonthInsight>> GetThisMonthAsync(
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendThisMonthInsight>.Unavailable(UnavailableReason));
-
-        public Task<InsightResult<SpendTrendInsight>> GetTrendAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<SpendTrendInsight>.Unavailable(UnavailableReason));
 
         public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendByModelInsight>.Unavailable(UnavailableReason));

@@ -83,6 +83,8 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Productivity;
+
     /// <summary>
     /// The bands the scores are read against — floors only, so there are no ceilings
     /// to keep in step with the next band up.
@@ -117,7 +119,12 @@
         {
             var note = $"Over {Scope.Weeks} weeks. Two scores, each weighted and normalised to 100:"
                 + " volume is what you shipped against your own record, quality is how much of it"
-                + " was reviewed promptly, merged clean, synced without a conflict and kept small.";
+                + " was reviewed promptly, merged clean, synced without a conflict and kept small."
+                // Decision Q6: why Lines changed is not a volume input though the window
+                // has the figure.
+                + " Lines changed is not part of volume: the record each volume input is read"
+                + " against counts merged pull requests and closed issues only, so there is no"
+                + " best block of lines to set full marks from.";
 
             if (IsReady)
             {

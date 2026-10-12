@@ -179,6 +179,20 @@ Lead is placement, not styling. A footer is a flex row that pushes its children 
         <p class="sb-state" data-testid="scope-toggle-value">In scope: @(_scope.Count == 0 ? "everything" : string.Join(", ", _scope))</p>
     </Story>
 
+    <Story Name="One choice, as a radio group"
+           Description="Radio turns a ButtonGroup into one choice: the group is a radiogroup and each ToggleButton inside it a radio carrying aria-checked, so a screen reader announces one control with a position rather than four separate switches. Only the checked radio is a tab stop; the arrow keys, Home and End move and select at once, as Tabs does. Pressing the checked radio keeps it checked. The host still owns the selection and sets Pressed from it."
+           Code="@RadioCode">
+        <ButtonGroup Radio="true" AriaLabel="How far back to look" TestId="radio-window">
+            @foreach (var weeks in RadioWindows)
+            {
+                <ToggleButton Pressed="_window == weeks"
+                              PressedChanged="_ => _window = weeks"
+                              TestId="@($"radio-window-{weeks}")">@weeks weeks</ToggleButton>
+            }
+        </ButtonGroup>
+        <p class="sb-state" data-testid="radio-window-value">Window: @_window weeks</p>
+    </Story>
+
     <Story Name="Inside something clickable"
            Description="StopPropagation keeps the click off the region around the button. It has to be a parameter, because the onclick:stopPropagation directive attribute only works on an element — writing it on a component is a compile error, so without this a button inside a click-to-edit card could not be one of these."
            Code="@StopPropagationCode">
@@ -246,6 +260,9 @@ The third is refused: Disabled keeps the button in its slot with its glyph, so t
 
     private string? _invoked;
     private bool _scoped = true;
+    private int _window = 8;
+
+    private static readonly int[] RadioWindows = [4, 8, 12, 26];
     private int _regionClicks;
 
     private static readonly string[] ScopeRepositories = ["backlog", "docs", "site"];
@@ -399,6 +416,16 @@ The third is refused: Disabled keeps the button in its slot with its glyph, so t
             if (args.CtrlKey || args.MetaKey) { /* add or remove */ }
             else { /* this one, or none when it was alone */ }
         }
+        """;
+
+    private const string RadioCode = """
+        <ButtonGroup Radio="true" AriaLabel="How far back to look">
+            @foreach (var weeks in Windows)
+            {
+                <ToggleButton Pressed="_window == weeks"
+                              PressedChanged="_ => _window = weeks">@weeks weeks</ToggleButton>
+            }
+        </ButtonGroup>
         """;
 
     private const string StopPropagationCode = """

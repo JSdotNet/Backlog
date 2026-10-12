@@ -16,7 +16,8 @@
 @inherits DashboardPartBase<OverviewPointsTile.Reading>
 @inject ITaskInsights Insights
 
-<OverviewTile Label="Story points done"
+<OverviewTile OnRetry="RefreshAsync"
+              Label="Story points done"
               Value="@(IsReady ? MetricFormat.Compact(Value!.Throughput.Effort) : null)"
               Unit="@(IsReady ? Unit : null)"
               Chip="@(IsReady ? Chip : null)"
@@ -27,11 +28,15 @@
               TestId="dashboard-overview-tile-points" />
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Tasks;
+
     /// <summary>What the tile reads: the throughput, and the roadmap when it answered
     /// with the roadmap switched on.</summary>
     public sealed record Reading(TaskThroughputInsight Throughput, PlanInsight? Plan);
 
-    private int Late => Value!.Plan?.Items.Count(row => row.Outlook == PlanOutlook.Behind) ?? 0;
+    /// <summary>Behind or past its end with work open: <see cref="PlanInsight.ItemsBehind"/>,
+    /// the one count the Tasks tab, the brief and Needs you use too.</summary>
+    private int Late => Value!.Plan?.ItemsBehind ?? 0;
 
     private string Unit => Value!.Plan is { PlannedEffort: > 0 } plan
         ? $"of {MetricFormat.Compact(plan.PlannedEffort)} planned"

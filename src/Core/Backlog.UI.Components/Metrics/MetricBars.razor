@@ -71,7 +71,21 @@
                         <div class="@(Part("column-track"))">
                             <span class="@(Part("column-fill"))" style="@($"height: {Invariant(column.Height)}%")"></span>
                         </div>
-                        <span class="@(Part("column-label"))">@(column.ShowLabel ? column.Label : null)</span>
+                        @if (AxisLabel is not null)
+                        {
+                            @* A host's word is wider than a day's column, so it is laid
+                               over the column rather than clipped to it. *@
+                            <span class="@NamedLabelClass(column)">
+                                @if (!string.IsNullOrEmpty(column.AxisText))
+                                {
+                                    <span class="@(Part("axis-text"))">@column.AxisText</span>
+                                }
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="@(Part("column-label"))">@column.AxisText</span>
+                        }
                     </div>
                 }
             </div>
@@ -141,6 +155,13 @@
     [Parameter]
     public int MaxLabels { get; set; } = 7;
 
+    /// <summary>The axis label for a column, by its index, or null to leave it unnamed —
+    /// for a host that names the columns worth naming (the month's first day, today, its
+    /// last) rather than every nth. Overrides <see cref="MaxLabels"/>; the table keeps
+    /// every bucket's own label.</summary>
+    [Parameter]
+    public Func<int, string?>? AxisLabel { get; set; }
+
     /// <summary>Draws the last column in the full brand hue with the rest a step
     /// back, which is how "where we are now" reads without a legend.</summary>
     [Parameter]
@@ -183,7 +204,23 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    private sealed record Column(string Label, decimal Value, decimal Height, bool ShowLabel, bool IsLast, bool IsProjected);
+    private sealed record Column(string Label, decimal Value, decimal Height, bool ShowLabel, bool IsLast, bool IsProjected)
+    {
+        /// <summary>What the axis prints under the column: the host's word, or the
+        /// bucket's label on the stride.</summary>
+        public string? AxisText { get; init; }
+
+        public bool IsFirst { get; init; }
+    }
+
+    /// <summary>The first named label hangs from its column's start and the last from
+    /// its end, so neither runs off the chart; the rest are centred on their column.</summary>
+    private string NamedLabelClass(Column column)
+    {
+        var label = Part("column-label");
+        var edge = column.IsFirst ? $" {label}--start" : column.IsLast ? $" {label}--end" : string.Empty;
+        return $"{label} {label}--named{edge}";
+    }
 
     private List<Column> Columns { get; set; } = [];
 
@@ -227,7 +264,13 @@
                 Math.Max(0m, point.Value) / span * 100m,
                 index % stride == 0 || index == last,
                 index == last,
-                ProjectedFrom is { } from && index >= from))
+                ProjectedFrom is { } from && index >= from)
+            {
+                IsFirst = index == 0,
+                AxisText = AxisLabel is { } named
+                    ? named(index)
+                    : index % stride == 0 || index == last ? point.Label : null
+            })
         ];
     }
 

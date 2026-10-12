@@ -28,7 +28,7 @@
     @if (IsReady)
     {
         <div class="dashboard-part__stack">
-            <ButtonGroup AriaLabel="Cumulative or per day" CssClass="dashboard-spend-trend__mode" TestId="dashboard-spend-trend-mode">
+            <ButtonGroup Radio="true" AriaLabel="Cumulative or per day" CssClass="dashboard-spend-trend__mode" TestId="dashboard-spend-trend-mode">
                 <ToggleButton Pressed="_cumulative"
                               PressedChanged="_ => _cumulative = true"
                               TestId="dashboard-spend-trend-cumulative">
@@ -49,7 +49,7 @@
                         ProjectedFrom="@ProjectedFrom"
                         Reference="@(_cumulative ? Value!.Budget?.Amount : null)"
                         ReferenceLabel="@BudgetLabel"
-                        MaxLabels="6"
+                        AxisLabel="@AxisLabel"
                         FormatValue="Money"
                         TestId="dashboard-spend-trend-bars" />
         </div>
@@ -61,6 +61,8 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Cost;
+
     /// <summary>Spend narrows by nothing on the filter strip. See
     /// <see cref="DashboardPartBase{T}.FollowsRepository"/>.</summary>
     protected override bool FollowsRepository => false;
@@ -81,7 +83,7 @@
 
     private string? BudgetLabel =>
         _cumulative && IsReady && Value!.Budget is { } budget
-            ? $"Budget {MetricFormat.Money(new MoneyAmount(budget.Amount, budget.Currency))}"
+            ? $"Budget {DashboardMoney.Format(budget.Amount, budget.Currency)}"
             : null;
 
     /// <summary>The index of the first day after today, or null when the month has no
@@ -109,11 +111,31 @@
             return
             [
                 .. Value!.Days.Select(day => new MetricPoint(
-                    day.Date.ToString("d MMM", System.Globalization.CultureInfo.CurrentCulture),
+                    day.Date.ToString("d MMM", System.Globalization.CultureInfo.InvariantCulture),
                     _cumulative ? running += day.Amount : day.Amount))
             ];
         }
     }
+
+    /// <summary>
+    /// The three days the axis names (board Cost, AC29): the month's first, today — the
+    /// last reported day — and the month's last. Every day keeps its own label in the
+    /// table under the chart.
+    /// </summary>
+    private Func<int, string?> AxisLabel => index =>
+    {
+        if (!IsReady || Value!.Days.Count == 0) return null;
+
+        var days = Value!.Days;
+        var today = ProjectedFrom is { } from ? from - 1 : days.Count - 1;
+        var month = (DateOnly day) => day.ToString("MMM", System.Globalization.CultureInfo.InvariantCulture);
+
+        if (index == today) return $"Today, {days[index].Date.Day} {month(days[index].Date)}";
+        if (index == 0) return $"1 {month(days[0].Date)}";
+        if (index == days.Count - 1) return $"{days[^1].Date.Day} {month(days[^1].Date)}";
+
+        return null;
+    };
 
     protected override Task<InsightResult<SpendByDayInsight>> FetchAsync(CancellationToken cancellationToken) =>
         Costs.GetByDayAsync(cancellationToken);
@@ -131,5 +153,5 @@
     protected override void InvalidateSource() => Costs.Invalidate();
 
     private string Money(decimal amount) =>
-        MetricFormat.Money(new MoneyAmount(amount, Value?.Currency ?? "USD"));
+        DashboardMoney.Format(amount, Value?.Currency ?? "USD");
 }

@@ -25,17 +25,26 @@ public static class SpendProjections
     /// <summary>How many days the average daily spend is taken over.</summary>
     public const int AverageDays = 7;
 
+    /// <summary>The currency a figure with nothing to take one from is in: Anthropic and
+    /// GitHub both report in dollars.</summary>
+    public const string DefaultCurrency = "USD";
+
+    /// <param name="emptyCurrency">The currency a provider that reported nothing is put
+    /// in: it has none of its own, and the month's — what the other providers bill in —
+    /// keeps its zero and its budget from reading as a currency change. Dollars, the
+    /// providers' default, when the caller has nothing better.</param>
     public static SpendProjection Project(
         SpendProvider provider,
         SpendReport report,
         DateOnly today,
-        decimal? budget)
+        decimal? budget,
+        string emptyCurrency = DefaultCurrency)
     {
         ArgumentNullException.ThrowIfNull(report);
 
         var monthStart = new DateOnly(today.Year, today.Month, 1);
         var monthEnd = monthStart.AddMonths(1).AddDays(-1);
-        var currency = report.Entries.Count == 0 ? "USD" : report.Entries[0].Cost.Currency;
+        var currency = report.Entries.Count == 0 ? emptyCurrency : report.Entries[0].Cost.Currency;
 
         var thisMonth = report.Entries
             .Where(entry => entry.Date >= monthStart && entry.Date <= today)

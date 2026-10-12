@@ -77,10 +77,14 @@ public class DashboardWeeklyBriefTests
             "41.0h of agent time — 1.0h more than last week.",
             pane.Find("[data-testid='dashboard-brief-sessions-headline']").TextContent);
         Assert.Equal(
-            "41.00 USD spent — 1.00 USD more than last week.",
+            "$41 spent — $1 more than last week.",
             pane.Find("[data-testid='dashboard-brief-cost-headline']").TextContent);
 
-        Assert.Equal("41 issues closed.", pane.Find("[data-testid='dashboard-brief-shipping-detail']").TextContent);
+        Assert.Equal("41 issues closed, and no merge that week was reviewed.", pane.Find("[data-testid='dashboard-brief-shipping-detail']").TextContent);
+
+        // W41 merged the most of the weeks read, and no provider passes a budget.
+        pane.WaitForAssertion(() =>
+            Assert.Equal("Your best shipping week this quarter.", pane.Find("[data-testid='dashboard-brief-title']").TextContent.Trim()));
         Assert.Equal("The roadmap is switched off.", pane.Find("[data-testid='dashboard-brief-plan-detail']").TextContent);
         Assert.Equal("No monthly budget is set.", pane.Find("[data-testid='dashboard-brief-cost-detail']").TextContent);
 
@@ -198,9 +202,6 @@ public class DashboardWeeklyBriefTests
         public Task<InsightResult<ProductivityScoreInsight>> GetScoreAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<ProductivityScoreInsight>.Unavailable(DashboardTestHost.UnavailableReason));
 
-        public Task<InsightResult<ProductivityTrend>> GetTrendAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<ProductivityTrend>.Unavailable(DashboardTestHost.UnavailableReason));
-
         public Task<InsightResult<ReworkInsight>> GetReworkAsync(DashboardScope scope, CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<ReworkInsight>.Unavailable(DashboardTestHost.UnavailableReason));
 
@@ -239,9 +240,6 @@ public class DashboardWeeklyBriefTests
 
         public Task<InsightResult<SpendThisMonthInsight>> GetThisMonthAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendThisMonthInsight>.Unavailable(DashboardTestHost.UnavailableReason));
-
-        public Task<InsightResult<SpendTrendInsight>> GetTrendAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<SpendTrendInsight>.Unavailable(DashboardTestHost.UnavailableReason));
 
         public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendByModelInsight>.Unavailable(DashboardTestHost.UnavailableReason));

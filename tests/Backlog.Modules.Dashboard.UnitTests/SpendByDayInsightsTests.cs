@@ -113,6 +113,26 @@ public sealed class SpendByDayInsightsTests
         Assert.Equal(new DashboardMoney(150m, "EUR"), byDay.Value.Budget);
     }
 
+    /// <summary>
+    /// Today is the person's calendar day, as the Devbook tab's "Checked" counts it.
+    /// Verify round 2 read "Today, 12 Oct" five minutes after local midnight on the 13th,
+    /// because the window ended on the UTC day. At +02:00, 22:05 UTC on the 12th is 00:05
+    /// on the 13th: the 13th is the last reported day and the first projected one is the 14th.
+    /// </summary>
+    [Fact]
+    public async Task Today_is_the_persons_calendar_day_just_after_local_midnight()
+    {
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 10, 12, 22, 5, 0, TimeSpan.Zero));
+        clock.SetLocalTimeZone(TimeZoneInfo.CreateCustomTimeZone("test-plus-two", TimeSpan.FromHours(2), "+02", "+02"));
+        var costs = new CostInsights(new Stub(Entries(("2026-10-12", 4m))), Silent(), Silent(), clock);
+
+        var byDay = await costs.GetByDayAsync(TestContext.Current.CancellationToken);
+
+        var reported = byDay.Value!.Days.Where(day => !day.IsProjected).ToList();
+        Assert.Equal(new DateOnly(2026, 10, 13), reported[^1].Date);
+        Assert.Equal(new DateOnly(2026, 10, 14), byDay.Value.Days.First(day => day.IsProjected).Date);
+    }
+
     /// <summary>On the last day of the month there is nothing left to project.</summary>
     [Fact]
     public async Task On_the_last_day_of_the_month_no_day_is_projected()

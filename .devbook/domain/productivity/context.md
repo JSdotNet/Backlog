@@ -109,16 +109,22 @@ key: usage-reset.json
 scope: user
 default: unset
 related: [.devbook/domain/productivity/features.md#personal-productivity-dashboard]
-tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageResetSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.Under_a_usage_reset_the_grid_says_its_rows_are_cut_at_the_reset]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.UsageResetSettingsStoreTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DashboardPaneTests.Under_a_usage_reset_the_grid_says_it_is_a_calendar_week_beside_reset_columns, unit:dotnet:Backlog.Modules.Dashboard.UnitTests.SessionInsightsTests.A_grid_is_a_calendar_week_and_names_the_usage_week_beginning_in_it]
 ```
 
 When the assistant's weekly usage allowance starts again: a day of the week and
 a time, recurring every seven days.
 
-It decides where the dashboard cuts a week. The columns of the weekly charts and
-the seven days of the hour grids run from one reset to the next rather than from
-a calendar Monday, so a week on screen is the week the allowance is actually
-spent in. It changes no figure, only where the boundaries fall.
+It decides where the dashboard cuts a week. The columns of the Sessions tab's
+weekly charts run from one reset to the next rather than from a calendar Monday,
+so a column is the week the allowance is actually spent in. It changes no figure,
+only where the boundaries fall.
+
+The hour grid beside those charts does not follow the reset. It is a calendar
+week, Monday to Sunday, so its seven rows are seven whole days and its "week N"
+title names the week the reader knows. Pressing a column opens the grid on the
+calendar week that usage week begins in, and the grid's caption says the columns
+run from the reset.
 
 The time is on this machine's clock rather than UTC, because the reset is a fact
 the reader copies off the assistant's own usage screen in their own clock
@@ -154,8 +160,8 @@ related: [.devbook/domain/productivity/features.md#spend-against-a-monthly-budge
 ```
 
 How much the reader means to spend on each assistant in a calendar month. There is
-one amount for each spend provider: Claude (Anthropic), GitHub Copilot and the Azure
-AI Foundry resource. Each amount stands alone, because the providers' figures differ
+one amount for each spend provider: Anthropic, Copilot and Azure AI Foundry, as
+Dashboard settings names them. Each amount stands alone, because the providers' figures differ
 in kind and possibly in currency, and one budget across all three would compare
 unlike amounts.
 
@@ -174,7 +180,10 @@ Per value:
   What needs you.
 
 An amount is a bare number with no currency. It is read in the currency that
-provider reports its spend in, because Backlog holds no exchange rate. A negative
+provider reports its spend in, because Backlog holds no exchange rate. A provider
+with no spend yet this month has no currency of its own, so its budget is read in
+the currency the month's other spend is in, and in US dollars when nothing has
+been spent at all. A negative
 amount, or text that is not an amount, is refused with a message, and the budget in
 force stays. A file entry that cannot be read is dropped, and the other budgets in
 the file are kept.
@@ -206,4 +215,4 @@ default: on
 related: [".devbook/domain/productivity/features.md#personal-productivity-dashboard"]
 ```
 
-Turning it on lets the reader open the full-screen dashboard of their productivity and what their assistants cost from the app chrome. The dashboard is six tabs and opens on the Overview every time; [Six tabs and what each answers](features.md#six-tabs-and-what-each-answers) says what each holds. On by default and marked `DEV`. The key is `DashboardFeatures.Dashboard` in the Dashboard module; the string is unchanged from when it lived on `MonitoringFeatures`, so nobody's switched-off dashboard came back. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the dashboard leaves `DEV`.
+Turning it on lets the reader open the full-screen dashboard of their productivity and what their assistants cost from the app chrome. The dashboard is six tabs and opens on the Overview every time; [Six tabs and what each answers](features.md#six-tabs-and-what-each-answers) says what each holds, and [The header and its controls](features.md#the-header-and-its-controls) says how the window of 4, 8, 12 or 26 weeks and the machine narrow them. On by default and marked `DEV`. The key is `DashboardFeatures.Dashboard` in the Dashboard module; the string is unchanged from when it lived on `MonitoringFeatures`, so nobody's switched-off dashboard came back. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the dashboard leaves `DEV`.

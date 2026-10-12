@@ -138,39 +138,6 @@ public class CostInsightsTests
     }
 
     [Fact]
-    public async Task The_trend_reaches_back_far_enough_to_have_six_months_to_compare_against()
-    {
-        var costs = Costs(new StubSpendSource { Report = Spend(1m) }, Silent());
-
-        var trend = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
-
-        Assert.True(trend.HasValue);
-        var series = Assert.Single(trend.Value!.ByProvider);
-        Assert.Equal(SpendBucket.Month, trend.Value.Bucket);
-        Assert.Equal(7, series.Points.Count);
-        Assert.Equal("Feb 26", series.Points[0].Label);
-        Assert.Equal("Aug 26", series.Points[^1].Label);
-    }
-
-    [Fact]
-    public async Task A_month_neither_provider_reported_is_a_zero_bucket_rather_than_a_missing_one()
-    {
-        var costs = Costs(
-            claude: new StubSpendSource
-            {
-                Report = new SpendReport([new SpendEntry(new DateOnly(2026, 8, 3), "opus", 1, new DashboardMoney(7m, "USD"))])
-            },
-            copilot: Silent());
-
-        var trend = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
-
-        Assert.True(trend.HasValue);
-        var series = Assert.Single(trend.Value!.ByProvider);
-        Assert.All(series.Points.SkipLast(1), point => Assert.Equal(0m, point.Value));
-        Assert.Equal(7m, series.Points[^1].Value);
-    }
-
-    [Fact]
     public async Task Spend_by_model_puts_both_providers_in_one_table_ordered_by_cost()
     {
         var costs = Costs(
@@ -222,13 +189,13 @@ public class CostInsightsTests
         _ = await costs.GetByModelAsync(TestContext.Current.CancellationToken);
 
         // Month and by-model read the same window, so they share one fetch; the
-        // trend reads a longer one and fetches on its own. Claude is asked a second
+        // weeks read a longer one and fetch on their own. Claude is asked a second
         // time, for the same days of last month the month tile compares with; Copilot
         // is not, because it reports a month as one entry.
         Assert.Equal(2, claude.Calls);
         Assert.Equal(1, copilot.Calls);
 
-        _ = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
+        _ = await costs.GetByWeekAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(3, claude.Calls);
         Assert.Equal(2, copilot.Calls);
@@ -240,7 +207,7 @@ public class CostInsightsTests
     /// it names; a third one silently reporting would change what "only" means.
     /// </summary>
     [Fact]
-    public async Task Azure_Foundry_is_a_third_tile_a_third_series_and_rows_of_its_own_beside_the_other_two()
+    public async Task Azure_Foundry_is_a_third_tile_and_rows_of_its_own_beside_the_other_two()
     {
         var costs = Costs(
             claude: new StubSpendSource { Report = Spend(12m) },
@@ -248,7 +215,6 @@ public class CostInsightsTests
             azureFoundry: new StubSpendSource { Report = AzureSpend(4.5m) });
 
         var month = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
-        var trend = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
         var byModel = await costs.GetByModelAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(
@@ -260,11 +226,7 @@ public class CostInsightsTests
         Assert.False(azure.IsEstimate);
         Assert.Null(azure.Allowance);
 
-        Assert.Equal(["Claude", "Copilot", "Azure Foundry"], trend.Value!.ByProvider.Select(series => series.Name));
-        // Two currencies on one axis: the label says so rather than picking one.
-        Assert.Equal("mixed", trend.Value.Currency);
-
-        var row = Assert.Single(byModel.Value!.Rows, row => row.Detail == "Azure Foundry");
+        var row = Assert.Single(byModel.Value!.Rows, row => row.Detail == "Azure AI Foundry");
         Assert.Equal("gpt-5.4 Output Tokens", row.Name);
         Assert.Null(row.Tokens);
     }
@@ -275,11 +237,11 @@ public class CostInsightsTests
         var costs = Costs(Silent(), Silent(), azureFoundry: new StubSpendSource { Report = AzureSpend(2m) });
 
         var month = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
-        var trend = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
+        var weeks = await costs.GetByWeekAsync(TestContext.Current.CancellationToken);
 
         var provider = Assert.Single(month.Value!.Providers);
         Assert.Equal(SpendProvider.AzureFoundry, provider.Provider);
-        Assert.Equal("EUR", trend.Value!.Currency);
+        Assert.Equal("EUR", weeks.Value!.Currency);
     }
 
     [Fact]
@@ -509,18 +471,92 @@ public class CostInsightsTests
         Assert.Contains("EUR", weeks.Availability.Reason, StringComparison.Ordinal);
     }
 
-    /// <summary>The weeks are derived from the trend's read, so drawing both asks each
-    /// provider once.</summary>
+    /// <summary>
+    /// A provider that answered with nothing this month has no currency of its own; its
+    /// zero is put in the month's currency rather than in dollars, so a quiet card in a
+    /// euro month does not read as a currency change (entry 19).
+    /// </summary>
     [Fact]
-    public async Task Spend_by_week_shares_the_trends_read()
+    public async Task A_quiet_provider_is_shown_in_the_months_currency()
     {
-        var claude = new StubSpendSource { Report = Spend(2m) };
-        var costs = Costs(claude, Silent());
+        var costs = Costs(new StubSpendSource(), Silent(), azureFoundry: new StubSpendSource { Report = AzureSpend(4m) });
 
-        _ = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
-        _ = await costs.GetByWeekAsync(TestContext.Current.CancellationToken);
+        var month = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(1, claude.Calls);
+        var claude = Assert.Single(month.Value!.Providers, provider => provider.Provider == SpendProvider.Claude);
+        Assert.Equal(new DashboardMoney(0m, "EUR"), claude.Spend);
+    }
+
+    [Fact]
+    public async Task A_quiet_provider_projects_and_is_budgeted_in_the_months_currency()
+    {
+        var costs = new CostInsights(
+            new ClaudeAdapter(new StubSpendSource()),
+            new CopilotAdapter(Silent()),
+            new AzureFoundryAdapter(new StubSpendSource { Report = AzureSpend(4m) }),
+            new FakeTimeProvider(Now),
+            new Budgets { [SpendProvider.Claude] = 100m });
+
+        var projection = await costs.GetProjectionAsync(TestContext.Current.CancellationToken);
+
+        var claude = Assert.Single(projection.Value!.Providers, provider => provider.Provider == SpendProvider.Claude);
+        Assert.Equal(new DashboardMoney(100m, "EUR"), claude.Budget);
+        Assert.Equal("EUR", claude.Projected.Currency);
+        Assert.Equal("EUR", claude.MonthToDate.Currency);
+    }
+
+    /// <summary>With nothing else to take a currency from, a quiet month stays in the
+    /// providers' default, dollars.</summary>
+    [Fact]
+    public async Task A_month_with_no_spend_anywhere_stays_in_dollars()
+    {
+        var month = await Costs(new StubSpendSource(), Silent()).GetThisMonthAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("USD", Assert.Single(month.Value!.Providers).Spend.Currency);
+    }
+
+    /// <summary>
+    /// The model table's one token shape (entry 19): input and output. A provider that
+    /// reports only a total has neither, so the split columns read as not reported for
+    /// it rather than the table growing a second kind of column.
+    /// </summary>
+    [Fact]
+    public async Task Spend_by_model_carries_tokens_split_by_direction_or_not_at_all()
+    {
+        var costs = Costs(
+            claude: new StubSpendSource
+            {
+                Report = new SpendReport(
+                [
+                    new SpendEntry(new DateOnly(2026, 8, 2), "opus", 1_000, new DashboardMoney(3m, "USD")) { InputTokens = 400, OutputTokens = 600 }
+                ])
+            },
+            copilot: new StubSpendSource
+            {
+                Report = new SpendReport([new SpendEntry(new DateOnly(2026, 8, 4), "gpt-5", 2_000, new DashboardMoney(9m, "USD"))])
+            });
+
+        var rows = (await costs.GetByModelAsync(TestContext.Current.CancellationToken)).Value!.Rows;
+
+        var split = Assert.Single(rows, row => row.Name == "opus");
+        Assert.Equal((400L, 600L), (split.InputTokens!.Value, split.OutputTokens!.Value));
+
+        var totalOnly = Assert.Single(rows, row => row.Name == "gpt-5");
+        Assert.Null(totalOnly.InputTokens);
+        Assert.Null(totalOnly.OutputTokens);
+    }
+
+    [Fact]
+    public async Task Spend_by_model_names_each_provider_as_the_screen_does()
+    {
+        var costs = Costs(
+            claude: new StubSpendSource { Report = Spend(2m) },
+            copilot: new StubSpendSource { Report = Spend(3m) },
+            azureFoundry: new StubSpendSource { Report = AzureSpend(1m) });
+
+        var rows = (await costs.GetByModelAsync(TestContext.Current.CancellationToken)).Value!.Rows;
+
+        Assert.Equal(["Anthropic", "Azure AI Foundry", "Copilot"], rows.Select(row => row.Detail!).Order(StringComparer.Ordinal));
     }
 
     private static CostInsights Costs(
@@ -591,6 +627,21 @@ public class CostInsightsTests
             }
 
             return Task.FromResult(ReportFor?.Invoke(from, to) ?? Report);
+        }
+    }
+
+    private sealed class Budgets : Dictionary<SpendProvider, decimal>, ISpendBudgetSettings
+    {
+        public event Action? Changed;
+
+        public string SettingsPath => "in memory";
+
+        public decimal? BudgetFor(SpendProvider provider) => TryGetValue(provider, out var amount) ? amount : null;
+
+        public string? Set(SpendProvider provider, decimal? amount)
+        {
+            Changed?.Invoke();
+            return null;
         }
     }
 

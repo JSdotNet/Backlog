@@ -22,7 +22,8 @@
 @inherits DashboardPartBase<OverviewSpendTile.Reading>
 @inject ICostInsights Costs
 
-<OverviewTile Label="Spend this month"
+<OverviewTile OnRetry="RefreshAsync"
+              Label="Spend this month"
               Chip="@(IsReady ? Chip : null)"
               Status="Status"
               StatusMessage="@StatusMessage"
@@ -54,6 +55,8 @@
 </OverviewTile>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Cost;
+
     /// <summary>What the tile reads: the month, and each provider's projection by
     /// provider, empty when it could not be read.</summary>
     public sealed record Reading(
@@ -109,14 +112,8 @@
 
     protected override void InvalidateSource() => Costs.Invalidate();
 
-    private static string Name(SpendProvider provider) => provider switch
-    {
-        SpendProvider.Claude => "Claude",
-        SpendProvider.Copilot => "Copilot",
-        SpendProvider.AzureFoundry => "Azure Foundry",
-        _ => provider.ToString()
-    };
+    private static string Name(SpendProvider provider) => provider.DisplayName();
 
     private static string Money(DashboardMoney money) =>
-        MetricFormat.Money(new MoneyAmount(money.Amount, money.Currency));
+        DashboardMoney.Format(money.Amount, money.Currency);
 }

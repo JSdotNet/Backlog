@@ -32,7 +32,7 @@
     private string Detail() =>
         WeeklyBriefSentences.ShippingDetail(
             (int)(Week.Read(Value!.IssuesPerWeek)?.Value ?? 0m),
-            Week.Read(Value!.ReviewTurnaroundPerWeek)?.Value);
+            Week.ValueAt(Value!.ReviewTurnaroundPerWeek));
 
     protected override Task<InsightResult<ProductivityHeadline>> FetchAsync(CancellationToken cancellationToken) =>
         Insights.GetHeadlineAsync(Scope, cancellationToken);

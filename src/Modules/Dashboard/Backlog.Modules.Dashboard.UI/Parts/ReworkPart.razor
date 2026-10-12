@@ -40,12 +40,16 @@
                own denominator. Each kind answers for that denominator, so a window
                where nothing was reviewed still shows its syncs, and one where
                nothing synced still shows its churn. *@
-            <MetricGrid Label="Post-review churn and syncs with the base branch"
-                        MinColumnWidth="10rem"
-                        CssClass="dashboard-rework__tiles"
-                        TestId="dashboard-rework-tiles">
+            @* Two labelled groups (board Productivity): what happened after a review, and
+               what syncing with the base branch cost. Each answers for its own
+               denominator, so a window where nothing was reviewed still shows its syncs,
+               and one where nothing synced still shows its churn. *@
+            <div class="dashboard-rework__tiles" data-testid="dashboard-rework-tiles">
                 @if (Value!.PullRequestsReviewed > 0)
                 {
+                    <section class="dashboard-rework__group" aria-labelledby="dashboard-rework-after-review-title" data-testid="dashboard-rework-after-review">
+                    <h4 class="dashboard-rework__group-title" id="dashboard-rework-after-review-title">After review</h4>
+                    <MetricGrid Label="After review" MinColumnWidth="10rem">
                     <MetricTile Label="Pull requests that churned"
                                 Value="@MetricFormat.Compact(Value!.PullRequestsWithChurn)"
                                 Unit="@($"of {Value!.PullRequestsReviewed} reviewed")"
@@ -54,7 +58,7 @@
                     <MetricTile Label="Commits after first review"
                                 Value="@MetricFormat.Compact(Value!.CommitsAfterFirstReview)"
                                 TestId="dashboard-rework-commits" />
-                    <MetricTile Label="Force pushes after first review"
+                    <MetricTile Label="Force pushes"
                                 Value="@MetricFormat.Compact(Value!.ForcePushesAfterFirstReview)"
                                 TestId="dashboard-rework-forcepushes" />
                     <MetricTile Label="Files touched again"
@@ -72,11 +76,16 @@
                                 Value="@MetricFormat.Compact(Value!.ChangesRequested)"
                                 Footnote="Of those rounds"
                                 TestId="dashboard-rework-changes-requested" />
+                    </MetricGrid>
+                    </section>
                 }
 
                 @if (Value!.PullRequestsSynced > 0)
                 {
-                    <MetricTile Label="Pull requests with a conflicted sync"
+                    <section class="dashboard-rework__group" aria-labelledby="dashboard-rework-base-syncs-title" data-testid="dashboard-rework-base-syncs">
+                    <h4 class="dashboard-rework__group-title" id="dashboard-rework-base-syncs-title">Base syncs</h4>
+                    <MetricGrid Label="Base syncs" MinColumnWidth="10rem">
+                    <MetricTile Label="Conflicted syncs"
                                 Value="@MetricFormat.Compact(Value!.PullRequestsWithConflictedSync)"
                                 Unit="@($"of {Value!.PullRequestsSynced} synced")"
                                 Emphasis="true"
@@ -84,23 +93,32 @@
                     <MetricTile Label="Sync merges"
                                 Value="@MetricFormat.Compact(Value!.SyncMerges)"
                                 TestId="dashboard-rework-syncs" />
-                    <MetricTile Label="Syncs that resolved a conflict"
+                    <MetricTile Label="Resolved a conflict"
                                 Value="@MetricFormat.Compact(Value!.ConflictedSyncMerges)"
                                 Footnote="At least — read from each merge's own message"
                                 TestId="dashboard-rework-conflicts" />
+                    </MetricGrid>
+                    </section>
                 }
-            </MetricGrid>
+            </div>
 
             @* Beside the grid, and only when there is more than one repository in
                the answer. A one-row ranking of the repository already named in the
                filter is a restatement, not a comparison. *@
             @if (Value!.PullRequestsReviewed > 0 && Value!.ByRepository.Count > 1)
             {
-                <MetricRanking Items="@ByRepository"
-                               Label="Churn by repository — commits after first review"
-                               FormatValue="MetricFormat.Compact"
-                               CssClass="dashboard-rework__by-repository"
-                               TestId="dashboard-rework-by-repository" />
+                <div class="dashboard-rework__by-repository">
+                    <MetricRanking Items="@ByRepository"
+                                   Label="Churn by repository — pull requests that came back after review"
+                                   FormatValue="MetricFormat.Compact"
+                                   TestId="dashboard-rework-by-repository" />
+                    @* The total the old breakdown carried (entry 20): the rows above add
+                       up to it, so it reads as the sum and not as a figure of its own. *@
+                    <p class="dashboard-rework__total" data-testid="dashboard-rework-by-repository-total">
+                        Total <strong>@MetricFormat.Compact(Value!.PullRequestsWithChurn)</strong>
+                        of @MetricFormat.Compact(Value!.PullRequestsReviewed) reviewed
+                    </p>
+                </div>
             }
         </div>
     }
@@ -111,6 +129,8 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Productivity;
+
     private string Note
     {
         get
@@ -137,11 +157,14 @@
         }
     }
 
-    /// <summary>Each repository's commits after a first review, with how many of its
-    /// reviewed pull requests churned as the detail. The ranking orders them.</summary>
+    /// <summary>Each repository's pull requests that came back after review, with how
+    /// many of its pull requests were reviewed as the detail. The ranking orders them.</summary>
     private IReadOnlyList<MetricRankItem> ByRepository =>
         IsReady
-            ? [.. Value!.ByRepository.Select(row => new MetricRankItem(row.Name, row.Tokens ?? 0, row.Detail))]
+            ? [.. Value!.ByRepository.Select(row => new MetricRankItem(
+                row.Alias,
+                row.PullRequestsWithChurn,
+                $"{row.PullRequestsWithChurn} of {row.PullRequestsReviewed} reviewed"))]
             : [];
 
     protected override Task<InsightResult<ReworkInsight>> FetchAsync(CancellationToken cancellationToken) =>

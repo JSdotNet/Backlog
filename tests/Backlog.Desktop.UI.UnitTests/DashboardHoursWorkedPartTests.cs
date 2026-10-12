@@ -35,6 +35,22 @@ public sealed class DashboardHoursWorkedPartTests
 
     private static readonly DashboardScope TwelveWeeks = new(Period: DashboardPeriod.TwelveWeeks);
 
+    /// <summary>The note names the window on show (verify round 2: "over twelve weeks"
+    /// was printed under 8 and 26 weeks too).</summary>
+    [Theory]
+    [InlineData(DashboardPeriod.EightWeeks, "over 8 weeks")]
+    [InlineData(DashboardPeriod.TwelveWeeks, "over 12 weeks")]
+    [InlineData(DashboardPeriod.TwentySixWeeks, "over 26 weeks")]
+    public void The_note_names_the_window_on_show(DashboardPeriod period, string expected)
+    {
+        using var context = Context(new ScriptedSource());
+
+        var part = context.Render<HoursWorkedPart>(parameters => parameters.Add(p => p.Scope, new DashboardScope(Period: period)));
+
+        Assert.Contains($"Per calendar week, Monday first, {expected}.", part.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("twelve weeks", part.Markup, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void The_part_shows_the_split_against_the_plan_and_the_totals()
     {

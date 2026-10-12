@@ -150,7 +150,7 @@ public sealed class DashboardSettingsTests
         Assert.Equal(49.50m, section.SpendBudgets.BudgetFor(SpendProvider.Copilot));
         Assert.Null(section.SpendBudgets.BudgetFor(SpendProvider.Claude));
         Assert.Null(section.SpendBudgets.BudgetFor(SpendProvider.AzureFoundry));
-        Assert.Contains("Budgets set for GitHub Copilot", section.Component.Find("[data-testid='spend-budget-status']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("Budgets set for Copilot", section.Component.Find("[data-testid='spend-budget-status']").TextContent, StringComparison.Ordinal);
 
         Assert.Equal(49.50m, new SpendBudgetSettingsStore(section.SpendBudgets.SettingsPath).BudgetFor(SpendProvider.Copilot));
     }
@@ -168,9 +168,9 @@ public sealed class DashboardSettingsTests
     }
 
     [Theory]
-    [InlineData("lots", "Give the Claude budget as an amount, such as 50 or 49.50.")]
+    [InlineData("lots", "Give the Anthropic budget as an amount, such as 50 or 49.50.")]
     [InlineData("-5", "A budget can't be negative.")]
-    [InlineData("1e", "Give the Claude budget as an amount, such as 50 or 49.50.")]
+    [InlineData("1e", "Give the Anthropic budget as an amount, such as 50 or 49.50.")]
     public void An_amount_that_is_not_a_budget_is_refused_and_the_one_in_force_stays(string typed, string reason)
     {
         using var section = RenderSection();
@@ -209,7 +209,7 @@ public sealed class DashboardSettingsTests
 
         section.Component.Find("#spend-budget-claude").Change("");
 
-        Assert.Contains("Budgets set for GitHub Copilot", section.Component.Find("[data-testid='spend-budget-status']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("Budgets set for Copilot", section.Component.Find("[data-testid='spend-budget-status']").TextContent, StringComparison.Ordinal);
     }
 
     private static string[] Tabs(IRenderedComponent<Settings> component) =>

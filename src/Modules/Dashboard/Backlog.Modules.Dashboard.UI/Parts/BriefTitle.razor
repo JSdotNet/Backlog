@@ -1,0 +1,76 @@
+@*
+    The weekly brief's title (board Brief, decision Q5, AC33): a sentence, not a label —
+    "Your best shipping week this quarter, at a cost." — from a fixed template filled
+    from the insights the blocks read, through the same cached services.
+
+    Three reads: the merged pull requests per week, for the best or quietest week of the
+    ones read and the week's count; the story points of the week; the month's projection,
+    for ", at a cost". Until the shipping figures answer, or when they cannot, the title
+    is "Weekly brief" — a heading is never a loading state.
+*@
+
+@inject IProductivityInsights Productivity
+@inject ITaskInsights Tasks
+@inject ICostInsights Costs
+
+@(_title ?? "Weekly brief")
+
+@code {
+    private string? _title;
+    private (DashboardScope? Scope, BriefWeek? Week) _read;
+
+    /// <summary>The scope the blocks read: the pane's, over twelve weeks.</summary>
+    [Parameter, EditorRequired]
+    public DashboardScope Scope { get; set; } = DashboardScope.Default;
+
+    [Parameter, EditorRequired]
+    public BriefWeek Week { get; set; } = default!;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_read == (Scope, Week)) return;
+
+        _read = (Scope, Week);
+        _title = null;
+
+        string? title;
+        try
+        {
+            title = await ReadAsync(Scope, Week);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            title = null;
+        }
+
+        if (_read == (Scope, Week)) _title = title;
+    }
+
+    private async Task<string?> ReadAsync(DashboardScope scope, BriefWeek week)
+    {
+        var headline = await Productivity.GetHeadlineAsync(scope);
+        if (!headline.HasValue) return null;
+
+        var series = headline.Value!.PullRequestsPerWeek;
+        var index = series.Count - 2 - week.WeeksBack;
+        if (index < 0) return null;
+
+        // The weeks read up to the reported one: the "quarter" the best and quietest are
+        // judged among. The running week is not one of them — it is not over.
+        var quarter = series.Take(index + 1).Select(point => point.Value).ToList();
+
+        var throughput = await Tasks.GetThroughputAsync(scope);
+        var points = throughput.HasValue ? week.Read(throughput.Value!.EffortPerWeek)?.Value : null;
+
+        // ", at a cost" is about this month's projection, so only the current week says
+        // it: an older week's month may have stayed within budget.
+        var atACost = false;
+        if (week.WeeksBack == 0)
+        {
+            var projection = await Costs.GetProjectionAsync();
+            atACost = projection.HasValue && projection.Value!.Providers.Any(provider => provider.IsProjectedPastBudget);
+        }
+
+        return WeeklyBriefSentences.Title(series[index].Value, quarter, points, atACost);
+    }
+}

@@ -169,7 +169,7 @@ RowTotal adds a column after the grid. The figure in it is always the caller's: 
     <Story Name="MetricHeatmap — a second channel that is not a second ramp"
            Description="CellMarked answers whether a cell is in or out, where the shade answers how much of it there was — working hours on a day-and-hour grid, a release window, a period under maintenance. It is drawn as an edge rather than a fill, because a second fill would read as a second reading and this palette has one saturated hue to spend.
 
-It will not draw without MarkedLabel, and the pairing is the point: the label goes into the cell's title and its hidden text, so the distinction reaches a screen reader too. A mark a sighted reader can act on and nobody else can hear is a distinction the grid makes and then refuses to say."
+It will not draw without MarkedLabel, and the pairing is the point: the label goes into the cell's title and its hidden text, so the distinction reaches a screen reader too, and into the legend beside a swatch wearing the same edge, so a sighted reader can read the edge as well as see it. A legend entry wraps rather than widening the card, so a long label such as the sessions part's limit wall stays inside a phone's width. A mark a sighted reader can act on and nobody else can hear is a distinction the grid makes and then refuses to say."
            Code="@HeatmapMarkedCode">
         <MetricHeatmap Series="Windowed"
                        Label="@($"Score by repository and week, last {_weeks} weeks — the last four weeks outlined")"

@@ -11271,6 +11271,34 @@ select.field__input {
     white-space: nowrap;
 }
 
+/* A host's own word for a column - "Today, 12 Oct" - is wider than a day's column, and
+   clipped to it read "Toda…". It is laid over the column instead: centred on it, or
+   hung from the first column's start and the last's end so it stays on the chart. The
+   host names a few columns, so the words have the room between them. */
+.metric-bars__column-label--named {
+    position: relative;
+    overflow: visible;
+}
+
+.metric-bars__axis-text {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+.metric-bars__column-label--start .metric-bars__axis-text {
+    left: 0;
+    transform: none;
+}
+
+.metric-bars__column-label--end .metric-bars__axis-text {
+    left: auto;
+    right: 0;
+    transform: none;
+}
+
 /* --- Metrics: stacked and grouped columns -------------------------------- */
 
 /* The column chart's skeleton with several boxes per column. min-width: 0
@@ -12473,13 +12501,18 @@ select.field__input {
 
 /* --- Metrics: heatmap ---------------------------------------------------- */
 
+/* One column that may shrink below the table's width, so the grid scrolls inside its
+   own box rather than widening the card around it at a phone width. */
 .metric-heatmap {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-sm);
     min-width: 0;
 }
 
 .metric-heatmap__label {
+    flex-wrap: wrap;
+    min-width: 0;
     margin: 0;
 }
 
@@ -12567,6 +12600,14 @@ select.field__input {
    reader wants to see. outline-offset pulls it inside the box so the mark does not
    eat the border-spacing between cells. */
 .metric-heatmap__cell--marked {
+    outline: var(--border-width) solid var(--chart-axis);
+    outline-offset: calc(var(--border-width) * -1);
+}
+
+/* The legend's sample of that edge: the track a cell sits on, wearing the same
+   outline, so the entry reads as the mark and not as a shade. */
+.metric-heatmap__swatch--marked {
+    background: var(--chart-track);
     outline: var(--border-width) solid var(--chart-axis);
     outline-offset: calc(var(--border-width) * -1);
 }
@@ -12717,11 +12758,18 @@ select.field__input {
     list-style: none;
 }
 
+/* An entry may wrap: the marked edge's label - "blocked by the 5-hour limit, from the
+   refusal to the reset" - is wider than a phone's card and carried the page sideways. */
 .metric-heatmap__legend-item {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-xs);
-    white-space: nowrap;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.metric-heatmap__legend-item > .metric-heatmap__swatch {
+    flex: none;
 }
 
 .metric-heatmap__swatch {

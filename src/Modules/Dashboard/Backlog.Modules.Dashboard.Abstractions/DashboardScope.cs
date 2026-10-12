@@ -6,18 +6,26 @@ namespace Backlog.Modules.Dashboard.Abstractions;
 /// Weeks rather than days, and a closed set rather than a number: a productivity
 /// figure over a single day is mostly noise about which day of the week it was,
 /// and an arbitrary window would make two readings taken a fortnight apart
-/// incomparable. Four weeks is "recently", twelve is "this quarter".
+/// incomparable. Four weeks is "recently", eight "the last two months", twelve
+/// "this quarter" and twenty-six "the last half year".
+/// </para>
+/// <para>
+/// Never persisted — the scope is a field of the pane, forgotten when it closes — so
+/// the members' numeric values carry no meaning outside this process. The names are
+/// kept stable all the same.
 /// </para>
 /// </summary>
 public enum DashboardPeriod
 {
     FourWeeks,
-    TwelveWeeks
+    EightWeeks,
+    TwelveWeeks,
+    TwentySixWeeks
 }
 
 /// <summary>
 /// What the dashboard is currently looking at: some repositories or all of them, one
-/// machine or all of them, over one of the two windows.
+/// machine or all of them, over one of the four windows.
 /// <para>
 /// This is query state, not a preference. Nothing persists it — closing the
 /// dashboard forgets it, which is the whole reason the surface has no settings:
@@ -58,14 +66,14 @@ public sealed record DashboardScope(
     public static DashboardScope Default { get; } = new();
 
     /// <summary>
-    /// The widest any period reaches back: twelve weeks, the longest member of
+    /// The widest any period reaches back: twenty-six weeks, the longest member of
     /// <see cref="DashboardPeriod"/>. A source read back to this once answers every
     /// period by derivation, which is what lets the period control move without a read
     /// — and it is here rather than in the one derivation that used to keep it so the
     /// machine filter, which asks the same source, reads exactly as far back as the
     /// figures it narrows.
     /// </summary>
-    public static TimeSpan Horizon { get; } = TimeSpan.FromDays(7 * 12);
+    public static TimeSpan Horizon { get; } = TimeSpan.FromDays(7 * 26);
 
     /// <summary>The repositories in focus. Never null: a caller that passes none
     /// gets <see cref="RepositoryFocus.All"/>, so "not narrowed" has one spelling.</summary>
@@ -78,7 +86,13 @@ public sealed record DashboardScope(
     public bool IsAllMachines => string.IsNullOrWhiteSpace(MachineId);
 
     /// <summary>The window as whole weeks.</summary>
-    public int Weeks => Period == DashboardPeriod.FourWeeks ? 4 : 12;
+    public int Weeks => Period switch
+    {
+        DashboardPeriod.FourWeeks => 4,
+        DashboardPeriod.EightWeeks => 8,
+        DashboardPeriod.TwentySixWeeks => 26,
+        _ => 12
+    };
 
     /// <summary>
     /// The window as a half-open instant range ending at <paramref name="now"/>,

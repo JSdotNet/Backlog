@@ -1,0 +1,177 @@
+@*
+    The Tasks tab's six figures, one joined row in the board's order (entry 16): tasks
+    completed, story points done of planned, the pace in use, the items in the window,
+    the planned effort, and what is still to do.
+
+    Two reads, as the Overview's story points tile makes them: the backlog's throughput
+    for what was ticked off — with the comparison to the window before (#1087) on the
+    story points — and the roadmap for what was planned and how it stands. The roadmap
+    and the backlog each answer for their own tiles: one unreadable leaves the other's
+    figures standing and says why on its own tiles; only both failing takes the row.
+
+    Story points done is here once. The roadmap's own "Done" tile and the effort chart's
+    tile it used to sit beside are gone, so the figure cannot read differently in two
+    places on one tab.
+
+    No pace is said as no pace. A pace of 0 pts/week reads as "nothing gets done",
+    where the truth is that nothing was measured (entry 19), and the weeks still to do
+    are then not a number either.
+*@
+@inherits DashboardPartBase<TaskFiguresPart.Reading>
+@inject ITaskInsights Insights
+
+<PartFrame Title="Tasks and the plan"
+           Note="@Note"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-tasks-figures">
+    <MetricGrid Label="Tasks and the plan over the selected window" MinColumnWidth="9rem" CssClass="dashboard-tasks-figures" TestId="dashboard-tasks-figures-tiles">
+        <MetricTile Label="Tasks completed"
+                    Value="@(Throughput is { } done ? MetricFormat.Compact(done.Completed) : null)"
+                    Footnote="@(Throughput is { } perWeek ? DashboardFormat.PerWeek(perWeek.Completed, Scope.Weeks) : null)"
+                    Status="ThroughputStatus"
+                    StatusMessage="@ThroughputMessage"
+                    TestId="dashboard-tasks-figure-completed" />
+
+        <MetricTile Label="Story points done"
+                    Value="@(Throughput is { } pointsDone ? MetricFormat.Compact(pointsDone.Effort) : null)"
+                    Unit="@(Plan is { PlannedEffort: > 0 } planned ? $"of {MetricFormat.Compact(planned.PlannedEffort)} planned" : null)"
+                    Emphasis="true"
+                    Delta="@(Throughput is { } compared ? DashboardFormat.CountDelta(compared.Effort, compared.PreviousEffort, DashboardFormat.PreviousWeeks(Scope.Weeks)) : null)"
+                    Footnote="@(Throughput is not null ? UnestimatedFootnote : null)"
+                    FootnoteAsHint="true"
+                    Status="ThroughputStatus"
+                    StatusMessage="@ThroughputMessage"
+                    TestId="dashboard-tasks-figure-points" />
+
+        <MetricTile Label="Pace in use"
+                    Value="@(Plan is { } plan ? plan.PaceInUse is { } pace ? MetricFormat.Score(pace) : "No pace" : null)"
+                    Unit="@(Plan?.PaceInUse is not null ? "pts / week" : null)"
+                    Footnote="@(Plan is { } basis ? Basis(basis) : null)"
+                    FootnoteAsHint="true"
+                    Status="PlanStatus"
+                    StatusMessage="@PlanMessage"
+                    TestId="dashboard-tasks-figure-pace" />
+
+        <MetricTile Label="Items in window"
+                    Value="@(Plan is { } items ? MetricFormat.Compact(items.Items.Count) : null)"
+                    Footnote="@(Plan is { } standing ? $"{standing.ItemsDone} done · {standing.ItemsBehind} behind" : null)"
+                    Status="PlanStatus"
+                    StatusMessage="@PlanMessage"
+                    TestId="dashboard-tasks-figure-items" />
+
+        <MetricTile Label="Planned effort"
+                    Value="@(Plan is { } effort ? MetricFormat.Compact(effort.PlannedEffort) : null)"
+                    Unit="pts"
+                    Footnote="@PlannedFootnote"
+                    FootnoteAsHint="true"
+                    Status="PlanStatus"
+                    StatusMessage="@PlanMessage"
+                    TestId="dashboard-tasks-figure-planned" />
+
+        <MetricTile Label="Still to do"
+                    Value="@(Plan is { } left ? MetricFormat.Compact(left.StillToDo) : null)"
+                    Unit="pts"
+                    Footnote="@(Plan is { } weeks ? WeeksLeft(weeks) : null)"
+                    Status="PlanStatus"
+                    StatusMessage="@PlanMessage"
+                    TestId="dashboard-tasks-figure-left" />
+    </MetricGrid>
+</PartFrame>
+
+@code {
+    protected override DashboardSources Sources => DashboardSources.Tasks;
+
+    /// <summary>What the row reads: the backlog's throughput and the roadmap — each, or
+    /// why it has none.</summary>
+    public sealed record Reading(TaskThroughputInsight? Throughput, string? ThroughputReason, PlanInsight? Plan, string? PlanReason);
+
+    private PlanInsight? Plan => IsReady ? Value!.Plan : null;
+
+    private TaskThroughputInsight? Throughput => IsReady ? Value!.Throughput : null;
+
+    private MetricStatusKind ThroughputStatus => !IsReady ? Status : Value!.Throughput is null ? MetricStatusKind.Unavailable : MetricStatusKind.Ready;
+
+    private string? ThroughputMessage => !IsReady ? StatusMessage : Value!.Throughput is null ? Value!.ThroughputReason : null;
+
+    /// <summary>The roadmap's four tiles carry their own state: unavailable, with the
+    /// roadmap's own words, while the backlog's two still show their figures.</summary>
+    private MetricStatusKind PlanStatus => !IsReady ? Status : Value!.Plan is null ? MetricStatusKind.Unavailable : MetricStatusKind.Ready;
+
+    private string? PlanMessage => !IsReady ? StatusMessage : Value!.Plan is null ? Value!.PlanReason : null;
+
+    private const string Note =
+        "Tasks ticked off in the backlog and their story points, beside the roadmap's items that overlap "
+        + "the window: the pace it places work at, how many items it holds and how they stand, the effort "
+        + "planned, and what is still to do at that pace. The repository chips narrow it; the machine "
+        + "filter does not apply, because neither a task nor a plan records a machine.";
+
+    private string? UnestimatedFootnote => Value!.Throughput!.Unestimated switch
+    {
+        0 => null,
+        1 => "1 completed task had no estimate and adds nothing, so this is a floor.",
+        var many => $"{many} completed tasks had no estimate and add nothing, so this is a floor."
+    };
+
+    private string? PlannedFootnote => Plan is { Unestimated: > 0 } plan
+        ? plan.Unestimated == 1
+            ? "1 gathered entry has no estimate and adds nothing, so this is a floor."
+            : $"{plan.Unestimated} gathered entries have no estimate and add nothing, so this is a floor."
+        : null;
+
+    /// <summary>"~1.3 weeks at the pace in use", nothing left, or no pace to say it at.</summary>
+    private static string WeeksLeft(PlanInsight plan) =>
+        plan.StillToDo == 0
+            ? "Nothing left"
+            : plan.WeeksStillToDo is { } weeks
+                ? $"~{MetricFormat.Score(weeks)} weeks at the pace in use"
+                : "No pace to say how long";
+
+    /// <summary>The stretch the pace was measured over, in words — or that nothing was
+    /// measured and the figure is the one typed on the roadmap.</summary>
+    private static string Basis(PlanInsight plan) =>
+        plan.PaceInUse is null
+            ? "Nothing measured yet, and no pace set on the roadmap."
+            : plan.Pace.Basis switch
+            {
+                PlanPaceBasis.LastTwoWeeks => "Measured over the last 2 weeks",
+                PlanPaceBasis.LastFourWeeks => "Measured over the last 4 weeks",
+                PlanPaceBasis.LastEightWeeks => "Measured over the last 8 weeks",
+                _ => "Set by hand in the roadmap"
+            };
+
+    protected override async Task<InsightResult<Reading>> FetchAsync(CancellationToken cancellationToken)
+    {
+        var throughput = await Insights.GetThroughputAsync(Scope, cancellationToken);
+        var plan = await Insights.GetPlanAsync(Scope, cancellationToken);
+
+        if (!throughput.HasValue && !plan.HasValue)
+        {
+            // Both reasons, the backlog's first: they can differ — a locked database and
+            // an unreadable plan file — and either alone would hide the other.
+            var reasons = new[] { throughput.Availability.Reason, plan.Availability.Reason }
+                .Where(reason => !string.IsNullOrWhiteSpace(reason))
+                .Distinct(StringComparer.Ordinal);
+
+            return InsightResult<Reading>.Unavailable(string.Join(" ", reasons));
+        }
+
+        PlanInsight? planned = null;
+        string? planReason = null;
+        if (plan.HasValue && plan.Value!.RoadmapEnabled) planned = plan.Value;
+        else planReason = plan.HasValue ? "The roadmap is switched off." : plan.Availability.Reason;
+
+        return InsightResult<Reading>.Ready(new Reading(
+            throughput.HasValue ? throughput.Value : null,
+            throughput.HasValue ? null : throughput.Availability.Reason,
+            planned,
+            planReason));
+    }
+
+    protected override bool IsEmpty(Reading value) => false;
+
+    // Nothing to drop: the tasks and the roadmap are read afresh on every call.
+    protected override void InvalidateSource()
+    {
+    }
+}

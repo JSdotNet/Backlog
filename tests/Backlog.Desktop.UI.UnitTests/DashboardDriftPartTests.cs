@@ -49,7 +49,7 @@ public sealed class DashboardDriftPartTests
 
         var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
 
-        Assert.Equal("Drift at a glance", part.Find("[data-testid='dashboard-drift'] .dashboard-part__title").TextContent);
+        Assert.Equal("Last verdict per unit", part.Find("[data-testid='dashboard-drift'] .dashboard-part__title").TextContent);
 
         // One table, no per-direction sections: the direction is a column and a filter.
         var table = part.Find("[data-testid='dashboard-drift-units-table']");
@@ -130,7 +130,7 @@ public sealed class DashboardDriftPartTests
 
         var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
 
-        Assert.Equal("true", part.Find("[data-testid='dashboard-drift-direction-all']").GetAttribute("aria-pressed"));
+        Assert.Equal("true", part.Find("[data-testid='dashboard-drift-direction-all']").GetAttribute("aria-checked"));
         Assert.Equal(3, part.FindAll("[data-testid='dashboard-drift-unit-verdict']").Count);
 
         // Code → chapter is the pull direction.
@@ -138,7 +138,7 @@ public sealed class DashboardDriftPartTests
         part.WaitForAssertion(() => Assert.Equal(
             ["code-ahead"],
             part.FindAll("[data-testid='dashboard-drift-unit-verdict']").Select(badge => badge.TextContent)));
-        Assert.Equal("true", part.Find("[data-testid='dashboard-drift-direction-pull']").GetAttribute("aria-pressed"));
+        Assert.Equal("true", part.Find("[data-testid='dashboard-drift-direction-pull']").GetAttribute("aria-checked"));
 
         // Chapter → code is the push direction.
         part.Find("[data-testid='dashboard-drift-direction-push']").Click();
@@ -221,9 +221,9 @@ public sealed class DashboardDriftPartTests
 
         var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
 
-        var tile = part.Find("[data-testid='dashboard-drift-issues-open']");
-        Assert.Contains("so the issues listed are a floor", tile.TextContent, StringComparison.Ordinal);
-        Assert.Empty(tile.QuerySelectorAll(".info-hint__trigger"));
+        var floor = part.Find("[data-testid='dashboard-drift-issues-floor']");
+        Assert.Contains("so the issues listed are a floor", floor.TextContent, StringComparison.Ordinal);
+        Assert.Empty(floor.QuerySelectorAll(".info-hint__trigger"));
         Assert.Single(part.FindAll("[data-testid='dashboard-drift-issue-link']"));
     }
 
@@ -250,8 +250,30 @@ public sealed class DashboardDriftPartTests
         part.Render(parameters => parameters.Add(p => p.Scope, DashboardScope.Default with { Period = DashboardPeriod.FourWeeks }));
         Assert.Single(issues.Asked);
 
+        // The issues are kept per set of repositories asked about (entry 21): the one
+        // configured repository in focus is the question already answered, and a focus
+        // that narrows to a different set is a new one.
         part.Render(parameters => parameters.Add(p => p.Scope, DashboardScope.Default with { Repositories = RepositoryFocus.Of("backlog") }));
+        Assert.Single(issues.Asked);
+
+        part.Render(parameters => parameters.Add(p => p.Scope, DashboardScope.Default with { Repositories = RepositoryFocus.Of("elsewhere") }));
         Assert.Equal(2, issues.Asked.Count);
+    }
+
+    /// <summary>The issues are kept between asks, so the part's refresh is what goes
+    /// back to GitHub (entry 21).</summary>
+    [Fact]
+    public void Refreshing_the_part_reads_the_issues_again()
+    {
+        var issues = new ScriptedIssues();
+        using var context = Context(new ScriptedUnits(Sessions), issues);
+
+        var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+        Assert.Single(issues.Asked);
+
+        part.Find("[data-testid='dashboard-drift-refresh']").Click();
+
+        part.WaitForAssertion(() => Assert.Equal(2, issues.Asked.Count));
     }
 
     [Fact]
@@ -264,6 +286,147 @@ public sealed class DashboardDriftPartTests
 
         var part = pane.Find("[data-testid='dashboard-devbook-section'] [data-testid='dashboard-drift']");
         Assert.Contains(DashboardTestHost.UnavailableReason, part.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>The frame's subtitle (board Devbook, AC23): units verified, drift issues
+    /// open, and sync failed, in one line.</summary>
+    [Fact]
+    public void The_subtitle_counts_the_units_the_issues_and_the_failed_syncs()
+    {
+        using var context = Context(new ScriptedUnits(Sessions, Inbox, Tasks), new ScriptedIssues(OtherIssue, InboxIssue));
+
+        var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        Assert.Equal(
+            "3 units verified · 2 drift issues open · 1 sync failed",
+            System.Text.RegularExpressions.Regex.Replace(part.Find("[data-testid='dashboard-drift-summary']").TextContent, @"\s+", " ").Trim());
+    }
+
+    /// <summary>"Checked" is how long ago, against the host's clock (AC24).</summary>
+    [Fact]
+    public void Checked_reads_as_how_long_ago_the_sweep_was()
+    {
+        using var context = Context(new ScriptedUnits(Sessions, Inbox, Tasks), new ScriptedIssues());
+        context.Services.AddSingleton<TimeProvider>(new Microsoft.Extensions.Time.Testing.FakeTimeProvider(Checked.AddHours(2)));
+
+        var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        Assert.All(part.FindAll("[data-testid='dashboard-drift-unit-checked']"), cell => Assert.Equal("2 h ago", cell.TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// Days are counted on the person's calendar (review, Batch D): east of UTC a check at
+    /// 01:30 local is "8 h ago" at 10:00 the same morning, though UTC's date for it was the
+    /// day before.
+    /// </summary>
+    [Fact]
+    public void Checked_counts_days_on_the_persons_calendar()
+    {
+        var checkedAt = new DateTimeOffset(2026, 10, 11, 23, 30, 0, TimeSpan.Zero);
+        var unit = Sessions with { RecordedAt = checkedAt };
+        using var context = Context(new ScriptedUnits(unit), new ScriptedIssues());
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(new DateTimeOffset(2026, 10, 12, 8, 0, 0, TimeSpan.Zero));
+        clock.SetLocalTimeZone(TimeZoneInfo.CreateCustomTimeZone("Plus two", TimeSpan.FromHours(2), "Plus two", "Plus two"));
+        context.Services.AddSingleton<TimeProvider>(clock);
+
+        var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        Assert.Equal("8 h ago", part.Find("[data-testid='dashboard-drift-unit-checked']").TextContent.Trim());
+    }
+
+    /// <summary>Each issue says what it is in a sentence and offers the one act the board
+    /// draws; both open the issue on GitHub, because the dashboard writes nothing (Q2).</summary>
+    [Fact]
+    public void Each_issue_has_a_sentence_and_an_action_that_opens_it()
+    {
+        using var context = Context(new ScriptedUnits(Sessions, Inbox, Tasks), new ScriptedIssues(OtherIssue, InboxIssue));
+
+        var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        var details = part.FindAll("[data-testid='dashboard-drift-issue-detail']").Select(detail => detail.TextContent).ToList();
+        Assert.Equal("backlog #913 — a sweep will not retry until the label is cleared.", details[0]);
+        Assert.StartsWith("backlog #914 — ", details[1], StringComparison.Ordinal);
+
+        var actions = part.FindAll("[data-testid='dashboard-drift-issue-action']");
+        Assert.Equal(["Clear the label", "Open issue"], actions.Select(action => action.TextContent));
+        Assert.Equal(
+            ["https://github.com/JSdotNet/Backlog/issues/913", "https://github.com/JSdotNet/Backlog/issues/914"],
+            actions.Select(action => action.GetAttribute("href")));
+        Assert.All(actions, action => Assert.Equal("_blank", action.GetAttribute("target")));
+    }
+
+    /// <summary>The verdict bar and its swatches are drawn in tokens, not literal sizes
+    /// (entry 20, AC26).</summary>
+    [Fact]
+    public void The_verdict_bar_is_sized_in_tokens()
+    {
+        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+
+        foreach (var opening in new[] { ".dashboard-drift__verdict-track {", ".dashboard-drift__verdict-segment {", ".dashboard-drift__verdict-swatch {" })
+        {
+            var start = css.IndexOf(opening, StringComparison.Ordinal);
+            var block = css[start..(css.IndexOf('}', start) + 1)];
+
+            Assert.DoesNotContain("2px", block, StringComparison.Ordinal);
+            Assert.DoesNotContain(" 1rem", block, StringComparison.Ordinal);
+            Assert.DoesNotContain("0.625rem", block, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// Verify measured the Devbook tab scrolling sideways at every width: a long chapter
+    /// anchor in an issue title neither wrapped nor truncated, because the issue list and
+    /// row were grids whose one auto column grew to the title's unbroken width. The column
+    /// may shrink, the head may shrink, and the link gives way inside it - its title is
+    /// the part that truncates, with the whole title on hover.
+    /// </summary>
+    [Fact]
+    public void A_long_issue_title_truncates_inside_its_row_rather_than_widening_the_tab()
+    {
+        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+
+        foreach (var opening in new[] { ".dashboard-drift__issue-list {", ".dashboard-drift__issue {" })
+        {
+            Assert.Contains("grid-template-columns: minmax(0, 1fr);", Block(css, opening), StringComparison.Ordinal);
+        }
+
+        Assert.Contains("min-width: 0;", Block(css, ".dashboard-drift__issue-head {"), StringComparison.Ordinal);
+
+        var link = Block(css, ".dashboard-drift__issue-head > .integration-link {");
+        Assert.Contains("min-width: 0;", link, StringComparison.Ordinal);
+        Assert.Contains("max-width: 100%;", link, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_issue_link_carries_its_whole_title_on_hover()
+    {
+        using var context = Context(new ScriptedUnits(Sessions, Inbox, Tasks), new ScriptedIssues(OtherIssue));
+
+        var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        part.WaitForAssertion(() => Assert.NotEmpty(part.FindAll("[data-testid='dashboard-drift-issue-link']")));
+
+        Assert.Contains(
+            "domain/tasks/domain.md#task-list",
+            part.Find("[data-testid='dashboard-drift-issue-link']").GetAttribute("title"),
+            StringComparison.Ordinal);
+    }
+
+    private static string Block(string css, string opening)
+    {
+        var start = css.IndexOf(opening, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"{opening} should exist.");
+        return css[start..(css.IndexOf('}', start) + 1)];
+    }
+
+    [Fact]
+    public void The_direction_filter_is_one_choice()
+    {
+        using var context = Context(new ScriptedUnits(Sessions, Inbox, Tasks), new ScriptedIssues());
+
+        var part = context.Render<DriftPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        Assert.Equal("radiogroup", part.Find("[data-testid='dashboard-drift-direction']").GetAttribute("role"));
     }
 
     private static BunitContext Context(IDriftUnitSource units, IDriftIssueSource issues)

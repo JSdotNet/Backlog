@@ -25,6 +25,19 @@ namespace Backlog.Modules.Dashboard.Services;
 /// Either source may answer alone. Only both failing makes the part unavailable, because
 /// the verdicts are worth seeing without GitHub and the issues without a local verdict.
 /// </para>
+/// <para>
+/// The issues are read once per repository focus and kept until <see cref="Invalidate"/>
+/// (entry 21). The Overview tile, the Devbook tab and Needs you all ask as the pane opens,
+/// and each used to go to GitHub once per repository — three reads for one answer, against
+/// a rate limit. The verdicts are a local file and are read on every ask, so a sweep that
+/// lands shows at once. A read GitHub's rate limit refused is kept, because asking again
+/// within seconds would only spend the limit that refused it, and the part's refresh is
+/// how a person asks again; any other failed or partial read is asked again next time.
+/// </para>
+/// <para>
+/// Aliases are matched ignoring case: the verdict file and the issue source can spell a
+/// repository's alias differently, and it is still the one repository.
+/// </para>
 /// </remarks>
 internal sealed class DriftInsights(
     IRepositoryDirectory repositories,
@@ -36,7 +49,13 @@ internal sealed class DriftInsights(
     internal static readonly string[] DirectionOrder = ["push", "pull", "sync", "report", "off"];
 
     /// <summary>How the sweep titles a drift issue, before the unit or chapter it is about.</summary>
-    internal const string IssueTitlePrefix = "[Devbook drift]";
+    internal const string IssueTitlePrefix = DriftIssue.TitlePrefix;
+
+    private readonly InsightCache _issues = new();
+
+    /// <summary>Drops the issues read so far, so the next ask goes back to GitHub. What a
+    /// drift part's refresh does.</summary>
+    public void Invalidate() => _issues.Clear();
 
     public async Task<InsightResult<DriftInsight>> GetDriftAsync(
         DashboardScope scope,
@@ -49,7 +68,21 @@ internal sealed class DriftInsights(
             : [.. repositories.Repositories.Where(repository => scope.Repositories.Contains(repository.Alias))];
 
         var unitsRead = ReadUnits(inScope);
-        var (issuesRead, issuesNote) = await ReadIssuesAsync(inScope, cancellationToken);
+
+        // Keyed on the repositories asked about and nothing else: the window and the
+        // machine do not reach drift, so moving them is not a new question for GitHub.
+        var key = "issues|" + string.Join(
+            '|',
+            inScope.Select(repository => repository.Alias.ToLowerInvariant()).Order(StringComparer.Ordinal));
+        var (issuesRead, issuesNote) = await _issues.GetOrAddAsync(
+            key,
+            shared => ReadIssuesAsync(inScope, shared),
+            cancellationToken);
+
+        // Only a whole read, or one GitHub's rate limit cut short, is kept. Any other
+        // failure — not signed in, no network, a repository the account cannot see — is
+        // asked again on the next call, so a fixed setting shows without a refresh.
+        if (issuesNote is not null && !IsRateLimit(issuesNote)) _issues.Forget(key);
 
         if (unitsRead is null && issuesRead is null)
         {
@@ -59,13 +92,13 @@ internal sealed class DriftInsights(
 
         var failed = (issuesRead ?? [])
             .Where(issue => issue.SyncFailed)
-            .Select(issue => (issue.RepositoryAlias, Reference: Reference(issue.Title)))
+            .Select(issue => (Alias: issue.RepositoryAlias.Trim().ToLowerInvariant(), Reference: Reference(issue.Title)))
             .ToHashSet();
 
         var marked = (unitsRead ?? [])
             .Select(unit => unit with
             {
-                SyncFailed = failed.Contains((unit.RepositoryAlias, unit.Unit.Trim().ToLowerInvariant()))
+                SyncFailed = failed.Contains((unit.RepositoryAlias.Trim().ToLowerInvariant(), unit.Unit.Trim().ToLowerInvariant()))
             })
             .ToList();
 
@@ -80,6 +113,9 @@ internal sealed class DriftInsights(
 
         return InsightResult<DriftInsight>.Ready(new DriftInsight(directions, issuesRead ?? [], issuesNote));
     }
+
+    private static bool IsRateLimit(string note) =>
+        note.Contains("rate limit", StringComparison.OrdinalIgnoreCase);
 
     private IReadOnlyList<DriftUnit>? ReadUnits(IReadOnlyList<DashboardRepository> inScope) =>
         units.IsAvailable ? [.. inScope.SelectMany(units.Units)] : null;

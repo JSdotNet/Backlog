@@ -91,6 +91,54 @@ public static class DashboardFormat
             ? value.UtcDateTime.ToString("dd MMM HH:mm", CultureInfo.InvariantCulture)
             : "—";
 
+    /// <summary>"18 a week": a count over the window's weeks, to one decimal — the one
+    /// basis every "a week" footnote on the surface reads on.</summary>
+    public static string PerWeek(decimal count, int weeks) =>
+        $"{MetricFormat.Score(count / Math.Max(1, weeks))} a week";
+
+    /// <summary>
+    /// A session's length as a person reads one (AC22): minutes under an hour, hours and
+    /// minutes under a day — "2 h 40 m", the minutes left off on the hour — and
+    /// <see cref="Duration"/>'s days above that. Anything at all is at least a minute,
+    /// on <see cref="Duration"/>'s rule: a session that ran is not one that took no time.
+    /// </summary>
+    public static string Length(TimeSpan span)
+    {
+        if (span.TotalDays >= 1) return Duration(span);
+
+        var hours = (int)span.TotalHours;
+        var minutes = span.Minutes;
+
+        if (hours == 0) return $"{Math.Max(1, minutes)} m";
+
+        return minutes == 0 ? $"{hours} h" : $"{hours} h {minutes} m";
+    }
+
+    /// <summary>
+    /// How long ago <paramref name="at"/> was, as of <paramref name="now"/> (AC24): "just
+    /// now" under a minute, minutes under an hour, hours the same day, "yesterday" the
+    /// calendar day before, and days after that — the days counted on the calendar in
+    /// <paramref name="now"/>'s offset, so an evening check reads yesterday the next
+    /// morning rather than "14 h ago". A moment ahead of the clock reads as just now.
+    /// </summary>
+    public static string Ago(DateTimeOffset at, DateTimeOffset now)
+    {
+        var elapsed = now - at;
+        if (elapsed < TimeSpan.FromMinutes(1)) return "just now";
+        if (elapsed < TimeSpan.FromHours(1)) return $"{(int)elapsed.TotalMinutes} m ago";
+
+        var today = DateOnly.FromDateTime(now.DateTime);
+        var day = DateOnly.FromDateTime(at.ToOffset(now.Offset).DateTime);
+        var days = today.DayNumber - day.DayNumber;
+
+        return days switch
+        {
+            <= 0 => $"{(int)elapsed.TotalHours} h ago",
+            1 => "yesterday",
+            _ => $"{days} days ago"
+        };
+    }
+
     /// <summary>
     /// A day, for naming a stretch of history in prose. No time of day, unlike
     /// <see cref="Moment"/>: the block a target came from is four weeks long, and a

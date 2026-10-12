@@ -66,7 +66,7 @@ public sealed class SessionInsights(
     /// <summary>
     /// The widest window this surface can be asked for. The horizon is a constant rather
     /// than the scope's own window for the property the whole class turns on: reading
-    /// twelve weeks once means moving the period control derives again rather than reads
+    /// twenty-six weeks once means moving the period control derives again rather than reads
     /// again, exactly as moving the machine filter already does. It costs one longer read
     /// on a refresh and buys a scope change that never touches the disk.
     /// <para>
@@ -75,7 +75,7 @@ public sealed class SessionInsights(
     /// hundred per assistant — so every machine's count was the page size. The Sessions
     /// context promises to keep records this far back (<c>AgentSessionLimits.History</c>,
     /// which this module may not name); a horizon longer than that would come back
-    /// capped, and a period control offering more than twelve weeks has to move both.
+    /// capped, and a period control offering more than twenty-six weeks has to move both.
     /// </para>
     /// </summary>
     private static TimeSpan Horizon => DashboardScope.Horizon;
@@ -127,7 +127,7 @@ public sealed class SessionInsights(
         var availability = await sessions.GetAvailabilityAsync(cancellationToken).ConfigureAwait(false);
 
         // One instant for both reads, so the session list and the activity log are the
-        // same twelve weeks rather than two windows a tick apart.
+        // same twenty-six weeks rather than two windows a tick apart.
         var since = time.GetUtcNow() - Horizon;
 
         if (!availability.IsAvailable) return new Reading(availability, null, AssistantActivityReport.Empty, since);
@@ -225,7 +225,20 @@ public sealed class SessionInsights(
             .Where(hit => scope.IsAllMachines || Matches(hit.MachineId, scope.MachineId))
             .ToList();
 
-        var grids = Grids(buckets, scopedActivity, scopedLimits, active, waiting, open, agents, week, zone);
+        // The grids are calendar weeks, local Monday to Sunday, whatever cuts the columns:
+        // a grid titled "week N" is that week's seven days. Each names the usage week that
+        // begins inside it, which is how a column picked on the chart finds its grid.
+        var gridWeeks = UsageWeeks.Calendar(to, zone).Buckets(from, to);
+        var grids = Grids(gridWeeks, scopedActivity, scopedLimits, active, waiting, open, agents, week, zone)
+            .Select(grid => grid with
+            {
+                UsageWeek = buckets
+                    .Where(bucket => bucket.Start >= grid.StartsAt && bucket.Start < grid.StartsAt.AddDays(LocalHourBuckets.Days))
+                    .Select(bucket => bucket.Label)
+                    .FirstOrDefault()
+                    ?? (weeks.Source == WeekSource.Calendar ? grid.Label : null)
+            })
+            .ToList();
 
         var bandOf = Bands();
         var hits = scopedLimits.Where(hit => hit.At >= from && hit.At < to).ToList();
@@ -305,6 +318,7 @@ public sealed class SessionInsights(
                             pair => pair.Session.LastActivityAt,
                             inWeek => inWeek.Sum(pair => (decimal)pair.Usage.OutputTokens),
                             weeks.KeyOf)))),
+            ActiveTimeByModel = ActiveTimeByModel(report, scope, scopedActivity, buckets, weeks, from, to, zone),
             TokensByRepository = Ranked(
                 used.GroupBy(session => bandOf(session.Repository))
                     .Where(band => InRepositoryScope(scope, band.Key))
@@ -335,15 +349,71 @@ public sealed class SessionInsights(
     }
 
     /// <summary>
+    /// Agent-active hours cut by the model that wrote most of each session's output. A
+    /// session splits by model in its token record but not in time — nothing says which
+    /// model was producing at an instant — so the whole session goes to its main model
+    /// rather than inventing a split of its hours. Ties go to the model named first in
+    /// ordinal order, so two reads of one record agree.
+    /// </summary>
+    private static IReadOnlyList<WeeklyBand> ActiveTimeByModel(
+        AssistantSessionReport report,
+        DashboardScope scope,
+        IReadOnlyList<AssistantActivitySession> scopedActivity,
+        IReadOnlyList<WeekBucket> buckets,
+        UsageWeeks weeks,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        TimeZoneInfo zone)
+    {
+        if (buckets.Count == 0) return [];
+
+        var modelOf = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var session in report.Sessions.Where(session => scope.IsAllMachines || Matches(session.MachineId, scope.MachineId)))
+        {
+            var main = (session.ModelUsage ?? [])
+                .Where(usage => !string.IsNullOrWhiteSpace(usage.Model))
+                .GroupBy(usage => usage.Model.Trim(), StringComparer.Ordinal)
+                .OrderByDescending(model => model.Sum(usage => usage.OutputTokens))
+                .ThenBy(model => model.Key, StringComparer.Ordinal)
+                .Select(model => model.Key)
+                .FirstOrDefault();
+
+            if (main is not null) modelOf[session.Id] = main;
+        }
+
+        var bands = scopedActivity
+            .GroupBy(session => modelOf.TryGetValue(session.Id, out var model) ? model : null)
+            .Select(group => (
+                Recorded: group.Key is not null,
+                Band: Band(
+                    group.Key ?? AssistantSessionsInsight.ModelUnrecordedName,
+                    null,
+                    PerWeek(buckets, weeks, LocalHourBuckets.Sweep(Intervals([.. group], session => session.Active), from, to, zone), zone, Hours))))
+            .Where(entry => entry.Band.Total > 0)
+            .ToList();
+
+        return
+        [
+            .. Ranked(bands.Where(entry => entry.Recorded).Select(entry => entry.Band)),
+            .. bands.Where(entry => !entry.Recorded).Select(entry => entry.Band)
+        ];
+    }
+
+    /// <summary>
     /// The agent-active time of the window of the same length just before this one,
     /// swept over the activity already read and on the machines already scoped — or
-    /// null when that window opens before the reading does.
+    /// null when the records do not cover that window: it opens before the reading does,
+    /// or before the earliest record on the scoped machines.
     /// </summary>
     /// <remarks>
-    /// Null rather than a sweep over whatever part of it was read: four weeks of a
-    /// twelve-week window set beside a whole twelve would draw a fall that never
-    /// happened. Twelve weeks is always null for that reason, because the reading goes
-    /// back exactly twelve; see <see cref="Horizon"/> for why it goes no further.
+    /// Null rather than a sweep over whatever part of it was read: part of a window set
+    /// beside a whole one would draw a rise or a fall that never happened. Twenty-six
+    /// weeks is always null for that reason, because the reading goes back exactly
+    /// twenty-six; see <see cref="Horizon"/> for why it goes no further. Asking for
+    /// twenty-six weeks is not the same as holding them: a machine whose records begin a
+    /// few weeks into the previous window has minutes there, and a delta against minutes
+    /// read "up 65251.4%". So the records themselves must reach back past its start.
     /// </remarks>
     private static TimeSpan? PreviousActiveTime(
         Reading reading,
@@ -354,6 +424,13 @@ public sealed class SessionInsights(
     {
         var previousFrom = from.AddDays(-7 * weeks);
         if (previousFrom < reading.Since) return null;
+
+        var earliest = scopedActivity
+            .SelectMany(session => session.Active.Concat(session.Waiting))
+            .Select(interval => (DateTimeOffset?)interval.From)
+            .Min();
+
+        if (earliest is not { } first || first > previousFrom) return null;
 
         return Sum(LocalHourBuckets.Sweep(Intervals(scopedActivity, session => session.Active), previousFrom, from, zone));
     }
@@ -659,11 +736,10 @@ public sealed class SessionInsights(
     /// sweeps the tiles are summed from, and the refusals that fell inside the week.
     /// <para>
     /// Rows are local calendar days, hours 0–23 in clock order, so a row reads the way a
-    /// day does. The week does not start at midnight, so the first row holds only the
-    /// hours from the reset hour on and the last — an eighth calendar day — only the
-    /// hours before it; the hours outside the week are simply not there, which the grid
-    /// draws as not reported rather than as zero. Under the calendar fallback the reset
-    /// hour is midnight and there are seven full rows.
+    /// day does. The caller hands calendar weeks, which start at local midnight, so there
+    /// are seven full rows; a week handed in that started mid-day would hold its first
+    /// and last days in part, and the grid draws the hours it is not given as not
+    /// reported rather than as zero.
     /// </para>
     /// <para>
     /// Empty when the sweeps found nothing at all, so the part can decline to draw an

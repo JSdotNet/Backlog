@@ -35,6 +35,22 @@ public sealed record BriefWeek(int WeeksBack, DateOnly Monday, int Number)
     /// <summary>The week's last day.</summary>
     public DateOnly Sunday => Monday.AddDays(6);
 
+    /// <summary>The week as the weekly series label it: <c>W41</c>.</summary>
+    public string Label => "W" + Number.ToString("00", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The reported week's value off a series that has no point for a week it has no
+    /// reading for — a median over nothing — found by its label, or null when the week
+    /// has none. <see cref="Read"/> reads by position and is only for series that keep
+    /// every week on the axis.
+    /// </summary>
+    public decimal? ValueAt(IReadOnlyList<InsightPoint> series)
+    {
+        ArgumentNullException.ThrowIfNull(series);
+
+        return series.FirstOrDefault(point => string.Equals(point.Label, Label, StringComparison.Ordinal))?.Value;
+    }
+
     /// <summary>Whether a link to the week before this one has anywhere to go.</summary>
     public bool HasEarlier => WeeksBack < MaxWeeksBack;
 

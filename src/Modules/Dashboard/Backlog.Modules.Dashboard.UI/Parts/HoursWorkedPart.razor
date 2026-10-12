@@ -78,6 +78,8 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.HoursWorked;
+
     private const string Inside = "Inside office hours";
 
     private const string Outside = "Outside office hours";
@@ -89,10 +91,10 @@
         + "split at the start and end of each date's office hours: your working week, with the days you blocked "
         + "or unblocked on the roadmap. A day off has no office hours, so all its work counts outside. "
         + "Planned is the working hours of the same dates, and this week counts through today. "
-        + (PerDay ? "Per day over four weeks." : "Per calendar week, Monday first, over twelve weeks.")
+        + (PerDay ? "Per day over four weeks." : $"Per calendar week, Monday first, over {Scope.Weeks} weeks.")
         + " The repository chips and the machine filter do not apply.";
 
-    /// <summary>Days over four weeks, calendar weeks over twelve.</summary>
+    /// <summary>Days over four weeks, calendar weeks over the longer windows.</summary>
     private bool PerDay => Scope.Period == DashboardPeriod.FourWeeks;
 
     private IReadOnlyList<HoursWorkedPeriod> Periods =>

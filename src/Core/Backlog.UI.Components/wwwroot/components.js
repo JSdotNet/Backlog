@@ -1676,6 +1676,22 @@
         event.preventDefault();
     });
 
+    // The arrows, Home and End on a radio of a radio-mode ButtonGroup. ToggleButton
+    // moves and selects from its keydown handler; the browser would otherwise
+    // scroll the page on the same key. Enter and Space are left alone: they are the
+    // button's own click, which is how a radio is chosen. Only the default is
+    // refused, for the reason the rows above give.
+    const RADIO_SWALLOWED_KEYS = new Set(['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
+
+    document.addEventListener('keydown', (event) => {
+        if (!RADIO_SWALLOWED_KEYS.has(event.key)) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.matches('[role="radiogroup"].btn-group [role="radio"]')) return;
+
+        event.preventDefault();
+    });
+
     // Space on a focused TaskCard. The card opens on Space from its keydown
     // handler, as a button would, but it is an <article> and not a button, so the
     // browser still takes Space as "scroll the page" — and in a Board column that

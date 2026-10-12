@@ -10,16 +10,25 @@ namespace Backlog.Infrastructure.GitHub.Dashboard;
 /// </summary>
 /// <remarks>
 /// <para>
-/// One labelled search per repository rather than every open issue filtered here: the
+/// One labelled listing per repository rather than every open issue filtered here: the
 /// sweeps add <c>sync-failed</c> to the drift issue itself, so the one label finds both,
 /// and a repository with a thousand open issues answers with the few that matter.
+/// </para>
+/// <para>
+/// The repository's issue listing, not the issue search (entry 21). Search answered
+/// "Validation Failed" (HTTP 422) for a repository the routed account cannot see, and
+/// every search the app makes shares thirty requests a minute, which a dashboard reading
+/// drift once per repository per part ran through. The listing counts against the core
+/// limit, and a repository it cannot see fails as the not-found it is.
 /// </para>
 /// <para>
 /// A repository that fails is skipped and the read marked incomplete, as
 /// <see cref="GitHubActivitySource"/> does: the repositories that answered are true, and
 /// the part says the list is a floor. When every repository asked fails, nothing was read,
 /// and the first failure is thrown so the part says why — a rate limit, a repository
-/// GitHub does not know — rather than listing nothing as though nothing were open.
+/// GitHub does not know — rather than listing nothing as though nothing were open. Either
+/// way the failure names the repository it came from, so "some repositories" can be
+/// followed to the one whose account binding is wrong.
 /// </para>
 /// </remarks>
 internal sealed class GitHubDriftIssueSource(IGitHubClient client, GitHubSettingsStore settings) : IDriftIssueSource
@@ -43,6 +52,7 @@ internal sealed class GitHubDriftIssueSource(IGitHubClient client, GitHubSetting
         var complete = true;
         var read = 0;
         Exception? failure = null;
+        string? failureText = null;
 
         foreach (var repository in repositories)
         {
@@ -52,13 +62,14 @@ internal sealed class GitHubDriftIssueSource(IGitHubClient client, GitHubSetting
             try
             {
                 search = await client
-                    .SearchOpenIssuesWithLabelAsync(reference, DriftLabel, cancellationToken)
+                    .ListOpenIssuesWithLabelAsync(reference, DriftLabel, cancellationToken)
                     .ConfigureAwait(false);
             }
             catch (Exception exception) when (exception is GitHubException or GitHubNotConfiguredException)
             {
                 complete = false;
                 failure ??= exception;
+                failureText ??= $"{reference.FullName}: {exception.Message}";
                 continue;
             }
 
@@ -75,8 +86,16 @@ internal sealed class GitHubDriftIssueSource(IGitHubClient client, GitHubSetting
                     issue.Labels.Contains(SyncFailedLabel, StringComparer.OrdinalIgnoreCase))));
         }
 
-        if (read == 0 && failure is not null) ExceptionDispatchInfo.Throw(failure);
+        if (read == 0 && failure is not null)
+        {
+            if (failure is GitHubException refused)
+            {
+                throw new GitHubException(failureText!, refused) { Status = refused.Status, ErrorType = refused.ErrorType };
+            }
 
-        return new DriftIssueRead(issues, complete, failure?.Message);
+            ExceptionDispatchInfo.Throw(failure);
+        }
+
+        return new DriftIssueRead(issues, complete, failureText);
     }
 }

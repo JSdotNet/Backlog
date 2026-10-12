@@ -5,7 +5,7 @@ using Backlog.Modules.Dashboard.Abstractions.Services;
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 
 /// <summary>
-/// The drift part's issues: one labelled search per repository in scope, the
+/// The drift part's issues: one labelled listing per repository in scope, the
 /// <c>sync-failed</c> ones marked, a repository that fails skipped with the reason kept,
 /// and every repository failing thrown — nothing read is not nothing open.
 /// </summary>
@@ -27,7 +27,7 @@ public sealed class GitHubDriftIssueSourceTests : IDisposable
     }
 
     [Fact]
-    public async Task Each_repository_is_searched_by_the_drift_label_and_sync_failed_is_marked()
+    public async Task Each_repository_is_listed_by_the_drift_label_and_sync_failed_is_marked()
     {
         var client = new ScriptedClient
         {
@@ -53,8 +53,34 @@ public sealed class GitHubDriftIssueSourceTests : IDisposable
         var read = await new GitHubDriftIssueSource(client, Settings()).GetOpenAsync([Backlog, Specs], TestContext.Current.CancellationToken);
 
         Assert.False(read.Complete);
-        Assert.Equal("API rate limit exceeded.", read.Failure);
+        Assert.Equal("JSdotNet/spec-manager: API rate limit exceeded.", read.Failure);
         Assert.Single(read.Issues);
+    }
+
+    /// <summary>
+    /// Entry 21's 422. GitHub's issue search answers "Validation Failed" when its
+    /// <c>repo:</c> qualifier names a repository the routed account cannot see, and every
+    /// search shares thirty requests a minute. The drift read no longer searches: the
+    /// repository's own issue listing answers it, so a search GitHub refuses cannot fail
+    /// the drift part, and opening the dashboard spends none of the search budget.
+    /// </summary>
+    [Fact]
+    public async Task A_search_GitHub_refuses_with_422_no_longer_reaches_the_drift_read()
+    {
+        var transport = new RoutingTransport()
+            .Refuses("search/issues", "gh: Validation Failed (HTTP 422)")
+            .Returns("repos/JSdotNet/Backlog/issues?labels=devbook-drift", """
+                [{ "node_id": "I_912", "number": 912, "title": "[Devbook drift] chapter", "html_url": "https://github.com/JSdotNet/Backlog/issues/912",
+                   "body": null, "state": "open", "state_reason": null, "assignee": null, "updated_at": "2026-10-02T08:00:00Z",
+                   "labels": [{ "name": "devbook-drift" }, { "name": "sync-failed" }] }]
+                """);
+
+        var read = await new GitHubDriftIssueSource(new GitHubClient(transport), Settings())
+            .GetOpenAsync([Backlog], TestContext.Current.CancellationToken);
+
+        Assert.True(read.Complete);
+        Assert.True(Assert.Single(read.Issues).SyncFailed);
+        Assert.Equal(0, transport.CallsTo("search/"));
     }
 
     [Fact]
@@ -66,7 +92,7 @@ public sealed class GitHubDriftIssueSourceTests : IDisposable
         var thrown = await Assert.ThrowsAsync<GitHubException>(() =>
             new GitHubDriftIssueSource(client, Settings()).GetOpenAsync([Backlog], TestContext.Current.CancellationToken));
 
-        Assert.Equal("API rate limit exceeded.", thrown.Message);
+        Assert.Equal("JSdotNet/Backlog: API rate limit exceeded.", thrown.Message);
     }
 
     [Fact]
@@ -99,7 +125,7 @@ public sealed class GitHubDriftIssueSourceTests : IDisposable
             $"[Devbook drift] chapter {number}", string.Empty, IsOpen: true, StateReason: null,
             AssigneeLogin: null, UpdatedAt: DateTimeOffset.UnixEpoch, Labels: labels);
 
-    /// <summary>Answers the labelled search per repository name; every other member keeps
+    /// <summary>Answers the labelled listing per repository name; every other member keeps
     /// its default body, which refuses.</summary>
     private sealed class ScriptedClient : Dictionary<string, GitHubSearchedIssue[]>, IGitHubClient
     {
@@ -107,7 +133,7 @@ public sealed class GitHubDriftIssueSourceTests : IDisposable
 
         public List<(string Repository, string Label)> Asked { get; } = [];
 
-        public Task<GitHubIssueSearchRead> SearchOpenIssuesWithLabelAsync(
+        public Task<GitHubIssueSearchRead> ListOpenIssuesWithLabelAsync(
             GitHubRepositoryRef repository,
             string label,
             CancellationToken cancellationToken = default)

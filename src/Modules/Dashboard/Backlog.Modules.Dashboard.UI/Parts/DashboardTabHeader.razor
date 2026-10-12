@@ -1,0 +1,136 @@
+@*
+    The pane's header, for the tab on show: the eyebrow "Dashboard · <Tab>" and a
+    sentence that says what the tab says (board Main and each tab's board).
+
+    A part of its own rather than something the pane assembles, because the pane holds
+    no figures: this reads the insight the tab itself reads — the same service, so the
+    same cached read — and fills a fixed template from it (DashboardHeadlines). Until
+    the insight answers, or when it cannot, the header names the tab instead; a header
+    is never a loading state.
+
+    The pane's controls sit in the actions slot beside the ✕, handed in whole: what
+    the header shows is this part's, what the controls do is the pane's.
+*@
+
+@inject IProductivityInsights Productivity
+@inject ITaskInsights Tasks
+@inject ISessionInsights Sessions
+@inject IDriftInsights Drift
+@inject ICostInsights Costs
+@inject IRepositoryDirectory Repositories
+@inject IServiceProvider Services
+@implements IDisposable
+
+<SectionHeader BaseClass="dashboard-panel__header"
+               TextCssClass=""
+               EyebrowCssClass="dashboard-panel__eyebrow"
+               TitleCssClass="@TitleClass"
+               ActionsCssClass="dashboard-panel__header-actions"
+               Eyebrow="@Eyebrow"
+               TitleId="dashboard-title"
+               Title="@(_headline ?? TabTitle)"
+               TestId="dashboard-header"
+               Actions="Actions" />
+
+@code {
+    private string? _headline;
+    private (string? Tab, DashboardScope? Scope) _read;
+    private IDisposable? _joined;
+
+    /// <summary>The pane's refresh fan-out. The header joins it for every source, so a
+    /// part's refresh re-reads the sentence too and it never says something the tab
+    /// under it no longer shows; reading again is the cached read the part just made.</summary>
+    [CascadingParameter]
+    public DashboardRefreshes? Refreshes { get; set; }
+
+    /// <summary>The tab on show, by the pane's tab id; null while the weekly brief is
+    /// shown in place of the tabs.</summary>
+    [Parameter]
+    public string? Tab { get; set; }
+
+    [Parameter, EditorRequired]
+    public DashboardScope Scope { get; set; } = DashboardScope.Default;
+
+    /// <summary>The pane's controls, rendered beside the title.</summary>
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
+
+    private string TabTitle => Tab switch
+    {
+        null => "Weekly brief",
+        "dashboard-overview" => "Overview",
+        "dashboard-productivity" => "Productivity",
+        "dashboard-tasks" => "Tasks",
+        "dashboard-sessions" => "Sessions",
+        "dashboard-devbook" => "Devbook",
+        "dashboard-cost" => "Cost",
+        _ => "Productivity and cost"
+    };
+
+    private string Eyebrow => "Dashboard · " + TabTitle;
+
+    /// <summary>In the brief the narrative sentence is the visible title (AC33), so the
+    /// pane's "Weekly brief" stays as its accessible name only.</summary>
+    private string TitleClass => Tab is null ? "dashboard-panel__title sr-only" : "dashboard-panel__title";
+
+    private TimeProvider Time => Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
+
+    protected override void OnInitialized() =>
+        _joined = Refreshes?.Join(AllSources, () => InvokeAsync(ReloadAsync));
+
+    private const DashboardSources AllSources =
+        DashboardSources.Productivity | DashboardSources.Tasks | DashboardSources.Sessions
+        | DashboardSources.Drift | DashboardSources.Cost | DashboardSources.HoursWorked;
+
+    /// <summary>A part refreshed: read the sentence for the tab on show again.</summary>
+    private async Task ReloadAsync()
+    {
+        _read = default;
+        await ReadForParametersAsync();
+        StateHasChanged();
+    }
+
+    public void Dispose() => _joined?.Dispose();
+
+    protected override Task OnParametersSetAsync() => ReadForParametersAsync();
+
+    private async Task ReadForParametersAsync()
+    {
+        if (_read == (Tab, Scope)) return;
+
+        _read = (Tab, Scope);
+        _headline = null;
+
+        string? headline;
+        try
+        {
+            headline = await ReadAsync(Tab, Scope);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // The header names the tab rather than failing: every part below says for
+            // itself why it has no figure.
+            headline = null;
+        }
+
+        // A later tab or scope may have been asked for while this one was read.
+        if (_read == (Tab, Scope)) _headline = headline;
+    }
+
+    private async Task<string?> ReadAsync(string? tab, DashboardScope scope) => tab switch
+    {
+        "dashboard-overview" => DashboardHeadlines.Overview(
+            DateOnly.FromDateTime(Time.GetLocalNow().DateTime),
+            scope,
+            Repositories.Repositories.Count),
+        "dashboard-productivity" => DashboardHeadlines.Productivity(ValueOf(await Productivity.GetHeadlineAsync(scope))),
+        "dashboard-tasks" => DashboardHeadlines.Tasks(ValueOf(await Tasks.GetPlanAsync(scope))),
+        "dashboard-sessions" => DashboardHeadlines.Sessions(ValueOf(await Sessions.GetSessionsAsync(scope))),
+        "dashboard-devbook" => DashboardHeadlines.Devbook(ValueOf(await Drift.GetDriftAsync(scope))),
+        "dashboard-cost" => DashboardHeadlines.Cost(ValueOf(await Costs.GetProjectionAsync())),
+        _ => null
+    };
+
+    private static T? ValueOf<T>(InsightResult<T> result) where T : class =>
+        result.HasValue ? result.Value : null;
+}

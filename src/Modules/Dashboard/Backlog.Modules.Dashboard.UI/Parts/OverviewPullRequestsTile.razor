@@ -11,7 +11,8 @@
 @inherits DashboardPartBase<ProductivityHeadline>
 @inject IProductivityInsights Insights
 
-<OverviewTile Label="Pull requests merged"
+<OverviewTile OnRetry="RefreshAsync"
+              Label="Pull requests merged"
               Value="@(IsReady ? MetricFormat.Compact(Value!.PullRequestsMerged) : null)"
               Unit="@(IsReady && !Value!.Complete ? $"or more, in {Scope.Weeks} weeks" : $"in {Scope.Weeks} weeks")"
               Chip="@(IsReady ? OverviewChip.FromDelta(DashboardFormat.CountDelta(Value!.PullRequestsMerged, Value!.PreviousPullRequestsMerged, DashboardFormat.PreviousWeeks(Scope.Weeks))) : null)"
@@ -22,6 +23,8 @@
               TestId="dashboard-overview-tile-pulls" />
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Productivity;
+
     protected override Task<InsightResult<ProductivityHeadline>> FetchAsync(CancellationToken cancellationToken) =>
         Insights.GetHeadlineAsync(Scope, cancellationToken);
 

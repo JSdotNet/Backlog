@@ -74,6 +74,17 @@ public sealed record ProductivityHeadline(
     public int PullRequestsWithCommitCount { get; init; }
 
     /// <summary>
+    /// How many merged pull requests had a review - the population <see cref="ReworkRate"/>
+    /// is a share of - or null where the producer did not say.
+    /// <para>
+    /// Carried because a rate of zero over none reviewed is not a figure: a surface prints
+    /// "—" for it, where "0% came back" would claim clean work nobody looked at. Null
+    /// rather than zero by default, so a fixture built positionally keeps reading its rate.
+    /// </para>
+    /// </summary>
+    public int? PullRequestsReviewed { get; init; }
+
+    /// <summary>
     /// How many pull requests were merged in the window of the same length just before
     /// this one — or null when that could not be counted.
     /// <para>
@@ -100,14 +111,15 @@ public sealed record ProductivityHeadline(
 
     /// <summary>
     /// The median first-review turnaround of each week's merges, in hours, on
-    /// <see cref="MedianReviewTurnaround"/>'s rule; zero for a week with no reviewed
-    /// merge, so the week stays on the axis.
+    /// <see cref="MedianReviewTurnaround"/>'s rule. A week with no reviewed merge has
+    /// no point: there is no wait to report, and a zero would draw one nobody had.
     /// </summary>
     public IReadOnlyList<InsightPoint> ReviewTurnaroundPerWeek { get; init; } = [];
 
     /// <summary>
     /// The median commit count of each week's merges whose detail was read, on
-    /// <see cref="MedianCommitsPerPullRequest"/>'s rule; zero for a week with none.
+    /// <see cref="MedianCommitsPerPullRequest"/>'s rule. A week with none has no point,
+    /// for the reason <see cref="ReviewTurnaroundPerWeek"/> gives.
     /// </summary>
     public IReadOnlyList<InsightPoint> CommitsPerPullRequestPerWeek { get; init; } = [];
 
@@ -131,8 +143,7 @@ public sealed record ReworkInsight(
     int ForcePushesAfterFirstReview,
     int FilesRetouched,
     bool ChurnComplete,
-    IReadOnlyList<InsightPoint> ChurnedPullRequestsPerWeek,
-    IReadOnlyList<InsightRow> ByRepository)
+    IReadOnlyList<ReworkRepository> ByRepository)
 {
     /// <summary>Whether the window behind these figures was read whole. A different
     /// fact from <paramref name="ChurnComplete"/>: that one is about how deeply each
@@ -171,7 +182,7 @@ public sealed record ReworkInsight(
     /// whose message is silent reads as clean.</summary>
     public int ConflictedSyncMerges { get; init; }
 
-    public static ReworkInsight Empty { get; } = new(0, 0, 0, 0, 0, true, [], []);
+    public static ReworkInsight Empty { get; } = new(0, 0, 0, 0, 0, true, []);
 
     /// <summary>Churned pull requests as a fraction of those that were reviewed
     /// at all. Zero when nothing was reviewed — a rate over no reviews is not
@@ -180,23 +191,14 @@ public sealed record ReworkInsight(
 }
 
 /// <summary>
-/// The volume score per repository per week, plus which repository is in focus.
-/// <para>
-/// Narrowed by the repository filter like every other part: with nothing in
-/// focus every repository that reported anything is here, with a focus only
-/// those repositories are. Every series is scored against the same estate-wide
-/// target whichever way it was narrowed, so a repository reads the same alone as
-/// it does beside the pack.
-/// </para>
+/// One repository's share of the rework: how many of its reviewed pull requests came
+/// back after review. The rows of <see cref="ReworkInsight.ByRepository"/> add up to
+/// the insight's own totals, so a part can print them as the total under the ranking.
 /// </summary>
-public sealed record ProductivityTrend(IReadOnlyList<InsightSeries> ByRepository, string? Highlight)
-{
-    /// <summary>Whether the window behind these series was read whole. Every point is
-    /// a floor when it is false.</summary>
-    public bool Complete { get; init; } = true;
-
-    public static ProductivityTrend Empty { get; } = new([], null);
-}
+/// <param name="Alias">The repository, by the alias it is configured under.</param>
+/// <param name="PullRequestsWithChurn">Its reviewed pull requests that came back.</param>
+/// <param name="PullRequestsReviewed">Its pull requests that were reviewed at all.</param>
+public sealed record ReworkRepository(string Alias, int PullRequestsWithChurn, int PullRequestsReviewed);
 
 /// <summary>
 /// Where full marks came from: the reader's own busiest block of recent history.

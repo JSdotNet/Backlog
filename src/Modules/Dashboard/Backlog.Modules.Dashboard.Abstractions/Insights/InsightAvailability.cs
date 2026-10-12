@@ -52,6 +52,33 @@ public sealed record DashboardMoney(decimal Amount, string Currency)
 
         return new DashboardMoney(left.Amount + right.Amount, left.Currency);
     }
+
+    /// <summary>This amount as the dashboard writes one; see the static overload.</summary>
+    public string Format() => Format(Amount, Currency);
+
+    /// <summary>
+    /// An amount as every dashboard surface writes one - the headline, the cards, the
+    /// brief and Needs you alike: the currency's sign before it where it has a common one
+    /// (€, $, £), its code after it otherwise; whole from a hundred up or when there are
+    /// no cents, to the cent below that. One format, because a tab that said "€23.28" in
+    /// its headline and "23.28 EUR" on the card under it read as two figures.
+    /// </summary>
+    public static string Format(decimal amount, string currency)
+    {
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        var figure = amount >= 100m || amount == decimal.Truncate(amount)
+            ? Math.Round(amount, MidpointRounding.AwayFromZero).ToString("N0", culture)
+            : amount.ToString("N2", culture);
+
+        return (currency ?? string.Empty).ToUpperInvariant() switch
+        {
+            "EUR" => "€" + figure,
+            "USD" => "$" + figure,
+            "GBP" => "£" + figure,
+            "" => figure,
+            _ => $"{figure} {currency}"
+        };
+    }
 }
 
 /// <summary>One bucket of a series — a week, a day, or a month — and its value.</summary>

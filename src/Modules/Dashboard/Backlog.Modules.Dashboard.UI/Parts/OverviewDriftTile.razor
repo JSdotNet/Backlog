@@ -5,9 +5,9 @@
     it cannot say how many were open when the window began, nor how many were open any
     week before this one; a delta or a line drawn anyway would be one nobody measured.
 
-    The chip is drift's own tone while any issue is open. It names the one whose sync
-    failed, or counts them when there are several, because those are the ones no sweep
-    will retry until a person clears the label. None open is good news and says so.
+    The chip is drift's own tone while any issue is open. It counts the ones whose sync
+    failed — "1 sync failed", "3 sync failed" — because those are the ones no sweep will
+    retry until a person clears the label. None open is good news and says so.
 
     GitHub unreadable is not "none open": with the issues unread and none counted, the
     tile carries the reason instead of a zero; with some counted, the count is a floor
@@ -16,7 +16,8 @@
 @inherits DashboardPartBase<DriftInsight>
 @inject IDriftInsights Insights
 
-<OverviewTile Label="Devbook drift"
+<OverviewTile OnRetry="RefreshAsync"
+              Label="Devbook drift"
               Value="@(IsReady ? MetricFormat.Compact(Value!.Issues.Count) : null)"
               Unit="@(IsReady ? Unit : null)"
               Chip="@(IsReady ? Chip : null)"
@@ -25,6 +26,8 @@
               TestId="dashboard-overview-tile-drift" />
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Drift;
+
     protected override bool FollowsWindow => false;
 
     /// <summary>Unavailable, with GitHub's reason, when the issues could not be read and
@@ -40,8 +43,7 @@
         get
         {
             var failed = Value!.SyncFailed;
-            if (failed.Count == 1) return new OverviewChip($"Sync failed: {Subject(failed[0])}", OverviewTone.Drift);
-            if (failed.Count > 1) return new OverviewChip($"{failed.Count} sync failed", OverviewTone.Drift);
+            if (failed.Count > 0) return new OverviewChip($"{failed.Count} sync failed", OverviewTone.Drift);
 
             return Value!.Issues.Count > 0
                 ? new OverviewChip("Drift open", OverviewTone.Drift)
@@ -61,21 +63,11 @@
         }
     }
 
-    /// <summary>What a drift issue is about: its title without the sweep's prefix.</summary>
-    private static string Subject(DriftIssue issue) =>
-        issue.Title.StartsWith(DriftPrefix, StringComparison.Ordinal)
-            ? issue.Title[DriftPrefix.Length..].Trim()
-            : issue.Title;
-
-    private const string DriftPrefix = "[Devbook drift]";
-
     protected override Task<InsightResult<DriftInsight>> FetchAsync(CancellationToken cancellationToken) =>
         Insights.GetDriftAsync(Scope, cancellationToken);
 
     protected override bool IsEmpty(DriftInsight value) => false;
 
-    // Nothing to drop: the verdicts and the issues are read afresh on every call.
-    protected override void InvalidateSource()
-    {
-    }
+    // The issues are kept per repository focus, so a refresh drops them.
+    protected override void InvalidateSource() => Insights.Invalidate();
 }

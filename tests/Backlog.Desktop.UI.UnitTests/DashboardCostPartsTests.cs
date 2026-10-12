@@ -38,7 +38,7 @@ public sealed class DashboardCostPartsTests
         var part = context.Render<SpendThisMonthPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
 
         var card = part.Find("[data-testid='dashboard-spend-month-claude']");
-        Assert.Contains("of 250.00 USD", card.QuerySelector(".metric-tile__unit")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("of $250", card.QuerySelector(".metric-tile__unit")!.TextContent, StringComparison.Ordinal);
 
         var meter = part.Find("[data-testid='dashboard-spend-month-meter-claude']");
         Assert.Equal("178", meter.QuerySelector("[role=meter]")!.GetAttribute("aria-valuenow"));
@@ -49,7 +49,7 @@ public sealed class DashboardCostPartsTests
         Assert.Equal("Will pass budget", chip.TextContent.Trim());
         Assert.Contains("dashboard-spend-card__chip--over", chip.ClassList);
 
-        Assert.Contains("projected 266.00 USD", card.QuerySelector(".metric-tile__footnote")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("projected $266", card.QuerySelector(".metric-tile__footnote")!.TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -82,8 +82,8 @@ public sealed class DashboardCostPartsTests
         var part = context.Render<SpendThisMonthPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
 
         var card = part.Find("[data-testid='dashboard-spend-month-claude']");
-        Assert.Contains("178.00 USD", card.TextContent, StringComparison.Ordinal);
-        Assert.Contains("projected 266.00 USD", card.TextContent, StringComparison.Ordinal);
+        Assert.Contains("$178", card.TextContent, StringComparison.Ordinal);
+        Assert.Contains("projected $266", card.TextContent, StringComparison.Ordinal);
         Assert.Empty(part.FindAll("[role=meter]"));
         Assert.Empty(part.FindAll(".dashboard-spend-card__chip"));
         Assert.Null(card.QuerySelector(".metric-tile__unit"));
@@ -101,7 +101,7 @@ public sealed class DashboardCostPartsTests
         var part = context.Render<SpendThisMonthPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
 
         Assert.Equal(
-            "Charged 34.00 USD against 46.00 USD consumed · projected 40.00 USD",
+            "Charged $34 against $46 consumed, 1–7 Oct · projected $40",
             part.Find("[data-testid='dashboard-spend-month-copilot'] .metric-tile__footnote").TextContent.Trim());
     }
 
@@ -114,7 +114,7 @@ public sealed class DashboardCostPartsTests
 
         var part = context.Render<SpendThisMonthPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
 
-        Assert.Contains("178.00 USD", part.Find("[data-testid='dashboard-spend-month-claude']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("$178", part.Find("[data-testid='dashboard-spend-month-claude']").TextContent, StringComparison.Ordinal);
         Assert.Empty(part.FindAll("[role=meter]"));
     }
 
@@ -125,7 +125,7 @@ public sealed class DashboardCostPartsTests
 
         var part = context.Render<SpendTrendPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
 
-        Assert.Equal("true", part.Find("[data-testid='dashboard-spend-trend-cumulative']").GetAttribute("aria-pressed"));
+        Assert.Equal("true", part.Find("[data-testid='dashboard-spend-trend-cumulative']").GetAttribute("aria-checked"));
 
         var columns = part.FindAll("[data-testid='dashboard-spend-trend-bars'] .metric-bars__column");
         Assert.Equal(31, columns.Count);
@@ -135,10 +135,10 @@ public sealed class DashboardCostPartsTests
         // Cumulative: seven days of 10, then 5 a day projected — 70 by today, 190 by the
         // thirty-first.
         var cells = part.FindAll("[data-testid='dashboard-spend-trend-bars'] tbody td");
-        Assert.Equal("70.00 USD", cells[6].TextContent.Trim());
-        Assert.Equal("190.00 USD (projected)", cells[30].TextContent.Trim());
+        Assert.Equal("$70", cells[6].TextContent.Trim());
+        Assert.Equal("$190 (projected)", cells[30].TextContent.Trim());
 
-        Assert.Equal("Budget 300.00 USD", part.Find(".metric-bars__reference-label").TextContent);
+        Assert.Equal("Budget $300", part.Find(".metric-bars__reference-label").TextContent);
     }
 
     [Fact]
@@ -150,10 +150,10 @@ public sealed class DashboardCostPartsTests
 
         part.Find("[data-testid='dashboard-spend-trend-daily']").Click();
 
-        Assert.Equal("true", part.Find("[data-testid='dashboard-spend-trend-daily']").GetAttribute("aria-pressed"));
+        Assert.Equal("true", part.Find("[data-testid='dashboard-spend-trend-daily']").GetAttribute("aria-checked"));
         var cells = part.FindAll("[data-testid='dashboard-spend-trend-bars'] tbody td");
-        Assert.Equal("10.00 USD", cells[6].TextContent.Trim());
-        Assert.Equal("5.00 USD (projected)", cells[30].TextContent.Trim());
+        Assert.Equal("$10", cells[6].TextContent.Trim());
+        Assert.Equal("$5 (projected)", cells[30].TextContent.Trim());
         Assert.Empty(part.FindAll(".metric-bars__reference"));
     }
 
@@ -194,7 +194,7 @@ public sealed class DashboardCostPartsTests
         var gpt = table.QuerySelectorAll("tbody tr")[1].QuerySelectorAll("td").Select(cell => cell.TextContent.Trim()).ToList();
         Assert.Equal("—", gpt[1]);
         Assert.Equal("—", gpt[2]);
-        Assert.Equal("12.00 USD", gpt[3]);
+        Assert.Equal("$12", gpt[3]);
     }
 
     private static BunitContext Context(ScriptedCosts costs)
@@ -241,9 +241,6 @@ public sealed class DashboardCostPartsTests
         public Task<InsightResult<SpendThisMonthInsight>> GetThisMonthAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendThisMonthInsight>.Ready(new SpendThisMonthInsight(Month)));
 
-        public Task<InsightResult<SpendTrendInsight>> GetTrendAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightResult<SpendTrendInsight>.Unavailable("Not used by the Cost tab."));
-
         public Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendByModelInsight>.Ready(new SpendByModelInsight(ByModel)));
 
@@ -251,6 +248,9 @@ public sealed class DashboardCostPartsTests
             Task.FromResult(ProjectionRefused
                 ? InsightResult<SpendProjectionInsight>.Unavailable("No projection in this test.")
                 : InsightResult<SpendProjectionInsight>.Ready(new SpendProjectionInsight(Projections)));
+
+        public Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByWeekInsight>.Unavailable("Not used by this test."));
 
         public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendByDayInsight>.Ready(ByDay));

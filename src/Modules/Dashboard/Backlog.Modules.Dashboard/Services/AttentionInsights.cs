@@ -11,7 +11,7 @@ namespace Backlog.Modules.Dashboard.Services;
 /// <remarks>
 /// <para>
 /// Every rule reads an insight the dashboard already has rather than a source of its own,
-/// so an item never says something the tab it links to does not show. The four reads run
+/// so an item never says something the tab it links to does not show. The reads run
 /// side by side; each insight keeps its own cache, so the tab that opens next reads what
 /// this read.
 /// </para>
@@ -40,10 +40,9 @@ internal sealed class AttentionInsights(
         var driftRead = ReadAsync("Drift", () => drift.GetDriftAsync(scope, cancellationToken), cancellationToken);
         var planRead = ReadAsync("The roadmap", () => tasks.GetPlanAsync(scope, cancellationToken), cancellationToken);
         var projectionRead = ReadAsync("The month-end projection", () => cost.GetProjectionAsync(cancellationToken), cancellationToken);
-        var headlineRead = ReadAsync("Rework", () => productivity.GetHeadlineAsync(scope, cancellationToken), cancellationToken);
         var reworkRead = ReadAsync("Rework", () => productivity.GetReworkAsync(scope, cancellationToken), cancellationToken);
 
-        await Task.WhenAll(driftRead, planRead, projectionRead, headlineRead, reworkRead).ConfigureAwait(false);
+        await Task.WhenAll(driftRead, planRead, projectionRead, reworkRead).ConfigureAwait(false);
 
         var items = new List<NeedsYouItem>();
         var skipped = new List<string>();
@@ -58,18 +57,7 @@ internal sealed class AttentionInsights(
 
         Apply(await planRead, BehindItems, items, skipped);
         Apply(await projectionRead, PastBudgetItems, items, skipped);
-
-        var (headline, headlineSkipped) = await headlineRead;
-        var (rework, reworkSkipped) = await reworkRead;
-
-        if ((headlineSkipped ?? reworkSkipped) is { } why)
-        {
-            skipped.Add(why);
-        }
-        else
-        {
-            items.AddRange(ReworkItems(headline!, rework!));
-        }
+        Apply(await reworkRead, ReworkItems, items, skipped);
 
         return new NeedsYouInsight(items, skipped);
     }
@@ -108,14 +96,15 @@ internal sealed class AttentionInsights(
         }
     }
 
-    /// <summary>Rule 2: each roadmap item whose outlook is Behind, with the estimated
-    /// points it has left — and how many of its things carry no estimate, so the points
-    /// read as a floor when they are one.</summary>
+    /// <summary>Rule 2: each roadmap item behind pace — projected past its end, or
+    /// already past it with work open, the one definition the Overview tile, the brief
+    /// and the Tasks tab count — with the estimated points it has left, and how many of
+    /// its things carry no estimate, so the points read as a floor when they are one.</summary>
     internal static IEnumerable<NeedsYouItem> BehindItems(PlanInsight insight)
     {
         if (!insight.RoadmapEnabled) yield break;
 
-        foreach (var planned in insight.Items.Where(item => item.Outlook == PlanOutlook.Behind))
+        foreach (var planned in insight.Items.Where(item => item.Outlook is PlanOutlook.Behind or PlanOutlook.Overdue))
         {
             var left = Math.Max(0, planned.Item.TotalEffort - planned.Item.DoneEffort);
             var unestimated = planned.Item.Unestimated > 0
@@ -125,10 +114,12 @@ internal sealed class AttentionInsights(
                 ? $", projected to land {Day(end)} against an end of {Day(planned.Item.End)}."
                 : $", against an end of {Day(planned.Item.End)}.";
 
+            var state = planned.Outlook == PlanOutlook.Overdue ? "Past its end" : "Behind";
+
             yield return new NeedsYouItem(
                 NeedsYouRule.RoadmapBehind,
                 planned.Item.Title,
-                $"Behind: {Points(left)}{unestimated} left{lands}",
+                $"{state}: {Points(left)}{unestimated} left{lands}",
                 NeedsYouTab.Tasks);
         }
     }
@@ -147,28 +138,38 @@ internal sealed class AttentionInsights(
 
             yield return new NeedsYouItem(
                 NeedsYouRule.PastBudget,
-                $"{Name(projection.Provider)} is projected past its budget",
+                $"{projection.Provider.DisplayName()} is projected past its budget",
                 $"{when}; projected {Money(projection.Projected)} by the month's end.",
                 NeedsYouTab.Cost);
         }
     }
 
     /// <summary>Rule 4: rework, when the pull requests that came back after review are
-    /// more than a quarter of those merged in the window. Exactly a quarter is not.</summary>
-    internal static IEnumerable<NeedsYouItem> ReworkItems(ProductivityHeadline headline, ReworkInsight rework)
+    /// more than a quarter of those reviewed in the window — the Productivity tab's rework
+    /// rate, over the same denominator, so the two never disagree. Exactly a quarter is
+    /// not; nothing reviewed raises nothing. The detail splits the count by repository,
+    /// leaving out a repository nothing came back from.</summary>
+    internal static IEnumerable<NeedsYouItem> ReworkItems(ReworkInsight rework)
     {
-        var merged = headline.PullRequestsMerged;
+        var reviewed = rework.PullRequestsReviewed;
         var cameBack = rework.PullRequestsWithChurn;
 
-        if (merged <= 0 || (decimal)cameBack / merged <= NeedsYouInsight.ReworkThreshold) yield break;
+        if (reviewed <= 0 || (decimal)cameBack / reviewed <= NeedsYouInsight.ReworkThreshold) yield break;
 
-        var share = ((decimal)cameBack / merged).ToString("0%", Culture);
+        var title = cameBack == 1
+            ? "1 pull request came back after review"
+            : $"{cameBack} pull requests came back after review";
 
-        yield return new NeedsYouItem(
-            NeedsYouRule.Rework,
-            "Rework after review",
-            $"{cameBack} of {merged} merged pull requests came back after review ({share}).",
-            NeedsYouTab.Productivity);
+        var split = rework.ByRepository
+            .Where(row => row.PullRequestsWithChurn > 0)
+            .Select(row => $"{row.PullRequestsWithChurn} in {row.Alias}")
+            .ToList();
+
+        var detail = split.Count == 0
+            ? $"{cameBack} of {reviewed} reviewed came back."
+            : $"{cameBack} of {reviewed} reviewed came back: {string.Join(", ", split)}.";
+
+        yield return new NeedsYouItem(NeedsYouRule.Rework, title, detail, NeedsYouTab.Productivity);
     }
 
     /// <summary>
@@ -269,12 +270,5 @@ internal sealed class AttentionInsights(
 
     private static string Points(int points) => points == 1 ? "1 point" : $"{points} points";
 
-    private static string Money(DashboardMoney money) =>
-        $"{money.Amount.ToString("0.00", Culture)} {money.Currency}";
-
-    private static string Name(SpendProvider provider) => provider switch
-    {
-        SpendProvider.AzureFoundry => "Azure AI Foundry",
-        _ => provider.ToString()
-    };
+    private static string Money(DashboardMoney money) => money.Format();
 }

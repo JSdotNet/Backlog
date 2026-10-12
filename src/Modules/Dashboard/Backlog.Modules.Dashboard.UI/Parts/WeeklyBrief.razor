@@ -28,7 +28,9 @@
     <header class="dashboard-brief__header">
         <div class="dashboard-brief__heading">
             <p class="dashboard-brief__eyebrow" data-testid="dashboard-brief-week">@WeeklyBriefSentences.WeekLabel(_week)</p>
-            <h3 class="dashboard-brief__title" id="dashboard-brief-title" tabindex="-1" @ref="_title">Weekly brief</h3>
+            @* A sentence for a title (board Brief, decision Q5), filled from the blocks'
+               own insights; "Weekly brief" until they answer. *@
+            <h3 class="dashboard-brief__title" id="dashboard-brief-title" tabindex="-1" @ref="_title" data-testid="dashboard-brief-title"><BriefTitle Scope="BlockScope" Week="_week" /></h3>
         </div>
         <nav class="dashboard-brief__nav" aria-label="Brief weeks">
             @if (_week.HasEarlier)

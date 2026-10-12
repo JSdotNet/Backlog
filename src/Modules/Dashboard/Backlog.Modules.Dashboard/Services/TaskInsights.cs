@@ -125,8 +125,13 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
             .Select(item => Outlook(item, today, reading.Week))
             .ToList();
 
+        // The axis runs on past today to the last item's end, so an item still running
+        // draws whole; never shorter than the window it was read for.
+        var timelineTo = items.Count == 0 ? windowTo : items.Max(item => item.Item.End);
+        if (timelineTo < windowTo) timelineTo = windowTo;
+
         return InsightResult<PlanInsight>.Ready(
-            new PlanInsight(true, reading.Pace, items) { WindowFrom = windowFrom, WindowTo = windowTo });
+            new PlanInsight(true, reading.Pace, items) { WindowFrom = windowFrom, WindowTo = windowTo, TimelineTo = timelineTo });
     }
 
     /// <summary>

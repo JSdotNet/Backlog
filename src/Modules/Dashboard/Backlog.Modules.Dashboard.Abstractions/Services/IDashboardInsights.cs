@@ -5,7 +5,7 @@ namespace Backlog.Modules.Dashboard.Abstractions.Services;
 /// <summary>
 /// What the productivity half of the dashboard asks for.
 /// <para>
-/// Four methods rather than one that returns everything, and that is the
+/// Three methods rather than one that returns everything, and that is the
 /// independent-parts rule expressed in the contract. A single call would make the
 /// slowest source decide when the fastest part renders, and would make one
 /// unconfigured provider able to fail the whole surface. Each part awaits its own
@@ -19,10 +19,6 @@ public interface IProductivityInsights
         CancellationToken cancellationToken = default);
 
     Task<InsightResult<ProductivityScoreInsight>> GetScoreAsync(
-        DashboardScope scope,
-        CancellationToken cancellationToken = default);
-
-    Task<InsightResult<ProductivityTrend>> GetTrendAsync(
         DashboardScope scope,
         CancellationToken cancellationToken = default);
 
@@ -119,8 +115,9 @@ public interface IHoursWorkedInsights
 /// because the window is four. The part says so.
 /// </para>
 /// <para>
-/// No invalidation: the verdicts are read from their file on every call, and the issues
-/// from GitHub, so a refresh is a second call.
+/// The verdicts are read from their file on every call; the issues are read from GitHub
+/// once per repository focus and kept until <see cref="Invalidate"/>, because every part
+/// that shows drift asks as the pane opens and GitHub limits how often it may be asked.
 /// </para>
 /// </summary>
 public interface IDriftInsights
@@ -128,6 +125,11 @@ public interface IDriftInsights
     Task<InsightResult<DriftInsight>> GetDriftAsync(
         DashboardScope scope,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Drops the drift issues read so far, so the next call goes back to GitHub.
+    /// What a refresh does. No scope, on <see cref="ICostInsights.Invalidate"/>'s
+    /// reasoning: a refresh means the issues may have moved in every repository.</summary>
+    void Invalidate();
 }
 
 /// <summary>
@@ -145,8 +147,6 @@ public interface ICostInsights
 {
     Task<InsightResult<SpendThisMonthInsight>> GetThisMonthAsync(CancellationToken cancellationToken = default);
 
-    Task<InsightResult<SpendTrendInsight>> GetTrendAsync(CancellationToken cancellationToken = default);
-
     Task<InsightResult<SpendByModelInsight>> GetByModelAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Each provider's month-end projection against its monthly budget, read
@@ -162,12 +162,10 @@ public interface ICostInsights
     /// <summary>Spend per ISO week over the last twelve weeks and this one, from the
     /// providers that report by the day — what the weekly brief's Cost block draws.
     /// <para>
-    /// A default body that answers unavailable, so a host or a test double composed
-    /// before the brief existed still compiles and says plainly that it has no weekly
-    /// figure, rather than every double having to learn a method it has no opinion on.
+    /// Required, with no default body: an implementation that forgot it would answer
+    /// "unavailable" and the brief's Cost block would go quiet with nothing to say why.
     /// </para></summary>
-    Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(InsightResult<SpendByWeekInsight>.Unavailable("Spend by week is not reported here."));
+    Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Drops whatever was cached, so the next call goes back to the providers.</summary>
     void Invalidate();

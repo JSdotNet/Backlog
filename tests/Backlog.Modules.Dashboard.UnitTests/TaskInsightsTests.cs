@@ -139,6 +139,24 @@ public class TaskInsightsTests
         Assert.Equal(32m, result.Value.PreviousEffort);
     }
 
+    /// <summary>The backlog keeps every ticked-off task, so even the widest window keeps
+    /// its comparison (AC2): twenty-six weeks counts 186 days from its first Monday, 23
+    /// March, through today, so the previous window is the 186 before it, from 18 September
+    /// 2025.</summary>
+    [Fact]
+    public async Task Twenty_six_weeks_reads_back_the_same_number_of_days_before_the_first_column()
+    {
+        var source = new StubSource(Ticked(2025, 9, 17, 13), Ticked(2025, 9, 18, 5), Ticked(2026, 3, 22, 3), Ticked(2026, 3, 23, 8));
+
+        var result = await Insights(source).GetThroughputAsync(
+            new DashboardScope(Period: DashboardPeriod.TwentySixWeeks),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(new DateOnly(2025, 9, 18), source.Since);
+        Assert.Equal(8m, result.Value!.PreviousEffort);
+        Assert.Equal(8m, result.Value.Effort);
+    }
+
     /// <summary>Twelve weeks counts 88 days from its first Monday, 29 June, through
     /// today, so the previous window is the 88 before it: from 2 April.</summary>
     [Fact]
@@ -458,6 +476,84 @@ public class TaskInsightsTests
         Assert.Equal(13, result.Value.PlannedEffort);
         Assert.Equal(8, result.Value.DoneEffort);
         Assert.Equal(3, result.Value.Unestimated);
+    }
+
+    /// <summary>
+    /// The timeline runs past today to the latest end of an item it shows (AC17), so an
+    /// item still running draws whole rather than as a stub cut off at today.
+    /// </summary>
+    [Fact]
+    public async Task The_timeline_runs_to_the_latest_item_end_past_today()
+    {
+        var plan = new StubPlanSource(
+            Item("Soon", end: new DateOnly(2026, 10, 15)),
+            Item("Later", end: new DateOnly(2026, 11, 20)));
+
+        var result = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.Equal(new DateOnly(2026, 9, 24), result.Value!.WindowTo);
+        Assert.Equal(new DateOnly(2026, 11, 20), result.Value.TimelineTo);
+    }
+
+    [Fact]
+    public async Task The_timeline_never_ends_before_today()
+    {
+        var plan = new StubPlanSource(Item("Done early", end: new DateOnly(2026, 9, 10)));
+
+        var result = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.Equal(new DateOnly(2026, 9, 24), result.Value!.TimelineTo);
+    }
+
+    /// <summary>Still to do is the planned effort less what is done, and how long that
+    /// takes at the pace in use (AC16): 13 planned, 8 done, 5 left at 2 a week is two and
+    /// a half weeks.</summary>
+    [Fact]
+    public async Task Still_to_do_is_the_planned_effort_less_the_done_and_takes_weeks_at_the_pace_in_use()
+    {
+        var plan = new StubPlanSource(
+            Item("One", totalEffort: 8, doneEffort: 3),
+            Item("Two", totalEffort: 5, doneEffort: 5))
+        {
+            Pace = new PlanPace(2m, PlanPaceBasis.LastFourWeeks)
+        };
+
+        var result = (await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken)).Value!;
+
+        Assert.Equal(5, result.StillToDo);
+        Assert.Equal(2m, result.PaceInUse);
+        Assert.Equal(2.5m, result.WeeksStillToDo);
+    }
+
+    /// <summary>With nothing measured there is no pace, and no weeks to finish in — never
+    /// a pace of 0 that would read as "nothing gets done" (AC19).</summary>
+    [Fact]
+    public async Task No_pace_is_no_pace_rather_than_zero_points_a_week()
+    {
+        var plan = new StubPlanSource(Item("One", totalEffort: 8, doneEffort: 3))
+        {
+            Pace = new PlanPace(0m, PlanPaceBasis.LastFourWeeks)
+        };
+
+        var result = (await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken)).Value!;
+
+        Assert.Null(result.PaceInUse);
+        Assert.Null(result.WeeksStillToDo);
+        Assert.Equal(5, result.StillToDo);
+    }
+
+    [Fact]
+    public async Task The_items_in_the_window_say_how_many_are_done_and_how_many_are_late()
+    {
+        var plan = new StubPlanSource(
+            Item("Finished", totalEffort: 5, doneEffort: 5, finished: true, lastCompletedOn: new DateOnly(2026, 9, 20)),
+            Item("Overdue", end: new DateOnly(2026, 9, 20), totalEffort: 5, doneEffort: 1),
+            Item("Behind", end: new DateOnly(2026, 9, 25), totalEffort: 50, doneEffort: 0, pace: 1m),
+            Item("On track", end: new DateOnly(2026, 12, 31), totalEffort: 2, doneEffort: 0));
+
+        var result = (await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken)).Value!;
+
+        Assert.Equal((1, 2), (result.ItemsDone, result.ItemsBehind));
     }
 
     [Fact]

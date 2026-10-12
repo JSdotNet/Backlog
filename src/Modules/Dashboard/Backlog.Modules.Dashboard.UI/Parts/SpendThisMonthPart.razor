@@ -31,7 +31,7 @@
 @inject ICostInsights Costs
 
 <PartFrame Title="Spend this month"
-           Note="Your own usage, across everything — Claude, Copilot, and the Azure Foundry resource in Settings. No provider reports spend per repository, so the repository filter does not change these figures."
+           Note="Your own usage, across everything — Anthropic, Copilot, and the Azure AI Foundry resource in Settings. No provider reports spend per repository, so the repository filter does not change these figures."
            Busy="Status == MetricStatusKind.Loading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-spend-month">
@@ -42,7 +42,7 @@
                 @foreach (var provider in Value!.Providers)
                 {
                     <MetricTile Label="@Name(provider.Provider)"
-                                Value="@MetricFormat.Money(new MoneyAmount(provider.Spend.Amount, provider.Spend.Currency))"
+                                Value="@DashboardMoney.Format(provider.Spend.Amount, provider.Spend.Currency)"
                                 Emphasis="@(provider.Provider == SpendProvider.Claude)"
                                 Delta="@DashboardFormat.ShareDelta(provider.Spend.Amount, provider.PreviousSpend?.Amount, "same days last month", higherIsBetter: false)"
                                 Footnote="@Footnote(provider)"
@@ -63,7 +63,7 @@
                                              Max="@budget.Amount"
                                              Marker="@projection.Projected.Amount"
                                              MarkerLabel="@($"Projected {Money(projection.Projected)}")"
-                                             FormatValue="@(amount => MetricFormat.Money(new MoneyAmount(amount, provider.Spend.Currency)))"
+                                             FormatValue="@(amount => DashboardMoney.Format(amount, provider.Spend.Currency))"
                                              Caption=""
                                              TestId="@($"dashboard-spend-month-meter-{Slug(provider.Provider)}")" />
                             }
@@ -80,6 +80,8 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Cost;
+
     /// <summary>Spend narrows by nothing on the filter strip — not the repository, not
     /// the machine, not the window — so none of them may make this part fetch again. The
     /// machine needs no override: <see cref="DashboardPartBase{T}.FollowsMachine"/> is
@@ -124,13 +126,7 @@
 
     protected override void InvalidateSource() => Costs.Invalidate();
 
-    private static string Name(SpendProvider provider) => provider switch
-    {
-        SpendProvider.Claude => "Claude",
-        SpendProvider.Copilot => "Copilot",
-        SpendProvider.AzureFoundry => "Azure Foundry",
-        _ => provider.ToString()
-    };
+    private static string Name(SpendProvider provider) => provider.DisplayName();
 
     private static string Slug(SpendProvider provider) => provider switch
     {
@@ -157,8 +153,8 @@
         var parts = new List<string>
         {
             provider.Allowance is { } allowance
-                ? $"Charged {Money(provider.Spend)} against {Money(provider.Spend + allowance)} consumed"
-                : $"1–{provider.Through.Day} {provider.Through:MMM}"
+                ? $"Charged {Money(provider.Spend)} against {Money(provider.Spend + allowance)} consumed, {Days(provider)}"
+                : Days(provider)
         };
 
         if (ProjectionOf(provider) is { } projection) parts.Add($"projected {Money(projection.Projected)}");
@@ -170,6 +166,11 @@
             : caption;
     }
 
+    /// <summary>"1–12 Oct": the days of the month the figure covers, invariant so the
+    /// caption reads the same on every machine (entry 19, AC31).</summary>
+    private static string Days(MonthlySpend provider) =>
+        $"1–{provider.Through.Day} {provider.Through.ToString("MMM", System.Globalization.CultureInfo.InvariantCulture)}";
+
     private static string Money(DashboardMoney money) =>
-        MetricFormat.Money(new MoneyAmount(money.Amount, money.Currency));
+        DashboardMoney.Format(money.Amount, money.Currency);
 }

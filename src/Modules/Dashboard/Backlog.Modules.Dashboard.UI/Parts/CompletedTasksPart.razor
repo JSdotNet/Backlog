@@ -35,6 +35,8 @@
 </PartFrame>
 
 @code {
+    protected override DashboardSources Sources => DashboardSources.Tasks;
+
     private const string Note =
         "Tasks ticked off in the backlog, by the ISO week they were ticked off in. "
         + "The repository chips narrow this to tasks targeting one of them; the machine filter does not apply, "
