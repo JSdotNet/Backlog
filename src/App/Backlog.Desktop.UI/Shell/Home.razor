@@ -806,10 +806,11 @@
     }
 
     /// <summary>
-    /// Has the Tasks state read, in the background, the pull requests of Done
-    /// entries it does not know to have landed — never read, or last read open and
-    /// not re-read for a while — so work that merged shows merged without the sync
-    /// button. Called after the list loads and after every reload of it.
+    /// Has the Tasks state read, in the background, the entries' pull requests it
+    /// does not know to have landed — never read, or last read open and not re-read
+    /// for a while — so work that merged shows merged without the sync button,
+    /// whatever the entry's status. Called after the list loads and after every
+    /// reload of it.
     /// <para>
     /// Not awaited: the list is already on screen and must stay usable offline, and
     /// the state keeps its own one-at-a-time guard and stays quiet on failure. The

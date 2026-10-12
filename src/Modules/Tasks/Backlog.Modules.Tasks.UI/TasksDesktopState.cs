@@ -3946,7 +3946,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
-    /// Reads, in the background, the pull requests of Done entries that have not
+    /// Reads, in the background, the pull requests of entries that have not
     /// landed yet as far as the list knows, so a merged one shows merged without the
     /// reader pressing the sync button. The shell asks after the list loads and after
     /// every reload; the list is already on screen by then and nothing about it waits
@@ -3961,8 +3961,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// screen for the life of the app. Merged and closed are not asked about again,
     /// and nothing is asked about twice within the interval: an agent's every write
     /// reloads the list, and asking on each would put the network behind all of them.
-    /// Only Done entries, because that is where a recorded pull request is the work
-    /// waiting to land.
+    /// Every entry with a pull request, whatever its status: a plan item's pull
+    /// request merges into its plan branch while the item stays In progress until
+    /// the plan lands, and that merge is owed its colour as much as a Done entry's.
     /// </para>
     /// <para>
     /// Quiet throughout — no toast, no line on the row. Nobody asked for this read,
@@ -4035,7 +4036,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private async Task ReadDuePullRequestsAsync()
     {
         var ids = Rows
-            .Where(row => row.Id is not null && row.Status is EntryStatus.Done && row.PullRequestLinks.Any(pr => PullRequestDue(row, pr)))
+            .Where(row => row.Id is not null && row.PullRequestLinks.Any(pr => PullRequestDue(row, pr)))
             .Select(row => row.Id!.Value)
             .Distinct()
             .ToList();
