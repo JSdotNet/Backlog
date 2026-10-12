@@ -44,8 +44,8 @@
       hosting package from another release binds against a different
       Aspire.Hosting than the AppHost resolves.
     -->
-    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.6.0-preview.1.26479.8" />
-    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.6.0-preview.1.26479.8" />
+    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.6.1-preview.1.26506.6" />
+    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.6.1-preview.1.26506.6" />
 
     <!--
       The client-side half of the Cosmos wiring: it reads the connection string
