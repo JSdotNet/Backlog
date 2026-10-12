@@ -2349,6 +2349,36 @@ public class SessionInsightsTests
     }
 
     /// <summary>
+    /// The weekly brief's series: the same hours and sessions on the calendar's ISO weeks
+    /// whatever the reset, so the two runs either side of Monday's 14:00 reset both fall
+    /// in W34, and the hours still add up to the tile.
+    /// </summary>
+    [Fact]
+    public async Task The_calendar_week_series_ignore_the_reset_and_sum_to_the_tile()
+    {
+        var before = new DateTimeOffset(2026, 8, 17, 13, 0, 0, TimeSpan.Zero);
+        var after = new DateTimeOffset(2026, 8, 17, 15, 0, 0, TimeSpan.Zero);
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", before, before.AddMinutes(30), "one"),
+                    Session(Tower, "Claude", after, after.AddHours(1), "two"))
+            },
+            Activity(Ran("one", Tower, "Claude", (before, before.AddMinutes(30))), Ran("two", Tower, "Claude", (after, after.AddHours(1)))),
+            reset: new FixedUsageReset(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(["W33", "W34"], value.ActiveTimePerCalendarWeek.TakeLast(2).Select(point => point.Label));
+        Assert.Equal([0m, 1.5m], value.ActiveTimePerCalendarWeek.TakeLast(2).Select(point => point.Value));
+        Assert.Equal([0m, 2m], value.SessionsPerCalendarWeek.TakeLast(2).Select(point => point.Value));
+        Assert.Equal(13, value.ActiveTimePerCalendarWeek.Count);
+        Assert.Equal((decimal)value.ActiveTime.TotalHours, value.ActiveTimePerCalendarWeek.Sum(point => point.Value));
+    }
+
+    /// <summary>
     /// With nothing configured, the last weekly refusal's reset is the anchor — any
     /// reset instant cuts the same weeks, so one recorded in July anchors this week too.
     /// A refusal for the five-hour window is not a weekly reset and anchors nothing.

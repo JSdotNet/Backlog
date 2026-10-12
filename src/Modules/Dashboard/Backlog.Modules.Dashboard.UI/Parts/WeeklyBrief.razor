@@ -1,0 +1,149 @@
+@*
+    The weekly brief: the last completed Monday-to-Sunday week read as a few sentences
+    rather than as charts — the dashboard's "Read as brief".
+
+    Four blocks, in the board's order — Shipping, Plan, Sessions, Cost — each a part of
+    its own reading through the insight its tab reads, so a block shares that tab's
+    cached read and a source that cannot answer leaves the other three standing. Every
+    sentence is a template filled from those figures (WeeklyBriefSentences), never
+    written by a model. It closes with "Carrying into next week", the Overview's
+    Needs-you items.
+
+    The blocks read the twelve-week series whatever window the pane has selected: the
+    reported week needs eight weeks of bars and one before them, and four weeks would
+    not hold that. Over twelve weeks they share the tabs' cached reads; with four weeks
+    selected the brief's read is a second one, made once when it opens. The repository scope and the machine are the pane's, honoured where
+    each block's tab honours them. The Needs-you items are read for the pane's own
+    scope, so they are the Overview's list exactly.
+
+    The week before is a step back over what was already read, up to as far as that
+    read reaches; the week after steps forward again, up to the last completed week.
+    Which week is shown is a field: it is forgotten when the brief closes.
+*@
+
+@using Microsoft.Extensions.DependencyInjection
+@using Microsoft.JSInterop
+
+<section class="dashboard-brief" aria-labelledby="dashboard-brief-title" data-testid="dashboard-brief">
+    <header class="dashboard-brief__header">
+        <div class="dashboard-brief__heading">
+            <p class="dashboard-brief__eyebrow" data-testid="dashboard-brief-week">@WeeklyBriefSentences.WeekLabel(_week)</p>
+            <h3 class="dashboard-brief__title" id="dashboard-brief-title" tabindex="-1" @ref="_title">Weekly brief</h3>
+        </div>
+        <nav class="dashboard-brief__nav" aria-label="Brief weeks">
+            @if (_week.HasEarlier)
+            {
+                <AppButton Variant="ButtonVariant.Ghost"
+                           CssClass="dashboard-brief__nav-link"
+                           OnClick="Earlier"
+                           TestId="dashboard-brief-earlier">
+                    <span aria-hidden="true">←</span> @($"Week {Earlier(_week).Number}")
+                </AppButton>
+            }
+            @if (_week.WeeksBack > 0)
+            {
+                <AppButton Variant="ButtonVariant.Ghost"
+                           CssClass="dashboard-brief__nav-link"
+                           OnClick="Later"
+                           TestId="dashboard-brief-later">
+                    @($"Week {Later(_week).Number}") <span aria-hidden="true">→</span>
+                </AppButton>
+            }
+            <AppButton Variant="ButtonVariant.Ghost"
+                       CssClass="dashboard-brief__nav-link"
+                       OnClick="() => OnOpenOverview.InvokeAsync()"
+                       TestId="dashboard-brief-overview">
+                Open overview
+            </AppButton>
+        </nav>
+    </header>
+
+    <BriefShippingPart Scope="BlockScope" Week="_week" OnOpenTab="OnOpenTab" />
+    <BriefPlanPart Scope="BlockScope" Week="_week" OnOpenTab="OnOpenTab" />
+    <BriefSessionsPart Scope="BlockScope" Week="_week" OnOpenTab="OnOpenTab" />
+    <BriefCostPart Scope="BlockScope" Week="_week" OnOpenTab="OnOpenTab" />
+
+    <BriefCarryingPart Scope="Scope" />
+</section>
+
+@code {
+    private BriefWeek _week = default!;
+
+    private ElementReference _title;
+
+    /// <summary>When the brief opened. Every week it steps to is counted from this rather
+    /// than from the clock now, so a brief left open across a Monday keeps its label on
+    /// the weeks its blocks read when it opened.</summary>
+    private DateTimeOffset _openedAt;
+
+    private bool _focusTitle = true;
+
+    [Inject]
+    private IServiceProvider Services { get; set; } = default!;
+
+    /// <summary>The host's clock when it registered one, the system's otherwise — the way
+    /// the module's derivations take it, so the week here and the series' last bucket
+    /// are read off the same clock.</summary>
+    private TimeProvider Time => Services.GetService<TimeProvider>() ?? TimeProvider.System;
+
+    /// <summary>The pane's scope: the repositories and the machine in focus, and the
+    /// window the Needs-you items are read over.</summary>
+    [Parameter]
+    public DashboardScope Scope { get; set; } = DashboardScope.Default;
+
+    /// <summary>Raised by "Open overview". Showing it is the pane's move.</summary>
+    [Parameter]
+    public EventCallback OnOpenOverview { get; set; }
+
+    /// <summary>Raised with the pane's id of the tab a block links to.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenTab { get; set; }
+
+    /// <summary>The scope the blocks read: the pane's, over twelve weeks.</summary>
+    private DashboardScope BlockScope => Scope with { Period = DashboardPeriod.TwelveWeeks };
+
+    protected override void OnInitialized()
+    {
+        _openedAt = Time.GetUtcNow();
+        _week = BriefWeek.Of(_openedAt, 0);
+    }
+
+    private BriefWeek Earlier(BriefWeek week) => BriefWeek.Of(_openedAt, week.WeeksBack + 1);
+
+    private BriefWeek Later(BriefWeek week) => BriefWeek.Of(_openedAt, week.WeeksBack - 1);
+
+    /// <summary>Steps a week back. Focus goes to the title, because the button pressed
+    /// is not drawn on the earliest week.</summary>
+    private void Earlier()
+    {
+        _week = Earlier(_week);
+        _focusTitle = true;
+    }
+
+    /// <summary>Steps a week forward, focus to the title for the same reason.</summary>
+    private void Later()
+    {
+        _week = Later(_week);
+        _focusTitle = true;
+    }
+
+    /// <summary>Takes focus to the brief's title as it opens — the link that opened it was
+    /// in the tab strip, which the brief replaces — and after every step between weeks.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusTitle) return;
+
+        _focusTitle = false;
+
+        try
+        {
+            await _title.FocusAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+}

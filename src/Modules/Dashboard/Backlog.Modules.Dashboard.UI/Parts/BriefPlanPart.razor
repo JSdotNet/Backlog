@@ -1,0 +1,51 @@
+@*
+    The brief's Plan block: story points done in the week, against the week before,
+    from the Tasks tab's throughput, with the roadmap's standing as its supporting
+    sentence — the items behind pace, counted as the Overview's tile and Needs you count
+    them.
+
+    Two reads, as the Overview's points tile makes two. The throughput decides the
+    block; the roadmap is optional, and switched off or unreadable it only changes the
+    supporting sentence.
+*@
+@inherits BriefPartBase<BriefPlanPart.Reading>
+@inject ITaskInsights Insights
+
+@{
+    var reading = IsReady ? Week.Read(Value!.Throughput.EffortPerWeek) : null;
+}
+<BriefBlock Tag="Plan"
+            Status="BlockStatus(reading)"
+            StatusMessage="@BlockMessage(reading)"
+            Headline="@(reading is null ? null : WeeklyBriefSentences.PointsDone(reading.Value, reading.Previous))"
+            Detail="@(reading is null ? null : WeeklyBriefSentences.PlanDetail(Value!.Plan))"
+            Figure="@(reading is null ? null : MetricFormat.Compact(reading.Value))"
+            Unit="pts"
+            Bars="Points(reading)"
+            Caption="@Caption("Story points done per week", reading)"
+            LinkText="Roadmap"
+            OnOpen="Open(TabId)"
+            TestId="dashboard-brief-plan" />
+
+@code {
+    private const string TabId = "dashboard-tasks";
+
+    /// <summary>What the block reads: the throughput, and the roadmap when it could be
+    /// read — switched off included, which the sentence says.</summary>
+    public sealed record Reading(TaskThroughputInsight Throughput, PlanInsight? Plan);
+
+    protected override async Task<InsightResult<Reading>> FetchAsync(CancellationToken cancellationToken)
+    {
+        var throughput = await Insights.GetThroughputAsync(Scope, cancellationToken);
+        if (!throughput.HasValue) return InsightResult<Reading>.Unavailable(throughput.Availability.Reason);
+
+        var plan = await Insights.GetPlanAsync(Scope, cancellationToken);
+
+        return InsightResult<Reading>.Ready(new Reading(throughput.Value!, plan.HasValue ? plan.Value : null));
+    }
+
+    // Nothing to drop: the tasks and the roadmap are read afresh on every call.
+    protected override void InvalidateSource()
+    {
+    }
+}

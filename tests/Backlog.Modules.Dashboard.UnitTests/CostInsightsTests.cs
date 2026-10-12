@@ -445,6 +445,84 @@ public class CostInsightsTests
         Assert.Equal(2, claude.Calls);
     }
 
+    /// <summary>
+    /// The weekly brief's Cost block: spend per ISO week, the providers that report by
+    /// the day added up, on the thirteen weeks a twelve-week window touches - the last
+    /// one the week today falls in, as every other weekly series on the surface draws it.
+    /// </summary>
+    [Fact]
+    public async Task Spend_by_week_adds_the_daily_providers_into_iso_weeks_ending_this_week()
+    {
+        var claude = new StubSpendSource
+        {
+            Report = new SpendReport(
+            [
+                new SpendEntry(new DateOnly(2026, 8, 10), "opus", 10, new DashboardMoney(5m, "USD")),
+                new SpendEntry(new DateOnly(2026, 8, 16), "opus", 10, new DashboardMoney(2m, "USD")),
+                new SpendEntry(new DateOnly(2026, 8, 18), "opus", 10, new DashboardMoney(1m, "USD"))
+            ], IsEstimate: true)
+        };
+        var azure = new StubSpendSource
+        {
+            Report = new SpendReport([new SpendEntry(new DateOnly(2026, 8, 12), "gpt", null, new DashboardMoney(3m, "USD"))])
+        };
+
+        var weeks = await Costs(claude, Silent(), azure).GetByWeekAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(weeks.HasValue);
+        Assert.Equal(13, weeks.Value!.Weeks.Count);
+        Assert.Equal("W22", weeks.Value.Weeks[0].Label);
+        Assert.Equal("W34", weeks.Value.Weeks[^1].Label);
+        Assert.Equal(10m, weeks.Value.Weeks[^2].Value);
+        Assert.Equal(1m, weeks.Value.Weeks[^1].Value);
+        Assert.Equal("USD", weeks.Value.Currency);
+        Assert.True(weeks.Value.IsEstimate);
+    }
+
+    /// <summary>
+    /// Copilot reports a month as one entry, so it has no week to put it in: it is left
+    /// out, and when it is the only provider that answered there is no weekly figure -
+    /// the reason says why rather than drawing its month as one week's spend.
+    /// </summary>
+    [Fact]
+    public async Task Spend_by_week_leaves_copilot_out_and_says_so_when_it_alone_answered()
+    {
+        var copilot = new StubSpendSource { Report = Spend(40m) };
+
+        var weeks = await Costs(Silent(), copilot).GetByWeekAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(weeks.HasValue);
+        Assert.Contains("by the month", weeks.Availability.Reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>Two currencies cannot be added, so a week holding both refuses with the
+    /// reason, as the by-day chart does.</summary>
+    [Fact]
+    public async Task Spend_by_week_refuses_to_add_two_currencies()
+    {
+        var claude = new StubSpendSource { Report = Spend(2m) };
+        var azure = new StubSpendSource { Report = AzureSpend(3m) };
+
+        var weeks = await Costs(claude, Silent(), azure).GetByWeekAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(weeks.HasValue);
+        Assert.Contains("EUR", weeks.Availability.Reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>The weeks are derived from the trend's read, so drawing both asks each
+    /// provider once.</summary>
+    [Fact]
+    public async Task Spend_by_week_shares_the_trends_read()
+    {
+        var claude = new StubSpendSource { Report = Spend(2m) };
+        var costs = Costs(claude, Silent());
+
+        _ = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
+        _ = await costs.GetByWeekAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, claude.Calls);
+    }
+
     private static CostInsights Costs(
         StubSpendSource claude,
         StubSpendSource copilot,

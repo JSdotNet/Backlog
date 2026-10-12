@@ -5716,11 +5716,177 @@ h1, h2, h3 {
     min-width: 0;
 }
 
-.dashboard-tabs__brief:not([hidden]) {
+.dashboard-tabs__brief {
     flex: none;
     color: var(--color-text-link);
     font-size: var(--font-size-sm);
     white-space: nowrap;
+}
+
+/* The weekly brief, in place of the tabs: a column of blocks that scrolls under the
+   pane header, as the panels do. A block is its sentences beside its figure and bars;
+   where the pane is narrow the figure wraps under the sentences. */
+.dashboard-brief {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+.dashboard-brief__header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.dashboard-brief__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.dashboard-brief__eyebrow,
+.dashboard-brief-block__tag {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-brief__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+}
+
+/* Focus is moved here when the brief opens and between weeks, so a screen reader starts
+   at the heading; it is not a control, so it draws no ring. */
+.dashboard-brief__title:focus {
+    outline: none;
+}
+
+.dashboard-brief__nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.dashboard-brief__nav-link,
+.dashboard-brief-block__link {
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-brief-block {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+}
+
+.dashboard-brief-block__text {
+    display: flex;
+    flex: 999 1 26rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.dashboard-brief-block__headline {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.dashboard-brief-block__detail {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--color-text-secondary);
+}
+
+.dashboard-brief-block__figure {
+    display: flex;
+    flex: 1 1 22rem;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.dashboard-brief-block__value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-brief-block__unit {
+    font-family: var(--font-family-base);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 400;
+}
+
+.dashboard-brief-carry {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.dashboard-brief-carry__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.dashboard-brief-carry__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.dashboard-brief-carry__item-title {
+    margin-right: var(--spacing-xs);
+}
+
+.dashboard-brief-carry__item-detail {
+    color: var(--color-text-secondary);
+}
+
+.dashboard-brief-carry__skipped {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 /* The Devbook tab's count of open drift issues, in the error tone the drift

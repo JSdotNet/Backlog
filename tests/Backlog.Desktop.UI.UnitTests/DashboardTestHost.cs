@@ -180,6 +180,9 @@ internal static class DashboardTestHost
         public Task<InsightResult<SpendByDayInsight>> GetByDayAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<SpendByDayInsight>.Unavailable(UnavailableReason));
 
+        public Task<InsightResult<SpendByWeekInsight>> GetByWeekAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<SpendByWeekInsight>.Unavailable(UnavailableReason));
+
         public void Invalidate()
         {
         }

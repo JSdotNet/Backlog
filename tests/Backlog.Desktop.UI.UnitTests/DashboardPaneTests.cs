@@ -496,18 +496,19 @@ public class DashboardPaneTests
 
     /// <summary>
     /// The "Read as brief" link closes the strip - beside the tablist, never inside it,
-    /// because a tablist's children are tabs - and stays hidden until the brief view it
-    /// opens exists.
+    /// because a tablist's children are tabs - and is a button, because it swaps the
+    /// pane's view rather than navigating anywhere.
     /// </summary>
     [Fact]
-    public void The_read_as_brief_link_ends_the_strip_hidden()
+    public void The_read_as_brief_link_ends_the_strip()
     {
         using var context = Context();
 
         var pane = context.Render<DashboardPane>();
         var link = pane.Find("[data-testid='dashboard-brief-link']");
 
-        Assert.True(link.HasAttribute("hidden"));
+        Assert.False(link.HasAttribute("hidden"));
+        Assert.Equal("BUTTON", link.TagName);
         Assert.Contains("Read as brief", link.TextContent, StringComparison.Ordinal);
         Assert.Null(link.Closest("[role='tablist']"));
         Assert.Equal("dashboard-tabs__strip", link.ParentElement!.ClassName);
@@ -2858,10 +2859,10 @@ public class DashboardPaneTests
         var controls = pane.FindAll("button, select, input, textarea");
 
         // One close, one filter select, two window buttons, eighteen refreshes, six
-        // tabs, eighteen info marks. Needs you draws a link per item, and there are none
-        // here. The hidden "Read as brief" link is an anchor, not
-        // one of these, and adds nothing to configure.
-        Assert.Equal(1 + 1 + 2 + 18 + 6 + 18, controls.Count);
+        // tabs, eighteen info marks, and the "Read as brief" link, which opens a view
+        // and configures nothing. Needs you draws a link per item, and there are none
+        // here.
+        Assert.Equal(1 + 1 + 2 + 18 + 6 + 18 + 1, controls.Count);
     }
 
     /// <summary>
