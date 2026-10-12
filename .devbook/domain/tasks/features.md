@@ -116,6 +116,35 @@ How much is in the place is not recorded, only where it is. A count would be tru
 at the moment it was written and wrong after the next file was added, and an
 task that asserted one would be asserting something it cannot keep.
 
+### Acceptance from scenario parts
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/domain/sessions/features.md#scenario-evidence-from-a-verify-stage]
+```
+
+A task can point at the parts of a scenario page that prove it. A scenario page is
+one end-to-end journey in the repository's devbook, and each of its parts is an
+outcome the journey reaches. The task points at a part as `<page>.md#<part>`, the
+way it points at any chapter. It can also point at the whole page, which stands for
+every part, or at a requirement, which stands for the parts its `Proved by:` lines
+name. A part reached two ways counts once.
+
+The open task lists these parts under its Devbook references as an acceptance
+checklist. Each row shows the part's dot, the part, the page it belongs to and when
+it last ran, and the list says how many of them pass, as "2 of 3 passing". A part
+reads as passed only when its last run passed on the page as it stands now. A part
+that passed before the page was edited is stale, because the run proved a different
+page.
+
+When every part passes, the task says it is proved. Being proved is a signal and
+nothing more: the task keeps its status until a person moves it. A green run is
+evidence for deciding that the work is done, and the decision stays with the person.
+
+The same answer reaches a coding session. Listing a task's Devbook references gives
+each part with its state and last run, and a count with whether the task is proved.
+
 ## Bulk editing
 
 ```meta

@@ -215,6 +215,17 @@ public sealed record DeliveryStageLink(string? Label, string? Url, string? Descr
 /// worktree the run belongs to.</param>
 public sealed record DeliveryScenario(string Name, string Status, string? Notes, IReadOnlyList<string>? Evidence);
 
+/// <summary>
+/// One part of a scenario page a verify stage ran (BL2 of the scenario-pages plan),
+/// as the engine read it from the page's <c>run.json</c>.
+/// </summary>
+/// <param name="Stem">The scenario page's stem: its file name without <c>.md</c>.</param>
+/// <param name="Part">The part's anchor.</param>
+/// <param name="Outcome"><c>passed</c>, <c>failed</c> or <c>not-run</c> — carried
+/// verbatim, for the reason <see cref="DeliveryScenario.Status"/> is.</param>
+/// <param name="RunAt">The run's <c>ranAt</c>, as the engine sent it.</param>
+public sealed record DeliveryScenarioEvidence(string? Stem, string? Part, string? Outcome, string? RunAt);
+
 /// <summary>What a run's log and trace monitoring found while a stage ran.</summary>
 /// <param name="Summary">The monitoring verdict in a line.</param>
 /// <param name="Findings">Anything the monitoring wants read, one entry each.</param>
@@ -395,6 +406,9 @@ public interface IDeliverySurfaceLifecycle
     /// on that stage under <c>execution</c>, verbatim. Replaced whole by the next one
     /// rather than merged: it describes a pass of the stage, and a re-run delegated
     /// differently is a different pass. A call without one keeps what was there.</param>
+    /// <param name="evidence">The scenario page parts the stage ran, one per part —
+    /// optional and additive, so a caller that sends none keeps what an earlier call
+    /// recorded, and an empty list says the stage ran none.</param>
     Task<DeliveryStageUpdated> UpdateStageAsync(
         string worktree,
         string runId,
@@ -405,6 +419,7 @@ public interface IDeliverySurfaceLifecycle
         IReadOnlyList<DeliveryScenario>? scenarios = null,
         DeliveryMonitoring? monitoring = null,
         JsonObject? execution = null,
+        IReadOnlyList<DeliveryScenarioEvidence>? evidence = null,
         CancellationToken cancellationToken = default);
 
     /// <summary><c>finish_run</c>.</summary>

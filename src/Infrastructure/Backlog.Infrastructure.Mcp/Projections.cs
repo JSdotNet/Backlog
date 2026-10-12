@@ -49,7 +49,23 @@ internal static class Projections
         reference.State.ToWire(),
         reference.Title,
         reference.Status,
-        reference.Folder);
+        reference.Folder)
+    {
+        Parts = reference.ScenarioParts.Count == 0 ? null : [.. reference.ScenarioParts.Select(ScenarioPart)]
+    };
+
+    internal static ScenarioPartPayload ScenarioPart(ScenarioPartEvidence part) => new(
+        part.Reference,
+        part.PagePath,
+        part.PageTitle,
+        part.Stem,
+        part.Anchor,
+        part.Title,
+        part.State.ToWire(),
+        part.LastRun);
+
+    internal static AcceptancePayload? Acceptance(ScenarioAcceptance acceptance) =>
+        acceptance.Total == 0 ? null : new AcceptancePayload(acceptance.Passing, acceptance.Total, acceptance.IsProved, acceptance.Summary);
 
     internal static RoadmapItemPayload RoadmapItem(RoadmapItemDto item) => new(
         item.Id,
@@ -181,6 +197,11 @@ internal static class Projections
                 scenario.Status,
                 scenario.Notes,
                 scenario.Evidence))];
+
+    internal static IReadOnlyList<DeliveryScenarioEvidence>? Evidence(IReadOnlyList<EvidenceInput>? evidence) =>
+        evidence is null
+            ? null
+            : [.. evidence.Select(part => new DeliveryScenarioEvidence(part.Stem, part.Part, part.Outcome, part.RunAt))];
 
     internal static IReadOnlyList<DeliverySyncUnitVerdict>? Verdicts(IReadOnlyList<SyncUnitVerdictInput>? verdicts) =>
         verdicts is null

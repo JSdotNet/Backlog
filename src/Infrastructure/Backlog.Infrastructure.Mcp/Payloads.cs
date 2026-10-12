@@ -91,7 +91,45 @@ public sealed record EntryTextPayload(Guid Id, string Title, string Status, stri
 /// <param name="Repository">The <c>owner/name</c> the references were resolved
 /// in.</param>
 /// <param name="References">In the order the entry keeps them.</param>
-public sealed record DevbookReferencesPayload(Guid Id, string Repository, IReadOnlyList<DevbookReferencePayload> References);
+public sealed record DevbookReferencesPayload(Guid Id, string Repository, IReadOnlyList<DevbookReferencePayload> References)
+{
+    /// <summary>
+    /// The entry's acceptance evidence over every reference: the scenario parts
+    /// they stand for, how many of them pass, and whether the entry is proved —
+    /// every part passed on a current signature. Null when no reference stands for
+    /// a scenario part. A signal only: a proved entry keeps its status until
+    /// somebody moves it.
+    /// </summary>
+    public AcceptancePayload? Acceptance { get; init; }
+}
+
+/// <summary>An entry's scenario parts, counted.</summary>
+/// <param name="Passing">How many parts passed on a current signature.</param>
+/// <param name="Total">How many distinct parts the references stand for.</param>
+/// <param name="Proved">Whether every part passed — and there is at least one.</param>
+/// <param name="Summary">"2 of 3 passing".</param>
+public sealed record AcceptancePayload(int Passing, int Total, bool Proved, string Summary);
+
+/// <summary>One scenario part a reference stands for, with the state of its last
+/// run.</summary>
+/// <param name="Reference">The part as <c>&lt;page path&gt;#&lt;anchor&gt;</c>.</param>
+/// <param name="Page">The scenario page, repository-relative.</param>
+/// <param name="PageTitle">The page's title.</param>
+/// <param name="Stem">The page's stem: its run folder's name.</param>
+/// <param name="Part">The part's anchor.</param>
+/// <param name="Title">The part's heading.</param>
+/// <param name="State"><c>passed</c>, <c>failed</c>, <c>stale</c> — the page
+/// changed since its last run — or <c>never-run</c>.</param>
+/// <param name="LastRun">When the page last ran, or null.</param>
+public sealed record ScenarioPartPayload(
+    string Reference,
+    string Page,
+    string PageTitle,
+    string Stem,
+    string Part,
+    string Title,
+    string State,
+    DateTimeOffset? LastRun);
 
 /// <summary>One Devbook reference and what it points at.</summary>
 /// <param name="Reference">As the entry stores it.</param>
@@ -111,7 +149,13 @@ public sealed record DevbookReferencePayload(
     string State,
     string Title,
     string? Status,
-    string? Folder);
+    string? Folder)
+{
+    /// <summary>The scenario parts this reference stands for — the part, every part
+    /// of a scenario page, or the parts a requirement's <c>Proved by:</c> lines name
+    /// — each with its run state. Null when it stands for none.</summary>
+    public IReadOnlyList<ScenarioPartPayload>? Parts { get; init; }
+}
 
 /// <summary>
 /// What a requested status change did, or did not do.
@@ -509,6 +553,14 @@ public sealed record StageLinkInput(string? Label, string? Url, string? Descript
 /// <param name="Evidence">Paths to the evidence that settles it, relative to the
 /// worktree the run is in.</param>
 public sealed record ScenarioInput(string Name, string Status, string? Notes, IReadOnlyList<string>? Evidence);
+
+/// <summary>One scenario page part a verify stage ran, read from the page's
+/// <c>run.json</c>.</summary>
+/// <param name="Stem">The page's stem.</param>
+/// <param name="Part">The part's anchor.</param>
+/// <param name="Outcome"><c>passed</c>, <c>failed</c> or <c>not-run</c>.</param>
+/// <param name="RunAt">The run's <c>ranAt</c>.</param>
+public sealed record EvidenceInput(string? Stem, string? Part, string? Outcome, string? RunAt);
 
 /// <summary>What a runtime monitor observed while a stage ran.</summary>
 public sealed record MonitoringInput(string? Summary, IReadOnlyList<string>? Findings);

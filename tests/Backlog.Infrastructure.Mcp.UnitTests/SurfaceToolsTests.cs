@@ -173,6 +173,33 @@ public class SurfaceToolsTests
         Assert.Equal("No errors", surface.Monitoring!.Summary);
     }
 
+    /// <summary>The scenario page parts a verify stage ran (BL2) reach the port as
+    /// sent, one per part.</summary>
+    [Fact]
+    public async Task Update_stage_passes_the_verify_evidence_through_per_part()
+    {
+        var surface = new FakeDeliverySurfaceLifecycle();
+
+        await new SurfaceTools(surface).UpdateStageAsync(
+            Worktree,
+            "run-1",
+            stageIndex: 5,
+            status: "done",
+            evidence:
+            [
+                new EvidenceInput("set-up-and-fill-the-backlog", "statuses-are-set-up", "passed", "2026-10-07T08:30:00Z"),
+                new EvidenceInput("set-up-and-fill-the-backlog", "an-item-is-moved", "failed", "2026-10-07T08:30:00Z")
+            ],
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [
+                new DeliveryScenarioEvidence("set-up-and-fill-the-backlog", "statuses-are-set-up", "passed", "2026-10-07T08:30:00Z"),
+                new DeliveryScenarioEvidence("set-up-and-fill-the-backlog", "an-item-is-moved", "failed", "2026-10-07T08:30:00Z")
+            ],
+            surface.Evidence);
+    }
+
     /// <summary>
     /// Absent stays absent. The port reads a null list as "this call says nothing
     /// about links" and an empty one as "there are none", so a stage updated for
@@ -194,6 +221,7 @@ public class SurfaceToolsTests
         Assert.Null(surface.Links);
         Assert.Null(surface.Scenarios);
         Assert.Null(surface.Monitoring);
+        Assert.Null(surface.Evidence);
     }
 
     [Fact]

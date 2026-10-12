@@ -78,6 +78,8 @@ internal sealed class FakeDeliverySurfaceLifecycle(
 
     public IReadOnlyList<DeliveryScenario>? Scenarios { get; private set; }
 
+    public IReadOnlyList<DeliveryScenarioEvidence>? Evidence { get; private set; }
+
     public DeliveryMonitoring? Monitoring { get; private set; }
 
     public JsonObject? RunContext { get; private set; }
@@ -159,10 +161,12 @@ internal sealed class FakeDeliverySurfaceLifecycle(
         IReadOnlyList<DeliveryScenario>? scenarios = null,
         DeliveryMonitoring? monitoring = null,
         JsonObject? execution = null,
+        IReadOnlyList<DeliveryScenarioEvidence>? evidence = null,
         CancellationToken cancellationToken = default)
     {
         Calls.Add(DeliverySurfaceOperations.UpdateStage);
         Execution = execution;
+        Evidence = evidence;
         Worktree = worktree;
         RunId = runId;
         StageIndex = stageIndex;
