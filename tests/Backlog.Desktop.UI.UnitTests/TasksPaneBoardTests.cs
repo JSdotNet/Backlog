@@ -409,15 +409,18 @@ public sealed class TasksPaneBoardTests
         var pane = RenderBoard(host);
         pane.Find($"[data-board-column='Ready'] [data-task-id='{ready.TaskId}'] [data-testid='board-card-copy']").Click();
 
-        var fromCard = (string)Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]!;
+        // The copy lands with the click's render, which can trail the click under load.
+        pane.WaitForAssertion(() => Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]));
+        var fromCard = (string)host.Context.JSInterop.Invocations["backlogClipboard.copy"][0].Arguments[0]!;
         Assert.Equal($"/backlog-tools:run-plan-item entry `{ready.Id}`:\nBuild the board\n\nColumns of cards.", fromCard);
         Assert.Empty(pane.FindAll("[data-testid='entry-detail']"));
         Assert.Null(host.State.SelectedRow);
 
         // The row in the list copies the same text.
         pane.Render(parameters => parameters.Add(p => p.Layout, TasksLayout.List));
-        pane.Find($"[data-testid='entry-list-{ready.TaskId}-copy']").Click();
+        pane.WaitForElement($"[data-testid='entry-list-{ready.TaskId}-copy']").Click();
 
+        pane.WaitForAssertion(() => Assert.Equal(2, host.Context.JSInterop.Invocations["backlogClipboard.copy"].Count));
         var fromRow = (string)host.Context.JSInterop.Invocations["backlogClipboard.copy"][1].Arguments[0]!;
         Assert.Equal(fromRow, fromCard);
     }
