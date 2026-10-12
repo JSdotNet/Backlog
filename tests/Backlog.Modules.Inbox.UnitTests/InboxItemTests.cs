@@ -235,6 +235,48 @@ public sealed class InboxItemTests
         Assert.False(routed.ReplicaAckPending);
     }
 
+    // --- Taking a decision back -----------------------------------------------
+
+    [Fact]
+    public void Restoring_stamps_when_the_item_was_reopened()
+    {
+        var item = Items.FromPhone();
+        Assert.Null(item.RestoredAt);
+        item.Archive(Later);
+
+        item.Restore(Later.AddMinutes(5));
+
+        Assert.Equal(Later.AddMinutes(5), item.RestoredAt);
+    }
+
+    [Fact]
+    public void Returning_from_the_backlog_stamps_when_the_item_was_reopened()
+    {
+        var item = Items.FromPhone();
+        item.RouteToBacklog([Guid.CreateVersion7()], [], Later);
+
+        item.ReturnFromBacklog(Later.AddMinutes(5));
+
+        Assert.Equal(Later.AddMinutes(5), item.RestoredAt);
+    }
+
+    /// <summary>The rule the intake reads a tombstone by: one stamped at or
+    /// before the reopening is the decision taken back, and one stamped after it
+    /// is a dismissal made since. An item never reopened outlives nothing.</summary>
+    [Fact]
+    public void A_reopened_item_was_restored_since_a_withdrawal_at_or_before_the_reopening_and_not_after()
+    {
+        var never = Items.FromPhone();
+        var item = Items.FromPhone();
+        item.Archive(Later);
+        item.Restore(Later.AddMinutes(5));
+
+        Assert.True(item.IsRestoredSince(Later));
+        Assert.True(item.IsRestoredSince(Later.AddMinutes(5)));
+        Assert.False(item.IsRestoredSince(Later.AddMinutes(5).AddTicks(1)));
+        Assert.False(never.IsRestoredSince(Later));
+    }
+
     [Fact]
     public void An_unknown_kind_slug_survives_as_its_own_word()
     {

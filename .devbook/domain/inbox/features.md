@@ -347,6 +347,7 @@ type: sub-feature
 status: draft
 related: [.devbook/domain/inbox/requirements.md#undo-a-decision, .devbook/domain/inbox/features.md#triage-mode]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests]
 ```
 
 Every decision taken in this session can be taken back, newest first, until the
@@ -369,6 +370,18 @@ merged — is one decision to undo, and brings every item back at once.
 
 An undo that is refused is dropped rather than kept on top, so the next **u**
 reaches the decision before it.
+
+An undo that fails because the store could not take the decision back stays on
+top instead. The decision still stands, so it still counts, and the undo says it
+could not be done. The next **u** tries it again. In a gesture over several
+items, only the items that failed stay on top. The sentence then says what was
+refused, what failed and how many items came back.
+
+An undo outlasts the decision's sync echo. Archiving or moving a capture from
+the phone sends the replica an acknowledgement, and the replica keeps it. A
+later pull may deliver that acknowledgement again, even days later. The item
+stays open, because the acknowledgement is older than the undo. A dismissal that
+the phone or another desktop makes after the undo still closes the item.
 
 Decisions are not remembered past the app: a decision from an earlier session is
 changed by deciding again, not by undo.

@@ -693,6 +693,74 @@ The system SHALL undo a merge by restoring the capture to the state it had befor
 - **When** the reader undoes the merge
 - **Then** the capture is open again with no DuplicateOf, and the task still carries the comment
 
+### Requirement: An undone decision outlasts its sync echo
+
+```meta
+type: requirement
+status: draft
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests.A_restored_capture_stays_open_when_its_own_tombstone_comes_back, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests.A_restored_capture_stays_open_when_the_feed_is_replayed_from_the_start, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests.A_capture_returned_from_the_backlog_stays_open_when_its_routed_tombstone_comes_back, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests.A_dismissal_pushed_after_the_restore_still_archives_the_capture, integration:dotnet:Backlog.Desktop.UI.UnitTests.UndoOutlastsSyncEchoTests.A_restored_note_stays_open_through_its_echo_and_the_phone_shows_it_again]
+```
+
+The system SHALL keep an item the reader reopened by undo open when a pull delivers a tombstone stamped at or before the reopening, and SHALL archive the item for a tombstone stamped after it.
+
+#### Scenario: The archive's own echo
+
+- **Given** a capture from the phone was archived, its acknowledgement pushed, and the archive undone
+- **When** a pull delivers that acknowledgement back
+- **Then** the item is still unprocessed
+
+#### Scenario: A replay days later
+
+- **Given** a capture from the phone was archived, synced, and the archive undone
+- **When** the desktop reads the feed again from the start three days later
+- **Then** the item is still unprocessed
+
+#### Scenario: A move to the backlog taken back
+
+- **Given** a capture from the phone was moved to the backlog, its acknowledgement pushed, and the move undone
+- **When** the next sync delivers the routed tombstone back
+- **Then** the item is unprocessed and routed nowhere
+
+#### Scenario: Dismissed again since
+
+- **Given** a capture from the phone was archived, pushed, and the archive undone
+- **When** another device pushes a tombstone for it stamped after the undo
+- **Then** the item is archived
+
+#### Scenario: A note
+
+- **Given** a note from the phone was archived, pushed, and the archive undone
+- **When** its tombstone comes back and the desktop syncs again
+- **Then** the note is unprocessed on the desktop and the phone lists it again
+
+### Requirement: An undo that fails is kept for the next u
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.An_undo_whose_way_back_throws_keeps_the_decision_says_so_and_the_next_U_retries_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_bulk_undo_whose_second_way_back_throws_takes_back_the_first_and_keeps_the_second, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_route_whose_way_back_throws_keeps_the_step_and_says_so, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_bulk_undo_with_a_refusal_and_a_throw_says_both_and_keeps_only_the_throw, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxUndoTests.A_deferral_that_throws_going_back_on_still_counts_the_undo_as_done]
+```
+
+The system SHALL keep a decision whose undo failed on top of the session's history and in its counts, say that it could not be undone, and take it back on the next undo that succeeds.
+
+#### Scenario: The store fails once
+
+- **Given** the reader archived an item, and the store fails while the archive is taken back
+- **When** they undo, and undo again once the store works
+- **Then** the first undo says "Couldn't undo archive — try again." and the item stays archived and counted, and the second undo brings it back
+
+#### Scenario: Part of a gesture fails
+
+- **Given** the reader archived A and B together, and taking B back fails
+- **When** they undo
+- **Then** A is open again and no longer counted, B stays archived on top of the history, and the sentence ends "The rest was undone."
+
+#### Scenario: One refused, one failed, one undone
+
+- **Given** the reader moved A, B and C to the backlog together, A's task has started, and taking B back fails
+- **When** they undo
+- **Then** the sentence names A's started task, says B could not be undone and says 1 of 3 was undone, and only B stays on the history
+
 ## Inbox zero
 
 ```meta

@@ -117,15 +117,28 @@ internal sealed class InboxUndoHistory
     }
 
     /// <summary>Takes the newest step off the history. The caller runs its
-    /// inverse and reports with <see cref="Undone"/>; a step whose inverse was
+    /// inverse and reports with <see cref="Undone"/>. A step whose inverse was
     /// refused is not put back, because it would stand on top and refuse every
-    /// U after it, hiding every older decision behind it.</summary>
+    /// U after it, hiding every older decision behind it. One whose inverse
+    /// threw is, through <see cref="PutBack"/>: the store failed rather than the
+    /// module refusing, and the next U may well land it.</summary>
     public InboxUndoStep? TakeLatest()
     {
         if (_undo.Last?.Value is not { } step) return null;
 
         _undo.RemoveLast();
         return step;
+    }
+
+    /// <summary>Returns a step taken off by <see cref="TakeLatest"/> to the top,
+    /// for the decisions whose inverse threw. The tally is left alone: those
+    /// decisions still stand and were never taken off it.</summary>
+    public void PutBack(InboxUndoStep step)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+
+        _undo.AddLast(step);
+        while (_undo.Count > Capacity) _undo.RemoveFirst();
     }
 
     /// <summary>The decisions of a step that were taken back — all of a single

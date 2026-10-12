@@ -90,6 +90,31 @@ Deleting a replica-backed item leaves an acknowledgement pending when the item w
 
 Enforced at: `Delete()`
 
+### Invariant: Reopening an item records when
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Restoring_stamps_when_the_item_was_reopened, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Returning_from_the_backlog_stamps_when_the_item_was_reopened, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.Restoring_records_when_the_item_was_reopened, unit:dotnet:Backlog.Modules.Inbox.UnitTests.UndoDecisionTests.Returning_records_when_the_item_was_reopened]
+```
+
+Restoring an item or returning it from the backlog sets `restored_at` to that instant on the handler's clock, and an item never reopened has none.
+
+Enforced at: `Restore()`, `ReturnFromBacklog()`
+
+### Invariant: A reopened item outlasts its own tombstone
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.A_reopened_item_was_restored_since_a_withdrawal_at_or_before_the_reopening_and_not_after, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_tombstone_stamped_before_the_item_was_restored_leaves_it_open, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_tombstone_stamped_before_the_item_was_returned_from_the_backlog_leaves_it_open, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_tombstone_stamped_after_the_restore_still_archives_the_item]
+```
+
+A tombstone stamped at or before an open item's `restored_at` leaves the item open, and one stamped after it archives the item as any tombstone does.
+A dismissal stamped at or before the reopening by a skewed clock is therefore ignored, which is accepted over an undo that does not hold.
+
+Enforced at: `IsRestoredSince()`, applied by `ReceiveCapture`
+
 ### Invariant: A deferred item resurfaces
 
 ```meta

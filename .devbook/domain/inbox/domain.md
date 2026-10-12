@@ -19,8 +19,8 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests]
 type: aggregate
 status: draft
 related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/capture/domain.md#capture, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.NoteTests]
-aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions, DuplicateOf, DuplicateOfTask, duplicate_of, duplicate_of_task]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.NoteTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests]
+aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions, DuplicateOf, DuplicateOfTask, duplicate_of, duplicate_of_task, RestoredAt, restored_at]
 ```
 
 A single unit of captured, unprocessed information moving through triage. The
@@ -65,6 +65,16 @@ item that **reuses the capture's id**, which is what makes intake idempotent: a
 replayed page or the desktop's own acknowledgement echo finds the row it already
 has. A thought typed into the desktop's Add dialog becomes an item with a
 fresh id, channel `manual`, the notes as its body, and no replica behind it.
+
+An item the reader reopens by undo records when, as `restored_at`. Restoring it
+from the archive sets the stamp, and so does returning it from the backlog. The
+desktop cannot call back an acknowledgement it already sent. The replica keeps
+that tombstone, so a later pull may deliver it again. The intake reads each
+tombstone against `restored_at`. A tombstone stamped at or before it is the
+decision the reader took back, and one stamped after it is a dismissal made
+since. The stamp is sync bookkeeping, kept apart from `updated_at`: filing and
+tagging restamp `updated_at`, which would hide a phone dismissal made in
+between.
 
 A capture can also bring files — a photo, a screenshot, a PDF the phone
 shared. The item owns them as [Attachments](#attachment): the file belongs to the
