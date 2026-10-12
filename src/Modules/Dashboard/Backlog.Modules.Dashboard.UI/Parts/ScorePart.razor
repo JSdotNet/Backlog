@@ -28,6 +28,10 @@
     effort rather than output — and the note says that too, because a reader of the
     previous version will look for the row.
 
+    Each input is drawn as a labelled bar rather than as the library's table: the
+    part sits beside the volume chart, where four columns do not fit, and the bar
+    still prints each input's reading and weight under its bar.
+
     Value is deliberately not passed. MetricScore works the figure out from the
     inputs it is given, so the number on screen cannot drift from the composition
     printed underneath it — which is a property worth more than saving the
@@ -41,6 +45,7 @@
            Note="@Note"
            Busy="Status == MetricStatusKind.Loading"
            OnRefresh="RefreshAsync"
+           CssClass="dashboard-part--score"
            TestId="dashboard-score">
     <div class="dashboard-part__stack">
         @* The volume card carries the part's status, so a part that is loading or
@@ -60,6 +65,7 @@
                      StatusMessage="@(IsReady ? VolumeEmpty : StatusMessage)"
                      Footnote="@VolumeFootnote"
                      FootnoteAsHint="true"
+                     ComponentsAsBars="true"
                      TestId="dashboard-score-volume" />
         @if (IsReady)
         {
@@ -70,6 +76,7 @@
                          StatusMessage="@QualityEmpty"
                          Footnote="@QualityFootnote"
                          FootnoteAsHint="true"
+                         ComponentsAsBars="true"
                          TestId="dashboard-score-quality" />
         }
     </div>

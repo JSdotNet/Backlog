@@ -228,7 +228,8 @@ public sealed class TasksPaneFocusTests
     /// else in the list, such as a status chip or blank list space, is now a
     /// departure rather than a move the pane stayed open through. A row's copy
     /// button is the one exception in the list: copying changes nothing about
-    /// what is open.</summary>
+    /// what is open. The calendar adds its month bar, its "+N more" and the open
+    /// entry's own chip, which move around the month rather than away.</summary>
     [Fact]
     public async Task The_focus_out_check_asks_about_the_detail_pane_its_separator_and_the_row_copy_buttons()
     {
@@ -243,7 +244,15 @@ public sealed class TasksPaneFocusTests
         var invocation = Assert.Single(host.Context.JSInterop.Invocations["backlogFocusOutside"]);
 
         Assert.Equal(
-            ["#backlog-pane-detail", "[data-testid='backlog-split-separator']", "#backlog-pane .task-item__copy"],
+            [
+                "#backlog-pane-detail",
+                "[data-testid='backlog-split-separator']",
+                "#backlog-pane .task-item__copy",
+                "#backlog-pane .task-card[aria-current='true']",
+                "#backlog-pane .task-calendar__bar",
+                "#backlog-pane .task-calendar__more",
+                "#backlog-pane [data-calendar-task][aria-current='true']"
+            ],
             invocation.Arguments);
     }
 

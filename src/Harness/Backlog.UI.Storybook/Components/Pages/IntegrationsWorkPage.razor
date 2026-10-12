@@ -1,0 +1,140 @@
+@page "/integrations/work"
+
+<PageTitle>Work cards — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Work cards"
+           Summary="A session or a pull request as a card beside the task it worked on: the session's title, its state and one line of what it last did; the pull request's number and title, draft or open, the reviewers' verdict, the checks and the diff size. `WorkLinks` sets them in two columns that say `None yet` when empty, with `Unlink` beside each card while the host listens and no column for a feature that is off, `WorkLinksPanel` is the same columns as a section of a task's side panel, and `WorkLinkPicker` is the dialog behind linking one to a task."
+           Guidelines="@Rules">
+
+    <Story Name="A session card in each state"
+           Description="`WorkSessionCard` takes a `WorkSession`: the host's id, a title, an `IntegrationSessionState` and a detail line the host has already written. Quiet and waiting are the two that ask for the person, so they wear the primary edge and a filled state; quiet is worded `Quiet 30 min`, the threshold after which the host stops calling a session running. With `OnOpen` the card is a button; without it, inert."
+           Code="@SessionCode">
+        <div class="sb-stack" data-testid="work-session-states">
+            <WorkSessionCard Session="@IntegrationFixtures.QuietSession" OnOpen="OpenSession" TestId="work-session-quiet" />
+            <WorkSessionCard Session="@IntegrationFixtures.RunningSession" OnOpen="OpenSession" TestId="work-session-running" />
+            <WorkSessionCard Session="@IntegrationFixtures.FinishedSession" OnOpen="OpenSession" TestId="work-session-finished" />
+            <WorkSessionCard Session="@IntegrationFixtures.LooseSession" TestId="work-session-inert" />
+        </div>
+        <p class="sb-state" data-testid="work-cards-opened">Opened: @(_opened ?? "(none)")</p>
+    </Story>
+
+    <Story Name="A pull request card"
+           Description="`WorkPullRequestCard` takes a `WorkPullRequest`. A failing check or requested changes is what asks for the person, so that card wears the error edge and says why in the error ink; approved and passing are in the success ink. `ChecksText` carries a count when the host has one — `Checks running 4/7` — and the card words the state itself when it does not. The diff size is drawn only when the host read one."
+           Code="@PullRequestCode">
+        <div class="sb-stack" data-testid="work-pull-request-states">
+            <WorkPullRequestCard PullRequest="@IntegrationFixtures.DraftPullRequest" OnOpen="OpenPullRequest" TestId="work-pull-request-draft" />
+            <WorkPullRequestCard PullRequest="@IntegrationFixtures.ChangesRequestedPullRequest" OnOpen="OpenPullRequest" TestId="work-pull-request-changes" />
+            <WorkPullRequestCard PullRequest="@IntegrationFixtures.ApprovedPullRequest" OnOpen="OpenPullRequest" TestId="work-pull-request-approved" />
+        </div>
+    </Story>
+
+    <Story Name="Two columns, None yet when empty"
+           Description="`WorkLinks` sets a task's sessions and pull requests side by side, each under a small heading, and wraps them under each other where the host is narrow. A column with nothing in it says `None yet`, so an empty column reads as looked at rather than forgotten. With `OnUnlinkSession` or `OnUnlinkPullRequest` set, each card gets a quiet `Unlink` beside it, a button of its own because the card is already the button that opens the item; its name says which item it takes off. `ShowSessions` or `ShowPullRequests` off leaves that column out altogether, as the host does while that feature is off."
+           Code="@LinksCode">
+        <div class="sb-stack" data-testid="work-links-samples">
+            <WorkLinks Sessions="@([IntegrationFixtures.QuietSession])"
+                       PullRequests="@([IntegrationFixtures.DraftPullRequest])"
+                       OnOpenSession="OpenSession"
+                       OnOpenPullRequest="OpenPullRequest"
+                       OnUnlinkSession="UnlinkSession"
+                       OnUnlinkPullRequest="UnlinkPullRequest"
+                       TestId="work-links-both" />
+            <WorkLinks Sessions="@([IntegrationFixtures.RunningSession])" TestId="work-links-sessions-only" />
+            <WorkLinks Sessions="@([IntegrationFixtures.RunningSession])" ShowPullRequests="false" TestId="work-links-pull-requests-off" />
+        </div>
+    </Story>
+
+    <Story Name="A section of a task's side panel"
+           Description="`WorkLinksPanel` is the same columns stacked, under a `Sessions and pull requests` heading with `Open in In progress` beside it, `Unlink` beside each card, and `Link a session or pull request…` under them. With one feature off the heading and the link action name only the kind left — `Pull requests`, `Link a pull request…` — and the other column is not drawn. Each control is drawn only while the host listens for it. The button opens the host's `WorkLinkPicker`, shown here with the tasks a loose session could be linked to."
+           Code="@PanelCode">
+        <div class="sb-board-column" data-testid="work-links-panel-sample">
+            <WorkLinksPanel Sessions="@([IntegrationFixtures.QuietSession])"
+                            PullRequests="@([IntegrationFixtures.DraftPullRequest])"
+                            OnOpenSession="OpenSession"
+                            OnOpenPullRequest="OpenPullRequest"
+                            OnUnlinkSession="UnlinkSession"
+                            OnUnlinkPullRequest="UnlinkPullRequest"
+                            OnOpenInProgress="ShowInProgress"
+                            OnLink="() => _picking = true" />
+        </div>
+        <div class="sb-board-column" data-testid="work-links-panel-one-feature">
+            <WorkLinksPanel PullRequests="@([IntegrationFixtures.ApprovedPullRequest])"
+                            ShowSessions="false"
+                            OnOpenPullRequest="OpenPullRequest"
+                            OnUnlinkPullRequest="UnlinkPullRequest"
+                            OnLink="() => _picking = true" />
+        </div>
+        <p class="sb-state" data-testid="work-links-panel-opened">Last: @(_opened ?? "(none)")</p>
+        <WorkLinkPicker Open="_picking"
+                        OpenChanged="open => _picking = open"
+                        Title="Link to a task"
+                        Description="Choose the task the session is working on."
+                        Options="@IntegrationFixtures.LinkTaskOptions"
+                        OnChosen="Link" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#integration-roles", "The tone each session and pull request state is drawn in."),
+        new("typography-and-layout.md#metadata-lines", "How a card's state, checks and size sit on one line under its title."),
+        new("accessibility.md#iconography-accessibility", "Why a state is always said in words beside its colour.")
+    ];
+
+    private string? _opened;
+    private bool _picking;
+
+    private void OpenSession(WorkSession session) => _opened = $"session {session.Id}";
+
+    private void OpenPullRequest(WorkPullRequest pull) => _opened = pull.Key;
+
+    private void ShowInProgress() => _opened = "In progress";
+
+    private void UnlinkSession(WorkSession session) => _opened = $"unlinked session {session.Id}";
+
+    private void UnlinkPullRequest(WorkPullRequest pull) => _opened = $"unlinked {pull.Key}";
+
+    private void Link(WorkLinkOption option) => _opened = $"Linked to {option.Label}";
+
+    private const string SessionCode = """
+        <WorkSessionCard Session="@(new WorkSession("4a1c9e02", "Extract TaskCard",
+                             IntegrationSessionState.Stalled, "Last activity 42 min ago · 9 prompts"))"
+                         OnOpen="OpenSession" />
+        """;
+
+    private const string PullRequestCode = """
+        <WorkPullRequestCard PullRequest="@(new WorkPullRequest("JSdotNet/Backlog#1018", 1018,
+                                 "Filter Tasks by plan", IntegrationArtifactState.Open,
+                                 IntegrationReviewState.ChangesRequested, IntegrationCheckState.Failing,
+                                 "1 check failing", Additions: 156, Deletions: 22))"
+                             OnOpen="OpenPullRequest" />
+        """;
+
+    private const string LinksCode = """
+        <WorkLinks Sessions="@task.Sessions"
+                   PullRequests="@task.PullRequests"
+                   OnOpenSession="OpenSession"
+                   OnOpenPullRequest="OpenPullRequest"
+                   OnUnlinkSession="UnlinkSessionAsync"
+                   OnUnlinkPullRequest="UnlinkPullRequestAsync"
+                   ShowPullRequests="pullRequestsOn" />
+        """;
+
+    private const string PanelCode = """
+        <WorkLinksPanel Sessions="@sessions"
+                        PullRequests="@pulls"
+                        OnOpenSession="OpenSession"
+                        OnOpenPullRequest="OpenPullRequest"
+                        OnUnlinkSession="UnlinkSessionAsync"
+                        OnUnlinkPullRequest="UnlinkPullRequestAsync"
+                        OnOpenInProgress="ShowInProgress"
+                        OnLink="() => _picking = true" />
+
+        <WorkLinkPicker Open="_picking"
+                        OpenChanged="open => _picking = open"
+                        Title="Link to a task"
+                        Options="@tasks"
+                        OnChosen="LinkAsync" />
+        """;
+}

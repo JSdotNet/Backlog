@@ -1,5 +1,6 @@
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.Tasks;
+using Backlog.Modules.Tasks.Abstractions;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -191,6 +192,39 @@ public sealed class TaskViewProjectionTests : IDisposable
         var kept = Assert.Single(_view.MyDay(Today));
         Assert.Equal(row.Id, kept.Id);
         Assert.True(kept.ServerTimestamp > 0);
+    }
+
+    /// <summary>
+    /// The desktop's agenda time reaches the phone through the task feed: a task
+    /// placed at 10:45 for 45 minutes in today's My Day comes out of the pull with
+    /// that slot, and one placed by an older build that sent none reads as having
+    /// none.
+    /// </summary>
+    [Fact]
+    public async Task A_pulled_task_carries_the_agenda_time_the_desktop_set()
+    {
+        var placed = TestTasks.Task("Standup", Now, inMyDayOn: Today);
+        placed = placed with { Task = placed.Task with { AgendaAt = "10:45", AgendaMinutes = 45 } };
+        _service.Append(placed);
+        _service.Append(TestTasks.Task("Anytime", Now, inMyDayOn: Today));
+
+        await _view.PullAsync(TestContext.Current.CancellationToken);
+
+        var rows = _view.MyDay(Today).ToDictionary(row => row.Task.Title);
+        Assert.Equal(new AgendaTime(new TimeOnly(10, 45), 45), rows["Standup"].AgendaTime);
+        Assert.Equal(new TimeOnly(11, 30), rows["Standup"].AgendaTime!.End);
+        Assert.Null(rows["Anytime"].AgendaTime);
+    }
+
+    /// <summary>The phone reads an agenda time and never sets one, so the task it
+    /// adds carries none.</summary>
+    [Fact]
+    public void The_task_the_phone_adds_carries_no_agenda_time()
+    {
+        var change = TaskViewProjection.NewTask("Buy a charger", Now, Today);
+
+        Assert.Null(change.Task.AgendaAt);
+        Assert.Null(change.Task.AgendaMinutes);
     }
 
     [Fact]

@@ -30,7 +30,7 @@ public sealed class CaptureSourcesPanelTests
 {
     private static readonly DateTimeOffset Noon = new(2026, 9, 16, 12, 0, 0, TimeSpan.Zero);
 
-    /// <summary>The panel has the Inbox's Sources tab to itself, so it is
+    /// <summary>The panel has the Inbox's body to itself when Sources is pressed, so it is
     /// drawn open: no fold to find the switches behind. The summary line still
     /// says at a glance whether Capture will do anything.</summary>
     [Fact]

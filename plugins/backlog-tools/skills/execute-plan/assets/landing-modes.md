@@ -104,3 +104,32 @@ review handoff — the draft stands in for every gate, as the delivery engine's 
   red after one `delivery:fix-pr-checks` pass by a sub-agent in its worktree, gets
   `set_blocked` with the reason and a `comment`; nothing outside its downstream waits on it. A
   resumed run re-checks every blocked entry and clears the block when the cause is gone.
+
+## Manual entries
+
+At Stop — and at every Stop a resumed run reaches — the run starts the application for the
+person's next manual entry, so there is something to validate against. This is setup.
+None qualifying → nothing starts.
+
+- **Which.** The `task` and `test` entries that are not done and whose `after:` edges have
+  all landed: every `test`, and a `task` whose `after:` chain includes a `prompt` — the
+  sign-off shape. A `task` that waits only on tasks or decisions needs no app; Stop lists it
+  as before. All that qualify at one Stop share one app, keyed by the first in plan order.
+- **Where.** One worktree, its path per **Names** with that first entry's id, detached at the
+  branch holding the landed work — `git worktree add --detach <path> origin/<branch>`,
+  detached because an entry worktree or this checkout may hold the branch: `plan/<slug>` in
+  branch mode, `<base>` per item, and in stacked mode `<slug>/<id>` of the latest `after:`
+  prompt in plan order, whose branch carries the others. The path is confirmed absent unless
+  an earlier Stop left it for this app.
+- **Start** it there with the repository's `run` skill and leave it running. An app an
+  earlier Stop left is reused; when its branch has moved since, stop it,
+  `git fetch origin <branch>`, `git checkout --detach origin/<branch>`, and start it again.
+- **Hand over** a review shaped like Personal Validation: each qualifying entry's
+  `<n> - <Title>` with its `- [ ]` checks; the app's URLs as the run reported them, never
+  hard-coded; the "What could not be proved" sections of the landed entries' pull request
+  bodies; in branch mode, the closing pull request's link. Unattended the same holds: the app
+  stays up, and the end-of-run push notification carries the app's URL and, in branch mode,
+  the closing pull request's link.
+- **Tear down.** Once every entry sharing the app is Done, a resumed run stops it the way
+  `run` says, scoped to that worktree's own `--apphost` path, `git worktree remove`s it, and
+  the next Stop picks the next entry.

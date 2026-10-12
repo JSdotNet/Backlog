@@ -155,9 +155,13 @@ public sealed class ReceiveCaptureCommandHandler(
             // A channel that says what it captured is believed; the slug is kept
             // as written so a kind this build does not know survives, the way a
             // stored row's does.
-            if (!string.IsNullOrWhiteSpace(capture.Kind))
+            // Never a note, though: a note is made as one and syncs as a note
+            // document (.devbook/arc42/06-runtime-view.md#mobile-note-sync). A
+            // capture claiming the kind stays the plain thought it arrived as.
+            if (!string.IsNullOrWhiteSpace(capture.Kind)
+                && InboxEnumMap.ParseKind(capture.Kind) is var claimed and not ContentKind.Note)
             {
-                item.SetKind(InboxEnumMap.ParseKind(capture.Kind), capture.Kind);
+                item.SetKind(claimed, capture.Kind);
             }
 
             // Filing is not triage: the item stays unprocessed in the list.
@@ -217,7 +221,19 @@ public sealed class ReceiveCaptureCommandHandler(
 
     /// <summary>Fetches every file on the item that has never been tried, and
     /// answers whether any was. Nothing to do without both ports.</summary>
-    private async Task<bool> FetchWaitingAsync(InboxItem item, CancellationToken cancellationToken)
+    private Task<bool> FetchWaitingAsync(InboxItem item, CancellationToken cancellationToken) =>
+        FetchWaitingAsync(item, attachmentSource, attachmentFiles, clock, _logger, cancellationToken);
+
+    /// <summary>Fetches every file on <paramref name="item"/> no fetch has been
+    /// tried for, and answers whether there were any. Shared with the note intake,
+    /// whose files travel the same way.</summary>
+    internal static async Task<bool> FetchWaitingAsync(
+        InboxItem item,
+        IInboxAttachmentSource? attachmentSource,
+        IInboxAttachmentFiles? attachmentFiles,
+        TimeProvider clock,
+        ILogger logger,
+        CancellationToken cancellationToken)
     {
         if (attachmentSource is null || attachmentFiles is null) return false;
 
@@ -226,7 +242,7 @@ public sealed class ReceiveCaptureCommandHandler(
         foreach (var attachmentId in waiting)
         {
             await InboxAttachmentDownloads
-                .DownloadAsync(item, attachmentId, attachmentSource, attachmentFiles, clock, _logger, cancellationToken)
+                .DownloadAsync(item, attachmentId, attachmentSource, attachmentFiles, clock, logger, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -239,11 +255,15 @@ public sealed class ReceiveCaptureCommandHandler(
     /// ignored: a throw here is a page the sync client replays for ever. The
     /// service refuses such a capture at the edge, so this is a newer or broken
     /// client's document, not a phone's.</summary>
-    private static List<InboxAttachment> AttachmentsOf(InboxCaptureDto capture)
+    private static List<InboxAttachment> AttachmentsOf(InboxCaptureDto capture) => AttachmentsOf(capture.Attachments);
+
+    /// <summary>The files named, as the aggregate keeps them; one whose metadata
+    /// the aggregate refuses is dropped. Shared with the note intake.</summary>
+    internal static List<InboxAttachment> AttachmentsOf(IEnumerable<InboxCaptureAttachmentDto>? files)
     {
         var attachments = new List<InboxAttachment>();
 
-        foreach (var named in capture.Attachments ?? [])
+        foreach (var named in files ?? [])
         {
             try
             {

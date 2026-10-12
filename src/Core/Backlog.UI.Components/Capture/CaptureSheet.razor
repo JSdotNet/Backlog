@@ -1,0 +1,282 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    The phone's quick capture: a sheet up from the bottom edge, over whatever
+    screen it was opened from, that takes one thought and sends it to one of
+    three places — the Inbox (the default, which asks nothing), a note, or a
+    task picked for today.
+
+    Every word that depends on the choice comes from CaptureTargets, so the
+    hint over the field, the button and the status line after a save can never
+    disagree about what a save does.
+
+    A save leaves the sheet open and the field cleared: capturing is often
+    several thoughts in a row, and reopening a sheet for each is the friction
+    the sheet exists to remove. The status line says where the last one went,
+    and reads as a live region so a screen reader hears it too.
+
+    The host owns everything the sheet only shows: the text, the choice,
+    whether the device can listen or take a photo, and what a save does.
+    Leaving is three ways — Cancel, a tap on the dimmed screen behind, and
+    Escape — and all three raise OnCancel; where to go back to is the host's.
+
+    It traps focus while it is up, through the same `backlogFocusTrap` the
+    detail sheet uses: a keyboard on the phone, or a reader, must not walk out
+    into the screen behind it.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" data-target="@CaptureTargets.Slug(Target)" @attributes="AdditionalAttributes">
+    <button type="button" class="capture-sheet__backdrop" tabindex="-1" aria-label="Close capture"
+            data-testid="@PartTestId("backdrop")" @onclick="CancelAsync"></button>
+
+    <section id="@_id" class="capture-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="@TitleId"
+             tabindex="-1" @onkeydown="OnKeyDownAsync">
+        <span class="capture-sheet__grip" aria-hidden="true"></span>
+
+        <header class="capture-sheet__header">
+            <h1 class="capture-sheet__title" id="@TitleId">@Title</h1>
+            <AppButton Variant="ButtonVariant.Ghost" CssClass="capture-sheet__cancel" OnClick="CancelAsync"
+                       TestId="@PartTestId("cancel")">Cancel</AppButton>
+        </header>
+
+        @* Pressed buttons in a group rather than radios: each is one tap target a
+           thumb can hit directly, and aria-pressed says which one is on. *@
+        <div class="capture-sheet__targets" role="group" aria-label="Save as" data-testid="@PartTestId("targets")">
+            @foreach (var target in CaptureTargets.All)
+            {
+                var chosen = target == Target;
+
+                <button type="button"
+                        class="@(chosen ? "capture-sheet__target capture-sheet__target--chosen" : "capture-sheet__target")"
+                        aria-pressed="@(chosen ? "true" : "false")"
+                        data-testid="@PartTestId($"target-{CaptureTargets.Slug(target)}")"
+                        @onclick="() => ChooseAsync(target)">@CaptureTargets.Label(target)</button>
+            }
+        </div>
+
+        <TextArea Id="@TextId" Value="@Text" ValueChanged="TextChanged" Label="@CaptureTargets.Hint(Target)"
+                  Placeholder="@CaptureTargets.Placeholder(Target)" Rows="4"
+                  CssClass="capture-sheet__field" TestId="@PartTestId("text")" />
+
+        @if (PhotoAvailable)
+        {
+            <div class="capture-sheet__chips">
+                <AppButton Size="ButtonSize.Small" CssClass="capture-sheet__chip" Disabled="PhotoBusy"
+                           OnClick="PhotoAsync" TestId="@PartTestId("photo")">
+                    <Icon>
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                            <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+                            <circle cx="12" cy="13" r="3.5" />
+                        </svg>
+                    </Icon>
+                    <ChildContent>Photo</ChildContent>
+                </AppButton>
+            </div>
+        }
+
+        @ChildContent
+
+        <div class="capture-sheet__actions">
+            <ToggleButton Pressed="Listening"
+                          PressedChanged="DictateAsync"
+                          Disabled="@(!DictationAvailable)"
+                          AriaLabel="@(Listening ? "Stop dictating" : "Dictate")"
+                          Title="@(Listening ? "Stop dictating" : "Dictate")"
+                          CssClass="capture-sheet__mic"
+                          TestId="@PartTestId("dictate")">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <rect x="9" y="3" width="6" height="11" rx="3" />
+                    <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+                </svg>
+            </ToggleButton>
+            <AppButton Variant="ButtonVariant.Primary" CssClass="capture-sheet__save" Disabled="@(!CanSave)"
+                       Busy="Saving" BusyLabel="Saving" OnClick="SaveAsync"
+                       TestId="@PartTestId("save")">@CaptureTargets.SaveLabel(Target)</AppButton>
+        </div>
+
+        @* Always in the tree and never display:none, so a reader's live region
+           exists before the first save and announces the words when they
+           arrive. Empty, it is visually hidden rather than removed. *@
+        <p class="@(SavedAs is null ? "capture-sheet__status" : "capture-sheet__status capture-sheet__status--shown")"
+           role="status" data-testid="@PartTestId("status")">
+            @if (SavedAs is { } saved)
+            {
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="M5 12.5l4.5 4.5L19 7.5" />
+                </svg>
+                <span>@CaptureTargets.Status(saved)</span>
+            }
+        </p>
+    </section>
+</div>
+
+@code {
+    private readonly string _id = "capture-sheet-" + Guid.NewGuid().ToString("N");
+    private bool _trapped;
+    private CaptureTarget? _shownSaved;
+    private bool _refocus;
+
+    /// <summary>Whether the sheet keeps the focus inside itself while it is up.
+    /// On by default; a page that draws several samples side by side, such as the
+    /// storybook, turns it off so no one sample takes the page's focus.</summary>
+    [Parameter]
+    public bool TrapFocus { get; set; } = true;
+
+    /// <summary>The sheet's heading.</summary>
+    [Parameter]
+    public string Title { get; set; } = "Capture";
+
+    /// <summary>Where a save goes. Inbox unless the person picks otherwise.</summary>
+    [Parameter]
+    public CaptureTarget Target { get; set; } = CaptureTarget.Inbox;
+
+    [Parameter]
+    public EventCallback<CaptureTarget> TargetChanged { get; set; }
+
+    [Parameter]
+    public string? Text { get; set; }
+
+    [Parameter]
+    public EventCallback<string> TextChanged { get; set; }
+
+    /// <summary>Whether the device can listen. False draws the mic disabled
+    /// rather than hiding it, so the control does not jump in after the host
+    /// has asked.</summary>
+    [Parameter]
+    public bool DictationAvailable { get; set; }
+
+    /// <summary>Listening now; the mic is drawn pressed.</summary>
+    [Parameter]
+    public bool Listening { get; set; }
+
+    /// <summary>Raised with true to start listening and false to stop.</summary>
+    [Parameter]
+    public EventCallback<bool> OnDictate { get; set; }
+
+    /// <summary>Whether a photo can go with this capture. The host turns it off
+    /// for a choice that cannot carry one.</summary>
+    [Parameter]
+    public bool PhotoAvailable { get; set; }
+
+    /// <summary>A picker is open; Photo waits for it.</summary>
+    [Parameter]
+    public bool PhotoBusy { get; set; }
+
+    [Parameter]
+    public EventCallback OnPhoto { get; set; }
+
+    /// <summary>Whether a save would send something. The host knows: text, a
+    /// photo, or neither.</summary>
+    [Parameter]
+    public bool CanSave { get; set; }
+
+    /// <summary>A save is on its way; the button is busy.</summary>
+    [Parameter]
+    public bool Saving { get; set; }
+
+    [Parameter]
+    public EventCallback OnSave { get; set; }
+
+    /// <summary>Cancel, a tap outside, or Escape.</summary>
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    /// <summary>Where the last save went, for the status line. Null draws no
+    /// line.</summary>
+    [Parameter]
+    public CaptureTarget? SavedAs { get; set; }
+
+    /// <summary>What the host adds between the field and the buttons: the
+    /// attached photo, and any line about dictation or a failed save.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The test id on the sheet. Its parts get <c>{TestId}-cancel</c>,
+    /// <c>-backdrop</c>, <c>-targets</c>, <c>-target-inbox</c>, <c>-target-note</c>,
+    /// <c>-target-today</c>, <c>-text</c>, <c>-photo</c>, <c>-dictate</c>, <c>-save</c>
+    /// and <c>-status</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string TitleId => _id + "-title";
+
+    private string TextId => _id + "-text";
+
+    /// <summary>A save just landed: the field it cleared gets the focus back,
+    /// since the save button it came from is disabled until there is text
+    /// again, and a disabled button drops the focus on the floor.</summary>
+    protected override void OnParametersSet()
+    {
+        if (SavedAs is not null && SavedAs != _shownSaved) _refocus = true;
+        _shownSaved = SavedAs;
+    }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "capture-sheet" : $"capture-sheet {CssClass}";
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+
+    private Task ChooseAsync(CaptureTarget target) =>
+        target == Target ? Task.CompletedTask : TargetChanged.InvokeAsync(target);
+
+    private Task DictateAsync(bool listen) => OnDictate.InvokeAsync(listen);
+
+    private Task PhotoAsync() => OnPhoto.InvokeAsync();
+
+    private Task SaveAsync() => CanSave ? OnSave.InvokeAsync() : Task.CompletedTask;
+
+    private Task CancelAsync() => OnCancel.InvokeAsync();
+
+    private Task OnKeyDownAsync(KeyboardEventArgs args) => args.Key == "Escape" ? CancelAsync() : Task.CompletedTask;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_refocus)
+        {
+            _refocus = false;
+
+            try
+            {
+                await Js.InvokeVoidAsync("backlogFocus", TextId, false);
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+            {
+            }
+        }
+
+        if (!firstRender || !TrapFocus) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocusTrap", _id, null);
+            _trapped = true;
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // Prerendering, or a host without the library script: no trap, and
+            // nothing else depends on one.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_trapped) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogReleaseFocusTrap", _id);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+    }
+}

@@ -13,6 +13,6 @@ namespace Backlog.Modules.Roadmap.Abstractions;
 /// </summary>
 public static class RoadmapFeatures
 {
-    /// <summary>Show the roadmap band above the panes in the Home shell.</summary>
+    /// <summary>Offer the Roadmap view in the Home shell's view switch, beside Tasks.</summary>
     public const string Roadmap = "roadmap";
 }

@@ -81,51 +81,30 @@ h1:focus {
 /* Dark mode only, per .devbook/design/color-scheme.md. */
 html, body { background-color: var(--color-background); color: var(--color-text-primary); }
 .capture { display: flex; gap: .5rem; margin-bottom: 1rem; }
-.capture input { flex: 1; background: var(--color-background-alt); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: .25rem; padding: .5rem; }
+.capture__add {
+    flex: none;
+    width: 48px;
+    min-height: 48px;
+    border: 0;
+    border-radius: var(--border-radius-md);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+.capture__add:disabled { background: var(--color-background-raised); color: var(--color-text-disabled); }
 /*
-  The Inbox list. A row is the button that opens its sheet, then one action at
-  the trailing edge — Dismiss, or the outbox's waiting marker for a capture that
-  has not left the phone. Colours are the library's tokens.
+  The Inbox: a header that counts what waits to be sorted, the add field, and
+  the phone's own captures as cards the library draws (CaptureRow). Colours are
+  the library's tokens.
 */
-.inbox-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-.inbox-heading h1 { margin: 0; }
+.inbox-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.inbox-heading__titles { display: grid; gap: .125rem; }
+.inbox-heading__lede { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.inbox-heading h1 { margin: 0; font-family: var(--font-family-heading); }
 
 .inbox { transition: transform .15s ease-out; }
 .inbox--pulling { transform: translateY(.75rem); }
 
-.inbox__list { list-style: none; padding: 0; margin: 0; }
-.inbox__row { display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid var(--color-border); }
-.inbox__row[data-waiting="true"] .inbox__title { color: var(--color-text-secondary); }
-
-.inbox__open {
-    flex: 1;
-    min-width: 0;
-    min-height: 44px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: .15rem;
-    padding: .5rem 0;
-    background: none;
-    border: 0;
-    color: inherit;
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
-}
-.inbox__open:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 2px; }
-
-.inbox__meta { display: inline-flex; align-items: center; gap: .35rem; color: var(--color-text-secondary); font-size: .75rem; }
-.inbox__title { overflow-wrap: anywhere; }
-.inbox__preview {
-    max-width: 100%;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    color: var(--color-text-secondary);
-    font-size: .85rem;
-}
-.inbox__action { flex: 0 0 auto; }
+.inbox__list { display: grid; gap: .5rem; list-style: none; padding: 0; margin: 0; }
 
 .inbox-sheet__body { margin-bottom: 1rem; }
 .inbox-sheet__facts { display: grid; grid-template-columns: auto 1fr; gap: .35rem .75rem; margin: 0; }
@@ -134,60 +113,83 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .inbox-sheet__tags { display: flex; flex-wrap: wrap; gap: .25rem; }
 
 /*
-  My Day on the Tasks tab: the Inbox's shape — a row is the button that opens its
-  sheet, the outbox's waiting marker at the trailing edge — with the row's facts
-  (priority, due date, sub-item progress) on one line under the title.
+  Today. The library draws the progress line, the card and the rows; this file
+  only lays them out down the screen and pins the capture button above the tab
+  bar, where a thumb already is. Colours are the library's tokens.
 */
-.my-day-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-.my-day-heading h1 { margin: 0; }
+.today-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.today-heading__titles { display: grid; gap: .125rem; }
+.today-heading__date { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.today-heading h1 { margin: 0; font-family: var(--font-family-heading); }
 
-.my-day__list { list-style: none; padding: 0; margin: 0; }
-.my-day__row { display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid var(--color-border); }
-.my-day__row[data-waiting="true"] .my-day__title { color: var(--color-text-secondary); }
+.today__progress { margin-bottom: 1.25rem; }
+.today__card { margin-bottom: 1.25rem; }
 
-.my-day__open {
-    flex: 1;
-    min-width: 0;
-    min-height: 44px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: .25rem;
-    padding: .5rem 0;
-    background: none;
-    border: 0;
-    color: inherit;
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
+.today__group { margin-bottom: 1.25rem; }
+.today__group-title {
+    margin: 0 .25rem .5rem;
+    color: var(--color-text-secondary);
+    font-size: .8125rem;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: .04em;
+    text-transform: uppercase;
 }
-.my-day__open:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 2px; }
+.today__list { display: grid; gap: .25rem; margin: 0; padding: 0; list-style: none; }
 
-.my-day__title { overflow-wrap: anywhere; }
-.my-day__meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .5rem; color: var(--color-text-secondary); font-size: .75rem; }
-.my-day__action { flex: 0 0 auto; }
+/* Clear of the capture button, so neither the last row nor the card's
+   buttons are ever under it. */
+.today { padding-bottom: 5rem; }
 
-.task-sheet__body { margin-bottom: 1rem; }
-.task-sheet__facts { display: grid; grid-template-columns: auto 1fr; gap: .35rem .75rem; margin: 0; }
-.task-sheet__facts dt { color: var(--color-text-secondary); }
-.task-sheet__facts dd { margin: 0; overflow-wrap: anywhere; }
-.task-sheet__chips { display: flex; flex-wrap: wrap; gap: .25rem; }
-.task-sheet__heading { margin: 1rem 0 .5rem; font-size: 1rem; }
-.task-sheet__sub-items { margin: 0; padding-inline-start: 1.25rem; }
-.task-sheet__sub-items li { overflow-wrap: anywhere; }
-.task-sheet__sub-items li[data-done="true"] { color: var(--color-text-secondary); text-decoration: line-through; }
+.today__capture {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 5rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.75rem;
+    height: 3.75rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    box-shadow: var(--shadow-lg);
+}
+.today__capture:hover { background: var(--color-primary-light); color: var(--color-text-inverse); }
+.today__capture:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 3px; }
+
+/*
+  A task's own page. The library draws the detail; this file only keeps its
+  pinned footer clear of the tab bar and sets the line that says an edit is
+  still waiting to be sent. Colours are the library's tokens.
+*/
+.task-page { padding-top: .25rem; }
+/* Pinned above the tab bar, which is pinned to the bottom itself. */
+.task-page .task-detail__footer { bottom: calc(3rem + 1px + env(safe-area-inset-bottom)); }
+.focus-page { padding-top: .25rem; }
+/* Pinned above the tab bar, as the task page's footer is. */
+.focus-page .focus__footer { bottom: calc(3rem + 1px + env(safe-area-inset-bottom)); }
+.task-page__waiting {
+    margin: .5rem 0 0;
+    color: var(--color-text-secondary);
+    font-size: .85rem;
+}
+.task-page__back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+}
+
 .error { color: var(--color-error-text); }
 
 /*
-  Speech capture on the Inbox screen.
-
-  The mic sits in the capture row; everything it has to say goes on its own line
-  underneath, because a phone-width row has room for controls and nothing else.
+  The capture field's lines, on the Inbox and on the capture sheet: a share
+  that just landed, dictation's running commentary, a pull that did not answer.
   Colours are the library's tokens — this file declares none of its own.
 */
 .capture__field { flex: 1; }
-
-.capture__mic { flex: 0 0 auto; }
 
 .capture__status,
 .capture__notice {
@@ -201,25 +203,40 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .capture__status { overflow-wrap: anywhere; }
 
 /*
-  The talk note. One column at phone width: the fields stack, the mic sits beside
-  the body it fills, and the attach buttons wrap rather than shrink below a
-  thumb. Colours are the library's tokens, as above.
+  Notes. The library draws the rows and the editor; this file lays the list out
+  under its heading and search, and pins "New note" above the tab bar where the
+  capture button sits on Today. Colours are the library's tokens.
 */
-.talk-note { display: grid; gap: .75rem; }
+.notes-heading { display: grid; gap: .125rem; margin-bottom: .75rem; }
+.notes-heading__kicker { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.notes-heading h1 { margin: 0; font-family: var(--font-family-heading); }
 
-.talk-note__body { display: flex; align-items: flex-start; gap: .5rem; }
+.notes__search { margin-bottom: 1rem; }
 
-.talk-note__body .talk-note__field { flex: 1; min-width: 0; }
+.notes__list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
 
-.talk-note__mic { flex: 0 0 auto; margin-top: 1.5rem; }
+/* Clear of "New note", so the last row is never under it. */
+.notes { padding-bottom: 5rem; }
 
-.talk-note__attach { display: flex; flex-wrap: wrap; gap: .5rem; }
-
-.talk-note__status {
+.notes__new {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 5rem;
+    z-index: 2;
     display: flex;
     align-items: center;
     gap: .5rem;
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: .85rem;
+    min-height: 3.5rem;
+    padding: 0 1.25rem 0 1rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+    box-shadow: var(--shadow-lg);
 }
+.notes__new:hover { background: var(--color-primary-light); color: var(--color-text-inverse); }
+.notes__new:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 3px; }
+
+/* The editor's dictation and attach buttons, and what they leave under the body. */
+.note-page__attached { display: grid; gap: .5rem; }

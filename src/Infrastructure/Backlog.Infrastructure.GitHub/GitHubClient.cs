@@ -349,6 +349,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
               state
               isDraft
               mergeStateStatus
+              reviewDecision
               autoMergeRequest { enabledAt }
               commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
             }
@@ -437,6 +438,8 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 url
                 isDraft
                 isCrossRepository
+                additions
+                deletions
                 headRefName
                 headRefOid
                 baseRefName
@@ -1193,7 +1196,10 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             ReadChecks(pull),
             pull.TryGetProperty("autoMergeRequest", out var autoMerge) && autoMerge.ValueKind == JsonValueKind.Object,
             String(pull, "mergeStateStatus") is { } mergeState && MergeableNow.Contains(mergeState),
-            PreferredMergeMethod(repository));
+            PreferredMergeMethod(repository))
+        {
+            ReviewState = ReadReviewState(pull)
+        };
     }
 
     /// <summary>
@@ -1308,9 +1314,18 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             HeadChecks = ReadHeadChecks(pull),
             IsCrossRepository = pull.TryGetProperty("isCrossRepository", out var fork) && fork.ValueKind == JsonValueKind.True,
             Reviews = ReadReviews(pull),
-            ClosingIssues = ReadClosingIssues(pull)
+            ClosingIssues = ReadClosingIssues(pull),
+            Additions = Count(pull, "additions"),
+            Deletions = Count(pull, "deletions")
         };
     }
+
+    /// <summary>A non-negative whole number under <paramref name="name"/>, or null
+    /// where it is absent or not one.</summary>
+    private static int? Count(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.TryGetInt32(out var count) && count >= 0
+            ? count
+            : null;
 
     /// <summary>A GraphQL <c>labels { nodes { name } }</c>, as names; absent or
     /// refused is none.</summary>
@@ -1339,16 +1354,10 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
 
     /// <summary>GitHub's review decision, and the approvals and change requests among
     /// the latest opinionated reviews. A decision GitHub did not give — a repository
-    /// that asks for no review — is null.</summary>
+    /// that asks for no review — is <see cref="GitHubReviewState.None"/>.</summary>
     private static GitHubReviewSummary ReadReviews(JsonElement pull)
     {
-        GitHubReviewDecision? decision = String(pull, "reviewDecision") switch
-        {
-            "APPROVED" => GitHubReviewDecision.Approved,
-            "CHANGES_REQUESTED" => GitHubReviewDecision.ChangesRequested,
-            "REVIEW_REQUIRED" => GitHubReviewDecision.ReviewRequired,
-            _ => null
-        };
+        var decision = ReadReviewState(pull);
 
         var states = Nodes(pull, "latestOpinionatedReviews").Select(review => String(review, "state")).ToList();
 
@@ -1357,6 +1366,17 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             states.Count(state => state == "APPROVED"),
             states.Count(state => state == "CHANGES_REQUESTED"));
     }
+
+    /// <summary>GitHub's <c>reviewDecision</c> for one pull request node. Null, absent
+    /// or a word this client does not know is <see cref="GitHubReviewState.None"/>:
+    /// a decision nobody gave is never guessed.</summary>
+    internal static GitHubReviewState ReadReviewState(JsonElement pull) => String(pull, "reviewDecision") switch
+    {
+        "APPROVED" => GitHubReviewState.Approved,
+        "CHANGES_REQUESTED" => GitHubReviewState.ChangesRequested,
+        "REVIEW_REQUIRED" => GitHubReviewState.ReviewRequired,
+        _ => GitHubReviewState.None
+    };
 
     /// <summary>The check run states and commit status states that have passed, and
     /// the ones that have failed — that cannot go green without somebody acting. Every

@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Text.RegularExpressions;
 
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
@@ -105,37 +104,6 @@ public sealed class TrackerTools(
     /// </para>
     /// </summary>
     internal const string CommentUsageAction = "mcp-comment";
-
-    /// <summary>
-    /// The line shapes a comment may not contain, because in this product the
-    /// text <em>is</em> the entry: a comment is spliced into the note region,
-    /// which sits above the entry's own chapters, so a line the parser reads as
-    /// structure becomes structure.
-    /// <para>
-    /// Three of them, and they fail in two different directions. A heading is the
-    /// loud one — <c>##</c> and <c>###</c> become sub-items, and a bare <c>#</c>
-    /// starts a whole new entry when the text is re-parsed
-    /// (<see cref="EntryTextParser.SplitSegments"/>) — and a <c>- [ ]</c> line
-    /// becomes a sub-item the same way. An opening fence is the quiet one: it adds
-    /// nothing and instead <em>swallows</em>, because <c>LocateSubItems</c> tracks
-    /// fences, so one unmatched <c>```</c> in a note turns every real chapter
-    /// below it into fenced prose. The first inflates
-    /// <see cref="CommentPayload"/>'s sub-item count; the second hides it. Both
-    /// make a note a structural edit nobody asked for.
-    /// </para>
-    /// <para>
-    /// Refused rather than escaped, and that is the decision. Indenting the line
-    /// out of the grammar would make it a code block; stripping the marker would
-    /// store something other than what the caller said. Either is this tool
-    /// editing prose it was handed to record, and a tool that quietly rewrites
-    /// its input is worse than one that says no. A tag is not a heading and stays
-    /// allowed — <c>#deploy</c> has no space after the hash, which is exactly the
-    /// distinction <c>HeadingRegex</c> already draws.
-    /// </para>
-    /// </summary>
-    private static readonly Regex Structure = new(
-        @"^(?:#{1,6}[ \t]|[-*][ \t]+\[[ xX]\][ \t]|```)",
-        RegexOptions.Compiled);
 
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
@@ -369,7 +337,7 @@ public sealed class TrackerTools(
     /// helper.</b> <c>EntryTextParser.WithNote</c> was deliberately deleted, and
     /// the comment standing in its place says why: a writer scoped to the note
     /// region "would be a supported-looking way to discard half of" an entry
-    /// whose body is a block over the whole document. So this cuts the parent
+    /// whose body is a block over the whole document. So <see cref="TaskComments"/> cuts the parent
     /// block out with <c>GetParentText</c>, appends to that, and splices it back
     /// with <c>ReplaceParentText</c> — the pair that is defined in terms of each
     /// other and therefore cannot disagree about where the sub-items start.
@@ -397,55 +365,19 @@ public sealed class TrackerTools(
         string text,
         CancellationToken cancellationToken = default)
     {
-        var entry = await RequireAsync(id, cancellationToken).ConfigureAwait(false);
-
-        var note = (text ?? string.Empty).Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Trim();
-
-        if (note.Length == 0)
-        {
-            throw RepositoryScope.Failure(Error.Validation(
-                "comment.required",
-                "A comment needs something to say."));
-        }
-
-        if (Array.Find(note.Split('\n'), line => Structure.IsMatch(line.TrimStart())) is { } structural)
-        {
-            throw RepositoryScope.Failure(Error.Validation(
-                "comment.not_prose",
-                $"A comment is prose, and this line would become part of the entry itself: '{structural.Trim()}'. "
-                + "Headings, checklist items and fences are how chapters and sub-items are written, so a note "
-                + "carrying one would restructure the entry rather than annotate it. Say it without the marker."));
-        }
-
-        var raw = EntryTextParser.ToRawText(entry);
-        var parent = EntryTextParser.GetParentText(raw).TrimEnd('\n');
-        var today = EntryTextParser.DateToken(DateOnly.FromDateTime(_clock.GetLocalNow().DateTime));
-
-        // A blank line between the date line and whatever precedes it, so the
-        // note reads as markdown rather than running on into the last paragraph
-        // - and no bullet in front of it, because `- [ ]` is a sub-item in this
-        // grammar and a comment is not a step somebody has to tick.
-        var appended = parent.Length == 0
-            ? $"{today}: {note}"
-            : $"{parent}\n\n{today}: {note}";
-
-        var saved = await entries
-            .SaveFromTextAsync(
-                entry.Id,
-                EntryTextParser.ReplaceParentText(raw, appended),
-                entry.Order,
-                cancellationToken: cancellationToken)
+        // Written through the one comment rule Tasks publishes, which the
+        // Inbox's "merge into a task" writes through as well.
+        var commented = await entries
+            .CommentAsync(id, text, DateOnly.FromDateTime(_clock.GetLocalNow().DateTime), CommentUsageAction, cancellationToken)
             .ConfigureAwait(false);
 
-        var result = saved.ValueOrThrow();
-
-        await entries.RecordUsageAsync(entry.Id, CommentUsageAction, cancellationToken).ConfigureAwait(false);
+        var result = commented.ValueOrThrow();
 
         return new CommentPayload(
-            result.Entry.Id,
-            result.Entry.Title,
-            EnumMap.ToWire(result.Entry.Status),
-            result.Entry.TotalSubItems);
+            result.Id,
+            result.Title,
+            EnumMap.ToWire(result.Status),
+            result.TotalSubItems);
     }
 
     /// <summary>

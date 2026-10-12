@@ -18,7 +18,7 @@ status: draft
 type: aggregate
 status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types]
-aliases: [KnowledgeNote, Note]
+aliases: [KnowledgeNote]
 ```
 
 An organized unit of project knowledge stored as markdown and the boundary for

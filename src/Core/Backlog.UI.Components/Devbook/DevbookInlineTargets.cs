@@ -48,8 +48,9 @@ public static class DevbookInlineTargets
     public static MarkdownRender.MarkdownInlineTarget For(
         string? documentPath,
         Func<DevbookReference, string?>? hrefFor,
-        EventCallback<DevbookReference> onNavigate) =>
-        (target, text, kind) => Draw(target, text, kind, documentPath, hrefFor, onNavigate);
+        EventCallback<DevbookReference> onNavigate,
+        IDevbookImageSource? images = null) =>
+        (target, text, kind) => Draw(target, text, kind, documentPath, hrefFor, onNavigate, images);
 
     /// <summary>
     /// The rule itself.
@@ -103,7 +104,8 @@ public static class DevbookInlineTargets
         MarkdownInlineKind kind,
         string? documentPath,
         Func<DevbookReference, string?>? hrefFor,
-        EventCallback<DevbookReference> onNavigate)
+        EventCallback<DevbookReference> onNavigate,
+        IDevbookImageSource? images)
     {
         // Asked and answered before a reference is looked for at all, because an
         // image never becomes one. `![the model](domain.md)` is an author writing
@@ -111,6 +113,10 @@ public static class DevbookInlineTargets
         // would have become would be this deciding what they meant.
         if (kind is MarkdownInlineKind.Image)
         {
+            // A host that resolves scenario screenshots answers first; every image
+            // it does not claim keeps the rule below.
+            if (images?.Image(target, text, documentPath) is { } image) return image;
+
             return MarkdownRender.NamesScheme(target) ? null : Inert(text, "md-image--inert");
         }
 

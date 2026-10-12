@@ -6,6 +6,7 @@ using Backlog.Desktop.Composition;
 using Backlog.Desktop.UI.AppUpdate;
 using Backlog.Desktop.UI.Shell;
 using Backlog.SharedKernel;
+using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
@@ -23,6 +24,7 @@ using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
 using Backlog.Aspire.ServiceDefaults;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 // The deployment and API key the harness seeds for the local azure-foundry-test
 // service. The key is a marker, not a credential: it is how a later session
@@ -91,6 +93,7 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     FeatureSettings = _ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath),
     WorkingHoursSettings = _ => CreateLocalDevelopmentWorkingHoursSettingsStore(builder.Environment.ContentRootPath),
     UsageResetSettings = _ => new UsageResetSettingsStore(Path.Combine(localDevelopment, "usage-reset.settings.json")),
+    SpendBudgetSettings = _ => new SpendBudgetSettingsStore(Path.Combine(localDevelopment, "spend-budgets.settings.json")),
     // Given the working week IWorkingHoursSettings answers, so the Roadmap's Days off
     // presses have a week to block a day in (local ADR 0019).
     PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(
@@ -141,6 +144,16 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     // show one visitor's toasts to every other.
     WindowStateLifetime = ServiceLifetime.Scoped
 });
+
+// The Inbox's AI triage (local ADR 0023) without Azure: when Inbox:FakeTriageAdvisor
+// is true — the default in this harness's Development settings — a deterministic
+// advisor replaces the Foundry one the composition registered, so every card and
+// every proposal of the pass can be seen and driven. Off, the harness asks the
+// Foundry deployment its settings name, as the desktop app does.
+if (builder.Configuration.GetValue<bool>(FakeInboxTriageAdvisor.ConfigurationKey))
+{
+    builder.Services.Replace(ServiceDescriptor.Singleton<IInboxTriageAdvisor, FakeInboxTriageAdvisor>());
+}
 
 // A connector of this harness's own, so the linked-task screens can be driven
 // before a real one ships. It brings nothing in until a target is connected on

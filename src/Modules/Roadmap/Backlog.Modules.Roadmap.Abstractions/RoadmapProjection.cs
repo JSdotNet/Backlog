@@ -99,7 +99,8 @@ public static class RoadmapProjection
 
     /// <summary>
     /// One item as the projection reads it, with its parts, from a <paramref name="floor"/>
-    /// already worked out — the day after its predecessors end.
+    /// already worked out — the day after its predecessors end — and, when a person chose
+    /// one, the start no open part is drawn from before (<see cref="RoadmapItemParts.Of"/>).
     /// </summary>
     public static (RoadmapItemDto Item, RoadmapItemLayout Layout) One(
         RoadmapItemDto item,
@@ -107,12 +108,13 @@ public static class RoadmapProjection
         PacesInUseDto paces,
         DateOnly today,
         DateOnly? floor = null,
-        Func<string, string?>? bandOf = null)
+        Func<string, string?>? bandOf = null,
+        DateOnly? startsOn = null)
     {
         ArgumentNullException.ThrowIfNull(item);
         ArgumentNullException.ThrowIfNull(paces);
 
-        var layout = RoadmapItemParts.Of(item, rollup, paces, today, bandOf, floor);
+        var layout = RoadmapItemParts.Of(item, rollup, paces, today, bandOf, floor, startsOn);
 
         if (!KeepsUp(item) || layout.Placement is not (PartsPlacement.ByEffort or PartsPlacement.FromWork)) return (item, layout);
         if (layout.Start == item.Start && layout.End == item.End) return (item, layout);

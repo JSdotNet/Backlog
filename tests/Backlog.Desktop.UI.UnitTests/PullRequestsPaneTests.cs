@@ -725,7 +725,7 @@ public sealed class PullRequestsPaneTests : IDisposable
             Pull("JSdotNet/Backlog", 3, conflicts: true),
             Pull("JSdotNet/Backlog", 4) with
             {
-                Reviews = new GitHubReviewSummary(GitHubReviewDecision.ReviewRequired, Approvals: 0, ChangesRequested: 0)
+                Reviews = new GitHubReviewSummary(GitHubReviewState.ReviewRequired, Approvals: 0, ChangesRequested: 0)
             });
         using var context = Context(client);
 
@@ -1699,16 +1699,16 @@ public sealed class PullRequestsPaneTests : IDisposable
             {
                 Checks = GitHubCheckState.Failing,
                 CheckCounts = new GitHubCheckCounts(Passed: 7, Failed: 1, Pending: 2),
-                Reviews = new GitHubReviewSummary(GitHubReviewDecision.ReviewRequired, Approvals: 1, ChangesRequested: 0)
+                Reviews = new GitHubReviewSummary(GitHubReviewState.ReviewRequired, Approvals: 1, ChangesRequested: 0)
             },
             Pull("JSdotNet/Backlog", 2) with
             {
                 CheckCounts = new GitHubCheckCounts(Passed: 9, Failed: 0, Pending: 0),
-                Reviews = new GitHubReviewSummary(GitHubReviewDecision.Approved, Approvals: 2, ChangesRequested: 0)
+                Reviews = new GitHubReviewSummary(GitHubReviewState.Approved, Approvals: 2, ChangesRequested: 0)
             },
             Pull("JSdotNet/Backlog", 3) with
             {
-                Reviews = new GitHubReviewSummary(GitHubReviewDecision.ChangesRequested, Approvals: 0, ChangesRequested: 1)
+                Reviews = new GitHubReviewSummary(GitHubReviewState.ChangesRequested, Approvals: 0, ChangesRequested: 1)
             });
         using var context = Context(client);
 
@@ -1937,6 +1937,38 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
+    /// <summary>A merged or closed pull request opened from a task's card — In progress
+    /// or the side panel — is not on the open read, so it is read by number and drawn
+    /// in the open list, marked current, picked for the detail and saying Merged or
+    /// Closed, and its row is scrolled into view.</summary>
+    [Theory]
+    [InlineData(true, "Merged")]
+    [InlineData(false, "Closed")]
+    public void A_merged_or_closed_pull_request_opened_from_a_task_is_listed_and_scrolled_to(bool merged, string words)
+    {
+        var client = new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1));
+        client.Finds(Pull("JSdotNet/Backlog", 7, mine: false) with { IsMerged = merged, IsClosed = !merged, MergedAt = merged ? Noon.AddHours(-1) : null });
+        using var context = Context(client);
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters
+            .Add(p => p.FocusPullRequest, "JSdotNet/Backlog#7"));
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = Row(pane, "JSdotNet/Backlog#7");
+            Assert.Equal("true", row.GetAttribute("data-focused"));
+            Assert.Equal("true", row.GetAttribute("aria-pressed"));
+            Assert.Equal(words, row.QuerySelector("[data-testid='pull-request-verdict']")!.TextContent.Trim());
+            Assert.Equal("true", pane.Find("[data-testid='pull-requests-view-open']").GetAttribute("aria-pressed"));
+            Assert.Contains("JSdotNet/Backlog 7", client.PinnedListed);
+        });
+        pane.WaitForAssertion(() =>
+            Assert.Equal(
+                "[data-testid='pull-request-row'][data-focused='true']",
+                Assert.Single(context.JSInterop.Invocations["backlogRevealRow"]).Arguments[0]));
+    }
+
     /// <summary>A pull request pinned from the merged view is read by number, so the
     /// open view has it next time it is shown.</summary>
     [Fact]
@@ -2086,14 +2118,14 @@ public sealed class PullRequestsPaneTests : IDisposable
         },
         "changes-requested" => Pull("JSdotNet/Backlog", 1) with
         {
-            Reviews = new GitHubReviewSummary(GitHubReviewDecision.ChangesRequested, Approvals: 0, ChangesRequested: 1)
+            Reviews = new GitHubReviewSummary(GitHubReviewState.ChangesRequested, Approvals: 0, ChangesRequested: 1)
         },
         "behind" => Pull("JSdotNet/Backlog", 1, behind: true),
         "draft" => Pull("JSdotNet/Backlog", 1, draft: true),
         "checks-running" => Pull("JSdotNet/Backlog", 1) with { Checks = GitHubCheckState.Pending },
         "review-required" => Pull("JSdotNet/Backlog", 1) with
         {
-            Reviews = new GitHubReviewSummary(GitHubReviewDecision.ReviewRequired, Approvals: 0, ChangesRequested: 0)
+            Reviews = new GitHubReviewSummary(GitHubReviewState.ReviewRequired, Approvals: 0, ChangesRequested: 0)
         },
         "ready-merge-ready" => Pull("JSdotNet/Backlog", 1, mergeReady: true),
         "ready" => Pull("JSdotNet/Backlog", 1),
@@ -2105,7 +2137,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         "roll-up-passing" => Pull("JSdotNet/Backlog", 1),
         "two-approvals" => Pull("JSdotNet/Backlog", 1) with
         {
-            Reviews = new GitHubReviewSummary(GitHubReviewDecision.Approved, Approvals: 2, ChangesRequested: 0)
+            Reviews = new GitHubReviewSummary(GitHubReviewState.Approved, Approvals: 2, ChangesRequested: 0)
         },
         "behind-by" => Pull("JSdotNet/Backlog", 1) with { BehindBy = 3 },
         "level" => Pull("JSdotNet/Backlog", 1) with { BehindBy = 0 },

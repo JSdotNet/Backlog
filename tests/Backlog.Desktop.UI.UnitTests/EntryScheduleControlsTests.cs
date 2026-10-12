@@ -248,6 +248,200 @@ public sealed class EntryScheduleControlsTests
         Assert.Equal(DateOnly.FromDateTime(DateTime.Now), row.PreviewInMyDayOn);
     }
 
+    // --- Agenda time ---------------------------------------------------------
+
+    /// <summary>An entry in today's My Day, which is the only kind the agenda
+    /// control is offered for.</summary>
+    private static string InMyDayEntry(string agenda = "") =>
+        $"# Deploy SpecManager\n`task` `myday:{TodayToken}`{agenda}\n\nShip it before the demo.\n";
+
+    /// <summary>
+    /// The agenda control exists only beside today's My Day. An entry that is not in
+    /// My Day, and one stamped for another day, have no day for a time to fall in —
+    /// and taking an entry out of My Day takes the control and the time with it.
+    /// </summary>
+    [Fact]
+    public async Task The_agenda_time_is_hidden_unless_the_entry_is_in_todays_my_day()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(ExpandedEntry);
+
+        var pane = host.Render();
+        Assert.Empty(pane.FindAll("[data-testid='entry-action-agenda']"));
+
+        await pane.Find("[data-testid='entry-action-myday-set']").ClickAsync(new());
+        Assert.Single(pane.FindAll("[data-testid='entry-action-agenda']"));
+
+        await host.State.ChangeAgendaTimeAsync(row, new AgendaTime(new TimeOnly(10, 45), 45));
+        pane.Render();
+        Assert.Contains("`at:10:45` `for:45m`", row.RawText, StringComparison.Ordinal);
+
+        await pane.Find("[data-testid='entry-action-myday-set']").ClickAsync(new());
+
+        Assert.Empty(pane.FindAll("[data-testid='entry-action-agenda']"));
+        Assert.DoesNotContain("at:", row.RawText, StringComparison.Ordinal);
+        Assert.DoesNotContain("for:", row.RawText, StringComparison.Ordinal);
+        Assert.Null(row.PreviewAgendaTime);
+    }
+
+    /// <summary>Leaving My Day with the agenda picker open closes it, so coming
+    /// back to My Day does not find the picker already open.</summary>
+    [Fact]
+    public async Task Leaving_my_day_closes_an_open_agenda_picker()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync(InMyDayEntry());
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-action-agenda-set']").ClickAsync(new());
+        Assert.Single(pane.FindAll("[data-testid='entry-agenda-start-select']"));
+
+        await pane.Find("[data-testid='entry-action-myday-set']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-action-myday-set']").ClickAsync(new());
+
+        Assert.Single(pane.FindAll("[data-testid='entry-action-agenda']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-agenda-start-select']"));
+    }
+
+    [Fact]
+    public async Task A_my_day_stamp_from_another_day_offers_no_agenda_time()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(
+            "# Deploy SpecManager\n`task` `myday:2020-01-01` `at:10:45`\n\nShip it.\n");
+
+        var pane = host.Render();
+
+        Assert.Empty(pane.FindAll("[data-testid='entry-action-agenda']"));
+        Assert.DoesNotContain("10:45–11:15", pane.Find($"[data-task-id='{row.TaskId}']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Setting a time: a start from the quarter-hour select, then a length. The
+    /// start alone writes <c>at:</c> with no <c>for:</c>, because 30 minutes is what
+    /// a bare start means; the picker stays open on the length, and picking 45
+    /// minutes writes <c>for:45m</c> and closes it. The row in the list then says
+    /// the block, start to end.
+    /// </summary>
+    [Fact]
+    public async Task Setting_an_agenda_time_writes_the_start_then_the_length()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(InMyDayEntry());
+
+        var pane = host.Render();
+        Assert.Contains("Set a time", pane.Find("[data-testid='entry-action-agenda']").TextContent, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='entry-agenda-start-select']"));
+
+        await pane.Find("[data-testid='entry-action-agenda-set']").ClickAsync(new());
+
+        // Quarter hours and nothing between them, plus the empty "No time".
+        var starts = pane.FindAll("[data-testid='entry-agenda-start-select'] option")
+            .Select(option => option.GetAttribute("value"))
+            .Where(value => !string.IsNullOrEmpty(value))
+            .ToList();
+        Assert.Equal(96, starts.Count);
+        Assert.Equal("00:00", starts[0]);
+        Assert.Equal("10:45", starts[43]);
+        Assert.Equal("23:45", starts[^1]);
+
+        // No length until there is a start to be the length of.
+        Assert.Empty(pane.FindAll("[data-testid='entry-agenda-duration-select']"));
+
+        await pane.Find("[data-testid='entry-agenda-start-select'] select").ChangeAsync(new() { Value = "10:45" });
+
+        Assert.Equal(new AgendaTime(new TimeOnly(10, 45)), row.PreviewAgendaTime);
+        Assert.Contains($"`myday:{TodayToken}` `at:10:45`", row.RawText, StringComparison.Ordinal);
+        Assert.DoesNotContain("for:", row.RawText, StringComparison.Ordinal);
+
+        var lengths = pane.FindAll("[data-testid='entry-agenda-duration-select'] option")
+            .Select(option => option.GetAttribute("value"));
+        Assert.Equal(["15", "30", "45", "60", "90", "120"], lengths);
+
+        await pane.Find("[data-testid='entry-agenda-duration-select'] select").ChangeAsync(new() { Value = "45" });
+
+        Assert.Equal(new AgendaTime(new TimeOnly(10, 45), 45), row.PreviewAgendaTime);
+        Assert.Contains("`at:10:45` `for:45m`", row.RawText, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='entry-agenda-start-select']"));
+
+        Assert.Contains("10:45–11:30", pane.Find("[data-testid='entry-action-agenda']").TextContent, StringComparison.Ordinal);
+        var detail = pane.Find($"[data-task-id='{row.TaskId}'] .task-item__detail--agenda");
+        Assert.Contains("10:45–11:30", detail.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>Changing the start keeps the length: moving a 45-minute block to the
+    /// afternoon does not quietly make it a 30-minute one. Changing the length keeps
+    /// the start.</summary>
+    [Fact]
+    public async Task Changing_an_agenda_time_keeps_the_half_not_changed()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(InMyDayEntry(" `at:10:45` `for:45m`"));
+
+        var pane = host.Render();
+        Assert.Contains("10:45–11:30", pane.Find("[data-testid='entry-action-agenda']").TextContent, StringComparison.Ordinal);
+
+        await pane.Find("[data-testid='entry-action-agenda-set']").ClickAsync(new());
+        Assert.Equal("10:45", pane.Find("[data-testid='entry-agenda-start-select'] select").GetAttribute("value"));
+
+        await pane.Find("[data-testid='entry-agenda-start-select'] select").ChangeAsync(new() { Value = "14:00" });
+
+        Assert.Equal(new AgendaTime(new TimeOnly(14, 0), 45), row.PreviewAgendaTime);
+        Assert.Contains("`at:14:00` `for:45m`", row.RawText, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='entry-agenda-start-select']"));
+
+        await pane.Find("[data-testid='entry-action-agenda-set']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-agenda-duration-select'] select").ChangeAsync(new() { Value = "120" });
+
+        Assert.Equal(new AgendaTime(new TimeOnly(14, 0), 120), row.PreviewAgendaTime);
+        Assert.Contains("`at:14:00` `for:120m`", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("14:00–16:00", pane.Find($"[data-task-id='{row.TaskId}'] .task-item__detail--agenda").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>A start typed off the quarter hour is still what the select shows,
+    /// rather than the select reading as "No time" over a time that is set.</summary>
+    [Fact]
+    public async Task An_off_grid_start_is_still_offered_as_the_current_value()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync(InMyDayEntry(" `at:10:50` `for:20m`"));
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-action-agenda-set']").ClickAsync(new());
+
+        Assert.Equal("10:50", pane.Find("[data-testid='entry-agenda-start-select'] select").GetAttribute("value"));
+        Assert.Equal("20", pane.Find("[data-testid='entry-agenda-duration-select'] select").GetAttribute("value"));
+    }
+
+    /// <summary>Clearing takes both tokens off and leaves the entry in My Day: the
+    /// time goes, the decision to do it today stays. Reachable from the ✕ and from
+    /// the select's "No time".</summary>
+    [Fact]
+    public async Task Clearing_an_agenda_time_removes_both_tokens_and_keeps_my_day()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(InMyDayEntry(" `at:10:45` `for:45m`"));
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-action-agenda-clear']").ClickAsync(new());
+
+        Assert.Null(row.PreviewAgendaTime);
+        Assert.DoesNotContain("at:", row.RawText, StringComparison.Ordinal);
+        Assert.DoesNotContain("for:", row.RawText, StringComparison.Ordinal);
+        Assert.Contains($"`myday:{TodayToken}`", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("Set a time", pane.Find("[data-testid='entry-action-agenda']").TextContent, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll($"[data-task-id='{row.TaskId}'] .task-item__detail--agenda"));
+
+        await host.State.ChangeAgendaTimeAsync(row, new AgendaTime(new TimeOnly(9, 0)));
+        pane.Render();
+        await pane.Find("[data-testid='entry-action-agenda-set']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-agenda-start-select'] select").ChangeAsync(new() { Value = string.Empty });
+
+        Assert.Null(row.PreviewAgendaTime);
+        Assert.DoesNotContain("at:", row.RawText, StringComparison.Ordinal);
+        Assert.Contains($"`myday:{TodayToken}`", row.RawText, StringComparison.Ordinal);
+    }
+
     // --- Due date ----------------------------------------------------------
 
     [Fact]

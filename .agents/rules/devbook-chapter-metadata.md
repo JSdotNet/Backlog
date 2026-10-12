@@ -43,6 +43,8 @@ already treat as an addressable unit:
   `technology-graph.md`, and `ai/` `adoption-map.md` are strategic/structural
   artifacts; their `##` sections do **not** carry per-chapter metadata blocks,
   and the check asks for none. Never demote such a section to a bold label.
+- A scenario page's `##` parts are the same: they carry no block and stay
+  addressable as `<page>.md#<part>`, per "[Scenario pages](#scenario-pages)".
 
 ## Chapter metadata block format
 
@@ -366,7 +368,7 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
 
   | Folder | Chapter values | File values |
   |---|---|---|
-  | `domain/` | `bounded-context`, `aggregate`, `entity`, `value-object`, `enum`, `shared-value-objects`, `shared-enums`, `ubiquitous-language`, `domain-service`, `domain-event`, `feature`, `sub-feature`, `requirements`, `requirement`, `invariants`, `invariant`, `feature-flag`, `setting`, `user`, `organisation`, `technical`, `term` | `context-map`, `context`, `domain`, `actors`, `features`, `skills`, `requirements`, `invariants`, `model`, `flow`, `dependencies`, or an additional page's own filename |
+  | `domain/` | `bounded-context`, `aggregate`, `entity`, `value-object`, `enum`, `shared-value-objects`, `shared-enums`, `ubiquitous-language`, `domain-service`, `domain-event`, `feature`, `sub-feature`, `requirements`, `requirement`, `invariants`, `invariant`, `feature-flag`, `setting`, `user`, `organisation`, `technical`, `term` | `context-map`, `context`, `domain`, `actors`, `features`, `skills`, `requirements`, `invariants`, `model`, `flow`, `dependencies`, `scenario`, or an additional page's own filename |
   | `tech/` | `language`, `runtime`, `framework`, `library`, `package`, `tool`, `service`, `platform`, `protocol`, `format` | none |
   | `ai/` | `practice`, `agent`, `skill`, `plugin`, `mcp-server`, `hook`, `workflow`, `model`, `concept`, `guardrail` | `adoption-map`, `stage`, `concepts` |
   | `design/` | `requirement` | none |
@@ -431,7 +433,8 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
 
   Entries are test identifiers, **not** `<path>#<heading-slug>` chapter
   references — like `roadmap` they stay node attributes and produce no graph
-  edges. Available in every folder, at chapter and file level. Omit the field
+  edges. Available in every folder, at chapter and file level, except on a
+  scenario page, where it is refused: the page is the test. Omit the field
   entirely when nothing is linked. See
   "[Linking test cases](#linking-test-cases)" for the format, the level and
   runner vocabularies, and why this field exists where a code-path field
@@ -748,6 +751,70 @@ A repository whose runner needs a different working directory, a project path, o
 a config flag wraps that argv. The reference identifies the test; how this
 repository invokes its runners is a property of the repository, not of the
 chapter.
+
+## Scenario pages
+
+A **scenario page** is one end-to-end journey written as a `domain/` page of its
+own, beside the chapter it demonstrates. Its `##` headings are the journey's
+**parts**, and its steps are list items under them. Keep two words apart in every
+rule: the page is the journey; a **scenario case** is a `#### Scenario:` under a
+requirement, which points at one part with `Proved by:` per `devbook-domain.md`.
+
+| Element | Convention | Checked |
+|---|---|---|
+| Recognition | File-level `type: scenario` in the block under `#`. A chapter-level `type: scenario` is an error. | Yes |
+| Location | Only in `.devbook/domain/`, inside a bounded context folder at any depth, beside the chapter it demonstrates. Anywhere in `arc42/`, `design/`, `tech/`, or `ai/` it is an error. Never in `.devbook/scenarios/`, which holds runs, profiles, and data sets and no page. | Yes |
+| Stem | The file name without `.md`, kebab-case, unique across every bounded context, per `devbook-naming.md`. It is the scenario's identity for every tool. | Yes, a duplicate is an error |
+| Language | English only: headings, steps, captions, labels, and every keyword. | The keywords only |
+| Lead | One paragraph under the file-level block: who does what, and why it matters. | No |
+| Setup fields | `start`, `actor`, `data`, `profile`, `flags`, `settings` on the file-level block, per the table below. | Yes, the references resolve |
+| Parts | Each `##` is one part, titled as an outcome the actor reaches. A part carries no `meta` block and stays addressable as `<page>.md#<part>`. | Yes, the exemption |
+| Steps | List items opening with a bold **Given**, **When**, **Then**, or **And**. One action or one observable outcome per step, and no other keyword. | Yes, the keyword set |
+| Screenshot point | `![caption](shot:<label>)` between step lists, never inside one. The label is `[a-z0-9-]+`, unique in the page. | No: the tool that takes it checks it |
+| Reference elsewhere | `![caption](scenario:<stem>#<label>)` shows a screenshot on another page; `related: [<page>.md#<part>]` links a part. | The reference resolves |
+| Fields | `related`, `roadmap`, `issue`, `effort`, `date`, `change`, `aliases`, `status`, `ext.*`, and the six setup fields. `tests` is an error: the page is the test. | Yes |
+| Status | Optional. When present, `draft` or `proposed`; absent means the journey is in force. No decision rung: what proves a journey is its run. | Yes |
+
+The setup fields say where the journey starts and in which configuration it runs.
+They are legal on a scenario page's file-level block and nowhere else. A reference
+is written from the page, from its bounded context, or from the repository root.
+
+| Field | Meaning | Resolves to |
+|---|---|---|
+| `start` | The route the journey opens on, relative to the profile's base URL, as `[portal:]/route`. A bare route opens on the profile's first portal. | A portal in the profile |
+| `actor` | Who is signed in at the start, as `[portal:]<path>#<slug>`; a journey that crosses portals lists one per portal. | A `user`, `organisation`, or `technical` chapter |
+| `data` | The named test data sets imported, in order, before the journey starts. | A data set in `.devbook/scenarios/data/<name>/` |
+| `profile` | The named configuration to run under; absent means `default`. | A profile in `.devbook/scenarios/profiles.json`, when the repository has one |
+| `flags` | The feature flags switched on for this journey; a leading `-` switches one off. | A `feature-flag` chapter |
+| `settings` | The settings set for this journey, as `<path>#<slug>=<value>`. | A `setting` chapter |
+
+The effective configuration is the profile with the page's `flags` and `settings`
+on top. Put a flag or a setting on the page only when this journey depends on it;
+one that describes the environment belongs in the profile. Never write a secret or
+a URL as a value: the profile names an environment variable as `env:<NAME>`.
+
+```markdown
+# Set up and fill the backlog
+
+\`\`\`meta
+type: scenario
+related: [features.md#backlog-board]
+start: /products/webshop/backlog
+actor: actors.md#product-owner
+data: [webshop-without-statuses]
+flags: [context.md#new-board]
+\`\`\`
+
+A product owner sets up the backlog of a new product, adds the first item and moves it on.
+
+## Statuses are set up
+
+- **Given** a product "Webshop" with no backlog statuses
+- **When** I create the statuses "New", "Doing" and "Done"
+- **Then** they appear as board columns in that order
+
+![The board with three empty columns](shot:statuses-set-up)
+```
 
 ## Authoring guidance
 

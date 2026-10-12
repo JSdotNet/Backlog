@@ -48,18 +48,34 @@
     caption, because this pane owns the filters and not the meaning of what they do not
     reach.
 
-    Each section folds under its own heading. The state is a field like the scope: it
-    lasts as long as the surface is open and no longer, for the reason nothing else here
-    is persisted. The parts stay in the DOM while folded — FoldControl hides its region
-    rather than removing it — so unfolding a section brings back the figures it had, not
-    a fresh fetch.
+    The sections are tabs: Overview, then one tab per section. The selected tab is a
+    field like the scope: the pane opens on Overview every time and forgets the choice
+    when the surface closes, for the reason nothing else here is persisted. Every panel
+    renders as the pane opens and stays rendered while another tab is shown — TabPanel's
+    Eager — so each part starts its fetch at once, as it did when the sections were
+    folds, and switching back brings back the figures a part had, not a fresh fetch. It
+    is also what lets the Devbook tab carry the open drift issues' count before anyone
+    has opened that tab.
 
-    Inside a section, a face and a More fold. The face is what a reader scans — a row of
-    tiles and the one weekly chart — and everything that answers a second question sits
-    behind a nested fold that starts closed, because a surface that opens with every part
-    it has is a surface nobody reads to the bottom of. The parts inside it are rendered
-    and fetched with the rest and only hidden, so opening it brings back what they had,
-    not a fetch.
+    What used to sit behind a section's More fold is shown directly in its tab: a tab
+    is already the second look a fold was there to defer, so folding inside it again
+    would hide half of what the reader just asked to see.
+
+    The Overview reads across the other tabs: five headline tiles, then a main column —
+    throughput, the roadmap against its pace — and a side column — Needs you, spend by
+    model, hours worked. Every block on it is a part of its own, fetching through the
+    insight its tab already reads, so a block shares that tab's cached read and carries
+    its own loading and unavailable states rather than waiting on the others. Where the
+    pane is narrow the side column wraps under the main one. A Needs-you item links to
+    its tab by moving the selection here, the one place that knows the tabs.
+
+    The "Read as brief" link at the end of the strip opens the weekly brief in place of
+    the tabs, and the brief's "Open overview" brings the tabs back on the Overview. The
+    tabs are not rendered while the brief is shown — the brief reads through the same
+    insights, so its blocks share the tabs' cached reads over twelve weeks, and the tabs'
+    parts find their figures in those caches when they come back. Like the tab, which view is shown is a
+    field: the pane opens on the tabs every time. The window toggle is not offered while
+    the brief is shown, because the brief reads twelve weeks whatever it says.
 
     The ✕ only reports that it was pressed; what that closes is the shell's business.
 *@
@@ -103,120 +119,145 @@
                          OnChanged="FocusMachine" />
         </div>
 
-        <div class="dashboard-filter">
-            <span class="dashboard-filter__label">Window</span>
-            <ButtonGroup AriaLabel="How far back to look" TestId="dashboard-window-filter">
-                @foreach (var period in Periods)
-                {
-                    @* PressedChanged rather than the pressed state itself: the strip
-                       is one-of-many, so this pane owns the selection and the button
-                       only announces the press. *@
-                    <ToggleButton Pressed="_scope.Period == period"
-                                  PressedChanged="_ => ChooseWindow(period)"
-                                  TestId="@($"dashboard-window-{Weeks(period)}")">
-                        @($"{Weeks(period)} weeks")
-                    </ToggleButton>
-                }
-            </ButtonGroup>
-        </div>
+        @if (!_showBrief)
+        {
+            <div class="dashboard-filter">
+                <span class="dashboard-filter__label">Window</span>
+                <ButtonGroup AriaLabel="How far back to look" TestId="dashboard-window-filter">
+                    @foreach (var period in Periods)
+                    {
+                        @* PressedChanged rather than the pressed state itself: the strip
+                           is one-of-many, so this pane owns the selection and the button
+                           only announces the press. *@
+                        <ToggleButton Pressed="_scope.Period == period"
+                                      PressedChanged="_ => ChooseWindow(period)"
+                                      TestId="@($"dashboard-window-{Weeks(period)}")">
+                            @($"{Weeks(period)} weeks")
+                        </ToggleButton>
+                    }
+                </ButtonGroup>
+            </div>
+        }
     </div>
 
-    <div class="dashboard-panel__content" id="dashboard-content">
-        @* The library's disclosure wearing this pane's class names, with the trigger
-           inside an h3 so each section keeps its place in the heading outline. *@
-        <div class="dashboard-section" data-testid="dashboard-productivity">
-            <FoldControl @bind-Expanded="_productivityExpanded"
-                         Label="Productivity"
-                         HeadingLevel="3"
-                         HeadingCssClass="dashboard-section__title"
-                         BaseClass="dashboard-section__fold"
-                         TestId="dashboard-productivity-toggle">
-                <HeadlinePart Scope="_scope" />
-                <TrendPart Scope="_scope" />
-                <FoldControl @bind-Expanded="_productivityMore"
-                             Label="More: score, rework and churn"
-                             HeadingLevel="4"
-                             HeadingCssClass="dashboard-section__more-title"
-                             BaseClass="dashboard-section__more"
-                             TestId="dashboard-productivity-more">
-                    <div class="dashboard-section__split">
-                        <ScorePart Scope="_scope" />
-                        <ReworkPart Scope="_scope" />
+    @if (_showBrief)
+    {
+        <WeeklyBrief Scope="_scope" OnOpenOverview="OpenOverview" OnOpenTab="OpenTabFromBrief" />
+    }
+    else
+    {
+        @* The library's tab strip: role="tablist", a roving tabindex, and the arrow, Home
+           and End keys. Every panel is Eager — see the note at the top of this file. The
+           panels keep the test ids the sections had, so a part is found where it was. *@
+        <Tabs @ref="_tabs"
+              @bind-ActiveId="_activeTab"
+              AriaLabel="Dashboard sections"
+              CssClass="dashboard-tabs"
+              StripCssClass="dashboard-tabs__strip"
+              PanelCssClass="dashboard-panel__content"
+              TestId="dashboard-section-tabs"
+              ListTestId="dashboard-tablist">
+            <ListTrailing>
+                @* A button rather than an anchor: it swaps the pane's view rather than
+                   navigating anywhere. *@
+                <AppButton Variant="ButtonVariant.Ghost"
+                           CssClass="dashboard-tabs__brief"
+                           OnClick="OpenBrief"
+                           TestId="dashboard-brief-link">
+                    Read as brief <span aria-hidden="true">→</span>
+                </AppButton>
+            </ListTrailing>
+            <ChildContent>
+                <TabPanel Id="dashboard-overview" Title="Overview" Eager="true"
+                          BaseClass="dashboard-tab" TabTestId="dashboard-tab-overview" TestId="dashboard-overview">
+                    @* The board's order: the tiles across the top, then the two columns. The
+                       side column is an aside because it answers a second question — what
+                       needs me — beside the first. *@
+                    <section class="dashboard-overview__tiles" aria-label="Headline figures" data-testid="dashboard-overview-tiles">
+                        <OverviewPullRequestsTile Scope="_scope" />
+                        <OverviewPointsTile Scope="_scope" />
+                        <OverviewAgentTimeTile Scope="_scope" />
+                        <OverviewSpendTile Scope="_scope" />
+                        <OverviewDriftTile Scope="_scope" />
+                    </section>
+                    <div class="dashboard-overview__columns" data-testid="dashboard-overview-columns">
+                        <div class="dashboard-overview__main" data-testid="dashboard-overview-main">
+                            <OverviewThroughputPart Scope="_scope" />
+                            <OverviewRoadmapPart Scope="_scope" />
+                        </div>
+                        <aside class="dashboard-overview__side" aria-label="Needs you, spend and hours" data-testid="dashboard-overview-side">
+                            <OverviewNeedsYouPart Scope="_scope" OnOpenTab="OpenTab" />
+                            <OverviewSpendByModelPart Scope="_scope" />
+                            <OverviewHoursPart Scope="_scope" />
+                        </aside>
                     </div>
-                </FoldControl>
-            </FoldControl>
-        </div>
+                </TabPanel>
 
-        @* The backlog's side of the same question the productivity section asks of
-           GitHub, and the roadmap's plan held against it. The repository chips narrow
-           all three; the machine filter does not, because neither a task nor a plan
-           records a machine — every part says so. No More fold: the roadmap's table is
-           the reason this section exists, and folding it away would leave two charts
-           the productivity section already rhymes with. *@
-        <div class="dashboard-section" data-testid="dashboard-tasks-section">
-            <FoldControl @bind-Expanded="_tasksExpanded"
-                         Label="Tasks"
-                         HeadingLevel="3"
-                         HeadingCssClass="dashboard-section__title"
-                         BaseClass="dashboard-section__fold"
-                         TestId="dashboard-tasks-toggle">
-                <div class="dashboard-section__split">
-                    <CompletedTasksPart Scope="_scope" />
-                    <TaskEffortPart Scope="_scope" />
-                </div>
-                <RoadmapPart Scope="_scope" />
-            </FoldControl>
-        </div>
+                <TabPanel Id="dashboard-productivity" Title="Productivity" Eager="true"
+                          BaseClass="dashboard-tab" TabTestId="dashboard-tab-productivity" TestId="dashboard-productivity">
+                    @* The throughput row, then the volume chart with the scores beside
+                       it — the chart taking the room, the scores their own width — then
+                       rework across the whole tab. *@
+                    <HeadlinePart Scope="_scope" />
+                    <div class="dashboard-productivity__split">
+                        <TrendPart Scope="_scope" />
+                        <ScorePart Scope="_scope" />
+                    </div>
+                    <ReworkPart Scope="_scope" />
+                </TabPanel>
 
-        <div class="dashboard-section" data-testid="dashboard-sessions-section">
-            <FoldControl @bind-Expanded="_sessionsExpanded"
-                         Label="Sessions"
-                         HeadingLevel="3"
-                         HeadingCssClass="dashboard-section__title"
-                         BaseClass="dashboard-section__fold"
-                         TestId="dashboard-sessions-toggle">
-                <SessionsPart Scope="_scope" RepositoryColour="@RepositoryColour" />
-                @* The person's own hours, read from the same sessions' prompts and split
-                   by office hours (local ADR 0019, §7). Beside the sessions because it is
-                   their record, after them because it answers a second question. *@
-                <HoursWorkedPart Scope="_scope" />
-            </FoldControl>
-        </div>
+                @* The backlog's side of the same question the productivity tab asks of
+                   GitHub, and the roadmap's plan held against it. The repository chips
+                   narrow all three; the machine filter does not, because neither a task
+                   nor a plan records a machine — every part says so. The roadmap leads —
+                   its tiles, then its timeline of the window's weeks — and the two
+                   weekly task charts sit side by side under it, on the same weeks. *@
+                <TabPanel Id="dashboard-tasks" Title="Tasks" Eager="true"
+                          BaseClass="dashboard-tab" TabTestId="dashboard-tab-tasks" TestId="dashboard-tasks-section">
+                    <RoadmapPart Scope="_scope" />
+                    <div class="dashboard-section__split">
+                        <CompletedTasksPart Scope="_scope" />
+                        <TaskEffortPart Scope="_scope" />
+                    </div>
+                </TabPanel>
 
-        @* The devbook against the code: what the sync sweeps last said about each unit,
-           by the direction it goes, and the drift issues they left open. The repository
-           chips narrow it; the window and the machine do not, and the part says so. *@
-        <div class="dashboard-section" data-testid="dashboard-devbook-section">
-            <FoldControl @bind-Expanded="_devbookExpanded"
-                         Label="Devbook"
-                         HeadingLevel="3"
-                         HeadingCssClass="dashboard-section__title"
-                         BaseClass="dashboard-section__fold"
-                         TestId="dashboard-devbook-toggle">
-                <DriftPart Scope="_scope" />
-            </FoldControl>
-        </div>
+                <TabPanel Id="dashboard-sessions" Title="Sessions" Eager="true"
+                          BaseClass="dashboard-tab" TabTestId="dashboard-tab-sessions" TestId="dashboard-sessions-section">
+                    <SessionsPart Scope="_scope" RepositoryColour="@RepositoryColour" OnOpenSessions="@OnOpenSessions" />
+                    @* The person's own hours, read from the same sessions' prompts and split
+                       by office hours (local ADR 0019, §7). Beside the sessions because it is
+                       their record, after them because it answers a second question. *@
+                    <HoursWorkedPart Scope="_scope" />
+                </TabPanel>
 
-        <div class="dashboard-section" data-testid="dashboard-cost">
-            <FoldControl @bind-Expanded="_costExpanded"
-                         Label="Cost"
-                         HeadingLevel="3"
-                         HeadingCssClass="dashboard-section__title"
-                         BaseClass="dashboard-section__fold"
-                         TestId="dashboard-cost-toggle">
-                <SpendThisMonthPart Scope="_scope" />
-                <SpendTrendPart Scope="_scope" />
-                <FoldControl @bind-Expanded="_costMore"
-                             Label="More: spend by model"
-                             HeadingLevel="4"
-                             HeadingCssClass="dashboard-section__more-title"
-                             BaseClass="dashboard-section__more"
-                             TestId="dashboard-cost-more">
+                @* The devbook against the code: what the sync sweeps last said about each
+                   unit, by the direction it goes, and the drift issues they left open. The
+                   repository chips narrow it; the window and the machine do not, and the
+                   part says so. The tab carries the open issues' count the part reports. *@
+                <TabPanel Id="dashboard-devbook" Title="Devbook" Eager="true"
+                          BaseClass="dashboard-tab" TabTestId="dashboard-tab-devbook" TestId="dashboard-devbook-section">
+                    <TitleContent>
+                        Devbook
+                        @if (_openDriftIssues is > 0)
+                        {
+                            <span class="dashboard-tabs__badge" aria-hidden="true" data-testid="dashboard-tab-devbook-badge">@MetricFormat.Compact(_openDriftIssues.Value)</span>
+                            <span class="sr-only">, @DriftIssuesSpoken(_openDriftIssues.Value)</span>
+                        }
+                    </TitleContent>
+                    <ChildContent>
+                        <DriftPart Scope="_scope" OpenIssuesCounted="CountOpenDriftIssues" />
+                    </ChildContent>
+                </TabPanel>
+
+                <TabPanel Id="dashboard-cost" Title="Cost" Eager="true"
+                          BaseClass="dashboard-tab" TabTestId="dashboard-tab-cost" TestId="dashboard-cost">
+                    <SpendThisMonthPart Scope="_scope" />
+                    <SpendTrendPart Scope="_scope" />
                     <SpendByModelPart Scope="_scope" />
-                </FoldControl>
-            </FoldControl>
-        </div>
-    </div>
+                </TabPanel>
+            </ChildContent>
+        </Tabs>
+    }
 </section>
 
 @code {
@@ -235,22 +276,22 @@
     /// </summary>
     private DashboardScope _scope = DashboardScope.Default;
 
-    /// <summary>Which sections are open. Every one starts open, because a dashboard
-    /// that opens folded is a dashboard showing nothing; fields rather than anything
-    /// persisted, for the same reason the scope is one.</summary>
-    private bool _productivityExpanded = true;
-    private bool _tasksExpanded = true;
-    private bool _sessionsExpanded = true;
-    private bool _devbookExpanded = true;
-    private bool _costExpanded = true;
+    /// <summary>The tab on show. Overview every time the pane opens; a field rather
+    /// than anything persisted, for the same reason the scope is one.</summary>
+    private string _activeTab = "dashboard-overview";
 
-    /// <summary>Which More folds are open. Every one starts closed, the opposite of the
-    /// sections and for the same reason turned round: a section is opened to be read,
-    /// and its face is what a reader scans before deciding whether the rest is worth
-    /// opening. Fields, not persisted, like the section fields. The sessions part owns
-    /// its own, because what sits behind it is that part's.</summary>
-    private bool _productivityMore;
-    private bool _costMore;
+    /// <summary>Whether the weekly brief is shown in place of the tabs. A field, for the
+    /// reason the tab is one.</summary>
+    private bool _showBrief;
+
+    /// <summary>The tab to take focus to once the tabs are back: they are rendered anew
+    /// when the brief closes, so the focus waits for that render.</summary>
+    private string? _focusTabOnReturn;
+
+    /// <summary>The open devbook-drift issues the Devbook part last counted, or null
+    /// while it has not, or could not - the tab shows no badge then rather than a
+    /// zero that would say none are open.</summary>
+    private int? _openDriftIssues;
 
     /// <summary>What the machine directory answered. Empty until it has, which renders
     /// as the "All machines" option on its own — the honest shape of "not asked yet",
@@ -293,6 +334,11 @@
     /// decision — the pane only reports that the ✕ was pressed.</summary>
     [Parameter]
     public EventCallback OnClose { get; set; }
+
+    /// <summary>Raised by the Sessions tab's link to every session. Opening the Sessions
+    /// pane is the shell's move; with nobody listening the tab draws no link.</summary>
+    [Parameter]
+    public EventCallback OnOpenSessions { get; set; }
 
     /// <summary>
     /// Which identity hue a repository alias wears, or null while the hues are switched
@@ -348,6 +394,44 @@
     /// gives.</summary>
     private void FocusMachine(string? id) =>
         Scope = _scope with { MachineId = string.IsNullOrWhiteSpace(id) ? null : id };
+
+    private void CountOpenDriftIssues(int? count) => _openDriftIssues = count;
+
+    private Tabs? _tabs;
+
+    /// <summary>Shows the tab a Needs-you item links to, and takes focus to that tab:
+    /// the link that was pressed is in the Overview panel, which this hides.</summary>
+    private void OpenTab(string tabId)
+    {
+        _activeTab = tabId;
+        _tabs?.FocusTab(tabId);
+    }
+
+    private void OpenBrief() => _showBrief = true;
+
+    /// <summary>"Open overview": the tabs again, on the Overview.</summary>
+    private void OpenOverview() => ReturnToTab("dashboard-overview");
+
+    /// <summary>A brief block's link: the tabs again, on the block's tab.</summary>
+    private void OpenTabFromBrief(string tabId) => ReturnToTab(tabId);
+
+    private void ReturnToTab(string tabId)
+    {
+        _activeTab = tabId;
+        _showBrief = false;
+        _focusTabOnReturn = tabId;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (_focusTabOnReturn is not { } tabId || _tabs is null) return;
+
+        _focusTabOnReturn = null;
+        _tabs.FocusTab(tabId);
+    }
+
+    private static string DriftIssuesSpoken(int count) =>
+        count == 1 ? "1 open drift issue" : $"{count} open drift issues";
 
     private void ChooseWindow(DashboardPeriod period) => Scope = _scope with { Period = period };
 

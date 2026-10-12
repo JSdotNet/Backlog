@@ -2,7 +2,7 @@
     The mark of a captured thing's kind: what an inbox item is before anybody
     has decided what to do with it.
 
-    Ten glyphs on one 16x16 grid, drawn in the library's state-icon voice —
+    Eleven glyphs on one 16x16 grid, drawn in the library's state-icon voice —
     stroked at 1.6, never filled, currentColor throughout — so they sit beside
     DevbookTypeMarker and the state icons as one family rather than a second
     icon set. The one fill is YouTube's play triangle, for the reason
@@ -62,6 +62,16 @@
             <path d="M3 4.2h10"
             /><path d="M3 8h10"
             /><path d="M3 11.8h6.2" />
+        }
+        else if (Slug is "note")
+        {
+            @* A pad with its two binding rings: a note the person keeps and goes
+               back to, where the bare lines of "text" are a passing thought. *@
+            <rect x="3" y="3" width="10" height="11" rx="1.6"
+            /><path d="M5.8 1.8v2.4"
+            /><path d="M10.2 1.8v2.4"
+            /><path d="M5.6 7.4h4.8"
+            /><path d="M5.6 10.2h3.2" />
         }
         else if (Slug is "article")
         {

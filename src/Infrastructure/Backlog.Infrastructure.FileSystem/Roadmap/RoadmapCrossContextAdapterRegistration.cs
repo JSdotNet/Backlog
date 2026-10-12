@@ -67,6 +67,21 @@ public static class RoadmapCrossContextAdapterRegistration
         // so it is scoped for the same reason: ITaskItems is.
         services.AddScoped<IImportedPlanSource, ImportedPlanSource>();
 
+        // The Tasks Calendar's plans, read and started through Roadmap's own ports —
+        // scoped, because every one of them is. The view choice is kept in the shell's
+        // per-device file when the host composed one; the work and pace signals are what
+        // the band redraws on, so the Calendar hears them too.
+        services.AddScoped<ICalendarPlans>(sp =>
+            new RoadmapCalendarPlans(
+                sp.GetRequiredService<IRoadmapPlanning>(),
+                sp.GetRequiredService<IRoadmapItemRollup>(),
+                sp.GetRequiredService<IPlanningVelocity>(),
+                sp.GetRequiredService<IImportedPlanSource>(),
+                sp.GetService<IAppFeatureSettings>(),
+                sp.GetService<ShellNavigationStore>(),
+                sp.GetService<IRoadmapWorkChanges>(),
+                sp.GetService<IPlanningPace>()));
+
         // The finished work a measured pace is counted from, read from the backlog —
         // scoped because ITaskItems is, and resolving it per call because the backlog's
         // plan import reaches the roadmap importer, which reaches the pace, which
@@ -85,6 +100,12 @@ public static class RoadmapCrossContextAdapterRegistration
         // reads through to the store on every call, so a pace changed on the roadmap
         // is live without a restart.
         services.AddSingleton<IPlanningVelocitySettings, PlanningVelocitySource>();
+
+        // The hours a Calendar day is set against: the roadmap's working week and days
+        // off, read through the settings port above and never written. A singleton over
+        // that singleton. Planned hours go nowhere the other way.
+        services.AddSingleton<ICalendarCapacity>(sp =>
+            new RoadmapCalendarCapacity(sp.GetRequiredService<IPlanningVelocitySettings>()));
 
         // The same file is the pace document that travels between devices (local ADR
         // 0018): Roadmap's replication port reads and writes it through its store

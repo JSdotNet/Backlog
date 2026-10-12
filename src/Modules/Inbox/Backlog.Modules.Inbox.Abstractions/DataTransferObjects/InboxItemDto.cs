@@ -42,6 +42,10 @@ public sealed record InboxItemDto(
     /// <summary>The item this one was archived as a duplicate of, or null. A
     /// member for the reason <see cref="Attachments"/> is.</summary>
     public Guid? DuplicateOf { get; init; }
+
+    /// <summary>Whether <see cref="DuplicateOf"/> names the backlog task the
+    /// item was merged into rather than another inbox item.</summary>
+    public bool DuplicateOfTask { get; init; }
 }
 
 /// <summary>One tag on an item. <paramref name="Name"/> is bare — no <c>#</c> —

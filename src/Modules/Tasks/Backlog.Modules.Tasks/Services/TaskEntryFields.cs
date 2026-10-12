@@ -114,7 +114,16 @@ internal static class TaskEntryFields
         entry.SetDueOn(parsed.DueOn);
         entry.SetReminder(parsed.RemindAt);
         entry.SetRecurrence(parsed.Recurrence);
+        // A save that changes the My Day date drops the agenda time with it
+        // (.devbook/design/content-editing.md): `at:` and `for:` left on the line
+        // unedited while `myday:` moved are the old day's slot carried along, not
+        // a new one. A slot typed or edited in the same save is the person's, and
+        // stays — which is also what a fresh entry's text always is.
+        var agendaTime = parsed.AgendaTime;
+        if (entry.InMyDayOn != parsed.InMyDayOn && agendaTime == entry.AgendaTime) agendaTime = null;
+
         entry.SetInMyDayOn(parsed.InMyDayOn);
+        entry.SetAgendaTime(agendaTime);
         entry.SetDependsOn(parsed.DependsOn ?? []);
 
         // The tick. Not scheduling either, and unconditional for the same reason:

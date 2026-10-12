@@ -1,0 +1,290 @@
+@page "/task-list/board"
+
+<PageTitle>Task board — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Task board"
+           Summary="`TaskBoard`: tasks in columns of `TaskCard`s, side by side, each column headed by its count and its summed points — and how many of its cards nobody has estimated. The host builds the columns; the board lays them out, adds them up, and, while `Draggable` is on, moves a card between them where the host's rule allows."
+           Guidelines="@Rules">
+
+    <Story Name="Columns by status, dragged along the lifecycle"
+           Description="The desktop Board's default grouping. Pick a card up and move it: the columns `DropRuleFor` allows are marked with a dashed edge and say what a drop does, and the others go quiet and say why not — Ready can't jump to Done, it has to be started first. A drop on a refused column, on its own column or off the board writes nothing; Escape cancels. While a card is held a lifted copy of it follows the pointer, tilted and shadowed, and the slot in the column under the pointer opens to the card's height; on release the copy settles into the card's new place, or back into its old one. Under `prefers-reduced-motion` the copy still follows the pointer but is not tilted, nothing unfolds, and it is simply taken away on release. Each card carries the row's copy button at the end of its top line, copying what `CardCopyValue` answers — the same question `TaskListView.RowCopyValue` asks — and pressing it never opens the card or picks it up. The gesture is `taskListDrag`'s pointer drag, the one the task list uses, because a native drag is aborted in the desktop head's WebView2. `+ New entry` at the foot of a column creates a task in it."
+           Code="@StatusCode">
+        <div class="sb-board" data-testid="task-board-status-sample">
+            <TaskBoard Columns="@StatusColumns()"
+                       Draggable="true"
+                       DropRuleFor="@StatusRule"
+                       OnDrop="OnDrop"
+                       OnSelected="Open"
+                       OnAdd="Add"
+                       SelectedId="@_opened"
+                       Badges="@(task => WorkBadges(task))"
+                       AriaLabel="Tasks by status"
+                       TestId="task-board-status" />
+        </div>
+        <p class="sb-state" data-testid="task-board-state">@(_lastAct ?? "Nothing moved yet.")</p>
+    </Story>
+
+    <Story Name="Other groupings"
+           Description="The host decides what a column is. By plan, one column per plan tag and then `No plan` — a task under two plans is a card in both; by priority, highest first. Nothing is dragged here: only the lifecycle is a column a card can be moved along, so the host leaves `Draggable` off and the cards are only controls that open their task."
+           Code="@GroupingCode">
+        <label class="sb-row">
+            Columns
+            <select value="@_grouping" @onchange="e => _grouping = e.Value?.ToString() ?? Plan" data-testid="task-board-grouping">
+                <option value="@Plan">Plan</option>
+                <option value="@PriorityGrouping">Priority</option>
+            </select>
+        </label>
+        <div class="sb-board" data-testid="task-board-grouping-sample">
+            <TaskBoard Columns="@(_grouping == Plan ? PlanColumns() : PriorityColumns())"
+                       OnSelected="Open"
+                       SelectedId="@_opened"
+                       AriaLabel="@($"Tasks by {_grouping.ToLowerInvariant()}")"
+                       TestId="task-board-grouped" />
+        </div>
+    </Story>
+
+    <Story Name="Narrower than its columns"
+           Description="A column never shrinks below the width a card reads at. When the board is given less room than its columns need — the detail panel opening beside it is the usual cause — it scrolls sideways on its own, and a drag near its left or right edge scrolls it too."
+           Code="@NarrowCode">
+        <div class="sb-board sb-board--narrow" data-testid="task-board-narrow-sample">
+            <TaskBoard Columns="@StatusColumns()"
+                       Draggable="true"
+                       DropRuleFor="@StatusRule"
+                       OnDrop="OnDrop"
+                       AriaLabel="Tasks by status, narrow"
+                       TestId="task-board-narrow" />
+        </div>
+    </Story>
+
+    <Story Name="A long column"
+           Description="A box with a height, the way the desktop Board's pane is one: the board fills it and scrolls sideways only, and Ready scrolls its own cards inside its column — one vertical scrollbar, the column's, and none on the board or the box. Every column is as tall as the board, so the space beside a long column's foot belongs to the short column next to it. Scroll Ready down to its foot, pick up one of its last cards and carry it straight across to In progress: the drop lands there. Holding a card near the foot or the head of a column scrolls that column, as `interaction-guidelines.md#autoscroll` asks."
+           Code="@LongCode">
+        <div class="sb-board sb-board--scroller" data-testid="task-board-long-sample">
+            <TaskBoard Columns="@StatusColumns(_long)"
+                       Draggable="true"
+                       DropRuleFor="@((taskId, columnKey) => StatusRule(_long, taskId, columnKey))"
+                       OnDrop="LongDrop"
+                       AriaLabel="Tasks by status, one long column"
+                       TestId="task-board-long" />
+        </div>
+        <p class="sb-state" data-testid="task-board-long-state">@(_longAct ?? "Nothing moved yet.")</p>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#task-rows", "What a task states and what goes quiet — the card states the row's facts."),
+        new("interaction-guidelines.md#reliable-drop-targets-items", "Each column is a drop target as tall as the board, so a card from low in a long column can reach a short one."),
+        new("interaction-guidelines.md#autoscroll", "The drag scrolls the board from its edges, and a column from its head and foot, at a bounded speed."),
+        new("interaction-guidelines.md#drag-affordances", "The held card lifts with shadow-lg and follows the pointer; the rest of the board dims."),
+        new("interaction-guidelines.md#motion-and-reduced-motion", "The drop settles on transition-base ease-out; under reduced motion nothing tilts, unfolds or glides."),
+        new("color-scheme.md#the-identity-edge", "The 4px repository edge on each card, and that it is never the only thing naming the repository."),
+        new("accessibility.md#iconography-accessibility", "Each column is named with its count and points; a drop is announced.")
+    ];
+
+    private const string Plan = "Plan";
+    private const string PriorityGrouping = "Priority";
+
+    private static class TaskKinds
+    {
+        public static readonly TaskKind Task = new("📋", "Task");
+        public static readonly TaskKind Test = new("🧪", "Test");
+        public static readonly TaskKind Idea = new("💡", "Idea");
+    }
+
+    private sealed record Sample(TaskRow Task, string Status, string Priority, string Repository, int? Effort, int Colour, string? Finished = null, bool Overdue = false);
+
+    private readonly List<Sample> _samples =
+    [
+        new(new TaskRow("calendar", "Calendar view with plans", Due: "Due Oct 23", Tags: ["+task-views"], Kind: TaskKinds.Task), "Draft", "Medium", "backlog", 5, 1),
+        new(new TaskRow("swim", "Explore swimlanes by plan on the board", Tags: ["#ux"], Kind: TaskKinds.Idea), "Draft", "Low", "backlog", null, 1),
+        new(new TaskRow("key", "Rotate the sync signing key", Due: "Overdue 5 days", Tags: ["+sync-hardening"], Kind: TaskKinds.Task), "Ready", "Critical", "backlog-sync", 2, 2, Overdue: true),
+        new(new TaskRow("board", "Board view: status columns with counts", Due: "Due Oct 16", StepsDone: 0, StepCount: 4, Tags: ["+task-views"], Kind: TaskKinds.Task), "Ready", "High", "backlog", 8, 1),
+        new(new TaskRow("drag", "Dragging between columns follows the status flow", Tags: ["+task-views"], Kind: TaskKinds.Test), "Ready", "High", "backlog", 3, 1),
+        new(new TaskRow("card", "Extract TaskCard from the TaskItem row", InMyDay: true, Due: "Due Oct 8", StepsDone: 3, StepCount: 5, Tags: ["+task-views"], Kind: TaskKinds.Task), "InProgress", "High", "backlog", 5, 1),
+        new(new TaskRow("facet", "Plan facet on the Tasks filter", Due: "Due Oct 13", StepsDone: 1, StepCount: 2, Tags: ["+task-views", "+sync-hardening"], Kind: TaskKinds.Task), "InProgress", "Medium", "backlog-plugins", 3, 3),
+        new(new TaskRow("banner", "Sync conflict banner copy", Done: true, Kind: TaskKinds.Task), "Done", "Low", "backlog-sync", 1, 2, Finished: "Oct 5"),
+        new(new TaskRow("dedupe", "Import plan dedupes entries by id", Done: true, Tags: ["+import"], Kind: TaskKinds.Test), "Done", "Medium", "backlog-plugins", 2, 3, Finished: "Oct 2")
+    ];
+
+    private static readonly (string Key, string Title)[] Statuses =
+        [("Draft", "Draft"), ("Ready", "Ready"), ("InProgress", "In progress"), ("Done", "Done")];
+
+    /// <summary>The product's lifecycle, written down for the sample: the host's
+    /// rule, which the board only asks.</summary>
+    private static readonly Dictionary<string, string[]> Next = new()
+    {
+        ["Draft"] = ["Ready"],
+        ["Ready"] = ["InProgress", "Draft"],
+        ["InProgress"] = ["Done", "Ready"],
+        ["Done"] = ["InProgress"]
+    };
+
+    /// <summary>The long-column sample: ten cards waiting in Ready and one in
+    /// progress, so Ready runs far below the foot of In progress.</summary>
+    private readonly List<Sample> _long =
+    [
+        .. Enumerable.Range(1, 10).Select(n => new Sample(
+            new TaskRow($"long-{n}", $"Ready card {n}", Tags: ["+task-views"], Kind: TaskKinds.Task), "Ready", "Medium", "backlog", n % 3 + 1, 1)),
+        new(new TaskRow("long-started", "The one card in progress", Tags: ["+task-views"], Kind: TaskKinds.Task), "InProgress", "High", "backlog", 3, 1)
+    ];
+
+    private string? _longAct;
+
+    private string _grouping = Plan;
+
+    private string? _opened;
+
+    private string? _lastAct;
+
+    private int _added;
+
+    private static string? Mark(int colour) => $"repo-mark repo-mark--{colour}";
+
+    private TaskBoardCard CardOf(Sample sample) =>
+        new(sample.Task, Priority: sample.Priority, Repository: sample.Repository, Effort: sample.Effort,
+            Overdue: sample.Overdue, Finished: sample.Finished, CssClass: Mark(sample.Colour));
+
+    private IReadOnlyList<TaskBoardColumn> StatusColumns() => StatusColumns(_samples);
+
+    private IReadOnlyList<TaskBoardColumn> StatusColumns(List<Sample> samples) =>
+    [
+        .. Statuses.Select(status => new TaskBoardColumn(
+            status.Key,
+            status.Title,
+            [.. samples.Where(sample => sample.Status == status.Key).Select(CardOf)],
+            $"task-board__dot--{(status.Key == "InProgress" ? "in-progress" : status.Key.ToLowerInvariant())}",
+            CanAdd: true))
+    ];
+
+    private IReadOnlyList<TaskBoardColumn> PlanColumns()
+    {
+        var plans = _samples.SelectMany(sample => sample.Task.TagList).Where(tag => tag.StartsWith('+')).Distinct().Order().ToList();
+
+        return
+        [
+            .. plans.Select(plan => new TaskBoardColumn(
+                "plan:" + plan, plan,
+                [.. _samples.Where(sample => sample.Task.TagList.Contains(plan)).Select(CardOf)])),
+            new TaskBoardColumn("plan:none", "No plan", [.. _samples.Where(sample => !sample.Task.TagList.Any(tag => tag.StartsWith('+'))).Select(CardOf)])
+        ];
+    }
+
+    private IReadOnlyList<TaskBoardColumn> PriorityColumns() =>
+    [
+        .. new[] { "Critical", "High", "Medium", "Low" }.Select(priority => new TaskBoardColumn(
+            priority, priority,
+            [.. _samples.Where(sample => sample.Priority == priority).Select(CardOf)],
+            $"task-board__dot--{priority.ToLowerInvariant()}"))
+    ];
+
+    private static string StatusOf(List<Sample> samples, string taskId) => samples.First(sample => sample.Task.Id == taskId).Status;
+
+    private static string TitleOf(string key) => Statuses.First(status => status.Key == key).Title;
+
+    private TaskBoardDropRule? StatusRule(string taskId, string columnKey) => StatusRule(_samples, taskId, columnKey);
+
+    private static TaskBoardDropRule? StatusRule(List<Sample> samples, string taskId, string columnKey)
+    {
+        var from = StatusOf(samples, taskId);
+        if (Next[from].Contains(columnKey))
+        {
+            return new TaskBoardDropRule(true, columnKey switch
+            {
+                "InProgress" when from == "Done" => "Drop to reopen",
+                "InProgress" => "Drop to start",
+                "Done" => "Drop to finish",
+                "Ready" when from == "Draft" => "Drop to mark ready",
+                "Ready" => "Drop to move back to Ready",
+                _ => "Drop to move back to Draft"
+            }, columnKey == "InProgress" && from != "Done" ? "Moves to In progress and stamps Started" : null);
+        }
+
+        var via = Next[from].FirstOrDefault(next => Next[next].Contains(columnKey));
+        var reason = via switch
+        {
+            "InProgress" when from == "Done" => "reopen it first",
+            "InProgress" => "start it first",
+            "Ready" when from == "Draft" => "mark it ready first",
+            "Ready" => "move it back to Ready first",
+            null => $"it can move to {string.Join(" or ", Next[from].Select(TitleOf))} from here",
+            _ => $"move it to {TitleOf(via)} first"
+        };
+
+        return new TaskBoardDropRule(false, $"{TitleOf(from)} can't move straight to {TitleOf(columnKey)} — {reason}");
+    }
+
+    private void OnDrop(TaskBoardDrop drop) => _lastAct = MoveSample(_samples, drop);
+
+    private void LongDrop(TaskBoardDrop drop) => _longAct = MoveSample(_long, drop);
+
+    private static string MoveSample(List<Sample> samples, TaskBoardDrop drop)
+    {
+        var index = samples.FindIndex(sample => sample.Task.Id == drop.TaskId);
+        var moved = samples[index] with { Status = drop.ColumnKey };
+        if (drop.ColumnKey == "Done") moved = moved with { Task = moved.Task with { Done = true }, Finished = "Today" };
+        else if (moved.Task.Done) moved = moved with { Task = moved.Task with { Done = false }, Finished = null };
+
+        samples[index] = moved;
+        return $"Moved {drop.TaskId} to {TitleOf(drop.ColumnKey)}.";
+    }
+
+    private void Open(string id)
+    {
+        _opened = id;
+        _lastAct = $"Opened {id}.";
+    }
+
+    private void Add(string columnKey)
+    {
+        _added++;
+        var id = $"new-{_added}";
+        _samples.Add(new Sample(new TaskRow(id, "Untitled", Done: columnKey == "Done", Kind: TaskKinds.Task), columnKey, "Medium", "backlog", null, 1));
+        _opened = id;
+        _lastAct = $"Created {id} in {TitleOf(columnKey)}.";
+    }
+
+    private RenderFragment WorkBadges(TaskRow task) =>
+        @<text>
+            @if (task.Id == "card")
+            {
+                <a class="badge badge--metadata" href="#pull-request-1019" title="Pull request 1019 · draft" @onclick:preventDefault="true">#1019</a>
+            }
+        </text>;
+
+    private const string StatusCode = """
+        <TaskBoard Columns="@columns"
+                   Draggable="@(grouping == TaskBoardGrouping.Status)"
+                   DropRuleFor="@((taskId, columnKey) => rule(statusOf(taskId), columnKey))"
+                   OnDrop="drop => ChangeStatusAsync(drop.TaskId, drop.ColumnKey)"
+                   OnSelected="OpenAsync"
+                   OnAdd="columnKey => NewRow(columnKey)"
+                   SelectedId="@selectedId"
+                   Badges="@(task => WorkBadges(task))" />
+
+        @* A column is the host's: key, title, cards, a dot class, and whether it
+           ends in "+ New entry". *@
+        new TaskBoardColumn("Ready", "Ready", cards, "task-board__dot--ready", CanAdd: true)
+        """;
+
+    private const string GroupingCode = """
+        @* No Draggable: only the lifecycle is a column a card moves along. *@
+        <TaskBoard Columns="@planColumns" OnSelected="OpenAsync" />
+        """;
+
+    private const string NarrowCode = """
+        @* The board is its own horizontal scroller; columns are minmax(17rem, 1fr). *@
+        <div style="width: 40rem"><TaskBoard Columns="@columns" /></div>
+        """;
+
+    private const string LongCode = """
+        @* In a flex column with a height — the Tasks pane's scroller — the board
+           fills it, scrolls sideways only, and each column scrolls its own cards.
+           Every column is the board's height, so a drop beside a long column's
+           foot lands on the short column there. *@
+        <div style="display: flex; flex-direction: column; height: 28rem; overflow-y: auto">
+            <TaskBoard Columns="@columns" Draggable="true" />
+        </div>
+        """;
+}

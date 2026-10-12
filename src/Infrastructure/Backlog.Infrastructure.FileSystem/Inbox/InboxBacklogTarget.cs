@@ -31,13 +31,31 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 /// registering, exactly as a typed token is treated.
 /// </para>
 /// <para>
+/// Siblings know about each other. When an item goes to two or more
+/// repositories, each entry's body opens with a "Same capture in:" line for
+/// every other entry made from it, and all of them carry the general tag
+/// <c>#from-inbox-</c> plus the last eight hex digits of the item's id — a
+/// <c>#</c> tag, never a <c>+</c> plan tag, because the siblings are one capture
+/// and not a plan. One repository or none writes neither.
+/// </para>
+/// <para>
 /// Known and accepted: a title containing <c>#word</c> or <c>@name</c> is read
 /// by the parser as a tag or a person, because that is what those sigils mean
 /// on a title line. The capture said it; the entry keeps it.
 /// </para>
 /// </summary>
-internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDirectory repositories) : IInboxBacklogTarget
+internal sealed partial class InboxBacklogTarget(
+    ITaskItems tasks,
+    IRepositoryDirectory repositories,
+    TimeProvider? clock = null) : IInboxBacklogTarget
 {
+    /// <summary>The usage a merge records on the task, beside the MCP
+    /// <c>comment</c> tool's own: usage actions are read back as a set, so the
+    /// two writers of a comment stay told apart.</summary>
+    internal const string MergeUsageAction = "inbox-merge";
+
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+
     public async Task<Result<IReadOnlyList<Guid>>> CreateTasksAsync(
         InboxRouteRequestDto request,
         CancellationToken cancellationToken = default)
@@ -388,10 +406,16 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
     {
         var text = new StringBuilder();
 
-        text.Append("# ").Append(WhitespaceRun().Replace(request.Title.Trim(), " ")).Append('\n');
+        var title = WhitespaceRun().Replace(request.Title.Trim(), " ");
+        var siblings = Siblings(request, repo);
+
+        text.Append("# ").Append(title).Append('\n');
         text.Append("`task` `!draft`");
 
-        foreach (var tag in request.Tags
+        IEnumerable<string> tags = request.Tags;
+        if (siblings.Count > 0) tags = tags.Append(SiblingTag(request.InboxItemId));
+
+        foreach (var tag in tags
                      .Select(tag => tag.Trim().TrimStart('#').ToLowerInvariant())
                      .Where(tag => tag.Length > 0 && char.IsAsciiLetter(tag[0]))
                      .Distinct(StringComparer.Ordinal))
@@ -408,6 +432,18 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
 
         text.Append('\n');
 
+        // Ahead of the person's notes rather than after them: notes ending in an
+        // open fence or a `##` chapter would otherwise swallow the lines, as
+        // fenced text or as a sub-item's note. And through Tasks' own prose
+        // writer, so nothing a title carries can make one a heading, a step or
+        // a fence.
+        if (siblings.Count > 0)
+        {
+            text.Append('\n')
+                .Append(EntryTextParser.AsProse(string.Join("\n\n", siblings.Select(sibling => $"Same capture in: {sibling} — {title}"))))
+                .Append('\n');
+        }
+
         var body = request.BodyMd.Trim();
         if (body.Length > 0) text.Append('\n').Append(body).Append('\n');
 
@@ -423,6 +459,87 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
             ? EntryTextParser.WithAttachment(text.ToString(), attachment)
             : text.ToString();
     }
+
+    public async Task<Result> CommentOnTaskAsync(InboxMergeRequestDto request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var commented = await tasks
+            .CommentAsync(
+                request.TaskId,
+                MergeComment(request),
+                DateOnly.FromDateTime(_clock.GetLocalNow().DateTime),
+                MergeUsageAction,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return commented.IsSuccess ? Result.Success() : Result.Failure(commented.Error);
+    }
+
+    /// <summary>
+    /// Undoing a route: every entry it made, deleted through Tasks' own delete —
+    /// after all of them have been checked, so a refusal leaves every one in
+    /// place. Started means no longer <see cref="EntryStatus.Draft"/> or
+    /// <see cref="EntryStatus.Ready"/>: in progress, done or archived — the
+    /// backlog has moved on with it, and the undo is not the place to discard
+    /// that. An id the backlog no longer lists is already deleted.
+    /// </summary>
+    public async Task<Result> DeleteRoutedTasksAsync(IReadOnlyList<Guid> taskIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskIds);
+        if (taskIds.Count == 0) return Result.Success();
+
+        var byId = (await tasks.ListAsync(cancellationToken).ConfigureAwait(false)).ToDictionary(task => task.Id);
+        var present = taskIds.Distinct().Where(byId.ContainsKey).Select(id => byId[id]).ToList();
+
+        if (present.FirstOrDefault(task => task.Status is not (EntryStatus.Draft or EntryStatus.Ready)) is { } started)
+        {
+            return Result.Failure(InboxErrors.UndoTaskStarted(WhitespaceRun().Replace(started.Title.Trim(), " ")));
+        }
+
+        foreach (var task in present)
+        {
+            await tasks.DeleteAsync(task.Id, cancellationToken).ConfigureAwait(false);
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// The capture as one comment: its title, then its link when it has one,
+    /// then its notes after a blank line — the order the merge promises. The
+    /// title is one line, every whitespace run in it one space, as
+    /// <see cref="Compose"/> writes a routed entry's; the notes go as they were
+    /// captured, and Tasks' comment rule decides whether they can be prose.
+    /// </summary>
+    internal static string MergeComment(InboxMergeRequestDto request)
+    {
+        var text = new StringBuilder(WhitespaceRun().Replace(request.Title.Trim(), " "));
+
+        if (!string.IsNullOrWhiteSpace(request.SourceUrl)) text.Append('\n').Append(request.SourceUrl.Trim());
+
+        var notes = request.BodyMd.Trim();
+        if (notes.Length > 0) text.Append("\n\n").Append(notes);
+
+        return text.ToString();
+    }
+
+    /// <summary>The other repositories an entry for <paramref name="repo"/> has
+    /// siblings in, in the item's order — empty for an untargeted entry or an
+    /// item with one repository, which have none.</summary>
+    private static List<string> Siblings(InboxRouteRequestDto request, string? repo)
+    {
+        if (string.IsNullOrWhiteSpace(repo) || request.RepoIds.Count < 2) return [];
+
+        var own = repo.Trim();
+        return [.. request.RepoIds
+            .Select(other => other.Trim())
+            .Where(other => other.Length > 0 && !string.Equals(other, own, StringComparison.OrdinalIgnoreCase))];
+    }
+
+    /// <summary>The general tag every sibling of one item shares:
+    /// <c>from-inbox-</c> and the last eight hex digits of the item's id.</summary>
+    internal static string SiblingTag(Guid inboxItemId) => "from-inbox-" + inboxItemId.ToString("N")[^8..];
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespaceRun();

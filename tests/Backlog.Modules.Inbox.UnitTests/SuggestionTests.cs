@@ -317,10 +317,39 @@ public sealed class SuggestionTests
         Assert.Equal(["tag:sync", "destination:tasks"], answer.Value.Select(s => s.Key));
     }
 
+    /// <summary>The list's markers ask for every row at once: each item gets
+    /// what it would be offered alone, an id with no item is left out, and the
+    /// backlog's tags are read once for the lot rather than once per row.</summary>
+    [Fact]
+    public async Task The_batch_query_answers_each_item_and_reads_the_tags_once()
+    {
+        var store = new InMemoryInboxStore();
+        var sync = Item("The sync service");
+        var note = Item("A note of my own");
+        store.Seed(sync);
+        store.Seed(note);
+        var tags = new StubTags("sync");
+        var query = new SuggestQueryHandler(store, tags);
+        var missing = Guid.CreateVersion7();
+
+        var answer = await query.Handle(new SuggestManyQuery([sync.Id, note.Id, missing]), TestContext.Current.CancellationToken);
+
+        Assert.True(answer.IsSuccess);
+        Assert.Equal(new[] { sync.Id, note.Id }.Order(), answer.Value.Keys.Order());
+        Assert.Contains("tag:sync", answer.Value[sync.Id].Select(s => s.Key));
+        Assert.DoesNotContain("tag:sync", answer.Value[note.Id].Select(s => s.Key));
+        Assert.Equal(1, tags.Reads);
+    }
+
     private sealed class StubTags(params string[] tags) : IBacklogTagSource
     {
-        public Task<IReadOnlyList<string>> TagsInUseAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<string>>(tags);
+        public int Reads { get; private set; }
+
+        public Task<IReadOnlyList<string>> TagsInUseAsync(CancellationToken cancellationToken = default)
+        {
+            Reads++;
+            return Task.FromResult<IReadOnlyList<string>>(tags);
+        }
     }
 
     private sealed class StubRules(params InboxRoutingRule[] rules) : IInboxRoutingRules

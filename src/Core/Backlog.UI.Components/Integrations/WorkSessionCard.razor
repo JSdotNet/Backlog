@@ -1,0 +1,73 @@
+@*
+    One agent session as a card beside the work it ran: a dot and its title, its
+    state on the right, and one line of what it last did under them.
+
+    The state is said in words and drawn as the dot's colour, never by colour
+    alone. Stalled — quiet past the host's threshold — and waiting are the two that
+    ask for the person, and those are the cards that wear the primary edge: the
+    reader scanning a column for "what needs me" finds them by the border before
+    reading a word.
+
+    A button when the host can open the session, inert otherwise — the rule
+    IntegrationLink follows: something that looks pressable and does nothing is
+    worse than something that never offered.
+*@
+@if (OnOpen.HasDelegate)
+{
+    <button type="button"
+            class="@ClassValue"
+            title="@TitleValue"
+            data-testid="@TestId"
+            data-session-id="@Session.Id"
+            data-state="@StateSlug"
+            @onclick="() => OnOpen.InvokeAsync(Session)">@Body()</button>
+}
+else
+{
+    <div class="@ClassValue" title="@TitleValue" data-testid="@TestId" data-session-id="@Session.Id" data-state="@StateSlug">@Body()</div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public WorkSession Session { get; set; } = default!;
+
+    /// <summary>How the host opens the session. Without it the card is inert.</summary>
+    [Parameter]
+    public EventCallback<WorkSession> OnOpen { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "work-session";
+
+    private string StateSlug => Session.State.ToString().ToLowerInvariant();
+
+    private string Words => WorkStates.SessionWords(Session.State);
+
+    private string TitleValue => $"Session {Session.Title} — {Words}";
+
+    private string ClassValue
+    {
+        get
+        {
+            var value = $"work-card work-card--session work-card--session-{StateSlug}";
+            if (WorkStates.NeedsYou(Session)) value += " work-card--needs-you";
+            if (OnOpen.HasDelegate) value += " work-card--opens";
+            return string.IsNullOrWhiteSpace(CssClass) ? value : $"{value} {CssClass}";
+        }
+    }
+
+    private RenderFragment Body() =>
+        @<text>
+            <span class="work-card__line">
+                <span class="work-card__dot" aria-hidden="true"></span>
+                <span class="work-card__title" data-testid="work-session-title">@Session.Title</span>
+                <span class="work-card__state" data-testid="work-session-state">@Words</span>
+            </span>
+            @if (!string.IsNullOrWhiteSpace(Session.Detail))
+            {
+                <span class="work-card__detail" data-testid="work-session-detail">@Session.Detail</span>
+            }
+        </text>;
+}

@@ -64,10 +64,10 @@ internal sealed class InMemoryInboxStore : IInboxItemRepository, IInboxOrganizer
         Items.Remove(item.Id);
         if (item.ReplicaAckPending)
         {
-            DeletedCaptures[item.Id] = new InboxDeletedCapture(item.Id, item.Title, item.CapturedAt, item.UpdatedAt);
+            DeletedCaptures[item.Id] = new InboxDeletedCapture(item.Id, item.Title, item.CapturedAt, item.UpdatedAt, item.KindSlug);
         }
 
-        if (!item.ReplicaBacked) Dismissed.Add(item.Id);
+        if (!item.ReplicaBacked || item.IsNote) Dismissed.Add(item.Id);
 
         return Task.CompletedTask;
     }
@@ -86,6 +86,12 @@ internal sealed class InMemoryInboxStore : IInboxItemRepository, IInboxOrganizer
     public Task ForgetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default)
     {
         DeletedCaptures.Remove(id);
+        return Task.CompletedTask;
+    }
+
+    public Task RememberDeletedCaptureAsync(InboxDeletedCapture capture, CancellationToken cancellationToken = default)
+    {
+        DeletedCaptures[capture.Id] = capture;
         return Task.CompletedTask;
     }
 

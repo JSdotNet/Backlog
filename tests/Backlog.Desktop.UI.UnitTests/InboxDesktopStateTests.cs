@@ -39,6 +39,17 @@ public sealed class InboxDesktopStateTests : IDisposable
             inbox.Renames);
     }
 
+    /// <summary>The header's "oldest …" in words: hours under a day, days
+    /// after, singular where it is one.</summary>
+    [Theory]
+    [InlineData(0, 30, "under an hour")]
+    [InlineData(1, 0, "1 hour")]
+    [InlineData(5, 59, "5 hours")]
+    [InlineData(24, 0, "1 day")]
+    [InlineData(24 * 12 + 3, 0, "12 days")]
+    public void Waited_says_the_span_in_words(int hours, int minutes, string expected) =>
+        Assert.Equal(expected, InboxDesktopState.Waited(TimeSpan.FromHours(hours) + TimeSpan.FromMinutes(minutes)));
+
     [Fact]
     public async Task An_older_reload_that_finishes_after_a_newer_one_is_ignored()
     {
@@ -224,6 +235,35 @@ public sealed class InboxDesktopStateTests : IDisposable
         state.SelectItem(other.Id);
 
         Assert.Equal([chained.Id, direct.Id, kept.Id], state.DuplicateCandidates(null).Select(item => item.Id));
+    }
+
+    /// <summary>"Merge into a task" is a decision: the item named is merged into
+    /// the task and archived as its duplicate, and when it was the one selected
+    /// the selection moves on — any other item is merged where it is.</summary>
+    [Fact]
+    public async Task Merging_into_a_task_archives_the_item_named_as_the_tasks_duplicate()
+    {
+        var inbox = new FakeInboxItems();
+        var selected = inbox.Seed("Scroll jumps to top", capturedAt: inbox.Now.AddMinutes(-2));
+        var other = inbox.Seed("Read the post", capturedAt: inbox.Now.AddMinutes(-1));
+        var task = Guid.CreateVersion7();
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        await state.ReloadAsync();
+        state.SelectItem(selected.Id);
+
+        await state.MergeIntoTaskAsync(other.Id, task);
+
+        Assert.Equal([(other.Id, task)], inbox.Merges);
+        var merged = Assert.Single(state.Items, item => item.Id == other.Id);
+        Assert.Equal(Backlog.Modules.Inbox.Abstractions.InboxStatus.Archived, merged.Status);
+        Assert.Equal(task, merged.DuplicateOf);
+        Assert.True(merged.DuplicateOfTask);
+        Assert.Equal(selected.Id, state.SelectedItem?.Id);
+
+        await state.MergeIntoTaskAsync(selected.Id, task);
+
+        Assert.Equal(task, Assert.Single(state.Items, item => item.Id == selected.Id).DuplicateOf);
+        Assert.Equal(2, inbox.Merges.Count);
     }
 
     private sealed class FakeBacklogTagSource(IReadOnlyList<string> tags) : IBacklogTagSource

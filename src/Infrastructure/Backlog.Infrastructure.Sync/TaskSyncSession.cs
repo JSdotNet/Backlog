@@ -61,6 +61,7 @@ public sealed class TaskSyncSession
     private readonly SyncActivityLog? _activity;
     private readonly IRoadmapReplication? _roadmap;
     private readonly IGitHubSettingsReplication? _github;
+    private readonly IInboxNoteReplication? _notes;
 
     /// <param name="credentials">Whose device this is. Read before every push
     /// and pull to check the progress in <paramref name="state"/> belongs to the
@@ -88,7 +89,8 @@ public sealed class TaskSyncSession
         IInboxCaptureOutbox? outbox = null,
         SyncActivityLog? activity = null,
         IRoadmapReplication? roadmap = null,
-        IGitHubSettingsReplication? github = null)
+        IGitHubSettingsReplication? github = null,
+        IInboxNoteReplication? notes = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -107,6 +109,7 @@ public sealed class TaskSyncSession
         _activity = activity;
         _roadmap = roadmap;
         _github = github;
+        _notes = notes;
     }
 
     /// <summary>
@@ -251,6 +254,14 @@ public sealed class TaskSyncSession
             }
         }
 
+        if (_notes is not null)
+        {
+            var sent = await PushNotesAsync(_notes, cancellationToken).ConfigureAwait(false);
+            if (sent.IsFailure) return Result.Failure<TaskSyncSummary>(sent.Error);
+
+            pushed += sent.Value;
+        }
+
         if (_outbox is not null)
         {
             var acknowledgements = (await _outbox.ListPendingAsync(cancellationToken).ConfigureAwait(false)).ToList();
@@ -265,7 +276,7 @@ public sealed class TaskSyncSession
             {
                 var batch = acknowledgements.GetRange(start, Math.Min(PushBatchSize, acknowledgements.Count - start));
                 var tombstones = batch
-                    .Select(ack => new TaskChange(ack.CaptureId, ack.AcknowledgedAt, ack.AcknowledgedAt, CapturePayload(ack)))
+                    .Select(ack => new TaskChange(ack.CaptureId, ack.AcknowledgedAt, ack.AcknowledgedAt, AcknowledgementPayload(ack)))
                     .ToList();
 
                 var response = await _client.PushAsync(tombstones, cancellationToken).ConfigureAwait(false);
@@ -275,6 +286,13 @@ public sealed class TaskSyncSession
 
                 foreach (var ack in batch)
                 {
+                    if (IsNoteAcknowledgement(ack))
+                    {
+                        _activity?.Record(
+                            SyncDirection.Sent, SyncItemKind.Note, ack.CaptureId.ToString("D"), ack.Title, "archived");
+                        continue;
+                    }
+
                     _activity?.Record(
                         SyncDirection.Sent, SyncItemKind.Capture, ack.CaptureId.ToString("D"), ack.Title, "acknowledged");
                 }
@@ -543,10 +561,54 @@ public sealed class TaskSyncSession
     /// <c>medium</c>. <c>SourceInboxId</c> says which end acknowledged, which
     /// nothing reads yet and a person looking at the document may.
     /// </summary>
-    private static TaskPayload CapturePayload(InboxCaptureAckDto ack) => new(
+    /// <summary>
+    /// Pushes every note this desktop changed and has not pushed yet
+    /// (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>), in batches, and
+    /// answers how many the replica took. Each batch is marked pushed once the
+    /// replica answered, whatever it took: a note it kept a later copy of is the
+    /// phone's newer edit, which the next pull brings here. A flag on the note
+    /// rather than a watermark, because a note's stamp may come from the phone's
+    /// clock, and a watermark moved by it would skip this desktop's own edits.
+    /// </summary>
+    private async Task<Result<int>> PushNotesAsync(IInboxNoteReplication notes, CancellationToken cancellationToken)
+    {
+        var pending = (await notes.ListPendingAsync(cancellationToken).ConfigureAwait(false)).ToList();
+        var pushed = 0;
+
+        for (var start = 0; start < pending.Count; start += PushBatchSize)
+        {
+            var batch = pending.GetRange(start, Math.Min(PushBatchSize, pending.Count - start));
+
+            var response = await _client
+                .PushAsync([.. batch.Select(NoteReplicaDocuments.ToChange)], cancellationToken)
+                .ConfigureAwait(false);
+            if (response.IsFailure) return Result.Failure<int>(response.Error);
+
+            pushed += response.Value.Accepted;
+
+            if (response.Value.Accepted > 0)
+            {
+                foreach (var note in batch)
+                {
+                    _activity?.Record(SyncDirection.Sent, SyncItemKind.Note, note.Id.ToString("D"), note.Title);
+                }
+            }
+
+            await notes.MarkPushedAsync(batch, cancellationToken).ConfigureAwait(false);
+        }
+
+        return Result.Success(pushed);
+    }
+
+    /// <summary>Whether an acknowledgement is a note's, whose tombstone is
+    /// written as a note document so the phone's Notes list drops it.</summary>
+    private static bool IsNoteAcknowledgement(InboxCaptureAckDto ack) =>
+        string.Equals(ack.Kind, NoteReplicaDocuments.NoteType, StringComparison.Ordinal);
+
+    private static TaskPayload AcknowledgementPayload(InboxCaptureAckDto ack) => new(
         ack.Title,
         ContentMd: string.Empty,
-        CaptureType,
+        IsNoteAcknowledgement(ack) ? NoteReplicaDocuments.NoteType : CaptureType,
         Status: "draft",
         Priority: "medium",
         Order: 0,

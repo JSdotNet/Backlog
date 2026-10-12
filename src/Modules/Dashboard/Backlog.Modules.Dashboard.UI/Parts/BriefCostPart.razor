@@ -1,0 +1,65 @@
+@*
+    The brief's Cost block: what the assistants that report by the day spent in the week,
+    against the week before, from the Cost tab's read — spend by week is derived from the
+    same cached read as the tab's trend — with the month-end projection against the
+    budgets as its supporting sentence.
+
+    Copilot is not in the weekly figure: it reports a month as one entry, which has no
+    week. The chart's caption says so. Like every cost part it follows neither the
+    repository scope nor the window: no provider reports spend per repository.
+*@
+@inherits BriefPartBase<BriefCostPart.Reading>
+@inject ICostInsights Costs
+
+@{
+    var reading = IsReady ? Week.Read(Value!.Weeks.Weeks) : null;
+}
+<BriefBlock Tag="Cost"
+            Status="BlockStatus(reading)"
+            StatusMessage="@BlockMessage(reading)"
+            Headline="@(reading is null ? null : Headline(reading))"
+            Detail="@(reading is null ? null : WeeklyBriefSentences.CostDetail(Value!.Projection))"
+            Figure="@(reading is null ? null : Money(reading.Value))"
+            Unit="@(IsReady && Value!.Weeks.IsEstimate ? "spent, estimated" : "spent")"
+            Bars="Points(reading)"
+            Caption="@Caption("Spend per week, Claude and Azure Foundry", reading)"
+            FormatValue="Money"
+            LinkText="Spend"
+            OnOpen="Open(TabId)"
+            TestId="dashboard-brief-cost" />
+
+@code {
+    private const string TabId = "dashboard-cost";
+
+    /// <summary>What the block reads: spend by week, and the month's projection when it
+    /// could be read.</summary>
+    public sealed record Reading(SpendByWeekInsight Weeks, SpendProjectionInsight? Projection);
+
+    protected override bool FollowsRepository => false;
+
+    protected override bool FollowsWindow => false;
+
+    private string Headline(BriefReading reading)
+    {
+        var currency = Value!.Weeks.Currency;
+
+        return WeeklyBriefSentences.Spent(
+            new DashboardMoney(reading.Value, currency),
+            reading.Previous is { } previous ? new DashboardMoney(previous, currency) : null);
+    }
+
+    private string Money(decimal amount) =>
+        MetricFormat.Money(new MoneyAmount(amount, Value?.Weeks.Currency ?? string.Empty));
+
+    protected override async Task<InsightResult<Reading>> FetchAsync(CancellationToken cancellationToken)
+    {
+        var weeks = await Costs.GetByWeekAsync(cancellationToken);
+        if (!weeks.HasValue) return InsightResult<Reading>.Unavailable(weeks.Availability.Reason);
+
+        var projection = await Costs.GetProjectionAsync(cancellationToken);
+
+        return InsightResult<Reading>.Ready(new Reading(weeks.Value!, projection.HasValue ? projection.Value : null));
+    }
+
+    protected override void InvalidateSource() => Costs.Invalidate();
+}

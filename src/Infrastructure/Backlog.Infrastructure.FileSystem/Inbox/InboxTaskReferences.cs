@@ -75,8 +75,21 @@ internal sealed partial class InboxTaskReferences(ITaskItems tasks) : IInboxTask
             links,
             Guid.TryParse(entry.SourceInboxId, out var source) ? source : null,
             sources.FirstOrDefault(),
-            entry.Status is not (EntryStatus.Done or EntryStatus.Archived));
+            entry.Status is not (EntryStatus.Done or EntryStatus.Archived),
+            StatusWord(entry.Status));
     }
+
+    /// <summary>The status as the entry grammar spells it, without its
+    /// <c>!</c>: what the triage advisor reads beside a task's title.</summary>
+    internal static string StatusWord(EntryStatus status) => status switch
+    {
+        EntryStatus.Draft => "draft",
+        EntryStatus.Ready => "ready",
+        EntryStatus.InProgress => "in-progress",
+        EntryStatus.Done => "done",
+        EntryStatus.Archived => "archived",
+        _ => status.ToString().ToLowerInvariant(),
+    };
 
     /// <summary>The entry's projections of one type on a GitHub repository,
     /// with the number they carry — a projection whose repository is not

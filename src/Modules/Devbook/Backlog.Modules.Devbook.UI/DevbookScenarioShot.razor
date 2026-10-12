@@ -1,0 +1,127 @@
+@*
+    One screenshot a chapter shows from a scenario page's run: `scenario:<stem>#<label>`
+    anywhere, or `shot:<label>` on the page itself. The picture, its caption, and the
+    source line that says where it came from and whether to trust it —
+    Scenario › Part · state · time — the way spec-manager renders it.
+
+    Inline rather than a block, because it sits where the image was in a paragraph:
+    two in one paragraph form a row. Spans throughout, since a paragraph may hold
+    nothing else.
+
+    Every way the reference can fail says which way, rather than drawing a broken
+    image: the page does not exist, two pages share the stem, the label is not on the
+    page (with the labels that are), or the run never captured it. A capture from an
+    earlier run than the last, or from a run of an older page text, says so on the
+    source line.
+*@
+<span class="devbook-scenario-shot devbook-scenario-shot--@KindSlug" role="figure" aria-label="@Caption" data-testid="devbook-scenario-shot" data-kind="@KindSlug">
+    @if (Resolution.Kind == DevbookScenarioShotKind.Shown && _image is not null)
+    {
+        <img class="devbook-scenario-shot__image" src="@_image" alt="@Caption" loading="lazy" data-testid="devbook-scenario-shot-image" />
+    }
+    else
+    {
+        <EmptyState Title="@Placeholder"
+                    Description="@_error"
+                    BaseClass="devbook-scenario-shot__placeholder"
+                    TitleCssClass="devbook-scenario-shot__placeholder-title"
+                    DescriptionCssClass="devbook-scenario-shot__placeholder-reason"
+                    TestId="devbook-scenario-shot-placeholder" />
+    }
+    @if (!string.IsNullOrWhiteSpace(Caption))
+    {
+        <span class="devbook-scenario-shot__caption">@Caption</span>
+    }
+    <span class="devbook-scenario-shot__source" data-testid="devbook-scenario-shot-source">
+        @if (Resolution.Scenario is { } scenario)
+        {
+            <DevbookScenarioDot State="@scenario.State" TestId="devbook-scenario-shot-dot" />
+            <span>@SourceLine(scenario)</span>
+        }
+        else
+        {
+            <span>@Problem</span>
+        }
+    </span>
+</span>
+
+@code {
+    private string? _image;
+    private string? _loadedPath;
+    private string? _error;
+
+    [Parameter, EditorRequired]
+    public DevbookScenarioShotResolution Resolution { get; set; } = null!;
+
+    [Parameter]
+    public string? Caption { get; set; }
+
+    [Parameter]
+    public DevbookScenarioStore? Store { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var path = Resolution.FullPath;
+        if (string.Equals(path, _loadedPath, StringComparison.OrdinalIgnoreCase)) return;
+
+        _loadedPath = path;
+        _image = null;
+        _error = null;
+        if (path is null || Store is null || Resolution.Scenario is not { } scenario) return;
+
+        try
+        {
+            var image = await Store.ImageAsync(scenario, path);
+            if (string.Equals(path, _loadedPath, StringComparison.OrdinalIgnoreCase)) _image = image;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The file went between the listing and the read; the placeholder says so.
+            if (string.Equals(path, _loadedPath, StringComparison.OrdinalIgnoreCase)) _error = ex.Message;
+        }
+    }
+
+    private string KindSlug => Resolution.Kind switch
+    {
+        DevbookScenarioShotKind.Shown => "shown",
+        DevbookScenarioShotKind.NotCaptured => "not-captured",
+        DevbookScenarioShotKind.UnknownLabel => "unknown-label",
+        DevbookScenarioShotKind.UnknownPage => "unknown-page",
+        _ => "ambiguous-stem"
+    };
+
+    private string Placeholder => Resolution.Kind switch
+    {
+        DevbookScenarioShotKind.Shown => "Screenshot unavailable",
+        DevbookScenarioShotKind.NotCaptured => "Not captured yet",
+        _ => "No screenshot"
+    };
+
+    private string Problem => Resolution.Kind switch
+    {
+        DevbookScenarioShotKind.UnknownPage => $"No scenario page is named {Resolution.Stem}",
+        DevbookScenarioShotKind.AmbiguousStem => $"{Resolution.Stem} names {Resolution.Alternatives.Count} scenario pages: {string.Join(", ", Resolution.Alternatives)}",
+        _ => Resolution.Stem
+    };
+
+    private string SourceLine(DevbookScenario scenario)
+    {
+        var parts = new List<string>();
+        var head = scenario.Title;
+        if (Resolution.Kind == DevbookScenarioShotKind.UnknownLabel)
+        {
+            parts.Add($"{head} has no screenshot {Resolution.Label}");
+            if (Resolution.Alternatives.Count > 0) parts.Add($"labels: {string.Join(", ", Resolution.Alternatives)}");
+            return string.Join(" · ", parts);
+        }
+
+        var shot = Resolution.Shot;
+        var partAnchor = shot?.Part ?? scenario.Page.Shots.FirstOrDefault(point => point.Label == Resolution.Label)?.Part;
+        parts.Add(partAnchor is null ? head : $"{head} › {scenario.PartTitle(partAnchor)}");
+        parts.Add(ScenarioEvidence.Label(scenario.State).ToLowerInvariant());
+        if ((shot?.RanAt ?? scenario.Run?.RanAt) is { } time) parts.Add(DevbookScenarioFormat.Time(time));
+        if (Resolution.FromEarlierRun) parts.Add("from an earlier run");
+        if (Resolution.Kind == DevbookScenarioShotKind.NotCaptured) parts.Add("not captured");
+        return string.Join(" · ", parts);
+    }
+}

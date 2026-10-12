@@ -18,9 +18,9 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests]
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/capture/domain.md#capture, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests]
-aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions]
+related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/capture/domain.md#capture, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/domain/inbox/domain.md#note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.NoteTests]
+aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions, DuplicateOf, DuplicateOfTask, duplicate_of, duplicate_of_task]
 ```
 
 A single unit of captured, unprocessed information moving through triage. The
@@ -54,6 +54,12 @@ key names what was proposed, not why, so a suggestion the reader refused is
 not offered again, even when something new would propose it. It sits on the
 item because the refusal is the reader's decision about this item.
 
+An item archived as the same capture as something else remembers what, as
+`DuplicateOf`. That is another inbox item for "Archive as duplicate of…" —
+the one kept, at the root of its own chain — or a backlog task the item was
+merged into ([Triage](#triage)), and `DuplicateOfTask` says which. The Inbox
+cannot see a task, so a link to one ends a duplicate chain.
+
 An item is born one of two ways. A capture pulled from the replica becomes an
 item that **reuses the capture's id**, which is what makes intake idempotent: a
 replayed page or the desktop's own acknowledgement echo finds the row it already
@@ -64,6 +70,29 @@ A capture can also bring files — a photo, a screenshot, a PDF the phone
 shared. The item owns them as [Attachments](#attachment): the file belongs to the
 thought, so it lives inside the item's boundary and not beside it, and it stays
 with the item whatever triage later decides.
+
+An item of kind `note` is a [Note](#note): something the person keeps and edits
+rather than a thought waiting to be sorted. It is the one kind that lives on the
+phone as well as the desktop. Every note syncs both ways, so the phone and the
+desktop may each change its title, body and files. Both sides keep the edit
+with the later `updated_at`, the same last-write-wins rule the task feed uses
+(`.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`).
+A note keeps its id on every device. It is not acknowledged away from the phone
+when the desktop takes it in, as a `text` capture is, nor when the desktop routes
+it. A note stops syncing only when the desktop archives or deletes it. The phone
+then drops it from its list.
+
+A note carries its own last-write-wins stamp, `edited_at`, apart from the item's
+`updated_at`. It moves when the title, body or files change and when the note is
+archived or deleted, and nowhere else. Filing, tagging and a file arriving
+restamp `updated_at` only. A note pushed for such a change would otherwise carry a
+stamp later than an edit the phone made meanwhile, and would overwrite that edit
+with the older text. A note taken in from the phone keeps the phone's stamp.
+
+Triage stays on the desktop for every kind, notes included. The phone may create
+a note and edit any note, but it never routes, defers, accepts or archives an
+item. A note waits in the queue as `unprocessed` like any other item, and the
+desktop may triage it like any other.
 
 The Inbox Item aggregate has no owned child entities; `Tag`, `Routing Target`,
 `Source` and `Attachment` are value objects owned by the root.
@@ -166,14 +195,19 @@ change is a new attachment that the item swaps in, and only the item does so.
 ```meta
 type: enum
 status: draft
+related: [.devbook/domain/inbox/domain.md#note]
 aliases: [ContentKind, CaptureKinds, kind, KindSlug]
 ```
 
 What the captured content is, as a reader sorting the queue would name it —
 distinct from `Capture Source`, which says how it arrived:
 
-- `text` — a plain note; the kind every source can produce and the kind an
-  item is until somebody says otherwise.
+- `text` — a plain thought waiting to be sorted; the kind every source can
+  produce and the kind an item is until somebody says otherwise.
+- `note` — a [Note](#note) the person keeps and edits. Created on the phone's
+  Notes tab or as a note from any device, it syncs both ways with the phone.
+  Classification never infers it from the text: an item is a note because it
+  was created as one.
 - `article` — a web page worth reading, clipped or linked.
 - `link` — a bare URL not yet known to be an article.
 - `youtube` — a video, from the YouTube monitor or a shared link.
@@ -187,7 +221,11 @@ distinct from `Capture Source`, which says how it arrived:
 The set will grow; a kind nobody has drawn yet is shown as its plain word rather
 than breaking the queue. `article`, `link`, `youtube`, `image`, `document`,
 `email` and `claude-artifact` are *reference* kinds — collected material rather
-than a thought of the reader's own.
+than a thought of the reader's own. `note` is the only kind that changes after
+it is captured: every other kind records what arrived and keeps it.
+
+Classification never proposes `note`, and a note document never turns an item
+of another kind into one.
 
 ### Inbox Status
 
@@ -270,8 +308,8 @@ and then removes the group, so no list is ever deleted by deleting its group.
 type: domain-service
 status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#import, .devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Creating_a_plan_hands_the_items_folder_to_the_import_as_its_attachment]
-aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, ArchiveItemCommand]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxMergeIntoTaskTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Creating_a_plan_hands_the_items_folder_to_the_import_as_its_attachment]
+aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, ArchiveItemCommand, MergeIntoTaskCommand, InboxMergeRequestDto]
 ```
 
 Coordinates the triage decision for an Inbox Item and the resulting cross-context
@@ -308,6 +346,17 @@ Three doors lead to Tasks and all end in the same `Routing Target`:
 An item with attachments hands its [attachment folder](#attachment-folder) to
 every task Route to backlog, Route a batch or Create plan creates, as that
 task's attachment. The file goes where the work goes.
+
+A fourth decision reaches Tasks without making anything. **Merge into a task**
+folds an open item into a task it repeats: the item's title, then its link
+when it has one, then its notes are written on the task as one comment, through
+the same comment rule the `backlog` MCP server's `comment` tool writes through,
+and the item is archived with `DuplicateOf` naming the task. The Inbox refuses
+what it can before writing anything — an item already decided, a task the
+backlog no longer has — and a comment Tasks will not take as prose (a heading,
+a checklist item or a fence among the notes) leaves the item open. The comment
+is written first, so a failure never leaves an item archived against a task
+that never heard of it.
 
 Routing to Devbook is modelled and not built.
 
@@ -453,6 +502,23 @@ title and, optionally, notes that become the item's body. It becomes an
 `CaptureItemCommand` is the slice, `InboxEnumMap.ManualChannel` the token.
 Distinct from a `Capture` in the Capture context, which arrives from a device
 through sync.
+
+### Note
+
+```meta
+type: term
+status: draft
+aliases: [note, NoteItem, Notes tab]
+related: [.devbook/domain/inbox/domain.md#content-kind, .devbook/domain/inbox/features.md#notes, .devbook/domain/capture/features.md#talk-note, .devbook/arc42/06-runtime-view.md#mobile-note-sync]
+```
+
+An Inbox Item of `Content Kind` `note`: text the person keeps and returns to,
+such as what was said in a meeting or a list they add to. A note syncs both
+ways between the desktop and the phone, and either side may edit it. A `text`
+item is different: it is a thought waiting to be sorted, and the phone forgets
+it once the desktop takes it in. A note is not a *Knowledge Note*, which is a
+Devbook entry that triage could create from an item. The phone's former *talk
+note* is now a note written in the Notes tab.
 
 ### Plan tag
 

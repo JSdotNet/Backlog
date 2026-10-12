@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "description": "The shared scenario page signature vector. Every implementation of the signature — devbook's signature.mjs, spec-manager's, Backlog's — parses each case's markdown, hashes its data sets with dataHashes (a name absent from it hashes as \"missing\"), and must produce canonical and signature exactly; a case with sameAs signs the same as the case it names. Each dataSets entry hashes its files per hashFiles in signature.mjs and must produce hash.",
+  "algorithm": "sha256 over the canonical text in UTF-8, first 8 hex; the canonical form is documented at the top of signature.mjs",
+  "cases": [
+    {
+      "name": "setup fields, data set, two parts, screenshot points",
+      "path": ".devbook/domain/work/set-up-and-fill-the-backlog.md",
+      "dataHashes": {
+        "webshop-without-statuses": "0a1b2c3d"
+      },
+      "markdown": "# Set up and fill the backlog\n\n```meta\ntype: scenario\nrelated: [features.md#backlog-board, requirements.md#back-12]\nstart: /products/webshop/backlog\nactor: actors.md#product-owner\ndata: [webshop-without-statuses]\nprofile: tenant-acme\nflags: [context.md#new-board, -context.md#legacy-filters]\nsettings: [context.md#backlog-max-columns=5]\n```\n\nA product owner sets up the backlog of a new product, adds the first item and moves it on.\n\n## Statuses are set up\n- **Given** a product \"Webshop\" with no backlog statuses\n- **When** I create the statuses \"New\", \"Doing\" and \"Done\"\n- **Then** they appear as board columns in that order\n\n![The board with three empty columns](shot:statuses-set-up)\n\n## An item is moved\n- **Given** an item \"Login\" in \"New\"\n- **When** I drag it to \"Doing\"\n- **Then** it shows in \"Doing\"\n- **And** \"New\" is empty\n\n![After the drag](shot:item-moved)\n",
+      "canonical": "start: /products/webshop/backlog\nactor: actors.md#product-owner\ndata: webshop-without-statuses@0a1b2c3d\nprofile: tenant-acme\nflags: context.md#new-board, -context.md#legacy-filters\nsettings: context.md#backlog-max-columns=5\npart: Statuses are set up\nstep: Given a product \"Webshop\" with no backlog statuses\nstep: When I create the statuses \"New\", \"Doing\" and \"Done\"\nstep: Then they appear as board columns in that order\nshot: statuses-set-up\npart: An item is moved\nstep: Given an item \"Login\" in \"New\"\nstep: When I drag it to \"Doing\"\nstep: Then it shows in \"Doing\"\nstep: And \"New\" is empty\nshot: item-moved",
+      "signature": "08424476"
+    },
+    {
+      "name": "no setup fields: profile reads as default",
+      "path": ".devbook/domain/work/minimal.md",
+      "dataHashes": {},
+      "markdown": "# Minimal\n\n```meta\ntype: scenario\n```\n\n## Signed in\n- **Given** nothing\n- **Then** the home page shows\n",
+      "canonical": "profile: default\npart: Signed in\nstep: Given nothing\nstep: Then the home page shows",
+      "signature": "802c369b"
+    },
+    {
+      "name": "whitespace, captions, lead and prose do not count",
+      "sameAs": "no setup fields: profile reads as default",
+      "path": ".devbook/domain/work/minimal.md",
+      "dataHashes": {},
+      "markdown": "# Minimal, retitled\n\n```meta\ntype: scenario\nprofile: default\n```\n\nA different lead paragraph.\n\n## Signed   in\n-   **Given**   nothing\n- **Then** the home   page shows\n\nProse between step lists.\n",
+      "canonical": "profile: default\npart: Signed in\nstep: Given nothing\nstep: Then the home page shows",
+      "signature": "802c369b"
+    },
+    {
+      "name": "portals, continuation lines, nested items, a shot above the first part",
+      "path": ".devbook/domain/shop/cross-portal-order.md",
+      "dataHashes": {
+        "catalogue": "missing",
+        "customers": "ffff0000"
+      },
+      "markdown": "# Cross-portal order\n\n```meta\ntype: scenario\nstart: admin:/products\nactor: [admin:actors.md#product-owner, customer:actors.md#shopper]\ndata: [catalogue, customers]\nsettings: [context.md#currency=EUR]\n```\n\n![The start](shot:start)\n\n## A product is published\n1. **Given** a draft product \"Lamp\"\n   priced at 20 euro\n2. **When** I publish it\n   - from the product page\n3. **Then** it is live\n\n![Published](shot:published)\n\n## The shopper buys it\n- **When** the shopper opens customer:/shop\n- **Then** \"Lamp\" is listed\n\n![Listed](shot:listed)\n",
+      "canonical": "start: admin:/products\nactor: admin:actors.md#product-owner, customer:actors.md#shopper\ndata: catalogue@missing, customers@ffff0000\nprofile: default\nsettings: context.md#currency=EUR\nshot: start\npart: A product is published\nstep: Given a draft product \"Lamp\" priced at 20 euro\nstep: When I publish it from the product page\nstep: Then it is live\nshot: published\npart: The shopper buys it\nstep: When the shopper opens customer:/shop\nstep: Then \"Lamp\" is listed\nshot: listed",
+      "signature": "c919c563"
+    }
+  ],
+  "dataSets": [
+    {
+      "name": "text files, sorted by path",
+      "files": {
+        "b.json": "{\"b\": 2}\n",
+        "a.sql": "insert into t values (1);\n"
+      },
+      "hash": "ee75bea8"
+    },
+    {
+      "name": "CRLF reads as LF",
+      "sameAs": "text files, sorted by path",
+      "files": {
+        "a.sql": "insert into t values (1);\r\n",
+        "b.json": "{\"b\": 2}\r\n"
+      },
+      "hash": "ee75bea8"
+    },
+    {
+      "name": "nested folder",
+      "files": {
+        "seed/items.csv": "id,title\n1,Login\n"
+      },
+      "hash": "56653236"
+    }
+  ]
+}

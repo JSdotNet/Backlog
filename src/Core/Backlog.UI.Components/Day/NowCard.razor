@@ -1,0 +1,117 @@
+@*
+    The task the day is on: the one whose block is running, or the next one to
+    start. A kicker that says which — "Now · until 11:30" or "Next · 14:00" —
+    the title as a link to the task, the first step still open, a bar of its
+    steps, and the two ways in: Focus and Details.
+
+    The bar is one segment per step, done ones filled, the current one lit, so
+    "where am I in this task" reads at a glance; its words are on the line above
+    it ("Step 2 of 5"), and the bar itself is decoration.
+
+    Focus and Details are links rather than buttons: each opens a page of its
+    own, which the back button brings the person home from.
+*@
+
+<section class="@ClassValue" aria-label="@Kicker" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <div class="now-card__head">
+        <span class="now-card__kicker" data-testid="@PartTestId("kicker")">@Kicker</span>
+        @if (StepsTotal > 0)
+        {
+            <span class="now-card__step" data-testid="@PartTestId("step")">@StepLabel</span>
+        }
+    </div>
+
+    <a class="now-card__open" href="@DetailsHref" data-testid="@PartTestId("open")">
+        <span class="now-card__title" data-testid="@PartTestId("title")">@Title</span>
+        @if (!string.IsNullOrWhiteSpace(NextStep))
+        {
+            <span class="now-card__next" data-testid="@PartTestId("next")">Next: @NextStep</span>
+        }
+    </a>
+
+    @if (StepsTotal > 0)
+    {
+        <div class="now-card__steps" style="@($"--now-card-steps: {StepsTotal}")" aria-hidden="true" data-testid="@PartTestId("steps")">
+            @for (var index = 0; index < StepsTotal; index++)
+            {
+                <span class="@SegmentClass(index)"></span>
+            }
+        </div>
+    }
+
+    <div class="now-card__actions">
+        <a class="btn btn--primary now-card__action" href="@FocusHref" data-testid="@PartTestId("focus")">Focus</a>
+        <a class="btn btn--secondary now-card__action" href="@DetailsHref" data-testid="@PartTestId("details")">Details</a>
+    </div>
+</section>
+
+@code {
+    /// <summary>Which task this is in the day, and when: <c>Now · until 11:30</c>
+    /// or <c>Next · 14:00</c>. Also the card's accessible name.</summary>
+    [Parameter, EditorRequired]
+    public string Kicker { get; set; } = string.Empty;
+
+    /// <summary>On now rather than next: the card wears the accent edge.</summary>
+    [Parameter]
+    public bool Current { get; set; }
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>The first step not yet done, or null when there is none.</summary>
+    [Parameter]
+    public string? NextStep { get; set; }
+
+    /// <summary>How many of the task's steps are done.</summary>
+    [Parameter]
+    public int StepsDone { get; set; }
+
+    /// <summary>How many steps the task has. None: no step line and no bar.</summary>
+    [Parameter]
+    public int StepsTotal { get; set; }
+
+    /// <summary>The task's own page — the title and Details both open it.</summary>
+    [Parameter, EditorRequired]
+    public string DetailsHref { get; set; } = string.Empty;
+
+    /// <summary>The task's Focus page.</summary>
+    [Parameter, EditorRequired]
+    public string FocusHref { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The test id on the card. Its parts get <c>{TestId}-kicker</c>,
+    /// <c>-step</c>, <c>-title</c>, <c>-next</c>, <c>-steps</c>, <c>-focus</c>
+    /// and <c>-details</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private int Done => Math.Clamp(StepsDone, 0, StepsTotal);
+
+    /// <summary>The step the person is on: the one after the last done, or the
+    /// last when every one is done.</summary>
+    private string StepLabel => Done >= StepsTotal
+        ? $"{StepsTotal} of {StepsTotal} steps done"
+        : $"Step {Done + 1} of {StepsTotal}";
+
+    private string SegmentClass(int index) =>
+        index < Done ? "now-card__segment now-card__segment--done"
+        : index == Done ? "now-card__segment now-card__segment--current"
+        : "now-card__segment";
+
+    private string ClassValue
+    {
+        get
+        {
+            var current = Current ? " now-card--current" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"now-card{current}{extra}";
+        }
+    }
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+}

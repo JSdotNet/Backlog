@@ -42,10 +42,20 @@ public sealed record PushTasksCommand(OwnerScope Scope, IReadOnlyList<TaskChange
 /// it — a tombstone the replica refused as stale leaves the capture, and its
 /// files, where they were.
 /// </para>
+/// <para>
+/// A note's tombstone releases its files the same way. A note is the Inbox item
+/// that syncs both ways (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>),
+/// and its tombstone is what the desktop pushes when it archives or deletes one.
+/// </para>
 /// </summary>
 public sealed class PushTasksCommandHandler(ITaskReplica replica, CaptureAttachmentRelease release)
     : ICommandHandler<PushTasksCommand, Result<PushTasksResponse>>
 {
+    /// <summary>The kind token a note document carries. A literal, for the reason
+    /// <see cref="CaptureInboxItemCommandHandler.CaptureType"/> is one: the service
+    /// may not reference the Inbox that names it.</summary>
+    internal const string NoteType = "note";
+
     public async Task<Result<PushTasksResponse>> Handle(
         PushTasksCommand command,
         CancellationToken cancellationToken = default)
@@ -86,7 +96,7 @@ public sealed class PushTasksCommandHandler(ITaskReplica replica, CaptureAttachm
 
             if (await replica.Find(command.Scope.OwnerId, change.Id, cancellationToken) is
                 {
-                    Change: { DeletedAt: null, Task: { Type: CaptureInboxItemCommandHandler.CaptureType, Attachments.Count: > 0 } } held,
+                    Change: { DeletedAt: null, Task: { Type: CaptureInboxItemCommandHandler.CaptureType or NoteType, Attachments.Count: > 0 } } held,
                 })
             {
                 captures.Add(held);

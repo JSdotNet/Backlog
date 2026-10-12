@@ -65,6 +65,24 @@ public interface IAzureFoundryConnectionProbe
     Task<AzureFoundryCheck> TestConnectionAsync(CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// One chat completion for the Inbox's triage advisor: the advisor's own two
+/// messages over the route, headers, pipeline and failures every other ask
+/// takes, the answer trimmed and unfenced. Its own interface rather than a
+/// member of <see cref="IAzureFoundryChatClient"/>, for the reason
+/// <see cref="IAzureFoundryConnectionProbe"/> is: the doubles of that one would
+/// all have to grow a member none of them wants. What the messages say, and
+/// what the answer means, is <see cref="AzureFoundryTriagePrompt"/>'s and
+/// <see cref="AzureFoundryInboxTriageAdvisor"/>'s.
+/// </summary>
+public interface IAzureFoundryTriageClient
+{
+    /// <summary>Sends <paramref name="system"/> and <paramref name="user"/>
+    /// and answers the model's reply. Throws <see cref="AzureFoundryException"/>
+    /// for every way an answer fails to be one, as the other asks do.</summary>
+    Task<string> CompleteTriageAsync(string system, string user, CancellationToken cancellationToken = default);
+}
+
 public interface IAzureFoundryChatClient
 {
     Task<AzureFoundryChatResponse> AskAsync(AzureFoundryChatRequest request, CancellationToken cancellationToken = default);
@@ -76,7 +94,7 @@ public interface IAzureFoundryChatClient
     Task<AzureFoundryPlanResponse> DraftPlanAsync(AzureFoundryPlanRequest request, CancellationToken cancellationToken = default);
 }
 
-public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySettingsStore settingsStore) : IAzureFoundryChatClient, IAzureFoundryConnectionProbe
+public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySettingsStore settingsStore) : IAzureFoundryChatClient, IAzureFoundryConnectionProbe, IAzureFoundryTriageClient
 {
     private const string SystemPrompt = "You answer questions about the supplied Backlog content. Use only the supplied content. If the content does not contain the answer, say you do not know from the content.";
 
@@ -84,6 +102,11 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
     /// configured. Shared with <see cref="AzureFoundryInboxPlanDrafter"/>, which
     /// shows it as the disabled control's reason, so the two cannot disagree.</summary>
     internal const string PlanNotConfiguredMessage = "Configure Azure Foundry in Settings to create plans.";
+
+    /// <summary>The sentence a triage request fails with when nothing is
+    /// configured. The pane never shows it — without Foundry no AI triage
+    /// surface is drawn (local ADR 0023 §4) — but a log or a test can.</summary>
+    internal const string TriageNotConfiguredMessage = "Configure Azure Foundry in Settings to use AI triage.";
 
     /// <summary>The sentence a request fails with when no answer came back in
     /// time — the pipeline's timeout and HttpClient's own read the same to the
@@ -154,6 +177,26 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
         }
 
         return new AzureFoundryPlanResponse(plan);
+    }
+
+    public async Task<string> CompleteTriageAsync(string system, string user, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(system);
+        ArgumentException.ThrowIfNullOrWhiteSpace(user);
+
+        var answer = await CompleteAsync(
+            TriageNotConfiguredMessage,
+            [new ChatMessage("system", system), new ChatMessage("user", user)],
+            cancellationToken).ConfigureAwait(false);
+
+        var text = StripFence(answer);
+        if (text.Length == 0)
+        {
+            throw new AzureFoundryException("Azure Foundry returned an empty answer.");
+        }
+
+        return text;
     }
 
     /// <summary>One chat completion, start to finish: the configuration checks,

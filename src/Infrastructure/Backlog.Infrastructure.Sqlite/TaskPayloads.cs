@@ -33,6 +33,20 @@ internal static class TaskPayloads
             ? []
             : JsonSerializer.Deserialize<List<T>>(json, Options) ?? [];
 
+    /// <summary>The <c>planned_hours</c> column. A value that does not parse reads as no
+    /// blocks: one hand-edited row must cost its plan, not every read of the task.</summary>
+    public static List<PlannedHoursPayload> ReadPlannedHours(string? json)
+    {
+        try
+        {
+            return Read<PlannedHoursPayload>(json);
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
     /// <summary>The <c>source_ref</c> column: one JSON object, or null for local
     /// work.</summary>
     public static string? WriteSourceRef(SourceRef? sourceRef) =>
@@ -102,6 +116,9 @@ internal static class TaskPayloads
         };
     }
 }
+
+/// <summary>One block of planned hours as the <c>planned_hours</c> column holds it.</summary>
+internal sealed record PlannedHoursPayload(DateOnly On, decimal Hours);
 
 internal sealed record SubItemPayload(string Id, string Title, string Status, string? Notes, int Order);
 

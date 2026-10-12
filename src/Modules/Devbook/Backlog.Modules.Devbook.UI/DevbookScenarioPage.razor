@@ -1,0 +1,121 @@
+@*
+    What an open scenario page shows above its body: the setup it runs under, the
+    E2E summary of its last run, and each part with its outcome and its screenshot
+    points. The body below is the page as written — its steps, with each `shot:`
+    point drawn from the same run — so this is the run's side of the page, laid over
+    the text it proves.
+
+    The setup line is the six fields as the page writes them: where the journey
+    starts, who is signed in, the profile, the data sets, and the flag and setting
+    overrides. A field the page leaves out is left out here too, except the
+    profile, which reads `default` when absent because that is what the run used.
+*@
+<section class="devbook-scenario-page" aria-label="Scenario run" data-testid="devbook-scenario-page" data-state="@ScenarioEvidence.Slug(Scenario.State)">
+    <p class="devbook-scenario-page__summary" data-testid="devbook-scenario-summary">
+        <DevbookScenarioDot State="@Scenario.State" TestId="devbook-scenario-page-dot" />
+        <strong>@ScenarioEvidence.Label(Scenario.State)</strong>
+        <span>@Scenario.Summary</span>
+    </p>
+
+    @if (Scenario.State == ScenarioState.Stale)
+    {
+        <p class="devbook-scenario-page__note" data-testid="devbook-scenario-stale-note">
+            @(Scenario.Run?.Signature is null
+                ? "This run predates page signatures, so it cannot prove the page as it reads now."
+                : $"The page has changed since this run: its signature is {Scenario.Signature}, the run proved {Scenario.Run.Signature}.")
+        </p>
+    }
+
+    <dl class="devbook-scenario-page__setup" data-testid="devbook-scenario-setup">
+        @foreach (var (field, value) in SetupFields())
+        {
+            <div class="devbook-scenario-page__setup-field">
+                <dt>@field</dt>
+                <dd><code>@value</code></dd>
+            </div>
+        }
+    </dl>
+
+    <ol class="devbook-scenario-page__parts" data-testid="devbook-scenario-parts">
+        @foreach (var part in Scenario.Page.Parts)
+        {
+            var outcome = Scenario.Run?.Part(part.Anchor);
+            var slug = OutcomeSlug(outcome);
+            <li class="devbook-scenario-part devbook-scenario-part--@slug" data-testid="devbook-scenario-part" data-anchor="@part.Anchor">
+                <div class="devbook-scenario-part__header">
+                    <span class="devbook-scenario-part__title">@part.Title</span>
+                    <Badge Kind="scenario-outcome" Slug="@slug" TestId="devbook-scenario-part-outcome">@OutcomeLabel(outcome)</Badge>
+                    @if (outcome?.DurationMs is { } duration)
+                    {
+                        <span class="devbook-scenario-part__duration">@FormatDuration(duration)</span>
+                    }
+                </div>
+                <p class="devbook-scenario-part__steps">@StepCount(part)</p>
+                @if (part.Shots.Count > 0 || Scenario.FailureFile(part.Anchor) is not null)
+                {
+                    <div class="devbook-scenario-part__shots">
+                        @foreach (var shot in part.Shots)
+                        {
+                            @* By the page's own path rather than its stem, so a stem
+                               another page shares does not make its own shots
+                               ambiguous here. *@
+                            @Images.Image($"shot:{shot.Label}", shot.Caption.Length > 0 ? shot.Caption : shot.Label, Scenario.DomainPath)
+                        }
+                        @if (Scenario.FailureFile(part.Anchor) is { } failure)
+                        {
+                            <DevbookScenarioFailure Path="@failure" Part="@part.Title" Store="@Store" Scenario="@Scenario" />
+                        }
+                    </div>
+                }
+            </li>
+        }
+    </ol>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public DevbookScenario Scenario { get; set; } = null!;
+
+    /// <summary>The image source the shots render through, so a shot here and the
+    /// same shot anywhere else are one component.</summary>
+    [Parameter, EditorRequired]
+    public DevbookScenarioImages Images { get; set; } = null!;
+
+    [Parameter]
+    public DevbookScenarioStore? Store { get; set; }
+
+    private IEnumerable<(string Field, string Value)> SetupFields()
+    {
+        var setup = Scenario.Page.Setup;
+        if (!string.IsNullOrWhiteSpace(setup.Start)) yield return ("start", setup.Start);
+        if (setup.Actor.Count > 0) yield return ("actor", string.Join(", ", setup.Actor));
+        yield return ("profile", setup.Profile ?? "default");
+        if (setup.Data.Count > 0) yield return ("data", string.Join(", ", setup.Data));
+        if (setup.Flags.Count > 0) yield return ("flags", string.Join(", ", setup.Flags));
+        if (setup.Settings.Count > 0) yield return ("settings", string.Join(", ", setup.Settings));
+    }
+
+    private string OutcomeSlug(ScenarioRunPart? part) => part?.Outcome switch
+    {
+        ScenarioOutcome.Passed => "passed",
+        ScenarioOutcome.Failed => "failed",
+        _ when Scenario.Run is null => "never-run",
+        _ => "not-run"
+    };
+
+    private string OutcomeLabel(ScenarioRunPart? part) => part?.Outcome switch
+    {
+        ScenarioOutcome.Passed => "Passed",
+        ScenarioOutcome.Failed => "Failed",
+        _ when Scenario.Run is null => "Never run",
+        _ => "Not run"
+    };
+
+    private static string StepCount(ScenarioPart part) =>
+        part.Steps.Count == 1 ? "1 step" : $"{part.Steps.Count} steps";
+
+    private static string FormatDuration(long milliseconds) =>
+        milliseconds < 1000
+            ? $"{milliseconds} ms"
+            : (milliseconds / 1000d).ToString("0.0 's'", System.Globalization.CultureInfo.InvariantCulture);
+}

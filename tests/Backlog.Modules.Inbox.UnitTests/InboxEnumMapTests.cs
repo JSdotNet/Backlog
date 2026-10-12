@@ -29,7 +29,8 @@ public sealed class InboxEnumMapTests
         { ContentKind.Email, "email" },
         { ContentKind.Code, "code" },
         { ContentKind.Voice, "voice" },
-        { ContentKind.ClaudeArtifact, "claude-artifact" }
+        { ContentKind.ClaudeArtifact, "claude-artifact" },
+        { ContentKind.Note, "note" }
     };
 
     public static TheoryData<RoutingDomain, string> Domains => new()

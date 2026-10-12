@@ -18,6 +18,13 @@
     A rename is the row turning into a field. ListNav draws the field when the
     state names the row; Enter and blur commit through the state, Escape
     cancels, and a refused name keeps the field open with the reason on a toast.
+
+    At the foot sits the Inbox half of queue health (features.md#queue-health-bar):
+    the whole queue, whichever list is open, because "how is the queue doing" is
+    not a question about one list. A bar in three parts splits what waits by
+    age, and a line per part says the same in words; the part past the stale
+    threshold is the one in the error ink, because it is the one asking for
+    attention.
 *@
 
 <div class="inbox-pane__nav" data-testid="inbox-pane-nav">
@@ -36,6 +43,49 @@
              AriaLabel="Inbox lists"
              CssClass="inbox-pane__list-nav"
              TestId="inbox-nav" />
+
+    @if (State.Loaded)
+    {
+        var health = State.QueueHealth;
+
+        <section class="inbox-pane__health" aria-labelledby="inbox-queue-health-title" data-testid="inbox-queue-health">
+            <div class="inbox-pane__health-head">
+                <h3 class="inbox-pane__health-title" id="inbox-queue-health-title">Queue health</h3>
+                <Badge BaseClass="inbox-pane__health-total" Kind="" TestId="inbox-queue-health-count">@(health.Unprocessed == 0 ? "Nothing waiting" : $"{health.Unprocessed} open")</Badge>
+            </div>
+            @if (health.OldestCapturedAt is { } oldest)
+            {
+                @* The bar is a picture of the three lines under it, so it is one
+                   image to a screen reader with the lines' words as its name. A
+                   part with nothing in it takes no room. *@
+                <div class="inbox-pane__health-bar" role="img" aria-label="@BarLabel(health)" data-testid="inbox-queue-health-bar">
+                    @if (health.Fresh > 0)
+                    {
+                        <span class="inbox-pane__health-part inbox-pane__health-part--fresh" style="flex-grow: @health.Fresh"></span>
+                    }
+                    @if (health.Aging > 0)
+                    {
+                        <span class="inbox-pane__health-part inbox-pane__health-part--aging" style="flex-grow: @health.Aging"></span>
+                    }
+                    @if (health.Stale > 0)
+                    {
+                        <span class="inbox-pane__health-part inbox-pane__health-part--over" style="flex-grow: @health.Stale"></span>
+                    }
+                </div>
+                <ul class="inbox-pane__health-lines" aria-hidden="true">
+                    <li data-testid="inbox-queue-health-fresh">@FreshLine(health)</li>
+                    <li data-testid="inbox-queue-health-aging">@AgingLine(health)</li>
+                    <li class="@(health.Stale > 0 ? "inbox-pane__health-over" : null)" data-testid="inbox-queue-health-stale">
+                        <span>@OverLine(health)</span>
+                        @if (health.Stale > 0)
+                        {
+                            <span data-testid="inbox-queue-health-oldest">@($" — oldest {State.Waited(oldest)}")</span>
+                        }
+                    </li>
+                </ul>
+            }
+        </section>
+    }
 </div>
 
 <ContextMenu Open="@_menuOpen"
@@ -152,6 +202,19 @@
             .Where(list => list.GroupId is null)
             .OrderBy(list => list.Order)
             .Select(Entry)];
+
+    private static string FreshLine(InboxQueueHealth health) =>
+        $"{health.Fresh} under {InboxDesktopState.FreshUnderDays} days";
+
+    private static string AgingLine(InboxQueueHealth health) =>
+        $"{health.Aging} from {InboxDesktopState.FreshUnderDays} to {InboxDesktopState.StaleAfterDays} days";
+
+    private static string OverLine(InboxQueueHealth health) =>
+        $"{health.Stale} over {InboxDesktopState.StaleAfterDays} days";
+
+    private string BarLabel(InboxQueueHealth health) =>
+        $"{FreshLine(health)}, {AgingLine(health)}, {OverLine(health)}"
+        + (health.Stale > 0 && health.OldestCapturedAt is { } oldest ? $", oldest {State.Waited(oldest)}" : string.Empty);
 
     private ListNavEntry Entry(InboxListDto list) =>
         new(InboxDesktopState.ListNavId(list.Id), list.Name, State.ListCount(list.Id));

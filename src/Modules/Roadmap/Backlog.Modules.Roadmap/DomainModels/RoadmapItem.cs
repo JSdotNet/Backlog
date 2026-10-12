@@ -142,6 +142,10 @@ public sealed class RoadmapItem
         PlacedByImport = placement;
     }
 
+    /// <summary>The window as it stands becomes the person's: the import provenance goes,
+    /// the dates stay.</summary>
+    internal void KeepAsPlaced() => PlacedByImport = null;
+
     internal void Prioritise(PlanningPriority priority) => Priority = priority;
 
     internal void FileUnder(RepositoryScope scope) => Scope = scope;

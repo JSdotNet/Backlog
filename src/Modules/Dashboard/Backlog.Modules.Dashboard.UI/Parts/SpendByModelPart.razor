@@ -5,12 +5,15 @@
     the most, and answering it across tables makes the reader do the merge by eye.
     The provider travels in each row's detail column instead.
 
-    The tokens column is populated for Claude and empty for the other two, and that
-    is a fact about the APIs rather than a gap: Anthropic reports tokens beside its
+    The share bar leads, beside the model, because "which model costs the most" is
+    the question; then input tokens, output tokens and the spend. The token columns
+    are populated for Claude and empty for the other two, and that is a fact about
+    the APIs rather than a gap: Anthropic reports tokens by direction beside its
     cost, GitHub meters in AI credits, Azure meters in each meter's own unit. Putting
-    those under a heading that says Tokens would place different units in one
+    those under a heading that says tokens would place different units in one
     column, so the cell stays unreported — MetricBreakdown draws that as an em dash,
-    which is a different statement from a zero. An Azure row is a meter rather than
+    which is a different statement from a zero. Input counts the cache reads and
+    writes, which is what a reader means by input. An Azure row is a meter rather than
     a model — the model plus the direction of its tokens — because that is what the
     bill names.
 *@
@@ -18,7 +21,7 @@
 @inject ICostInsights Costs
 
 <PartFrame Title="Spend by model"
-           Note="Your own usage this month. Tokens are reported by Claude only — Copilot meters in AI credits and Azure Foundry in per-meter units, which are different units and are left out of that column rather than mixed into it. Azure rows are billing meters: one model appears once per token direction."
+           Note="Your own usage this month. Tokens are reported by Claude only — Copilot meters in AI credits and Azure Foundry in per-meter units, which are different units and are left out of the token columns rather than mixed into them. Azure rows are billing meters: one model appears once per token direction."
            Busy="Status == MetricStatusKind.Loading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-spend-model">
@@ -28,6 +31,7 @@
                      TokensHeading="Tokens"
                      CostHeading="Spend"
                      ShareOf="MetricShareOf.Cost"
+                     ShareFirst="true"
                      Status="Status"
                      StatusMessage="@StatusMessage"
                      TestId="dashboard-spend-model-table" />
@@ -44,9 +48,15 @@
         IsReady
             ? [.. Value!.Rows.Select(row => new MetricRow(
                 row.Name,
-                row.Tokens,
+                // The total only where there is no split to show instead: the two
+                // halves already say it, and a third column would repeat them.
+                row.InputTokens is null && row.OutputTokens is null ? row.Tokens : null,
                 row.Cost is null ? null : new MoneyAmount(row.Cost.Amount, row.Cost.Currency),
-                row.Detail))]
+                row.Detail)
+            {
+                InputTokens = row.InputTokens,
+                OutputTokens = row.OutputTokens
+            })]
             : [];
 
     protected override Task<InsightResult<SpendByModelInsight>> FetchAsync(CancellationToken cancellationToken) =>

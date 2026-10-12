@@ -7,6 +7,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Sync\Backlog.Modules.Sync.Api\Backlog.Modules.Sync.Api.csproj" />
+    <!-- The phone's task edits and the desktop's sync session, each the real one,
+         meeting over this service: PhoneTaskEditSyncTests. -->
+    <ProjectReference Include="..\..\src\App\Backlog.Mobile.UI\Backlog.Mobile.UI.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
   </ItemGroup>
 
   <ItemGroup>

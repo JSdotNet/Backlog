@@ -41,13 +41,19 @@ public static class RoadmapItemParts
     /// <param name="floor">The earliest day a part whose work has not begun may start: the
     /// day after the item's latest predecessor ends. Today when not given, and never
     /// earlier than today.</param>
+    /// <param name="startsOn">A start a person has just chosen — a plan dropped on a day of
+    /// the Calendar's shelf, which the importer places: no open part opens before it, not
+    /// even one whose work began earlier. Only the importer passes one. A window already
+    /// stored is drawn as ADR 0013 rules on 2026-10-07: a begun part from the day its work
+    /// began, a hand-placed one too.</param>
     public static RoadmapItemLayout Of(
         RoadmapItemDto item,
         RoadmapItemRollupDto? rollup,
         PacesInUseDto paces,
         DateOnly? today,
         Func<string, string?>? bandOf = null,
-        DateOnly? floor = null)
+        DateOnly? floor = null,
+        DateOnly? startsOn = null)
     {
         ArgumentNullException.ThrowIfNull(item);
         ArgumentNullException.ThrowIfNull(paces);
@@ -105,7 +111,7 @@ public static class RoadmapItemParts
 
             placed.Add(placement is PartsPlacement.WhereItRan
                 ? WhereItRan(part, item, today)
-                : Placed(part, placed, today!.Value, floor, paces.Week));
+                : Placed(part, placed, today!.Value, floor, startsOn, paces.Week));
         }
 
         if (placement is PartsPlacement.FromWork && item.EndPinned) Pin(placed, item.End);
@@ -149,19 +155,23 @@ public static class RoadmapItemParts
     /// <item>Not begun: from the first worked day on or after the latest of today, the
     /// floor and the day after the parts it waits on, for its estimated points at its own
     /// pace — one working week when nothing is sized.</item>
-    /// <item>Begun: from the day its work began, when that was earlier than planned, to a
-    /// forecast of its open points — an unestimated task counted as one — at its own pace,
-    /// counted from the first worked day on or after the later of today and its start.</item>
+    /// <item>Begun: from the day its work began, when that was earlier than planned and
+    /// not before a <paramref name="chosen"/> start, to a forecast of its open points — an
+    /// unestimated task counted as one — at its own pace, counted from the first worked day
+    /// on or after the later of today and its start.</item>
     /// </list>
+    /// A <paramref name="chosen"/> start raises the floor of every open part to it.
     /// </summary>
     private static RoadmapItemPart Placed(
         RoadmapItemPart part,
         List<RoadmapItemPart> before,
         DateOnly today,
         DateOnly? floor,
+        DateOnly? chosen,
         WorkingHours week)
     {
         var earliest = Max(today, floor ?? today);
+        if (chosen is { } held) earliest = Max(earliest, held);
         foreach (var waited in part.WaitsOn) earliest = Max(earliest, before[waited].End.AddDays(1));
 
         var planned = EffortWindow.FirstWorkedDay(earliest, week);
@@ -181,6 +191,10 @@ public static class RoadmapItemParts
 
         var began = part.Links.Where(IsBegun).Select(link => link.StartedOn ?? link.CreatedOn).Where(day => day is not null).Min();
         var from = began is { } day && day < planned ? day : planned;
+
+        // A start a person chose after the work began wins: the part opens there, or on
+        // the first worked day after it.
+        if (chosen is { } opens && from < opens) from = Min(planned, EffortWindow.FirstWorkedDay(opens, week));
         var openFrom = EffortWindow.FirstWorkedDay(Max(today, from), week);
         var open = part.Links.Where(link => !link.IsDone).Sum(link => Math.Max(0, link.Effort ?? 1));
         var forecast = EffortWindow.ForecastEnd(openFrom, open, part.Pace, week);
@@ -352,6 +366,8 @@ public static class RoadmapItemParts
     }
 
     private static DateOnly Max(DateOnly first, DateOnly second) => first > second ? first : second;
+
+    private static DateOnly Min(DateOnly first, DateOnly second) => first < second ? first : second;
 
     private sealed record Segment(int Phase, int Band, IReadOnlyList<RoadmapGatheredLink> Links, IReadOnlyList<int> WaitsOn);
 

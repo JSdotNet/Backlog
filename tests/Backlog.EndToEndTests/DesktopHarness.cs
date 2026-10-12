@@ -151,12 +151,12 @@ internal sealed partial class DesktopHarness
 
     // ---- Home panes ----
 
-    /// <summary>Shows one Home pane. The Inbox pane reads its list when it is
-    /// shown, so a pull is only visible after the pane is shown again. A fresh
-    /// load reopens the surface the shared workspace last showed — another
-    /// worktree's Roadmap, say — and the pane's option is the way back from it:
-    /// during a takeover no option reads pressed, and pressing one closes the
-    /// takeover and shows that pane.</summary>
+    /// <summary>Shows one Home pane or view. The Inbox pane reads its list when it
+    /// is shown, so a pull is only visible after the pane is shown again. A fresh
+    /// load reopens the surface and the view the shared workspace last showed —
+    /// another worktree's Dashboard or Roadmap, say — and the option is the way back
+    /// from it: during a takeover no option reads pressed, and pressing one closes
+    /// the takeover and shows the workspace.</summary>
     private async Task ShowPaneAsync(string option, string pane)
     {
         await Page.GotoAsync(_baseUrl.ToString());
@@ -172,7 +172,9 @@ internal sealed partial class DesktopHarness
 
     public Task ShowInboxAsync() => ShowPaneAsync("inbox-pane-option", "inbox-pane");
 
-    public Task ShowTasksAsync() => ShowPaneAsync("backlog-pane-option", "backlog-pane");
+    /// <summary>Shows the Tasks view — a view in the header's view switch, not a
+    /// pane any more.</summary>
+    public Task ShowTasksAsync() => ShowPaneAsync("tasks-view-option", "backlog-pane");
 
     public ILocator InboxItem(string title) =>
         Page.GetByTestId("inbox-pane-item").Filter(new LocatorFilterOptions { HasText = title });

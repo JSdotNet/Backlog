@@ -112,7 +112,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Tasks/Backlog.Modules.Tasks.Abstractions` | The Tasks module's published surface — DTOs, the entry text format, and `ITaskItems` |
 | `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks's desktop face — the task pane, its state, and the GitHub and Copilot CLI projections |
 | `src/Modules/Inbox/Backlog.Modules.Inbox` | Inbox module — the Inbox Item, List and Group aggregates, the `IInboxItemRepository` and `IInboxOrganizerRepository` ports, and vertical-slice features (intake, capture, triage, route to backlog, create plan, organiser) |
-| `src/Modules/Inbox/Backlog.Modules.Inbox.Abstractions` | The Inbox module's published surface — DTOs, `IInboxItems`, and the `IInboxIntake`, `IInboxCaptureOutbox`, `IInboxBacklogTarget` and `IInboxPlanDrafter` ports |
+| `src/Modules/Inbox/Backlog.Modules.Inbox.Abstractions` | The Inbox module's published surface — DTOs, `IInboxItems`, and the `IInboxIntake`, `IInboxCaptureOutbox`, `IInboxBacklogTarget`, `IInboxPlanDrafter` and `IInboxTriageAdvisor` ports |
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox's desktop face — the pane, its side menu of lists and groups, and the per-kind detail view |
 | `src/Modules/Capture/Backlog.Modules.Capture` | Capture module — the capture run over the monitored sources, the `ICaptureSourceAdapter` and `ICaptureDelivery` ports, and the deterministic capture ids that keep a rerun from capturing twice |
 | `src/Modules/Capture/Backlog.Modules.Capture.Abstractions` | The Capture module's published surface — the source settings, the run result and run log DTOs, `ICaptureRunner`, `ICaptureRunLog` and `ICaptureSourceSettings` |

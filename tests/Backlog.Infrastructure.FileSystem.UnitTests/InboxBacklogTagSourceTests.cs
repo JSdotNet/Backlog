@@ -68,6 +68,9 @@ public sealed class InboxBacklogTagSourceTests
         public Task<Result<TaskItemDto>> LinkToIssueAsync(Guid id, string repoId, string externalId, string targetType, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<Result<TaskItemDto>> UnlinkFromIssueAsync(Guid id, string repoId, string externalId, string targetType, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<Result<TaskItemDto>> SetDevbookReferencesAsync(Guid id, IReadOnlyList<string> references, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 

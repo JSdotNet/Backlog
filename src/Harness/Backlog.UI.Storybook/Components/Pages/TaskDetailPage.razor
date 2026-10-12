@@ -1,0 +1,119 @@
+@page "/task-detail"
+
+<PageTitle>Task detail — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Task detail"
+           Summary="DayTaskDetail: one task opened from the phone's day — its area, time today and size, its steps as a checklist, its own text read-only, and the two things the phone does to a whole task."
+           Guidelines="@Rules">
+
+    <Story Name="Timed today"
+           Description="A task with an agenda time today. The time chip is the one in the accent, and Focus on this opens the task's countdown. The steps are live here: tick one and the count beside Steps follows."
+           Code="@TimedCode">
+        <div class="sb-phone">
+            <DayTaskDetail Title="Write sync conflict tests" HeadingLevel="3" BackHref="#timed-today"
+                        Area="Sync" TimeLabel="Today · 10:45–11:30" Effort="3"
+                        FocusHref="#timed-today" Steps="_timedSteps" OnStepToggled="ToggleTimed"
+                        Body="@TimedBody" OnMoveToTomorrow="() => { }" OnMarkDone="() => { }"
+                        TestId="story-task-detail-timed" />
+        </div>
+    </Story>
+
+    <Story Name="No time today"
+           Description="A task picked for today with no agenda time: no time chip and no Focus, because Focus exists only for a task with a block in the day. A task with no area or effort leaves those chips out too."
+           Code="@UntimedCode">
+        <div class="sb-phone">
+            <DayTaskDetail Title="Reply to the design feedback" HeadingLevel="3" BackHref="#no-time-today"
+                        Area="Design" Steps="UntimedSteps" OnStepToggled="_ => { }"
+                        OnMoveToTomorrow="() => { }" OnMarkDone="() => { }"
+                        TestId="story-task-detail-untimed" />
+        </div>
+    </Story>
+
+    <Story Name="Every step done"
+           Description="Each step ticked and struck through, and the count reads 3 of 3. Marking the task done is still the person's own act: ticking the last step does not do it for them."
+           Code="@AllDoneCode">
+        <div class="sb-phone">
+            <DayTaskDetail Title="Prepare the sprint review" HeadingLevel="3" BackHref="#every-step-done"
+                        Area="Planning" TimeLabel="Today · 14:00–14:45" Effort="2"
+                        FocusHref="#every-step-done" Steps="AllDoneSteps" OnStepToggled="_ => { }"
+                        OnMoveToTomorrow="() => { }" OnMarkDone="() => { }"
+                        TestId="story-task-detail-done" />
+        </div>
+    </Story>
+
+    <Story Name="Read only"
+           Description="A task the phone shows but does not change — one not picked for today, or already ticked off. The boxes show their state and cannot be pressed, and there is no footer."
+           Code="@ReadOnlyCode">
+        <div class="sb-phone">
+            <DayTaskDetail Title="Book the offsite venue" HeadingLevel="3" BackHref="#read-only"
+                        Effort="1" Steps="UntimedSteps"
+                        TestId="story-task-detail-read-only" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private List<DayStep> _timedSteps =
+    [
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000001"), "List the conflict cases from the spec", true),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000002"), "Cover the offline-edit case", false),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000003"), "Cover two devices editing one task", false),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000004"), "Cover delete versus edit", false),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000005"), "Run the suite and push", false)
+    ];
+
+    private static readonly IReadOnlyList<DayStep> UntimedSteps =
+    [
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000011"), "Read the comments on the canvas", true),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000012"), "Answer the open questions", false)
+    ];
+
+    private static readonly IReadOnlyList<DayStep> AllDoneSteps =
+    [
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000021"), "Collect the merged pull requests", true),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000022"), "Draft the demo order", true),
+        new(Guid.Parse("0199b6a0-0000-7000-8000-000000000023"), "Send the agenda", true)
+    ];
+
+    private const string TimedBody = """
+        Last write wins for the title; sub-items merge by id, and a delete beats an edit.
+
+        See the **conflict cases** from Tuesday's call before starting.
+        """;
+
+    private void ToggleTimed(DayStep changed) =>
+        _timedSteps = [.. _timedSteps.Select(step => step.Id == changed.Id ? changed : step)];
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("accessibility.md#target-sizes-and-text", "How large Back, each step and the footer's two buttons have to be under a thumb."),
+        new("interaction-guidelines.md#task-rows", "What ticking a task or a step does, and why the phone changes so little of a task."),
+        new("interaction-guidelines.md#optimistic-ui", "Why a ticked step shows at once, before cloud sync has it."),
+        new("color-scheme.md#badge-and-chip-tones", "Why the time chip wears the accent and the area chip stays an outline.")
+    ];
+
+    private const string TimedCode = """
+        <DayTaskDetail Title="Write sync conflict tests" BackHref=""
+                    Area="Sync" TimeLabel="Today · 10:45–11:30" Effort="3"
+                    FocusHref="tasks/{id}/focus" Steps="steps" OnStepToggled="ToggleStepAsync"
+                    Body="@body" OnMoveToTomorrow="MoveToTomorrowAsync" OnMarkDone="MarkDoneAsync" />
+        """;
+
+    private const string UntimedCode = """
+        <DayTaskDetail Title="Reply to the design feedback" BackHref=""
+                    Area="Design" Steps="steps" OnStepToggled="ToggleStepAsync"
+                    OnMoveToTomorrow="MoveToTomorrowAsync" OnMarkDone="MarkDoneAsync" />
+        """;
+
+    private const string AllDoneCode = """
+        <DayTaskDetail Title="Prepare the sprint review" BackHref=""
+                    Area="Planning" TimeLabel="Today · 14:00–14:45" Effort="2"
+                    FocusHref="tasks/{id}/focus" Steps="steps" OnStepToggled="ToggleStepAsync"
+                    OnMoveToTomorrow="MoveToTomorrowAsync" OnMarkDone="MarkDoneAsync" />
+        """;
+
+    private const string ReadOnlyCode = """
+        <DayTaskDetail Title="Book the offsite venue" BackHref="" Effort="1" Steps="steps" />
+        """;
+}

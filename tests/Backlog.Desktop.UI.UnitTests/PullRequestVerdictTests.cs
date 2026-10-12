@@ -69,12 +69,12 @@ public sealed class PullRequestVerdictTests
                 Pending: running ? 1 : 0),
             Reviews = has.Contains(Condition.ChangesRequested)
                 ? new GitHubReviewSummary(
-                    has.Contains(Condition.ReviewRequired) ? GitHubReviewDecision.ReviewRequired : GitHubReviewDecision.ChangesRequested,
+                    has.Contains(Condition.ReviewRequired) ? GitHubReviewState.ReviewRequired : GitHubReviewState.ChangesRequested,
                     Approvals: 0,
                     ChangesRequested: 1)
                 : has.Contains(Condition.ReviewRequired)
-                    ? new GitHubReviewSummary(GitHubReviewDecision.ReviewRequired, 0, 0)
-                    : new GitHubReviewSummary(GitHubReviewDecision.Approved, 1, 0)
+                    ? new GitHubReviewSummary(GitHubReviewState.ReviewRequired, 0, 0)
+                    : new GitHubReviewSummary(GitHubReviewState.Approved, 1, 0)
         };
     }
 
@@ -163,7 +163,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void Changes_requested_without_a_review_rule_still_counts()
     {
-        var pull = Pull() with { Reviews = new GitHubReviewSummary(null, 0, 1) };
+        var pull = Pull() with { Reviews = new GitHubReviewSummary(GitHubReviewState.None, 0, 1) };
 
         Assert.Equal(PullRequestVerdictKind.ChangesRequested, Open(pull).Kind);
     }
@@ -261,7 +261,7 @@ public sealed class PullRequestVerdictTests
     [InlineData(2, "Checks pass and it is up to date with main with 2 approvals.")]
     public void Ready_counts_its_approvals(int approvals, string reason)
     {
-        var pull = Pull() with { Reviews = new GitHubReviewSummary(approvals == 0 ? null : GitHubReviewDecision.Approved, approvals, 0) };
+        var pull = Pull() with { Reviews = new GitHubReviewSummary(approvals == 0 ? GitHubReviewState.None : GitHubReviewState.Approved, approvals, 0) };
 
         Assert.Equal(reason, Open(pull).Reason);
     }

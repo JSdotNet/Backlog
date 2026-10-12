@@ -286,6 +286,91 @@ public class ImportPlanItemsTests
         Assert.Equal(new DateOnly(2026, 3, 5), Stored("plan-a").Window.End); // Monday to Thursday's 34 hours
     }
 
+    // --- A start a person chose ------------------------------------------
+
+    /// <summary>A plan dropped on a day — the Calendar's shelf — opens there, its end the
+    /// one the import's own placement counts for its effort at its pace.</summary>
+    [Fact]
+    public async Task AChosenStart_OpensTheWindowThere_ForItsEffortAtThePace()
+    {
+        _velocity.StoryPointsPerWeek = 14;
+        var monday = Today.AddDays(7);
+
+        await ImportedAsync([Entry("plan-a") with { Start = monday }], new PlanTagEffortDto("plan-a", 7, 1));
+
+        var item = Stored("plan-a");
+        Assert.Equal(monday, item.Window.Start);
+        Assert.Equal(3, item.Window.Days); // 7 points at 14 a week, as from today
+    }
+
+    /// <summary>The window is the person's from then on, so the keep-up projection never
+    /// slides it back to today and a later import does not overrule it.</summary>
+    [Fact]
+    public async Task AChosenStart_LeavesTheWindowAsThePersonsPlacement()
+    {
+        await ImportedAsync([Entry("plan-a") with { Start = Today.AddDays(14) }], new PlanTagEffortDto("plan-a", 7, 0));
+
+        Assert.Null(Stored("plan-a").PlacedByImport);
+
+        await ImportedAsync([Entry("plan-a")], new PlanTagEffortDto("plan-a", 21, 0));
+        Assert.Equal(Today.AddDays(14), Stored("plan-a").Window.Start);
+    }
+
+    [Fact]
+    public async Task AChosenStartOnASaturday_OpensOnTheMonday()
+    {
+        await ImportedAsync([Entry("plan-a") with { Start = new DateOnly(2026, 3, 7) }], new PlanTagEffortDto("plan-a", 7, 0));
+
+        Assert.Equal(new DateOnly(2026, 3, 9), Stored("plan-a").Window.Start);
+    }
+
+    /// <summary>A plan whose work has already begun, dropped on a later day, still opens on
+    /// that day: the start a person chose wins over the day its work began, and its open
+    /// points are forecast from there (entry 13 of plan task-views, QA scenario C6).</summary>
+    [Fact]
+    public async Task AChosenStart_WinsOverWorkThatHasAlreadyBegun()
+    {
+        var monday = Today.AddDays(14); // Monday 16 March
+        _work.File(
+            "plan-a",
+            Work("first", 7, progress: RoadmapProgress.InProgress, started: Today),
+            Work("second", 7));
+
+        var result = await new ImportPlanItemsCommandHandler(_plans, _velocity, _work, _clock, new RoadmapPlanGate()).Handle(
+            new ImportPlanItemsCommand([Entry("plan-a") with { Start = monday }], [new PlanTagEffortDto("plan-a", 14, 0)]),
+            TestContext.Current.CancellationToken);
+        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);
+
+        var item = Stored("plan-a");
+        Assert.Equal(monday, item.Window.Start);
+        Assert.True(item.Window.End >= monday.AddDays(11), item.Window.ToString()); // 14 open points at 7 a week: two weeks from the 16th
+        Assert.Null(item.PlacedByImport);
+    }
+
+    /// <summary>Dropped on today, a plan whose work began last week opens today, not on the
+    /// day its work began.</summary>
+    [Fact]
+    public async Task AChosenStartOfToday_WinsOverWorkThatBeganEarlier()
+    {
+        _work.File("plan-a", Work("first", 7, progress: RoadmapProgress.InProgress, started: Today.AddDays(-7)));
+
+        var result = await new ImportPlanItemsCommandHandler(_plans, _velocity, _work, _clock, new RoadmapPlanGate()).Handle(
+            new ImportPlanItemsCommand([Entry("plan-a") with { Start = Today }], [new PlanTagEffortDto("plan-a", 7, 0)]),
+            TestContext.Current.CancellationToken);
+        Assert.True(result.IsSuccess, result.IsFailure ? result.Error.ToString() : null);
+
+        Assert.Equal(Today, Stored("plan-a").Window.Start);
+    }
+
+    /// <summary>Open work is placed from today, whatever day it was dropped on.</summary>
+    [Fact]
+    public async Task AChosenStartBeforeToday_StartsToday()
+    {
+        await ImportedAsync([Entry("plan-a") with { Start = Today.AddDays(-10) }], new PlanTagEffortDto("plan-a", 7, 0));
+
+        Assert.Equal(Today, Stored("plan-a").Window.Start);
+    }
+
     // --- Dependencies -----------------------------------------------------
 
     [Fact]

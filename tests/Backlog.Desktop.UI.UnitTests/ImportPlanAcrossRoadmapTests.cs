@@ -177,6 +177,113 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         Assert.Equal(EffortWindow.EndFrom(b.Start, 3, 7m, WorkingHours.Default), b.End);
     }
 
+    /// <summary>The Calendar's shelf drop, through Tasks' own port and the real adapter:
+    /// the plan whose tasks arrived first is on the shelf, and dropping it on a day has the
+    /// roadmap's own import open its window there, sized from its points at the pace.</summary>
+    [Fact]
+    public async Task A_shelf_plan_started_from_the_calendar_opens_on_that_day_for_its_effort()
+    {
+        await ImportAsync(TaskDocument);
+        using var scope = _provider.CreateScope();
+        var calendar = scope.ServiceProvider.GetRequiredService<ICalendarPlans>();
+        var today = DateOnly.FromDateTime(DateTime.Now);
+
+        var before = await calendar.ReadAsync(today, TestContext.Current.CancellationToken);
+        var shelved = Assert.Single(before.Shelf);
+        Assert.Equal(("myplan", "Myplan", 2, 8), (shelved.Tag, shelved.Title, shelved.TaskCount, shelved.TotalEffort));
+        Assert.Empty(before.Windows);
+        Assert.True(before.Available);
+
+        // A Monday two weeks out, so the window is not floored to today.
+        var monday = today.AddDays(14 - (((int)today.DayOfWeek + 6) % 7));
+        Assert.Null(await calendar.StartAsync("myplan", monday, TestContext.Current.CancellationToken));
+
+        var item = await SingleItemAsync();
+        Assert.Equal(monday, item.Start);
+        Assert.Equal(EffortWindow.EndFrom(monday, 8, 7m, WorkingHours.Default), item.End); // 3 + 5 points at 7 a working week
+        Assert.Null(item.PlacedByImport); // the person's placement from now on
+
+        var after = await calendar.ReadAsync(today, TestContext.Current.CancellationToken);
+        Assert.Empty(after.Shelf);
+        var window = Assert.Single(after.Windows);
+        Assert.Equal(
+            (item.Id, monday, item.End, "myplan", 0, 8),
+            (window.Id, window.Start, window.End, window.Tag, window.DonePoints, window.TotalPoints));
+
+        Assert.Equal("+nothing is no longer waiting on the shelf.", await calendar.StartAsync("nothing", monday, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    /// Planned hours are the person's own plan for the Calendar and never a roadmap input:
+    /// blocks set on every step of a plan — more hours than any week holds — leave the
+    /// item's window, what it gathered, the pace in use and the Calendar's plan bars
+    /// exactly as they were, and so does a re-import that relengthens the plan afterwards.
+    /// </summary>
+    [Fact]
+    public async Task Planned_hours_never_change_a_roadmap_placement()
+    {
+        await ImportAsync(RoadmapDocument);
+        await ImportAsync(TaskDocument);
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var before = await RoadmapPictureAsync(today);
+
+        using (var scope = _provider.CreateScope())
+        {
+            var tasks = scope.ServiceProvider.GetRequiredService<ITaskItems>();
+            foreach (var entry in await tasks.ListAsync(TestContext.Current.CancellationToken))
+            {
+                List<PlannedHoursDto> blocks = [.. Enumerable.Range(0, 10).Select(day => new PlannedHoursDto(today.AddDays(day), 24m))];
+                var planned = await tasks.SetPlannedHoursAsync(entry.Id, blocks, TestContext.Current.CancellationToken);
+                Assert.True(planned.IsSuccess, planned.IsFailure ? planned.Error.Message : null);
+                Assert.Equal(10, planned.Value.PlannedHours.Count);
+            }
+        }
+
+        Assert.Equal(before, await RoadmapPictureAsync(today));
+
+        // A re-import places the plan again from its points; the blocks still count for nothing.
+        await ImportAsync(TaskDocument);
+        Assert.Equal(before, await RoadmapPictureAsync(today));
+    }
+
+    /// <summary>The Calendar reads a day's capacity from the roadmap's working week through
+    /// Tasks' own port, as the composed adapter answers it: nine to half five on a weekday,
+    /// nothing at the weekend.</summary>
+    [Fact]
+    public void The_calendar_reads_a_days_capacity_from_the_roadmaps_working_week()
+    {
+        using var scope = _provider.CreateScope();
+        var capacity = scope.ServiceProvider.GetRequiredService<ICalendarCapacity>();
+
+        Assert.Equal(8.5m, capacity.HoursOn(new DateOnly(2026, 10, 12)));
+        Assert.Equal(0m, capacity.HoursOn(new DateOnly(2026, 10, 17)));
+    }
+
+    /// <summary>Everything the roadmap draws for the plan, as one string to compare: the
+    /// items and their windows, what each gathered, the pace placement divides by and the Calendar's
+    /// reading of them.</summary>
+    private async Task<string> RoadmapPictureAsync(DateOnly today)
+    {
+        using var scope = _provider.CreateScope();
+        var plan = await scope.ServiceProvider.GetRequiredService<IRoadmapPlanning>().GetPlanAsync(TestContext.Current.CancellationToken);
+        var gathered = await scope.ServiceProvider.GetRequiredService<IRoadmapItemRollup>().GatherPlanAsync(plan, TestContext.Current.CancellationToken);
+        var velocity = scope.ServiceProvider.GetRequiredService<IPlanningVelocity>();
+        var paces = new
+        {
+            Global = await velocity.GetStoryPointsPerWeekAsync(null, TestContext.Current.CancellationToken),
+            Backlog = await velocity.GetStoryPointsPerWeekAsync("backlog", TestContext.Current.CancellationToken)
+        };
+        var calendar = await scope.ServiceProvider.GetRequiredService<ICalendarPlans>().ReadAsync(today, TestContext.Current.CancellationToken);
+
+        return System.Text.Json.JsonSerializer.Serialize(new
+        {
+            Items = plan.Items.Select(item => new { item.Id, item.Tag, item.Start, item.End }),
+            Gathered = gathered.OrderBy(pair => pair.Key).Select(pair => new { pair.Key, pair.Value.DoneEffort, pair.Value.TotalEffort, Entries = pair.Value.BacklogEntries.Count }),
+            Paces = paces,
+            Windows = calendar.Windows
+        });
+    }
+
     [Fact]
     public async Task Lay_out_on_the_roadmap_creates_the_item_a_task_document_names()
     {

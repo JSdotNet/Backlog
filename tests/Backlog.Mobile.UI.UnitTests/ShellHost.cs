@@ -37,7 +37,7 @@ internal sealed class ShellHost : IDisposable
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
         if (clock is not null) _context.Services.AddSingleton(clock);
         _context.Services.AddSingleton<ISharedContentReceiver>(Share);
-        _context.Services.AddSingleton<ISpeechTranscriber>(new SilentSpeechTranscriber());
+        _context.Services.AddSingleton<ISpeechTranscriber>(Speech);
         _context.Services.AddSingleton<IAttachmentPicker>(Picker);
         _context.Services.AddSingleton(credentials);
         _context.Services.AddSingleton(new CloudSyncClient(
@@ -52,7 +52,12 @@ internal sealed class ShellHost : IDisposable
     /// <summary>Another app sharing into this one, triggered by hand.</summary>
     public TestSharedContentReceiver Share { get; } = new();
 
-    /// <summary>What the Note page's attach buttons hand back.</summary>
+    /// <summary>The device's recogniser, finished by hand. It has none until a
+    /// test says it has, so the mic never takes a turn while a test is reading
+    /// the markup around it.</summary>
+    public ScriptedSpeechTranscriber Speech { get; } = new();
+
+    /// <summary>What the Note page's and the capture sheet's attach buttons hand back.</summary>
     public TestAttachmentPicker Picker { get; } = new();
 
     public IDeviceCredentialStore Credentials { get; }
@@ -86,8 +91,9 @@ internal sealed class ShellHost : IDisposable
         new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView);
 
     /// <summary>Renders the app opened on <paramref name="route"/>, relative to
-    /// the base address — "" is the Inbox.</summary>
-    public IRenderedComponent<Routes> Open(string route = "")
+    /// the base address — "" is Today, and the default is the Inbox, which most
+    /// of these tests are about.</summary>
+    public IRenderedComponent<Routes> Open(string route = "inbox")
     {
         Navigation.NavigateTo(route);
         return _context.Render<Routes>();
@@ -128,20 +134,5 @@ internal sealed class ShellHost : IDisposable
 
             return await inbox.AnswerAsync(request, cancellationToken);
         }
-    }
-
-    /// <summary>A device with no recogniser, so the mic never takes a turn while
-    /// these tests are reading the markup around it.</summary>
-    private sealed class SilentSpeechTranscriber : ISpeechTranscriber
-    {
-        public ValueTask<bool> IsSupportedAsync(CancellationToken cancellationToken = default) =>
-            ValueTask.FromResult(false);
-
-        public Task<SpeechTranscript> ListenAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(SpeechTranscript.Failed("No recogniser."));
-
-        public ValueTask StopAsync() => ValueTask.CompletedTask;
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

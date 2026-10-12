@@ -11,8 +11,15 @@ namespace Backlog.Modules.Inbox.Features.ArchiveItem;
 /// <paramref name="DuplicateOf"/> it is dismissed as the same capture as that
 /// item — "Archive as duplicate of…" — and remembers which: the item at the
 /// root of that one's own duplicate chain, when it is itself a duplicate, and
-/// refused as <c>inbox.duplicate.circular</c> when the chain leads back here.</summary>
-public sealed record ArchiveItemCommand(Guid Id, Guid? DuplicateOf = null);
+/// refused as <c>inbox.duplicate.circular</c> when the chain leads back here.
+/// <para>
+/// With <paramref name="DuplicateOfTask"/> the id names a backlog task instead —
+/// "Merge into a task", which archives the capture as a duplicate of the task it
+/// was folded into. The Inbox cannot see Tasks, so there is no chain to walk and
+/// no item to look up: the task is the caller's to have checked, as
+/// <c>MergeIntoTaskCommandHandler</c> does before it writes the comment.
+/// </para></summary>
+public sealed record ArchiveItemCommand(Guid Id, Guid? DuplicateOf = null, bool DuplicateOfTask = false);
 
 public sealed class ArchiveItemCommandHandler(IInboxItemRepository items, TimeProvider clock)
     : ICommandHandler<ArchiveItemCommand, Result>
@@ -26,7 +33,7 @@ public sealed class ArchiveItemCommandHandler(IInboxItemRepository items, TimePr
 
         var duplicateOf = command.DuplicateOf;
 
-        if (duplicateOf is { } original)
+        if (duplicateOf is { } original && !command.DuplicateOfTask)
         {
             if (original == item.Id) return Result.Failure(InboxErrors.DuplicateOfItself);
 
@@ -43,11 +50,15 @@ public sealed class ArchiveItemCommandHandler(IInboxItemRepository items, TimePr
 
         try
         {
-            item.Archive(clock.GetUtcNow(), duplicateOf);
+            item.Archive(clock.GetUtcNow(), duplicateOf, task: duplicateOf is not null && command.DuplicateOfTask);
         }
         catch (InvalidInboxTransitionException refused)
         {
             return Result.Failure(InboxErrors.InvalidTransition(refused.Message));
+        }
+        catch (ArgumentException)
+        {
+            return Result.Failure(InboxErrors.DuplicateOfItself);
         }
 
         await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
@@ -70,7 +81,9 @@ public sealed class ArchiveItemCommandHandler(IInboxItemRepository items, TimePr
         var seen = new HashSet<Guid> { target.Id };
         var root = target;
 
-        while (root.DuplicateOf is { } next)
+        // A link to a task ends the chain: the task is not an item, and the
+        // item merged into it is the one kept on this side.
+        while (root.DuplicateOf is { } next && !root.DuplicateOfTask)
         {
             if (next == itemId) return null;
             if (!seen.Add(next)) break;

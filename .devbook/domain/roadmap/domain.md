@@ -103,7 +103,11 @@ placed its window — `placed_by_import`.
 velocity) or `due-date` (end from the `due:` the plan wrote). Absent means a
 person placed it. It is cleared the moment a person moves the window, and never
 set again except by an import creating the item anew; an import re-places only a
-window that still carries it. While it is still `effort` and its work is not
+window that still carries it. An import told the day a person chose for the window
+to open — a plan dropped on a day of the Tasks Calendar — places the window from
+that day by the `effort` rule and leaves the value absent: the day was the
+person's. That day wins even over work that has already begun: the stored window
+opens on it, and its end is counted from there for the points still open. While it is still `effort` and its work is not
 finished, the item **keeps up with its work** without being asked. Its window is
 re-projected from the effort not yet done (the total registered effort less the
 finished effort), laid out from today over the reader's

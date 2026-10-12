@@ -29,6 +29,35 @@ internal sealed class RecordingInboxIntake : IInboxIntake
     }
 }
 
+/// <summary>The Inbox's note port, recorded: every note handed in, the answer to
+/// give, the notes a push should find pending, and the notes marked pushed.</summary>
+internal sealed class RecordingNoteReplication : IInboxNoteReplication
+{
+    public List<InboxNoteDto> Received { get; } = [];
+
+    public InboxIntakeOutcome Answer { get; set; } = InboxIntakeOutcome.Received;
+
+    public List<InboxNoteDto> Pending { get; } = [];
+
+    public List<InboxNoteDto> MarkedPushed { get; } = [];
+
+    public Task<InboxIntakeOutcome> ReceiveAsync(InboxNoteDto note, CancellationToken cancellationToken = default)
+    {
+        Received.Add(note);
+        return Task.FromResult(Answer);
+    }
+
+    public Task<IReadOnlyList<InboxNoteDto>> ListPendingAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<InboxNoteDto>>([.. Pending.OrderBy(note => note.UpdatedAt)]);
+
+    public Task MarkPushedAsync(IReadOnlyList<InboxNoteDto> pushed, CancellationToken cancellationToken = default)
+    {
+        MarkedPushed.AddRange(pushed);
+        Pending.RemoveAll(note => pushed.Any(sent => sent.Id == note.Id && sent.UpdatedAt == note.UpdatedAt));
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>The Inbox's outbox: a list of acknowledgements a test seeds, and a
 /// record of which ids were marked sent.</summary>
 internal sealed class RecordingInboxOutbox : IInboxCaptureOutbox

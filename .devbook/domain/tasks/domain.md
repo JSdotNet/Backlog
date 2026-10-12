@@ -40,20 +40,26 @@ than a display preference, so both travel with the task to the person's other
 machines: a sequence arranged by hand is an edit, and an edit that did not travel
 would quietly revert on the other device.
 
-Beyond that working-set placement the task carries four scheduling attributes,
+Beyond that working-set placement the task carries five scheduling attributes,
 all optional and none of them load-bearing for the lifecycle. `due_on` is the
 task's [Due Date](#due-date). `remind_at` is its [Reminder](#reminder); overdue
 is derived by comparison rather than stored, and delivery sits outside the
 aggregate - the task records that a reminder was wanted, not that one was sent.
 `recurrence` says the task repeats and is described by the `Recurrence` value
-object. `in_my_day_on` is the date behind [My Day](#my-day).
+object. `in_my_day_on` is the date behind [My Day](#my-day). `agenda_time` places
+the task in that day and is described by the [Agenda Time](#agenda-time) value
+object. The task holds an agenda time only while it has an `in_my_day_on`, and
+it drops the agenda time whenever `in_my_day_on` changes or is cleared, so a
+task moved to tomorrow or taken out of My Day loses its slot.
 `completed_on` records that the task is [Completed](#completed). It is kept
 apart from `status` - `done` and `archived` say the work is over, the tick says
 the person has dealt with the task - so that finished work can sit on the open
 list until they have looked at it, and it carries no invariant. The list's
 checkbox writes two facts at once: ticking a task not yet in an end state through it also sets `done`, because a person who ticks something
 off has finished the work. That is the checkbox's choice, not a rule on the
-task - a `completed:` token typed into the text moves no status.
+task - a `completed:` token typed into the text moves no status. The phone's
+done and undone are that same checkbox: done ticks the task the way the desktop
+does, and undone clears `completed_on` and leaves the status alone.
 
 `started_on` records that the task is [Started](#started). The task stamps it
 from the local date on the first transition into `in_progress` - whether a
@@ -73,6 +79,13 @@ root, so there is no object graph between them. An id naming no task the reader
 can see blocks because dropping it would let a chain claim to be ready when the
 step it waits on is merely missing from view, which is the one failure that looks exactly like
 success. `Readiness` is derived from this list on every read and never stored.
+
+`planned_hours` lists the task's [Planned Hours](#planned-hours): the days the
+person set hours aside on, one figure a day, in date order. The task's own field and
+never text in it, so the text save neither writes nor clears it. A figure is more
+than none and at most a whole day; the root refuses anything else and keeps one
+block a day, the last given winning. A recurring task's next occurrence starts with
+none, since the days belonged to this one. Nothing in the roadmap reads it.
 
 Dependency cycles are surfaced rather than prevented, and there is deliberately
 no invariant against one. A cycle spans aggregate boundaries, so no single task
@@ -245,6 +258,46 @@ the next occurrence falls - that is the `Occurrence Spawning` policy's calculati
 the repeat is anchored to `due_on` rather than to the completion date, so a
 weekly task finished three days late still falls due on its original weekday.
 
+### Agenda Time
+
+```meta
+type: value-object
+aliases: [agenda_time, AgendaTime, at, for]
+related: [.devbook/domain/tasks/domain.md#my-day, .devbook/domain/tasks/features.md#my-day, .devbook/design/content-editing.md#scheduling-and-dependency-tokens]
+```
+
+Where a task sits in its My Day: a `start`, a local wall-clock time of day in
+24-hour form, and a `duration` in whole minutes. The pair describes one block,
+such as 10:45 for 45 minutes, which runs from 10:45 to 11:30. Equality is by
+value.
+
+- A start is required. A duration without a start is not an agenda time, and the
+  parser refuses it.
+- A start without a duration means 30 minutes.
+- A duration is a positive whole number of minutes.
+- The time carries no zone, the same as a [Reminder](#reminder): 10:45 means
+  10:45 on the reader's clock.
+
+An agenda time has no date of its own. It borrows the date of
+[My Day](#my-day), so it means something only while the task is in the reader's
+My Day. The [Task](#task) drops it whenever `in_my_day_on` changes or is cleared.
+A task whose My Day date has passed keeps the value until that next change, but
+nothing reads it. Given an agenda time while it has no `in_my_day_on`, the task
+holds none: the value is dropped rather than refused, the way the parser drops
+what it cannot place. A text save that moves `myday:` drops the `at:` and `for:`
+left on the line unedited, because they are the old day's slot carried along;
+a slot typed or changed in the same save is the person's, and stays.
+
+The agenda time crosses the sync task feed as two plain values beside
+`in_my_day_on`, the start as `HH:MM` and the duration in minutes, both absent on
+a task with no slot. A document from a build that never sent them reads as
+having none, and the phone's `task_view` row reads them straight off the
+document.
+
+Only the desktop sets or clears an agenda time. The phone reads it to build the
+Now and Agenda groups and Focus, as
+[My Day](features.md#my-day) describes.
+
 ### Attachment
 
 ```meta
@@ -384,6 +437,12 @@ it creates one GitHub issue and/or CLI task per `repo_id`, recording each as a
 `Projection Ref`; on `TaskCompleted` it closes all projections. It is a service
 because it coordinates the task with external systems (GitHub, Copilot CLI) and
 spans multiple downstream artifacts rather than a single aggregate mutation. Invocation semantics: event-triggered policy / process manager. It reacts to `TaskProjected` and `TaskCompleted`; it is not invoked as part of a synchronous aggregate command.
+
+A `Projection Ref` recorded by hand — a session or pull request linked to a task —
+can be taken off again: the unlink use case removes every ref naming that repository,
+external id and target type, compared without regard to case, and leaves the task's
+`repo_id`s as they are. A ref the task does not hold changes nothing and is not a
+failure.
 
 ## Occurrence Spawning
 
@@ -671,6 +730,22 @@ timezone, so it means the same day wherever the device is. Distinct from a
 `Reminder`, which is a moment, and from `My Day`, which is a choice about today.
 How the date is worded on screen belongs to the channel showing it.
 
+### Planned Hours
+
+```meta
+type: term
+status: proposed
+aliases: [planned_hours, hours block, Planned hours]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#due-date, .devbook/domain/tasks/domain.md#effort]
+```
+
+Hours the person has set aside for a task on a given day: a date and a number of
+hours — more than none, at most the whole day, in quarters of an hour — and never a
+start or an end time. A task holds at most one figure a day and may hold several
+days. Kept on the task beside its text rather than in it, as its Devbook references
+are, so editing the text never changes them. A plan for the person's own days, not
+an estimate: unlike [Effort](#effort), nothing the roadmap places or paces reads it.
+
 ### Reminder
 
 ```meta
@@ -691,14 +766,16 @@ whose time has passed reads as overdue until it is cleared.
 type: term
 status: proposed
 aliases: [in_my_day_on, myday, InMyDay]
-related: [.devbook/domain/tasks/features.md#my-day]
+related: [.devbook/domain/tasks/features.md#my-day, .devbook/domain/tasks/domain.md#agenda-time]
 ```
 
 The set of tasks a person picked to work on today. Held as the date it was
 picked for, not as a flag, so membership is derived by comparing that date
 against the reader's current local date and expires without a timer.
 Deliberately not a deadline: `My Day` is this morning's choice, a `Due Date` is
-a commitment.
+a commitment. A task in My Day may also carry an [Agenda Time](#agenda-time),
+which places it at a time within that day. Moving a task to tomorrow sets the
+date to the next day and drops any agenda time.
 
 ### Dependency
 

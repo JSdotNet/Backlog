@@ -213,7 +213,7 @@ graph TB
       SyncClient["Infrastructure.Sync\n(Sync Client, optional)"]
       Mcp["Infrastructure.Mcp\n(MCP server, loopback only)"]
       CaptureInfra["Infrastructure.Capture\n(YouTube, Website / Feeds, Import\n→ InboxCaptureDelivery)"]
-      Foundry["Infrastructure.AzureFoundry\n(IInboxPlanDrafter, Ask AI)"]
+      Foundry["Infrastructure.AzureFoundry\n(IInboxPlanDrafter, IInboxTriageAdvisor,\nAsk AI)"]
       Claude["Infrastructure.Claude"]
       Copilot["Infrastructure.Copilot"]
       GitHubInfra["Infrastructure.GitHub"]
@@ -248,7 +248,7 @@ graph TB
   Inbox --> Sqlite
   Inbox -->|IInboxBacklogTarget| FileSystem
   FileSystem -->|ITaskItems| Tasks
-  Inbox -->|IInboxPlanDrafter| Foundry
+  Inbox -->|IInboxPlanDrafter, IInboxTriageAdvisor| Foundry
   Claude -->|Dashboard.Abstractions| Dashboard
 
   Capture -->|ICaptureDelivery| CaptureInfra
@@ -293,6 +293,14 @@ Devbook module's Abstractions, so the builder, the MCP chapter read and the
 Domain devbook pane apply one rule. `tools/devbook/build-database.mjs` writes the
 same tables, and `DevbookBuilderParityTests` compares the two writers.
 
+The same project reads scenario pages, outside the database. `Scenarios/` ports
+devbook's page parser and page signature, and `ScenarioSignatureVectorTests` holds
+the port to devbook's shared vector. It also reads a committed `run.json` in both
+of its versions and devbook's `_meta/scenarios.json` register, and it does the
+disk reads behind them. The Devbook UI's `DevbookScenarioStore` keeps one catalog
+per repository from those reads. The menu, the Domain panel, and every chapter's
+`scenario:` images draw from that catalog.
+
 **Inbox Service** is `Backlog.Modules.Inbox` since 2026-09-15 — a module with its
 own `Abstractions` project and its own tables in `backlog.db` (`inbox_items`,
 `inbox_lists`, `inbox_groups`), no longer a projection over draft tasks. It holds
@@ -305,7 +313,12 @@ place an inbox item becomes entry text. A batch of items goes through the same
 port's `CreateBatchTasksAsync` as one multi-entry document into Tasks'
 `ImportPlanAsync`. The adapter maps the created entries back to items by
 `import_item_id` and names each entry's own item as its source. The Inbox reaches the AI plan drafter through
-`IInboxPlanDrafter`, answered in `Backlog.Infrastructure.AzureFoundry`. The
+`IInboxPlanDrafter`, and the AI triage of local ADR 0023 — the cards over an
+item in triage and the triage pass — through `IInboxTriageAdvisor`, both
+answered in `Backlog.Infrastructure.AzureFoundry` over the one configured
+deployment. Either port may be left unregistered, and the Inbox then reads the
+feature as unavailable; the desktop web harness swaps a deterministic advisor
+in for the Foundry one so the triage surfaces can be driven without Azure. The
 `Backlog.Modules.Inbox.UI` pane references its own module's Abstractions and
 nothing of Tasks; the earlier Tasks.UI → Inbox.UI edge is gone. See local ADR 0009.
 
@@ -374,12 +387,20 @@ transport, but not domain lifecycle rules.
 The shell (`MainLayout`) is a title bar carrying the sync status, the page, and
 three tabs along the bottom, withheld until the device is paired:
 
-- **Inbox** — quick capture and the list of captures the service still holds,
-  each marked waiting until it has left the outbox; Dismiss acknowledges one.
-- **Note** — the talk note: a title, a dictated Markdown body, the speaker, tags
-  and attached pictures and files, sent as one capture.
-- **Tasks** — My Day, read from `task_view`, and the one write the phone makes to
-  tasks: adding a task picked for today.
+- **Inbox** — a quick-capture field and the list of the phone's own captures
+  the desktop has not taken in yet, each saying whether it is waiting in the
+  outbox or sent. No row triages: triage stays on the desktop.
+- **Capture sheet** (`/capture`, opened from Today's capture button) — one
+  thought sent to the Inbox as a capture, created as a note through the note
+  view, or added to today through `task_view`, with dictation and a photo; a
+  sheet over the screen it was opened from rather than a tab.
+- **Notes** — every note in `note_view`, newest first, searched on the phone,
+  and an editor for one: a title, a dictated Markdown body and attached pictures
+  and files, saved on its own a second after typing stops and sent as outbox
+  kind `note`.
+- **Tasks** — My Day, read from `task_view`, and the writes the phone makes to
+  tasks: adding a task picked for today, and marking a task in today's My Day
+  done or undone, ticking one of its steps, or moving it to tomorrow.
 
 Its local SQLite file holds three things and no canonical task data: the
 outbox, the last inbox it pulled, and `task_view`, a fold of the owner's task
@@ -396,9 +417,10 @@ retry never sends one twice. See
 graph TB
   subgraph "UI (.NET MAUI / Blazor Hybrid, Backlog.Mobile.UI)"
     Shell["Shell\n(sync status, pairing gate)"]
-    InboxTab["Inbox tab\n(quick capture, list, Dismiss)"]
-    NoteTab["Note tab\n(talk note)"]
-    TasksTab["Tasks tab\n(My Day, add for today)"]
+    InboxTab["Inbox tab\n(quick capture, own captures, sync state)"]
+    CaptureSheet["Capture sheet\n(Inbox, Note or Today)"]
+    NoteTab["Notes tab\n(list, search, editor)"]
+    TasksTab["Today tab\n(My Day grouped, tick, open)"]
   end
 
   subgraph "Device store (SQLite)"

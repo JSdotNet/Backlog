@@ -322,6 +322,20 @@ public sealed class RoadmapPlan
         return Result.Success(item);
     }
 
+    /// <summary>
+    /// Makes an item's window, as it stands, a person's placement: the import provenance
+    /// goes and nothing the importer or the keep-up projection does moves it again. How a
+    /// window an import placed from a start the person chose stays where they put it.
+    /// </summary>
+    public Result<RoadmapItem> KeepAsPlaced(Guid itemId)
+    {
+        var item = FindItem(itemId);
+        if (item is null) return Result.Failure<RoadmapItem>(RoadmapErrors.ItemNotFound(itemId));
+
+        item.KeepAsPlaced();
+        return Result.Success(item);
+    }
+
     /// <summary>Takes every dependency off one node, so a re-import can replace the
     /// set rather than merge into it.</summary>
     public Result ClearDependencies(Guid nodeId)

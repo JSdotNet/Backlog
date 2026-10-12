@@ -1,6 +1,6 @@
 ---
 name: import-plan
-description: Turn an agreed specification (a .devbook/domain feature, an ADR, or other planning material) into a Backlog import plan — an ordered, dependency-linked sequence of entries in Backlog's entry-text grammar, ready to paste or upload — together with a review view of it, always.
+description: Turn an agreed specification (a .devbook/domain feature, an ADR, or other planning material) into a Backlog import plan — an ordered, dependency-linked sequence of entries in Backlog's entry-text grammar, ready to paste or upload — together with a review view of it, always published as an artifact.
 disable-model-invocation: true
 ---
 
@@ -10,7 +10,7 @@ Open the reply with `backlog-tools@<version>`, `version` read from `../../.claud
 
 A one-shot handoff: the spec is settled and it is time to generate the next batch of AI
 prompts for the Backlog app to import. This skill reads the agreed material, writes one
-Backlog import plan document plus a review view of it, and stops — it never talks to the
+Backlog import plan document, publishes a review view of it as an artifact, and stops — it never talks to the
 Backlog app, executes a generated prompt, or touches GitHub.
 
 Read `assets/backlog-import-grammar.md` before writing anything. It carries the exact
@@ -24,8 +24,8 @@ mechanics; use only the syntax it defines.
 - **Plan subject.** What the batch delivers; derives the shared `+tag`.
 - **Target repositories.** One or more repository names the prompts target. Do not check
   whether a name is already registered in Backlog — Import auto-registers an unknown one.
-- **Output.** A file path, or "paste it here" — ask if neither is stated. The review view
-  (step 7) is produced either way; it is not an option.
+- **Output.** Never asked: the plan is delivered as the review artifact (step 6) plus the
+  full text inline (step 7). A `.md` file is written only when the user names a path.
 - **Level.** Step-level (the default) or, when asked, [roadmap-level](#roadmap-level-mode).
 - **The user's answers.** Gathered by the [interview](#interview) while the plan is written,
   never assumed.
@@ -147,22 +147,27 @@ decision, not the plan's.
    session-name line from the numbered title. Numbers are display, not identity: a
    regenerated plan renumbers freely while `id:` stays put. Then assemble the entries into
    one Markdown document per `assets/backlog-import-grammar.md`.
-6. Produce the output: write it to the given path (default `<plan-slug>-import-plan.md` in
-   the current working directory) when a file was asked for or implied, and show the full
-   text inline either way so it is ready to paste directly.
-7. Build the review view, always, next to the raw plan: copy `assets/plan-review.html`,
+6. Publish the review view — every run, before the plan text is shown. Copy
+   `assets/plan-review.html` into a scratch or temporary directory outside the working tree,
    replace `{{PLAN_TITLE}}` with the plan subject as a short name (e.g. `VS Code desktop
-   rollout plan`) and `{{PLAN}}` with the plan text verbatim (it must not contain
-   `</script>`), and change nothing else. Publish it as an artifact when the host offers
-   one — a private page whose link the user can open beside the raw text; otherwise write
-   it beside the plan as `<plan-slug>-import-plan.html` and say to open it in a browser.
+   rollout plan`) and `{{PLAN}}` with the plan text, adding one backslash right after the
+   `<` of every `</script` and `<!--` in it, case-insensitively and after any backslashes
+   already there (`</script` → `<\/script`, `<\/script` → `<\\/script`) — the page removes
+   exactly that one — and change nothing else. Publish that file with the
+   host's artifact-publishing tool, loading it first when the host lists it as deferred, as
+   a private page. The template already meets the artifact page contract: publish it as-is,
+   with no design pass over it. Only when the session has no such tool at all, write it as
+   `<plan-slug>-import-plan.html` in the current working directory and say to open it in a
+   browser; a failed publish is reported with its error, never silently replaced by a file.
    The page parses the embedded plan itself, so the view can never disagree with the raw
    text; it shows the checks of `## Output expectations`, the dependency order as a
    diagram, and every entry with its boilerplate folded away, with the raw plan on a
    second tab. Its **Checks** mirror `## Output expectations`, so the reviewer sees at a
    glance what the plan gets wrong; when the user reports a failed check, fix the plan and
-   regenerate the view rather than patching the view.
-8. Report the output location (if written), the review view's link or path, the entry
+   republish the view to the same link rather than patching the view.
+7. Show the full plan text inline, ready to paste. Write it to a file too only when the user
+   named a path.
+8. Report the review view's link (or the fallback path), the file path when one was written, the entry
    count, the repositories targeted, the dependency chain, the interview's answers and the
    prompts each went into, which drafted tasks or tests became prompts, every step kept
    manual with its reason, and which sizing answered — the
@@ -239,10 +244,11 @@ under the same tag. Steps 5–8 apply unchanged.
   dependencies and prompts that wait on a task, and never names the other level.
 - The last two entries are the plan review, waiting on every leaf of that order, and the
   sign-off task waiting on the review.
-- A review view built from `assets/plan-review.html` accompanies the plan every time, and
-  none of its checks fail.
-- No file changes outside the produced plan document and its review view; no call to the
-  Backlog app or GitHub.
+- A review view built from `assets/plan-review.html` is published as an artifact every run,
+  before the plan text is shown, its link is in the report (its fallback path only when the
+  host has no artifact tool), and none of its checks fail.
+- No file changes in the working tree beyond a plan file the user named or the review
+  view's no-artifact fallback; no call to the Backlog app or GitHub.
 
 ## Reference
 

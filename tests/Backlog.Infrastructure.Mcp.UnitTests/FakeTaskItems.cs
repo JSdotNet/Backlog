@@ -152,6 +152,15 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
         return Task.FromResult<Result<TaskItemDto>>(linked);
     }
 
+    /// <summary>No tool unlinks yet, so a call here is a tool writing that should not.</summary>
+    public Task<Result<TaskItemDto>> UnlinkFromIssueAsync(
+        Guid id,
+        string repoId,
+        string externalId,
+        string targetType,
+        CancellationToken cancellationToken = default) =>
+        throw Written(nameof(UnlinkFromIssueAsync));
+
     /// <summary>
     /// Records the write and replaces the entry's list, refusing a value that
     /// names no page with the module's own code — a path with neither a folder

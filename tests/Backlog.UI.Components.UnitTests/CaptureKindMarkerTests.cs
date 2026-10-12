@@ -22,8 +22,8 @@ public sealed class CaptureKindMarkerTests
     {
         using var context = new BunitContext();
 
-        Assert.Equal(10, CaptureKinds.All.Count);
-        Assert.Equal(10, CaptureKinds.All.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(11, CaptureKinds.All.Count);
+        Assert.Equal(11, CaptureKinds.All.Distinct(StringComparer.OrdinalIgnoreCase).Count());
 
         foreach (var value in CaptureKinds.All)
         {

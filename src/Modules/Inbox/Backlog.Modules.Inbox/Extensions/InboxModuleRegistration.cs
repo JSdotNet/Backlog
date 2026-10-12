@@ -11,22 +11,30 @@ using Backlog.Modules.Inbox.Features.DeferItem;
 using Backlog.Modules.Inbox.Features.DeleteItem;
 using Backlog.Modules.Inbox.Features.DeleteList;
 using Backlog.Modules.Inbox.Features.DismissSuggestion;
+using Backlog.Modules.Inbox.Features.EditNote;
 using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.LinkToTask;
+using Backlog.Modules.Inbox.Features.MergeIntoTask;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
+using Backlog.Modules.Inbox.Features.AdviseTriage;
 using Backlog.Modules.Inbox.Features.InferBatchOrder;
+using Backlog.Modules.Inbox.Features.ProposeTriagePass;
 using Backlog.Modules.Inbox.Features.ProposeBatch;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.ReceiveCapture;
+using Backlog.Modules.Inbox.Features.ReceiveNote;
+using Backlog.Modules.Inbox.Features.ListPendingNotes;
 using Backlog.Modules.Inbox.Features.Related;
 using Backlog.Modules.Inbox.Features.RenameGroup;
 using Backlog.Modules.Inbox.Features.RenameList;
 using Backlog.Modules.Inbox.Features.RetryAttachment;
 using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
 using Backlog.Modules.Inbox.Features.ResurfaceItem;
+using Backlog.Modules.Inbox.Features.RestoreItem;
+using Backlog.Modules.Inbox.Features.ReturnToInbox;
 using Backlog.Modules.Inbox.Features.RouteBatchToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.SetTags;
@@ -45,13 +53,15 @@ namespace Backlog.Modules.Inbox.Extensions;
 /// case the Inbox context offers; it never registers a handler itself, and
 /// never sees the aggregate.
 /// <para>
-/// Four things are deliberately not registered here. The two repository ports
+/// Five things are deliberately not registered here. The two repository ports
 /// (<see cref="IInboxItemRepository"/>, <see cref="IInboxOrganizerRepository"/>)
 /// are internal ports whose adapter is the host's decision, as Tasks' is. The
-/// two outward ports (<see cref="IInboxBacklogTarget"/>,
-/// <see cref="IInboxPlanDrafter"/>) are answered by adapters that see other
-/// contexts, which only a host may compose — and the drafter may be left out
-/// altogether, in which case the handlers answer <c>inbox.plan.not_configured</c>.
+/// three outward ports (<see cref="IInboxBacklogTarget"/>,
+/// <see cref="IInboxPlanDrafter"/>, <see cref="IInboxTriageAdvisor"/>) are
+/// answered by adapters that see other contexts, which only a host may compose
+/// — and the drafter and the advisor may be left out altogether, in which case
+/// the handlers answer <c>inbox.plan.not_configured</c> or
+/// <c>inbox.triage.not_configured</c>.
 /// </para>
 /// </summary>
 public static class InboxModuleRegistration
@@ -74,6 +84,8 @@ public static class InboxModuleRegistration
         services.AddScoped<ICommandHandler<DeleteItemCommand, Result>, DeleteItemCommandHandler>();
         services.AddScoped<ICommandHandler<DeferItemCommand, Result>, DeferItemCommandHandler>();
         services.AddScoped<ICommandHandler<ResurfaceItemCommand, Result>, ResurfaceItemCommandHandler>();
+        services.AddScoped<ICommandHandler<RestoreItemCommand, Result>, RestoreItemCommandHandler>();
+        services.AddScoped<ICommandHandler<ReturnToInboxCommand, Result>, ReturnToInboxCommandHandler>();
         services.AddScoped<ICommandHandler<ResurfaceDueItemsCommand, Result<int>>, ResurfaceDueItemsCommandHandler>();
         services.AddScoped<ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>>, RouteToBacklogCommandHandler>();
         services.AddScoped<ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>>, CreatePlanCommandHandler>();
@@ -87,6 +99,12 @@ public static class InboxModuleRegistration
         // Its opt-in third tier: the plan drafter's order for the batch. The
         // drafter is optional here as it is for Create plan.
         services.AddScoped<IQueryHandler<InferBatchOrderQuery, Result<IReadOnlyList<ProposedDependency>>>, InferBatchOrderQueryHandler>();
+        // The AI triage of local ADR 0023: the cards over one item, and the
+        // pass over a slice. The advisor is optional, as the drafter is, and so
+        // are the task references the context reads: a host without an advisor
+        // answers inbox.triage.not_configured and the pane shows no AI surface.
+        services.AddScoped<IQueryHandler<AdviseTriageQuery, Result<InboxTriageAdviceDto>>, AdviseTriageQueryHandler>();
+        services.AddScoped<IQueryHandler<ProposeTriagePassQuery, Result<InboxTriagePassDto>>, ProposeTriagePassQueryHandler>();
         services.AddScoped<ICommandHandler<CreateListCommand, Result<InboxListDto>>, CreateListCommandHandler>();
         services.AddScoped<ICommandHandler<RenameListCommand, Result>, RenameListCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteListCommand, Result>, DeleteListCommandHandler>();
@@ -109,6 +127,7 @@ public static class InboxModuleRegistration
         // drafter: a host without them is offered what the item's own text
         // supports.
         services.AddScoped<IQueryHandler<SuggestQuery, Result<IReadOnlyList<InboxSuggestionDto>>>, SuggestQueryHandler>();
+        services.AddScoped<IQueryHandler<SuggestManyQuery, Result<IReadOnlyDictionary<Guid, IReadOnlyList<InboxSuggestionDto>>>>, SuggestQueryHandler>();
         services.AddScoped<ICommandHandler<DismissSuggestionCommand, Result>, DismissSuggestionCommandHandler>();
 
         // What an item already has to do with the rest of the backlog, and the
@@ -117,6 +136,8 @@ public static class InboxModuleRegistration
         // them relates items to items and takes a linked task's id as given.
         services.AddScoped<IQueryHandler<RelatedQuery, Result<InboxRelationsDto>>, RelatedQueryHandler>();
         services.AddScoped<ICommandHandler<LinkToTaskCommand, Result>, LinkToTaskCommandHandler>();
+        services.AddScoped<ICommandHandler<MergeIntoTaskCommand, Result>, MergeIntoTaskCommandHandler>();
+        services.AddScoped<ICommandHandler<EditNoteCommand, Result>, EditNoteCommandHandler>();
 
         services.AddScoped<IInboxItems, InboxItems>();
 
@@ -133,6 +154,14 @@ public static class InboxModuleRegistration
         services.AddTransient<ICommandHandler<ReceiveCaptureCommand, Result<InboxIntakeOutcome>>, ReceiveCaptureCommandHandler>();
         services.AddTransient<IInboxIntake, InboxIntake>();
         services.AddTransient<IInboxCaptureOutbox, InboxCaptureOutbox>();
+
+        // A note's two-way sync (.devbook/arc42/06-runtime-view.md#mobile-note-sync),
+        // transient for the reason the intake is: the sync loop resolves it from
+        // the root provider.
+        services.AddTransient<ICommandHandler<ReceiveNoteCommand, Result<InboxIntakeOutcome>>, ReceiveNoteCommandHandler>();
+        services.AddTransient<IQueryHandler<ListPendingNotesQuery, Result<IReadOnlyList<InboxNoteDto>>>, ListPendingNotesQueryHandler>();
+        services.AddTransient<ICommandHandler<MarkNotesPushedCommand, Result>, MarkNotesPushedCommandHandler>();
+        services.AddTransient<IInboxNoteReplication, InboxNoteReplication>();
 
         return services;
     }

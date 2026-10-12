@@ -7,8 +7,10 @@
     It exists so the seven parts look like seven parts of one thing without each
     of them re-deciding what a heading is. There is nothing configurable on it —
     no fold, no hide, no reorder — because the dashboard's composition is fixed;
-    the only control is refresh, which changes what is shown rather than which
-    parts exist.
+    its own control is refresh, which changes what is shown rather than which
+    parts exist. A part may put a control of its own on the heading's line through
+    Actions — the volume chart's measure — and that too only changes what the part
+    draws, never which parts exist.
 
     Not a shared-library component. It is the dashboard's own page furniture and a
     second host would want its own rhythm, which is the same reason the storybook
@@ -30,6 +32,16 @@
                           TooltipTestId="@(TestId is null ? null : TestId + "-note")" />
             }
         </div>
+
+        @if (Actions is not null)
+        {
+            @* A control that changes what the part draws rather than which part this
+               is — the volume chart's measure — sits on the heading's line, before
+               refresh. *@
+            <div class="dashboard-part__actions">
+                @Actions
+            </div>
+        }
 
         @* A refresh while one is already in flight would only cancel and restart
            it, so the control reports the wait rather than offering to duplicate it. *@
@@ -64,6 +76,10 @@
 
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Controls on the heading's line, between the title and refresh.</summary>
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }

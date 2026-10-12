@@ -53,6 +53,7 @@ public sealed class TaskItemStampTests
         [nameof(TaskItem.SetReminder)] = task => task.SetReminder(new DateTime(2026, 2, 1, 9, 0, 0)),
         [nameof(TaskItem.SetRecurrence)] = task => task.SetRecurrence(null),
         [nameof(TaskItem.SetInMyDayOn)] = task => task.SetInMyDayOn(new DateOnly(2026, 2, 1)),
+        [nameof(TaskItem.SetAgendaTime)] = task => task.SetAgendaTime(new AgendaTime(new TimeOnly(10, 45), 45)),
         [nameof(TaskItem.SetCompletedOn)] = task => task.SetCompletedOn(new DateOnly(2026, 2, 1)),
         [nameof(TaskItem.SetStartedOn)] = task => task.SetStartedOn(new DateOnly(2026, 2, 1)),
         [nameof(TaskItem.SetBlockedSince)] = task => task.SetBlockedSince(new DateOnly(2026, 2, 1)),
@@ -70,6 +71,9 @@ public sealed class TaskItemStampTests
 
         // Clearing is an edit here for the reason it is on SetDependsOn.
         ["SetDevbookReferences(null)"] = task => task.SetDevbookReferences(null),
+        // The person's planned hours are an edit to the task like its references: they
+        // travel to the other devices, so the stamp has to move.
+        [nameof(TaskItem.SetPlannedHours)] = task => task.SetPlannedHours([PlannedHoursBlock.Create(new DateOnly(2026, 10, 12), 3m)]),
 
         [nameof(TaskItem.SetStatus)] = task => task.SetStatus(EntryStatus.Done, new DateOnly(2026, 1, 1)),
         [nameof(TaskItem.ChangeStatus)] = task => task.ChangeStatus(EntryStatus.Ready, new DateOnly(2026, 1, 1)),
@@ -92,6 +96,14 @@ public sealed class TaskItemStampTests
             task.SetRepoIds(["JSdotNet/Backlog"]);
             task.LoadStamps(Stamped, null);
             task.RenameRepository("JSdotNet/Backlog", "JSdotNet/Backlog-renamed");
+        },
+        // An unlink that removed a link is an edit; seeded first, because one that
+        // finds nothing to remove leaves the stamp alone by design.
+        [nameof(TaskItem.RemoveProjectionRef)] = task =>
+        {
+            task.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", "pull-request"));
+            task.LoadStamps(Stamped, null);
+            task.RemoveProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", "pull-request"));
         },
         [nameof(TaskItem.RemoveSubItem)] = task => task.RemoveSubItem(FirstSubItem(task)),
         [nameof(TaskItem.ToggleSubItem)] = task => task.ToggleSubItem(FirstSubItem(task)),

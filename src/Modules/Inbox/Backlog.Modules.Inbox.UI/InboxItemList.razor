@@ -1,26 +1,33 @@
 @*
-    The middle column: the kind chips, and the rows of the open slice newest
-    first. Nothing is typed here — a thought typed at the desk goes in through
-    the header's Add dialog, which is the pane's, so the column only ever
-    reads what the state holds.
+    The middle column: the kind pills, and the rows of the open slice newest
+    first under three headings — Today, This week, Older than a week — each
+    with its count. Nothing is typed here — a thought typed at the desk goes in
+    through the header's capture field, which is the pane's, so the column only
+    ever reads what the state holds.
 
-    The chips are a filter and they multi-select: pressing "Video" and
-    "Article" shows both. Each carries its count from before the filter, so the
-    numbers do not shift as chips are pressed. A kind with no rows in the slice
-    has no chip — a chip that would show nothing is a chip that lies.
+    The pills are a filter and the kind pills multi-select: pressing "Video"
+    and "Article" shows both. "All", first, carries the slice's count and is
+    the pressed pill while no kind is; pressing it clears the kinds. Each kind
+    carries its count from before the filter, so the numbers do not shift as
+    pills are pressed. A kind with no rows in the slice has no pill — a pill
+    that would show nothing is a pill that lies.
 
-    Each row says three things before its title: what kind of thing it is (a
-    mark and the word, never the mark alone), where it came from (the channel as
-    a dashed source badge, and the person who shared it as a person chip), and
-    what it is tagged and targeted at. The time it was captured closes the line.
-    A routed row stays and says so; an archived one has left.
+    A row is four things: a tile with the kind's mark, the title, a line saying
+    what kind of thing it is and where it came from ("Article · Web clipper"),
+    and how long ago it arrived. The kind is always a word as well as a mark,
+    because shape alone is not a carrier. A row whose item has a rule-based
+    suggestion the reader has not turned down says "suggested" under its age,
+    so the rows worth a second look stand out before they are opened. Tags and
+    repositories are the detail's, not the row's. A routed row stays and says
+    so; an archived one has left.
 
     Rows are buttons, because choosing one is the act. aria-pressed carries the
     selection, and the row's own classes carry the border-and-strip look that
     .devbook/design/interaction-guidelines.md#focus-and-selection asks for — distinct
     from hover and from focus.
 
-    Picking several is a second, separate selection: Select puts a box beside
+    Picking several is a second, separate selection: Select, at the end of the
+    pills, puts a box beside
     every row, Shift extends from the last box pressed, and InboxBulkBar acts on
     what is picked. The chosen row (the detail) and the picked rows (the bar)
     are independent, as they are in the Tasks list.
@@ -55,81 +62,46 @@
     else
     {
         var kinds = State.KindCounts;
-        var health = State.QueueHealth;
-
-        @* The Inbox half of queue health (features.md#queue-health): the whole
-           queue, whichever slice is open, because "how is the queue doing" is
-           not a question about one list. The chip is there only when something
-           has waited too long — a chip reading zero is a chip to ignore. *@
-        <div class="inbox-pane__health" role="status" aria-label="Queue health" data-testid="inbox-queue-health">
-            @if (health.OldestCapturedAt is { } oldest)
-            {
-                <Badge BaseClass="inbox-pane__health-count" Kind="" TestId="inbox-queue-health-count">@InboxDesktopState.Counted(health.Unprocessed, "unprocessed item", "unprocessed items")</Badge>
-                <span class="inbox-pane__health-oldest" data-testid="inbox-queue-health-oldest">oldest captured @State.Age(oldest)</span>
-                @if (health.Stale > 0)
-                {
-                    <Badge BaseClass="badge" Kind="priority" Slug="high"
-                           Title="@($"Unprocessed for more than {InboxDesktopState.StaleAfterDays} days")"
-                           TestId="inbox-queue-health-stale">@($"{health.Stale} over {InboxDesktopState.StaleAfterDays} days")</Badge>
-                }
-            }
-            else
-            {
-                <Badge BaseClass="inbox-pane__health-count" Kind="" TestId="inbox-queue-health-count">Nothing waiting</Badge>
-            }
-        </div>
 
         @if (kinds.Count > 0)
         {
-            @* The Select toggle sits with the chips because both are about which
-               rows the column is showing; it turns the boxes on, the way the
-               Tasks pane's Select chip does, so a column read rather than acted
-               on stays free of them. *@
+            @* Select sits with the pills because both are about which rows the
+               column is showing; it turns the boxes on, the way the Tasks pane's
+               Select chip does, so a column read rather than acted on stays free
+               of them. *@
             <div class="inbox-pane__toolbar">
                 <div class="inbox-pane__filters" role="group" aria-label="Filter by kind" data-testid="inbox-pane-filters">
+                    <ToggleButton Pressed="@(State.KindFilter.Count == 0)"
+                                  PressedChanged="_ => State.ClearKindFilter()"
+                                  BaseClass="inbox-pane__pill"
+                                  PressedCssClass="inbox-pane__pill--pressed"
+                                  Title="Show every kind"
+                                  TestId="inbox-kind-all">
+                        <span class="inbox-pane__chip-label">All</span>
+                        <Badge BaseClass="inbox-pane__chip-count" Kind="" TestId="inbox-kind-all-count">@State.SliceItems.Count</Badge>
+                    </ToggleButton>
                     @foreach (var kind in kinds)
                     {
                         <ToggleButton Pressed="@State.KindFilter.Contains(kind.Slug)"
                                       PressedChanged="_ => State.ToggleKind(kind.Slug)"
-                                      BaseClass="btn btn--toggle"
-                                      CssClass="btn--small inbox-pane__chip"
+                                      BaseClass="inbox-pane__pill"
+                                      PressedCssClass="inbox-pane__pill--pressed"
                                       Title="@($"Show only {kind.Label.ToLowerInvariant()} items")"
                                       TestId="@($"inbox-kind-{kind.Slug}")">
-                            <CaptureKindMarker Value="@kind.Slug" CssClass="inbox-pane__chip-mark" />
                             <span class="inbox-pane__chip-label">@kind.Label</span>
                             <Badge BaseClass="inbox-pane__chip-count" Kind="" TestId="@($"inbox-kind-{kind.Slug}-count")">@kind.Count</Badge>
                         </ToggleButton>
                     }
-                    @if (State.KindFilter.Count > 0)
-                    {
-                        <AppButton Variant="ButtonVariant.Ghost"
-                                   Size="ButtonSize.Small"
-                                   CssClass="inbox-pane__chip-clear"
-                                   OnClick="() => State.ClearKindFilter()"
-                                   TestId="inbox-kind-clear">Clear filters</AppButton>
-                    }
                 </div>
                 <div class="inbox-pane__modes">
-                    @* Triage opens the rows one at a time; it is a way of reading
-                       this list, so it sits with Select rather than in the header. *@
-                    <AppButton Size="ButtonSize.Small"
-                               CssClass="inbox-pane__triage-start"
-                               Title="Decide on the items here one at a time (Esc returns to the list)"
-                               OnClick="() => State.SetTriageMode(true)"
-                               TestId="inbox-triage-start">Triage</AppButton>
-                    <ToggleButton Pressed="@State.SelectionMode"
-                                  PressedChanged="on => State.SetSelectionMode(on)"
-                                  BaseClass="btn btn--toggle"
-                                  CssClass="btn--small inbox-pane__select-toggle"
-                                  Title="@(State.SelectionMode ? "Stop picking items" : "Pick items to act on together (x)")"
-                                  TestId="inbox-select-toggle">Select</ToggleButton>
                     @if (State.SelectedListId is not null && !State.DeferredSelected)
                     {
                         @* A list's own act: route what it still holds open as one
                            batch, one plan named after it. Asks first, because it
                            acts on every open row at once and cannot be undone. *@
                         var open = State.ListOpenItems.Count;
-                        <AppButton Size="ButtonSize.Small"
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   Size="ButtonSize.Small"
                                    CssClass="inbox-pane__list-to-backlog"
                                    Disabled="@(open == 0 || State.RoutingInFlight)"
                                    Title="@(open == 0
@@ -138,6 +110,13 @@
                                    OnClick="() => State.AskListRouteAsync()"
                                    TestId="inbox-list-to-backlog">Move list to backlog</AppButton>
                     }
+                    <ToggleButton Pressed="@State.SelectionMode"
+                                  PressedChanged="on => State.SetSelectionMode(on)"
+                                  BaseClass="inbox-pane__pill inbox-pane__pill--ghost"
+                                  PressedCssClass="inbox-pane__pill--pressed"
+                                  CssClass="inbox-pane__select-toggle"
+                                  Title="@(State.SelectionMode ? "Stop picking items" : "Pick items to act on together (x)")"
+                                  TestId="inbox-select-toggle">Select <kbd class="inbox-pane__key" aria-hidden="true">X</kbd></ToggleButton>
                 </div>
             </div>
         }
@@ -159,19 +138,19 @@
 
         <InboxRoutePanel State="@State" />
 
-        var rows = State.VisibleItems;
+        var groups = State.VisibleGroups;
 
-        @if (rows.Count == 0)
+        @if (groups.Count == 0)
         {
             @if (State.FilteredOut)
             {
                 <EmptyState Title="@($"No {FilteredKindsLabel()} items in {State.SliceName}")"
-                            Description="The chips above are hiding every row here."
+                            Description="The pills above are hiding every row here."
                             BaseClass="empty-state inbox-pane__empty-state"
                             TestId="inbox-pane-empty"
                             data-inbox-empty="filtered">
                     <Action>
-                        <AppButton Size="ButtonSize.Small" OnClick="() => State.ClearKindFilter()" TestId="inbox-empty-clear">Clear filters</AppButton>
+                        <AppButton Size="ButtonSize.Small" OnClick="() => State.ClearKindFilter()" TestId="inbox-empty-clear">Show all kinds</AppButton>
                     </Action>
                 </EmptyState>
             }
@@ -186,7 +165,7 @@
             else
             {
                 <EmptyState Title="Nothing captured yet"
-                            Description="Press Add to write one down, or capture one from your phone — it lands here on the next sync."
+                            Description="Write one down in the field above, or capture one from your phone — it lands here on the next sync."
                             BaseClass="empty-state inbox-pane__empty-state"
                             TestId="inbox-pane-empty"
                             data-inbox-empty="first-use" />
@@ -194,84 +173,23 @@
         }
         else
         {
+            @* One list with the group headings inside it, so the rows stay one
+               run a reader steps through with j and k, and one landmark named
+               after the slice. The Deferred slice runs in the order its items
+               come back, so it has no age headings. *@
             <ul class="inbox-pane__list" aria-label="@State.SliceName" data-testid="inbox-pane-list" @onkeydown="OnShortcutKeyAsync">
-                @foreach (var item in rows)
+                @foreach (var group in groups)
                 {
-                    var selected = item.Id == State.SelectedItemId;
-                    var picked = State.IsPicked(item.Id);
-
-                    <li class="@(picked ? "inbox-pane__item inbox-pane__item--picked" : "inbox-pane__item")"
-                        @key="item.Id"
-                        data-inbox-kind="@item.KindSlug"
-                        data-testid="inbox-pane-item">
-                        @if (State.SelectionMode)
-                        {
-                            @* Beside the row rather than in it: the row is a button,
-                               and a box inside a button is a control nobody can reach.
-                               Heard on click rather than on change, as the task row's
-                               gutter is, because Shift is what turns a press into a
-                               range and only a mouse event carries it. *@
-                            <span class="inbox-pane__gutter">
-                                <Checkbox Checked="@picked"
-                                          CssClass="inbox-pane__pick"
-                                          TestId="@($"inbox-pick-{item.Id:D}")"
-                                          aria-label="@($"Select {Title(item)}")"
-                                          @onclick="e => State.TogglePicked(item.Id, !picked, e.ShiftKey)" />
-                            </span>
-                        }
-                        <AppButton Variant="ButtonVariant.None"
-                                   BaseClass="inbox-pane__row"
-                                   CssClass="@(selected ? "inbox-pane__row--selected" : null)"
-                                   OnClick="() => State.SelectItem(item.Id)"
-                                   TestId="@($"inbox-item-{item.Id:D}")"
-                                   id="@RowId(item.Id)"
-                                   aria-pressed="@(selected ? "true" : "false")">
-                            @* The kind: a mark and the word. The mark is aria-hidden
-                               because the word is right beside it, and the word is
-                               never dropped because shape alone is not a carrier. *@
-                            <span class="inbox-pane__kind" data-testid="inbox-pane-item-kind">
-                                <CaptureKindMarker Value="@item.KindSlug" CssClass="inbox-pane__kind-mark" />
-                                <span class="inbox-pane__kind-label">@InboxLabels.Kind(item.KindSlug)</span>
-                            </span>
-                            <span class="inbox-pane__row-body">
-                                <span class="inbox-pane__row-title" data-testid="inbox-pane-item-title">@Title(item)</span>
-                                <span class="inbox-pane__row-meta">
-                                    <Badge Kind="source"
-                                           Slug="@item.Channel"
-                                           CssClass="inbox-pane__source"
-                                           Title="@($"Captured via {InboxLabels.Channel(item.Channel)}")"
-                                           TestId="inbox-pane-item-source">@InboxLabels.Channel(item.Channel)</Badge>
-                                    @if (!string.IsNullOrWhiteSpace(item.Person))
-                                    {
-                                        <TagChip Text="@TagText.Display(item.Person)"
-                                                 CssClass="inbox-pane__person"
-                                                 title="@($"Shared by {TagText.Display(item.Person)}")"
-                                                 TestId="inbox-pane-item-person" />
-                                    }
-                                    @foreach (var tag in item.Tags)
-                                    {
-                                        <TagChip Text="@TagText.Display(tag.Name)" CssClass="inbox-pane__tag" TestId="inbox-pane-item-tag" />
-                                    }
-                                    @foreach (var repoId in item.RepoIds)
-                                    {
-                                        <Badge Kind="kind"
-                                               Slug="repository"
-                                               CssClass="inbox-pane__repository"
-                                               Title="@($"Repository: {repoId}")"
-                                               TestId="inbox-pane-item-repository">@State.RepositoryAlias(repoId)</Badge>
-                                    }
-                                    @if (item.Status == InboxStatus.Triaged)
-                                    {
-                                        <Badge BaseClass="inbox-pane__routed" Kind="" TestId="inbox-pane-item-routed">@InboxLabels.Status(item.Status)</Badge>
-                                    }
-                                </span>
-                            </span>
-                            <time class="inbox-pane__row-age"
-                                  datetime="@item.CapturedAt.ToString("O")"
-                                  title="@item.CapturedAt.ToLocalTime().ToString("f", System.Globalization.CultureInfo.CurrentCulture)"
-                                  data-testid="inbox-pane-item-age">@State.Age(item.CapturedAt)</time>
-                        </AppButton>
-                    </li>
+                    @if (!State.DeferredSelected)
+                    {
+                        <li class="inbox-pane__group" role="presentation" @key="@($"group:{group.Key}")" data-testid="@($"inbox-group-{group.Key}")">
+                            <h3 class="inbox-pane__group-title">@group.Label <span class="inbox-pane__group-total" data-testid="@($"inbox-group-{group.Key}-count")">· @group.Items.Count</span></h3>
+                        </li>
+                    }
+                    @foreach (var item in group.Items)
+                    {
+                        @Row(item)
+                    }
                 }
             </ul>
         }
@@ -301,6 +219,88 @@
         };
 
     private Task OnListRouteConfirmedAsync() => State.RouteListToBacklogAsync();
+
+    /// <summary>One row: the box beside it while picking, then the row itself —
+    /// the kind's tile, the title over "kind · source", and the age with the
+    /// "suggested" and "Routed" markers under it.</summary>
+    private RenderFragment Row(InboxItemDto item) => @<text>
+        @{
+            var selected = item.Id == State.SelectedItemId;
+            var picked = State.IsPicked(item.Id);
+            var open = item.Status is InboxStatus.Unprocessed or InboxStatus.Deferred;
+        }
+        <li class="@(picked ? "inbox-pane__item inbox-pane__item--picked" : "inbox-pane__item")"
+            @key="item.Id"
+            data-inbox-kind="@item.KindSlug"
+            data-testid="inbox-pane-item">
+            @if (State.SelectionMode)
+            {
+                @* Beside the row rather than in it: the row is a button,
+                   and a box inside a button is a control nobody can reach.
+                   Heard on click rather than on change, as the task row's
+                   gutter is, because Shift is what turns a press into a
+                   range and only a mouse event carries it. *@
+                <span class="inbox-pane__gutter">
+                    <Checkbox Checked="@picked"
+                              CssClass="inbox-pane__pick"
+                              TestId="@($"inbox-pick-{item.Id:D}")"
+                              aria-label="@($"Select {Title(item)}")"
+                              @onclick="e => State.TogglePicked(item.Id, !picked, e.ShiftKey)" />
+                </span>
+            }
+            <AppButton Variant="ButtonVariant.None"
+                       BaseClass="inbox-pane__row"
+                       CssClass="@(selected ? "inbox-pane__row--selected" : null)"
+                       OnClick="() => State.SelectItem(item.Id)"
+                       TestId="@($"inbox-item-{item.Id:D}")"
+                       id="@RowId(item.Id)"
+                       aria-pressed="@(selected ? "true" : "false")">
+                @* The kind's mark on a tile. aria-hidden, because the word is on
+                   the line below; a kind this build does not know has no mark
+                   and the tile stays empty rather than guessing. *@
+                <span class="inbox-pane__kind-tile" aria-hidden="true" data-testid="inbox-pane-item-tile">
+                    <CaptureKindMarker Value="@item.KindSlug" CssClass="inbox-pane__kind-mark" />
+                </span>
+                <span class="inbox-pane__row-body">
+                    <span class="inbox-pane__row-title" data-testid="inbox-pane-item-title">@Title(item)</span>
+                    <span class="inbox-pane__row-meta">
+                        <span class="inbox-pane__kind" data-testid="inbox-pane-item-kind">@InboxLabels.Kind(item.KindSlug)</span>
+                        <span aria-hidden="true">·</span>
+                        <span class="inbox-pane__source"
+                              title="@($"Captured via {InboxLabels.Channel(item.Channel)}")"
+                              data-testid="inbox-pane-item-source">@InboxLabels.Channel(item.Channel)</span>
+                        @if (!string.IsNullOrWhiteSpace(item.Person))
+                        {
+                            <span aria-hidden="true">·</span>
+                            <span class="inbox-pane__person" data-testid="inbox-pane-item-person">shared by @TagText.Display(item.Person)</span>
+                        }
+                    </span>
+                </span>
+                <span class="inbox-pane__row-end">
+                    <time class="inbox-pane__row-age"
+                          datetime="@item.CapturedAt.ToString("O")"
+                          title="@item.CapturedAt.ToLocalTime().ToString("f", System.Globalization.CultureInfo.CurrentCulture)"
+                          data-testid="inbox-pane-item-age">@State.Age(item.CapturedAt)</time>
+                    @if (open && State.HasSuggestions(item.Id))
+                    {
+                        <Badge BaseClass="inbox-pane__suggested"
+                               Kind=""
+                               Title="Classification has a suggestion for this item"
+                               TestId="inbox-pane-item-suggested">suggested</Badge>
+                    }
+                    @if (item.Status == InboxStatus.Triaged)
+                    {
+                        <Badge BaseClass="inbox-pane__routed" Kind="" TestId="inbox-pane-item-routed">@InboxLabels.Status(item.Status)</Badge>
+                    }
+                </span>
+            </AppButton>
+        </li>
+    </text>;
+
+    /// <summary>Reads which rows have a suggestion to mark, whenever the list's
+    /// parameters are set. A no-op once every open row on screen has its answer
+    /// for the current snapshot.</summary>
+    protected override Task OnParametersSetAsync() => State.LoadRowSuggestionsAsync();
 
     /// <summary>A bare digit takes the chosen item's suggestion with that number,
     /// as it does in the detail.</summary>

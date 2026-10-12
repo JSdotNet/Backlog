@@ -48,6 +48,15 @@ A name should not repeat what its location already says.
 - Files within a bounded context are named after their role, not the context:
   `.devbook/domain/ordering/features.md`, not `.devbook/domain/ordering/ordering-features.md`.
 
+## A scenario page's stem is its name
+
+A scenario page is named after its journey, in kebab-case:
+`.devbook/domain/work/set-up-and-fill-the-backlog.md`. The file name without
+`.md` is its **stem**, the scenario's identity for every tool: its run folder,
+its derived spec, and every `scenario:<stem>#<label>` reference use it. A stem
+is unique across every bounded context, so renaming the file renames the
+scenario. See `devbook-chapter-metadata.md` under "Scenario pages".
+
 ## Casing
 
 Use kebab-case for files and folders (`.devbook/domain/order-management/`,

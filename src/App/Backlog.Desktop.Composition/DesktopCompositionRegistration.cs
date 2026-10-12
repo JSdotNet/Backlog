@@ -11,6 +11,7 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Infrastructure.FileSystem.Roadmap;
+using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Infrastructure.SpecManager;
@@ -95,6 +96,7 @@ public static class DesktopCompositionRegistration
             return sp.GetRequiredService<WorkingHoursSettingsStore>();
         });
         services.AddSingleton(options.UsageResetSettings);
+        services.AddSingleton(options.SpendBudgetSettings);
         services.AddSingleton(options.PlanningVelocitySettings);
         services.AddSingleton(options.ShellNavigation);
         // What can change which surface is showing from outside the user interface —
@@ -140,6 +142,10 @@ public static class DesktopCompositionRegistration
         // because only an adapter may see both contexts. Scoped, like the module
         // services they capture.
         services.AddRoadmapCrossContextAdapters();
+
+        // The backlog's work badges ask what state a linked agent session is in; the
+        // answer comes from the Sessions record through an adapter, for the same reason.
+        services.AddTasksCrossContextAdapters();
 
         // The reader's routing rules, which Settings writes and Classification reads.
         services.AddSingleton(options.InboxRoutingRules);
@@ -201,6 +207,10 @@ public static class DesktopCompositionRegistration
         // The Inbox's plan drafter over the same chat client, as long-lived as the
         // window's state that reaches it through IInboxItems.
         services.Add(new ServiceDescriptor(typeof(IInboxPlanDrafter), typeof(AzureFoundryInboxPlanDrafter), options.WindowStateLifetime));
+        // The Inbox's triage advisor (local ADR 0023) over the same deployment and
+        // settings, for the drafter's reasons and with its lifetime. A host that
+        // wants a stand-in replaces this registration after the call.
+        services.Add(new ServiceDescriptor(typeof(IInboxTriageAdvisor), typeof(AzureFoundryInboxTriageAdvisor), options.WindowStateLifetime));
         // The embedding deployment beside the chat one, registered and dormant:
         // local ADR 0004's semantic tier is wired and nothing writes vectors yet.
         services.AddHttpClient<IAzureFoundryEmbeddingsClient, AzureFoundryEmbeddingsClient>();

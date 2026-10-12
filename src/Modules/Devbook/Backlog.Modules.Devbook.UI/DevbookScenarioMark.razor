@@ -1,0 +1,14 @@
+@*
+    A scenario page's row in the Devbook menu: the scenario glyph, so the journey
+    reads as one among the context's chapters, and the dot that says how its last run
+    went. Drawn into the tree's leading mark column.
+*@
+<span class="devbook-scenario-mark" data-testid="devbook-scenario-mark" data-stem="@Scenario.Stem">
+    <DevbookTypeMarker Value="@DevbookTypeMarkers.Scenario" Labelled="true" Size="14px" TestId="devbook-scenario-glyph" />
+    <DevbookScenarioDot State="@Scenario.State" />
+</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public DevbookScenario Scenario { get; set; } = null!;
+}

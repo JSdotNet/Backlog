@@ -40,6 +40,7 @@ internal static class InboxMapper
             attachment.IsDownloaded,
             attachment.LastError))],
         DuplicateOf = item.DuplicateOf,
+        DuplicateOfTask = item.DuplicateOfTask,
     };
 
     public static InboxListDto ToDto(this InboxList list) => new(list.Id, list.Name, list.GroupId, list.Order);

@@ -345,6 +345,21 @@ file keeps the name, so a retry writes to the same place the first attempt did.
 
 Enforced at: `AttachmentFileName()`
 
+### Invariant: A merged item names its task as a task
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests.A_merge_hands_the_captures_title_link_and_notes_to_the_task_and_archives_it_as_the_tasks_duplicate, unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests.An_item_archived_without_a_duplicate_names_no_task]
+```
+
+An item archived as a duplicate records what it duplicates in `DuplicateOf`, and
+`DuplicateOfTask` says whether that id is a backlog task's — the item was merged
+into a task — or another inbox item's. An item that names nothing is a duplicate
+of no task.
+
+Enforced at: `Archive()`
+
 ### Invariant: A suggestion is turned down once, by its key
 
 ```meta

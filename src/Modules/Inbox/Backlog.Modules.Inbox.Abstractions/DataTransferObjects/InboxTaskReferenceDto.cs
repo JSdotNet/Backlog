@@ -24,6 +24,10 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// source, not with every link the task is known by.</param>
 /// <param name="IsOpen">Neither done nor archived. Always true in
 /// <see cref="Services.IInboxTaskReferences.OpenTasksAsync"/>'s answer.</param>
+/// <param name="Status">The task's status as a word (<c>draft</c>,
+/// <c>ready</c>, <c>in-progress</c>, <c>done</c>), for the triage advisor to
+/// read beside the title (local ADR 0023 §1); null from an adapter that does
+/// not say.</param>
 public sealed record InboxTaskReferenceDto(
     Guid Id,
     string? ImportItemId,
@@ -33,7 +37,8 @@ public sealed record InboxTaskReferenceDto(
     IReadOnlyList<string> Links,
     Guid? SourceInboxId = null,
     string? SourceUrl = null,
-    bool IsOpen = true);
+    bool IsOpen = true,
+    string? Status = null);
 
 /// <summary>A GitHub issue a task was filed as: its repository
 /// (<c>owner/name</c>) and number.</summary>

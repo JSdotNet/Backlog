@@ -99,6 +99,45 @@ public sealed class GitHubClientPullRequestStatusTests
         Assert.Equal(expected, status.MergeReady);
     }
 
+    /// <summary>GitHub's review decision is the review state; no decision — a
+    /// repository that asks for no review — and a word this client does not know
+    /// are both <see cref="GitHubReviewState.None"/>, never a guess.</summary>
+    [Theory]
+    [InlineData("\"APPROVED\"", GitHubReviewState.Approved)]
+    [InlineData("\"CHANGES_REQUESTED\"", GitHubReviewState.ChangesRequested)]
+    [InlineData("\"REVIEW_REQUIRED\"", GitHubReviewState.ReviewRequired)]
+    [InlineData("null", GitHubReviewState.None)]
+    [InlineData("\"SOMETHING_NEW\"", GitHubReviewState.None)]
+    public async Task The_review_decision_is_the_review_state(string decision, GitHubReviewState expected)
+    {
+        var status = await Client(Status(reviewDecision: decision))
+            .GetPullRequestStatusAsync(Repository, 708, TestContext.Current.CancellationToken);
+
+        Assert.Equal(expected, status.ReviewState);
+    }
+
+    /// <summary>A status answer without the field at all — an older shape, or a
+    /// stub — reads as no decision rather than failing the read.</summary>
+    [Fact]
+    public async Task A_status_without_a_review_decision_is_no_review_state()
+    {
+        var json = Status().Replace("\"reviewDecision\": null,", string.Empty, StringComparison.Ordinal);
+
+        var status = await Client(json).GetPullRequestStatusAsync(Repository, 708, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GitHubReviewState.None, status.ReviewState);
+    }
+
+    [Fact]
+    public async Task The_status_query_asks_for_the_review_decision()
+    {
+        var transport = new RoutingTransport().Returns("graphql", Status());
+
+        await new GitHubClient(transport).GetPullRequestStatusAsync(Repository, 708, TestContext.Current.CancellationToken);
+
+        Assert.Contains("reviewDecision", Sent(transport).Query, StringComparison.Ordinal);
+    }
+
     /// <summary>The repository's own settings decide the method, in the order the
     /// merge button offers them. There is no picker; the one GitHub already lists
     /// first is the one a person pressing the button would get.</summary>
@@ -321,7 +360,8 @@ public sealed class GitHubClientPullRequestStatusTests
         string rollup = "\"SUCCESS\"",
         bool mergeAllowed = true,
         bool squashAllowed = true,
-        bool rebaseAllowed = true)
+        bool rebaseAllowed = true,
+        string reviewDecision = "null")
     {
         var commit = rollup == "null"
             ? """{ "commit": { "statusCheckRollup": null } }"""
@@ -340,6 +380,7 @@ public sealed class GitHubClientPullRequestStatusTests
                 "state": "{{state}}",
                 "isDraft": {{Bool(isDraft)}},
                 "mergeStateStatus": "{{mergeStateStatus}}",
+                "reviewDecision": {{reviewDecision}},
                 "autoMergeRequest": {{autoMerge}},
                 "commits": { "nodes": [ {{commit}} ] }
               }

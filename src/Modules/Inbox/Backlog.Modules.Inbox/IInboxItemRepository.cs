@@ -52,4 +52,10 @@ public interface IInboxItemRepository
     /// <summary>Drops a deleted capture once the replica has it, or once the
     /// replica withdrew it itself. Nothing happens when there is none.</summary>
     Task ForgetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Keeps (or re-stamps) what is left of a deleted item while the
+    /// replica is owed its tombstone. The note intake calls it when the phone edits
+    /// a note this desktop already deleted, so the tombstone goes out again under
+    /// a stamp later than the edit.</summary>
+    Task RememberDeletedCaptureAsync(InboxDeletedCapture capture, CancellationToken cancellationToken = default);
 }

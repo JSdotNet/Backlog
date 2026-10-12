@@ -70,6 +70,9 @@ public sealed class RootedSqliteInboxRepository(Func<string> currentRootDirector
     public Task ForgetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default) =>
         Current.ForgetDeletedCaptureAsync(id, cancellationToken);
 
+    public Task RememberDeletedCaptureAsync(InboxDeletedCapture capture, CancellationToken cancellationToken = default) =>
+        Current.RememberDeletedCaptureAsync(capture, cancellationToken);
+
     public Task<IReadOnlyList<InboxList>> ListListsAsync(CancellationToken cancellationToken = default) =>
         Current.ListListsAsync(cancellationToken);
 

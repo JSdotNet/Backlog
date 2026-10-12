@@ -2,13 +2,13 @@
 @layout MainLayout
 
 @* No dead ends: an address with no page says so, and the way out of a missing
-   page is another page, so the action is a link home to the Inbox — the
+   page is another page, so the action is a link home to Today — the
    storybook's NotFoundPage pattern. *@
 
 <EmptyState Title="Nothing here"
             Description="The app has no page at that address."
             TestId="not-found">
     <Action>
-        <a href="">Back to the Inbox</a>
+        <a href="">Back to Today</a>
     </Action>
 </EmptyState>

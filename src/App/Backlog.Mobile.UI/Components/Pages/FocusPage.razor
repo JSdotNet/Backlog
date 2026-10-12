@@ -1,0 +1,197 @@
+@page "/tasks/{Id:guid}/focus"
+@using System.Globalization
+@using Backlog.Mobile.UI.Tasks
+@using Backlog.Modules.Tasks.Abstractions
+@inject TaskViewProjection View
+@inject TaskEdits Edits
+@inject TimeProvider Clock
+@inject NavigationManager Navigation
+@implements IDisposable
+
+@*
+    Focus: one timed task, worked on now, opened from Today's card or the task's
+    own page (.devbook/domain/tasks/features.md#my-day). The countdown is the
+    task's agenda block — it ends when the block does, read every second from
+    the clock — so there is nothing to pause, and once the block is over it
+    counts how far over.
+
+    Two edits, both through TaskEdits: the current step — the first one not
+    ticked — ticked off, and, when none is left, the task marked done, which
+    finishes with it for today and goes back to Today.
+
+    Focus exists only for a task with an agenda time today that is not ticked
+    off; any other — untimed, another day's, done, or not on this phone — goes
+    to its own page, which says what it is.
+*@
+
+<PageTitle>@(Row?.Task.Title is { } title ? $"Focus — {title}" : "Focus")</PageTitle>
+
+@if (Row is { } row && IsFocusable(row))
+{
+    var task = row.Task;
+    var (remaining, left) = Countdown(row.AgendaTime!);
+
+    <DayFocus Title="@task.Title"
+              BackHref="@TodayHref"
+              DetailsHref="@DetailsHref"
+              Area="@task.Area"
+              Until="@Clock24(row.AgendaTime!.End)"
+              Remaining="remaining"
+              Left="left"
+              Steps="@Steps(task)"
+              OnStepDone="StepDoneAsync"
+              OnComplete="CompleteAsync"
+              CaptureHref="@CaptureHref"
+              Busy="_busy"
+              CssClass="focus-page"
+              TestId="focus" />
+
+    @if (_editError is not null)
+    {
+        <Alert Message="@_editError" Role="alert" BaseClass="task-page__waiting" TestId="focus-error" />
+    }
+}
+
+@code {
+    /// <summary>The address of Today, relative to the base: the root route.</summary>
+    private const string TodayHref = "";
+
+    private bool _busy;
+    private bool _finishing;
+    private bool _looked;
+    private bool _disposed;
+    private string? _editError;
+    private ITimer? _tick;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    /// <summary>The task as the phone last heard of it, or null for one it does
+    /// not hold.</summary>
+    private TaskViewRow? Row => View.Find(Id) is { DeletedAt: null } row ? row : null;
+
+    private string DetailsHref => $"tasks/{Id}";
+
+    /// <summary>The capture sheet, told it was opened from here so it comes back
+    /// here: the `from` convention of the sheet's own page.</summary>
+    private string CaptureHref => $"capture?from={Uri.EscapeDataString($"tasks/{Id}/focus")}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        View.Changed += OnChanged;
+
+        // The countdown moves on its own: drawn again every second. Started
+        // before the first await, so a page left while the pull runs disposes it.
+        _tick = Clock.CreateTimer(_ => OnChanged(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+        if (Row is null)
+        {
+            try
+            {
+                await View.PullAsync();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // The task's own page says it is not on this phone.
+            }
+        }
+
+        _looked = true;
+        LeaveIfNotFocusable();
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        View.Changed -= OnChanged;
+        _tick?.Dispose();
+    }
+
+    private void OnChanged() => _ = InvokeAsync(() =>
+    {
+        if (!LeaveIfNotFocusable()) StateHasChanged();
+    });
+
+    /// <summary>
+    /// Sends a task that has no Focus — or no longer has one, because it was
+    /// moved or ticked elsewhere — to its own page, in place of this one so Back
+    /// does not return here. Not before the first look — a task still being
+    /// pulled is not yet known not to have one — and not while this page's own
+    /// Complete is finishing: that goes to Today.
+    /// </summary>
+    private bool LeaveIfNotFocusable()
+    {
+        if (!_looked || _finishing || _disposed) return false;
+        if (Row is { } row && IsFocusable(row)) return false;
+
+        Navigation.NavigateTo(DetailsHref, replace: true);
+        return true;
+    }
+
+    /// <summary>Timed today and not ticked off: what Focus is for.</summary>
+    private bool IsFocusable(TaskViewRow row) =>
+        row.Task.InMyDayOn == View.Today && row.AgendaTime is not null && !TodayPlan.IsTicked(row);
+
+    /// <summary>
+    /// How long is left of the block now, negative once it has ended, and how
+    /// much of the block that is. Before the block starts the ring is full. A
+    /// block that runs past midnight ends the next day.
+    /// </summary>
+    private (TimeSpan Remaining, double Left) Countdown(AgendaTime time)
+    {
+        var now = Clock.GetLocalNow().DateTime;
+        var day = now.Date;
+        var start = day + time.Start.ToTimeSpan();
+        var end = day + time.End.ToTimeSpan();
+        if (end <= start) end = end.AddDays(1);
+
+        var remaining = end - now;
+        var length = end - start;
+        var left = length <= TimeSpan.Zero ? 0 : Math.Clamp(remaining / length, 0, 1);
+
+        return (remaining, left);
+    }
+
+    private Task StepDoneAsync(DayStep step) => EditAsync(() => Edits.SetStepDoneAsync(Id, step.Id, done: true), thenToday: false);
+
+    private Task CompleteAsync() => EditAsync(() => Edits.MarkDoneAsync(Id), thenToday: true);
+
+    /// <summary>
+    /// Makes one edit. An edit the phone could not keep says so and stays here;
+    /// Complete then goes back to Today, where the task already shows done — but
+    /// not for a person who left while it ran.
+    /// </summary>
+    private async Task EditAsync(Func<Task<TaskViewRow?>> edit, bool thenToday)
+    {
+        if (_busy) return;
+        _busy = true;
+        _finishing = thenToday;
+        _editError = null;
+
+        try
+        {
+            await edit();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _finishing = false;
+            _editError = "This change couldn't be kept on this phone. Try again.";
+            return;
+        }
+        finally
+        {
+            _busy = false;
+        }
+
+        if (thenToday && !_disposed) Navigation.NavigateTo(TodayHref);
+    }
+
+    private static string Clock24(TimeOnly time) => time.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    private static IReadOnlyList<DayStep> Steps(TaskPayload task) =>
+    [
+        .. (task.SubItems ?? [])
+            .OrderBy(step => step.Order)
+            .Select(step => new DayStep(step.Id, step.Title, string.Equals(step.Status, "done", StringComparison.OrdinalIgnoreCase)))
+    ];
+}

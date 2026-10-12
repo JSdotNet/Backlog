@@ -271,10 +271,21 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
-/* The two groups inside are separate controls, so they take more air between
+/* The groups inside are separate controls, so they take more air between
    them than the members within either one. */
 .app-header__nav {
     gap: var(--spacing-md);
+}
+
+/* The workspace's own controls — the Inbox toggle, the view switch and the Devbook
+   toggle — sit closer to each other than to the takeover groups: the side panes
+   open beside whichever view the switch shows, so the three read as one cluster. */
+.app-header__workspace {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-width: 0;
 }
 
 .app-header__status {
@@ -589,6 +600,50 @@ h1, h2, h3 {
    drifting to the right edge. */
 .filter-group--select {
     flex: 0 0 auto;
+}
+
+/* The Board's "Columns" picker: a lone select, first on the bar — the grouping
+   it shows says what the columns are, so no word stands beside it, and its name
+   is the select's aria-label. Pinned like Select, because it decides what
+   everything under the bar is. The select is drawn as a chip so it sits level
+   with the chips beside it. */
+.filter-group--columns {
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.board-columns {
+    display: inline-flex;
+}
+
+.board-columns__select {
+    font: inherit;
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    border: var(--border-width) solid var(--color-border);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    cursor: pointer;
+}
+
+.board-columns__select:hover {
+    border-color: var(--color-border-strong);
+}
+
+.board-columns__select:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* With the statuses off the bar — the Board by status — nothing carries the
+   acts after them to the right edge, so the first of those takes the margin
+   the status group's would have. */
+.filter-bar:not(:has(.filter-group--status)) .filter-group--arrange {
+    margin-left: auto;
 }
 
 /* Pinned against the pile, and free to wrap on a row of its own. It used to
@@ -2668,6 +2723,31 @@ h1, h2, h3 {
     margin-top: var(--spacing-lg);
 }
 
+/* A disconnected source that left tasks behind: who it was, how many tasks, and
+   its delete, on one line that wraps on a narrow window. */
+.task-connectors__disconnected {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.task-connectors__disconnected-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.task-connectors__disconnected-connector {
+    font-weight: var(--font-weight-semibold);
+}
+
+.task-connectors__disconnected-count {
+    margin-right: auto;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
 .setting__note {
     margin: var(--spacing-md) 0 0;
     font-size: var(--font-size-sm);
@@ -3004,22 +3084,19 @@ h1, h2, h3 {
 
 /* --- Header groups -------------------------------------------------------- */
 /*
-  Three of these sit in the header, and the shape each one takes is how many of
-  its options can be on at once. The base shape is fused — a single border
-  around the group, members flush inside it, hairlines between them — and it
-  says "any of these, together": the panes strip, where several panes share the
-  width, and the repository scope, where Ctrl takes a second repository. The
-  `--loose` modifiers below say "one of these": the takeover group, where at
-  most one takeover owns the screen. The takeover group used to share the
-  fused shape on the argument that every group here answers "what am I looking
-  at" and only the pressed state needs to carry the count — but the pressed
-  state is what a reader sees after pressing, and the shape is what they see
-  before.
+  The shape a group takes says how its options belong together. The base shape is
+  fused — a single border around the group, members flush inside it, hairlines
+  between them — and it says "these are siblings, read as one control": the
+  repository scope, where Ctrl takes a second repository; the view switch, where
+  exactly one view is always on; and the work in progress, Sessions and Pull
+  requests, one context's two lists. The pressed state, not the shape, says how
+  many are on. The `--loose` modifiers below say "related only by kind": the
+  Dashboard and Tools, two takeovers from two contexts.
 
-  A loose option can also stand entirely alone. The roadmap toggle is one: not
-  one of a set at all, a single on-or-off beside the panes strip, and it wears
-  `header-group__option--loose` with no group around it so it keeps the look of
-  navigation rather than of a utility.
+  A loose option can also stand entirely alone. The Inbox and Devbook toggles are
+  two: not one of a set at all, each a single on-or-off beside the view switch,
+  and each wears `header-group__option--loose` with no group around it so it
+  keeps the look of navigation rather than of a utility.
 
   `border-radius-md`, not the 999px this used to be: the layout guidance
   reserves the full radius for pills and avatars and asks interactive controls
@@ -3179,7 +3256,7 @@ h1, h2, h3 {
   border the base takes away, at the same specificity, so it has to come later
   in the sheet to win. It is the option's own modifier rather than a descendant
   rule of the loose group, because a loose option does not need a group at all —
-  the roadmap toggle wears it alone.
+  the Inbox and Devbook toggles wear it alone.
 */
 .header-group__option--loose {
     border: var(--border-width) solid var(--color-border);
@@ -3449,20 +3526,126 @@ h1, h2, h3 {
     min-width: 0;
 }
 
-/* The header's text and its actions side by side, the way the tools pane lays
-   its header out; the actions keep their width and the text takes the rest. */
+/* One line that wraps: the title with the queue's short health beside it, then
+   the capture field taking whatever the line leaves, then the pane's acts. */
 .inbox-pane__header {
     display: flex;
-    gap: var(--spacing-md);
-    align-items: flex-start;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
+    align-items: center;
+}
+
+.inbox-pane__heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
 }
 
 .inbox-pane__header-actions {
     display: flex;
-    flex: none;
+    flex: 1 1 32rem;
+    flex-wrap: wrap;
     gap: var(--spacing-xs);
     align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+}
+
+/* The capture field: a framed line with the plus at its start and the keys at
+   its end, the input itself borderless inside the frame. The frame takes the
+   focus ring, since the input inside it is what holds the focus. */
+.inbox-pane__capture {
+    display: flex;
+    flex: 1 1 20rem;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0 var(--spacing-xs) 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+}
+
+.inbox-pane__capture:focus-within {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.inbox-pane__capture-mark,
+.inbox-pane__icon {
+    flex: none;
+}
+
+.inbox-pane__capture-keys {
+    display: inline-flex;
+    flex: none;
+    gap: var(--spacing-2xs);
+}
+
+.inbox-pane__capture-field {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.inbox-pane__capture-input {
+    width: 100%;
+    min-width: 0;
+    padding: var(--spacing-xs) 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    outline: none;
+}
+
+.inbox-pane__capture-input::placeholder {
+    color: var(--color-text-secondary);
+}
+
+/* The notes under the field: the editor, then a line with the keys and the
+   two ways out. */
+.inbox-pane__capture-notes {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.inbox-pane__capture-notes-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.inbox-pane__capture-notes-foot > .inbox-pane__hint {
+    margin-right: auto;
+}
+
+/* The header's acts: an icon and its word on one line. */
+.inbox-pane__header-act {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+/* A key named inside a primary button wears the button's own ink rather
+   than the key's raised plate. */
+.inbox-pane__key.inbox-pane__key--on-primary {
+    border-color: currentColor;
+    background: transparent;
+    color: inherit;
+}
+
+/* Quiet small print: what a key does, beside the thing it does it to. */
+.inbox-pane__hint {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
 .inbox-pane__eyebrow,
@@ -3480,42 +3663,26 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-/* --- The Inbox's two tabs ------------------------------------------------ */
+/* --- The sources ------------------------------------------------------------ */
 /*
-   When the shell fills the sources slot the pane grows a tab strip, bare, so
-   the list and both panels are children of the pane's own flex column. Each
-   panel takes all the height the strip leaves: the queue as a column its body
-   or triage view grows into, the sources as a region that scrolls on its own.
-   The panel not chosen stays in the DOM, empty and hidden, and its display
-   rule would beat the hidden attribute without the rule after these two.
+   The header's Sources button swaps the pane's body for the sources the shell
+   put in the slot: a region that takes the whole height the header leaves and
+   scrolls on its own, with "Back to Inbox" over it.
 */
-.inbox-pane__queue {
+.inbox-pane__sources {
     display: flex;
     flex: 1 1 0;
     flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-}
-
-.inbox-pane__sources {
-    flex: 1 1 0;
+    gap: var(--spacing-sm);
     min-width: 0;
     min-height: 0;
     overflow-y: auto;
 }
 
-.inbox-pane__queue[hidden],
-.inbox-pane__sources[hidden] {
-    display: none;
-}
-
-.inbox-pane__tabs {
+.inbox-pane__sources-bar {
+    display: flex;
     flex: none;
-}
-
-.inbox-pane__add-form {
-    display: grid;
-    gap: var(--spacing-md);
+    align-items: center;
 }
 
 .inbox-pane__eyebrow {
@@ -3553,7 +3720,12 @@ h1, h2, h3 {
     min-height: var(--inbox-queue-min-height);
 }
 
+/* The side menu is a column: the lists at the top, queue health pushed to the
+   foot by its auto margin. */
 .inbox-pane__nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
     min-width: 0;
     min-height: 0;
     padding-right: var(--spacing-sm);
@@ -3593,37 +3765,79 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
-/* A chip is the library's toggle button wearing the pane's modifier: the mark,
-   the word, and the count as one unit. The pressed look is the toggle's own. */
-.inbox-pane__chip {
+/* A pill is the library's toggle button under the pane's own name: the word
+   and the count as one rounded unit, outlined at rest and filled in the
+   primary ink when pressed. "All" leads, and Select wears the ghost shape at
+   the end of the line. */
+.inbox-pane__pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.35em;
+    gap: 0.4em;
+    min-height: 2rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 
-.inbox-pane__chip-mark {
-    flex: none;
+.inbox-pane__pill:hover {
+    border-color: var(--color-text-secondary);
+    color: var(--color-text-primary);
+}
+
+.inbox-pane__pill:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.inbox-pane__pill--pressed,
+.inbox-pane__pill--pressed:hover {
+    border-color: var(--color-text-primary);
+    background: var(--color-text-primary);
+    color: var(--color-text-inverse);
+}
+
+.inbox-pane__pill--ghost {
+    border-color: transparent;
 }
 
 .inbox-pane__chip-count {
-    min-width: 1.4em;
-    padding: 0 var(--spacing-xs);
-    border-radius: var(--border-radius-full);
-    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
     font-variant-numeric: tabular-nums;
-    text-align: center;
 }
 
 /* --- Rows ---------------------------------------------------------------- */
 
 .inbox-pane__list {
     display: grid;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-2xs);
     margin: 0;
     padding: 0;
     list-style: none;
+}
+
+/* An age heading among the rows: small capitals in the secondary ink, the
+   count beside it in the ordinary weight. */
+.inbox-pane__group {
+    padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-2xs);
+}
+
+.inbox-pane__group-title {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.inbox-pane__group-total {
+    font-weight: normal;
+    letter-spacing: 0;
 }
 
 .inbox-pane__item {
@@ -3635,25 +3849,79 @@ h1, h2, h3 {
 
 /* --- Queue health -------------------------------------------------------- */
 
-/* One quiet line over the queue: a reading, not a toolbar, so muted text
-   and the stale chip as its only colour. */
+/* A framed reading at the foot of the side menu: the heading and the open
+   count, a bar in three parts, and a line per part. The parts are the primary
+   ink, a darker step of it, and the error ink for what has waited too long —
+   the one line that asks for attention is in the error text colour too. */
 .inbox-pane__health {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs) var(--spacing-sm);
-    font-size: var(--font-size-sm);
+    display: grid;
+    gap: var(--spacing-xs);
+    margin-top: auto;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
 }
 
-.inbox-pane__health-count {
+.inbox-pane__health-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pane__health-title {
+    margin: 0;
     color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
+}
+
+.inbox-pane__health-total {
+    font-variant-numeric: tabular-nums;
+}
+
+.inbox-pane__health-bar {
+    display: flex;
+    gap: var(--spacing-2xs);
+    height: 0.5rem;
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+}
+
+.inbox-pane__health-part {
+    flex-basis: 0;
+}
+
+.inbox-pane__health-part--fresh {
+    background: var(--color-primary);
+}
+
+.inbox-pane__health-part--aging {
+    background: var(--color-primary-dark);
+}
+
+.inbox-pane__health-part--over {
+    background: var(--color-error-text);
+}
+
+.inbox-pane__health-lines {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-pane__health-over {
+    color: var(--color-error-text);
 }
 
 /* --- Picking several ----------------------------------------------------- */
 
-/* The chips and the Select toggle on one wrapping line, the toggle pushed to
+/* The pills and the Select toggle on one wrapping line, the toggle pushed to
    the end so it does not read as one more kind. */
 .inbox-pane__toolbar {
     display: flex;
@@ -3663,7 +3931,8 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
-/* Triage and Select together at the end: two ways of working the rows. */
+/* Move list to backlog and Select together at the end: ways of working the
+   rows rather than a kind. */
 .inbox-pane__modes {
     display: flex;
     align-items: center;
@@ -3693,14 +3962,678 @@ h1, h2, h3 {
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
-.inbox-pane__triage-leave {
+/* Triage's own screen (InboxTriage.razor, artboard B): it scrolls as one,
+   inside the pane's column, so a long item never pushes the decisions out of
+   reach of the scrollbar. */
+.inbox-triage {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+.inbox-triage:focus {
+    outline: none;
+}
+
+/* The way back, the session's progress and the two steps, wrapping onto a
+   second line rather than squeezing the progress line. */
+.inbox-triage__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.inbox-triage__progress {
+    display: flex;
+    flex: 1 1 16rem;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.inbox-triage__progress-line {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-triage__slice {
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__position {
+    color: var(--color-text-secondary);
+}
+
+.inbox-triage__position strong {
+    color: var(--color-text-primary);
+}
+
+.inbox-triage__bar {
+    height: var(--spacing-2xs);
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+}
+
+.inbox-triage__bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-primary);
+}
+
+.inbox-triage__nav {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+/* The item and its acts beside Up next; the aside drops under the item when
+   the pane is too narrow for both. */
+.inbox-triage__main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+    min-width: 0;
+}
+
+.inbox-triage__body {
+    display: flex;
+    flex: 1 1 560px;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    max-width: 780px;
+}
+
+.inbox-triage__aside {
+    display: flex;
+    flex: 0 1 300px;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.inbox-triage__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-triage__kind {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__title {
+    margin: var(--spacing-xs) 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.inbox-triage__notes {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.inbox-triage__tags {
+    margin-top: var(--spacing-sm);
+}
+
+.inbox-triage__ai,
+.inbox-triage__repos,
+.inbox-triage__aside-part {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.inbox-triage__section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.inbox-triage__section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__section-hint {
+    color: var(--color-text-secondary);
+    font-weight: normal;
+}
+
+.inbox-triage__ai-icon {
+    color: var(--color-primary);
+}
+
+/* An AI card: the primary edge marks it as the model's, the label in its
+   heading says so in words (design-principles.md#ai-first-surfaces). */
+.inbox-triage__card {
+    border-color: var(--color-primary-dark);
+}
+
+.inbox-triage__card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-triage__card-title {
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__card-reason {
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-triage__sides,
+.inbox-triage__compare {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm) 0;
+}
+
+.inbox-triage__side,
+.inbox-triage__compare-side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.inbox-triage__side-label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: normal;
+}
+
+.inbox-triage__side-title {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.inbox-triage__side-note {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-triage__members {
+    margin: var(--spacing-xs) 0;
+    padding-left: var(--spacing-lg);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-triage__card-acts {
+    flex-wrap: wrap;
+}
+
+/* One box per repository, wrapping; the identity edge (`repo-mark`) sits on
+   the box's leading edge, so the padding leaves room for it. */
+.inbox-triage__repo-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.inbox-triage__repo {
+    min-height: var(--spacing-xl);
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.inbox-triage__ai-mark {
+    margin-left: var(--spacing-2xs);
+}
+
+.inbox-triage__footnote {
+    margin: 0;
+}
+
+/* The four decisions: large, one row where there is room and two or four
+   where there is not. */
+.inbox-triage__decisions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.inbox-triage__decision {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: var(--spacing-2xs);
+    height: auto;
+    min-height: 6rem;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-lg);
+    text-align: left;
+    white-space: normal;
+}
+
+.inbox-triage__decision-label {
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-triage__decision-hint {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+}
+
+.inbox-triage__next-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-triage__next {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.inbox-triage__next-title {
+    overflow-wrap: anywhere;
+}
+
+.inbox-triage__next-meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-triage__decided {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-triage__decided-line {
+    flex: 1 1 10rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--font-size-sm);
+}
+
+/* "Let AI propose the rest" sits at the end of triage's header line. */
+.inbox-triage__propose {
+    gap: var(--spacing-xs);
+}
+
+/* The AI triage pass under review (InboxTriagePass.razor, artboard D). It
+   takes triage's place in the pane's column and scrolls as one, like triage. */
+.inbox-pass {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* Back, what this is, the count and the two acts on one line where there is
+   room, wrapping under the title where there is not. */
+.inbox-pass__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.inbox-pass__heading-block {
+    display: flex;
+    flex: 1 1 20rem;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.inbox-pass__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    line-height: var(--line-height-tight);
+}
+
+.inbox-pass__subtitle,
+.inbox-pass__count {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pass__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+}
+
+.inbox-pass__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.inbox-pass__section-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-pass__section-sub {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: normal;
+}
+
+.inbox-pass__card .card__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.inbox-pass__card-head,
+.inbox-pass__repos-row,
+.inbox-pass__card-foot,
+.inbox-pass__rest-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+}
+
+.inbox-pass__plan-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pass__meta {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__tag {
+    font-family: var(--font-family-mono);
+    color: var(--color-text-primary);
+}
+
+/* The Accept toggle sits at the end of its line; on, it reads as accepted in
+   the success colours as well as in words and a tick. */
+.inbox-pass__card-head > .inbox-pass__accept,
+.inbox-pass__repos-row > .inbox-pass__edit {
     margin-left: auto;
 }
 
-.inbox-pane__triage > .inbox-pane__column--detail {
-    flex: 1 1 0;
-    min-height: 0;
-    overflow: auto;
+.inbox-pass__accept {
+    gap: var(--spacing-2xs);
+}
+
+.btn--toggle.inbox-pass__accept--on {
+    border-color: var(--color-success-text);
+    background: var(--color-success);
+    color: var(--color-text-primary);
+}
+
+/* Some of a row's proposals accepted and some not: the edge says "partly"
+   without claiming the accepted colours. */
+.btn--toggle.inbox-pass__accept--mixed {
+    border-style: dashed;
+    border-color: var(--color-success-text);
+    color: var(--color-text-primary);
+}
+
+.inbox-pass__tick {
+    color: var(--color-success-text);
+}
+
+.inbox-pass__members {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pass__editor {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.inbox-pass__member {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pass__member-title {
+    flex: 1 1 12rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.inbox-pass__member--left-out .inbox-pass__member-title {
+    color: var(--color-text-secondary);
+    text-decoration: line-through;
+}
+
+/* A repository chip: the identity edge (`repo-mark`) on its leading edge. */
+.inbox-pass__repo {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--spacing-lg);
+    padding: 0 var(--spacing-xs) 0 var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__repos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs);
+}
+
+.inbox-pass__why {
+    display: flex;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__card-foot > .inbox-pass__why {
+    margin-left: auto;
+}
+
+/* The two sides of a duplicate pair, side by side where there is room and
+   stacked where there is not. */
+.inbox-pass__sides {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pass__side {
+    display: flex;
+    flex: 1 1 14rem;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.inbox-pass__side--entry {
+    box-shadow: inset var(--border-width-4) 0 0 0 var(--color-primary);
+}
+
+.inbox-pass__side-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__side-title {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pass__arrow {
+    display: flex;
+    align-items: center;
+    color: var(--color-text-secondary);
+}
+
+.inbox-pass__choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs);
+}
+
+.inbox-pass__choice--on {
+    border-color: var(--color-success-text);
+    background: var(--color-success);
+    color: var(--color-text-primary);
+}
+
+/* The single routes: a table that keeps its columns and scrolls sideways in
+   its own box when the pane is narrower than they are. */
+.inbox-pass__table-box {
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+}
+
+.inbox-pass__table {
+    min-width: 640px;
+}
+
+.inbox-pass__row {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 2fr) 8rem;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pass__row--head {
+    border-top: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pass__cell-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.inbox-pass__row-title {
+    overflow: hidden;
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The rest: one line per list, one for the archives, one for what is left. */
+.inbox-pass__rest-row + .inbox-pass__rest-row {
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.inbox-pass__rest-text {
+    flex: 1 1 14rem;
+    min-width: 0;
+}
+
+.inbox-pass__rest-text--quiet,
+.inbox-pass__rest-reason {
+    color: var(--color-text-secondary);
+    font-style: normal;
+}
+
+.inbox-pass__shown {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-xs) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-pass__shown-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pass .btn:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /* The shortcuts dialog: the key in a fixed column, what it does beside it. */
@@ -3867,9 +4800,9 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
     width: 100%;
     padding: var(--spacing-sm);
-    border: var(--border-width) solid color-mix(in srgb, var(--color-text-disabled) 24%, transparent);
-    border-radius: var(--border-radius-sm);
-    background: color-mix(in srgb, var(--color-background) 40%, transparent);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    background: transparent;
     color: var(--color-text-primary);
     font: inherit;
     text-align: left;
@@ -3878,7 +4811,7 @@ h1, h2, h3 {
 }
 
 .inbox-pane__row:hover {
-    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    background: var(--color-background-raised);
 }
 
 .inbox-pane__row:focus-visible {
@@ -3889,45 +4822,72 @@ h1, h2, h3 {
 .inbox-pane__row--selected,
 .inbox-pane__row--selected:hover {
     border-color: var(--color-border-focus);
-    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    background: var(--color-background-raised);
     box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
-/* The kind: a mark and the word, one unit that never breaks apart. */
-.inbox-pane__kind {
+/* The kind's mark on a square tile at the row's start. */
+.inbox-pane__kind-tile {
     display: inline-flex;
+    flex: none;
     align-items: center;
-    gap: 0.3em;
-    padding-top: 0.1em;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
     color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    white-space: nowrap;
 }
 
 .inbox-pane__row-body {
     display: grid;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-2xs);
     min-width: 0;
 }
 
 .inbox-pane__row-title {
     font-weight: var(--font-weight-semibold);
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-/* The meta line: provenance, tags and targets, as one wrapping row of small
-   text. Quiet on purpose — provenance is read, not acted on, so nothing here
-   is filled. */
+/* "Article · Web clipper": what the thing is and where it came from, one line
+   of small text that clips rather than wraps. */
 .inbox-pane__row-meta {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    overflow: hidden;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+    white-space: nowrap;
 }
 
-.inbox-pane__source {
+.inbox-pane__kind,
+.inbox-pane__source,
+.inbox-pane__person {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The age, with the markers stacked under it at the row's end. */
+.inbox-pane__row-end {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--spacing-2xs);
+}
+
+/* "suggested": a tag-sized marker in the primary ink on a faint wash of it. */
+.inbox-pane__suggested {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    color: var(--color-primary-light);
     font-size: var(--font-size-xs);
 }
 
@@ -3961,12 +4921,184 @@ h1, h2, h3 {
     padding: var(--spacing-lg) var(--spacing-md);
 }
 
+/* --- Inbox zero ------------------------------------------------------------ */
+
+/* The session's summary in the rows' and the detail's place (artboard C): one
+   centred column, a reading width wide, that scrolls on its own like the
+   columns it replaces. */
+.inbox-zero {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    width: 100%;
+    max-width: 40rem;
+    min-width: 0;
+    min-height: 0;
+    justify-self: center;
+    padding: var(--spacing-xl) var(--spacing-md);
+    overflow: auto;
+}
+
+.inbox-zero__lead {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    text-align: center;
+}
+
+.inbox-zero__mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 4rem;
+    height: 4rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-success);
+    color: var(--color-success-text);
+}
+
+.inbox-zero__title {
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.inbox-zero__summary {
+    margin: 0;
+    max-width: 46ch;
+    color: var(--color-text-secondary);
+}
+
+/* The numbers: MetricGrid and MetricTile wearing this screen's classes, so the
+   tile is the library's while the figure sits over its words as the artboard
+   draws it. A wrapping row rather than the grid, so five fit one line and a
+   wrapped tile takes the width left. */
+.inbox-zero__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.inbox-zero__stat {
+    flex: 1 1 7rem;
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.inbox-zero__stat__label {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.inbox-zero__stat__value {
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    line-height: var(--line-height-tight);
+}
+
+.inbox-zero__back {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.inbox-zero__back-title {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+}
+
+.inbox-zero__back-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-zero__back-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.inbox-zero__back-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.inbox-zero__back-when {
+    flex: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.inbox-zero__acts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
 /* --- Detail -------------------------------------------------------------- */
+
+/* The detail column is a column of two: the article, which scrolls, and the
+   decisions bar under it, which does not. */
+.inbox-pane__column--detail {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+}
 
 .inbox-pane__detail {
     display: grid;
+    flex: 1 1 0;
+    align-content: start;
     gap: var(--spacing-md);
     min-width: 0;
+    min-height: 0;
+    padding-bottom: var(--spacing-md);
+    overflow: auto;
+}
+
+/* The four decisions, fixed at the foot of the detail, each naming its key. */
+.inbox-pane__decide {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) 0;
+    border-top: var(--border-width) solid var(--color-border);
+    background: var(--color-background-alt);
+}
+
+.inbox-pane__decide-hint {
+    margin-left: auto;
+}
+
+.inbox-pane__decide .inbox-pane__key {
+    margin-left: var(--spacing-2xs);
 }
 
 .inbox-pane__detail-header {
@@ -4139,6 +5271,12 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
 }
 
+/* A note edited in place: its title, its body and the two acts, stacked. */
+.inbox-pane__note-editor {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
 .inbox-pane__facts dd {
     margin: 0;
     color: var(--color-text-primary);
@@ -4200,11 +5338,73 @@ h1, h2, h3 {
     letter-spacing: 0.04em;
 }
 
-.inbox-pane__suggestion-chips {
+.inbox-pane__suggestions-head {
     display: flex;
     flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.inbox-pane__suggestion-list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* One suggestion: a framed row the reader takes by its number, the reason at
+   its end, and the × that turns it down beside it. */
+.inbox-pane__suggestion {
+    display: flex;
     align-items: center;
     gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.inbox-pane__suggestion-take {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.inbox-pane__suggestion-take:hover:not(:disabled) {
+    border-color: var(--color-primary);
+}
+
+.inbox-pane__suggestion-take:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.inbox-pane__suggestion-take--unavailable {
+    border-style: dashed;
+    color: var(--color-text-secondary);
+    cursor: default;
+}
+
+.inbox-pane__suggestion-text {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pane__suggestion-reason {
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-align: right;
 }
 
 /* Related: the items and tasks this one already has to do with, under the same
@@ -4313,6 +5513,36 @@ h1, h2, h3 {
         height: auto;
         max-height: 24rem;
         padding: 0;
+    }
+
+    /* Stacked, the detail has no height of its own to divide, so the column
+       scrolls whole and the article takes its natural height above the bar. */
+    .inbox-pane__column--detail {
+        overflow: auto;
+    }
+
+    .inbox-pane__detail {
+        flex: none;
+        overflow: visible;
+    }
+
+    /* The column scrolls whole, so the decisions hold to its foot by
+       sticking rather than by being outside what scrolls. */
+    .inbox-pane__decide {
+        position: sticky;
+        bottom: 0;
+    }
+
+    /* The side menu is a short strip here, and the header already says how
+       many wait and how old the oldest is. */
+    .inbox-pane__health {
+        display: none;
+    }
+
+    /* The field needs the width more than its keys need saying; the field
+       still names them to a screen reader through its description. */
+    .inbox-pane__capture-keys {
+        display: none;
     }
 }
 
@@ -4930,8 +6160,8 @@ h1, h2, h3 {
 }
 
 /* The workspace: the pane row, and nothing above it. The roadmap used to be a band
-   in a capped track over the panes; it is a takeover of its own now, so the
-   workspace has one row and it is the panes'. */
+   in a capped track over the panes, then a takeover; it is the workspace's main
+   view now, in the row's main column, so the workspace still has one row. */
 .workspace {
     display: grid;
     grid-template-rows: minmax(0, 1fr);
@@ -4941,7 +6171,7 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* A takeover: the Roadmap, Tools, the Dashboard or Sessions, filling everything below the header. The
+/* A takeover: Tools, the Dashboard, Sessions or Pull requests, filling everything below the header. The
    panel inside owns the scrollbar rather than this landmark, so the header — and
    the control that closes the surface — can never be scrolled out of reach. */
 .workspace-surface {
@@ -4962,10 +6192,37 @@ h1, h2, h3 {
     overflow: auto;
 }
 
-/* The roadmap takeover. The view fills the surface, and the chart inside it owns the
-   scrollbar, so the heading and the filters stay on screen while the rows scroll. */
-.workspace-surface > .roadmap-band {
+/* The Roadmap view, in the pane row's main column. The view fills the column, and
+   the chart inside it owns the scrollbar, so the heading and the filters stay on
+   screen while the rows scroll. */
+.roadmap-view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.roadmap-view > .roadmap-band {
     flex: 1 1 auto;
+}
+
+/* The In progress view, in the same column. Unlike the roadmap it scrolls as a
+   whole: its cards are a list, read top to bottom, with nothing to keep pinned. */
+.in-progress-view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.in-progress-view__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
 }
 
 .roadmap-band {
@@ -5725,44 +6982,242 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
-/* Productivity, sessions and cost. A section rather than three panels of tiles,
-   because the thing that separates them is not visual weight — it is that the
-   filter above drives one of them and cannot drive the others, and each folds
-   away under its own heading. */
-.dashboard-section {
+/* The sections as tabs. The wrapper takes the room the content used to take
+   directly, so the panels below the strip scroll while the strip stays put. */
+.dashboard-tabs {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    min-height: 0;
+}
+
+/* The tab list and the "Read as brief" link on one line, the link pushed to the
+   end. The list keeps the library's own underline; it wraps rather than scrolling
+   where the pane is narrow. */
+.dashboard-tabs__strip {
+    display: flex;
+    flex: none;
+    gap: var(--spacing-md);
+    align-items: center;
+    min-width: 0;
+}
+
+.dashboard-tabs__strip > .tabs__list {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.dashboard-tabs__brief {
+    flex: none;
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+/* The weekly brief, in place of the tabs: a column of blocks that scrolls under the
+   pane header, as the panels do. A block is its sentences beside its figure and bars;
+   where the pane is narrow the figure wraps under the sentences. */
+.dashboard-brief {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+.dashboard-brief__header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.dashboard-brief__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.dashboard-brief__eyebrow,
+.dashboard-brief-block__tag {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-brief__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+}
+
+/* Focus is moved here when the brief opens and between weeks, so a screen reader starts
+   at the heading; it is not a control, so it draws no ring. */
+.dashboard-brief__title:focus {
+    outline: none;
+}
+
+.dashboard-brief__nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.dashboard-brief__nav-link,
+.dashboard-brief-block__link {
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-brief-block {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+}
+
+.dashboard-brief-block__text {
+    display: flex;
+    flex: 999 1 26rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.dashboard-brief-block__headline {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.dashboard-brief-block__detail {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--color-text-secondary);
+}
+
+.dashboard-brief-block__figure {
+    display: flex;
+    flex: 1 1 22rem;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.dashboard-brief-block__value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-brief-block__unit {
+    font-family: var(--font-family-base);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 400;
+}
+
+.dashboard-brief-carry {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.dashboard-brief-carry__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.dashboard-brief-carry__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.dashboard-brief-carry__item-title {
+    margin-right: var(--spacing-xs);
+}
+
+.dashboard-brief-carry__item-detail {
+    color: var(--color-text-secondary);
+}
+
+.dashboard-brief-carry__skipped {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The Devbook tab's count of open drift issues, in the error tone the drift
+   part's own sync-failed badge wears: an open issue is something to act on. */
+.dashboard-tabs__badge {
+    display: inline-block;
+    min-width: 1.25rem;
+    margin-left: var(--spacing-xs);
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: var(--color-error);
+    color: var(--color-error-text);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+/* One tab's panel: the parts stacked. :not([hidden]) so a panel behind another
+   tab keeps the hidden attribute's display: none. */
+.dashboard-tab:not([hidden]) {
     display: grid;
     gap: var(--spacing-md);
     align-content: start;
     min-width: 0;
 }
 
-/* The heading is FoldControl's, wearing this name: the trigger inside it inherits
-   the heading face, so the title reads as a title with a chevron in front of it. */
+/* The heading face a dashboard section title wears where one is drawn as a fold
+   trigger - the storybook's FoldControl sample uses it. */
 .dashboard-section__title {
     margin: 0;
     font-family: var(--font-family-heading);
     font-size: var(--font-size-lg);
 }
 
-/* The fold's wrapper and its region take the stacking the section used to give
-   the parts directly. :not([hidden]) so a folded region keeps the library's
-   display: none — a bare .fold__region rule here would outrank it. */
-.dashboard-section__fold {
-    display: grid;
-    gap: var(--spacing-md);
-    min-width: 0;
-}
-
-.dashboard-section__fold .fold__region:not([hidden]) {
-    display: grid;
-    gap: var(--spacing-md);
-    min-width: 0;
-}
-
-/* A section's More fold: the same FoldControl a step in from the section, with a
-   quieter heading so it reads as the rest of the section rather than a section of its
-   own. After the rule above on purpose — the two region selectors are equally
-   specific, and a More region nested in a section region has to take this one. */
+/* A part's More fold - the sessions part keeps one: a FoldControl with a quieter
+   heading so it reads as the rest of the part rather than a section of its own. */
 .dashboard-section__more {
     display: grid;
     margin-top: var(--spacing-sm);
@@ -5795,6 +7250,118 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The sessions part's figures as one joined strip rather than six cards. Each tile
+   draws its own outline as a shadow and the gap is one border wide, so neighbours
+   share a single rule and a wrapped last row leaves its empty cells empty — a border
+   on the grid itself would fill them in. No clipping on the strip: a tile's hinted
+   footnote hangs below it and must not be cut off. */
+.dashboard-sessions__figures {
+    gap: var(--border-width);
+    padding: var(--border-width);
+}
+
+.dashboard-sessions__figures > .metric-tile {
+    border: 0;
+    border-radius: 0;
+    box-shadow: 0 0 0 var(--border-width) var(--color-border);
+}
+
+/* The hero figure keeps its left rule inside the strip: drawn as an inset shadow,
+   because the strip's own rule above takes the border away. */
+.dashboard-sessions__figures > .metric-tile--emphasis {
+    box-shadow:
+        inset var(--border-width-4) 0 0 var(--chart-series),
+        0 0 0 var(--border-width) var(--color-border);
+}
+
+/* The chart and the grid in a wide column, the longest sessions in a narrow one
+   beside them; the narrow one drops underneath where the part has no room for both.
+   Flex rather than a grid of fixed tracks, because the part's width is the panel's
+   and the panel's is the window's. */
+.dashboard-sessions__layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-sessions__main {
+    flex: 999 1 32rem;
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* A window with no week and no grid leaves the column empty; it takes no room then. */
+.dashboard-sessions__main:not(:has(*)) {
+    display: none;
+}
+
+.dashboard-sessions__longest {
+    flex: 1 1 18rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    min-width: 0;
+}
+
+.dashboard-sessions__longest-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+}
+
+/* A row reads title and time on the first line, what the session was on the second,
+   the bar under both — the ranking's own figures box is unwrapped so its two parts
+   can take a line each. */
+.dashboard-sessions__longest .metric-ranking__list {
+    gap: var(--spacing-sm);
+}
+
+.dashboard-sessions__longest .metric-ranking__item {
+    grid-template-areas:
+        "name value"
+        "detail detail"
+        "track track";
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.dashboard-sessions__longest .metric-ranking__name {
+    grid-area: name;
+    font-weight: 600;
+}
+
+.dashboard-sessions__longest .metric-ranking__figures {
+    display: contents;
+}
+
+.dashboard-sessions__longest .metric-ranking__value {
+    grid-area: value;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    text-align: right;
+}
+
+.dashboard-sessions__longest .metric-ranking__detail {
+    grid-area: detail;
+    overflow: hidden;
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-sessions__longest .metric-ranking__track {
+    grid-area: track;
+}
+
+.dashboard-sessions__all {
+    justify-self: start;
+}
+
 /* Two parts side by side where there is room for them, one above the other where
    there is not. auto-fit rather than a media query, because what decides this is
    the panel's own width and the panel is inside a takeover whose width is the
@@ -5804,6 +7371,358 @@ h1, h2, h3 {
     grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
     gap: var(--spacing-md);
     align-items: start;
+    min-width: 0;
+}
+
+/* The Productivity tab's middle row: the volume chart takes the room, the scores
+   keep their own width beside it, and the two stack where there is no room for both. */
+.dashboard-productivity__split {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-productivity__split > .dashboard-part--volume {
+    flex: 999 1 36rem;
+    min-width: 0;
+}
+
+.dashboard-productivity__split > .dashboard-part--score {
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+
+/* The Overview tab (the board's Main): five headline tiles across the top, then a
+   main column - throughput, the roadmap against its pace - and a side column - Needs
+   you, spend by model, hours worked. The columns are a wrapping flex row rather than a
+   media query, for the reason .dashboard-section__split gives: what decides it is the
+   panel's own width. Below room for both the side column wraps under the main one,
+   which at phone width is always. */
+.dashboard-overview__tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.dashboard-overview__columns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-overview__main {
+    flex: 999 1 36rem;
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.dashboard-overview__side {
+    flex: 1 1 20rem;
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* A headline tile: the part's card, the figure set large, and the chip and the
+   sparkline sharing the foot. */
+.dashboard-overview-tile {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    min-width: 0;
+}
+
+.dashboard-overview-tile__label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-tile__value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-overview-tile__unit {
+    font-family: var(--font-family-base);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 400;
+}
+
+.dashboard-overview-tile__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin-top: auto;
+    min-width: 0;
+}
+
+.dashboard-overview-tile__trend {
+    flex: 0 1 6rem;
+    min-width: 3rem;
+}
+
+/* The spend tile's figure: one line per provider, never a total. */
+.dashboard-overview-tile__lines {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-overview-tile__line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-overview-tile__line-name {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-tile__line-value {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-overview-tile__line-delta {
+    flex-basis: 100%;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* A chip on the Overview: a soft surface with primary text on it, like every other
+   state chip - the words say what moved or what is wrong, the tone only draws the eye.
+   Calm is the raised surface with secondary text, so it does not compete. */
+.dashboard-overview-chip {
+    display: inline-block;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+}
+
+.dashboard-overview-chip--good { background: var(--color-success); }
+.dashboard-overview-chip--warning { background: var(--color-warning); }
+.dashboard-overview-chip--drift { background: var(--color-error); }
+
+.dashboard-overview-chip--calm {
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+}
+
+/* Under the throughput bars: first review, came back after review, commits per
+   pull request - three figures on one line that wraps. */
+.dashboard-overview-figures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-lg);
+    margin: 0;
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-figures__item {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.dashboard-overview-figures__item > dt {
+    margin: 0;
+}
+
+.dashboard-overview-figures__item > dd {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-overview-figures__note {
+    color: var(--color-text-secondary);
+    font-weight: 400;
+}
+
+/* Roadmap against pace: one row per item - name and effort over the bar, the
+   outlook chip spanning both on the right. */
+.dashboard-overview-roadmap__summary,
+.dashboard-overview-hours__summary {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-roadmap__summary strong,
+.dashboard-overview-hours__summary strong {
+    color: var(--color-text-primary);
+}
+
+.dashboard-overview-roadmap__list {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-overview-roadmap__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-md);
+    min-width: 0;
+}
+
+.dashboard-overview-roadmap__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-overview-roadmap__effort {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+.dashboard-overview-roadmap__chip {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    justify-self: end;
+    white-space: nowrap;
+}
+
+.dashboard-overview-roadmap__track {
+    grid-column: 1 / span 2;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    overflow: hidden;
+}
+
+.dashboard-overview-roadmap__fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-primary);
+}
+
+.dashboard-overview-roadmap__fill--behind { background: var(--color-band-4); }
+.dashboard-overview-roadmap__fill--finished { background: var(--color-success); }
+
+/* Needs you: one card per item on its rule's surface, a dot for the eye and the
+   words for the meaning, the link to its tab under the detail. */
+.dashboard-overview-needs__list {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-overview-needs__item {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    min-width: 0;
+}
+
+.dashboard-overview-needs__item--drift { background: var(--color-error); }
+.dashboard-overview-needs__item--warning { background: var(--color-warning); }
+
+.dashboard-overview-needs__dot {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-top: 0.4rem;
+    border-radius: 50%;
+    background: var(--color-text-disabled);
+}
+
+.dashboard-overview-needs__item--drift .dashboard-overview-needs__dot { background: var(--color-error-text); }
+.dashboard-overview-needs__item--warning .dashboard-overview-needs__dot { background: var(--color-primary); }
+
+.dashboard-overview-needs__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.dashboard-overview-needs__detail {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-needs__link {
+    padding-inline: 0;
+}
+
+.dashboard-overview-needs__skipped {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-needs__skipped-title {
+    margin: 0;
+}
+
+.dashboard-overview-needs__skipped > ul {
+    margin: var(--spacing-2xs) 0 0;
+    padding-left: var(--spacing-md);
+}
+
+/* Rework after review: one grid of churn and sync tiles, the churn by repository
+   ranked beside it, stacking where there is no room for both. */
+.dashboard-rework {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-rework__tiles {
+    flex: 2 1 30rem;
+    min-width: 0;
+}
+
+.dashboard-rework__by-repository {
+    flex: 1 1 18rem;
     min-width: 0;
 }
 
@@ -5832,6 +7751,22 @@ h1, h2, h3 {
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* A control on the heading's line, pushed against refresh. A header that carries
+   one wraps, so at phone width the control drops under the title rather than
+   pushing the card wider than the pane. */
+.dashboard-part__header:has(.dashboard-part__actions) {
+    flex-wrap: wrap;
+}
+
+.dashboard-part__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-left: auto;
     min-width: 0;
 }
 
@@ -5876,6 +7811,52 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* A Cost tab provider card: the tile with its budget meter in the trend slot and
+   the chip in the corner the label line leaves free. The chip is a soft surface
+   with primary text on it, like every other state chip — the words say whether the
+   projection passes the budget, the tint only draws the eye to the one that does. */
+.dashboard-spend-card {
+    position: relative;
+}
+
+.dashboard-spend-card__chip {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* The tile's own value and unit already read "spent of budget", so the meter's
+   printed reading would say it twice. The track keeps it as its aria-valuetext. */
+.dashboard-spend-card .metric-meter__heading {
+    display: none;
+}
+
+/* The label line makes room for the chip, so a long provider name in a narrow
+   column wraps instead of running under it. */
+.dashboard-spend-card:has(.dashboard-spend-card__chip) .metric-tile__label {
+    padding-right: 8.5rem;
+}
+
+.dashboard-spend-card__chip--over {
+    background: var(--color-warning);
+}
+
+.dashboard-spend-card__chip--within {
+    background: var(--color-success);
+}
+
+/* The Cumulative / Per day switch sits at the start of the part, above the chart
+   it switches, and does not stretch across it. */
+.dashboard-spend-trend__mode {
+    justify-self: start;
+}
+
 /* Drift at a glance. The repository after a unit only when the units come from more
    than one, quieter than the unit it qualifies; a unit whose drift issue carries
    sync-failed keeps its row and says so with the badge, the tint only draws the eye. */
@@ -5885,6 +7866,318 @@ h1, h2, h3 {
 
 .dashboard-drift__unit--failed > td {
     background: color-mix(in srgb, var(--color-error) 12%, transparent);
+}
+
+/* The last verdict per unit as one stacked bar, the legend under it carrying the
+   counts. Each verdict keeps the tone its badge wears (components.css,
+   .badge--sync-verdict-*) except spec-ahead, which takes info so the two "ahead"
+   verdicts stay apart in a bar where a badge's word is not there to tell them. */
+.dashboard-drift__verdicts {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-drift__verdict-track {
+    display: flex;
+    gap: 2px;
+    height: 1rem;
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+}
+
+.dashboard-drift__verdict-segment {
+    flex: 0 1 0;
+    min-width: 2px;
+}
+
+.dashboard-drift__verdict--aligned { background: var(--color-success); }
+.dashboard-drift__verdict--code-ahead { background: var(--color-warning); }
+.dashboard-drift__verdict--spec-ahead { background: var(--color-info); }
+.dashboard-drift__verdict--conflict { background: var(--color-error); }
+.dashboard-drift__verdict--unresolved { background: var(--color-text-disabled); }
+.dashboard-drift__verdict--unknown { background: var(--color-border-strong); }
+
+.dashboard-drift__verdict-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-drift__verdict-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.dashboard-drift__verdict-swatch {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: var(--border-radius-sm);
+}
+
+.dashboard-drift__verdict-count {
+    font-variant-numeric: tabular-nums;
+}
+
+/* The units beside the open issues where the part is wide enough, the issues under
+   them where it is not - flex rather than a grid so the units take the room. */
+.dashboard-drift__body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-drift__units {
+    flex: 999 1 32rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-drift__units-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+}
+
+.dashboard-drift__heading {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.dashboard-drift__aligned-note {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* A link's look on a button: it changes what the table shows, it goes nowhere. */
+.dashboard-drift__show-all {
+    margin-left: var(--spacing-xs);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.dashboard-drift__issues {
+    flex: 1 1 18rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    min-width: 0;
+}
+
+.dashboard-drift__issues-empty-text {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.dashboard-drift__issue-list {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-drift__issue {
+    display: grid;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    overflow-wrap: anywhere;
+    min-width: 0;
+}
+
+.dashboard-drift__issue--failed {
+    background: color-mix(in srgb, var(--color-error) 12%, var(--color-background-raised));
+}
+
+.dashboard-drift__issue-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* The roadmap part's timeline: a column of item names, then one column per week of
+   the window, and a bar per item spanning the weeks it runs in. The columns are one
+   template shared by the axis and every row, so the weeks line up down the grid
+   without the rows being one table. The grid keeps a floor width per week and the
+   wrapper scrolls sideways, so at a narrow width the weeks stay readable and the
+   card does not widen the pane. */
+.dashboard-timeline {
+    container-type: inline-size;
+    --dashboard-timeline-label: 14rem;
+    --dashboard-timeline-week: 3rem;
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-timeline__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.dashboard-timeline__key {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.dashboard-timeline__swatch {
+    width: 0.875rem;
+    height: 0.625rem;
+    border-radius: var(--border-radius-sm);
+}
+
+.dashboard-timeline__swatch--done { background: var(--color-primary); }
+.dashboard-timeline__swatch--planned { background: color-mix(in srgb, var(--color-primary) 28%, transparent); }
+.dashboard-timeline__swatch--behind { background: var(--color-band-4); }
+.dashboard-timeline__swatch--finished { background: var(--color-success-text); }
+
+.dashboard-timeline__scroll {
+    overflow-x: auto;
+    min-width: 0;
+}
+
+/* A narrow card gives the names less room, since they stay put while the weeks
+   scroll: at full width they would leave a phone a sliver of timeline to scroll. */
+@container (max-width: 36rem) {
+    .dashboard-timeline__scroll {
+        --dashboard-timeline-label: 8.5rem;
+    }
+}
+
+.dashboard-timeline__grid {
+    min-width: calc(var(--dashboard-timeline-label) + var(--dashboard-timeline-weeks, 1) * var(--dashboard-timeline-week));
+}
+
+.dashboard-timeline__rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-timeline__row {
+    display: grid;
+    grid-template-columns: var(--dashboard-timeline-label) repeat(var(--dashboard-timeline-weeks, 1), minmax(var(--dashboard-timeline-week), 1fr));
+    align-items: center;
+    min-height: 3.25rem;
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.dashboard-timeline__axis {
+    min-height: 0;
+    padding-bottom: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.dashboard-timeline__week {
+    padding-left: var(--spacing-xs);
+    border-left: var(--border-width) solid var(--color-border);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The names stay put while the weeks scroll under them, so a bar scrolled into view
+   at a narrow width still says which item it is. The card's own background, so a bar
+   passing beneath does not show through. */
+.dashboard-timeline__corner {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--color-background-alt);
+}
+
+.dashboard-timeline__item {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    display: grid;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: stretch;
+    align-content: center;
+    min-width: 0;
+    padding-right: var(--spacing-sm);
+    background: var(--color-background-alt);
+}
+
+.dashboard-timeline__name {
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-timeline__progress {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The bar is the planned stretch in a faint wash of its tone, the fill the share of
+   its effort that is done in the tone itself. A bar cut off by the window loses the
+   rounding on that end, so a clipped bar does not read as one that starts or ends
+   there. */
+.dashboard-timeline__bar {
+    --dashboard-timeline-tone: var(--color-primary);
+    grid-row: 1;
+    height: 1.375rem;
+    margin: 0 2px;
+    overflow: hidden;
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--dashboard-timeline-tone) 28%, transparent);
+}
+
+/* A late bar is outlined in its tone as well: with nothing done it has no fill, and
+   the faint wash alone reads as a planned bar on the dark theme. */
+.dashboard-timeline__bar--behind {
+    --dashboard-timeline-tone: var(--color-band-4);
+    box-shadow: inset 0 0 0 calc(var(--border-width) * 2) var(--dashboard-timeline-tone);
+}
+
+.dashboard-timeline__bar--finished { --dashboard-timeline-tone: var(--color-success-text); }
+
+.dashboard-timeline__bar--clipped-start {
+    margin-left: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.dashboard-timeline__bar--clipped-end {
+    margin-right: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.dashboard-timeline__fill {
+    display: block;
+    height: 100%;
+    background: var(--dashboard-timeline-tone);
 }
 
 /* The sessions takeover. The same frame as the dashboard's — a takeover is a
@@ -6617,6 +8910,12 @@ h1, h2, h3 {
     border-color: var(--color-border-strong);
     background: var(--color-background-raised);
     box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+/* The pull request a card opened the list on: the accent rule down its leading
+   edge, the way the session list marks the session a task opened it on. */
+.pull-requests-row[data-focused="true"] {
+    box-shadow: inset 3px 0 0 var(--color-primary), inset 0 0 0 var(--border-width) var(--color-border-strong);
 }
 
 /* A stack is a tree in the list: each pull request indents one step per level
@@ -7485,27 +9784,6 @@ a.pull-request-detail-checks__name:hover {
     min-height: 0;
 }
 
-.side-pane-stack > .inbox-pane {
-    flex: 0 1 auto;
-    overflow: auto;
-}
-
-.side-pane-stack--full {
-    position: static;
-    top: auto;
-    max-height: none;
-    overflow: auto;
-}
-
-/* The inbox on its own — the backlog hidden — is the whole row, and the stack
-   it sits in is already stretched to that row. The pane grows to fill it for
-   the reason the sticky variant above stretches: a pane sized by a short queue
-   left the rest of the window empty and its detail column with no room for a
-   picker's popup. With another pane in the stack the inbox keeps its content
-   height and shares the column, as before. */
-.side-pane-stack--full > .inbox-pane {
-    flex: 1 1 auto;
-}
 
 /* A column, so the split inside it inherits the height instead of measuring its
    own contents. The split asks for `flex: 1 1 auto` and this box is where that

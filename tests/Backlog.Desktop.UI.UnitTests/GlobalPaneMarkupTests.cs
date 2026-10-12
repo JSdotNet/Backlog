@@ -3,93 +3,71 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class GlobalPaneMarkupTests
 {
     [Fact]
-    public void Home_shell_exposes_global_pane_multiselect_and_sections()
+    public void Home_shell_exposes_the_view_switch_and_the_side_pane_toggles()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        // The strip is the shared ButtonGroup, so its test id and its label reach
-        // the DOM through the component's TestId and AriaLabel parameters rather
-        // than as literal attributes — the same convention the update dialog and
-        // the pane options below already follow.
-        Assert.Contains("TestId=\"global-pane-multiselect\"", home, StringComparison.Ordinal);
+        // The view switch is the shared ButtonGroup, so its test id and its label
+        // reach the DOM through the component's TestId and AriaLabel parameters
+        // rather than as literal attributes.
+        Assert.Contains("TestId=\"view-switch\"", home, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"View\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"tasks-view-option\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"roadmap-view-option\"", home, StringComparison.Ordinal);
 
-        // "Panes", because that is all the strip holds now. It used to be
-        // "Sections" while the roadmap band's option sat first in it; the band is a
-        // row above the panes rather than one of them, and its toggle stands on its
-        // own beside the strip — see below.
-        Assert.Contains("AriaLabel=\"Visible panes\"", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("Visible sections", home, StringComparison.Ordinal);
-
-        // The three pane options are the shared ToggleButton, so their test ids
-        // reach the DOM through its TestId parameter rather than literal attributes.
+        // The side panes are two toggles, and the task list is no longer one of them:
+        // the pane strip, its label and the Tasks option are gone.
         Assert.Contains("TestId=\"inbox-pane-option\"", home, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"backlog-pane-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"devbook-pane-option\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("backlog-pane-option", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("global-pane-multiselect", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("Visible panes", home, StringComparison.Ordinal);
 
-        // The roadmap is a surface, not a pane: its option is in the takeover
-        // group, after the panes strip, and its test id does not end in
-        // -pane-option, so the selector the strip's tests use keeps matching the
-        // three panes and nothing else.
-        Assert.Contains("TestId=\"roadmap-toggle-button\"", home, StringComparison.Ordinal);
+        // The roadmap is a view, not a takeover: no surface landmark of its own, and
+        // no takeover toggle.
+        Assert.DoesNotContain("roadmap-toggle-button", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("roadmap-surface", home, StringComparison.Ordinal);
         Assert.DoesNotContain("roadmap-pane-option", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("roadmap-band-toggle", home, StringComparison.Ordinal);
-        Assert.True(
-            home.IndexOf("TestId=\"roadmap-toggle-button\"", StringComparison.Ordinal)
-            > home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal),
-            "The Roadmap option is in the takeover group, after the panes strip.");
 
-        // Each pane carries its own landmark id from its own folder; the shell
-        // only points the multiselect's aria-controls at them. The roadmap's
-        // option points at the surface landmark the shell draws around it.
+        // Each view and pane carries its own landmark id; the shell only points the
+        // options' aria-controls at them.
         Assert.Contains("id=\"inbox-pane\"", NormalizeLineEndings(File.ReadAllText(FindInboxPane())), StringComparison.Ordinal);
         Assert.Contains("id=\"backlog-pane\"", NormalizeLineEndings(File.ReadAllText(FindTasksPane())), StringComparison.Ordinal);
         Assert.Contains("id=\"repository-devbook-pane\"", NormalizeLineEndings(File.ReadAllText(FindDevbookPane())), StringComparison.Ordinal);
-        Assert.Contains("aria-controls=\"roadmap-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("id=\"roadmap-surface\"", home, StringComparison.Ordinal);
+        Assert.Contains("aria-controls=\"backlog-pane\"", home, StringComparison.Ordinal);
+        Assert.Contains("aria-controls=\"roadmap-view\"", home, StringComparison.Ordinal);
+        Assert.Contains("id=\"roadmap-view\"", home, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// The takeovers are one segmented control, because <c>WorkspaceSurface</c> is
-    /// one field with one state at a time. They used to be independent
-    /// <c>AppButton</c> disclosures carrying <c>aria-expanded</c>, which described
-    /// neither their exclusivity nor the fact that a takeover replaces the workspace
-    /// instead of expanding beside it. Pressed states describe both.
-    /// <para>
-    /// The way back is the pane strip, which leads the nav: a "Workspace" segment
-    /// used to head this group, and it is gone. Every takeover is named here rather
-    /// than counted, so adding one to the header without adding it to the group
-    /// cannot pass, and their order is pinned — Roadmap first, because it is the
-    /// Tasks pane's plan and sits right after the strip.
-    /// </para>
+    /// The nav, left to right, as the design draws it: the Inbox toggle, the view
+    /// switch, the Devbook toggle, the work in progress, and the other takeovers.
+    /// Every takeover is named here rather than counted, so adding one to the header
+    /// without adding it to a group cannot pass. They are pressed states, not
+    /// disclosures: <c>WorkspaceSurface</c> is one field with one state at a time.
     /// </summary>
     [Fact]
-    public void The_takeovers_are_one_segmented_group_and_the_panes_are_the_way_back()
+    public void The_nav_orders_the_workspace_controls_then_the_takeover_groups()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("TestId=\"workspace-surface-switcher\"", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("workspace-surface-option", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("PressedChanged=\"CloseSurface\"", home, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"tools-toggle-button\"", home, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"dashboard-toggle-button\"", home, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"roadmap-toggle-button\"", home, StringComparison.Ordinal);
-
-        // Sessions is a segment of its own again, not a tab of the Dashboard.
-        Assert.Contains("TestId=\"sessions-toggle-button\"", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("ListTestId=\"dashboard-tabs\"", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("TabTestId=\"dashboard-sessions-tab\"", home, StringComparison.Ordinal);
-
-        // The pane strip leads the nav, then the takeovers: Roadmap, Dashboard,
-        // Sessions, Pull requests, Tools.
         var order = new[]
         {
-            "TestId=\"global-pane-multiselect\"",
-            "TestId=\"workspace-surface-switcher\"",
-            "TestId=\"roadmap-toggle-button\"",
-            "TestId=\"dashboard-toggle-button\"",
+            "<nav class=\"app-header__nav\"",
+            "TestId=\"inbox-pane-option\"",
+            "TestId=\"view-switch\"",
+            "TestId=\"tasks-view-option\"",
+            "TestId=\"board-view-option\"",
+            "TestId=\"calendar-view-option\"",
+            "TestId=\"roadmap-view-option\"",
+            "TestId=\"devbook-pane-option\"",
+            "TestId=\"work-in-progress-switcher\"",
             "TestId=\"sessions-toggle-button\"",
             "TestId=\"pull-requests-toggle-button\"",
+            "TestId=\"workspace-surface-switcher\"",
+            "TestId=\"dashboard-toggle-button\"",
             "TestId=\"tools-toggle-button\"",
+            "</nav>",
         };
         for (var i = 1; i < order.Length; i++)
         {
@@ -98,93 +76,78 @@ public sealed class GlobalPaneMarkupTests
                 $"{order[i - 1]} comes before {order[i]}.");
         }
 
+        Assert.DoesNotContain("workspace-surface-option", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("PressedChanged=\"CloseSurface\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("ListTestId=\"dashboard-tabs\"", home, StringComparison.Ordinal);
+
         // A selection, not a disclosure. Only Ask AI keeps aria-expanded, because
         // only its panel opens beside the content rather than replacing it.
         Assert.Contains("PressedChanged=\"ToggleTools\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"ToggleDashboard\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"ToggleSessions\"", home, StringComparison.Ordinal);
-        Assert.Contains("PressedChanged=\"ToggleRoadmap\"", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("aria-expanded=\"@(ToolsVisible", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("aria-expanded=\"@(DashboardVisible", home, StringComparison.Ordinal);
-        // Written out, not bound to the bool: Blazor renders a true bool attribute
-        // as `aria-expanded=""` and drops it when false, and aria-expanded accepts
-        // neither.
+        Assert.Contains("PressedChanged=\"TogglePullRequests\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToggleRoadmap", home, StringComparison.Ordinal);
         Assert.Contains("aria-expanded=\"@(_aiExpanded ? \"true\" : \"false\")\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-expanded=\"@_aiExpanded\"", home, StringComparison.Ordinal);
 
-        // The group renders only when some takeover is offered.
+        // Each takeover group renders only when one of its takeovers is offered; the
+        // view switch always renders, because it is the way back from a takeover.
         Assert.Contains("@if (SurfaceSwitcherVisible)", home, StringComparison.Ordinal);
-
-        // The workspace main keeps its landmark id.
-        Assert.Contains("id=\"workspace\"", home, StringComparison.Ordinal);
-
-        // The pane strip renders whatever surface is up, because during a takeover
-        // it is the way back: nothing gates it between the nav's opening and it.
+        Assert.Contains("@if (SessionsOffered || PullRequestsOffered)", home, StringComparison.Ordinal);
         var nav = home.IndexOf("<nav class=\"app-header__nav\"", StringComparison.Ordinal);
-        var strip = home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal);
-        Assert.DoesNotContain("@if", home[nav..strip], StringComparison.Ordinal);
+        var viewSwitch = home.IndexOf("TestId=\"view-switch\"", StringComparison.Ordinal);
+        var inboxGuard = home.IndexOf("@if (InboxPaneOptionVisible)", nav, StringComparison.Ordinal);
+        Assert.DoesNotContain("@if", home[(home.IndexOf('}', inboxGuard) + 1)..viewSwitch], StringComparison.Ordinal);
 
-        // During a takeover no option reads pressed and none refuses the press.
+        // During a takeover no option reads pressed.
         Assert.Contains(
             "private bool PaneOptionPressed(GlobalPane pane) => WorkspaceVisible && _globalPanes.IsEnabled(pane);",
             home,
             StringComparison.Ordinal);
-        Assert.Contains("return WorkspaceVisible && !_globalPanes.CanDisable(pane);", home, StringComparison.Ordinal);
+        Assert.Contains(
+            "private bool ViewOptionPressed(ShellView view) => WorkspaceVisible && EffectiveView == view;",
+            home,
+            StringComparison.Ordinal);
+
+        Assert.Contains("id=\"workspace\"", home, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// The shape of a header group says how many of its options can be on at once:
-    /// members fused inside one border where several can (the repository scope with
-    /// Ctrl held, the sections strip), standalone controls with a gap between them
-    /// where exactly one can (the surface switcher). It used to be the other way
-    /// round for two of the three — the scope was loose chips and the surfaces were
-    /// fused — so a reader had to press to find out which kind of control they were
-    /// holding. The markup carries the modifier and the stylesheet keys on it, so both
-    /// halves are pinned here.
+    /// The shape of a header group says how its options belong together: fused where
+    /// they are siblings read as one control — the repository scope, the view switch,
+    /// and the work in progress — loose where they are related only by kind, the
+    /// Dashboard and Tools. The Inbox and Devbook toggles stand alone, each wearing
+    /// the loose option shape with no group around it. The markup carries the
+    /// modifier and the stylesheet keys on it, so both halves are pinned here.
     /// </summary>
     [Fact]
-    public void A_header_groups_shape_says_how_many_options_it_takes()
+    public void A_header_groups_shape_says_how_its_options_belong_together()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        // The scope is the shared ButtonGroup wearing the fused shape, not a div of
-        // its own: several repositories can be scoped at once, so its chips touch.
         Assert.Contains(
             "<ButtonGroup CssClass=\"header-group app-header__repository-scope\"",
             home,
             StringComparison.Ordinal);
         Assert.DoesNotContain("<div class=\"app-header__repository-scope\"", home, StringComparison.Ordinal);
 
-        // Exactly one surface at a time, so its options stand apart.
+        Assert.Contains("<ButtonGroup CssClass=\"header-group header-group--views\"", home, StringComparison.Ordinal);
+        Assert.Contains("<ButtonGroup CssClass=\"header-group header-group--work\"", home, StringComparison.Ordinal);
         Assert.Contains(
             "<ButtonGroup CssClass=\"header-group header-group--loose header-group--surface\"",
             home,
             StringComparison.Ordinal);
+        Assert.DoesNotContain("header-group--panes", home, StringComparison.Ordinal);
 
-        // Any number of panes at once, so the strip stays fused.
-        Assert.Contains(
-            "<ButtonGroup CssClass=\"header-group header-group--panes\"",
-            home,
-            StringComparison.Ordinal);
+        // Two standalone toggles and the two loose takeovers wear the loose option.
+        Assert.Equal(4, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
 
-        // The roadmap is one surface among the others, so its option wears the
-        // loose shape inside the surface group rather than standing alone.
-        Assert.Contains(
-            "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\"",
-            home,
-            StringComparison.Ordinal);
-        Assert.True(
-            home.IndexOf("TestId=\"roadmap-toggle-button\"", StringComparison.Ordinal)
-            > home.IndexOf("<ButtonGroup CssClass=\"header-group header-group--panes\"", StringComparison.Ordinal)
-            && home.IndexOf("TestId=\"roadmap-toggle-button\"", StringComparison.Ordinal)
-            > home.IndexOf("TestId=\"workspace-surface-switcher\"", StringComparison.Ordinal),
-            "The roadmap option renders inside the takeover group, after the panes strip.");
+        // The workspace's own three controls are one cluster, closer together than
+        // the groups around them.
+        Assert.Contains("<div class=\"app-header__workspace\" data-testid=\"workspace-navigation\">", home, StringComparison.Ordinal);
+        Assert.Contains("gap: var(--spacing-xs);", RuleFor(css, ".app-header__workspace {"), StringComparison.Ordinal);
 
-        // The loose modifier takes the group's own border and fill away and spaces
-        // the members out; each member, loose in its own right, then draws the
-        // border the group gave up. The option's modifier is its own rather than a
-        // descendant rule, so an option could wear it with no group at all.
         var loose = RuleFor(css, ".header-group--loose {");
         Assert.Contains("border: 0;", loose, StringComparison.Ordinal);
         Assert.Contains("background: transparent;", loose, StringComparison.Ordinal);
@@ -195,18 +158,11 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("border-radius: var(--border-radius-md);", looseOption, StringComparison.Ordinal);
         Assert.DoesNotContain(".header-group--loose > .header-group__option", css, StringComparison.Ordinal);
 
-        // A standalone option carries its selection on its own edge, the way the
-        // library's pressed toggle does, because there is no strip for an underline
-        // to run along.
         Assert.Contains(
             "border-color: var(--color-primary);",
             RuleFor(css, ".header-group__option--loose.header-group__option--selected {"),
             StringComparison.Ordinal);
 
-        // The fused scope chips give up the border and radius a loose chip draws, and
-        // keep only a hairline between neighbours. The active fill, the identity edge
-        // and the anchor underline are untouched: those rules still key on the chip
-        // classes the buttons keep wearing.
         var fusedChip = RuleFor(css, ".app-header__repository-scope > .chip {");
         Assert.Contains("border: 0;", fusedChip, StringComparison.Ordinal);
         Assert.Contains("border-radius: var(--border-radius-none);", fusedChip, StringComparison.Ordinal);
@@ -220,7 +176,7 @@ public sealed class GlobalPaneMarkupTests
     /// <summary>
     /// Navigation and cross-cutting concerns are separate regions of the header, not
     /// one row of interchangeable pills. This pins the four regions and the fact
-    /// that only the two navigation groups live inside the nav landmark.
+    /// that only the navigation groups live inside the nav landmark.
     /// </summary>
     [Fact]
     public void The_header_separates_navigation_from_the_cross_cutting_utilities()
@@ -236,36 +192,22 @@ public sealed class GlobalPaneMarkupTests
         var status = home.IndexOf("class=\"app-header__status\"", StringComparison.Ordinal);
         var utilities = home.IndexOf("class=\"app-header__utilities\"", StringComparison.Ordinal);
 
-        // Reading order: what you are looking at, how it is doing, then the things
-        // that are not about it at all.
         Assert.True(nav < status && status < utilities);
 
-        // Both navigation groups are inside the landmark; the utilities are not.
-        Assert.InRange(home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal), nav, status);
+        Assert.InRange(home.IndexOf("TestId=\"view-switch\"", StringComparison.Ordinal), nav, status);
+        Assert.InRange(home.IndexOf("TestId=\"work-in-progress-switcher\"", StringComparison.Ordinal), nav, status);
         Assert.InRange(home.IndexOf("TestId=\"workspace-surface-switcher\"", StringComparison.Ordinal), nav, status);
 
-        // Two utilities are left, and they are the two that are about this screen:
-        // Ask AI opens a panel beside its content, and settings is where this
-        // screen's own configuration lives. The feedback trigger and the version
-        // control were neither — they are true app-shell concerns, so they moved to
-        // the footer MainLayout mounts once for every route.
         Assert.True(home.IndexOf("TestId=\"ai-toggle-button\"", StringComparison.Ordinal) > utilities);
         Assert.True(home.IndexOf("data-testid=\"settings-link\"", StringComparison.Ordinal) > utilities);
-
-        // Ask AI leads, and settings closes the header.
         Assert.True(
             home.IndexOf("TestId=\"ai-toggle-button\"", StringComparison.Ordinal)
             < home.IndexOf("data-testid=\"settings-link\"", StringComparison.Ordinal),
             "Settings is the last control in the header.");
 
-        // Neither of the two that left may come back here. A second mount would
-        // give the reader two "Report issue" buttons and two version controls the
-        // moment the footer is on screen, which it now always is.
         Assert.DoesNotContain("<FeedbackReportButton", home, StringComparison.Ordinal);
         Assert.DoesNotContain("TestId=\"app-version\"", home, StringComparison.Ordinal);
 
-        // The pill row is gone: no interactive control in the header is a 999px
-        // pill any more, and the classes that drew them went with it.
         Assert.DoesNotContain("\"pane-multiselect", home, StringComparison.Ordinal);
         Assert.DoesNotContain("pane-multiselect__option", home, StringComparison.Ordinal);
         Assert.DoesNotContain("header-tool-toggle", home, StringComparison.Ordinal);
@@ -273,37 +215,35 @@ public sealed class GlobalPaneMarkupTests
 
     /// <summary>
     /// The roadmap's option is gated on its feature the way the Inbox option is, and
-    /// it is a surface rather than a pane: it carries no <c>Disabled</c> binding,
-    /// because <c>PaneToggleDisabled</c> exists for the three panes' viewport-driven
-    /// capacity rule, and it is not a <c>GlobalPane</c>, whose selection would let
-    /// window width evict it. It lives in <c>WorkspaceSurface</c> beside Tools and the
-    /// Dashboard, which is what keeps it from ever sharing the screen with the task
-    /// list.
+    /// it is a view, not a takeover and not a pane: it lives in <c>ShellView</c> beside
+    /// Tasks. <c>WorkspaceSurface.Roadmap</c> stays only as a stored name an older file
+    /// may hold, and nothing assigns it.
     /// </summary>
     [Fact]
-    public void Roadmap_option_is_feature_gated_and_is_a_surface_not_a_pane()
+    public void Roadmap_option_is_feature_gated_and_is_a_view_not_a_takeover()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
         var surface = NormalizeLineEndings(File.ReadAllText(FindWorkspaceSurface()));
 
-        Assert.Contains("@if (RoadmapPaneOptionVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("RoadmapFeatures.Roadmap", home, StringComparison.Ordinal);
+        Assert.Contains("@if (RoadmapViewOffered)", home, StringComparison.Ordinal);
+        Assert.Contains("private bool RoadmapViewOffered => IsFeatureEnabled(RoadmapFeatures.Roadmap);", home, StringComparison.Ordinal);
         Assert.Contains(
-            "private bool RoadmapVisible => _surface == WorkspaceSurface.Roadmap && RoadmapPaneOptionVisible;",
+            "private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible;",
             home,
             StringComparison.Ordinal);
         Assert.Contains(
-            "private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !RoadmapVisible;",
+            "ShellView.Roadmap when !RoadmapViewOffered => ShellView.Tasks,",
             home,
             StringComparison.Ordinal);
-        Assert.Contains("private void ToggleRoadmap() => ToggleSurface(WorkspaceSurface.Roadmap);", home, StringComparison.Ordinal);
-        Assert.Contains("    Roadmap,\n", surface, StringComparison.Ordinal);
 
-        // No band state left behind: the workspace has one row and it is the panes'.
+        // Readable as a stored name, never assigned as a surface.
+        Assert.Contains("    Roadmap,\n", surface, StringComparison.Ordinal);
+        Assert.DoesNotContain("_surface = WorkspaceSurface.Roadmap", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToggleSurface(WorkspaceSurface.Roadmap)", home, StringComparison.Ordinal);
+
         Assert.DoesNotContain("GlobalPane.Roadmap", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("_roadmapVisible", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("GlobalPane.Tasks", home, StringComparison.Ordinal);
         Assert.DoesNotContain("RoadmapBandVisible", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("workspace--no-roadmap", home, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -317,80 +257,61 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// Capacity no longer disables an option: a pane the reader asks for makes its own
-    /// room by closing the others, so the only thing that can block one of
-    /// the three is being the last pane on screen. The binding stays on exactly the
-    /// three panes all the same — the band has neither rule.
+    /// The side-pane toggles state their pressed state once, through ToggleButton's
+    /// Pressed, and press through one handler that opens the pane beside the view or
+    /// closes it. Nothing disables them: closing the last side pane leaves the view
+    /// on screen, and opening one makes its own room.
     /// </summary>
     [Fact]
-    public void Pane_multiselect_uses_selected_state_and_last_pane_aware_disabling()
+    public void Side_pane_toggles_use_selected_state_and_are_never_disabled()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        // ToggleButton derives aria-pressed from Pressed, so the visibility of a
-        // pane is stated once and the attribute cannot drift away from it.
-        // The panes' pressed state also reads WorkspaceVisible, so during a
-        // takeover none of them claims to be on screen.
-        Assert.Contains("Pressed=\"RoadmapVisible\"", home, StringComparison.Ordinal);
-        Assert.Contains("Pressed=\"PaneOptionPressed(GlobalPane.Inbox)\"", home, StringComparison.Ordinal);
-        Assert.Contains("Pressed=\"PaneOptionPressed(GlobalPane.Tasks)\"", home, StringComparison.Ordinal);
-        Assert.Contains("Pressed=\"PaneOptionPressed(GlobalPane.Devbook)\"", home, StringComparison.Ordinal);
-
-        // Three panes have the rule and the band does not, so exactly three options
-        // are ever disabled by it. A fourth would mean the band had been folded into
-        // the selection.
-        Assert.Equal(3, CountOccurrences(home, "Disabled=\"@PaneToggleDisabled("));
-
-        // The three pane options press through one handler that reads the
-        // modifier, so "this one too" is the option itself and not a second
-        // control beside it; the band keeps the plain toggle, because it takes
-        // no modifier.
-        foreach (var pane in new[] { "Inbox", "Tasks", "Devbook" })
+        foreach (var pane in new[] { "Inbox", "Devbook" })
         {
-            Assert.Contains($"OnClick=\"args => PressPane(GlobalPane.{pane}, args)\"", home, StringComparison.Ordinal);
+            Assert.Contains($"Pressed=\"PaneOptionPressed(GlobalPane.{pane})\"", home, StringComparison.Ordinal);
+            Assert.Contains($"OnClick=\"() => PressPane(GlobalPane.{pane})\"", home, StringComparison.Ordinal);
             Assert.Contains($"Title=\"@PaneOptionTitle(GlobalPane.{pane}, \"", home, StringComparison.Ordinal);
         }
-        Assert.Contains("PressedChanged=\"ToggleRoadmap\"", home, StringComparison.Ordinal);
 
-        Assert.Contains("if (_globalPanes.IsEnabled(pane))", home, StringComparison.Ordinal);
-        Assert.Contains("return WorkspaceVisible && !_globalPanes.CanDisable(pane);", home, StringComparison.Ordinal);
-        Assert.Contains("return !_globalPanes.CanEnable(pane);", home, StringComparison.Ordinal);
+        foreach (var view in new[] { "Tasks", "Roadmap" })
+        {
+            Assert.Contains($"Pressed=\"ViewOptionPressed(ShellView.{view})\"", home, StringComparison.Ordinal);
+            Assert.Contains($"OnClick=\"() => ShowView(ShellView.{view})\"", home, StringComparison.Ordinal);
+        }
+
+        Assert.DoesNotContain("PaneToggleDisabled", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("args.CtrlKey || args.MetaKey) && _globalPanes", home, StringComparison.Ordinal);
+        Assert.Contains("_globalPanes.Toggle(pane);", home, StringComparison.Ordinal);
 
         Assert.DoesNotContain("Show inbox", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Hide inbox", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("Show backlog", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("Hide backlog", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Show knowledge", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Hide knowledge", home, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Routing turns an Inbox item into Tasks entries, and the shell opens the
-    /// Tasks pane on the reader's behalf rather than the reader switching sections.
-    /// It goes through the non-switching entry point for exactly that reason: the
-    /// plain enable would close the Inbox the item was routed from.
+    /// Routing turns an Inbox item into Tasks entries, and the shell shows them on the
+    /// task list on the reader's behalf. It changes the view and leaves the Inbox
+    /// open: the queue the item was routed from stays beside the list.
     /// </summary>
     [Fact]
     public void Opening_an_inbox_item_never_closes_the_inbox()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("_globalPanes.TryOpenAlongside(GlobalPane.Tasks);", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("_globalPanes.TrySetEnabled(GlobalPane.Tasks, true);", home, StringComparison.Ordinal);
+        Assert.Contains("if (EffectiveView is not (ShellView.Tasks or ShellView.Board or ShellView.Calendar)) SetView(ShellView.Tasks);", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("_globalPanes.TryClose(GlobalPane.Inbox)", home, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Each pane used to carry a pin, railed along its option's top edge, that held
-    /// it through a switch (#283 is the shape it settled on). The pin was a second
-    /// control on every option for what one modifier on the option itself says:
-    /// a plain press switches to the pane, Ctrl (Cmd on macOS) opens it beside the
-    /// open ones — the convention the repository scope in the same header already
-    /// follows, so the reader learns it once. The rails are gone from the markup,
-    /// the stylesheet and the persisted layout alike, and the tooltip is what names
-    /// the modifier, because nothing else on screen does.
+    /// Each pane used to carry a pin that held it through a switch, and then a Ctrl
+    /// modifier that opened it beside the others. Neither is needed now that the
+    /// side panes are plain toggles beside the view: the pins stay gone from the
+    /// markup, the stylesheet and the persisted layout, and so does the modifier.
     /// </summary>
     [Fact]
-    public void A_second_pane_is_asked_for_with_the_modifier_rather_than_a_pin()
+    public void A_side_pane_needs_neither_a_pin_nor_a_modifier()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
@@ -404,18 +325,9 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain(".header-group__pin", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".header-group__pane", css, StringComparison.Ordinal);
 
-        // The modifier opens beside; without it, or in a window that fits one pane,
-        // the press is the switch it always was.
-        Assert.Contains(
-            "if (!_globalPanes.IsEnabled(pane) && (args.CtrlKey || args.MetaKey) && _globalPanes.TakesSeveral)",
-            home,
-            StringComparison.Ordinal);
-        Assert.Contains("_globalPanes.TryOpenBeside(pane);", home, StringComparison.Ordinal);
-        Assert.Contains("_globalPanes.Toggle(pane);", home, StringComparison.Ordinal);
-
-        // Named where the reader can find it, and only where it does something.
-        Assert.Contains("Ctrl+click to open it beside the open panes", home, StringComparison.Ordinal);
-        Assert.Contains("_globalPanes.TakesSeveral", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ctrl+click to open it beside", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryOpenBeside", home, StringComparison.Ordinal);
+        Assert.Contains("_globalPanes.TryOpen(pane);", home, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -514,40 +426,38 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("return;", body, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The split opens for the Devbook, the one pane in the side stack, whichever
+    /// view it sits beside. The "side panes only" stack that filled the row when the
+    /// task list was closed is gone with the Tasks pane toggle.
+    /// </summary>
     [Fact]
-    public void Side_layout_opens_split_only_when_backlog_and_side_panes_are_both_visible()
+    public void Side_layout_opens_split_whenever_the_devbook_is_beside_the_view()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        Assert.Contains("(TasksPaneVisible && RightSidePaneVisible) ? \"devbook-layout--side-open\"", home, StringComparison.Ordinal);
-        Assert.Contains("side-pane-stack--full", home, StringComparison.Ordinal);
-
-        // Tools left the side stack for a full-screen surface of its own, so a
-        // stack holding nothing but the tools pane can no longer happen — and the
-        // split must not open for it. Stated on the property rather than on the
-        // class the stack used to grow, because the docked modifier is gone.
-        Assert.Contains(
-            "private bool RightSidePaneVisible => DevbookPaneVisible || (InboxPaneVisible && !TasksPaneVisible);",
-            home,
-            StringComparison.Ordinal);
+        Assert.Contains("@(DevbookPaneVisible ? \"devbook-layout--side-open\" : \"devbook-layout--side-closed\")", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("side-pane-stack--full", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("side-pane-stack--full", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("RightSidePaneVisible", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("TasksPaneVisible", home, StringComparison.Ordinal);
         Assert.DoesNotContain("side-pane-stack--right-docked", home, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Tools and the Dashboard are takeovers, not panes. Each is the page's single
-    /// <c>main</c> landmark while it is open, which is only true as long as the
-    /// branches stay mutually exclusive in the markup. The session list and the pull
-    /// requests list are takeovers too, each with a branch of its own.
+    /// The takeovers are not panes. Each is the page's single <c>main</c> landmark
+    /// while it is open, which is only true as long as the branches stay mutually
+    /// exclusive in the markup; the workspace is the last branch and holds the main
+    /// view — the task list or the roadmap — inside its own landmark.
     /// </summary>
     [Fact]
     public void Only_one_surface_renders_and_it_owns_the_main_landmark()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("@if (RoadmapVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("else if (ToolsVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("@if (ToolsVisible)", home, StringComparison.Ordinal);
         Assert.Contains("else if (DashboardVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"roadmap-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("else if (SessionsVisible)", home, StringComparison.Ordinal);
         Assert.Contains("else if (PullRequestsVisible)", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"tools-surface\"", home, StringComparison.Ordinal);
@@ -557,12 +467,14 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("data-testid=\"workspace\"", home, StringComparison.Ordinal);
 
         // One landmark per branch, and the branches are exclusive, so the page has
-        // exactly one. Two <main> elements is the failure this counts, which is why
-        // the number moves with each takeover rather than being loosened to "some".
-        Assert.Equal(6, CountOccurrences(home, "<main class="));
+        // exactly one. The roadmap gave up its own when it became a view.
+        Assert.Equal(5, CountOccurrences(home, "<main class="));
 
-        // The pane row keeps the test id the resizer's JavaScript selects on; what
-        // changed is that it is no longer the landmark itself.
+        // The roadmap view sits inside the pane row, in the main column.
+        var workspace = home.IndexOf("<main class=\"workspace\"", StringComparison.Ordinal);
+        Assert.True(home.IndexOf("@if (RoadmapViewVisible)", StringComparison.Ordinal) > workspace);
+        Assert.Contains("<div class=\"roadmap-view\" id=\"roadmap-view\" data-testid=\"roadmap-view\">", home, StringComparison.Ordinal);
+
         Assert.Contains("<div class=\"devbook-layout ", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<main class=\"devbook-layout", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"devbook-layout\"", home, StringComparison.Ordinal);
@@ -571,7 +483,8 @@ public sealed class GlobalPaneMarkupTests
     /// <summary>
     /// A takeover is a context change, so focus moves onto it and Escape brings the
     /// reader back. It is deliberately not a Modal: the header behind it is not
-    /// inert, because that is where the control closing the surface lives.
+    /// inert, because that is where the control closing the surface lives. The
+    /// Roadmap view has no Escape of its own here.
     /// </summary>
     [Fact]
     public void A_surface_takes_focus_on_open_and_closes_on_escape()
@@ -583,12 +496,12 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("@onkeydown=\"OnSurfaceKeyDown\"", home, StringComparison.Ordinal);
         Assert.Contains("await _surfaceElement.FocusAsync();", home, StringComparison.Ordinal);
         Assert.Contains("if (e.Key == \"Escape\") CloseSurface();", home, StringComparison.Ordinal);
+        Assert.Equal(4, CountOccurrences(home, "data-escape-closes"));
 
-        // A pane option pressed during a takeover closes it the same way.
-        Assert.Contains("if (returning) CloseSurface();", home, StringComparison.Ordinal);
+        // A view option or a side-pane toggle pressed during a takeover closes it the
+        // same way.
+        Assert.Contains("if (!WorkspaceVisible) CloseSurface();", home, StringComparison.Ordinal);
 
-        // No scrim and no focus trap: Modal owns those, and it is still what the
-        // update and feedback dialogs are built from.
         Assert.DoesNotContain("workspace-surface-backdrop", home, StringComparison.Ordinal);
     }
 
@@ -640,19 +553,25 @@ public sealed class GlobalPaneMarkupTests
     }
 
     [Fact]
-    public void Inbox_renders_before_backlog_when_both_are_visible()
+    public void Inbox_renders_before_the_main_view_when_it_is_open()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("@if (InboxBeforeTasksVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("@if (!TasksPaneVisible && InboxPaneVisible)", home, StringComparison.Ordinal);
         Assert.Contains("devbook-layout--inbox-before-backlog", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("InboxBeforeTasksVisible", home, StringComparison.Ordinal);
 
-        var inboxGuardIndex = home.IndexOf("@if (InboxBeforeTasksVisible)", StringComparison.Ordinal);
-        var backlogPaneIndex = home.IndexOf("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" />", StringComparison.Ordinal);
+        var layout = home.IndexOf("data-testid=\"devbook-layout\"", StringComparison.Ordinal);
+        var inbox = home.IndexOf("@InboxPaneContent", layout, StringComparison.Ordinal);
+        var roadmap = home.IndexOf("@if (RoadmapViewVisible)", layout, StringComparison.Ordinal);
+        var tasks = home.IndexOf("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" LinkedWork=\"LinkedWorkFor\" />", StringComparison.Ordinal);
+        var devbook = home.IndexOf("<DevbookPane ", layout, StringComparison.Ordinal);
 
-        Assert.True(inboxGuardIndex >= 0);
-        Assert.True(backlogPaneIndex > inboxGuardIndex);
+        Assert.True(inbox > layout);
+        Assert.True(roadmap > inbox && tasks > inbox);
+        Assert.True(devbook > tasks && devbook > roadmap);
+
+        // One place only: the Inbox is never in the side stack any more.
+        Assert.Equal(1, CountOccurrences(home, "@InboxPaneContent"));
     }
 
     [Fact]
@@ -913,7 +832,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("<CaptureSourcesPanel OnImported=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
-        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" />", home, StringComparison.Ordinal);
+        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" LinkedWork=\"LinkedWorkFor\" />", home, StringComparison.Ordinal);
         Assert.Contains("<DevbookPane RepositoryAlias=", home, StringComparison.Ordinal);
 
         // The roadmap and the dashboard are composed on the same terms. Their content

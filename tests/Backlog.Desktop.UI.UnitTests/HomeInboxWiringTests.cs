@@ -34,7 +34,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class HomeInboxWiringTests
 {
     [Fact]
-    public async Task Routing_an_item_reloads_the_tasks_from_the_store_and_opens_the_tasks_pane_alongside()
+    public async Task Routing_an_item_reloads_the_tasks_from_the_store_and_shows_them_beside_the_inbox()
     {
         using var harness = CreateHarness();
         var item = harness.Inbox.Seed("Route me");
@@ -50,8 +50,9 @@ public sealed class HomeInboxWiringTests
         var component = Render(harness);
         await OpenInboxAsync(component);
 
-        // The Inbox alone: the Tasks pane is closed until routing opens it.
-        Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+        // The Inbox beside the Tasks view, which is always showing; nothing is on
+        // the list until routing puts it there.
+        Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         var state = State(harness);
         Assert.Empty(state.Rows);
 
@@ -64,10 +65,47 @@ public sealed class HomeInboxWiringTests
             Assert.Contains(state.Rows, row => row.PreviewTitle == "Route me");
         });
 
-        // Alongside, not instead: the Inbox the item was routed from stays.
+        // Alongside, not instead: the Inbox the item was routed from stays, beside
+        // the Tasks view the entries are on. The task list is a view, not a pane.
         Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
-        Assert.Contains("Inbox", harness.ShellNavigation.LastEnabledPanes);
-        Assert.Contains("Tasks", harness.ShellNavigation.LastEnabledPanes);
+        Assert.Equal(["Inbox"], harness.ShellNavigation.LastEnabledPanes);
+        Assert.Equal("Tasks", harness.ShellNavigation.LastView);
+    }
+
+    /// <summary>Routed from beside the Roadmap view, the entries are on the list and
+    /// not on the roadmap yet, so the view switches to Tasks — and the Inbox stays.</summary>
+    [Fact]
+    public async Task Routing_an_item_from_beside_the_roadmap_switches_the_view_to_tasks_and_keeps_the_inbox()
+    {
+        using var harness = CreateHarness(startOnRoadmap: true);
+        var item = harness.Inbox.Seed("Route me from the roadmap");
+        harness.Inbox.OnRouted = (routed, _) =>
+        {
+            var order = harness.Entries.ListAsync().GetAwaiter().GetResult().Count;
+            var saved = harness.Entries.SaveFromTextAsync(null, $"# {routed.Title}\n`task` `!draft`\n", order).GetAwaiter().GetResult();
+            Assert.True(saved.IsSuccess);
+        };
+
+        var component = Render(harness);
+        await OpenInboxAsync(component);
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view']"));
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+        });
+
+        await component.Find($"[data-testid='inbox-item-{item.Id:D}']").ClickAsync(new());
+        await component.Find("[data-testid='inbox-move-to-backlog']").ClickAsync(new());
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-view']"));
+            Assert.Contains(State(harness).Rows, row => row.PreviewTitle == "Route me from the roadmap");
+        });
+
+        Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
+        Assert.Equal("Tasks", harness.ShellNavigation.LastView);
     }
 
     /// <summary>A batch is one import, so the shell hears of it once — through
@@ -195,8 +233,8 @@ public sealed class HomeInboxWiringTests
 
         harness.Inbox.Seed("Came due while closed", status: InboxStatus.Deferred, deferredUntil: DateOnly.FromDateTime(harness.Inbox.Now.DateTime));
 
-        // A plain press on another pane is a switch: the Inbox closes.
-        await component.Find("[data-testid='backlog-pane-option']").ClickAsync(new());
+        // A press on its own toggle closes the Inbox.
+        await component.Find("[data-testid='inbox-pane-option']").ClickAsync(new());
         component.WaitForAssertion(() => Assert.Equal("false", component.Find("[data-testid='inbox-pane-option']").GetAttribute("aria-pressed")));
         Assert.Equal(1, harness.Inbox.ResurfaceDueCalls);
 
@@ -253,7 +291,7 @@ public sealed class HomeInboxWiringTests
     /// would put extra chrome or a network call in the way off too. The Inbox
     /// ships behind a Dev flag, so a test about it has to turn it on first.
     /// </summary>
-    private static Harness CreateHarness(bool inboxOpenOnStart = true, TaskItem? pull = null)
+    private static Harness CreateHarness(bool inboxOpenOnStart = true, TaskItem? pull = null, bool startOnRoadmap = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-inbox-wiring-tests", Guid.NewGuid().ToString("n"));
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
@@ -261,13 +299,14 @@ public sealed class HomeInboxWiringTests
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         var shellNavigation = new ShellNavigationStore(Path.Combine(root, "shell", "shell-navigation.json"));
 
-        // Only the Inbox open on start, unless the test is about opening it:
-        // the routed entry has to open the Tasks pane itself for the first test
-        // to prove anything.
+        // The Inbox open on start beside the Tasks view, unless the test is about
+        // opening it — or beside the Roadmap view, when the test is about routing
+        // taking the reader to the list.
         if (inboxOpenOnStart) shellNavigation.SetLastPanes(["Inbox"]);
+        if (startOnRoadmap) shellNavigation.SetLastView("Roadmap");
 
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, true);
-        _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, false);
+        _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, startOnRoadmap);
         _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, false);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, false);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, false);

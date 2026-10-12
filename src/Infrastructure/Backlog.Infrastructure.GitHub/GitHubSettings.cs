@@ -2039,19 +2039,58 @@ public sealed partial class GitHubSettingsStore
         };
     }
 
-    private static List<GitHubRepositoryRef> NormalizeRepositories(IEnumerable<GitHubRepositoryRef> repositories) =>
-    [
-        .. repositories.Select(r => r with
+    /// <summary>
+    /// The repositories as they are stored and served, with every alias distinct.
+    /// <para>
+    /// The text box refuses a duplicate alias, but a registry replicated from
+    /// another device, or a placeholder a plan registered beside the real
+    /// repository, can still state one. Every consumer keys on the alias — the
+    /// Repositories tab's subpages, the hues, the filters — so a later row sharing
+    /// one takes the compound <c>owner-name</c> form, then a counter, as
+    /// <see cref="GitHubSettings.UniqueAlias"/> would. The first row keeps the label
+    /// somebody chose, and so does every row whose alias nobody else claimed: those
+    /// are reserved before any free alias is handed out.
+    /// </para>
+    /// </summary>
+    private static List<GitHubRepositoryRef> NormalizeRepositories(IEnumerable<GitHubRepositoryRef> repositories)
+    {
+        var rows = repositories.ToList();
+        var taken = new HashSet<string>(StringComparer.Ordinal);
+        var keeps = rows.Select(r => taken.Add(GitHubRepositoryRef.NormalizeAlias(r.Alias))).ToList();
+        var normalized = new List<GitHubRepositoryRef>(rows.Count);
+
+        for (var i = 0; i < rows.Count; i++)
         {
-            CloneDirectory = CleanPath(r.CloneDirectory),
-            Token = CleanToken(r.Token),
-            Colour = CleanColour(r.Colour),
-            Account = GitHubAccount.NormalizeLogin(r.Account),
-            DevbookBranch = CleanBranch(r.DevbookBranch),
-            DevbookFolders = DevbookFolderSetting.Normalize(r.DevbookFolders),
-            PullRequestLabels = CleanLabels(r.PullRequestLabels)
-        })
-    ];
+            var r = rows[i];
+
+            normalized.Add(r with
+            {
+                Alias = keeps[i] ? r.Alias : FreeAlias(r, taken),
+                CloneDirectory = CleanPath(r.CloneDirectory),
+                Token = CleanToken(r.Token),
+                Colour = CleanColour(r.Colour),
+                Account = GitHubAccount.NormalizeLogin(r.Account),
+                DevbookBranch = CleanBranch(r.DevbookBranch),
+                DevbookFolders = DevbookFolderSetting.Normalize(r.DevbookFolders),
+                PullRequestLabels = CleanLabels(r.PullRequestLabels)
+            });
+        }
+
+        return normalized;
+    }
+
+    /// <summary>An alias no other row holds, claimed as it is handed out.</summary>
+    private static string FreeAlias(GitHubRepositoryRef repository, HashSet<string> taken)
+    {
+        var compound = GitHubRepositoryRef.NormalizeAlias($"{repository.Owner}-{repository.Name}");
+        if (taken.Add(compound)) return compound;
+
+        for (var suffix = 2; ; suffix++)
+        {
+            var candidate = GitHubRepositoryRef.NormalizeAlias($"{compound}-{suffix}");
+            if (taken.Add(candidate)) return candidate;
+        }
+    }
 
     /// <summary>
     /// The accounts as they are stored: blank logins dropped, one row per login,

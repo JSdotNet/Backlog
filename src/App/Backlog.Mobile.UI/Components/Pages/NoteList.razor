@@ -1,0 +1,164 @@
+@page "/notes"
+@using Backlog.Mobile.UI.Notes
+@inject NoteViewProjection Notes
+@inject DeviceOutbox Outbox
+@inject SyncStatusTracker Status
+@inject AppLifecycle Lifecycle
+@inject TimeProvider Clock
+@implements IDisposable
+
+@*
+    The Notes tab: every note on the phone, newest change first, each row its
+    title, when it last changed and the opening of its body. The search field
+    narrows the list on the phone itself — title and body, as typed, with no
+    round trip — and "New note" opens an empty editor.
+
+    The list is NoteViewProjection's, read afresh each render, so a note saved in
+    the editor is here the moment the person comes back, and a pull that brings
+    the desktop's edits redraws it. Nothing is changed here; the editor writes.
+*@
+
+<PageTitle>Notes</PageTitle>
+
+@{
+    var all = Notes.Notes();
+    var shown = Filter(all);
+}
+
+<header class="notes-heading">
+    <span class="notes-heading__kicker" data-testid="notes-count">@CountLabel(shown.Count)</span>
+    <h1>Notes</h1>
+</header>
+
+@if (_pullNotice is not null)
+{
+    <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="notes-pull-notice" />
+}
+
+@if (all.Count > 0)
+{
+    <SearchBox Value="@_query" ValueChanged="OnSearch" Placeholder="Search notes" AriaLabel="Search notes"
+               DebounceMilliseconds="0" CssClass="notes__search" TestId="notes-search" />
+}
+
+<div class="notes" data-testid="notes">
+    @if (all.Count == 0)
+    {
+        <EmptyState Title="No notes yet"
+                    Description="Write one with New note. Notes you take on the desktop show here too."
+                    TestId="notes-empty" />
+    }
+    else if (shown.Count == 0)
+    {
+        <EmptyState Title="No notes match"
+                    Description="@($"Nothing in a title or a note says “{_query.Trim()}”.")"
+                    TestId="notes-no-match" />
+    }
+    else
+    {
+        <ul class="notes__list">
+            @foreach (var note in shown)
+            {
+                <li @key="note.Id">
+                    <NoteRow Title="@note.Title" When="@When(note)" Snippet="@NoteSnippet.Of(note.Body, note.Title)"
+                             Href="@($"notes/{note.Id}")" TestId="note-row" />
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+<a class="notes__new" href="notes/new" data-testid="notes-new">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <path d="M4 20h4L19 9l-4-4L4 16z" />
+        <path d="M13.5 6.5l4 4" />
+    </svg>
+    New note
+</a>
+
+@code {
+    private string _query = string.Empty;
+    private string? _pullNotice;
+    private bool _refreshing;
+
+    protected override Task OnInitializedAsync()
+    {
+        Notes.Changed += OnChanged;
+        Outbox.Delivered += OnDelivered;
+        Lifecycle.Resumed += OnResumed;
+
+        return RefreshAsync();
+    }
+
+    public void Dispose()
+    {
+        Notes.Changed -= OnChanged;
+        Outbox.Delivered -= OnDelivered;
+        Lifecycle.Resumed -= OnResumed;
+    }
+
+    private void OnSearch(string query) => _query = query ?? string.Empty;
+
+    /// <summary>Every word of the search somewhere in the title or the body,
+    /// ignoring case, so "sync tests" finds "Write sync conflict tests".</summary>
+    private IReadOnlyList<NoteViewRow> Filter(IReadOnlyList<NoteViewRow> notes)
+    {
+        var words = _query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (words.Length == 0) return notes;
+
+        return [.. notes.Where(note => words.All(word =>
+            note.Title.Contains(word, StringComparison.CurrentCultureIgnoreCase)
+            || note.Body.Contains(word, StringComparison.CurrentCultureIgnoreCase)))];
+    }
+
+    private string When(NoteViewRow note) =>
+        NoteTimeLabel.For(
+            TimeZoneInfo.ConvertTime(note.UpdatedAt, Clock.LocalTimeZone),
+            Clock.GetLocalNow());
+
+    private static string CountLabel(int count) => count == 1 ? "1 note" : $"{count} notes";
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnResumed() => _ = InvokeAsync(RefreshAsync);
+
+    /// <summary>The replica has the note now; the pull brings back its own copy.</summary>
+    private void OnDelivered(OutboxEntry entry)
+    {
+        if (entry.Kind == NoteOutboxKind.Token) _ = InvokeAsync(RefreshAsync);
+    }
+
+    /// <summary>
+    /// Pulls what changed since the last pull. A failure keeps the list on screen
+    /// and says why in one line, as Today does: the list is what the phone last
+    /// heard, and a note written now is kept and sent when the service answers.
+    /// </summary>
+    private async Task RefreshAsync()
+    {
+        if (_refreshing) return;
+        _refreshing = true;
+
+        try
+        {
+            await Notes.PullAsync();
+            _pullNotice = null;
+            Status.RecordSynced();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var reason = ex is SyncUnavailableException { Code: "sync.replica_unavailable" }
+                ? "Cloud sync is still starting up."
+                : "Cloud sync can't be reached.";
+
+            _pullNotice = $"{reason} Showing notes as this phone last saw them. Notes written here are kept and sent when it answers.";
+            Status.RecordUnreachable();
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+
+        StateHasChanged();
+    }
+}

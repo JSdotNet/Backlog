@@ -8,6 +8,7 @@
    Ask AI source pins it. Written after every render and cleared on dispose, so
    the selection dictionary below stays the pane's own. *@
 @inject DevbookOpenChapter OpenChapter
+@inject IServiceProvider Services
 
 @*
     The Devbook pane. Everything it needs arrives as a repository alias:
@@ -176,6 +177,7 @@
                                        IsNodeSelected="IsMenuNodeSelected"
                                        IsNodeExpanded="IsMenuNodeExpanded"
                                        NodeClass="MenuNodeClass"
+                                       NodeMark="MenuNodeMark"
                                        IsFolderOpening="IsFolderOpening"
                                        OnNodeSelected="SelectMenuNode"
                                        OnOpenFolder="OpenFolderAsync" />
@@ -214,7 +216,12 @@
                         }
                         else
                         {
-                            @RenderSection(area.Key)
+                            @* Every chapter in every section resolves a
+                               `scenario:<stem>#<label>` image through the same
+                               catalog the menu marks its pages from. *@
+                            <CascadingValue TValue="IDevbookImageSource" Value="@_scenarioImages" IsFixed="true">
+                                @RenderSection(area.Key)
+                            </CascadingValue>
                         }
                     </TabPanel>
                 }
@@ -276,7 +283,51 @@
     /// does not pull the reader back to it.</summary>
     private long? _openedSequence;
 
-    protected override void OnInitialized() => DevbookMenu.Changed += OnDevbookChanged;
+    protected override void OnInitialized()
+    {
+        DevbookMenu.Changed += OnDevbookChanged;
+
+        // Resolved rather than injected, as the panels resolve their optional
+        // stores: a host that composed no scenario store draws the menu as before.
+        _scenarioStore = Services.GetService<DevbookScenarioStore>();
+        if (_scenarioStore is not null) _scenarioStore.Changed += OnScenariosChanged;
+        _scenarioImages = new DevbookScenarioImages(_scenarioStore);
+    }
+
+    private DevbookScenarioStore? _scenarioStore;
+    private DevbookScenarioCatalog _scenarios = DevbookScenarioCatalog.Empty;
+    private DevbookScenarioImages _scenarioImages = null!;
+
+    /// <summary>The scenario pages of the active repository, with their runs.
+    /// Read after the menu, which they mark, and never in front of it: a menu
+    /// waiting on every page's run would wait on the slowest file in the area.</summary>
+    private async Task LoadScenariosAsync()
+    {
+        var alias = ActiveRepositoryAlias;
+        var catalog = _scenarioStore is null ? DevbookScenarioCatalog.Empty : await _scenarioStore.LoadAsync(alias);
+        if (!string.Equals(alias, ActiveRepositoryAlias, StringComparison.Ordinal) || ReferenceEquals(catalog, _scenarios)) return;
+
+        _scenarios = catalog;
+        _scenarioImages.Catalog = catalog;
+    }
+
+    private void OnScenariosChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadScenariosAsync();
+            StateHasChanged();
+        });
+    }
+
+    /// <summary>A domain row's leading mark: the scenario glyph and its run's dot,
+    /// on a scenario page, and nothing on any other row.</summary>
+    private RenderFragment? MenuNodeMark(DevbookMenuNode node) =>
+        node.Kind != DevbookMenuNodeKind.Folder
+        && string.Equals(node.AreaKey, "domain", StringComparison.Ordinal)
+        && _scenarios.ForPath(node.Path) is { } scenario
+            ? @<DevbookScenarioMark Scenario="@scenario" />
+            : null;
 
     /// <summary>
     /// A folder, a repository or the snapshot cache moved under the pane. Both
@@ -319,6 +370,7 @@
     public void Dispose()
     {
         DevbookMenu.Changed -= OnDevbookChanged;
+        if (_scenarioStore is not null) _scenarioStore.Changed -= OnScenariosChanged;
         OpenChapter.Clear();
     }
 
@@ -926,6 +978,8 @@
         {
             _menuLoading = false;
         }
+
+        await LoadScenariosAsync();
 
         // After the flag drops, so the reference goes through the same check a
         // reference pressed now would.

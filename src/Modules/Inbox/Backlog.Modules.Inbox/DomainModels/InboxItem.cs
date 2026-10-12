@@ -93,7 +93,7 @@ public sealed class InboxItem
         ArgumentNullException.ThrowIfNull(source);
 
         Id = id;
-        Title = string.Join(' ', title.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        Title = Collapse(title);
         BodyMd = bodyMd ?? string.Empty;
         SourceUrl = string.IsNullOrWhiteSpace(sourceUrl) ? null : sourceUrl.Trim();
         CapturedAt = capturedAt;
@@ -107,13 +107,22 @@ public sealed class InboxItem
         // Born already stamped, for the reason TaskItem is: an item saved with
         // no further mutation would otherwise carry the default 0001-01-01.
         UpdatedAt = receivedAt;
+        EditedAt = receivedAt;
+
+        // A note made on this desktop has a phone that has not heard of it yet.
+        // One that arrived from the replica is already there.
+        NotePushPending = kind is ContentKind.Note && !replicaBacked;
     }
 
     public Guid Id { get; }
 
-    public string Title { get; }
+    /// <summary>Fixed at capture for every kind but <see cref="ContentKind.Note"/>,
+    /// whose title the person may change with <see cref="EditNote"/>.</summary>
+    public string Title { get; private set; }
 
-    public string BodyMd { get; }
+    /// <summary>Fixed at capture for every kind but <see cref="ContentKind.Note"/>,
+    /// as <see cref="Title"/> is.</summary>
+    public string BodyMd { get; private set; }
 
     /// <summary>Invariant: preserved unchanged from capture.</summary>
     public string? SourceUrl { get; }
@@ -167,11 +176,44 @@ public sealed class InboxItem
     /// synced, so the stamp is bookkeeping rather than a tie-break.</summary>
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    /// <summary>The item this one was archived as a duplicate of, or null. Set
-    /// only by <see cref="Archive(DateTimeOffset, Guid?)"/> with an item named,
-    /// and never cleared: an archived item stays archived, and so does what it
-    /// was archived as.</summary>
+    /// <summary>What this item was archived as a duplicate of, or null: another
+    /// inbox item, or — when <see cref="DuplicateOfTask"/> — the backlog task it
+    /// was merged into. Set only by <see cref="Archive(DateTimeOffset, Guid?, bool)"/>
+    /// with something named, and cleared only by <see cref="Restore"/> — the
+    /// session undo taking the archive back; otherwise an archived item stays
+    /// archived, and so does what it was archived as.</summary>
     public Guid? DuplicateOf { get; private set; }
+
+    /// <summary>Whether <see cref="DuplicateOf"/> names a backlog task rather
+    /// than an inbox item — the capture was merged into a task it repeats.
+    /// False whenever <see cref="DuplicateOf"/> is null.</summary>
+    public bool DuplicateOfTask { get; private set; }
+
+    /// <summary>
+    /// The note's own last-write-wins stamp: when its title, body or files last
+    /// changed, or when it was archived or deleted. It is the <c>updated_at</c> a
+    /// note document carries on the task feed
+    /// (<c>.devbook/arc42/06-runtime-view.md#mobile-note-sync</c>). Kept apart from
+    /// <see cref="UpdatedAt"/>, which every mutator restamps (filing, tagging, a
+    /// file arriving): a note pushed for such a change would carry a stamp later
+    /// than an edit the phone made meanwhile, and overwrite it with the old text.
+    /// Kept on every item; only a note's is read.
+    /// </summary>
+    public DateTimeOffset EditedAt { get; private set; }
+
+    /// <summary>A note: the one kind that syncs both ways with the phone.</summary>
+    public bool IsNote => Kind is ContentKind.Note;
+
+    /// <summary>
+    /// True between this desktop changing a live note and the replica taking the
+    /// change: the note waits to be pushed. A flag on the item, as
+    /// <see cref="ReplicaAckPending"/> is, rather than a watermark over
+    /// <see cref="EditedAt"/>, because a note's stamp may come from the phone's
+    /// clock, and one clock running ahead would hide the other's edits from a
+    /// watermark. A note taken in from the phone never sets it, so the desktop
+    /// does not echo the phone's own copy back.
+    /// </summary>
+    public bool NotePushPending { get; private set; }
 
     /// <summary>"Routed" as <c>flow.md</c> defines it: triaged, with a target.</summary>
     public bool IsRouted => Routing is not null;
@@ -479,8 +521,13 @@ public sealed class InboxItem
     /// item named may be in any state; whether it still exists is the handler's
     /// to check, since the aggregate cannot see another item.
     /// </para>
+    /// <para>
+    /// With <paramref name="task"/> the id is a backlog task's — the item was
+    /// merged into a task it repeats — under the same two rules. The aggregate
+    /// cannot see a task either, so whether it exists is the handler's too.
+    /// </para>
     /// </summary>
-    public void Archive(DateTimeOffset now, Guid? duplicateOf = null)
+    public void Archive(DateTimeOffset now, Guid? duplicateOf = null, bool task = false)
     {
         if (IsRouted || Status is InboxStatus.Archived)
             throw new InvalidInboxTransitionException(Status, "archived");
@@ -491,11 +538,23 @@ public sealed class InboxItem
             if (!IsOpen) throw new InvalidInboxTransitionException(Status, "archived as a duplicate");
 
             DuplicateOf = original;
+            DuplicateOfTask = task;
         }
 
         Status = InboxStatus.Archived;
         DeferredUntil = null;
-        if (ReplicaBacked) ReplicaAckPending = true;
+
+        // A note owes the phone its tombstone wherever it was made: every note
+        // reaches the phone, so archiving any of them is what takes it away.
+        if (ReplicaBacked || IsNote) ReplicaAckPending = true;
+
+        if (IsNote)
+        {
+            // The tombstone replaces whatever live copy went out; the archived
+            // note is no longer pushed live.
+            EditedAt = NextEdit(now);
+            NotePushPending = false;
+        }
         Touch(now);
     }
 
@@ -518,7 +577,11 @@ public sealed class InboxItem
         Routing = new RoutingTarget(RoutingDomain.Tasks, [.. repoIds], [.. taskIds], now);
         Status = InboxStatus.Triaged;
         DeferredUntil = null;
-        if (ReplicaBacked) ReplicaAckPending = true;
+
+        // A note is never acknowledged away (.devbook/domain/inbox/domain.md#note):
+        // routed, it stays on the phone and keeps syncing. Only archiving or
+        // deleting it ends that.
+        if (ReplicaBacked && !IsNote) ReplicaAckPending = true;
         Touch(now);
     }
 
@@ -544,6 +607,142 @@ public sealed class InboxItem
         RouteToBacklog([taskId], repoIds, now);
     }
 
+    // --- Taking a decision back -----------------------------------------------
+    //
+    // The session undo history's two ways back (interaction-guidelines.md, "Undo
+    // and history"). Each returns the item to unprocessed — the state a decision
+    // is made from — rather than to whatever it was before, because a decision
+    // already cleared the deferral date and the list is the item's own and was
+    // never changed by one.
+
+    /// <summary>
+    /// Undoes an archive — plain, as a duplicate, or as the merge into a task:
+    /// the item is unprocessed again and no longer a duplicate of anything. A
+    /// merge's comment is on the task, and the task is not this aggregate's to
+    /// change, so it stays.
+    /// <para>
+    /// An acknowledgement still waiting in the outbox is withdrawn: the capture
+    /// is open again and the replica may keep it. One already sent cannot be
+    /// called back: the replica has dropped the capture, and a tombstone echo
+    /// still on its way may archive this item again on the next pull — a
+    /// window of one sync cycle, accepted for an undo taken seconds later.
+    /// </para>
+    /// </summary>
+    public void Restore(DateTimeOffset now)
+    {
+        if (Status is not InboxStatus.Archived || IsRouted)
+            throw new InvalidInboxTransitionException(Status, "restored");
+
+        Status = InboxStatus.Unprocessed;
+        DeferredUntil = null;
+        DuplicateOf = null;
+        DuplicateOfTask = false;
+        ReplicaAckPending = false;
+
+        // An archived note owed the phone its tombstone; restored, it goes back
+        // out live, stamped after that tombstone so the replica takes it.
+        if (IsNote)
+        {
+            EditedAt = NextEdit(now);
+            NotePushPending = true;
+        }
+        Touch(now);
+    }
+
+    /// <summary>
+    /// Undoes a route or a link: the item no longer names where it went and is
+    /// unprocessed again. Whether the entries the route made are deleted is the
+    /// handler's to settle with the backlog first — the aggregate cannot see
+    /// them. The outbox acknowledgement is withdrawn as <see cref="Restore"/>
+    /// withdraws it.
+    /// </summary>
+    public void ReturnFromBacklog(DateTimeOffset now)
+    {
+        if (!IsRouted) throw new InvalidInboxTransitionException(Status, "returned from the backlog");
+
+        Routing = null;
+        Status = InboxStatus.Unprocessed;
+        DeferredUntil = null;
+        ReplicaAckPending = false;
+        Touch(now);
+    }
+
+    // --- Notes ----------------------------------------------------------------
+
+    /// <summary>
+    /// Changes a note's title and body: the reader editing it on the desktop.
+    /// Only a <see cref="ContentKind.Note"/> changes after it is captured
+    /// (<c>.devbook/domain/inbox/domain.md#content-kind</c>), and only while it
+    /// still syncs: an archived note has left the phone and is not edited back
+    /// onto it. A routed note may be edited, because routing does not end its
+    /// syncing. Stamps <see cref="EditedAt"/>, so the edit is pushed to the phone.
+    /// </summary>
+    public void EditNote(string title, string? bodyMd, DateTimeOffset now)
+    {
+        if (!IsNote) throw new InvalidInboxTransitionException(Status, "edited as a note");
+        if (Status is InboxStatus.Archived) throw new InvalidInboxTransitionException(Status, "edited");
+        if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Title is required.", nameof(title));
+
+        Title = Collapse(title);
+        BodyMd = bodyMd?.Trim() ?? string.Empty;
+        EditedAt = NextEdit(now);
+        NotePushPending = true;
+        Touch(now);
+    }
+
+    /// <summary>
+    /// Takes the phone's copy of a note, pulled from the replica, when it is the
+    /// later one: its stamp after <see cref="EditedAt"/>. Answers whether it
+    /// changed anything. The stamp is the note's, not this machine's clock, so
+    /// the copy is pushed back under the same stamp and the replica keeps the
+    /// one it has. Last write wins by the document's stamp
+    /// (<c>.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md</c>).
+    /// </summary>
+    public bool ApplyNote(string title, string? bodyMd, DateTimeOffset editedAt)
+    {
+        if (!IsNote) throw new InvalidInboxTransitionException(Status, "edited as a note");
+        if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Title is required.", nameof(title));
+        if (editedAt <= EditedAt) return false;
+
+        Title = Collapse(title);
+        BodyMd = bodyMd?.Trim() ?? string.Empty;
+        EditedAt = editedAt;
+        Touch();
+        return true;
+    }
+
+    /// <summary>
+    /// The phone edited a note this desktop has already archived. The archive
+    /// stands, because a note stops syncing when the desktop archives it, so its
+    /// tombstone is owed again, stamped now and so later than the phone's edit.
+    /// Otherwise the phone would keep showing the copy it edited.
+    /// </summary>
+    public void RestateArchive(DateTimeOffset now)
+    {
+        if (!IsNote || Status is not InboxStatus.Archived) return;
+
+        ReplicaAckPending = true;
+        EditedAt = NextEdit(now);
+        Touch(now);
+    }
+
+    /// <summary>The replica took the note as it was at <paramref name="pushedAt"/>.
+    /// Cleared only when nothing changed it since, so an edit made while the push
+    /// was in flight still goes out on the next one.</summary>
+    public void MarkNotePushed(DateTimeOffset pushedAt)
+    {
+        if (EditedAt != pushedAt) return;
+
+        NotePushPending = false;
+        Touch();
+    }
+
+    /// <summary>Stamps a note that arrived from the phone with the phone's own
+    /// stamp rather than the moment it landed here, so the copy is pushed back
+    /// under the stamp the replica already holds. Called once, right after
+    /// <see cref="FromCapture"/>.</summary>
+    public void StampEdited(DateTimeOffset editedAt) => EditedAt = editedAt;
+
     /// <summary>The outbox drained: the replica has the tombstone.</summary>
     public void MarkReplicaAcknowledged()
     {
@@ -567,6 +766,16 @@ public sealed class InboxItem
         if (Deleted) throw new InvalidInboxTransitionException(Status, "deleted again");
 
         if (ReplicaBacked && IsOpen) ReplicaAckPending = true;
+
+        // A note's tombstone is owed from any state: a routed note is still on
+        // the phone, and a second tombstone for one archived earlier is harmless.
+        if (IsNote)
+        {
+            ReplicaAckPending = true;
+            EditedAt = NextEdit(now);
+            NotePushPending = false;
+        }
+
         Deleted = true;
         Touch(now);
     }
@@ -609,17 +818,38 @@ public sealed class InboxItem
         RoutingTarget? routing,
         bool replicaAckPending,
         DateTimeOffset updatedAt,
-        Guid? duplicateOf = null)
+        Guid? duplicateOf = null,
+        bool duplicateOfTask = false,
+        DateTimeOffset? editedAt = null,
+        bool notePushPending = false)
     {
         Status = status;
         DuplicateOf = duplicateOf;
+        DuplicateOfTask = duplicateOf is not null && duplicateOfTask;
         DeferredUntil = deferredUntil;
         Routing = routing;
         ReplicaAckPending = replicaAckPending;
         UpdatedAt = updatedAt;
+
+        // A row written before the stamp existed has none; the item's own stamp
+        // is the nearest thing to when its text last changed.
+        EditedAt = editedAt ?? updatedAt;
+        NotePushPending = notePushPending;
     }
 
     // --- Internals ----------------------------------------------------------
+
+    /// <summary>
+    /// The stamp a change made here carries: now, but never at or before the copy
+    /// it replaces. The copy may carry the phone's stamp, and a desktop clock
+    /// behind the phone's would otherwise stamp the edit, or the archive's
+    /// tombstone, older than what the replica holds, and the replica would refuse it.
+    /// </summary>
+    private DateTimeOffset NextEdit(DateTimeOffset now) => now > EditedAt ? now : EditedAt.AddTicks(1);
+
+    /// <summary>A title is one line: runs of whitespace collapse to a space.</summary>
+    private static string Collapse(string title) =>
+        string.Join(' ', title.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>The mutators that carry no instant of their own stamp the wall
     /// clock, as <c>TaskItem.Touch</c> does; the lifecycle steps take the

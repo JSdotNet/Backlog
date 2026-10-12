@@ -268,11 +268,15 @@ public sealed class DevbookStackLayoutTests
     /// and the filters stay on screen whatever the plan's length.
     /// </summary>
     [Fact]
-    public void The_roadmap_fills_its_surface_and_scrolls_inside_the_chart()
+    public void The_roadmap_fills_its_view_and_scrolls_inside_the_chart()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        Assert.Contains("flex: 1 1 auto;", RuleBody(css, ".workspace-surface > .roadmap-band {"), StringComparison.Ordinal);
+        // The roadmap is a view in the pane row's main column now, and fills it.
+        var view = RuleBody(css, ".roadmap-view {");
+        Assert.Contains("min-height: 0;", view, StringComparison.Ordinal);
+        Assert.Contains("overflow: hidden;", view, StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 auto;", RuleBody(css, ".roadmap-view > .roadmap-band {"), StringComparison.Ordinal);
 
         var band = RuleBody(css, "\n.roadmap-band {");
         Assert.Contains("min-height: 0;", band, StringComparison.Ordinal);

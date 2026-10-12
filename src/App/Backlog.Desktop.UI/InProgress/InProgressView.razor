@@ -1,0 +1,267 @@
+@implements IDisposable
+@using Backlog.Desktop.UI.Tasks
+@using Backlog.Modules.Tasks.Abstractions
+@using Backlog.UI.Components.Integrations
+@using Backlog.UI.Components.Tasks
+@inject TasksDesktopState State
+@inject IServiceProvider Services
+@inject IJSRuntime JS
+
+@*
+    The In progress view: every entry in progress under the header's repository
+    scope, as a card with the sessions and pull requests linked to it, sectioned
+    by what needs the person — and, last, the live sessions and the reader's own
+    open pull requests no entry links, each one link away from a task.
+
+    A main view rather than a takeover: the Inbox and the Devbook still open beside
+    it, the view switch replaces it, and nothing here closes it. It reads the
+    session record and GitHub when it opens and on Refresh, through the shell's
+    reader, so a task's side panel opened afterwards draws from the same read.
+
+    It joins the two contexts the shell holds — an entry is Tasks', a session and a
+    pull request Sessions' and GitHub's — which is why it lives here beside the pull
+    requests list and not in either module. Linking goes through the task list's
+    LinkWorkAsync, which is the use case the Backlog server's link_session and
+    link_change write through.
+*@
+<div class="in-progress-view__body" data-testid="in-progress-view-body">
+    @if (!Reader.GitHubConfigured)
+    {
+        <Alert Role="status"
+               Message="Pull requests are read from GitHub once a repository is registered in Settings."
+               TestId="in-progress-github-off" />
+    }
+    @if (Reader.Failures.Count > 0)
+    {
+        <Alert Role="status"
+               Message="@FailureMessage"
+               TestId="in-progress-github-failures" />
+    }
+    @if (Reader.SessionsUnreadable)
+    {
+        <Alert Role="status"
+               Message="The session record could not be read, so sessions are missing here."
+               TestId="in-progress-sessions-unreadable" />
+    }
+
+    <InProgressBoard Tasks="@Tasks"
+                     Loose="@Loose"
+                     NeedsYouFirst="_needsYouFirst"
+                     NeedsYouFirstChanged="value => _needsYouFirst = value"
+                     IncludeFinishedToday="_includeFinishedToday"
+                     IncludeFinishedTodayChanged="value => _includeFinishedToday = value"
+                     OnOpenTask="OpenTaskAsync"
+                     OnOpenSession="session => OnOpenSession.InvokeAsync(session.Id)"
+                     OnOpenPullRequest="pull => OnOpenPullRequest.InvokeAsync(pull.Key)"
+                     OnLink="ChooseTaskFor"
+                     OnUnlink="UnlinkAsync"
+                     ShowSessions="ShowSessions"
+                     ShowPullRequests="ShowPullRequests">
+        <Actions>
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="in-progress-refresh"
+                       Busy="Reader.Reading"
+                       BusyLabel="Reading"
+                       OnClick="RefreshAsync">Refresh</AppButton>
+        </Actions>
+    </InProgressBoard>
+
+    <WorkLinkPicker Open="_linking is not null"
+                    OpenChanged="open => { if (!open) _linking = null; }"
+                    Title="Link to a task"
+                    Description="@LinkDescription"
+                    Options="@TaskOptions"
+                    EmptyTitle="No open task to link it to"
+                    OnChosen="LinkAsync" />
+</div>
+
+@code {
+    /// <summary>The shell's reader, shared with the side panel.</summary>
+    [Parameter, EditorRequired]
+    public WorkInProgressReader Reader { get; set; } = default!;
+
+    /// <summary>How the shell opens an entry in the Tasks view, by its id.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnOpenTask { get; set; }
+
+    /// <summary>How the shell opens the Sessions list on one session, by its id.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenSession { get; set; }
+
+    /// <summary>How the shell opens the Pull requests list on one pull request, by
+    /// its <c>owner/name#number</c> key.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenPullRequest { get; set; }
+
+    /// <summary>Whether the session list is on: off, the view reads and draws no
+    /// session.</summary>
+    [Parameter]
+    public bool ShowSessions { get; set; } = true;
+
+    /// <summary>Whether the pull requests list is on: off, the view asks GitHub
+    /// nothing and draws no pull request.</summary>
+    [Parameter]
+    public bool ShowPullRequests { get; set; } = true;
+
+    protected override void OnParametersSet()
+    {
+        Reader.ReadsSessions = ShowSessions;
+        Reader.ReadsPullRequests = ShowPullRequests;
+    }
+
+    /// <summary>On by default: the view is opened to find what needs the person.
+    /// Session-only, like the scope of Ask AI — a relaunch opens on the default.</summary>
+    private bool _needsYouFirst = true;
+
+    private bool _includeFinishedToday;
+
+    /// <summary>The loose session or pull request whose "Link to a task…" is open.</summary>
+    private InProgressLoose? _linking;
+
+    private TimeProvider _clock = TimeProvider.System;
+    private IToastChannel? _toasts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
+        _toasts = Services.GetService<IToastChannel>();
+
+        State.Changed += OnChanged;
+        Reader.Changed += OnChanged;
+
+        // Fresh enough rather than fresh: the view remounts on every trip to a
+        // card's takeover and back, and each would otherwise sweep GitHub again.
+        // Refresh is the read that always goes.
+        await Reader.EnsureAllAsync();
+    }
+
+    public void Dispose()
+    {
+        State.Changed -= OnChanged;
+        Reader.Changed -= OnChanged;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private Task RefreshAsync() => Reader.ReadAsync();
+
+    private InProgressProjection Projection => new(
+        State.Rows,
+        Reader.Sessions,
+        Reader.PullRequests,
+        State.RepositoryAliasFor,
+        State.RepositoryColourFor,
+        State.SessionStateOf,
+        _clock.GetLocalNow(),
+        Reader.SessionsRead);
+
+    /// <summary>Under the whole repository scope the task list applies, its "No
+    /// repository" scope included.</summary>
+    private IReadOnlyList<InProgressTask> Tasks =>
+        [.. Projection.Tasks(State.RowsInRepositoryScope).Select(task => task with
+        {
+            Sessions = ShowSessions ? task.Sessions : [],
+            PullRequests = ShowPullRequests ? task.PullRequests : []
+        })];
+
+    private IReadOnlyList<InProgressLoose> Loose =>
+        [.. Projection.Loose(State.SelectedRepositoryAliases, State.NoRepositoryOnly)
+            .Where(loose => loose.Session is null ? ShowPullRequests : ShowSessions)];
+
+    private string FailureMessage =>
+        string.Join(" ", Reader.Failures.Select(failure => $"Couldn't read {failure.RepositoryFullName}: {failure.Message.TrimEnd('.')}."));
+
+    private async Task OpenTaskAsync(InProgressTask task)
+    {
+        if (Guid.TryParse(task.Id, out var id)) await OnOpenTask.InvokeAsync(id);
+    }
+
+    private void ChooseTaskFor(InProgressLoose loose) => _linking = loose;
+
+    private string LinkDescription => _linking switch
+    {
+        { Session: { } session } => $"Choose the task the session \"{session.Title}\" is working on.",
+        { PullRequest: { } pull } => $"Choose the task pull request #{pull.Number} belongs to.",
+        _ => string.Empty
+    };
+
+    /// <summary>Every open entry under the header's repositories, the ones in progress
+    /// first — the work a running session or a fresh pull request is most likely for.
+    /// Not narrowed by "No repository": a session placed nowhere is linked under the
+    /// chosen task's repository, so the picker has to offer tasks that have one.</summary>
+    private IReadOnlyList<WorkLinkOption> TaskOptions =>
+        [.. State.ScopedRows
+            .Where(row => row.IsPersisted && row.PreviewStatus is EntryStatus.Draft or EntryStatus.Ready or EntryStatus.InProgress)
+            .OrderBy(row => row.PreviewStatus is EntryStatus.InProgress ? 0 : 1)
+            .Select(row => new WorkLinkOption(
+                row.Id!.Value.ToString(),
+                string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle,
+                OptionDetail(row)))];
+
+    private string OptionDetail(EntryRow row)
+    {
+        var status = row.PreviewStatus switch
+        {
+            EntryStatus.InProgress => "In progress",
+            EntryStatus.Ready => "Ready",
+            _ => "Draft"
+        };
+        var repository = row.PreviewRepoIds.FirstOrDefault();
+
+        return repository is null ? status : $"{status} · {State.RepositoryAliasFor(repository) ?? repository}";
+    }
+
+    private async Task LinkAsync(WorkLinkOption option)
+    {
+        var loose = _linking;
+        _linking = null;
+        if (loose is null) return;
+
+        var row = State.Rows.FirstOrDefault(candidate => candidate.Id?.ToString() == option.Id);
+        if (row is null) return;
+
+        // The card that opened the picker is gone once the link lands, and the focus
+        // with it. It goes to the card the item now sits under — or, for a task the
+        // view does not show, to the view's title, so it is never left on the body.
+        if (await WorkLinker.LinkAsync(State, _toasts, Projection, row, loose) is null)
+        {
+            _focusAfterRender = Tasks.Any(task => task.Id == option.Id)
+                ? InProgressBoard.TaskCardId(option.Id)
+                : InProgressBoard.TitleId;
+        }
+    }
+
+    /// <summary>"Unlink" beside an item on a task's card: off the entry through the
+    /// entries module's own unlink, and back under "Not linked to a task" while it is
+    /// still live. The focus goes to the card it was on, which stays.</summary>
+    private async Task UnlinkAsync(InProgressUnlink unlink)
+    {
+        var row = State.Rows.FirstOrDefault(candidate => candidate.Id?.ToString() == unlink.Task.Id);
+        if (row is null) return;
+
+        if (await WorkLinker.UnlinkAsync(State, _toasts, row, unlink.Session, unlink.PullRequest) is null)
+        {
+            _focusAfterRender = Tasks.Any(task => task.Id == unlink.Task.Id)
+                ? InProgressBoard.TaskCardId(unlink.Task.Id)
+                : InProgressBoard.TitleId;
+        }
+    }
+
+    /// <summary>The element to focus once the render a link or unlink set off lands.</summary>
+    private string? _focusAfterRender;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusAfterRender is not { } id) return;
+        _focusAfterRender = null;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogFocus", id);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+}

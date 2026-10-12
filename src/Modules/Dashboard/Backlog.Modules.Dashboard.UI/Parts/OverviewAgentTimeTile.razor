@@ -1,0 +1,30 @@
+@*
+    The Overview's agent-active time: the Sessions tab's figure, from the same cached
+    read, compared with the window before as a share — and only over four weeks, because
+    the session history reaches back 84 days and twelve weeks has nothing before it.
+
+    It follows the machine filter as the Sessions tab does; it is the one tile that does.
+*@
+@inherits DashboardPartBase<AssistantSessionsInsight>
+@inject ISessionInsights Insights
+
+<OverviewTile Label="Agent-active time"
+              Value="@(IsReady ? DashboardFormat.Duration(Value!.ActiveTime) : null)"
+              Unit="@($"in {Scope.Weeks} weeks")"
+              Chip="@(IsReady ? OverviewChip.FromDelta(DashboardFormat.ShareDelta(Value!.ActiveTime, Value!.PreviousActiveTime, DashboardFormat.PreviousWeeks(Scope.Weeks))) : null)"
+              Points="@(IsReady ? [.. Value!.ActiveTimePerWeek.Select(point => new MetricPoint(point.Label, point.Value))] : [])"
+              TrendDescription="Agent-active hours per week"
+              Status="Status"
+              StatusMessage="@StatusMessage"
+              TestId="dashboard-overview-tile-agent-time" />
+
+@code {
+    protected override bool FollowsMachine => true;
+
+    protected override Task<InsightResult<AssistantSessionsInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetSessionsAsync(Scope, cancellationToken);
+
+    protected override bool IsEmpty(AssistantSessionsInsight value) => false;
+
+    protected override void InvalidateSource() => Insights.Invalidate();
+}

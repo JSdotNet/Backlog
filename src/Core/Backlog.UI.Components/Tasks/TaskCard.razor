@@ -1,0 +1,344 @@
+@*
+    One task, as a card on a board: the same facts a TaskItem row states, stacked
+    rather than laid along one line, because a board column is narrow and tall
+    where a list is wide and short.
+
+    Top to bottom: what kind of thing it is, and — for High and Critical only — a
+    small up-chevron that says the priority to a tooltip and to a screen reader;
+    the title; what it waits on, when the chain says it cannot start; its tags;
+    then one quiet line with the repository, the sub-items done of total, the
+    date that matters (when it is due, or when it was finished), the host's work
+    badges, and the effort on the far end.
+
+    Medium and Low draw nothing. Priority is barely used, and a mark on every card
+    would be a mark nobody reads; the two that do draw are the two a reader would
+    want to find in a column.
+
+    The whole card is one control. It opens the task, by a click or by Enter or
+    Space while it has the focus, and it is a control only when somebody is
+    listening — the rule the row follows for its circle: something that looks
+    pressable and does nothing is worse than something that never offered. The
+    badges inside it are usually links, and following one is not opening the card,
+    so the slot stops the press, the click and the key before the card hears them,
+    exactly as task-item__badges does on the row. A tag a host is listening to is a
+    control of its own and stops them the same way, and so does the copy button a
+    board turns on — the row's, copying what the row copies.
+
+    The repository identity edge is the host's, through CssClass, on the same seam
+    TaskListView hands a row through RowCssClass: the host passes the shared
+    repo-mark classes when, and only when, its repository colours are showing. This
+    component never decides whether the colours are on; it draws the edge it is
+    given, so a card and the row for the same entry cannot disagree about it.
+*@
+<article class="@ClassValue"
+         id="@ElementId"
+         data-testid="@TestId"
+         data-task-id="@Task.Id"
+         data-draggable="@(Draggable ? "true" : null)"
+         tabindex="@(Opens ? "0" : null)"
+         aria-label="@(Opens ? Task.Title : null)"
+         aria-current="@(Selected ? "true" : null)"
+         @onclick="OpenAsync"
+         @onkeydown="OnKeyDownAsync">
+
+    <div class="task-card__top">
+        @if (Task.Kind is not null)
+        {
+            <span class="task-card__kind" title="@($"Type: {Task.Kind.Name}")" data-testid="@Suffix("kind")">@Task.Kind.Name</span>
+        }
+
+        @if (RaisedPriority is { } priority)
+        {
+            @* role="img" so the label is read: a bare span with an aria-label is
+               a name on nothing, and some readers skip it. *@
+            <span class="task-card__priority"
+                  role="img"
+                  title="@($"{priority} priority")"
+                  aria-label="@($"{priority} priority")"
+                  data-testid="@Suffix("priority")">
+                <ChevronUpIcon Size="12" />
+            </span>
+        }
+
+        @if (Task.InMyDay)
+        {
+            <span class="task-card__my-day" data-testid="@Suffix("my-day")">
+                <SunIcon Size="14" />
+                My Day
+            </span>
+        }
+
+        @if (AllowCopy)
+        {
+            @* The row's copy button, on the row's terms: the same text, the same
+               refusal on a task marked blocked, the confirmation held for a
+               minute. Copying a card is not opening it, so the slot stops the
+               press, the click and the key before the card hears them — the rule
+               the badge slot follows — and taskListDrag never picks the card up
+               from it. On the top line's far end, where a reader who has read
+               the card reaches for it last. *@
+            <span class="task-card__copy"
+                  @onmousedown:stopPropagation="true"
+                  @onclick:stopPropagation="true"
+                  @onkeydown:stopPropagation="true">
+                <CopyButton Text="@CopyText"
+                            Label="@($"Copy {Task.Title}")"
+                            Disabled="@Task.MarkedBlocked"
+                            DisabledReason="Blocked — unblock to copy"
+                            CssClass="task-card__copy-wrap"
+                            ButtonCssClass="task-card__copy-button"
+                            StatusCssClass="task-card__copy-status"
+                            ConfirmationDuration="@TimeSpan.FromMinutes(1)"
+                            ButtonTestId="@Suffix("copy")"
+                            StatusTestId="@Suffix("copy-status")" />
+            </span>
+        }
+    </div>
+
+    <div class="task-card__title" data-testid="@Suffix("title")">@Task.Title</div>
+
+    @if (Blocked)
+    {
+        <p class="task-card__waiting" data-testid="@Suffix("waiting")">
+            <span class="task-card__glyph" aria-hidden="true">⏳</span>
+            <span>Waits on @WaitingText</span>
+        </p>
+    }
+
+    @if (Task.TagList.Count > 0)
+    {
+        <div class="task-card__tags"
+             @onmousedown:stopPropagation="OnTagSelected.HasDelegate"
+             @onclick:stopPropagation="OnTagSelected.HasDelegate"
+             @onkeydown:stopPropagation="OnTagSelected.HasDelegate">
+            @foreach (var tag in Task.TagList)
+            {
+                @if (OnTagSelected.HasDelegate)
+                {
+                    <TagChip Text="@TagText.Display(tag)"
+                             CssClass="task-card__tag"
+                             Label="@TagText.FilterLabel(tag)"
+                             OnClick="() => OnTagSelected.InvokeAsync(tag)" />
+                }
+                else
+                {
+                    <TagChip Text="@TagText.Display(tag)" CssClass="task-card__tag" />
+                }
+            }
+        </div>
+    }
+
+    <div class="task-card__meta">
+        @if (!string.IsNullOrWhiteSpace(Repository))
+        {
+            <span class="task-card__repository" title="Repository" data-testid="@Suffix("repository")">
+                <span class="sr-only">Repository </span>@Repository
+            </span>
+        }
+
+        @if (Task.HasSteps)
+        {
+            <span class="task-card__steps" title="Sub-items done" data-testid="@Suffix("steps")">
+                <span class="task-card__glyph" aria-hidden="true">≡</span>
+                <span class="sr-only">Sub-items done </span>@Task.StepsDone/@Task.StepCount
+            </span>
+        }
+
+        @if (DateText is { } date)
+        {
+            <span class="@DateClass" title="@DateName" data-testid="@Suffix("date")">
+                <span class="task-card__glyph" aria-hidden="true">🗓</span>
+                <span class="sr-only">@DateName </span>@date
+            </span>
+        }
+
+        @if (Badges is not null || Task.Source is not null)
+        {
+            @* The row's slot, on the row's terms: facts to follow rather than
+               fields to set, and a press inside it is never the card's. *@
+            <span class="task-card__badges"
+                  data-testid="@Suffix("badges")"
+                  @onmousedown:stopPropagation="true"
+                  @onclick:stopPropagation="true"
+                  @onkeydown:stopPropagation="true">
+                <SourceBadge Source="@Task.Source" CssClass="task-card__source" TestId="@Suffix("source")" />
+                @Badges?.Invoke(Task)
+            </span>
+        }
+
+        <span class="@EffortClass" title="Effort" data-testid="@Suffix("effort")">@EffortText</span>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public TaskRow Task { get; set; } = new(string.Empty, string.Empty);
+
+    /// <summary>What the task's dependencies work out to, from the same
+    /// <see cref="TaskChain"/> a list derives for its rows. Only its blocked
+    /// readiness is drawn: a card that cannot start says what it waits on.</summary>
+    [Parameter]
+    public TaskChainStatus? Status { get; set; }
+
+    /// <summary>The task's priority, as the host names it — "Low", "Medium", "High",
+    /// "Critical". A word rather than an enum on the same bargain
+    /// <see cref="PriorityBadge"/> makes: the vocabulary is the host's. Only High
+    /// and Critical draw anything.</summary>
+    [Parameter]
+    public string? Priority { get; set; }
+
+    /// <summary>The repository the task targets, as the alias the host shows. Null
+    /// for one that targets none.</summary>
+    [Parameter]
+    public string? Repository { get; set; }
+
+    /// <summary>The estimate in points. Null reads "Not estimated", because on a
+    /// board whose columns sum their points an unestimated card is a fact worth
+    /// stating rather than a gap.</summary>
+    [Parameter]
+    public int? Effort { get; set; }
+
+    /// <summary>Whether <see cref="TaskRow.Due"/> has passed on an open task. The
+    /// host's answer, because "today" is the host's; the card only paints it in
+    /// the error colour.</summary>
+    [Parameter]
+    public bool Overdue { get; set; }
+
+    /// <summary>When a done task was finished, already formatted. Drawn in place of
+    /// the due date on a done task, where the deadline is history.</summary>
+    [Parameter]
+    public string? Finished { get; set; }
+
+    /// <summary>What the host knows about the task that the card has no field for —
+    /// its pull request, its session. The same slot, and the same shape, as
+    /// <see cref="TaskListView.RowBadges"/>.</summary>
+    [Parameter]
+    public RenderFragment<TaskRow>? Badges { get; set; }
+
+    /// <summary>Whether the card offers to copy its task, as a row does. Off by
+    /// default, unlike the row: a card standing on its own is a summary of work
+    /// somewhere else — the In progress view's — and TaskBoard turns it on for the
+    /// cards it lays out.</summary>
+    [Parameter]
+    public bool AllowCopy { get; set; }
+
+    /// <summary>What lands on the clipboard, on <see cref="TaskItem.CopyValue"/>'s
+    /// terms: set, it wins outright; unset, the title, with the body under it when
+    /// the task has one.</summary>
+    [Parameter]
+    public string? CopyValue { get; set; }
+
+    /// <summary>Raised with the task's id when the card is pressed, or Enter or
+    /// Space is pressed on it. Without it the card is not a control.</summary>
+    [Parameter]
+    public EventCallback<string> OnSelected { get; set; }
+
+    /// <summary>Raised with the raw tag when a tag chip is pressed. Without it the
+    /// chips are inert.</summary>
+    [Parameter]
+    public EventCallback<string> OnTagSelected { get; set; }
+
+    /// <summary>The card whose task is open beside the board.</summary>
+    [Parameter]
+    public bool Selected { get; set; }
+
+    /// <summary>Whether the card can be picked up and moved — a board whose
+    /// columns are a lifecycle says yes. The card only says so, as
+    /// <c>data-draggable</c>; the gesture is <c>taskListDrag</c>'s and what a drop
+    /// means is the board's.</summary>
+    [Parameter]
+    public bool Draggable { get; set; }
+
+    /// <summary>The card is the one being held, drawn faded and dashed in the
+    /// place it was picked up from.</summary>
+    [Parameter]
+    public bool Dragging { get; set; }
+
+    /// <summary>Added to the card's own classes — where the host's
+    /// <c>repo-mark repo-mark--N</c> goes while its repository colours are
+    /// showing.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>The card element's id, for a host that has to put the focus back
+    /// on it — a board returning the focus to the open task's card.</summary>
+    [Parameter]
+    public string? ElementId { get; set; }
+
+    private bool Opens => OnSelected.HasDelegate;
+
+    /// <summary>The row's clipboard text, worked out the row's way.</summary>
+    private string CopyText =>
+        !string.IsNullOrWhiteSpace(CopyValue) ? CopyValue
+        : Task.HasBody ? $"{Task.Title}\n\n{Task.Body!.Trim()}"
+        : Task.Title;
+
+    private bool Blocked => Status is { Readiness: TaskReadiness.Blocked };
+
+    /// <summary>The priority's word, when it is one the card draws.</summary>
+    private string? RaisedPriority =>
+        Priority?.Trim() is { Length: > 0 } word
+        && (word.Equals("High", StringComparison.OrdinalIgnoreCase) || word.Equals("Critical", StringComparison.OrdinalIgnoreCase))
+            ? char.ToUpperInvariant(word[0]) + word[1..].ToLowerInvariant()
+            : null;
+
+    /// <summary>Named, not counted, on the row's terms: "Waits on 2" says the card
+    /// is stuck without saying what to go and do about it.</summary>
+    private string WaitingText =>
+        Status is { Waiting.Count: > 0 } status
+            ? string.Join(", ", status.Waiting.Select(dependency => dependency.Label))
+            : Status is { InCycle: true } ? "itself" : "another task";
+
+    /// <summary>The one date the card shows: when it was finished on a done task,
+    /// when it is due on an open one. A done task's due date is not drawn — it
+    /// has stopped being something to act on.</summary>
+    private string? DateText => Task.Done
+        ? (string.IsNullOrWhiteSpace(Finished) ? null : Finished)
+        : (string.IsNullOrWhiteSpace(Task.Due) ? null : Task.Due);
+
+    private bool IsOverdue => !Task.Done && Overdue;
+
+    private string DateName => Task.Done ? "Finished" : IsOverdue ? "Overdue" : "Due";
+
+    private string DateClass => Task.Done
+        ? "task-card__date task-card__date--finished"
+        : IsOverdue ? "task-card__date task-card__date--overdue" : "task-card__date";
+
+    private string EffortText => Effort switch
+    {
+        null => "Not estimated",
+        1 => "1 pt",
+        var points => $"{points} pts"
+    };
+
+    private string EffortClass => Effort is null
+        ? "task-card__effort task-card__effort--unset"
+        : "task-card__effort";
+
+    private string ClassValue => string.Join(' ', new[]
+    {
+        "task-card",
+        Opens ? "task-card--opens" : null,
+        Task.Done ? "task-card--done" : null,
+        Blocked ? "task-card--blocked" : null,
+        Selected ? "task-card--selected" : null,
+        Draggable ? "task-card--draggable" : null,
+        Dragging ? "task-card--dragging" : null,
+        string.IsNullOrWhiteSpace(CssClass) ? null : CssClass
+    }.Where(part => part is not null));
+
+    private Task OpenAsync() => Opens ? OnSelected.InvokeAsync(Task.Id) : System.Threading.Tasks.Task.CompletedTask;
+
+    /// <summary>Enter and Space open the card, as they would a button. Keys pressed
+    /// inside the badge slot or on a pressable tag never arrive here: both stop
+    /// them.</summary>
+    private Task OnKeyDownAsync(KeyboardEventArgs args) =>
+        Opens && args.Key is "Enter" or " " && !args.Repeat
+            ? OnSelected.InvokeAsync(Task.Id)
+            : System.Threading.Tasks.Task.CompletedTask;
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+}

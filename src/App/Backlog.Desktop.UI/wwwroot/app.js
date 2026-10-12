@@ -85,8 +85,8 @@ window.backlogDiagrams.renderDevbookAtlas = async (element, id, graph, dotnet) =
 //
 // - only with focus on <body>, so a key pressed inside the surface stays the
 //   surface's own handler's, and one pressed in the header stays the header's;
-// - only when a surface that closes on Escape is open — the Roadmap carries no
-//   `data-escape-closes`, because Escape means something else there;
+// - only when a surface that closes on Escape is open — the Roadmap is a view in
+//   the workspace rather than a surface, and Escape means something else there;
 // - never when something already took the key (defaultPrevented) or a modal is
 //   open, since Escape belongs to the dialog first.
 window.backlogTakeoverEscape = (() => {

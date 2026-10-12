@@ -97,6 +97,14 @@ public sealed record AssistantSession(
     /// terms. The owner session's own spend: the agents it spawned are not in it.
     /// </summary>
     public IReadOnlyList<AssistantModelUsage>? ModelUsage { get; init; }
+
+    /// <summary>
+    /// What the session is called in a list — the Sessions context's own title, carried
+    /// across so the longest-sessions list can name a session the reader recognises.
+    /// Null where the source has none to offer. An init property on
+    /// <see cref="Prompts"/>' precedent.
+    /// </summary>
+    public string? Title { get; init; }
 }
 
 /// <summary>A pull request a session linked itself to, in the Dashboard's words.</summary>

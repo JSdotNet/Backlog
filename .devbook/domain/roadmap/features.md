@@ -313,13 +313,24 @@ deleted because a registry changed underneath it.
 type: feature
 status: draft
 depends-on: [.devbook/domain/roadmap/features.md#dependency-planning, .devbook/domain/roadmap/features.md#repository-scoped-planning]
-related: [.devbook/domain/roadmap/flow.md, .devbook/design/interaction-guidelines.md]
+related: [.devbook/domain/roadmap/flow.md, .devbook/design/interaction-guidelines.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_roadmap_view_replaces_the_task_list_inside_the_workspace, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_inbox_and_devbook_open_beside_the_roadmap_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Escape_heard_at_the_document_leaves_the_roadmap_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_roadmap_surface_from_before_the_view_switch_reopens_as_the_roadmap_view]
 ```
 
 See the whole plan against time — bands, lanes, spans, milestones and the arrows
 between them — and change when something happens by moving it. A reschedule is a
 change to the plan and is stored as one; the view proposes a new placement and
 the plan decides whether it stands.
+
+The roadmap is one of the views in the header's view switch, last after Tasks,
+Board and Calendar, under its own Planning heading row and without the Tasks
+filter bar. It no longer takes the whole screen: the Inbox and the Devbook open
+beside it as they do beside the task list, and only another view replaces it.
+Escape does not leave it — on the roadmap Escape puts a grabbed bar back and
+dismisses the planning dialogs — and a narrower window never closes it. Opening
+the Dashboard, Tools, the session list or the pull requests list from it and
+closing them again comes back to the roadmap. A person who left the app on the
+roadmap while it was still a takeover reopens on the roadmap view.
 
 ### Rescheduling without a mouse
 
@@ -828,6 +839,18 @@ is titled from its tag, filed under those repositories, and placed from that
 effort, as an imported item is. The card then leaves the shelf, because an item
 now carries its tag, and what was planned is announced. A shelf with nothing to
 offer is not drawn at all.
+
+The Tasks [Calendar](../tasks/features.md#calendar-view) offers the same shelf as
+**Plans without a window**, and there a plan is dropped on a day instead. The same
+import places it, with one difference: the window opens on the first worked day on
+or after the day it was dropped on — today, for a day already past — and its end
+is counted from there as it would be from today. That holds when some of the plan's
+work has already begun: the window still opens on the day it was dropped on, and its
+end is counted from there for the points still open, not from the day the work
+began. Because a person chose that day,
+the window is theirs from then on, as one dragged on the timeline is: the
+[keep-up projection](#placing-a-plan-in-time) no longer lays it out again from
+today, and a later import does not move it.
 
 ## Sequencing work into tracks
 

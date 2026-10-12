@@ -10,6 +10,9 @@
     <!-- The handlers stamp decisions with an injected clock, and the tests
          place those stamps rather than reading the wall clock back. -->
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <!-- The apply tests compose the module as a host does: AddInboxModule()
+         over the in-memory store and the fake backlog target. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 
 </Project>

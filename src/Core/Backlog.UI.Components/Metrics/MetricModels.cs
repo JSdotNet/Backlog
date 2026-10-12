@@ -45,7 +45,16 @@ public sealed record MetricRow(
     string Name,
     long? Tokens = null,
     MoneyAmount? Cost = null,
-    string? Detail = null);
+    string? Detail = null)
+{
+    /// <summary>Input tokens, or null when the provider does not split tokens by
+    /// direction.</summary>
+    public long? InputTokens { get; init; }
+
+    /// <summary>Output tokens, or null when the provider does not split tokens by
+    /// direction.</summary>
+    public long? OutputTokens { get; init; }
+}
 
 /// <summary>Which column a breakdown's share bars are a share of.</summary>
 public enum MetricShareOf

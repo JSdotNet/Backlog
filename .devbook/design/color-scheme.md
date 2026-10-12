@@ -342,6 +342,7 @@ restriction is a list rather than a single surface. Exactly these may use one:
 | An agent session row under such an entry | the identity edge below |
 | The repository cell of a row in the Sessions area | the identity edge below |
 | A repository's band in the dashboard's sessions-by-repository columns (`MetricStackedBars` with `IdentityOf`), while the header's Colors switch is on | the band painting below — a fill, as the roadmap's bars are, with the alias beside it in the legend so the fill is never the sole carrier |
+| A repository box in the Inbox triage picker, "Move to backlog in" | the identity edge below, along the box's leading edge |
 | The colour picker in Settings → Repositories | a solid swatch of the hue itself |
 
 The picker is the one place a hue is painted as a fill rather than an edge, and that
@@ -352,6 +353,12 @@ labelled and the chosen one is marked, so the fill is still not the sole carrier
 
 Nothing else may. A new consumer is an addition to that table, argued here, and
 never a hue added to the set.
+
+The triage picker earns its row on the same ground as the entry row: what is being
+chosen there is the repository the entry will belong to, and the box is the place the
+reader decides it, so the hue the entry will wear afterwards is the one the box wears
+now. Each box is labelled with the alias and the edge is additive on an unchanged box,
+so with the layer off the picker reads exactly as it does with it on, less the stripe.
 
 **No new colour value is introduced.** Every value below already appears in this
 document: one is `color-primary`, and the other four are the hues the code theme

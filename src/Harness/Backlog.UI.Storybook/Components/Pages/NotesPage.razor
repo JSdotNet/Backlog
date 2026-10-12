@@ -1,0 +1,258 @@
+@page "/notes"
+@implements IDisposable
+
+<PageTitle>Notes — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Notes"
+           Summary="NoteRow and NoteEditor: a list of notes newest first that a search narrows, and one note being written that saves on its own — the parts of the phone's Notes tab."
+           Guidelines="@Rules">
+
+    <Story Name="Note row"
+           Description="One note: its title and when it last changed on one line, the opening of its body under them, clamped to two lines. The whole row is one link to the note. The snippet is the host's words — the row knows nothing of Markdown."
+           Code="@RowCode">
+        <div class="sb-phone">
+            <NoteRow Title="Conflict cases from the call" When="09:50"
+                     Snippet="Last write wins for the title; sub-items merge by id; a delete beats an edit unless the edit is newer, which is the case the phone has to get right offline."
+                     Href="#note-row" TestId="story-note-row" />
+        </div>
+    </Story>
+
+    <Story Name="Notes list"
+           Description="Every note, newest change first: the clock for today, Yesterday, the weekday for the rest of the week, then the date. A note that is only a title is a one-line row."
+           Code="@ListCode">
+        <div class="sb-phone">
+            <ul class="sb-note-list" data-testid="story-note-list">
+                @foreach (var note in Samples)
+                {
+                    <li @key="note.Title">
+                        <NoteRow Title="@note.Title" When="@note.When" Snippet="@note.Snippet" Href="#notes-list" />
+                    </li>
+                }
+            </ul>
+        </div>
+    </Story>
+
+    <Story Name="Search"
+           Description="A SearchBox over the list narrows it on the phone, on title and body, every word somewhere in either. Type “train” or “design”; type something no note says and the list gives way to an EmptyState that repeats the words."
+           Code="@SearchCode">
+        <div class="sb-phone">
+            <SearchBox Value="@_query" ValueChanged="q => _query = q ?? string.Empty" Placeholder="Search notes"
+                       AriaLabel="Search notes" DebounceMilliseconds="0" TestId="story-note-search" />
+            @if (Matches.Count == 0)
+            {
+                <EmptyState Title="No notes match" Description="@($"Nothing in a title or a note says “{_query.Trim()}”.")"
+                            TestId="story-note-no-match" />
+            }
+            else
+            {
+                <ul class="sb-note-list" data-testid="story-note-search-results">
+                    @foreach (var note in Matches)
+                    {
+                        <li @key="note.Title">
+                            <NoteRow Title="@note.Title" When="@note.When" Snippet="@note.Snippet" Href="#search" />
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </Story>
+
+    <Story Name="No notes yet"
+           Description="The tab before the first note: an EmptyState that says where notes come from, and no search field, since there is nothing to search. The host's New note button stays."
+           Code="@EmptyCode">
+        <div class="sb-phone">
+            <EmptyState Title="No notes yet"
+                        Description="Write one with New note. Notes you take on the desktop show here too."
+                        TestId="story-notes-empty" />
+        </div>
+    </Story>
+
+    <Story Name="New note"
+           Description="An empty note says nothing about saving until there is something to save. Type: the line at the top reads Saving... until typing has stopped for a second, then Saved — here the host only pretends to write. There is no save button and no formatting toolbar; the body is Markdown as typed."
+           Code="@NewCode">
+        <div class="sb-phone">
+            <NoteEditor Title="@_newTitle" TitleChanged="v => Typed(ref _newTitle, v)"
+                        Body="@_newBody" BodyChanged="v => Typed(ref _newBody, v)"
+                        State="_newState" BackHref="#new-note" TestId="story-note-new" />
+        </div>
+    </Story>
+
+    <Story Name="Editing a note"
+           Description="A saved note opens with its words, when it last changed, and Saved. Tools holds the host's ways of adding to it — dictation, a photo, a file — and ChildContent what they produce, such as the files attached."
+           Code="@EditCode">
+        <div class="sb-phone">
+            <NoteEditor Title="@_editTitle" TitleChanged="v => _editTitle = v"
+                        Body="@_editBody" BodyChanged="v => _editBody = v"
+                        When="Wed 7 Oct · 09:50" State="SaveState.Saved" BackHref="#editing-a-note"
+                        TestId="story-note-edit">
+                <Tools>
+                    <ToggleButton Pressed="_listening" PressedChanged="p => _listening = p"
+                                  AriaLabel="Dictate into the note" Title="Dictate into the note">
+                        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                            <rect x="6" y="1.75" width="4" height="7.5" rx="2" />
+                            <path d="M3.75 7.25v.75a4.25 4.25 0 0 0 8.5 0v-.75" />
+                            <path d="M8 12.25v2" />
+                        </svg>
+                    </ToggleButton>
+                    <AppButton Size="ButtonSize.Small">Take photo</AppButton>
+                    <AppButton Size="ButtonSize.Small">Choose files</AppButton>
+                </Tools>
+                <ChildContent>
+                    <AttachmentStrip Tiles="Attached" AriaLabel="Attached to this note" />
+                </ChildContent>
+            </NoteEditor>
+        </div>
+    </Story>
+
+    <Story Name="Waiting to sync"
+           Description="Saved on the phone and not yet taken by cloud sync: the same line, in the same place and the same quiet colour, says Waiting to sync, because the words are as safe here as they are once sent. It turns to Saved when the outbox lets the note go."
+           Code="@WaitingCode">
+        <div class="sb-phone">
+            <NoteEditor Title="Written on the train" Body="No signal between stations; it goes when the phone is back online."
+                        When="Wed 7 Oct · 08:12" State="SaveState.Saved" Waiting="true" BackHref="#waiting-to-sync"
+                        TestId="story-note-waiting" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Why the editor has no save button and when a pending save is flushed."),
+        new("interaction-guidelines.md#save-state-indicator-vocabulary", "The words the save line may say, and why it is a polite live region."),
+        new("interaction-guidelines.md#empty-loading-and-error-states", "What an empty list and a search with no match say, and what they offer next."),
+        new("accessibility.md#target-sizes-and-text", "Why a row is one link with a 44 px minimum, and why the fields are named though unlabelled on screen.")
+    ];
+
+    private sealed record Sample(string Title, string When, string? Snippet);
+
+    private static readonly IReadOnlyList<Sample> Samples =
+    [
+        new("Conflict cases from the call", "09:50", "Last write wins for the title; sub-items merge by id; a delete beats an edit unless the edit is newer."),
+        new("Sprint goals — draft", "Yesterday", "Ship the phone Today view. Inbox triage on mobile. Notes sync."),
+        new("Offsite ideas", "Mon", "Somewhere reachable by train. A half day for the roadmap, a half day off."),
+        new("Books to read", "2 Oct", "Shape Up. The Making of a Manager. A Philosophy of Software Design."),
+        new("Parking code", "28 Sep", null)
+    ];
+
+    private static readonly IReadOnlyList<AttachmentTile> Attached =
+    [
+        new("slide", "IMG_0042.jpg", "JPEG image", "412 KB", IsPicture: true),
+        new("handout", "conflict-cases.pdf", "PDF", "220 KB")
+    ];
+
+    private string _query = string.Empty;
+
+    private string _newTitle = string.Empty;
+    private string _newBody = string.Empty;
+    private SaveState _newState = SaveState.Idle;
+    private CancellationTokenSource? _pretend;
+
+    private string _editTitle = "Conflict cases from the call";
+    private string _editBody = "Agreed with Anna on how two devices settle an edit:\n\n- Last write wins for the title.\n- Sub-items merge by id, never by position.";
+    private bool _listening;
+
+    private IReadOnlyList<Sample> Matches
+    {
+        get
+        {
+            var words = _query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return [.. Samples.Where(note => words.All(word =>
+                note.Title.Contains(word, StringComparison.CurrentCultureIgnoreCase)
+                || (note.Snippet ?? string.Empty).Contains(word, StringComparison.CurrentCultureIgnoreCase)))];
+        }
+    }
+
+    /// <summary>What a host does on a keystroke, without the writing: Saving...
+    /// at once, Saved a second after the last one.</summary>
+    private void Typed(ref string field, string value)
+    {
+        field = value ?? string.Empty;
+        _newState = SaveState.Saving;
+
+        _pretend?.Cancel();
+        _pretend?.Dispose();
+        _pretend = new CancellationTokenSource();
+        _ = SettleAsync(_pretend.Token);
+    }
+
+    private async Task SettleAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        _newState = SaveState.Saved;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _pretend?.Cancel();
+        _pretend?.Dispose();
+    }
+
+    private const string RowCode = """
+        <NoteRow Title="Conflict cases from the call" When="09:50"
+                 Snippet="@NoteSnippet.Of(note.Body)" Href="notes/{id}" />
+        """;
+
+    private const string ListCode = """
+        <ul class="notes__list">
+            @foreach (var note in notes)
+            {
+                <li @key="note.Id">
+                    <NoteRow Title="@note.Title" When="@When(note)" Snippet="@NoteSnippet.Of(note.Body)"
+                             Href="@($"notes/{note.Id}")" />
+                </li>
+            }
+        </ul>
+        """;
+
+    private const string SearchCode = """
+        <SearchBox Value="@query" ValueChanged="OnSearch" Placeholder="Search notes"
+                   AriaLabel="Search notes" DebounceMilliseconds="0" />
+        @if (shown.Count == 0)
+        {
+            <EmptyState Title="No notes match" Description="@($"Nothing in a title or a note says “{query}”.")" />
+        }
+        """;
+
+    private const string EmptyCode = """
+        <EmptyState Title="No notes yet"
+                    Description="Write one with New note. Notes you take on the desktop show here too." />
+        """;
+
+    private const string NewCode = """
+        <NoteEditor Title="@draft.Title" TitleChanged="OnTitleChanged"
+                    Body="@draft.Body" BodyChanged="OnBodyChanged"
+                    State="state" Waiting="@waiting" OnBlur="FlushAsync" />
+        """;
+
+    private const string EditCode = """
+        <NoteEditor Title="@draft.Title" TitleChanged="OnTitleChanged"
+                    Body="@draft.Body" BodyChanged="OnBodyChanged"
+                    When="Wed 7 Oct · 09:50" State="SaveState.Saved">
+            <Tools>
+                <ToggleButton Pressed="listening" PressedChanged="OnSpeechToggledAsync" AriaLabel="Dictate into the note">…</ToggleButton>
+                <AppButton Size="ButtonSize.Small" OnClick="TakePhotoAsync">Take photo</AppButton>
+                <AppButton Size="ButtonSize.Small" OnClick="PickFilesAsync">Choose files</AppButton>
+            </Tools>
+            <ChildContent>
+                <AttachmentStrip Tiles="attached" AriaLabel="Attached to this note" />
+            </ChildContent>
+        </NoteEditor>
+        """;
+
+    private const string WaitingCode = """
+        <NoteEditor Title="Written on the train" Body="…" When="Wed 7 Oct · 08:12"
+                    State="SaveState.Saved" Waiting="true" />
+        """;
+}

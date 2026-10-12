@@ -6,7 +6,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 namespace Backlog.Mobile.UI.Outbox;
 
 /// <summary>
-/// A task added on the phone, as an outbox entry: a <see cref="TaskChange"/>
+/// A task added or edited on the phone, as an outbox entry: a <see cref="TaskChange"/>
 /// pushed to <c>POST /api/sync/tasks</c>.
 /// <para>
 /// The same queue, order, backoff and waiting marker as a capture; only the
@@ -36,9 +36,11 @@ public sealed class TaskOutboxKind(CloudSyncClient sync) : IOutboxKind
 
     public Task<OutboxDelivery> SendAsync(OutboxEntry entry, CancellationToken cancellationToken)
     {
-        // The entry's id, for the reason the capture kind gives: it is the one
-        // every retry repeats.
-        var change = Read(entry) with { Id = entry.Id };
+        // The task's own id, as queued. An added task is queued under an entry
+        // id equal to it; an edit gets an entry id of its own and must still name
+        // the task it edits, so the entry's id is never written over it. A retry
+        // repeats the same document either way.
+        var change = Read(entry);
 
         return OutboxDelivery.AttemptAsync(() => sync.PushTaskAsync(change, cancellationToken), cancellationToken);
     }

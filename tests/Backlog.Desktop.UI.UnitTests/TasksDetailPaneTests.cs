@@ -1428,10 +1428,10 @@ public sealed class TasksDetailPaneTests
             schedule.QuerySelector(".task-action-pane__columns")!
                 .Children.Select(child => child.GetAttribute("data-testid")));
 
-        // Under them, the two groups whose value is a list of names: what the
-        // entry waits on, and the Devbook chapters it points at.
+        // Under them, the groups whose value is a list: what the entry waits on,
+        // the Devbook chapters it points at, and the days it has hours planned on.
         Assert.Equal(
-            ["entry-schedule-dependencies", "entry-schedule-devbook"],
+            ["entry-schedule-dependencies", "entry-schedule-devbook", "entry-planned-hours"],
             schedule.QuerySelector(".task-action-pane__trailing")!
                 .Children.Select(child => child.GetAttribute("data-testid")));
     }

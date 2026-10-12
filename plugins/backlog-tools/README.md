@@ -15,8 +15,8 @@ for the remarks a person leaves while reading — and a pane that follows a runn
   with a `Kept manual:` line saying why. Every step, whatever its kind, names its
   repository with `repo:`. It always ships a review view next to the raw plan — one HTML page built from
   `skills/import-plan/assets/plan-review.html` that parses the embedded plan
-  itself and shows its checks, dependency order and entries, published as an artifact where
-  the host has one and written beside the plan otherwise. User-invoked only
+  itself and shows its checks, dependency order and entries, published as an artifact every
+  run before the plan text is shown — a local HTML file only when the host has no artifacts. User-invoked only
   (`disable-model-invocation: true`); it never talks to the Backlog app or GitHub.
   A plan imports at two levels (ADR 0013:
   `.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`): it opens with
@@ -58,7 +58,8 @@ for the remarks a person leaves while reading — and a pane that follows a runn
   entry passes the repository's gate and its own Personal Validation. Entries that wait on
   nothing run in parallel. An entry is done when its pull request merges; the orchestrator
   then moves it to Done and starts what waited on it. It stops at `task` and `test` entries,
-  listing what they hold up, and resumes from the plan's state when invoked again. Three
+  listing what they hold up, starts the application in its own worktree for the first one
+  that validates landed work, and resumes from the plan's state when invoked again. Three
   landing modes, defined in `skills/execute-plan/assets/landing-modes.md`: *per item*, each
   pull request to the base branch; *branch*, each into one `plan/<tag without its +>` branch that the
   orchestrator merges into, ending in a single pull request to the base branch; and
@@ -68,7 +69,10 @@ for the remarks a person leaves while reading — and a pane that follows a runn
   its gate and lands as a draft pull request whose body is the review handoff, so the whole
   plan runs without anyone present and Personal Validation happens on the drafts — in branch
   mode on the closing draft to the base branch. A failed entry blocks only what depends on
-  it. User-invoked only. The `UserPromptSubmit` hook
+  it. It titles its own session `<tag>:execute-plan` and labels each sub-agent
+  `<tag>:<n> - <Title>`, and a ready entry in another repository is handed to a new session
+  in that repository's checkout running the same plan, per
+  `skills/execute-plan/assets/handoff.md`. User-invoked only. The `UserPromptSubmit` hook
   stays quiet on a prompt that names this skill, so a pasted plan is not mistaken for one item.
 - **`import-inbox`** — turns an export from another to-do tool into an inbox import
   manifest (ADR 0017:

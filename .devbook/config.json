@@ -107,8 +107,8 @@
       "pluginVersion": "1.20.1"
     },
     "devbook": {
-      "pluginVersion": "1.20.1",
-      "contractVersion": 29,
+      "pluginVersion": "1.22.0",
+      "contractVersion": 30,
       "adopted": [
         "arc42",
         "domain",
@@ -133,8 +133,8 @@
           "managed": true
         },
         ".agents/rules/devbook-chapter-metadata.md": {
-          "from": "1.19.0",
-          "hash": "sha256:18ffc079c6715eef98b7e305730b69115db7b9be8956f4e65039b5d63ea02109",
+          "from": "1.22.0",
+          "hash": "sha256:66ab4fc20988f29d88a7a6f0cc438e6384d010627d9b438e32a2d7cc04551026",
           "managed": true
         },
         ".agents/rules/devbook-design.md": {
@@ -143,13 +143,13 @@
           "managed": true
         },
         ".agents/rules/devbook-domain.md": {
-          "from": "1.19.0",
-          "hash": "sha256:41c04033590a7c108d552517adcc9a544868be9d3cefe052fb3d6ca6259ace20",
+          "from": "1.22.0",
+          "hash": "sha256:6a73fa5d184e1eb3208fbe806cb94603bbc675c0b8781cc5a6110b9303cce006",
           "managed": true
         },
         ".agents/rules/devbook-naming.md": {
-          "from": "1.13.0",
-          "hash": "sha256:c1e38d72cb1b2bc2c7da20507c3839bdc278a9f3cec344f538defd793580abc0",
+          "from": "1.22.0",
+          "hash": "sha256:f2a8522e16b2fbe8c58fd7d5205387544006824a6dfefb97a7dbc3f21eed6cd0",
           "managed": true
         },
         ".agents/rules/devbook-tech.md": {
@@ -158,8 +158,8 @@
           "managed": true
         },
         ".agents/rules/devbook-writing.md": {
-          "from": "1.16.0",
-          "hash": "sha256:33c6f1191ade1834190f9eb3e3b287f32b40415c9755398f683cbf54edd06f9a",
+          "from": "1.22.0",
+          "hash": "sha256:6986c7fbb380f2cad557f2dd95505246c835f7ba0ce787938420500ff35a4bdf",
           "managed": true
         },
         ".agents/skills/capture.md": {
@@ -227,6 +227,11 @@
           "hash": "sha256:d020c2185bbec3e32bf1f9d80fa31fc886d7526dce91a3e47028fe34474c6439",
           "managed": true
         },
+        ".claude/skills/diagnose/SKILL.md": {
+          "from": "1.19.0",
+          "hash": "sha256:b37f7cad127f68a84528a5298c803ed838acdda5179114c949985b7447ac0449",
+          "managed": true
+        },
         ".claude/skills/estimate/SKILL.md": {
           "from": "1.19.0",
           "hash": "sha256:6428802f68bbf7ac2bfe4420c0c6c108b74f5a6fe4665ce7f43a26e35a6f9653",
@@ -238,13 +243,18 @@
           "managed": false
         },
         ".devbook/_tools/devbook-meta": {
-          "from": "1.20.1",
-          "hash": "sha256:00f68472e5c6680b3ff2982d36921c7f1ac6645e1df02515721b7e90997bd5b7",
+          "from": "1.22.0",
+          "hash": "sha256:2cd1d77aec067741d97fa79b18fa687ca38d40907fa052e10ed737f8894ede5e",
           "managed": true
         },
         ".devbook/_tools/devbook-tech": {
           "from": "1.10.0",
           "hash": "sha256:516d3085d0036802d5592773dfb4d81778a0c30b486972c1cfa30b37c3416c49",
+          "managed": true
+        },
+        ".devbook/_tools/scenarios": {
+          "from": "1.22.0",
+          "hash": "sha256:9a8deb1f6589db5c3cfee03ad8d25c5ed18ad151141d2b9f8cc88aebeb6d9f81",
           "managed": true
         },
         ".github/copilot-instructions.md": {
@@ -302,6 +312,11 @@
           "hash": "sha256:d020c2185bbec3e32bf1f9d80fa31fc886d7526dce91a3e47028fe34474c6439",
           "managed": true
         },
+        ".github/skills/diagnose/SKILL.md": {
+          "from": "1.19.0",
+          "hash": "sha256:b37f7cad127f68a84528a5298c803ed838acdda5179114c949985b7447ac0449",
+          "managed": true
+        },
         ".github/skills/estimate/SKILL.md": {
           "from": "1.19.0",
           "hash": "sha256:6428802f68bbf7ac2bfe4420c0c6c108b74f5a6fe4665ce7f43a26e35a6f9653",
@@ -320,16 +335,6 @@
         "AGENTS.md#devbook": {
           "from": "1.10.0",
           "hash": "sha256:601e6d85335687ec8d3c0af4cb6844f0437467a2867c44fc952ffca70458b5ab",
-          "managed": true
-        },
-        ".claude/skills/diagnose/SKILL.md": {
-          "from": "1.19.0",
-          "hash": "sha256:b37f7cad127f68a84528a5298c803ed838acdda5179114c949985b7447ac0449",
-          "managed": true
-        },
-        ".github/skills/diagnose/SKILL.md": {
-          "from": "1.19.0",
-          "hash": "sha256:b37f7cad127f68a84528a5298c803ed838acdda5179114c949985b7447ac0449",
           "managed": true
         }
       },

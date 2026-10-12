@@ -8,8 +8,8 @@ namespace Backlog.Mobile.UI.Tasks;
 
 /// <summary>
 /// The phone's view of the owner's tasks: the task feed folded into
-/// <see cref="ITaskViewStore"/>, and the one write the phone makes — a task added
-/// for today, pushed through the outbox.
+/// <see cref="ITaskViewStore"/>, and the writes the phone makes through the outbox —
+/// a task added for today, and a whole task re-sent after one of its edits.
 /// <para>
 /// A projection plus a push, and never a second task store: the phone keeps no
 /// domain rules and decides nothing about a task it pulled. Whatever the replica
@@ -61,6 +61,30 @@ public sealed class TaskViewProjection : IDisposable
             [
                 .. _rows.Values
                     .Where(row => row.IsInMyDay(today))
+                    .OrderBy(row => PriorityRank(row.Task.Priority))
+                    .ThenBy(row => row.Task.CreatedAt)
+            ];
+        }
+    }
+
+    /// <summary>
+    /// Everything picked for <paramref name="today"/>, ticked or not, in the order
+    /// <see cref="MyDay"/> keeps — what the Today screen groups. Unlike
+    /// <see cref="MyDay"/> a done task stays in: it is ticked off today, which is
+    /// the Done today group, and an unticked task whose status still reads done
+    /// (the desktop's untick leaves the status alone) is open again. A deleted or
+    /// archived task is gone.
+    /// </summary>
+    public IReadOnlyList<TaskViewRow> Day(DateOnly today)
+    {
+        lock (_rowsLock)
+        {
+            return
+            [
+                .. _rows.Values
+                    .Where(row => row.DeletedAt is null
+                        && row.Task.InMyDayOn == today
+                        && !string.Equals(row.Task.Status, "archived", StringComparison.OrdinalIgnoreCase))
                     .OrderBy(row => PriorityRank(row.Task.Priority))
                     .ThenBy(row => row.Task.CreatedAt)
             ];
@@ -147,6 +171,68 @@ public sealed class TaskViewProjection : IDisposable
 
             await _store.SaveAsync([row], cursor: null, cancellationToken);
             lock (_rowsLock) _rows[row.Id] = row;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        Changed?.Invoke();
+        return row;
+    }
+
+    /// <summary>
+    /// Edits a task already in the view and pushes the whole of it.
+    /// <para>
+    /// The replica keeps one document per task and the later <c>UpdatedAt</c>
+    /// wins whole (.devbook/arc42/adr/0005), so the phone cannot send the one
+    /// field it changed: <paramref name="edit"/> is handed the task as the view
+    /// holds it, and the document it answers with is stamped and queued entire,
+    /// as outbox kind <c>task</c> under a new entry id of its own and the
+    /// task's own id inside it. The same row is then written into the view at
+    /// once, with server stamp 0, so the screen shows the edit before any network
+    /// answers, and the replica's copy of the same write replaces it on the pull
+    /// that follows delivery.
+    /// </para>
+    /// <para>
+    /// The stamp is now, or one millisecond past the row's own when the phone's
+    /// clock is behind the device that wrote it — an edit stamped earlier than the
+    /// copy it was made from would lose to it on the replica and in this fold.
+    /// </para>
+    /// <para>
+    /// Held under the pull's gate, as an add is, so a pull cannot fold an older
+    /// copy over the edit between the queueing and the row.
+    /// </para>
+    /// </summary>
+    /// <returns>The task's row as it now stands — unchanged when the edit
+    /// changed nothing and nothing was queued — or null when the view holds no
+    /// live task by that id.</returns>
+    public async Task<TaskViewRow?> EditAsync(Guid id, Func<TaskPayload, TaskPayload?> edit, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(edit);
+
+        TaskViewRow row;
+
+        await _gate.WaitAsync(cancellationToken);
+
+        try
+        {
+            TaskViewRow? current;
+            lock (_rowsLock) current = _rows.GetValueOrDefault(id);
+
+            if (current is null || current.DeletedAt is not null) return null;
+
+            if (edit(current.Task) is not { } edited) return current;
+
+            var now = _clock.GetUtcNow();
+            var stamp = now > current.UpdatedAt ? now : current.UpdatedAt.AddMilliseconds(1);
+            var change = new TaskChange(id, stamp, DeletedAt: null, edited);
+
+            await _outbox.EnqueueAsync(TaskOutboxKind.Token, Guid.CreateVersion7(), TaskOutboxKind.Write(change), cancellationToken);
+
+            row = new TaskViewRow(id, stamp, DeletedAt: null, ServerTimestamp: 0, edited);
+            await _store.SaveAsync([row], cursor: null, cancellationToken);
+            lock (_rowsLock) _rows[id] = row;
         }
         finally
         {

@@ -108,13 +108,8 @@ public sealed class HomeDevbookPaneTests
         component.WaitForAssertion(() =>
             Assert.EndsWith("tasks/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent, StringComparison.Ordinal));
 
-        // Hidden: pressing its option closes it where two panes fit, and where only
-        // one does the backlog's option is the way away from it.
+        // Hidden: pressing its toggle closes it.
         await component.Find("[data-testid='devbook-pane-option']").ClickAsync(new());
-        if (component.FindAll("[data-testid='devbook-stack']").Count > 0)
-        {
-            await component.Find("[data-testid='backlog-pane-option']").ClickAsync(new());
-        }
 
         component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='devbook-stack']")));
 

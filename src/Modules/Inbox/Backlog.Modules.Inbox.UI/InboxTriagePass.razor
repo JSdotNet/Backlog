@@ -1,0 +1,458 @@
+@using Backlog.UI.Components.Icons
+@*
+    The AI triage pass under review (features.md#ai-triage-pass, artboard D):
+    every item still waiting in the slice, read against the backlog, with a
+    decision proposed for each one the advisor could place. Nothing moves until
+    Apply (local ADR 0023 §5).
+
+    Top to bottom: the way back, what this is, how many proposals are accepted,
+    Discard and Apply; then the proposals in four groups — plans to make, likely
+    duplicates, items moving to the backlog on their own, and the rest (filings
+    by list, archives, and the items left for the reader). A group with nothing
+    in it is not drawn. A proposal below the confidence the pass trusts starts
+    unaccepted; everything is the reader's to turn on or off before Apply.
+
+    The draft it edits is the state's (InboxTriagePassDraft), so the review
+    survives the pane moving slots. Only what is open — a group's Show — is held
+    here.
+*@
+
+@if (State.TriagePassDraft is { } draft)
+{
+    var busy = State.RoutingInFlight;
+    var decisions = draft.DecisionCount;
+    var groups = draft.FilingGroups;
+    var restCount = draft.Filings.Count + draft.Archives.Count;
+
+    <article class="inbox-pass" aria-labelledby="inbox-pass-title" data-testid="inbox-pass">
+        <header class="inbox-pass__header" data-testid="inbox-pass-header">
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Title="Put the pass away and go back to triage (Esc)"
+                       Disabled="@busy"
+                       OnClick="State.DismissTriagePass"
+                       TestId="inbox-pass-back">
+                <svg class="inbox-pane__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+                Back
+            </AppButton>
+
+            <div class="inbox-pass__heading-block">
+                <h2 class="inbox-pass__title" id="inbox-pass-title">
+                    <SparklesIcon Size="18" CssClass="inbox-triage__ai-icon" />
+                    AI triage pass
+                </h2>
+                <span class="inbox-pass__subtitle" data-testid="inbox-pass-subtitle">Read the @State.TriagePassItemCount items still waiting, against your backlog. Nothing moves until you apply.</span>
+            </div>
+
+            <Alert Inline="true"
+                   Role="status"
+                   BaseClass="inbox-pass__count"
+                   Message="@($"{draft.AcceptedCount} of {draft.Total} accepted")"
+                   TestId="inbox-pass-count" />
+
+            <AppButton Disabled="@busy"
+                       Title="Put the pass away; nothing is applied"
+                       OnClick="State.DismissTriagePass"
+                       TestId="inbox-pass-discard">Discard</AppButton>
+            <AppButton Variant="ButtonVariant.Primary"
+                       Disabled="@(decisions == 0)"
+                       Busy="@busy"
+                       BusyLabel="Applying"
+                       OnClick="() => State.ApplyTriagePassAsync()"
+                       TestId="inbox-pass-apply">Apply @InboxDesktopState.Counted(decisions, "decision", "decisions")</AppButton>
+        </header>
+
+        <Alert BaseClass="inbox-pane__note"
+               CssClass="inbox-pass__error"
+               Message="@State.TriagePassApplyError"
+               TestId="inbox-pass-error" />
+
+        <div class="inbox-pass__body">
+            @if (draft.Plans.Count > 0)
+            {
+                <section class="inbox-pass__section" aria-labelledby="inbox-pass-plans-title" data-testid="inbox-pass-plans">
+                    <h3 class="inbox-pass__section-title" id="inbox-pass-plans-title">
+                        Plans to make <span class="inbox-pass__section-sub">· @draft.Plans.Count · items that belong together go to the backlog as one plan</span>
+                    </h3>
+
+                    @for (var index = 0; index < draft.Plans.Count; index++)
+                    {
+                        var plan = draft.Plans[index];
+                        var titleId = $"inbox-pass-plan-{index}-title";
+                        var kept = plan.Kept;
+                        <Card @key="plan" CssClass="inbox-pass__card" TestId="inbox-pass-plan" aria-labelledby="@titleId">
+                            <div class="inbox-pass__card-head">
+                                <span class="inbox-pass__plan-title" id="@titleId" data-testid="inbox-pass-plan-title">@plan.EffectiveTitle</span>
+                                <span class="inbox-pass__meta" data-testid="inbox-pass-plan-meta">@InboxDesktopState.Counted(kept.Count, "item", "items") · plan tag <code class="inbox-pass__tag">@plan.TagPreview</code></span>
+                                @Accept(plan.IsAccepted, on => plan.Accepted = on, "inbox-pass-plan-accept", !plan.Appliable || busy, $"Accept the plan {plan.EffectiveTitle}")
+                            </div>
+
+                            @if (!plan.Appliable)
+                            {
+                                <Alert BaseClass="inbox-pane__note"
+                                       Role="status"
+                                       Message="A plan needs at least two items, so this one will not be applied."
+                                       TestId="inbox-pass-plan-too-small" />
+                            }
+
+                            @if (plan.Editing)
+                            {
+                                <div class="inbox-pass__editor" data-testid="inbox-pass-plan-editor">
+                                    <TextField Label="Plan title"
+                                               Value="@plan.Title"
+                                               ValueChanged="value => plan.Title = value"
+                                               Disabled="@busy"
+                                               Id="@($"inbox-pass-plan-{index}-title-field")"
+                                               TestId="inbox-pass-plan-title-field" />
+                                    <ol class="inbox-pass__members inbox-pass__members--editing" aria-label="Items in the plan">
+                                        @foreach (var member in plan.Members)
+                                        {
+                                            var id = member;
+                                            var leftOut = plan.IsLeftOut(id);
+                                            <li @key="id" class="@(leftOut ? "inbox-pass__member inbox-pass__member--left-out" : "inbox-pass__member")" data-testid="inbox-pass-plan-member">
+                                                <span class="inbox-pass__member-title">@draft.TitleOf(id)</span>
+                                                <ToggleButton Pressed="@leftOut"
+                                                              PressedChanged="on => plan.SetLeftOut(id, on)"
+                                                              Disabled="@busy"
+                                                              BaseClass="btn btn--toggle btn--small"
+                                                              AriaLabel="@($"Leave {draft.TitleOf(id)} out of the plan")"
+                                                              TestId="inbox-pass-plan-leave-out">@(leftOut ? "Left out" : "Leave out")</ToggleButton>
+                                            </li>
+                                        }
+                                    </ol>
+                                </div>
+                            }
+                            else
+                            {
+                                <ol class="inbox-pass__members" aria-label="Items in the plan" data-testid="inbox-pass-plan-members">
+                                    @foreach (var member in kept)
+                                    {
+                                        <li @key="member">@draft.TitleOf(member)</li>
+                                    }
+                                </ol>
+                            }
+
+                            <div class="inbox-pass__repos-row">
+                                @if (plan.Proposal.Repositories.Count > 0)
+                                {
+                                    <span class="inbox-pass__meta">In</span>
+                                    @Repositories(plan.Proposal.Repositories)
+                                }
+                                <AppButton Size="ButtonSize.Small"
+                                           CssClass="inbox-pass__edit"
+                                           aria-expanded="@(plan.Editing ? "true" : "false")"
+                                           Disabled="@busy"
+                                           OnClick="() => plan.Editing = !plan.Editing"
+                                           TestId="inbox-pass-plan-edit">@(plan.Editing ? "Done" : "Edit plan")</AppButton>
+                            </div>
+
+                            @Why(plan.Proposal.Reason)
+                        </Card>
+                    }
+                </section>
+            }
+
+            @if (draft.Duplicates.Count > 0)
+            {
+                <section class="inbox-pass__section" aria-labelledby="inbox-pass-duplicates-title" data-testid="inbox-pass-duplicates">
+                    <h3 class="inbox-pass__section-title" id="inbox-pass-duplicates-title">
+                        Likely duplicates <span class="inbox-pass__section-sub">· @draft.Duplicates.Count</span>
+                    </h3>
+
+                    @foreach (var pair in draft.Duplicates)
+                    {
+                        var duplicate = pair;
+                        var item = draft.Item(duplicate.Proposal.ItemId);
+                        var twin = duplicate.Proposal.TargetKind == InboxTriageTargetKind.InboxItem ? draft.Item(duplicate.Proposal.TargetId) : null;
+                        <Card CssClass="inbox-pass__card" TestId="inbox-pass-duplicate" @key="duplicate.Proposal.ItemId">
+                            <div class="inbox-pass__sides">
+                                <div class="inbox-pass__side" data-testid="inbox-pass-duplicate-item">
+                                    <span class="inbox-pass__side-label">@InboxLabel(item)</span>
+                                    <span class="inbox-pass__side-title">@draft.TitleOf(duplicate.Proposal.ItemId)</span>
+                                </div>
+                                <span class="inbox-pass__arrow" aria-hidden="true">@(twin is null ? "→" : "=")</span>
+                                <div class="@(twin is null ? "inbox-pass__side inbox-pass__side--entry" : "inbox-pass__side")" data-testid="inbox-pass-duplicate-target">
+                                    <span class="inbox-pass__side-label">@TargetLabel(duplicate.Proposal, twin)</span>
+                                    <span class="inbox-pass__side-title">@TargetTitle(duplicate.Proposal, twin)</span>
+                                </div>
+                            </div>
+                            <div class="inbox-pass__card-foot">
+                                <div class="inbox-pass__choices" role="radiogroup" aria-label="What to do with the duplicate">
+                                    @foreach (var option in duplicate.Choices)
+                                    {
+                                        var choice = option;
+                                        var on = duplicate.Choice == choice;
+                                        <AppButton Size="ButtonSize.Small"
+                                                   CssClass="@(on ? "inbox-pass__choice inbox-pass__choice--on" : "inbox-pass__choice")"
+                                                   role="radio"
+                                                   aria-checked="@(on ? "true" : "false")"
+                                                   Disabled="@busy"
+                                                   OnClick="() => duplicate.Choice = choice"
+                                                   TestId="@($"inbox-pass-duplicate-{ChoiceSlug(choice)}")">@ChoiceLabel(duplicate, choice, twin)</AppButton>
+                                    }
+                                </div>
+                                @Why(duplicate.Proposal.Reason)
+                            </div>
+                        </Card>
+                    }
+                </section>
+            }
+
+            @if (draft.Routes.Count > 0)
+            {
+                <section class="inbox-pass__section" aria-labelledby="inbox-pass-routes-title" data-testid="inbox-pass-routes">
+                    <h3 class="inbox-pass__section-title" id="inbox-pass-routes-title">
+                        Move to backlog on their own <span class="inbox-pass__section-sub">· @draft.Routes.Count</span>
+                    </h3>
+                    <div class="inbox-pass__table-box">
+                        <div class="inbox-pass__table" role="table" aria-label="Items to move to the backlog">
+                            <div class="inbox-pass__row inbox-pass__row--head" role="row">
+                                <span role="columnheader">Item</span>
+                                <span role="columnheader">As</span>
+                                <span role="columnheader">Repositories</span>
+                                <span role="columnheader">Decision</span>
+                            </div>
+                            @foreach (var proposal in draft.Routes)
+                            {
+                                var route = proposal;
+                                <div class="inbox-pass__row" role="row" @key="route.ItemId" data-testid="inbox-pass-route">
+                                    <span class="inbox-pass__cell-item" role="cell">
+                                        <span class="inbox-pass__row-title">@draft.TitleOf(route.ItemId)</span>
+                                        <span class="inbox-pass__meta">@route.Reason</span>
+                                    </span>
+                                    <span role="cell" data-testid="inbox-pass-route-type">@EntryTypeLabel(route.EntryType)</span>
+                                    <span class="inbox-pass__repos" role="cell">@Repositories(route.Repositories)</span>
+                                    <span role="cell">@Accept(route.Accepted, on => route.Accepted = on, "inbox-pass-route-accept", busy, $"Move {draft.TitleOf(route.ItemId)} to the backlog")</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </section>
+            }
+
+            @if (restCount > 0 || draft.Unplaced.Count > 0)
+            {
+                <section class="inbox-pass__section" aria-labelledby="inbox-pass-rest-title" data-testid="inbox-pass-rest">
+                    <h3 class="inbox-pass__section-title" id="inbox-pass-rest-title">
+                        The rest <span class="inbox-pass__section-sub">· @restCount</span>
+                    </h3>
+                    <Card CssClass="inbox-pass__card inbox-pass__rest">
+                        @foreach (var group in groups)
+                        {
+                            var filings = group;
+                            var key = $"list:{filings.ListId:N}";
+                            <div class="inbox-pass__rest-row" @key="key" data-testid="inbox-pass-filing">
+                                <div class="inbox-pass__rest-line">
+                                    <span class="inbox-pass__rest-text">File @filings.Items.Count in <strong>@filings.ListName</strong></span>
+                                    @Accept(AllOrPart(filings.Items), on => filings.SetAccepted(on), "inbox-pass-filing-accept", busy, $"File {filings.Items.Count} in {filings.ListName}")
+                                    @Show(key, "inbox-pass-filing-show")
+                                </div>
+                                @if (_shown.Contains(key))
+                                {
+                                    @Shown(draft, filings.Items, "inbox-pass-filing-item")
+                                }
+                            </div>
+                        }
+
+                        @if (draft.Archives.Count > 0)
+                        {
+                            const string key = "archive";
+                            var reason = draft.Archives.Select(archive => archive.Reason).FirstOrDefault(text => !string.IsNullOrWhiteSpace(text));
+                            <div class="inbox-pass__rest-row" data-testid="inbox-pass-archive">
+                                <div class="inbox-pass__rest-line">
+                                    <span class="inbox-pass__rest-text">
+                                        Archive @draft.Archives.Count
+                                        @if (reason is not null)
+                                        {
+                                            @(" — ")<em class="inbox-pass__rest-reason">@reason</em>
+                                        }
+                                    </span>
+                                    @Accept(AllOrPart(draft.Archives), on => SetAll(draft.Archives, on), "inbox-pass-archive-accept", busy, $"Archive {draft.Archives.Count}")
+                                    @Show(key, "inbox-pass-archive-show")
+                                </div>
+                                @if (_shown.Contains(key))
+                                {
+                                    @Shown(draft, draft.Archives, "inbox-pass-archive-item")
+                                }
+                            </div>
+                        }
+
+                        @if (draft.Unplaced.Count > 0)
+                        {
+                            <div class="inbox-pass__rest-row" data-testid="inbox-pass-left">
+                                <div class="inbox-pass__rest-line">
+                                    <span class="inbox-pass__rest-text inbox-pass__rest-text--quiet">Left for you: @InboxDesktopState.Counted(draft.Unplaced.Count, "item", "items") AI could not place with confidence</span>
+                                    <AppButton Size="ButtonSize.Small"
+                                               Disabled="@busy"
+                                               Title="Put the pass away and triage these yourself"
+                                               OnClick="State.TriageLeftOver"
+                                               TestId="inbox-pass-triage-left">Triage them</AppButton>
+                                </div>
+                            </div>
+                        }
+                    </Card>
+                </section>
+            }
+        </div>
+    </article>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public InboxDesktopState State { get; set; } = default!;
+
+    /// <summary>The rows of The rest whose items are shown, by key.</summary>
+    private readonly HashSet<string> _shown = [];
+
+    /// <summary>An Accept toggle: "Accepted" with a tick when on, "Accept" when
+    /// off — the state is <c>aria-pressed</c>, the words and the tick say it to
+    /// the eye. A row standing for several proposals, some accepted and some
+    /// not (<paramref name="on"/> null), reads "Partly accepted" and
+    /// <c>aria-pressed="mixed"</c>; pressing it accepts them all.</summary>
+    private RenderFragment Accept(bool? on, Action<bool> set, string testId, bool disabled, string label) => __builder =>
+    {
+        if (on is null)
+        {
+            <ToggleButton Pressed="false"
+                          PressedChanged="value => set(value)"
+                          Disabled="@disabled"
+                          BaseClass="btn btn--toggle btn--small inbox-pass__accept"
+                          PressedCssClass="inbox-pass__accept--on"
+                          CssClass="inbox-pass__accept--mixed"
+                          Title="@label"
+                          TestId="@testId"
+                          aria-pressed="mixed">
+                <span>Partly accepted</span>
+            </ToggleButton>
+            return;
+        }
+
+        <ToggleButton Pressed="@on.Value"
+                      PressedChanged="value => set(value)"
+                      Disabled="@disabled"
+                      BaseClass="btn btn--toggle btn--small inbox-pass__accept"
+                      PressedCssClass="inbox-pass__accept--on"
+                      Title="@label"
+                      TestId="@testId">
+            @if (on.Value)
+            {
+                <svg class="inbox-pass__tick" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+                <span>Accepted</span>
+            }
+            else
+            {
+                <span>Accept</span>
+            }
+        </ToggleButton>
+    };
+
+    /// <summary>True when every proposal of a row is accepted, false when none
+    /// is, null when some are.</summary>
+    private static bool? AllOrPart(IReadOnlyList<InboxPassProposal> proposals) =>
+        proposals.All(proposal => proposal.Accepted) ? true
+        : proposals.Any(proposal => proposal.Accepted) ? null
+        : false;
+
+    /// <summary>Show or Hide for one row of The rest.</summary>
+    private RenderFragment Show(string key, string testId) => __builder =>
+    {
+        var open = _shown.Contains(key);
+        <AppButton Size="ButtonSize.Small"
+                   aria-expanded="@(open ? "true" : "false")"
+                   OnClick="() => Toggle(key)"
+                   TestId="@testId">@(open ? "Hide" : "Show")</AppButton>
+    };
+
+    /// <summary>The items behind a row of The rest, each with its reason and
+    /// its own toggle, for a reader who accepts part of a row.</summary>
+    private RenderFragment Shown(InboxTriagePassDraft draft, IReadOnlyList<InboxPassProposal> proposals, string testId) => __builder =>
+    {
+        <ul class="inbox-pass__shown">
+            @foreach (var proposal in proposals)
+            {
+                var one = proposal;
+                <li class="inbox-pass__shown-item" @key="one.ItemId" data-testid="@testId">
+                    <span class="inbox-pass__cell-item">
+                        <span class="inbox-pass__row-title">@draft.TitleOf(one.ItemId)</span>
+                        <span class="inbox-pass__meta">@one.Reason</span>
+                    </span>
+                    @Accept(one.Accepted, on => one.Accepted = on, $"{testId}-accept", State.RoutingInFlight, draft.TitleOf(one.ItemId))
+                </li>
+            }
+        </ul>
+    };
+
+    /// <summary>One chip per repository, wearing its identity edge when
+    /// Settings shows repository colours (color-scheme.md#the-identity-edge).</summary>
+    private RenderFragment Repositories(IReadOnlyList<string> repoIds) => __builder =>
+    {
+        @foreach (var repoId in repoIds)
+        {
+            var alias = State.RepositoryAlias(repoId);
+            <span class="@RepositoryClass(alias)" @key="repoId" data-testid="inbox-pass-repo">@alias</span>
+        }
+    };
+
+    private static RenderFragment Why(string reason) => __builder =>
+    {
+        @if (!string.IsNullOrWhiteSpace(reason))
+        {
+            <p class="inbox-pass__why"><span aria-hidden="true">↳</span><span>Why: @reason</span></p>
+        }
+    };
+
+    private void Toggle(string key)
+    {
+        if (!_shown.Add(key)) _shown.Remove(key);
+    }
+
+    private static void SetAll(IEnumerable<InboxPassProposal> proposals, bool on)
+    {
+        foreach (var proposal in proposals) proposal.Accepted = on;
+    }
+
+    private string RepositoryClass(string alias) =>
+        State.RepositoryColourFor(alias) is { } colour
+            ? $"inbox-pass__repo repo-mark repo-mark--{colour}"
+            : "inbox-pass__repo";
+
+    /// <summary>"Inbox · Note · 4d".</summary>
+    private string InboxLabel(InboxItemDto? item) =>
+        item is null ? "Inbox" : $"Inbox · {InboxLabels.Kind(item.KindSlug)} · {State.Age(item.CapturedAt)}";
+
+    /// <summary>"Backlog entry · in progress", or the other item's inbox line.</summary>
+    private string TargetLabel(InboxTriageDuplicatePairDto pair, InboxItemDto? twin) =>
+        pair.TargetKind == InboxTriageTargetKind.Task
+            ? string.IsNullOrWhiteSpace(pair.TargetStatus) ? "Backlog entry" : $"Backlog entry · {pair.TargetStatus}"
+            : InboxLabel(twin);
+
+    private static string TargetTitle(InboxTriageDuplicatePairDto pair, InboxItemDto? twin) =>
+        twin is not null ? TitleOf(twin.Title)
+        : !string.IsNullOrWhiteSpace(pair.TargetTitle) ? pair.TargetTitle
+        : "A backlog entry";
+
+    private static string ChoiceLabel(InboxPassDuplicate pair, InboxPassDuplicateChoice choice, InboxItemDto? twin) => choice switch
+    {
+        InboxPassDuplicateChoice.Merge when pair.Proposal.TargetKind == InboxTriageTargetKind.Task => "Merge into the entry",
+        InboxPassDuplicateChoice.Merge => $"Keep {TargetTitle(pair.Proposal, twin)}, archive this one",
+        InboxPassDuplicateChoice.Archive => "Archive the capture",
+        _ => "Keep both",
+    };
+
+    private static string ChoiceSlug(InboxPassDuplicateChoice choice) => choice switch
+    {
+        InboxPassDuplicateChoice.Merge => "merge",
+        InboxPassDuplicateChoice.Archive => "archive",
+        _ => "keep-both",
+    };
+
+    private static string EntryTypeLabel(string? entryType) => entryType switch
+    {
+        "prompt" => "Prompt",
+        "task" => "Task",
+        "test" => "Test",
+        null or "" => "Entry",
+        _ => entryType,
+    };
+
+    private static string TitleOf(string? title) => string.IsNullOrWhiteSpace(title) ? "Untitled" : title;
+}

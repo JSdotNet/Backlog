@@ -39,10 +39,12 @@ public static class TaskFold
     /// <inheritdoc cref="RepositoryRegistryType"/>
     public const string GitHubAccountsType = "github-accounts";
 
-    /// <summary>Every kind the Tasks tab never lists.</summary>
+    /// <summary>Every kind the Tasks tab never lists. A note is the Inbox's, and
+    /// <see cref="Notes.NoteFold"/> folds it into its own view.</summary>
     private static readonly HashSet<string> NotTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         CaptureType,
+        Notes.NoteFold.NoteType,
         RoadmapPlanType,
         PlanningPaceType,
         RepositoryRegistryType,

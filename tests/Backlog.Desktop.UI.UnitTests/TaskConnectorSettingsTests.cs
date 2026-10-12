@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.SharedKernel.Results;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using static Backlog.Desktop.UI.UnitTests.LinkedTaskPaneTests;
@@ -217,6 +218,200 @@ public sealed class TaskConnectorSettingsTests
 
         Assert.Empty(targets.List());
         Assert.Contains("Disconnected owner/repo", page.Find("[data-testid='task-connectors-message']").TextContent);
+    }
+
+    // --- Disconnected sources -------------------------------------------------
+
+    private static (BunitContext Context, InMemoryTargets Targets, FakeDisconnected Disconnected) ComposeDisconnected(
+        params DisconnectedSource[] sources)
+    {
+        var (context, targets, _) = Compose();
+
+        // The confirmation is a modal, which moves focus through JS interop.
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var disconnected = new FakeDisconnected(targets, sources);
+        context.Services.AddSingleton<IDisconnectedLinkedTasks>(disconnected);
+        return (context, targets, disconnected);
+    }
+
+    /// <summary>A source whose connector this build no longer has is still listed,
+    /// under its stored id, so its tasks can still be cleared.</summary>
+    [Fact]
+    public void Each_disconnected_source_is_listed_with_its_connector_target_and_task_count()
+    {
+        var (context, _, _) = ComposeDisconnected(
+            new DisconnectedSource(FakeConnector.Id, "owner/old", 3, 0),
+            new DisconnectedSource("gone", "acme/widgets", 1, 0));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.NotNull(page.Find("[data-testid='task-connectors-disconnected']"));
+        Assert.Equal(["Fake", "gone"], page.FindAll("[data-testid='task-connector-disconnected-connector']").Select(e => e.TextContent));
+        Assert.Equal(["owner/old", "acme/widgets"], page.FindAll("[data-testid='task-connector-disconnected-target']").Select(e => e.TextContent));
+        Assert.Equal(["3 tasks", "1 task"], page.FindAll("[data-testid='task-connector-disconnected-count']").Select(e => e.TextContent));
+        Assert.Equal(2, page.FindAll("[data-testid='task-connector-disconnected-delete']").Count);
+    }
+
+    [Fact]
+    public void The_section_is_hidden_when_no_source_is_disconnected()
+    {
+        var (context, _, _) = ComposeDisconnected();
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.Empty(page.FindAll("[data-testid='task-connectors-disconnected']"));
+        Assert.DoesNotContain("Disconnected sources", page.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_section_is_hidden_in_a_host_without_the_port()
+    {
+        var (context, _, _) = Compose();
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+
+        Assert.Empty(page.FindAll("[data-testid='task-connectors-disconnected']"));
+    }
+
+    [Fact]
+    public async Task Disconnecting_a_target_lists_it_as_a_disconnected_source()
+    {
+        var (context, targets, _) = ComposeDisconnected(new DisconnectedSource(FakeConnector.Id, "owner/repo", 2, 0));
+        targets.Save(new ConnectedTarget(FakeConnector.Id, "owner/repo"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        Assert.Empty(page.FindAll("[data-testid='task-connectors-disconnected']"));
+
+        await page.Find("[data-testid='task-connector-target-card-remove']").ClickAsync(new());
+
+        page.WaitForAssertion(() =>
+            Assert.Equal("owner/repo", page.Find("[data-testid='task-connector-disconnected-target']").TextContent));
+    }
+
+    /// <summary>A sync records its progress on the target every run; that moves no
+    /// source on or off the list, so it is not listed again. Connecting one
+    /// elsewhere does.</summary>
+    [Fact]
+    public void Only_a_change_to_which_targets_are_connected_lists_the_sources_again()
+    {
+        var (context, targets, disconnected) = ComposeDisconnected(new DisconnectedSource(FakeConnector.Id, "owner/old", 3, 0));
+        targets.Save(new ConnectedTarget(FakeConnector.Id, "owner/repo"));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        var listed = disconnected.Lists;
+
+        targets.Update(FakeConnector.Id, "OWNER/REPO", target => target with { LastSyncedAt = DateTimeOffset.UnixEpoch });
+        page.WaitForAssertion(() => Assert.Equal(listed, disconnected.Lists));
+
+        targets.Save(new ConnectedTarget(FakeConnector.Id, "owner/old"));
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal(listed + 1, disconnected.Lists);
+            Assert.Empty(page.FindAll("[data-testid='task-connectors-disconnected']"));
+        });
+    }
+
+    [Fact]
+    public async Task Cancelling_the_confirmation_deletes_nothing()
+    {
+        var (context, _, disconnected) = ComposeDisconnected(new DisconnectedSource(FakeConnector.Id, "owner/old", 3, 0));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("[data-testid='task-connector-disconnected-delete']").ClickAsync(new());
+        Assert.NotNull(page.Find("[data-testid='task-connector-delete-dialog']"));
+
+        await page.Find("[data-testid='task-connector-delete-cancel']").ClickAsync(new());
+
+        Assert.Empty(page.FindAll("[data-testid='task-connector-delete-dialog']"));
+        Assert.Empty(disconnected.Deleted);
+        Assert.Single(page.FindAll("[data-testid='task-connector-disconnected']"));
+    }
+
+    [Fact]
+    public async Task The_confirmation_says_what_is_deleted_what_stays_and_that_it_cannot_be_brought_back()
+    {
+        var (context, _, _) = ComposeDisconnected(new DisconnectedSource(FakeConnector.Id, "owner/old", 3, 0));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("[data-testid='task-connector-disconnected-delete']").ClickAsync(new());
+
+        var dialog = page.Find("[data-testid='task-connector-delete-dialog']");
+        var message = dialog.QuerySelector(".confirm-dialog__message")!.TextContent;
+        Assert.Contains("This deletes 3 tasks from owner/old.", message, StringComparison.Ordinal);
+        Assert.Contains("The items at the source stay untouched.", message, StringComparison.Ordinal);
+        Assert.Contains("Connecting owner/old again will not bring these tasks back", message, StringComparison.Ordinal);
+        Assert.Contains("the deletion reaches your other devices.", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("blocked", message, StringComparison.Ordinal);
+
+        // Destructive: the confirm is the danger button, and it names the act.
+        var confirm = page.Find("[data-testid='task-connector-delete-confirm']");
+        Assert.Contains("btn--danger", confirm.ClassName, StringComparison.Ordinal);
+        Assert.Equal("Delete tasks", confirm.TextContent.Trim());
+    }
+
+    [Theory]
+    [InlineData(1, "1 task that waits on these will show as blocked on a missing task.")]
+    [InlineData(2, "2 tasks that wait on these will show as blocked on a missing task.")]
+    public async Task The_confirmation_warns_about_the_tasks_left_waiting_on_a_missing_one(int dependents, string expected)
+    {
+        var (context, _, _) = ComposeDisconnected(new DisconnectedSource(FakeConnector.Id, "owner/old", 3, dependents));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("[data-testid='task-connector-disconnected-delete']").ClickAsync(new());
+
+        Assert.EndsWith(expected, page.Find(".confirm-dialog__message").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Confirming_deletes_the_tasks_says_how_many_and_drops_the_source_from_the_list()
+    {
+        var (context, _, disconnected) = ComposeDisconnected(
+            new DisconnectedSource(FakeConnector.Id, "owner/old", 3, 0),
+            new DisconnectedSource(FakeConnector.Id, "owner/older", 1, 0));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.FindAll("[data-testid='task-connector-disconnected-delete']")[0].ClickAsync(new());
+        await page.Find("[data-testid='task-connector-delete-confirm']").ClickAsync(new());
+
+        Assert.Equal([(FakeConnector.Id, "owner/old")], disconnected.Deleted);
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal("Deleted 3 tasks from owner/old.", page.Find("[data-testid='task-connectors-message']").TextContent.Trim());
+            Assert.Equal("owner/older", page.Find("[data-testid='task-connector-disconnected-target']").TextContent);
+        });
+    }
+
+    [Fact]
+    public async Task A_source_connected_again_before_the_confirmation_is_refused_in_words()
+    {
+        var (context, targets, disconnected) = ComposeDisconnected(new DisconnectedSource(FakeConnector.Id, "owner/old", 3, 0));
+        using var _context = context;
+
+        var page = context.Render<TaskConnectorSettings>();
+        await page.Find("[data-testid='task-connector-disconnected-delete']").ClickAsync(new());
+
+        // Connected elsewhere while the question is open.
+        targets.Save(new ConnectedTarget(FakeConnector.Id, "owner/old"));
+        await page.Find("[data-testid='task-connector-delete-confirm']").ClickAsync(new());
+
+        Assert.Empty(disconnected.Deleted);
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                "owner/old is connected again, so its tasks were not deleted.",
+                page.Find("[data-testid='task-connectors-message']").TextContent.Trim());
+            Assert.Empty(page.FindAll("[data-testid='task-connectors-disconnected']"));
+        });
+        Assert.NotNull(targets.Get(FakeConnector.Id, "owner/old"));
     }
 
     /// <summary>The field a target is typed into is named by the chosen connector:
@@ -733,6 +928,43 @@ public sealed class TaskConnectorSettingsTests
 
         public Task<IReadOnlyList<SourceItem>> FetchAsync(string target, DateTimeOffset? since, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<SourceItem>>([]);
+    }
+
+    /// <summary>The disconnected sources the test set, listing only those whose
+    /// pair the targets do not hold, and refusing a delete for one they do — as the
+    /// module's handler does.</summary>
+    private sealed class FakeDisconnected(InMemoryTargets targets, IEnumerable<DisconnectedSource> sources) : IDisconnectedLinkedTasks
+    {
+        private readonly List<DisconnectedSource> _sources = [.. sources];
+
+        public List<(string ConnectorId, string Target)> Deleted { get; } = [];
+
+        /// <summary>How many times the page asked for the list.</summary>
+        public int Lists { get; private set; }
+
+        private bool IsConnected(string connectorId, string target) => targets.Get(connectorId, target) is not null;
+
+        public Task<IReadOnlyList<DisconnectedSource>> ListAsync(CancellationToken cancellationToken = default)
+        {
+            Lists++;
+            return Task.FromResult<IReadOnlyList<DisconnectedSource>>(
+                [.. _sources.Where(source => !IsConnected(source.ConnectorId, source.Target))]);
+        }
+
+        public Task<Result<int>> DeleteAsync(string connectorId, string target, CancellationToken cancellationToken = default)
+        {
+            if (IsConnected(connectorId, target))
+            {
+                return Task.FromResult<Result<int>>(Error.Conflict(
+                    "linked_tasks.target_connected",
+                    $"{target} is connected again, so its tasks were not deleted."));
+            }
+
+            var source = _sources.Single(candidate => candidate.ConnectorId == connectorId && candidate.Target == target);
+            _sources.Remove(source);
+            Deleted.Add((connectorId, target));
+            return Task.FromResult<Result<int>>(source.TaskCount);
+        }
     }
 
     internal sealed class RecordingSync : ILinkedTaskSync

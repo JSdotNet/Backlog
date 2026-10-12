@@ -222,7 +222,7 @@ internal sealed record PullRequestVerdict(
 
         // A repository that asks for no review has no decision, but a reviewer who asked
         // for changes still did.
-        if (pull.Reviews.Decision == GitHubReviewDecision.ChangesRequested || pull.Reviews.ChangesRequested > 0)
+        if (pull.Reviews.Decision == GitHubReviewState.ChangesRequested || pull.Reviews.ChangesRequested > 0)
         {
             return new(
                 PullRequestVerdictKind.ChangesRequested, PullRequestLane.NeedsYou, PullRequestTone.Fault,
@@ -268,7 +268,7 @@ internal sealed record PullRequestVerdict(
                 PullRequestAct.MergeWhenReady, null);
         }
 
-        if (pull.Reviews.Decision == GitHubReviewDecision.ReviewRequired)
+        if (pull.Reviews.Decision == GitHubReviewState.ReviewRequired)
         {
             return new(
                 PullRequestVerdictKind.ReviewRequired, PullRequestLane.Waiting, PullRequestTone.Live,

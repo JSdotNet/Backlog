@@ -31,10 +31,9 @@ public sealed class InboxListTests
         app.WaitForAssertion(() =>
         {
             var row = Assert.Single(app.FindAll("[data-testid='inbox-row']"));
-            Assert.Equal("true", row.GetAttribute("data-waiting"));
+            Assert.Equal("waiting", row.GetAttribute("data-state"));
             Assert.Contains("Ask the speaker for the slides", row.TextContent);
-            Assert.Equal("Waiting", row.QuerySelector("[data-testid='inbox-waiting']")!.TextContent);
-            Assert.Null(row.QuerySelector("[data-testid='inbox-dismiss']"));
+            Assert.Equal("Waiting", row.QuerySelector("[data-testid='inbox-row-state']")!.TextContent);
         });
 
         // Kept, not lost: the field is clear because the capture is safe.
@@ -54,7 +53,7 @@ public sealed class InboxListTests
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-pull-notice']")));
         app.Find("[data-testid='capture-field'] input").Input("Ask the speaker for the slides");
         app.Find("[data-testid='capture-submit']").Click();
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-waiting']")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-row-state']")));
 
         inbox.State = InboxServiceState.Answering;
         clock.Advance(TimeSpan.FromSeconds(2));
@@ -62,8 +61,8 @@ public sealed class InboxListTests
         app.WaitForAssertion(() =>
         {
             var row = Assert.Single(app.FindAll("[data-testid='inbox-row']"));
-            Assert.Equal("false", row.GetAttribute("data-waiting"));
-            Assert.Equal("Dismiss", row.QuerySelector("[data-testid='inbox-dismiss']")!.TextContent.Trim());
+            Assert.Equal("sent", row.GetAttribute("data-state"));
+            Assert.Equal("Sent", row.QuerySelector("[data-testid='inbox-row-state']")!.TextContent.Trim());
             Assert.Empty(app.FindAll("[data-testid='inbox-pull-notice']"));
         });
 
@@ -85,7 +84,7 @@ public sealed class InboxListTests
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-pull-notice']")));
         app.Find("[data-testid='capture-field'] input").Input("Ask the speaker for the slides");
         app.Find("[data-testid='capture-submit']").Click();
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-waiting']")));
+        app.WaitForAssertion(() => Assert.Equal("waiting", app.Find("[data-testid='inbox-row']").GetAttribute("data-state")));
 
         inbox.State = InboxServiceState.Answering;
         clock.Advance(TimeSpan.FromHours(3));
@@ -93,8 +92,8 @@ public sealed class InboxListTests
         app.WaitForAssertion(() =>
         {
             var row = Assert.Single(app.FindAll("[data-testid='inbox-row']"));
-            Assert.Equal("false", row.GetAttribute("data-waiting"));
-            Assert.Equal("3h ago", row.QuerySelector("[data-testid='inbox-time']")!.TextContent);
+            Assert.Equal("sent", row.GetAttribute("data-state"));
+            Assert.Equal("3h ago", row.QuerySelector("[data-testid='inbox-row-time']")!.TextContent);
         });
 
         // Every attempt, the failed one included, says the same time.
@@ -122,7 +121,7 @@ public sealed class InboxListTests
         app.WaitForAssertion(() =>
         {
             var row = Assert.Single(app.FindAll("[data-testid='inbox-row']"));
-            Assert.Equal("false", row.GetAttribute("data-waiting"));
+            Assert.Equal("sent", row.GetAttribute("data-state"));
             Assert.Contains("Ask the speaker for the slides", row.TextContent);
         });
 
@@ -153,7 +152,7 @@ public sealed class InboxListTests
             Assert.NotNull(app.Find("[data-testid='inbox-pull-notice']"));
         });
         var row = Assert.Single(app.FindAll("[data-testid='inbox-row']"));
-        Assert.Equal("false", row.GetAttribute("data-waiting"));
+        Assert.Equal("sent", row.GetAttribute("data-state"));
         Assert.Contains("Ask the speaker for the slides", row.TextContent);
     }
 
@@ -164,7 +163,7 @@ public sealed class InboxListTests
         app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-pull-notice']")));
         app.Find("[data-testid='capture-field'] input").Input(title);
         app.Find("[data-testid='capture-submit']").Click();
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-waiting']")));
+        app.WaitForAssertion(() => Assert.Equal("waiting", app.Find("[data-testid='inbox-row']").GetAttribute("data-state")));
 
         return app;
     }
@@ -226,13 +225,12 @@ public sealed class InboxListTests
 
         app.WaitForAssertion(() => Assert.Single(app.FindAll("[data-testid='inbox-row']")));
 
-        Assert.Equal("3m ago", app.Find("[data-testid='inbox-time']").TextContent);
-        Assert.Equal("Dates, budget, who drives.", app.Find("[data-testid='inbox-preview']").TextContent);
-        Assert.NotNull(app.Find(".inbox__meta .capture-kind-marker--text"));
-        Assert.Equal("Dismiss", app.Find("[data-testid='inbox-dismiss']").TextContent.Trim());
+        Assert.Equal("3m ago", app.Find("[data-testid='inbox-row-time']").TextContent);
+        Assert.Equal("Dates, budget, who drives.", app.Find("[data-testid='inbox-row-preview']").TextContent);
+        Assert.NotNull(app.Find(".capture-row__meta .capture-kind-marker--text"));
         Assert.DoesNotContain("Triage", app.Markup, StringComparison.Ordinal);
 
-        app.Find("[data-testid='inbox-open']").Click();
+        app.Find("[data-testid='inbox-row-open']").Click();
 
         app.WaitForAssertion(() => Assert.Equal("true", app.Find("[data-testid='inbox-sheet']").GetAttribute("data-open")));
         Assert.Contains("And whether partners come.", app.Find("[data-testid='inbox-sheet-body']").TextContent);
@@ -240,5 +238,54 @@ public sealed class InboxListTests
         Assert.Equal("@alex", app.Find("[data-testid='inbox-sheet-person']").TextContent);
         Assert.Contains("planning", app.Find("[data-testid='inbox-sheet-tags']").TextContent);
         Assert.Contains("team", app.Find("[data-testid='inbox-sheet-tags']").TextContent);
+    }
+
+    /// <summary>The tab is the phone's own captures, counted in the header, and
+    /// offers nothing that would triage one: that stays on the desktop.</summary>
+    [Fact]
+    public void The_header_counts_the_phones_own_captures_and_no_row_offers_triage()
+    {
+        var inbox = new ScriptedInboxService(
+            new InboxItem(Guid.CreateVersion7(), "Ask about the offsite", "mobile", Now.AddMinutes(-3)),
+            new InboxItem(Guid.CreateVersion7(), "Renew the domain", "mobile", Now.AddHours(-1)),
+            new InboxItem(Guid.CreateVersion7(), "A video the monitor found", "youtube", Now.AddMinutes(-1)),
+            new InboxItem(Guid.CreateVersion7(), "Captured on the desktop", "desktop", Now.AddMinutes(-2)));
+        using var host = ShellHost.Paired(inbox, clock: new FakeTimeProvider(Now));
+        var app = host.Open();
+
+        app.WaitForAssertion(() => Assert.Equal(2, app.FindAll("[data-testid='inbox-row']").Count));
+
+        Assert.Equal("2 items to sort", app.Find("[data-testid='inbox-count']").TextContent);
+        Assert.Equal(
+            ["Ask about the offsite", "Renew the domain"],
+            app.FindAll("[data-testid='inbox-row-title']").Select(title => title.TextContent));
+        Assert.All(app.FindAll("[data-testid='inbox-row']"), row => Assert.Equal("sent", row.GetAttribute("data-state")));
+
+        foreach (var triage in new[] { "Dismiss", "Later", "To note", "Delete" })
+        {
+            Assert.DoesNotContain(triage, app.Find("[data-testid='inbox-list']").TextContent, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void An_empty_inbox_says_nothing_is_left_to_sort()
+    {
+        using var host = ShellHost.Paired(new ScriptedInboxService(), clock: new FakeTimeProvider(Now));
+        var app = host.Open();
+
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-empty']")));
+
+        Assert.Equal("Nothing to sort", app.Find("[data-testid='inbox-count']").TextContent);
+        Assert.Contains("Inbox clear", app.Find("[data-testid='inbox-empty']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void One_capture_is_one_item_to_sort()
+    {
+        var inbox = new ScriptedInboxService { State = InboxServiceState.Unreachable };
+        using var host = ShellHost.Paired(inbox, clock: new FakeTimeProvider(Now));
+        var app = CaptureOffline(host, "Ask the speaker for the slides");
+
+        Assert.Equal("1 item to sort", app.Find("[data-testid='inbox-count']").TextContent);
     }
 }

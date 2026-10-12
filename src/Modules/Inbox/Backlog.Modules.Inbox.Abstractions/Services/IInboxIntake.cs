@@ -23,7 +23,12 @@ public enum InboxIntakeOutcome
     /// <summary>A tombstone for an id this machine has never seen, or a live
     /// capture with no title to keep. There is nothing to withdraw and nothing
     /// to make.</summary>
-    Ignored
+    Ignored,
+
+    /// <summary>A known note took the later copy the replica carried: another
+    /// device edited it (<see cref="IInboxNoteReplication"/>). Only a note
+    /// changes after it is captured, so only a note is answered with this.</summary>
+    Updated
 }
 
 /// <summary>
