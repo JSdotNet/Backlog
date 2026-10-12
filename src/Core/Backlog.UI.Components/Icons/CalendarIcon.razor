@@ -1,0 +1,49 @@
+@*
+    A calendar page: a rounded square with a header rule and two binding rings.
+
+    Drawn here rather than fetched, for the reason ChevronUpIcon gives, and in
+    Lucide's idiom on exactly the terms `.devbook/design/typography-and-layout.md#iconography`
+    allows: an outline on the 24x24 grid, stroked at 2, round caps and joins,
+    filled nowhere. Lucide's `calendar`.
+
+    Named for the shape, not for a meaning. The shell's view switch puts it on the
+    Calendar option; the name the option answers to stays on the option.
+*@
+
+<svg class="@ClassValue"
+     viewBox="0 0 24 24"
+     width="@Size"
+     height="@Size"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    @* The rings, the page, then the rule under the month. *@
+    <path d="M8 2v4" />
+    <path d="M16 2v4" />
+    <rect width="18" height="18" x="3" y="4" rx="2" />
+    <path d="M3 10h18" />
+</svg>
+
+@code {
+    /// <summary>Edge length, written straight onto <c>width</c> and <c>height</c>;
+    /// see <see cref="ChevronUpIcon.Size"/> for the scale it is drawn on.</summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "calendar-icon" : $"calendar-icon {CssClass}";
+}

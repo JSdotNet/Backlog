@@ -193,7 +193,7 @@
                                     @if (companion is not null)
                                     {
                                         <div class="inbox-triage__side" data-testid="inbox-triage-duplicate-companion">
-                                            <span class="inbox-triage__side-label">Inbox · @InboxLabels.Kind(companion.KindSlug) · @State.Age(companion.CapturedAt)</span>
+                                            <span class="inbox-triage__side-label">@State.SideLabel(companion)</span>
                                             <span class="inbox-triage__side-title">@TitleOf(companion.Title)</span>
                                             <span class="inbox-triage__side-note">Also unprocessed</span>
                                         </div>
@@ -573,11 +573,12 @@
 
     private InboxItemDto? Find(Guid id) => State.Items.FirstOrDefault(other => other.Id == id);
 
-    /// <summary>"Backlog entry", or for an inbox item "Inbox · Note · 4d ago".</summary>
+    /// <summary>"Backlog entry", or for an inbox item where it is, its kind and
+    /// its age: "Inbox · Note · 4d", "Reading · Video · 4d".</summary>
     private string TargetLabel(InboxTriageDuplicateDto duplicate, InboxItemDto? twin) =>
         duplicate.TargetKind == InboxTriageTargetKind.Task
             ? "Backlog entry"
-            : twin is null ? "Inbox" : $"Inbox · {InboxLabels.Kind(twin.KindSlug)} · {State.Age(twin.CapturedAt)}";
+            : twin is null ? "Inbox" : State.SideLabel(twin);
 
     /// <summary>The identity edge for a repository's box when colours are
     /// shown (color-scheme.md#the-identity-edge); none otherwise.</summary>

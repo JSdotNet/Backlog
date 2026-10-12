@@ -76,11 +76,19 @@ internal sealed partial class DesktopHarness
         // about it. Only the answer says whether registering is needed: an
         // emulator restarted without its data no longer knows the device, and
         // the page then offers "Register" beside an alert.
+        //
+        // A desktop whose token the service no longer accepts — sync restarted
+        // under a new development signing key — may never get its device count
+        // back on this tab. After a grace period a held credential with "Generate
+        // a code" offered is taken as registered; generating the code is then
+        // the real question, and a refusal fails the run with its message.
         var identity = Page.GetByTestId("devices-identity");
+        var grace = DateTime.UtcNow + TimeSpan.FromSeconds(15);
         await Interactive.EventuallyAsync(
             async () => await Page.GetByTestId("devices-empty").IsVisibleAsync()
                         || await Page.GetByTestId("devices-unregistered").IsVisibleAsync()
-                        || (await identity.IsVisibleAsync() && (await identity.InnerTextAsync()).Contains("paired", StringComparison.OrdinalIgnoreCase)),
+                        || (await identity.IsVisibleAsync() && (await identity.InnerTextAsync()).Contains("paired", StringComparison.OrdinalIgnoreCase))
+                        || (DateTime.UtcNow > grace && await identity.IsVisibleAsync() && await Page.GetByTestId("devices-generate").IsVisibleAsync()),
             TimeSpan.FromSeconds(60),
             "the Devices tab to hear from the sync service");
 
@@ -170,11 +178,51 @@ internal sealed partial class DesktopHarness
             $"showing {pane}");
     }
 
-    public Task ShowInboxAsync() => ShowPaneAsync("inbox-pane-option", "inbox-pane");
+    /// <summary>Shows the Inbox, which takes the whole screen as a surface of its
+    /// own rather than opening beside the Tasks view.</summary>
+    public Task ShowInboxAsync() => ShowPaneAsync("inbox-pane-option", "inbox-surface");
 
     /// <summary>Shows the Tasks view — a view in the header's view switch, not a
     /// pane any more.</summary>
     public Task ShowTasksAsync() => ShowPaneAsync("tasks-view-option", "backlog-pane");
+
+    /// <summary>
+    /// Shows the Tasks view narrowed to today's My Day, every status, with
+    /// Completed unfolded. The filters are the shared workspace's and outlive a
+    /// run — another session may have left "Done" or "Ready in a plan" on — so
+    /// each is set rather than assumed.
+    /// </summary>
+    public async Task ShowMyDayAsync()
+    {
+        await ShowTasksAsync();
+        await SetPressedAsync(Page.GetByTestId("readyinplan-filter-option"), false);
+        await SetPressedAsync(Page.GetByTestId("norepo-filter-option"), false);
+        await SetPressedAsync(Page.GetByTestId("myday-filter-option"), true);
+
+        var all = Page.Locator("#status-filter-all");
+        await Interactive.RepeatAsync(
+            async () =>
+            {
+                if (await all.GetAttributeAsync("aria-checked") != "true") await all.ClickAsync();
+            },
+            async () => await all.GetAttributeAsync("aria-checked") == "true",
+            "the All status filter");
+
+        // The Completed fold is drawn with the list, a moment after the filters
+        // settle; unfolding before it exists unfolds nothing.
+        await Page.Locator("[data-task-id]").First.WaitForAsync(new LocatorWaitForOptions { Timeout = 15_000 });
+        await Task.Delay(1_000);
+        await ShowCompletedAsync();
+    }
+
+    private static Task SetPressedAsync(ILocator toggle, bool pressed) =>
+        Interactive.RepeatAsync(
+            async () =>
+            {
+                if (await toggle.CountAsync() > 0 && await toggle.GetAttributeAsync("aria-pressed") != (pressed ? "true" : "false")) await toggle.ClickAsync();
+            },
+            async () => await toggle.CountAsync() == 0 || await toggle.GetAttributeAsync("aria-pressed") == (pressed ? "true" : "false"),
+            $"setting {toggle} to {(pressed ? "pressed" : "not pressed")}");
 
     public ILocator InboxItem(string title) =>
         Page.GetByTestId("inbox-pane-item").Filter(new LocatorFilterOptions { HasText = title });
@@ -187,8 +235,141 @@ internal sealed partial class DesktopHarness
     public ILocator TaskRow(string title) =>
         Page.Locator("[data-task-id]").Filter(new LocatorFilterOptions { HasText = title });
 
-    public async Task OpenTaskAsync(string title) =>
-        await Interactive.ClickAsync(TaskRow(title).First, Page.GetByTestId("entry-action-myday"));
+    /// <summary>Opens an entry in the detail panel, and waits for the panel to
+    /// carry its title — a fresh load may already show another entry there.</summary>
+    public async Task OpenTaskAsync(string title)
+    {
+        await Interactive.ClickAsync(
+            TaskRow(title).First,
+            Page.Locator(".task-panel__title").Filter(new LocatorFilterOptions { HasText = title }));
+        await Page.GetByTestId("entry-action-myday").WaitForAsync();
+    }
+
+    /// <summary>Whether a task row — an entry or a step — is ticked off: its
+    /// check carries the tick mark either way, as a button or as a picture.</summary>
+    public static async Task<bool> IsTickedAsync(ILocator row) =>
+        await row.Locator(".task-item__check .task-item__tick").CountAsync() > 0;
+
+    /// <summary>Unfolds every Completed section in the list: a ticked-off entry
+    /// moves into one, and it is folded by default.</summary>
+    public async Task ShowCompletedAsync()
+    {
+        var folded = Page.Locator("[data-testid$='-completed-toggle'][aria-expanded='false']");
+        await Interactive.RepeatAsync(
+            async () =>
+            {
+                if (await folded.CountAsync() > 0) await folded.First.ClickAsync();
+            },
+            async () => await folded.CountAsync() == 0,
+            "unfolding Completed");
+    }
+
+    /// <summary>The My Day toggle of the open entry; <c>aria-pressed</c> says
+    /// whether it is picked for today.</summary>
+    public ILocator MyDayToggle => Page.GetByTestId("entry-action-myday-set");
+
+    /// <summary>A step of the open entry, as the Steps tab lists it. Each step's
+    /// title is an input of its own (rename in place), so the row is found by
+    /// that input's name rather than by its text.</summary>
+    public ILocator Step(string title) =>
+        Page.GetByTestId("subitem-list").Locator("[data-task-id]").Filter(new LocatorFilterOptions
+        {
+            Has = Page.GetByRole(AriaRole.Textbox, new PageGetByRoleOptions { Name = $"Rename {title}", Exact = true }),
+        });
+
+    /// <summary>Adds steps to the open entry through the Steps tab's add row.</summary>
+    public async Task AddStepsAsync(params string[] steps)
+    {
+        // The panel opens on whichever view the workspace last showed; Steps is
+        // a tab beside the notes.
+        var tab = Page.GetByTestId("entry-view-steps");
+        await Interactive.RepeatAsync(
+            async () =>
+            {
+                if (await tab.GetAttributeAsync("aria-selected") != "true") await tab.ClickAsync();
+            },
+            async () => await tab.GetAttributeAsync("aria-selected") == "true",
+            "the Steps tab");
+
+        var add = Page.GetByTestId("subitem-list-add-input");
+        foreach (var step in steps)
+        {
+            await Interactive.RepeatAsync(
+                async () =>
+                {
+                    // Typed again only while it has not appeared: each Enter
+                    // that lands adds a step.
+                    if (await Step(step).CountAsync() > 0) return;
+                    await add.FillAsync(step);
+                    await add.PressAsync("Enter");
+                },
+                async () => await Step(step).CountAsync() > 0,
+                $"adding the step {step}");
+        }
+    }
+
+    /// <summary>
+    /// Gives the open entry, already in My Day, an agenda time: a start on the
+    /// quarter hour and a length in minutes, through the two selects under
+    /// "Set a time". Waits for the row to read the slot back.
+    /// </summary>
+    public async Task SetAgendaTimeAsync(TimeOnly start, int minutes)
+    {
+        var startSelect = Page.GetByTestId("entry-agenda-start-select").Locator("select");
+        await Interactive.ClickAsync(Page.GetByTestId("entry-action-agenda-set"), startSelect);
+        await startSelect.SelectOptionAsync(start.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture));
+
+        var duration = Page.GetByTestId("entry-agenda-duration-select").Locator("select");
+        await duration.WaitForAsync();
+        await duration.SelectOptionAsync(minutes.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+        var end = start.AddMinutes(minutes);
+        var slot = $"{start:HH:mm}–{end:HH:mm}";
+        await Interactive.EventuallyAsync(
+            async () => (await Page.GetByTestId("entry-action-agenda").InnerTextAsync()).Contains(slot, StringComparison.Ordinal),
+            TimeSpan.FromSeconds(30),
+            $"the agenda time to read {slot}");
+    }
+
+    /// <summary>Takes the open entry's agenda time off again, so the block does
+    /// not stay in the shared workspace's My Day for the next run to meet.</summary>
+    public Task ClearAgendaTimeAsync() =>
+        Interactive.RepeatAsync(
+            async () =>
+            {
+                var clear = Page.GetByTestId("entry-action-agenda-clear");
+                if (await clear.CountAsync() > 0) await clear.ClickAsync();
+            },
+            async () => await Page.GetByTestId("entry-action-agenda-clear").CountAsync() == 0,
+            "clearing the agenda time");
+
+    // ---- Inbox notes ----
+
+    /// <summary>Rewrites the body of the open Inbox note and saves it.</summary>
+    public async Task EditOpenNoteAsync(string body)
+    {
+        await Interactive.ClickAsync(Page.GetByTestId("inbox-note-edit"), Page.GetByTestId("inbox-note-editor"));
+        await Interactive.FillAsync(Page.GetByTestId("inbox-note-body").Locator("textarea"), body);
+        await Interactive.ClickAsync(
+            Page.GetByTestId("inbox-note-save"),
+            Page.GetByTestId("inbox-detail").Filter(new LocatorFilterOptions { HasText = body }).GetByTestId("inbox-note-edit"));
+    }
+
+    /// <summary>Archives the open Inbox item with the decision bar's Archive,
+    /// which sits beside the detail rather than in it. Done when the item has
+    /// left the Inbox list or its detail says it is archived.</summary>
+    public Task ArchiveOpenItemAsync(string title)
+    {
+        var archive = Page.Locator("[data-testid='inbox-archive']:visible").First;
+        return Interactive.RepeatAsync(
+            async () =>
+            {
+                if (await archive.CountAsync() > 0 && await archive.IsEnabledAsync()) await archive.ClickAsync();
+            },
+            async () => await InboxItem(title).CountAsync() == 0
+                        || await Page.GetByTestId("inbox-detail").Filter(new LocatorFilterOptions { HasText = "Archived" }).CountAsync() > 0,
+            $"archiving {title}");
+    }
 
     [GeneratedRegex(@"^Sync\b")]
     private static partial Regex SyncFeature();

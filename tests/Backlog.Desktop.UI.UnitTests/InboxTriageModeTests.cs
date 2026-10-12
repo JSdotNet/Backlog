@@ -315,6 +315,41 @@ public sealed class InboxTriageModeTests
         Assert.Equal("Scroll jumps → Archived as a duplicate", JustDecided(pane));
     }
 
+    /// <summary>An inbox item filed in a list is named by the list it is in, not
+    /// "Inbox".</summary>
+    [Fact]
+    public async Task A_duplicate_filed_in_a_list_is_labelled_with_the_list()
+    {
+        using var harness = Harness.Create();
+        var reading = harness.Inbox.SeedList("Reading");
+        var item = harness.Inbox.Seed("Scroll jumps", capturedAt: harness.Inbox.Now.AddMinutes(3));
+        var twin = harness.Inbox.Seed("Scroll jumps again", listId: reading.Id, capturedAt: harness.Inbox.Now.AddMinutes(2));
+        harness.Advise(item.Id, duplicate: new InboxTriageDuplicateDto(InboxTriageTargetKind.InboxItem, twin.Id, twin.Title, "same words"));
+        var pane = await harness.StartTriageAsync();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-triage-duplicate-target']")));
+        Assert.StartsWith("Reading · Text · ", pane.Find("[data-testid='inbox-triage-duplicate-target'] .inbox-triage__side-label").TextContent.Trim(), StringComparison.Ordinal);
+    }
+
+    /// <summary>The companion beside a backlog entry is named by its list too.</summary>
+    [Fact]
+    public async Task A_companion_filed_in_a_list_is_labelled_with_the_list()
+    {
+        using var harness = Harness.Create();
+        var reading = harness.Inbox.SeedList("Reading");
+        var item = harness.Inbox.Seed("Scroll jumps", capturedAt: harness.Inbox.Now.AddMinutes(3));
+        var companion = harness.Inbox.Seed("Scroll jumps on phone", kind: ContentKind.YouTube, slug: "youtube", listId: reading.Id, capturedAt: harness.Inbox.Now.AddMinutes(1));
+        harness.Advise(item.Id, duplicate: new InboxTriageDuplicateDto(InboxTriageTargetKind.Task, Guid.NewGuid(), "Tasks list re-keys", "same symptom"));
+        harness.Inbox.SeedRelations(item.Id, items: [new InboxRelatedItemDto(companion.Id, companion.Title, InboxStatus.Unprocessed, InboxRelationKind.SameLink, "same link")]);
+        var pane = await harness.StartTriageAsync();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-triage-duplicate-companion']")));
+        Assert.StartsWith(
+            $"Reading · {InboxLabels.Kind("youtube")} · ",
+            pane.Find("[data-testid='inbox-triage-duplicate-companion'] .inbox-triage__side-label").TextContent.Trim(),
+            StringComparison.Ordinal);
+    }
+
     // --- The plan card --------------------------------------------------------
 
     [Fact]
@@ -354,6 +389,70 @@ public sealed class InboxTriageModeTests
             Assert.Equal(InboxStatus.Triaged, harness.Inbox.Find(items[1].Id)!.Status);
             Assert.Equal(items[3].Id, harness.State.SelectedItemId);
         });
+    }
+
+    /// <summary>The plan the card names is the plan the batch goes under: the
+    /// tag "Before you route" shows is minted from the card's title, as the
+    /// pass's plan Apply mints it, not from the selection's <c>inbox-batch</c>.</summary>
+    [Fact]
+    public async Task Make_the_plan_tags_the_batch_after_the_card_title()
+    {
+        using var harness = Harness.Create();
+        var items = harness.SeedNewestFirst("Scroll jumps", "Saved after a failed save", "MCP writes do not refresh");
+        harness.Advise(items[0].Id, plan: new InboxTriagePlanGroupingDto("Tasks sync polish", [items[0].Id, items[1].Id, items[2].Id], "all about live updates"));
+        var pane = await harness.StartTriageAsync();
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-triage-make-plan']")));
+        await pane.Find("[data-testid='inbox-triage-make-plan']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-route-panel']")));
+        Assert.Equal(["Tasks sync polish"], harness.Inbox.PlanTitles);
+        Assert.Matches(new Regex(@"^\+tasks-sync-polish-[0-9a-f]{8}$"), pane.Find("[data-testid='inbox-route-panel-tag']").TextContent.Trim());
+
+        await pane.InvokeAsync(() => harness.State.ConfirmRouteAsync());
+
+        pane.WaitForAssertion(() => Assert.Matches(new Regex(@"^\+tasks-sync-polish-[0-9a-f]{8}$"), Assert.Single(harness.Inbox.BatchRoutes).PlanTag));
+    }
+
+    /// <summary>A plan whose other member was decided elsewhere since the pane
+    /// last read leaves the module one item to route, which goes at once —
+    /// under the card's title still.</summary>
+    [Fact]
+    public async Task Make_the_plan_that_routes_at_once_still_goes_under_the_card_title()
+    {
+        using var harness = Harness.Create();
+        var items = harness.SeedNewestFirst("Scroll jumps", "Saved after a failed save");
+        harness.Advise(items[0].Id, plan: new InboxTriagePlanGroupingDto("Tasks sync polish", [items[0].Id, items[1].Id], "same area"));
+        var pane = await harness.StartTriageAsync();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='inbox-triage-make-plan']")));
+
+        // Archived behind the pane's back: the card still shows two, the module
+        // proposes one.
+        await harness.Inbox.ArchiveAsync(items[1].Id, TestContext.Current.CancellationToken);
+
+        await pane.InvokeAsync(() => harness.State.MakeTriagePlanAsync());
+
+        pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Triaged, harness.Inbox.Find(items[0].Id)!.Status));
+        Assert.Single(harness.Inbox.Proposals);
+        Assert.Equal(["Tasks sync polish", "Tasks sync polish"], harness.Inbox.PlanTitles);
+        Assert.Matches(new Regex(@"^\+tasks-sync-polish-[0-9a-f]{8}$"), Assert.Single(harness.Inbox.BatchRoutes).PlanTag);
+    }
+
+    /// <summary>The selection's own batch is no plan anybody named, so it keeps
+    /// the <c>inbox-batch</c> stem.</summary>
+    [Fact]
+    public async Task The_bulk_bar_route_names_no_plan()
+    {
+        using var harness = Harness.Create();
+        var items = harness.SeedNewestFirst("One", "Two");
+        await harness.State.ReloadAsync();
+
+        harness.State.TogglePicked(items[0].Id, true, range: false);
+        harness.State.TogglePicked(items[1].Id, true, range: false);
+        await harness.State.BeginBulkRouteAsync();
+
+        Assert.Equal([null], harness.Inbox.PlanTitles);
+        Assert.StartsWith("+inbox-batch-", harness.State.RouteDraft!.PlanTag, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -507,6 +606,77 @@ public sealed class InboxTriageModeTests
             Assert.Equal(InboxStatus.Triaged, routed.Status);
             Assert.Equal(["acme/web", "acme/sync"], routed.Routing!.RepoIds);
         });
+    }
+
+    /// <summary>R writes the ticked repositories and routes; U takes both back.
+    /// The repositories the item had before R's own write come back with it —
+    /// none, or the ones it was captured with.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task U_after_R_over_the_advisor_preselection_gives_the_item_its_previous_repositories(bool hadOne)
+    {
+        using var harness = Harness.Create(repositories: true);
+        IReadOnlyList<string> previous = hadOne ? ["acme/web"] : [];
+        var item = harness.Inbox.Seed("Sync drops edits", repoIds: previous);
+        harness.Inbox.TriageAdvisorAvailable = true;
+        harness.Inbox.TriageAdvice[item.Id] = Result.Success(new InboxTriageAdviceDto(item.Id, null, null, ["acme/sync"]));
+        var pane = await harness.StartTriageAsync();
+        pane.WaitForAssertion(() => Assert.Equal("one entry", Hint(pane)));
+
+        await PressAsync(pane, "r");
+        pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Triaged, harness.Inbox.Find(item.Id)!.Status));
+        Assert.Equal(["acme/sync"], harness.Inbox.Find(item.Id)!.RepoIds);
+
+        await PressAsync(pane, "u");
+
+        pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Unprocessed, harness.Inbox.Find(item.Id)!.Status));
+        Assert.Equal(previous, harness.Inbox.Find(item.Id)!.RepoIds);
+    }
+
+    /// <summary>R with the boxes as the item already has them writes nothing, so
+    /// U has nothing of R's to take off the item's repositories.</summary>
+    [Fact]
+    public async Task U_after_R_with_the_items_own_repositories_writes_no_repositories()
+    {
+        using var harness = Harness.Create(repositories: true);
+        var item = harness.Inbox.Seed("Sync drops edits", repoIds: ["acme/web"]);
+        var pane = await harness.StartTriageAsync();
+
+        await PressAsync(pane, "r");
+        pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Triaged, harness.Inbox.Find(item.Id)!.Status));
+        await PressAsync(pane, "u");
+
+        pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Unprocessed, harness.Inbox.Find(item.Id)!.Status));
+        Assert.Equal(["acme/web"], harness.Inbox.Find(item.Id)!.RepoIds);
+        Assert.Empty(harness.Inbox.RepositoryAssignments);
+    }
+
+    /// <summary>The route is taken back first; repositories that will not go back
+    /// are said, and the undo still counts as done — the way a deferral that will
+    /// not go back on is.</summary>
+    [Fact]
+    public async Task A_repository_restore_that_fails_is_said_and_the_undo_still_counts()
+    {
+        using var harness = Harness.Create(repositories: true);
+        var item = harness.Inbox.Seed("Sync drops edits");
+        harness.Inbox.TriageAdvisorAvailable = true;
+        harness.Inbox.TriageAdvice[item.Id] = Result.Success(new InboxTriageAdviceDto(item.Id, null, null, ["acme/sync"]));
+        var pane = await harness.StartTriageAsync();
+        pane.WaitForAssertion(() => Assert.Equal("one entry", Hint(pane)));
+
+        await PressAsync(pane, "r");
+        pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Triaged, harness.Inbox.Find(item.Id)!.Status));
+        harness.Inbox.FailAct[("repositories", item.Id)] = Error.Validation("inbox.locked", "The item is locked");
+
+        await PressAsync(pane, "u");
+
+        pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Unprocessed, harness.Inbox.Find(item.Id)!.Status));
+        Assert.Equal(["acme/sync"], harness.Inbox.Find(item.Id)!.RepoIds);
+        var toasts = harness.Context.Services.GetRequiredService<Backlog.UI.Components.Feedback.ToastChannel>().Visible;
+        Assert.Contains(toasts, toast => toast.Message == "The item is locked");
+        Assert.Contains(toasts, toast => toast.TestId == InboxDesktopState.UndoResultTestId && toast.Message == "Undid move to backlog.");
+        Assert.False(harness.State.CanUndo);
     }
 
     [Fact]

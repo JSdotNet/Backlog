@@ -1,7 +1,6 @@
 # ADR 0023: Inbox items may be read by the Foundry model
 
 ```meta
-status: proposed
 date: 2026-10-08
 related: [".devbook/domain/inbox/features.md#classification-and-enrichment", ".devbook/domain/inbox/features.md#ai-triage-cards", ".devbook/domain/inbox/features.md#ai-triage-pass", ".devbook/domain/inbox/features.md#create-plan-from-an-item", ".devbook/domain/inbox/features.md#order-a-batch-with-the-drafter", ".devbook/domain/inbox/requirements.md#ai-triage", ".devbook/arc42/05-building-block-view.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md"]
 ```
@@ -17,10 +16,13 @@ fails, no AI surface is shown, and the rule-based suggestions stand as they are.
 ```meta
 ```
 
-Proposed, 2026-10-08. This is the first entry (`spec-ai-triage`) of the
+Accepted, 2026-10-12, by the repository owner, as written but for two
+amendments made the same day: section 1 sends the inbox lists by id as well as
+by name, and section 2 lets the reader ask again for one item with **Ask
+again**. Proposed 2026-10-08 as the first entry (`spec-ai-triage`) of the
 `inbox-redesign` plan, written first so that every later entry of the plan
-builds this one decision. It becomes accepted when the repository owner approves
-it at the Personal Validation gate of the draft pull request that carries it.
+builds this one decision; built by the later entries of that plan, except **Ask
+again**, which a later entry builds.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. Number 0022 is taken by the `task-views` plan, still open.
@@ -30,8 +32,8 @@ open questions:
 
 | Choice | Settled as |
 |---|---|
-| What is sent | The item's title, link, notes, kind, source, person, tags and repository ids. For duplicate and plan matching also the titles, ids, repositories and statuses of the open backlog tasks and of the other unprocessed inbox items, and the names of the configured repositories and inbox lists. |
-| When | Only when the reader opens an item in triage, or asks for the AI triage pass. Never in the background. |
+| What is sent | The item's title, link, notes, kind, source, person, tags and repository ids. For duplicate and plan matching also the titles, ids, repositories and statuses of the open backlog tasks and of the other unprocessed inbox items, the configured repositories, and the ids and names of the inbox lists. |
+| When | Only when the reader opens an item in triage, presses **Ask again** on it, or asks for the AI triage pass. Never in the background. |
 | Which model | The Azure Foundry deployment the app is already configured with, the one `AzureFoundryInboxPlanDrafter` uses. Duplicates, plan grouping and the pass all go through it. There is no local similarity fallback. |
 | Without Foundry, or on a failed call | Every AI surface is hidden: no AI cards, no **Let AI propose the rest**. The rule-based suggestions are not AI and stay as they are. |
 
@@ -85,7 +87,10 @@ against:
 
 - the open backlog tasks: title, id, repository and status;
 - the other unprocessed inbox items: title, id, repositories and status;
-- the names of the configured repositories and of the reader's inbox lists.
+- the configured repositories;
+- the reader's inbox lists, by id and by name: a filing the pass proposes names
+  its list by id, so the model has to be given the ids to name one. Amended
+  2026-10-12; the record first said lists were sent by name.
 
 Nothing else leaves the machine. Attachments are not sent, as Create plan never
 sends them. No token, no setting and no path is sent, and neither is a task's
@@ -96,11 +101,14 @@ body. A closed or archived task and a decided inbox item are not sent.
 ```meta
 ```
 
-A call is made in two cases only:
+A call is made in these cases only:
 
 - **The reader opens an item in triage.** One call answers both cards for that
   item. The answer is kept until the app closes, so moving back to an item with
   **k** does not ask again.
+- **The reader presses Ask again** in the AI section of the item shown. One
+  call for that item, whose answer replaces the one kept. Amended 2026-10-12, so
+  a reader who has changed the backlog since can have the cards read again.
 - **The reader asks for the AI triage pass**, with **Let AI propose the rest**.
   One pass reads every unprocessed item in the slice being triaged.
 
@@ -164,8 +172,9 @@ model's proposals.
 - `InboxItem.DuplicateOf` may name a backlog task as well as an inbox item,
   because merging a capture into a task archives it as a duplicate of that task
   (`features.md#merge-into-a-task`).
-- Each item opened in triage costs one model call per app session, and each pass
-  costs one call. The Dashboard's Foundry cost reads them with the rest.
+- Each item opened in triage costs one model call per app session, each **Ask
+  again** one more, and each pass one call. The Dashboard's Foundry cost reads
+  them with the rest.
 
 ## Rejected
 

@@ -58,8 +58,18 @@ internal sealed record InboxMoveUndoStep(string Label, Guid ItemId, Guid? Previo
 /// <summary>A route or a link. Undone by returning the item to unprocessed —
 /// with <paramref name="DeleteTasks"/> after deleting the entries the route
 /// made, which the backlog refuses once one of them has started — then
-/// deferring it again when it was <paramref name="Deferred"/>.</summary>
-internal sealed record InboxRouteUndoStep(InboxDecisionKind Kind, string Label, Guid ItemId, bool DeleteTasks, InboxDeferral? Deferred = null)
+/// deferring it again when it was <paramref name="Deferred"/>. When the route
+/// wrote the item's repositories just before it went — the pass's Apply, or
+/// triage's Move to backlog with the boxes ticked otherwise —
+/// <paramref name="PreviousRepoIds"/> holds the ones it had before that write,
+/// and they are put back too; null when the route wrote none.</summary>
+internal sealed record InboxRouteUndoStep(
+    InboxDecisionKind Kind,
+    string Label,
+    Guid ItemId,
+    bool DeleteTasks,
+    InboxDeferral? Deferred = null,
+    IReadOnlyList<string>? PreviousRepoIds = null)
     : InboxUndoStep(Kind, Label);
 
 /// <summary>One gesture's decisions over several items — a bulk archive, a bulk
@@ -117,15 +127,28 @@ internal sealed class InboxUndoHistory
     }
 
     /// <summary>Takes the newest step off the history. The caller runs its
-    /// inverse and reports with <see cref="Undone"/>; a step whose inverse was
+    /// inverse and reports with <see cref="Undone"/>. A step whose inverse was
     /// refused is not put back, because it would stand on top and refuse every
-    /// U after it, hiding every older decision behind it.</summary>
+    /// U after it, hiding every older decision behind it. One whose inverse
+    /// threw is, through <see cref="PutBack"/>: the store failed rather than the
+    /// module refusing, and the next U may well land it.</summary>
     public InboxUndoStep? TakeLatest()
     {
         if (_undo.Last?.Value is not { } step) return null;
 
         _undo.RemoveLast();
         return step;
+    }
+
+    /// <summary>Returns a step taken off by <see cref="TakeLatest"/> to the top,
+    /// for the decisions whose inverse threw. The tally is left alone: those
+    /// decisions still stand and were never taken off it.</summary>
+    public void PutBack(InboxUndoStep step)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+
+        _undo.AddLast(step);
+        while (_undo.Count > Capacity) _undo.RemoveFirst();
     }
 
     /// <summary>The decisions of a step that were taken back — all of a single

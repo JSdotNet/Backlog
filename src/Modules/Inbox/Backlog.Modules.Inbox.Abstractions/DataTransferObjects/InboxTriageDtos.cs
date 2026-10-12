@@ -180,4 +180,17 @@ public sealed record InboxTriagePassDto(
 
     /// <summary>The entry types a single route may name.</summary>
     public static readonly IReadOnlyList<string> EntryTypes = ["prompt", "task", "test"];
+
+    /// <summary>The vocabulary's own word for <paramref name="entryType"/> —
+    /// trimmed, compared case-insensitively, answered lower-case — or null when
+    /// it is blank or not one of <see cref="EntryTypes"/>. The one reading of a
+    /// type: the route refuses what this does not know, and the adapter writes
+    /// only what it answers.</summary>
+    public static string? EntryTypeOf(string? entryType)
+    {
+        var asked = entryType?.Trim();
+        return string.IsNullOrEmpty(asked)
+            ? null
+            : EntryTypes.FirstOrDefault(type => string.Equals(type, asked, StringComparison.OrdinalIgnoreCase));
+    }
 }

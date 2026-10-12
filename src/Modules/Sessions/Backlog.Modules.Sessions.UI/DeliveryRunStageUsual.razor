@@ -1,0 +1,43 @@
+@*
+    One stage's cost read against the run and against its usual, at the end of its row
+    after the cost itself: its share of the run's cost, then its ratio to the median of
+    the same stage over the last 30 finished runs of the same flow
+    (DeliveryRunBaselines).
+
+    The ratio is drawn four ways. Within 5% of the median it reads "typical"; at 0.8×
+    or below it is green; from 1.5× it is highlighted; in between it is the plain
+    ratio. Until the stage finishes, and while fewer than five earlier runs priced it,
+    there is no ratio at all — a comparison with too little behind it would read as a
+    verdict it is not.
+*@
+@if (Comparison is { } comparison)
+{
+    <span class="sessions-stage__usual" data-testid="sessions-stage-usual">
+        @if (comparison.Share is { } share)
+        {
+            <span class="sessions-stage__share"
+                  title="@($"{Percent(share)} of what the run's priced stages cost")"
+                  data-testid="sessions-stage-share">@Percent(share)<span class="sr-only"> of the run's cost</span></span>
+        }
+        @if (comparison.Usual is { } usual)
+        {
+            <span class="sessions-stage__ratio"
+                  title="@usual.Title"
+                  data-band="@BandSlug(usual.Band)"
+                  data-testid="sessions-stage-ratio">@usual.Label<span class="sr-only">@(usual.Band is CostBand.Typical ? " for this stage" : " its usual")</span></span>
+        }
+    </span>
+}
+
+@code {
+    /// <summary>The stage against the run and its usual, or null where it was not
+    /// priced.</summary>
+    [Parameter]
+    public StageCostAgainstUsual? Comparison { get; set; }
+
+    /// <summary>A share as a whole percent, and "&lt; 1%" for a sliver.</summary>
+    internal static string Percent(double share) =>
+        share is > 0 and < 0.005 ? "< 1%" : $"{Math.Round(share * 100, MidpointRounding.AwayFromZero):0}%";
+
+    internal static string BandSlug(CostBand band) => band.ToString().ToLowerInvariant();
+}

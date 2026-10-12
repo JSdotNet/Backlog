@@ -385,6 +385,16 @@ public sealed class InboxDesktopState
     /// <summary>The list an item is filed in, or null for the unfiled inbox.</summary>
     public InboxListDto? FindList(Guid listId) => Lists.FirstOrDefault(list => list.Id == listId);
 
+    /// <summary>Where an item is, as a card names it beside another: its list's
+    /// name, or "Inbox" when it is filed in none — or in a list that is gone.</summary>
+    private string PlaceOf(InboxItemDto item) =>
+        item.ListId is { } listId && FindList(listId) is { } list ? list.Name : "Inbox";
+
+    /// <summary>"Reading · Video · 4d": where an item is, its kind and its age,
+    /// the label one side of a duplicate pair wears.</summary>
+    public string SideLabel(InboxItemDto item) =>
+        $"{PlaceOf(item)} · {InboxLabels.Kind(item.KindSlug)} · {Age(item.CapturedAt)}";
+
     public InboxGroupDto? FindGroup(Guid groupId) => Groups.FirstOrDefault(group => group.Id == groupId);
 
     /// <summary>How long ago, in the short form a row has room for.</summary>
@@ -1152,7 +1162,11 @@ public sealed class InboxDesktopState
 
     /// <summary>Turns the selected item into backlog entries and tells the shell
     /// so. The item stays selected: its detail now says where it went.</summary>
-    public async Task RouteToBacklogAsync()
+    public Task RouteToBacklogAsync() => RouteSelectedAsync(previousRepoIds: null);
+
+    /// <summary><see cref="RouteToBacklogAsync"/>, with the repositories the item
+    /// had before a write made for this route, for its undo to put back.</summary>
+    private async Task RouteSelectedAsync(IReadOnlyList<string>? previousRepoIds)
     {
         if (SelectedItem is not { } item || RoutingInFlight) return;
 
@@ -1166,7 +1180,7 @@ public sealed class InboxDesktopState
             var routed = await _inbox.RouteToBacklogAsync(item.Id);
             if (Report(routed)) return;
 
-            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Move to backlog", item.Id, DeleteTasks: true, DeferralOf(item)));
+            _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Move to backlog", item.Id, DeleteTasks: true, DeferralOf(item), previousRepoIds));
 
             await ReloadAsync();
             if (TriageMode) AdvancePast(before, item.Id);
@@ -1590,7 +1604,12 @@ public sealed class InboxDesktopState
                 _undo.Record(new InboxRestoreUndoStep(InboxDecisionKind.Archive, "Archive", archive.ItemId, Deferral(archive.ItemId)));
                 break;
             case InboxTriageRouteDecision route:
-                _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Move to backlog", route.ItemId, DeleteTasks: true, Deferral(route.ItemId)));
+                // Apply wrote the route's repositories before routing (when it
+                // named any); the undo puts back what the item had before.
+                var previousRepoIds = route.Repositories.Count > 0 && before.TryGetValue(route.ItemId, out var routedItem)
+                    ? routedItem.RepoIds
+                    : null;
+                _undo.Record(new InboxRouteUndoStep(InboxDecisionKind.MoveToBacklog, "Move to backlog", route.ItemId, DeleteTasks: true, Deferral(route.ItemId), previousRepoIds));
                 break;
             case InboxTriageFilingDecision filing:
                 // Filed where it already was: nothing moved, so nothing to take back.
@@ -1857,7 +1876,8 @@ public sealed class InboxDesktopState
 
     /// <summary>The plan card's main act: opens "Before you route" on the item
     /// and the captures the card groups with it — the batch path the bulk bar
-    /// takes. A batch that routes the item moves triage on.</summary>
+    /// takes, under a tag minted from the card's title rather than the
+    /// selection's stem. A batch that routes the item moves triage on.</summary>
     public Task<InboxBulkOutcome> MakeTriagePlanAsync()
     {
         if (SelectedItem is null || TriageAdvice?.Plan is not { } plan) return Task.FromResult(InboxBulkOutcome.Nothing);
@@ -1865,7 +1885,7 @@ public sealed class InboxDesktopState
         var byId = Items.ToDictionary(item => item.Id);
         IReadOnlyList<InboxItemDto> members = [.. plan.ItemIds.Select(id => byId.GetValueOrDefault(id)).OfType<InboxItemDto>()];
 
-        return BeginRouteAsync(members, listId: null);
+        return BeginRouteAsync(members, listId: null, plan.Title);
     }
 
     /// <summary>The repositories the advisor would route the item being read
@@ -1932,15 +1952,23 @@ public sealed class InboxDesktopState
 
     /// <summary>Move to backlog from triage, by R or its button: the ticked
     /// repositories are written first when they are not what the item carries —
-    /// the advisor's preselection, say — and then the item is routed.</summary>
+    /// the advisor's preselection, say — and then the item is routed. Its undo
+    /// puts back the repositories the item had before that write; ticks made
+    /// earlier were their own edits, and stay.</summary>
     public async Task RouteFromTriageAsync()
     {
         if (SelectedItem is not { } item || !IsOpen(item) || RoutingInFlight) return;
 
         var picked = TriageRepositories;
-        if (!SameRepositories(picked, item.RepoIds) && !await TryAssignRepositoriesAsync(item.Id, picked)) return;
+        IReadOnlyList<string>? previous = null;
 
-        await RouteToBacklogAsync();
+        if (!SameRepositories(picked, item.RepoIds))
+        {
+            if (!await TryAssignRepositoriesAsync(item.Id, picked)) return;
+            previous = item.RepoIds;
+        }
+
+        await RouteSelectedAsync(previous);
     }
 
     private async Task<bool> TryAssignRepositoriesAsync(Guid itemId, IReadOnlyList<string> repoIds)
@@ -2241,10 +2269,16 @@ public sealed class InboxDesktopState
 
     /// <summary>
     /// Takes the newest decision back through the module, reloads, and selects
-    /// the item it brought back. A refusal — the item changed since, or a route
-    /// whose entry has started — is toasted in the module's own words and the
-    /// step is dropped, so the next U reaches the decision before it. Answers
-    /// whether anything was taken back.
+    /// the item it brought back. Answers whether anything was taken back.
+    /// <para>
+    /// A refusal — the item changed since, or a route whose entry has started —
+    /// is toasted in the module's own words and the step is dropped, so the next
+    /// U reaches the decision before it. A way back that throws is the store
+    /// failing, not a refusal: the decision still stands, so it keeps its place
+    /// in the tally and goes back on top of the history for the next U to try
+    /// again, and the failure is toasted rather than thrown out of the key. In a
+    /// group, only the members that threw go back.
+    /// </para>
     /// </summary>
     public async Task<bool> UndoLatestAsync()
     {
@@ -2261,17 +2295,37 @@ public sealed class InboxDesktopState
 
         try
         {
+            var decisions = InboxUndoHistory.Decisions(step).ToList();
             var undone = new List<InboxUndoStep>();
+            var failed = new List<InboxUndoStep>();
             Error? refusal = null;
+            var refused = 0;
 
-            foreach (var decision in InboxUndoHistory.Decisions(step))
+            foreach (var decision in decisions)
             {
-                var result = await InverseAsync(decision);
-                if (result.IsSuccess) undone.Add(decision);
-                else refusal ??= result.Error;
+                Result result;
+                try
+                {
+                    result = await InverseAsync(decision);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    failed.Add(decision);
+                    continue;
+                }
+
+                if (result.IsSuccess)
+                {
+                    undone.Add(decision);
+                    continue;
+                }
+
+                refusal ??= result.Error;
+                refused++;
             }
 
             _undo.Undone(undone);
+            if (failed.Count > 0) _undo.PutBack(Remaining(step, decisions, failed));
             await ReloadAsync();
 
             // An undo taken while the pass is under review changes what it is
@@ -2286,9 +2340,7 @@ public sealed class InboxDesktopState
                 RememberPosition();
             }
 
-            _toasts?.Publish(refusal is { } error
-                ? ToastMessage.Error(undone.Count == 0 ? error.Message : $"{error.Message}. The rest was undone.", UndoResultTestId)
-                : ToastMessage.Info($"Undid {step.Label.ToLowerInvariant()}.", UndoResultTestId));
+            _toasts?.Publish(UndoToast(step, decisions.Count, undone.Count, failed.Count, refused, refusal));
 
             return undone.Count > 0;
         }
@@ -2299,12 +2351,68 @@ public sealed class InboxDesktopState
         }
     }
 
-    /// <summary>The module's way back for one decision, and the deferral the
-    /// decision cleared put back — the module's way back ends unprocessed, and
-    /// the item is to be as it was.</summary>
+    /// <summary>
+    /// The sentence an undo answers with. The refusal's reason comes first, in
+    /// the module's words, then the failure, which the reader can act on by
+    /// pressing U again. "The rest was undone" is said only when it is true —
+    /// every other decision landed; when a refusal and a failure both stand,
+    /// the toast counts what landed instead.
+    /// </summary>
+    private static ToastMessage UndoToast(InboxUndoStep step, int total, int undone, int failed, int refused, Error? refusal)
+    {
+        var label = step.Label.ToLowerInvariant();
+
+        if (failed == 0 && refusal is null) return ToastMessage.Info($"Undid {label}.", UndoResultTestId);
+
+        var sentences = new List<string>();
+        if (refusal is { } error) sentences.Add(failed == 0 && undone == 0 ? error.Message : $"{error.Message}.");
+        if (failed > 0) sentences.Add($"Couldn't undo {label} — try again.");
+
+        if (undone > 0)
+        {
+            // "The rest" only when what did not land is the one thing named:
+            // the failures alone, or a single refusal alone.
+            var restLanded = refused == 0 || (failed == 0 && refused == 1);
+            sentences.Add(restLanded ? "The rest was undone." : $"{undone} of {total} {(undone == 1 ? "was" : "were")} undone.");
+        }
+
+        return ToastMessage.Error(string.Join(' ', sentences), UndoResultTestId);
+    }
+
+    /// <summary>What goes back on the history after some of a step's decisions
+    /// threw: the step itself when all of them did, the one decision when one
+    /// did, else a group of those that did under the gesture's kind and label.</summary>
+    private static InboxUndoStep Remaining(InboxUndoStep step, List<InboxUndoStep> decisions, List<InboxUndoStep> failed) =>
+        failed.Count == decisions.Count ? step
+        : failed.Count == 1 ? failed[0]
+        : new InboxGroupUndoStep(step.Kind, step.Label, failed);
+
+    /// <summary>The module's way back for one decision, and what the decision
+    /// cleared or wrote on the way put back — the repositories a route wrote
+    /// just before it went, and the deferral it cleared: the module's way back
+    /// ends unprocessed, and the item is to be as it was.</summary>
     private async Task<Result> InverseAsync(InboxUndoStep step)
     {
         var result = await ModuleInverseAsync(step);
+
+        if (result.IsFailure || ItemOf(step) is not { } id) return result;
+
+        // The decision itself is taken back by now; repositories or a deferral
+        // that will not go back on — refused or thrown — are said, but the undo
+        // still counts as done.
+        if (step is InboxRouteUndoStep { PreviousRepoIds: { } previous }
+            && Items.FirstOrDefault(item => item.Id == id)?.RepoIds is var current
+            && (current is null || !SameRepositories(previous, current)))
+        {
+            try
+            {
+                Report(await _inbox.AssignRepositoriesAsync(id, previous));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _toasts?.Publish(ToastMessage.Error("Couldn't put the item's repositories back. The undo itself went through.", ErrorTestId));
+            }
+        }
 
         var deferred = step switch
         {
@@ -2313,11 +2421,20 @@ public sealed class InboxDesktopState
             _ => null,
         };
 
-        if (result.IsFailure || deferred is null || ItemOf(step) is not { } id) return result;
+        if (deferred is not null)
+        {
+            // A throw here must not reach the caller, which would keep a
+            // decision that has already been taken back.
+            try
+            {
+                Report(await _inbox.DeferAsync(id, deferred.Until));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _toasts?.Publish(ToastMessage.Error("Couldn't defer the item again. The undo itself went through.", ErrorTestId));
+            }
+        }
 
-        // The decision itself is taken back by now; a deferral that will not go
-        // back on is said, but the undo still counts as done.
-        Report(await _inbox.DeferAsync(id, deferred.Until));
         return result;
     }
 
@@ -2670,14 +2787,15 @@ public sealed class InboxDesktopState
     /// answer. Fewer than two routable items — here, or in the module's answer
     /// — is a batch with nothing to decide, so it routes at once as it always
     /// did. The ask counts as a route in flight, so a second press while it is
-    /// out opens nothing twice.
+    /// out opens nothing twice. A <paramref name="planTitle"/> names the tag
+    /// ahead of the list, on the panel and on a route that goes at once.
     /// </summary>
-    private async Task<InboxBulkOutcome> BeginRouteAsync(IReadOnlyList<InboxItemDto> picked, Guid? listId)
+    private async Task<InboxBulkOutcome> BeginRouteAsync(IReadOnlyList<InboxItemDto> picked, Guid? listId, string? planTitle = null)
     {
         if (picked.Count == 0 || RoutingInFlight || RouteDraft is not null) return InboxBulkOutcome.Nothing;
 
         var pending = picked.Where(item => RefuseDecided(item) is null).ToList();
-        if (pending.Count < 2) return await RouteOneOrAskAsync(picked, listId);
+        if (pending.Count < 2) return await RouteOneOrAskAsync(picked, listId, planTitle);
 
         InboxBatchProposalDto proposal;
 
@@ -2686,7 +2804,7 @@ public sealed class InboxDesktopState
 
         try
         {
-            var result = await _inbox.ProposeBatchAsync(Ids(pending), listId);
+            var result = await _inbox.ProposeBatchAsync(Ids(pending), listId, planTitle);
             if (Report(result, BulkResultTestId))
             {
                 // The list went while the pane was open; the reload takes the
@@ -2709,7 +2827,7 @@ public sealed class InboxDesktopState
             // decided since the pane last looked. Read again first, so what
             // follows counts what is really there.
             await ReloadAsync();
-            return await RouteOneOrAskAsync(picked, listId);
+            return await RouteOneOrAskAsync(picked, listId, planTitle);
         }
 
         RouteDraft = new InboxRouteDraft(proposal, listId, picked);
@@ -2720,9 +2838,9 @@ public sealed class InboxDesktopState
     /// <summary>A batch with nothing to order. A selection of one routes on
     /// the press, as it always did; a list never routes unasked, so it gets
     /// the list's plain confirm.</summary>
-    private async Task<InboxBulkOutcome> RouteOneOrAskAsync(IReadOnlyList<InboxItemDto> picked, Guid? listId)
+    private async Task<InboxBulkOutcome> RouteOneOrAskAsync(IReadOnlyList<InboxItemDto> picked, Guid? listId, string? planTitle = null)
     {
-        if (listId is null) return await RouteBatchAsync(picked, listId);
+        if (listId is null) return await RouteBatchAsync(picked, listId, planTitle: planTitle);
 
         OpenListRouteConfirm();
         return InboxBulkOutcome.Nothing;
@@ -2794,7 +2912,8 @@ public sealed class InboxDesktopState
     private async Task<InboxBulkOutcome> RouteBatchAsync(
         IReadOnlyList<InboxItemDto> picked,
         Guid? listId,
-        InboxBatchRouteChoicesDto? choices = null)
+        InboxBatchRouteChoicesDto? choices = null,
+        string? planTitle = null)
     {
         if (picked.Count == 0 || RoutingInFlight) return InboxBulkOutcome.Nothing;
 
@@ -2821,7 +2940,7 @@ public sealed class InboxDesktopState
 
             if (pending.Count > 0)
             {
-                var result = await _inbox.RouteToBacklogAsync(Ids(pending), listId, choices);
+                var result = await _inbox.RouteToBacklogAsync(Ids(pending), listId, choices, planTitle);
                 if (Report(result, BulkResultTestId))
                 {
                     // The list went while the dialog was open; the reload takes

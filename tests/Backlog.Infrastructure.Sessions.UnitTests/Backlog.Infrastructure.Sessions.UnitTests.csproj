@@ -14,6 +14,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Recorded run files the stage resolution is tested over, trimmed copies of real
+         ones. Shared from tests/Fixtures beside the telemetry recordings. -->
+    <None Include="..\Fixtures\delivery-runs\*" Link="Fixtures\delivery-runs\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The module's published surface and the kernel's device identity, which every
          reader here answers in and stamps with. -->
     <Using Include="Backlog.Modules.Sessions.Abstractions" />

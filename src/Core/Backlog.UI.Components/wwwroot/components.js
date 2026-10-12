@@ -348,6 +348,119 @@
     };
 
     /*
+        The top layer, for `Modal`.
+
+        A dialog has to cover the window wherever its host renders it, and an
+        inline `position: fixed` backdrop cannot promise that: a pane with
+        `container-type`, a transform or a filter becomes its containing block and
+        stacking context, so the backdrop is clipped to the pane and painted under
+        its neighbour. A `dialog` shown with `showModal()` is lifted into the top
+        layer, which none of those reach, and a dialog opened from a dialog stacks
+        above it in open order.
+
+        The native element is only a carrier, and Escape is not its to act on:
+        `Modal` owns Escape, some dialogs switch it off while they are busy, and a
+        native close behind Blazor's back would leave the component believing it
+        is still open. So the Escape keydown is cancelled on the layer — a
+        cancelled keydown never becomes a close request at all, which a refused
+        `cancel` alone does not promise: Chrome honours that refusal only once per
+        user activation. Cancelled, not stopped: the keydown still bubbles on to
+        Blazor, whose handler is what closes the dialog. The `cancel` refusal
+        stays as the backstop for a close request from anywhere else.
+
+        Modal renders the layer already `open`, so a page whose script never ran
+        still shows the dialog — in place, which beats not at all. `showModal()`
+        throws on an open dialog, so it is closed first and shown again here.
+    */
+    const backlogModalLayers = new Map();
+
+    /*
+        A modal blankets everything below it in the top layer, the toast tray
+        included, however high its z-index. An element marked
+        `data-backlog-top-layer` is lifted back above each modal as it opens: a
+        manual popover, hidden and shown again because only a fresh
+        `showPopover()` moves it to the top. The attribute is added here rather
+        than rendered, because a popover nobody has shown is `display: none`, and
+        a tray must not depend on this script to be seen at all. A browser without
+        popovers keeps the tray where it was. When the last modal closes the
+        element is let down again — popover hidden, attribute removed — so the
+        page places it as it did before any modal opened.
+    */
+    function backlogRaiseTopLayerElements() {
+        document.querySelectorAll('[data-backlog-top-layer]').forEach((element) => {
+            if (typeof element.showPopover !== 'function') return;
+
+            try {
+                if (!element.hasAttribute('popover')) element.setAttribute('popover', 'manual');
+                if (element.matches(':popover-open')) element.hidePopover();
+                element.showPopover();
+            } catch {
+                // A tray torn out mid-call, or one the browser will not promote:
+                // it stays where it was, which is no worse than before.
+            }
+        });
+    }
+
+    function backlogLowerTopLayerElements() {
+        document.querySelectorAll('[data-backlog-top-layer]').forEach((element) => {
+            if (typeof element.hidePopover !== 'function' || !element.hasAttribute('popover')) return;
+
+            try {
+                if (element.matches(':popover-open')) element.hidePopover();
+                element.removeAttribute('popover');
+            } catch {
+                // Torn out mid-call: nothing left to place.
+            }
+        });
+    }
+
+    window.backlogShowModalLayer = (id) => {
+        const layer = document.getElementById(id);
+        if (!(layer instanceof HTMLDialogElement)) return;
+
+        if (!backlogModalLayers.has(id)) {
+            const onKeyDown = (event) => {
+                if (event.key === 'Escape') event.preventDefault();
+            };
+            const onCancel = (event) => event.preventDefault();
+
+            layer.addEventListener('keydown', onKeyDown);
+            layer.addEventListener('cancel', onCancel);
+            backlogModalLayers.set(id, () => {
+                layer.removeEventListener('keydown', onKeyDown);
+                layer.removeEventListener('cancel', onCancel);
+            });
+        }
+
+        if (layer.open) layer.close();
+
+        // A disconnected element, or a browser without the top layer, refuses
+        // showModal(). Open in place then: a dialog drawn where its host is beats
+        // one never drawn at all.
+        try {
+            layer.showModal();
+        } catch {
+            layer.setAttribute('open', '');
+            return;
+        }
+
+        backlogRaiseTopLayerElements();
+    };
+
+    // Tolerates the layer being gone already, which is the usual case: Blazor
+    // removes it in the render that closes the dialog, and removal takes it out of
+    // the top layer on its own.
+    window.backlogCloseModalLayer = (id) => {
+        backlogModalLayers.get(id)?.();
+        backlogModalLayers.delete(id);
+
+        const layer = document.getElementById(id);
+        if (layer instanceof HTMLDialogElement && layer.open) layer.close();
+
+        if (!document.querySelector('.modal-layer:modal')) backlogLowerTopLayerElements();
+    };
+
+    /*
         Whether the focus has landed outside every one of several named regions.
 
         Several rather than one, because "outside" is not always one element's
@@ -1637,7 +1750,8 @@
     // `@onkeydown:preventDefault` flag proved exactly that — rendered after the
     // handler, it applied to the key *after* the one that set it, so the arrow was
     // never stopped and the letter typed next was eaten. So the decision lives
-    // here, by class, on every picker at once. The same reasoning as
+    // here, by class, on every picker at once — and on Combobox's input, whose keys
+    // are the same four for the same reasons. The same reasoning as
     // backlogGuardTab above, minus the id: a picker's input is never re-minted.
     //
     // Only the default is refused. The event keeps bubbling: TasksPane's bulk bar
@@ -1651,7 +1765,7 @@
         if (!TAG_SELECT_SWALLOWED_KEYS.has(event.key)) return;
 
         const target = event.target instanceof Element ? event.target : null;
-        if (!target || !target.matches('.tag-select__input')) return;
+        if (!target || !target.matches('.tag-select__input, .combobox__input')) return;
 
         event.preventDefault();
     });
@@ -1676,18 +1790,21 @@
         event.preventDefault();
     });
 
-    // The arrows, Home and End on a radio of a radio-mode ButtonGroup. ToggleButton
-    // moves and selects from its keydown handler; the browser would otherwise
-    // scroll the page on the same key. Enter and Space are left alone: they are the
-    // button's own click, which is how a radio is chosen. Only the default is
-    // refused, for the reason the rows above give.
+    // The keys a RadioGroup choice moves the selection with. Without this they
+    // also scroll the nearest scroll container — End checks the last choice and
+    // throws the triage pass to its bottom. The same reasoning and contract as
+    // the row keys above: refused at the keydown because a state-bound
+    // `@onkeydown:preventDefault` is one key late, only the default, the event
+    // keeps bubbling. Matched on role rather than class, because a host replaces
+    // the group's classes through its hooks. Space and Enter are left alone: a
+    // choice is a button, and its native click is what checks it.
     const RADIO_SWALLOWED_KEYS = new Set(['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
 
     document.addEventListener('keydown', (event) => {
         if (!RADIO_SWALLOWED_KEYS.has(event.key)) return;
 
         const target = event.target instanceof Element ? event.target : null;
-        if (!target || !target.matches('[role="radiogroup"].btn-group [role="radio"]')) return;
+        if (!target || !target.matches('[role="radiogroup"] > [role="radio"]')) return;
 
         event.preventDefault();
     });
@@ -1800,7 +1917,9 @@
     // deliberately has no interop of its own. This watches every subtree
     // mutation on the page and does nothing on all but the one it is for, which
     // is cheap: the check is one class test per added element.
-    const TAG_SELECT_LIST_CLASS = 'tag-select__list';
+    // Combobox's list is the same popup in the same columns — the detail panel's
+    // Planned hours sits near the bottom of one — so it is revealed the same way.
+    const REVEALED_LIST_CLASSES = ['tag-select__list', 'combobox__list'];
 
     const revealTagSelectList = (list) => {
         let container = list.parentElement;
@@ -1818,7 +1937,7 @@
     new MutationObserver((records) => {
         for (const record of records) {
             for (const node of record.addedNodes) {
-                if (node instanceof Element && node.classList.contains(TAG_SELECT_LIST_CLASS)) {
+                if (node instanceof Element && REVEALED_LIST_CLASSES.some(name => node.classList.contains(name))) {
                     revealTagSelectList(node);
                 }
             }

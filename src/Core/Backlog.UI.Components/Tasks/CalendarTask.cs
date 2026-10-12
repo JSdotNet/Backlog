@@ -89,4 +89,23 @@ public static class CalendarMonth
     /// <summary>The Monday on or before <paramref name="date"/>.</summary>
     public static DateOnly MondayOnOrBefore(DateOnly date) =>
         date.AddDays(-(((int)date.DayOfWeek + 6) % 7));
+
+    /// <summary>
+    /// The Monday of the week the Week range opens on from <paramref name="month"/>:
+    /// the week holding <paramref name="today"/> when today is in that month, else the
+    /// month's first week — the one holding the 1st.
+    /// </summary>
+    public static DateOnly OpeningWeek(DateOnly month, DateOnly today)
+    {
+        var first = FirstOf(month);
+        return FirstOf(today) == first ? MondayOnOrBefore(today) : MondayOnOrBefore(first);
+    }
+
+    /// <summary>
+    /// The first of the month the Month range shows after the week starting on
+    /// <paramref name="weekStart"/>: the month holding its Thursday, the ISO rule, so a
+    /// week that spans two months lands in the one holding most of its days.
+    /// </summary>
+    public static DateOnly MonthOfWeek(DateOnly weekStart) =>
+        FirstOf(MondayOnOrBefore(weekStart).AddDays(3));
 }

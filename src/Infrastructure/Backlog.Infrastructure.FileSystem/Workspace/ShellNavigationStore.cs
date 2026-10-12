@@ -35,6 +35,12 @@ namespace Backlog.Infrastructure.FileSystem;
 /// carries it. Roadmap reads it through its own port, answered over this store. The
 /// bands the reader folded to one lane are the same kind of choice and ride beside it.
 /// </para>
+/// <para>
+/// So do the Calendar's Month | Week range, the In progress view's two toggles and the
+/// header's repository scope: each is how the reader last had a screen, kept on this
+/// device only. Every key is additive and left out while at its default, so a file
+/// written before it keeps its shape and an older build reads a newer file.
+/// </para>
 /// </summary>
 public sealed class ShellNavigationStore
 {
@@ -53,12 +59,19 @@ public sealed class ShellNavigationStore
     /// <summary>What the Board's columns are when nothing else was remembered.</summary>
     public const string DefaultBoardColumns = "Status";
 
+    /// <summary>The Calendar's range when nothing else was remembered.</summary>
+    public const string DefaultCalendarRange = "Month";
+
     /// <summary>The surface name the roadmap was stored under while it was a
     /// takeover, and the view name it is stored under now.</summary>
     private const string RoadmapName = "Roadmap";
 
     /// <summary>The surface that is no takeover at all: the workspace.</summary>
     private const string WorkspaceSurfaceName = "Workspace";
+
+    /// <summary>The pane name the Inbox was stored under while it was a side pane,
+    /// and the surface name it is stored under now.</summary>
+    private const string InboxName = "Inbox";
 
     private readonly string _path;
 
@@ -89,11 +102,15 @@ public sealed class ShellNavigationStore
 
         var dto = Read();
         (LastSurface, LastView) = Normalize(dto?.LastSurface, dto?.LastView);
-        LastEnabledPanes = dto?.LastEnabledPanes ?? Empty;
+        (LastSurface, LastEnabledPanes) = MigrateInboxPane(dto?.LastSurface, LastSurface, dto?.LastEnabledPanes ?? Empty);
         RoadmapHoursShown = dto?.RoadmapHoursShown ?? true;
         RoadmapCollapsedGroups = dto?.RoadmapCollapsedGroups ?? Empty;
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
         CalendarPlansShown = dto?.CalendarPlansShown ?? false;
+        CalendarRange = string.IsNullOrWhiteSpace(dto?.CalendarRange) ? DefaultCalendarRange : dto.CalendarRange;
+        InProgressNeedsYouFirst = dto?.InProgressNeedsYouFirst ?? true;
+        InProgressIncludeFinishedToday = dto?.InProgressIncludeFinishedToday ?? false;
+        RepositoryScope = dto?.RepositoryScope ?? Empty;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -113,7 +130,8 @@ public sealed class ShellNavigationStore
     /// Empty is both "nothing remembered yet" and "no side pane open", which the
     /// shell reopens the same way. A file from before the view switch may still
     /// list <c>Tasks</c> here; the shell ignores it, since the task list is a view
-    /// now and no longer a pane.</summary>
+    /// now and no longer a pane. An <c>Inbox</c> here is read away on load — see
+    /// <see cref="MigrateInboxPane"/> — since the Inbox is a surface now.</summary>
     public IReadOnlyList<string> LastEnabledPanes { get; private set; }
 
     /// <summary>Whether the roadmap's day and week heads carry their hours line: on until
@@ -141,6 +159,29 @@ public sealed class ShellNavigationStore
     /// choice reads as off; one that says <c>false</c>, as a file from when the box
     /// was on by default does once it was turned off, reads as off too.</summary>
     public bool CalendarPlansShown { get; private set; }
+
+    /// <summary>
+    /// The Tasks Calendar's range — <c>Month</c> or <c>Week</c> — as the reader last
+    /// left it on this device; <see cref="DefaultCalendarRange"/> until changed. A name,
+    /// for the reason <see cref="BoardColumns"/> is one: the shell reads a name it does
+    /// not know as Month. Only the range is kept, never the date it showed.
+    /// </summary>
+    public string CalendarRange { get; private set; }
+
+    /// <summary>Whether the In progress view puts the sessions waiting on the reader
+    /// first — its "Needs you first" toggle: on until turned off on this device.</summary>
+    public bool InProgressNeedsYouFirst { get; private set; }
+
+    /// <summary>Whether the In progress view also lists what finished today — its
+    /// "Include finished today" toggle: off until turned on on this device.</summary>
+    public bool InProgressIncludeFinishedToday { get; private set; }
+
+    /// <summary>
+    /// The header's repository scope by alias, in the order it was chosen: the first is
+    /// the anchor. Empty is every repository, the scope nobody narrowed. Aliases are
+    /// kept as written; the shell drops one no longer configured when it restores them.
+    /// </summary>
+    public IReadOnlyList<string> RepositoryScope { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
@@ -179,6 +220,26 @@ public sealed class ShellNavigationStore
         }
 
         return (surface, string.IsNullOrWhiteSpace(view) ? DefaultView : view);
+    }
+
+    /// <summary>
+    /// The Inbox was a side pane beside the main view before it took the whole screen
+    /// as a surface (local ADR 0022, amendment of 2026-10-12), so a file from then
+    /// lists it among the panes. Where it was on screen — no takeover stored over the
+    /// workspace — it reopens as the Inbox surface; under a takeover it was hidden, so
+    /// that takeover stays. Either way the name leaves the pane list, and the next save
+    /// cannot write it back there. Decided on the stored surface, before the roadmap
+    /// takeover is read as a view, because that takeover covered the pane too.
+    /// </summary>
+    private static (string? Surface, IReadOnlyList<string> Panes) MigrateInboxPane(
+        string? storedSurface, string? surface, IReadOnlyList<string> panes)
+    {
+        if (!panes.Contains(InboxName, StringComparer.Ordinal)) return (surface, panes);
+
+        string[] remaining = [.. panes.Where(pane => !string.Equals(pane, InboxName, StringComparison.Ordinal))];
+        var inboxWasOnScreen = storedSurface is null || string.Equals(storedSurface, WorkspaceSurfaceName, StringComparison.Ordinal);
+
+        return (inboxWasOnScreen ? InboxName : surface, remaining);
     }
 
     public void SetLastPanes(IReadOnlyList<string> enabled)
@@ -223,6 +284,42 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetCalendarRange(string range)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(range);
+        if (range == CalendarRange) return;
+
+        CalendarRange = range;
+        Save();
+    }
+
+    public void SetInProgressNeedsYouFirst(bool needsYouFirst)
+    {
+        if (needsYouFirst == InProgressNeedsYouFirst) return;
+
+        InProgressNeedsYouFirst = needsYouFirst;
+        Save();
+    }
+
+    public void SetInProgressIncludeFinishedToday(bool include)
+    {
+        if (include == InProgressIncludeFinishedToday) return;
+
+        InProgressIncludeFinishedToday = include;
+        Save();
+    }
+
+    /// <summary>Keeps <paramref name="aliases"/> in the order given — the anchor first —
+    /// so the same aliases reordered are a change.</summary>
+    public void SetRepositoryScope(IReadOnlyList<string> aliases)
+    {
+        ArgumentNullException.ThrowIfNull(aliases);
+        if (aliases.SequenceEqual(RepositoryScope, StringComparer.Ordinal)) return;
+
+        RepositoryScope = [.. aliases];
+        Save();
+    }
+
     private void Save()
     {
         try
@@ -239,7 +336,12 @@ public sealed class ShellNavigationStore
                 // Likewise left out while the columns are the default ones.
                 BoardColumns = BoardColumns == DefaultBoardColumns ? null : BoardColumns,
                 // Left out while off, the default, so only turning it on writes a key.
-                CalendarPlansShown = CalendarPlansShown ? true : null
+                CalendarPlansShown = CalendarPlansShown ? true : null,
+                // Each of these is left out while at its default, the same way.
+                CalendarRange = CalendarRange == DefaultCalendarRange ? null : CalendarRange,
+                InProgressNeedsYouFirst = InProgressNeedsYouFirst ? null : false,
+                InProgressIncludeFinishedToday = InProgressIncludeFinishedToday ? true : null,
+                RepositoryScope = RepositoryScope.Count == 0 ? null : [.. RepositoryScope]
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -290,5 +392,17 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? CalendarPlansShown { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? CalendarRange { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? InProgressNeedsYouFirst { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? InProgressIncludeFinishedToday { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string[]? RepositoryScope { get; init; }
     }
 }

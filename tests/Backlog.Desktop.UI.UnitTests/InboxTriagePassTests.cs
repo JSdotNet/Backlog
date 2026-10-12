@@ -7,6 +7,7 @@ using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
 using Bunit;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -220,7 +221,7 @@ public sealed class InboxTriagePassTests
         await ProposeAsync(pane);
 
         var radios = pane.FindAll("[data-testid='inbox-pass-duplicate'] [role='radio']");
-        Assert.Equal(["Keep Aspire 13 dashboard walkthrough, archive this one", "Keep both"], radios.Select(radio => Squash(radio.TextContent)));
+        Assert.Equal(["Keep Aspire 13 dashboard walkthrough, attach this one", "Keep both"], radios.Select(radio => Squash(radio.TextContent)));
         Assert.Equal("true", radios[1].GetAttribute("aria-checked"));
         Assert.Equal("0 of 1 accepted", Count(pane));
         Assert.True(pane.Find("[data-testid='inbox-pass-apply']").HasAttribute("disabled"));
@@ -234,6 +235,176 @@ public sealed class InboxTriagePassTests
             Assert.Equal(kept.Id, harness.Inbox.Find(item.Id)!.DuplicateOf);
         });
         Assert.Equal(InboxStatus.Unprocessed, harness.Inbox.Find(kept.Id)!.Status);
+    }
+
+    /// <summary>
+    /// "Keep X, attach this one" is the act its label says: the capture is
+    /// archived as a duplicate of X — which is what carries its title and link
+    /// onto X's entry when X is routed — and the kept item itself is not
+    /// written. One U takes the attachment off again by restoring the capture.
+    /// </summary>
+    [Fact]
+    public async Task Keep_one_attach_the_other_archives_the_capture_onto_the_kept_item_and_one_U_takes_it_off()
+    {
+        using var harness = Harness.Create();
+        var kept = harness.Inbox.Seed("Aspire 13 dashboard walkthrough", sourceUrl: "https://example.com/a");
+        var item = harness.Inbox.Seed("What is new in the Aspire 13 dashboard", sourceUrl: "https://example.com/b");
+        harness.Inbox.TriageAdvisorAvailable = true;
+        harness.Inbox.TriagePassAnswer = Result.Success(InboxTriagePassDto.Nothing with
+        {
+            Duplicates = [new InboxTriageDuplicatePairDto(item.Id, InboxTriageTargetKind.InboxItem, kept.Id, InboxDuplicateAction.KeepOneAttachOther, "Same talk.", 0.9)],
+        });
+        var pane = await harness.StartTriageAsync();
+        await ProposeAsync(pane);
+
+        Assert.Equal("true", pane.Find("[data-testid='inbox-pass-duplicate-merge']").GetAttribute("aria-checked"));
+        Assert.Equal("Keep Aspire 13 dashboard walkthrough, attach this one", Squash(pane.Find("[data-testid='inbox-pass-duplicate-merge']").TextContent));
+
+        await pane.Find("[data-testid='inbox-pass-apply']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Equal(kept.Id, harness.Inbox.Find(item.Id)!.DuplicateOf));
+        Assert.Equal(InboxStatus.Archived, harness.Inbox.Find(item.Id)!.Status);
+        Assert.Equal(kept, harness.Inbox.Find(kept.Id));
+
+        await PressAsync(pane, "u");
+
+        pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Unprocessed, harness.Inbox.Find(item.Id)!.Status));
+        Assert.Null(harness.Inbox.Find(item.Id)!.DuplicateOf);
+        Assert.Equal(kept, harness.Inbox.Find(kept.Id));
+    }
+
+    // --- The duplicate card --------------------------------------------------------
+
+    /// <summary>Each side of a pair says where its item is: the list it is
+    /// filed in, or the inbox when it is in none.</summary>
+    [Fact]
+    public async Task A_side_filed_in_a_list_is_labelled_with_the_list_and_an_unfiled_one_with_the_inbox()
+    {
+        using var harness = Harness.Create();
+        var reading = harness.Inbox.SeedList("Reading");
+        var filed = harness.Inbox.Seed("Aspire 13 dashboard walkthrough", kind: ContentKind.YouTube, slug: "youtube", listId: reading.Id);
+        var unfiled = harness.Inbox.Seed("What is new in the Aspire 13 dashboard");
+        var filedTwin = harness.Inbox.Seed("Aspire dashboard tour", listId: reading.Id);
+        var unfiledTwin = harness.Inbox.Seed("The Aspire dashboard, again");
+        harness.Inbox.TriageAdvisorAvailable = true;
+        harness.Inbox.TriagePassAnswer = Result.Success(InboxTriagePassDto.Nothing with
+        {
+            Duplicates =
+            [
+                new InboxTriageDuplicatePairDto(filed.Id, InboxTriageTargetKind.InboxItem, unfiledTwin.Id, InboxDuplicateAction.KeepOneAttachOther, "Same talk.", 0.9),
+                new InboxTriageDuplicatePairDto(unfiled.Id, InboxTriageTargetKind.InboxItem, filedTwin.Id, InboxDuplicateAction.KeepOneAttachOther, "Same talk.", 0.9),
+            ],
+        });
+        var pane = await harness.StartTriageAsync();
+        await ProposeAsync(pane);
+
+        var cards = pane.FindAll("[data-testid='inbox-pass-duplicate']");
+        Assert.Equal(2, cards.Count);
+        Assert.StartsWith($"Reading · {InboxLabels.Kind("youtube")} · ", SideLabel(cards[0], "item"), StringComparison.Ordinal);
+        Assert.StartsWith("Inbox · Text · ", SideLabel(cards[0], "target"), StringComparison.Ordinal);
+        Assert.StartsWith("Inbox · Text · ", SideLabel(cards[1], "item"), StringComparison.Ordinal);
+        Assert.StartsWith("Reading · Text · ", SideLabel(cards[1], "target"), StringComparison.Ordinal);
+
+        static string SideLabel(AngleSharp.Dom.IElement card, string side) =>
+            Squash(card.QuerySelector($"[data-testid='inbox-pass-duplicate-{side}'] .inbox-pass__side-label")!.TextContent);
+    }
+
+    /// <summary>The choices are one radio group: one stop in the tab order, the
+    /// arrows moving the choice and wrapping, Home and End to the ends — and
+    /// the choice the arrows land on is the one Apply takes.</summary>
+    [Fact]
+    public async Task The_duplicate_choices_are_one_tab_stop_that_the_arrow_keys_move_through()
+    {
+        using var harness = Harness.Create();
+        var scene = await harness.SceneAsync();
+        var pane = await harness.StartTriageAsync();
+        await ProposeAsync(pane);
+
+        string[] TabIndexes() => [.. pane.FindAll("[data-testid='inbox-pass-duplicate'] [role='radio']").Select(radio => radio.GetAttribute("tabindex") ?? string.Empty)];
+        string[] Checked() => [.. pane.FindAll("[data-testid='inbox-pass-duplicate'] [role='radio']").Select(radio => radio.GetAttribute("aria-checked") ?? string.Empty)];
+        Task KeyAsync(string slug, string key) => pane.Find($"[data-testid='inbox-pass-duplicate-{slug}']").KeyDownAsync(new KeyboardEventArgs { Key = key });
+
+        Assert.Equal(["0", "-1", "-1"], TabIndexes());
+        Assert.Contains("inbox-pass__choice--on", pane.Find("[data-testid='inbox-pass-duplicate-merge']").ClassName, StringComparison.Ordinal);
+
+        await KeyAsync("merge", "ArrowRight");
+        Assert.Equal(["false", "true", "false"], Checked());
+        Assert.Equal(["-1", "0", "-1"], TabIndexes());
+        Assert.Equal("4 of 6 accepted", Count(pane));
+
+        await KeyAsync("keep-both", "ArrowDown");
+        Assert.Equal(["false", "false", "true"], Checked());
+
+        await KeyAsync("archive", "ArrowRight");
+        Assert.Equal(["true", "false", "false"], Checked());
+
+        await KeyAsync("merge", "ArrowUp");
+        Assert.Equal(["false", "false", "true"], Checked());
+
+        await KeyAsync("archive", "Home");
+        Assert.Equal(["true", "false", "false"], Checked());
+
+        await KeyAsync("merge", "End");
+        Assert.Equal(["false", "false", "true"], Checked());
+        Assert.Equal("inbox-pass__choice inbox-pass__choice--on", ChoiceClasses(pane.Find("[data-testid='inbox-pass-duplicate-archive']")));
+        Assert.Equal("inbox-pass__choice", ChoiceClasses(pane.Find("[data-testid='inbox-pass-duplicate-merge']")));
+
+        await pane.Find("[data-testid='inbox-pass-apply']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Archived, Status(harness, scene.Duplicate)));
+        Assert.Empty(harness.Inbox.Merges);
+
+        static string ChoiceClasses(AngleSharp.Dom.IElement radio) =>
+            string.Join(' ', radio.ClassList.Where(name => name.StartsWith("inbox-pass__", StringComparison.Ordinal)));
+    }
+
+    // --- Single routes ------------------------------------------------------------------
+
+    /// <summary>The type the row shows is the type the route makes.</summary>
+    [Fact]
+    public async Task A_single_route_sends_the_entry_type_its_row_shows()
+    {
+        using var harness = Harness.Create();
+        var scene = await harness.SceneAsync();
+        var pane = await harness.StartTriageAsync();
+        await ProposeAsync(pane);
+
+        var rows = pane.FindAll("[data-testid='inbox-pass-route']");
+        Assert.Equal("Prompt", rows[0].QuerySelector("[data-testid='inbox-pass-route-type']")!.TextContent.Trim());
+        Assert.Equal("Task", rows[1].QuerySelector("[data-testid='inbox-pass-route-type']")!.TextContent.Trim());
+        await pane.FindAll("[data-testid='inbox-pass-route-accept']")[0].ClickAsync(new());
+
+        await pane.Find("[data-testid='inbox-pass-apply']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-pass']")));
+        Assert.Equal([(scene.RouteLow.Id, "prompt"), (scene.RouteTask.Id, "task")], harness.Inbox.SingleRoutes);
+    }
+
+    /// <summary>Apply writes the route's repositories and then routes; U takes
+    /// both back, and the item has the repositories it had before — here, none.</summary>
+    [Fact]
+    public async Task U_after_a_single_route_gives_the_item_its_previous_repositories()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Fix login redirect");
+        harness.Inbox.TriageAdvisorAvailable = true;
+        harness.Inbox.TriagePassAnswer = Result.Success(InboxTriagePassDto.Nothing with
+        {
+            Routes = [new InboxTriageRouteProposalDto(item.Id, "test", ["acme/web"], "It names a repository.", 0.9)],
+        });
+        var pane = await harness.StartTriageAsync();
+        await ProposeAsync(pane);
+
+        await pane.Find("[data-testid='inbox-pass-apply']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Triaged, Status(harness, item)));
+        Assert.Equal(["acme/web"], harness.Inbox.Find(item.Id)!.RepoIds);
+        Assert.Equal([(item.Id, "test")], harness.Inbox.SingleRoutes);
+
+        await PressAsync(pane, "u");
+
+        pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Unprocessed, Status(harness, item)));
+        Assert.Empty(harness.Inbox.Find(item.Id)!.RepoIds);
     }
 
     [Fact]

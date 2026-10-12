@@ -8,8 +8,52 @@
     are derived from it, so nothing of ours is left on the element: `btn` brings
     padding, a weight and a transition with it, and appending that to a `.chip`
     restyles the chip rather than adopting the component.
+
+    Given an Href it is an anchor instead, wearing the same classes - the shape
+    Badge and IntegrationLink already take when what they hold has an address. An
+    act whose whole effect is "go and look at this on GitHub" is a link: it can be
+    middle-clicked, copied and opened in a new window, and a button that navigates
+    cannot. The alternative was an app anchor wearing `btn`, which is a second
+    button the library cannot keep in step with this one. It opens in a new
+    window, because the address is always another site's and the app has no
+    browser history to come back through. A disabled or busy link has no href,
+    since an anchor has no disabled state of its own - but an anchor without an
+    href leaves the tab order and stops being a link, which would break Busy's
+    promise that focus survives the round trip. So the inert one keeps both by
+    hand: role="link", tabindex="0", and aria-disabled="true" on the link role,
+    where ARIA defines it.
+
+    The button is written last and unchanged. Every existing caller passes no Href
+    and so renders exactly the markup it always did.
 *@
 
+@if (Href is not null)
+{
+    var inert = Disabled || Busy;
+
+    <a class="@ClassValue"
+       href="@(inert ? null : Href)"
+       target="_blank"
+       rel="noopener noreferrer"
+       data-testid="@TestId"
+       role="@(inert ? "link" : null)"
+       tabindex="@(inert ? "0" : null)"
+       aria-disabled="@(inert ? "true" : null)"
+       aria-busy="@(Busy ? "true" : null)"
+       @attributes="AdditionalAttributes">
+        @if (Busy)
+        {
+            <Spinner Size="SpinnerSize.Small" Label="@BusyLabel" />
+        }
+        else if (Icon is not null)
+        {
+            <span class="@IconClassValue" aria-hidden="true">@Icon</span>
+        }
+        @ChildContent
+    </a>
+}
+else
+{
 <button type="@TypeAttribute"
         class="@ClassValue"
         data-testid="@TestId"
@@ -28,6 +72,7 @@
     }
     @ChildContent
 </button>
+}
 
 @code {
     [Parameter]
@@ -49,6 +94,13 @@
 
     [Parameter]
     public string Type { get; set; } = "button";
+
+    /// <summary>Where the act leads, when it is a page rather than something done
+    /// here. Set, the button renders as an anchor opening that address in a new
+    /// window, and <see cref="OnClick"/>, <see cref="Type"/> and
+    /// <see cref="StopPropagation"/> do not apply.</summary>
+    [Parameter]
+    public string? Href { get; set; }
 
     [Parameter]
     public RenderFragment? Icon { get; set; }

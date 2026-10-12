@@ -16,22 +16,25 @@ build this project and run nothing.
 
 ## Tests
 
-`ConferenceDayTests` — the conference day the mobile Inbox slice was built for, one test
-in seven named steps, the phone at 375 px:
+`ConferenceDayTests` — a conference day on the redesigned phone (Today, Inbox and Notes
+tabs, the capture sheet), one test in seven named steps, the phone at 390 × 844:
 
-1. The phone pairs with a code the desktop issued and reads *Synced*.
-2. A quick capture shows at once, then on the desktop from channel *Mobile*.
-3. With `sync` stopped, a talk note with tags, `@ada`, a JPEG and a PDF is sent and
-   reads *waiting*. A second quick capture also waits.
-4. With `sync` started, the phone sends both attachment `PUT`s, then the note's
-   `POST /api/sync/inbox`, then the capture's, and reads *Synced* again.
-5. The desktop shows the note with a thumbnail, a `handout.pdf` row, the tags and
-   the speaker, and routes it to Tasks. The task carries the item's folder.
-6. The phone Inbox drops the routed note. The task is absent from the phone's My Day
-   until the desktop adds it there, and then it is present.
-7. With `sync` stopped, a task added from My Day shows at once, marked waiting, and the
-   phone reads *Offline*. With `sync` started, the marker clears and the desktop has the
-   task in My Day.
+1. The phone pairs with a code the desktop issued, reads *Synced* and opens on Today.
+2. The capture sheet saves one thought as *Inbox*, one as *Note* and four as *Today*.
+   The four show under Anytime today; the desktop Inbox has the first two from
+   channel *Mobile*, and the desktop's My Day has the four.
+3. On the desktop, one task gets two steps and a two-hour block holding the current
+   time, another a block three hours later. The phone's Today shows the first on the
+   Now card, with its first step next, and the second under Agenda.
+4. A task ticked on Today and a step ticked on the task's page are ticked on the
+   desktop; the other step is still open.
+5. A task moved to tomorrow from its page leaves Today and the desktop's My Day.
+6. A note written in the phone's Notes reaches the desktop Inbox. Edited there, the
+   phone's Notes shows the edit; archived there, it leaves the phone's Notes.
+7. With `sync` stopped, an Inbox capture with a JPEG, a plain one and a task for today
+   wait, and the phone reads *Offline*. With `sync` started, the phone sends the
+   attachment `PUT`, then the two `POST /api/sync/inbox`, reads *Synced* again, and
+   the desktop has the photo, the capture and the task in My Day.
 
 ## Running
 
@@ -73,16 +76,17 @@ It holds:
 
 - one **viewport** screenshot per checkpoint, numbered in order. There is no full-page
   capture: removing the scrollbar widens the container past the phone breakpoint;
-- `run.log` — when `sync` went down and came back, the talk note's statuses, the calls
-  the phone sent after the restart, and every desktop sync result;
+- `run.log` — the agenda blocks set and the phone's clock, when `sync` went down and
+  came back, the calls the phone sent after the restart, and every desktop sync result;
 - `sync-structured-logs.json` — `sync`'s structured logs at Information and above;
 - `sync-errors.json` — its Error logs. The test fails on any error that appeared during
   the run.
 
 ## What a run changes
 
-- **`sync`** is stopped and started twice; the finally block starts it again if a step
-  fails. Restarting it in Development generates a new signing key. Every device fetches
+- **`sync`** is stopped and started once; the finally block starts it again if a step
+  fails while it is down, and leaves a running `sync` alone — starting a running
+  resource restarts it, and every device then has to recover from the new key. Restarting it in Development generates a new signing key. Every device fetches
   a fresh token, so the Warning logs about rejected tokens are expected.
 - **`mobile-web-harness`** is reset to a phone that was never paired: it is stopped,
   its `obj/local-development` credential, outbox database and staged talk-note files are
@@ -90,9 +94,14 @@ It holds:
 - **`desktop-web-harness`** gets the *Sync* and *Inbox pane* features turned on (kept
   per worktree) and is registered with the sync service if it was not already.
 - **The desktop workspace is shared.** Every worktree on the machine uses the one
-  `Backlog.Debug` folder, so the captures, the routed task and the phone's task stay
-  there. Each run stamps its own `MMdd-HHmmss` token on every title and asserts only on
-  rows carrying it.
+  `Backlog.Debug` folder, so the captures, the tasks and the archived note stay there.
+  Each run stamps its own `MMdd-HHmmss` token on every title and asserts only on rows
+  carrying it. The Tasks view's filters are the workspace's too, so the test sets My Day,
+  *All* and the scope chips itself rather than trusting what the last session left.
+- **Agenda times are taken off again.** The Now card goes to the open timed task whose
+  block holds the time and starts first, so a block left in the shared My Day would beat
+  the next run's. The test starts its block as early as it can (the first quarter hour
+  after now less 110 minutes) and, pass or fail, clears both agenda times at the end.
 
 ## Known behaviour it works around
 

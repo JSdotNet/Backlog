@@ -434,6 +434,30 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         Assert.Equal(merged.UpdatedAt, loaded.UpdatedAt);
     }
 
+    /// <summary>When the reader took a decision back survives the store: the
+    /// intake reads a tombstone's echo against it on a pull that may come after
+    /// the app restarted.</summary>
+    [Fact]
+    public async Task A_restored_item_comes_back_knowing_when_it_was_reopened()
+    {
+        var restored = FromPhone("Call the dentist");
+        restored.Archive(Noon.AddHours(1));
+        restored.MarkReplicaAcknowledged();
+        restored.Restore(Noon.AddHours(2));
+        var never = FromPhone("Never reopened");
+        await _repository.SaveAsync(restored, TestContext.Current.CancellationToken);
+        await _repository.SaveAsync(never, TestContext.Current.CancellationToken);
+
+        var loaded = await _repository.GetAsync(restored.Id, TestContext.Current.CancellationToken);
+        var untouched = await _repository.GetAsync(never.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(Noon.AddHours(2), loaded.RestoredAt);
+        Assert.Equal(InboxStatus.Unprocessed, loaded.Status);
+        Assert.Equal(restored.UpdatedAt, loaded.UpdatedAt);
+        Assert.Null(untouched!.RestoredAt);
+    }
+
     [Fact]
     public async Task An_inbox_table_written_before_suggestions_gains_the_column_and_its_rows_load_with_none_turned_down()
     {
@@ -467,6 +491,7 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         Assert.Empty(only.DismissedSuggestions);
         Assert.Null(only.DuplicateOf);
         Assert.False(only.DuplicateOfTask);
+        Assert.Null(only.RestoredAt);
 
         only.DismissSuggestion("tag:sync");
         await _repository.SaveAsync(only, TestContext.Current.CancellationToken);

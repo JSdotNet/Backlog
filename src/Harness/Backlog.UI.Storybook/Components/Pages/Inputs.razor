@@ -3,7 +3,7 @@
 <PageTitle>Inputs — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Inputs"
-           Summary="Text, long text, search, the two switches, and the fields a date, a time or a repeat is set with. Every one of them is two-way bound to the state shown underneath it. Reordering is not here: the handle that moves a row is part of the row, so it is in the Task list chapter with the component that draws it."
+           Summary="Text, text with suggestions, long text, search, the two switches, and the fields a date, a time or a repeat is set with. Every one of them is two-way bound to the state shown underneath it. Reordering is not here: the handle that moves a row is part of the row, so it is in the Task list chapter with the component that draws it."
            Guidelines="@Rules">
 
     <Story Name="TextField"
@@ -104,6 +104,70 @@
                 </TextField>
             </div>
         </div>
+    </Story>
+
+    <Story Name="Combobox — empty"
+           Description="A text field with a list of suggestions under it. Down, Alt+Down or a click opens the list; Up and Down walk it and wrap; Enter takes the active option; Escape closes the list, and with the list closed clears the field; Tab closes it without taking anything. What is typed is free — the options suggest and filter nothing."
+           Code="@ComboboxEmptyCode">
+        <div class="sb-row">
+            <Combobox Options="@HourPresets"
+                      Label="Hours"
+                      Placeholder="Hours"
+                      inputmode="decimal"
+                      Value="@_comboEmpty"
+                      ValueChanged="v => _comboEmpty = v"
+                      OnCommit="c => _comboEmptyCommit = Describe(c)"
+                      TestId="input-combobox-empty" />
+        </div>
+        <p class="sb-state" data-testid="input-combobox-empty-value">Value = @Show(_comboEmpty) · last commit: @_comboEmptyCommit</p>
+    </Story>
+
+    <Story Name="Combobox — a suggestion taken"
+           Description="The field holding one of its options. Opening the list with Down starts on that option, so the reader sees where the figure sits among the suggestions. A pick is reported through OnCommit as Picked, after ValueChanged."
+           Code="@ComboboxPickedCode">
+        <div class="sb-row">
+            <Combobox Options="@HourPresets"
+                      AriaLabel="Hours, a suggestion taken"
+                      Compact="true"
+                      inputmode="decimal"
+                      Value="@_comboPicked"
+                      ValueChanged="v => _comboPicked = v"
+                      OnCommit="c => _comboPickedCommit = Describe(c)"
+                      TestId="input-combobox-picked" />
+        </div>
+        <p class="sb-state" data-testid="input-combobox-picked-value">Value = @Show(_comboPicked) · last commit: @_comboPickedCommit</p>
+    </Story>
+
+    <Story Name="Combobox — a figure typed"
+           Description="A figure no option offers. Enter with no option active commits it as Entered; leaving a changed field commits it as Changed; the change a browser raises right after Enter carries the same text and is not reported twice."
+           Code="@ComboboxTypedCode">
+        <div class="sb-row">
+            <Combobox Options="@HourPresets"
+                      AriaLabel="Hours, a figure typed"
+                      Compact="true"
+                      inputmode="decimal"
+                      Value="@_comboTyped"
+                      ValueChanged="v => _comboTyped = v"
+                      OnCommit="c => _comboTypedCommit = Describe(c)"
+                      TestId="input-combobox-typed" />
+        </div>
+        <p class="sb-state" data-testid="input-combobox-typed-value">Value = @Show(_comboTyped) · last commit: @_comboTypedCommit</p>
+    </Story>
+
+    <Story Name="Combobox — a figure refused"
+           Description="The host keeps a figure only when it is a number from 0.25 to 24, and calls Refuse on any other commit: the field goes back to the last figure kept — and, bound two-way, tells the host so through ValueChanged — and the host says why. Type 30 and press Enter."
+           Code="@ComboboxRefusedCode">
+        <div class="sb-row">
+            <Combobox Options="@HourPresets"
+                      AriaLabel="Hours, refused figures go back"
+                      Compact="true"
+                      inputmode="decimal"
+                      Value="@_comboText"
+                      ValueChanged="v => _comboText = v"
+                      OnCommit="KeepOrRefuse"
+                      TestId="input-combobox-refused" />
+        </div>
+        <p class="sb-state" data-testid="input-combobox-refused-value">Value = @Show(_comboText) · kept = @_comboKept · @_comboRefusal</p>
     </Story>
 
     <Story Name="TextArea"
@@ -453,6 +517,7 @@ It exists because two panels had each written a private class to get here, which
     [
         new("interaction-guidelines.md#save-timing-and-debounce", "How long a field waits before it saves, and which edits commit at once."),
         new("content-editing.md#scheduling-and-dependency-tokens", "The date, time and repeat grammar these fields read and write."),
+        new("interaction-guidelines.md#combobox", "When a field offers suggestions it does not hold the reader to, and which keys open, walk, pick and close them."),
         new("accessibility.md#keyboard-navigation", "What every control has to be reachable and operable with."),
         new("typography-and-layout.md#density", "Control heights, label pairing and how tight a form is allowed to be.")
     ];
@@ -507,6 +572,73 @@ It exists because two panels had each written a private class to get here, which
     ];
 
     private static readonly string[] Areas = ["Product", "Platform", "Design"];
+
+    // The planned-hours presets, the Combobox's first host, so the samples cannot
+    // drift from what the hours fields suggest.
+    private static readonly IReadOnlyList<SelectorOption> HourPresets = CalendarHours.PresetOptions();
+
+    private string? _comboEmpty;
+    private string _comboEmptyCommit = "none";
+    private string _comboPicked = "4";
+    private string _comboPickedCommit = "none";
+    private string _comboTyped = "2.75";
+    private string _comboTypedCommit = "none";
+    private string _comboText = "3";
+    private string _comboKept = "3";
+    private string _comboRefusal = "nothing refused yet";
+
+    private static string Describe(ComboboxCommit commit) => $"{commit.Reason} {commit.Value}";
+
+    private void KeepOrRefuse(ComboboxCommit commit)
+    {
+        if (decimal.TryParse(commit.Value, System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out var hours)
+            && hours is >= 0.25m and <= 24m)
+        {
+            _comboKept = commit.Value;
+            _comboRefusal = "nothing refused";
+            return;
+        }
+
+        _comboRefusal = $"“{commit.Value}” was refused; the field went back to {_comboKept}.";
+        commit.Refuse();
+    }
+
+    private const string ComboboxEmptyCode = """
+        <Combobox Options="@HourPresets"
+                  Label="Hours"
+                  Placeholder="Hours"
+                  inputmode="decimal"
+                  @bind-Value="_hours"
+                  OnCommit="commit => Keep(commit.Value)" />
+        """;
+
+    private const string ComboboxPickedCode = """
+        @* HourPresets: new("0.5", "0.5h"), new("1", "1h") … new("8", "8h") —
+           the field takes the value, the list reads the label. *@
+        <Combobox Options="@HourPresets" AriaLabel="Hours" Compact="true"
+                  Value="4" ValueChanged="v => _hours = v" OnCommit="OnCommit" />
+        """;
+
+    private const string ComboboxTypedCode = """
+        <Combobox Options="@HourPresets" AriaLabel="Hours" Compact="true"
+                  Value="2.75" ValueChanged="v => _hours = v" OnCommit="OnCommit" />
+
+        private void OnCommit(ComboboxCommit commit) =>
+            _last = $"{commit.Reason} {commit.Value}"; // Picked, Entered or Changed
+        """;
+
+    private const string ComboboxRefusedCode = """
+        <Combobox Options="@HourPresets" AriaLabel="Hours" Compact="true"
+                  @bind-Value="_hours" OnCommit="KeepOrRefuse" />
+
+        private void KeepOrRefuse(ComboboxCommit commit)
+        {
+            if (Hours.Parse(commit.Value) is { } hours) { _kept = commit.Value; return; }
+
+            _refusal = "Give the hours as a number more than 0 and at most 24.";
+            commit.Refuse(); // the field, and _hours, go back to the last figure kept
+        }
+        """;
 
     private string _title = "Storybook for Backlog.UI.Components";
     private string _url = "https://github.com/JSdotNet/Backlog";

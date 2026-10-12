@@ -28,6 +28,16 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// <param name="AfterTasks">In a batch, the tasks already in the backlog this
 /// one comes after, each as the value its <c>after:</c> token is written with
 /// (<see cref="DependencyTarget.After"/>). Null or empty on a single route.</param>
+/// <param name="EntryType">On a single route, the kind of entry to make — one
+/// of <see cref="InboxTriagePassDto.EntryTypes"/>, lower-case, as the triage
+/// pass read it. Null for the target's own default, a task; always null in a
+/// batch.</param>
+/// <param name="Attached">The captures archived as duplicates of this item,
+/// at any distance down the chain — "keep one, attach the other" — as their
+/// title and link, oldest capture first; on a single route and in a batch
+/// alike. The captures themselves are not changed: they stay what arrived, and
+/// the adapter writes these as prose on the entry. Null or empty when there
+/// are none.</param>
 public sealed record InboxRouteRequestDto(
     Guid InboxItemId,
     string Title,
@@ -37,4 +47,11 @@ public sealed record InboxRouteRequestDto(
     IReadOnlyList<string> RepoIds,
     string? AttachmentPath = null,
     IReadOnlyList<Guid>? AfterItems = null,
-    IReadOnlyList<string>? AfterTasks = null);
+    IReadOnlyList<string>? AfterTasks = null,
+    string? EntryType = null,
+    IReadOnlyList<InboxAttachedDuplicateDto>? Attached = null);
+
+/// <summary>A capture archived as a duplicate of the item being routed, as the
+/// route carries it: what it was called and the link it arrived with, if
+/// any.</summary>
+public sealed record InboxAttachedDuplicateDto(string Title, string? SourceUrl);

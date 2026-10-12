@@ -7,8 +7,8 @@ related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-every
 > Binding interaction rules for the Backlog product: auto-save (there are no save
 > buttons), drag-and-drop reordering of both items and chapters with mandatory
 > keyboard equivalents, feedback/toasts, motion and reduced-motion, the
-> empty/loading/error state patterns, and the desktop shell's header, panes and
-> group shapes. Motion tokens and interaction patterns were
+> empty/loading/error state patterns, the desktop shell's header, panes and
+> group shapes, and the combobox. Motion tokens and interaction patterns were
 > adapted from the JSdotNet design style guide (`04-motion-and-interaction`,
 > `09-interaction-patterns`); conflict handling aligns with the last-write-wins
 > rule in `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`. Token names are
@@ -230,6 +230,7 @@ both items and chapters.
 ## Feedback and Toasts
 
 ```meta
+related: [".devbook/design/typography-and-layout.md#z-index-scale"]
 ```
 
 | Rule | Requirement |
@@ -240,6 +241,7 @@ both items and chapters.
 | Dismiss | The dismiss control MUST have an accessible label ("Dismiss notification"). |
 | No redundant save toasts | Routine auto-saves MUST NOT spam toasts — the persistent save-state indicator carries that; toasts are for failures and notable events only. |
 | Inline confirmation | Prefer subtle inline confirmation (e.g. a brief `ease-bounce` flash on a saved inline edit) over a toast for small edits. |
+| Above an open dialog | A toast raised while a `Modal` is open MUST be seen above it. A modal sits in the browser's top layer (`typography-and-layout.md#z-index-scale`), so the tray is lifted into that layer above each modal as it opens and let down when the last one closes. It is visible, not interactive: the modal makes everything outside itself inert, so the dismiss control does not answer until the modal closes, and the toast's own timer still dismisses it. |
 
 ## Motion and Reduced Motion
 
@@ -411,12 +413,13 @@ Review surface: storybook → *Task list* → **Task card**.
 ## Shell Header
 
 ```meta
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility"]
 ```
 
 The desktop shell's header is four regions in reading order, each answering one
-question. Below it the workspace shows exactly one **main view**, with the side
-panes beside it, unless a **takeover** has the screen (local ADR 0022).
+question. Below it the workspace shows exactly one **main view**, with the
+Devbook beside it, unless a **takeover** or the Inbox has the screen (local ADR
+0022).
 
 | Region | Answers | Holds |
 |---|---|---|
@@ -431,21 +434,23 @@ as its kind:
 | Control | Members | Behaves as |
 |---|---|---|
 | View switch | `Tasks`, `Board`, `Calendar`, `Roadmap` (while its flag is on) | Exactly one option is pressed while the workspace shows. Pressing the pressed option changes nothing. A view is never closed and Escape never leaves it. |
-| Side-pane toggle | `Inbox` before the view switch, `Devbook` after it | An on-or-off of its own that opens the pane beside whichever view is showing. See `#workspace-panes`. |
+| Inbox toggle | `Inbox`, before the view switch | An on-or-off of its own that gives the Inbox the whole screen in place of the main view; pressed again, it returns to that view. Escape does not leave the Inbox: it is the Inbox's own key, leaving triage for the list. |
+| Side-pane toggle | `Devbook`, after the view switch | An on-or-off of its own that opens the pane beside whichever view is showing. See `#workspace-panes`. |
 | Work in progress group | `In progress` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the Sessions context's work. In progress acts as a view option does; Sessions and Pull requests act as takeovers. Renders while Sessions or Pull requests is offered. |
 | Remaining takeovers | `Dashboard`, `Tools` | A loose group, each under its own flag. Renders while one of them is offered. |
 
 | Rule | Requirement |
 |---|---|
-| The workspace cluster sits close | The Inbox toggle, the view switch and the Devbook toggle MUST sit at the tighter `spacing-xs` gap and the groups after them at the wider navigation gap, so the panes read as belonging to the views they open beside. |
+| The workspace cluster sits close | The Inbox toggle, the view switch and the Devbook toggle MUST sit at the tighter `spacing-xs` gap and the groups after them at the wider navigation gap, so the Inbox and the Devbook read as belonging to the views. |
 | A takeover hides, it does not close | Opening a takeover MUST hide the workspace and keep the main view and the open side panes underneath; closing it shows them as they were. |
-| Every way back works | A takeover MUST close on Escape, on its own close button and on a second press of its option. Pressing a view option or a side-pane toggle during a takeover MUST close it and show the workspace, with that view or that pane on screen. |
-| Nothing reads pressed under a takeover | During a takeover no view option and no side-pane toggle reads pressed, since nothing of the workspace is on screen. |
+| Every way back works | A takeover MUST close on Escape, on its own close button and on a second press of its option. Pressing a view option or a side-pane toggle during a takeover MUST close it and show the workspace, with that view or that pane on screen. The Inbox is left by a second press of its option, a view option, the side-pane toggle or another takeover, never by Escape. |
+| Nothing reads pressed under a takeover | During a takeover, or while the Inbox has the screen, no view option and no side-pane toggle reads pressed, since nothing of the workspace is on screen. |
 | Takeovers are exclusive | Opening a takeover MUST replace any other takeover; a group of pressed states, not `aria-expanded`, says so. Ask AI keeps `aria-expanded`, because it is a disclosure. |
 | A switched-off view falls back | A view whose flag goes off MUST show Tasks in its place, and MUST come back when the flag does. |
 | The filter bar is the task views' | The Tasks filter bar MUST show on the Tasks, Board and Calendar views — the same filtered rows read three ways — and on no other screen. The Board adds its **Columns** choice first on the bar, a select with no visible word beside it — the grouping it shows says what the columns are — named `Columns` to assistive technology and in its tooltip. The Roadmap view carries its own Planning heading row instead, and In progress carries its own choices. |
 | A control acts on what is on screen | A header control whose target is off screen MUST NOT render: the GitHub check only beside a task view, Ask AI only with an area to ask about. The view switch, the side-pane toggles, the takeover groups and the identity region stay on every screen, since they are the way to everything else. |
-| The shell reopens where it was left | The main view, the open side panes and any open takeover MUST be restored on a fresh shell instance, including after Settings and back. |
+| The shell reopens where it was left | The main view, the open side pane, any open takeover or the Inbox, and the repository scope MUST be restored on a fresh shell instance, including after Settings and back. The scope comes back in its order, so the anchor is still first, and a repository no longer configured is dropped from it. |
+| Views and work lead with a glyph | Each view-switch option and each member of the work in progress group MUST lead with a decorative glyph before its word: a list for Tasks, three columns for Board, a calendar for Calendar, staggered bars for Roadmap, a pulse line for In progress, a terminal prompt for Sessions and a pull-request branch for Pull requests. Each glyph is a Lucide outline per `typography-and-layout.md#iconography`, hidden from assistive technology per `accessibility.md#iconography-accessibility`, so every option's name stays its word. The Inbox toggle, the side-pane toggle and the remaining takeovers carry none. |
 
 Review surface: storybook → *App shell* → **Desktop header navigation**.
 
@@ -455,20 +460,22 @@ Review surface: storybook → *App shell* → **Desktop header navigation**.
 related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/design/design-principles.md#low-chrome-content-first"]
 ```
 
-The desktop shell has two side panes, the Inbox and the Devbook, and each opens
-beside whichever main view is showing (see `#shell-header`). The task list is
-not a pane: it is the Tasks view, which is never closed. That is why no pane has
-to stay open, and why the old pane strip's rules — an exclusive plain press, a
-Ctrl-press to add one beside, a disabled last option, a pin on every option —
-are gone with it.
+The desktop shell has one side pane, the Devbook, and it opens beside whichever
+main view is showing (see `#shell-header`). The task list is not a pane: it is
+the Tasks view, which is never closed. That is why no pane has to stay open, and
+why the old pane strip's rules — an exclusive plain press, a Ctrl-press to add
+one beside, a disabled last option, a pin on every option — are gone with it.
+The Inbox was a side pane too, before the main view; it takes the whole screen
+now, because triage reads one item at a time and wants the width (local ADR
+0022, amendment of 2026-10-12).
 
 | Rule | Requirement |
 |---|---|
 | A toggle of its own | A press on a closed side pane MUST open it beside the view, and a press on an open one MUST close it. No modifier changes what a press does. |
 | No pane is an ordinary state | The shell MUST render with no side pane open, and a side-pane toggle MUST NOT be disabled. |
-| The tooltip says what the press will do | "Open Inbox beside Tasks", "Close Inbox", or during a takeover "Back to the workspace with Inbox open". |
-| The Inbox opens before the view | The Inbox MUST render before the main view and the Devbook after it, as their toggles stand in the header. |
-| A full window trims in the stable order | The viewport sets how many panes fit, the main view included, and leaves at least one side slot. A pane that opens into a full set MUST close the first open side pane in the stable order (Inbox, then Devbook), and a narrowed window MUST trim the same way, so one arrangement always narrows one way. |
+| The tooltip says what the press will do | "Open Devbook beside Tasks", "Close Devbook", or during a takeover "Back to the workspace with Devbook open". |
+| The Devbook opens after the view | The Devbook MUST render after the main view, as its toggle stands in the header. |
+| A narrow window stacks, it does not close | The viewport sets how many panes fit, the main view included, and always leaves the side pane its slot: below the two-pane width the layout stacks its columns rather than closing the Devbook. |
 | The edge is the handle | The Devbook's width MUST be set by dragging the pane edge, with arrow keys on the same separator as the keyboard equivalent. |
 
 ## Group Shape Says Cardinality
@@ -489,6 +496,34 @@ the pressed state's to say, not the shape's.
 | Not one of a set at all | A control that is simply on or off and belongs to no set — the desktop header's Inbox and Devbook toggles — MUST stand alone in the loose option shape, outside every group. Inside a fused group it would read as one more of its options and behave as none of them. |
 | Still one group | A loose group is still one `role="group"` with one label and one tab sequence; only the drawing changes. |
 | Selected on the edge it has | A fused option carries its selected state on the group's shared bottom edge (an underline beside the tint); a loose option, having no group edge, carries it on its own border. Neither is colour alone. |
+
+## Combobox
+
+```meta
+status: draft
+related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/domain/tasks/features.md#planned-hours"]
+```
+
+A combobox is a text field with a list of suggestions under it. The reader may
+type anything, or take a suggestion instead of typing, and typing never narrows
+the list. It follows the ARIA 1.2 editable combobox with list autocomplete. The
+planned-hours figure is its first use.
+
+| Rule | Requirement |
+|---|---|
+| The focus stays in the field | The keyboard focus MUST stay in the text field while the list is open. The field carries `role="combobox"`, `aria-expanded`, `aria-controls` naming the list and `aria-autocomplete="list"`, and `aria-activedescendant` names the active suggestion. The list is a `role="listbox"` of `role="option"` items. |
+| Opening the list | Down, Up and Alt+Down MUST open the list, and so does a click in the field. Down opens on the suggestion matching the field, else the first; Up opens on the matching one, else the last. Alt+Down opens with none active. |
+| Moving through it | While the list is open, Down and Up MUST move the active suggestion and wrap at either end. |
+| Taking a suggestion | Enter on the active suggestion, or a click on one, MUST take it and close the list. Enter with none active MUST commit the typed text. |
+| Escape | Escape MUST close an open list and keep the text. With the list already closed, Escape clears the field, and a host listening around the field hears it too. |
+| A key the list used is not the host's | A host that listens for Escape or Enter around the field, such as an editor that cancels on Escape, MUST NOT hear the Escape that closed the list or the Enter that took a suggestion. |
+| Tab | Tab MUST close the list without taking anything and move the focus on as usual. |
+| One commit per value | A value MUST be committed once, whichever way it arrives: a pick, Enter, or leaving the field. The browser's change event after an Enter is not a second commit. |
+| A refused value goes back | When the host refuses a committed value, the field MUST go back to the last value that stood, and the host says why beside it. |
+| Never clipped | The open list MUST be at least as wide as its field, and MUST NOT be cut off by a container that clips its content. |
+
+Review surface: storybook → *Inputs* → **Combobox** (empty, a suggestion taken, a
+figure typed, a figure refused).
 
 ## Action Density and Overflow
 

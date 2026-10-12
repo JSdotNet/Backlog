@@ -102,6 +102,39 @@ public sealed class ProposeBatchTests
         Assert.Equal(1, result.Value.Deferred);
     }
 
+    /// <summary>"Make the plan" on a triage card names the plan: the card's
+    /// title is the tag's stem, ahead of a list's name.</summary>
+    [Fact]
+    public async Task A_plan_title_names_the_tag_ahead_of_the_list()
+    {
+        var store = new InMemoryInboxStore();
+        var list = InboxList.Create("Reading List", null, 0, Items.Noon);
+        store.Seed(list);
+        var item = Items.Manual("An article");
+        item.MoveToList(list.Id);
+        store.Seed(item);
+
+        var titled = await Propose(store, [item.Id], planTitle: "Tasks sync polish");
+        var titledInList = await Propose(store, [item.Id], list.Id, planTitle: "Tasks sync polish");
+
+        Assert.Matches(@"^\+tasks-sync-polish-[0-9a-f]{8}$", titled.Value.PlanTag);
+        Assert.Matches(@"^\+tasks-sync-polish-[0-9a-f]{8}$", titledInList.Value.PlanTag);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("   ")]
+    public async Task Without_a_plan_title_a_selection_keeps_the_batch_stem(string? planTitle)
+    {
+        var store = new InMemoryInboxStore();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        var result = await Propose(store, [item.Id], planTitle: planTitle);
+
+        Assert.StartsWith("+inbox-batch-", result.Value.PlanTag, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task A_list_that_is_gone_is_not_found()
     {
@@ -127,7 +160,8 @@ public sealed class ProposeBatchTests
         InMemoryInboxStore store,
         IReadOnlyList<Guid> ids,
         Guid? listId = null,
-        FakeTaskReferences? references = null) =>
+        FakeTaskReferences? references = null,
+        string? planTitle = null) =>
         new ProposeBatchQueryHandler(store, store, references)
-            .Handle(new ProposeBatchQuery(ids, listId), TestContext.Current.CancellationToken);
+            .Handle(new ProposeBatchQuery(ids, listId, planTitle), TestContext.Current.CancellationToken);
 }

@@ -54,13 +54,13 @@ public sealed class TodayScreenTests
         var current = Timed(TestTasks.Task("Write sync conflict tests", Now, inMyDayOn: Today), "09:45", 45);
         var afternoon = Timed(TestTasks.Task("Plan sprint goals", Now, inMyDayOn: Today), "14:00", 30);
         var missed = Timed(TestTasks.Task("Stand-up", Now, inMyDayOn: Today), "08:00", 15);
-        var urgent = TestTasks.Task("Reply to the design feedback", Now, inMyDayOn: Today, priority: "high");
-        var later = TestTasks.Task("Book the offsite venue", Now, inMyDayOn: Today, priority: "low");
+        var rankedFirst = TestTasks.Task("Reply to the design feedback", Now, inMyDayOn: Today, priority: "low", order: 0);
+        var rankedSecond = TestTasks.Task("Book the offsite venue", Now, inMyDayOn: Today, priority: "high", order: 1);
         var ticked = Ticked(TestTasks.Task("Triage the inbox", Now, inMyDayOn: Today, status: "done"));
         var yesterday = TestTasks.Task("Picked yesterday", Now, inMyDayOn: Today.AddDays(-1));
         var archived = TestTasks.Task("Archived", Now, inMyDayOn: Today, status: "archived");
 
-        var tasks = new ScriptedTaskService(later, afternoon, ticked, current, urgent, missed, yesterday, archived);
+        var tasks = new ScriptedTaskService(rankedSecond, afternoon, ticked, current, rankedFirst, missed, yesterday, archived);
         using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
         var app = host.Open("");
 
@@ -167,8 +167,8 @@ public sealed class TodayScreenTests
     {
         var id = Guid.CreateVersion7();
         var tasks = new ScriptedTaskService(
-            TestTasks.Task("Reply to the design feedback", Now, inMyDayOn: Today, id: id),
-            TestTasks.Task("Book the offsite venue", Now, inMyDayOn: Today));
+            TestTasks.Task("Reply to the design feedback", Now, inMyDayOn: Today, id: id, order: 0),
+            TestTasks.Task("Book the offsite venue", Now, inMyDayOn: Today, order: 1));
         using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
         var app = host.Open("");
 

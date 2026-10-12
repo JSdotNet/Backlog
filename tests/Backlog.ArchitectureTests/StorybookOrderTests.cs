@@ -55,7 +55,7 @@ public class StorybookOrderTests
         ["Diagrams"] = ["diagrams", "graph-explorer", "graph-atlas"],
         ["Feedback"] = ["feedback"],
         ["Icons"] = ["foundations"],
-        ["Inputs"] = ["inputs", "file-field", "attachment-strip"],
+        ["Inputs"] = ["inputs", "radio-group", "file-field", "attachment-strip"],
         ["Integrations"] = ["integrations"],
         ["Devbook"] = ["devbook", "markdown/references"],
         ["Layout"] = ["layout", "file-view", "folder-view"],

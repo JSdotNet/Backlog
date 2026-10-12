@@ -448,6 +448,26 @@ public sealed class McpServerWorker : IDisposable
                 context.RequestAborted).ConfigureAwait(false);
         });
 
+        // And Claude Code's own OpenTelemetry logs (local ADR 0024), on the same
+        // port and behind the same guard: the exporter carries the bearer token as
+        // an OTLP header, and sends no Origin.
+        app.MapPost(ClaudeCodeLogsEndpoint.RoutePath, async context =>
+        {
+            var reply = await ClaudeCodeLogsEndpoint.AcceptAsync(
+                context.Request.Body,
+                context.Request.ContentLength,
+                context.Request.ContentType,
+                context.Request.Headers.ContentEncoding,
+                context.RequestServices.GetRequiredService<IClaudeApiRequestStore>(),
+                context.RequestAborted).ConfigureAwait(false);
+
+            context.Response.StatusCode = reply.StatusCode;
+            if (reply.ContentType is not null) context.Response.ContentType = reply.ContentType;
+            if (reply.Failure is not null) _log.LogError(reply.Failure, "Claude Code's telemetry could not be stored; the exporter was asked to retry.");
+            if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (reply.Body.Length > 0) await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
+        });
+
         return app;
     }
 
@@ -616,7 +636,8 @@ public sealed class McpServerWorker : IDisposable
     /// filters resolve it from the request, so it appears in no tool's
     /// constructor and would be missed by the reflection below.
     /// <see cref="IDeliveryRunTelemetry"/> is named for the same reason: the
-    /// telemetry route beside <c>/mcp</c> resolves it, and no tool does.
+    /// telemetry route beside <c>/mcp</c> resolves it, and no tool does; and
+    /// <see cref="IClaudeApiRequestStore"/> for the OTLP logs route beside it.
     /// </para>
     /// <para>
     /// The probe is <see cref="IServiceProviderIsService"/>, which every
@@ -634,6 +655,7 @@ public sealed class McpServerWorker : IDisposable
             .Select(parameter => parameter.ParameterType)
             .Append(typeof(IAppFeatureSettings))
             .Append(typeof(IDeliveryRunTelemetry))
+            .Append(typeof(IClaudeApiRequestStore))
             .Distinct();
 
     private IEnumerable<Type> ForwardedPorts(IServiceProviderIsService? probe)

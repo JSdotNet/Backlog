@@ -1,0 +1,364 @@
+@*
+    A text field with a list of suggestions under it: the ARIA 1.2 editable
+    combobox with list autocomplete. What is typed is free and filters nothing; the
+    options are suggestions a reader can take instead of typing — the planned-hours
+    presets are the first host. Built as TagMultiSelect is and for its reasons: no
+    interop, a real listbox in the DOM, the focus in the input the whole time, and
+    `aria-activedescendant` moving the reading cursor instead of the focus.
+
+    The keys, per the APG pattern. Down, or Alt+Down, opens the list; Down and Up
+    then move the active option and wrap. Enter on an active option takes it and
+    closes the list; Enter with none active commits what was typed. Escape closes
+    an open list, or clears the field when the list is already closed. Tab closes
+    the list without taking anything. A click in the field opens the list too, so a
+    pointer has the suggestions within reach. Which of those keys keep their browser
+    default is decided in components.js by the input's class, for the reason the
+    tag picker's note there gives: a decision the server makes arrives a key late.
+
+    A key the open list used is not the host's as well. The input's
+    `@onkeydown:stopPropagation` is bound to whether the list is drawn, so while it
+    is, a Blazor `@onkeydown` above it — the Calendar hours editor's Escape-cancels —
+    never hears the Escape that closed the list or the Enter that took an option.
+    Bound to the state drawn *before* the key, which is the state the key acted on,
+    so this is not the one-key-late flag components.js describes: that one is set by
+    the key it means to stop. Blazor's flag ends only Blazor's own walk; a document
+    listener in script still hears the key.
+
+    A value is committed three ways, each reported once through OnCommit with its
+    reason: a pick, Enter, or a native `change` — the field left, or Enter in a
+    browser that raises one. A change carrying the value just committed is not
+    reported again, which is what keeps Enter from committing twice: the browser
+    follows the keydown with a change for the same text. A host that will not keep
+    the value calls Refuse on it, and the field goes back to the last value that
+    stood: the last one committed and kept, or the last figure the host set.
+
+    The field's text is the host's Value only until somebody types, as in TextField:
+    the host's figure is taken when the host changes it, so a re-render that hands
+    the same Value back does not wipe what is being typed. A host bound two-way
+    echoes each keystroke back as Value; an echo is the text already in the field,
+    so it is not taken as a new figure — it moves neither the last committed text
+    (the field left after typing still reports Changed) nor what Refuse goes back to.
+*@
+
+<div class="@ClassValue" data-testid="@TestId">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <label class="field__label" for="@InputId">@Label</label>
+    }
+
+    <input id="@InputId"
+           class="@InputClass"
+           type="text"
+           role="combobox"
+           autocomplete="off"
+           @bind:get="_text"
+           @bind:set="SetTextAsync"
+           @bind:event="oninput"
+           placeholder="@Placeholder"
+           disabled="@Disabled"
+           aria-expanded="@(ListShown ? "true" : "false")"
+           aria-controls="@ListId"
+           aria-autocomplete="list"
+           aria-activedescendant="@ActiveOptionId"
+           aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)"
+           @onclick="OpenOnCurrent"
+           @onblur="Close"
+           @onchange="OnChangeAsync"
+           @onkeydown="OnKeyDownAsync"
+           @onkeydown:stopPropagation="ListShown"
+           @attributes="AdditionalAttributes" />
+
+    @if (ListShown)
+    {
+        @* preventDefault on mousedown keeps the focus in the input, so the blur that
+           closes the list cannot land before the click that takes an option. *@
+        <ul id="@ListId" class="combobox__list" role="listbox" aria-label="@ListLabel" data-testid="@Part("list")">
+            @for (var i = 0; i < Options.Count; i++)
+            {
+                var index = i;
+                var option = Options[index];
+                <li id="@OptionId(index)"
+                    class="@OptionClass(index)"
+                    role="option"
+                    aria-selected="@(index == _activeIndex ? "true" : "false")"
+                    data-value="@option.Value"
+                    data-testid="@Part($"option-{index}")"
+                    @onmousedown:preventDefault="true"
+                    @onclick="() => PickAsync(option)">@option.Label</li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private readonly string _id = "combobox-" + Guid.NewGuid().ToString("N");
+    private string _text = string.Empty;
+    private string? _hostValue;
+    private string _committed = string.Empty;
+    private string _standing = string.Empty;
+    private bool _open;
+    private int _activeIndex = -1;
+
+    /// <summary>The suggestions, in the order the list draws them. Taking one puts its
+    /// <see cref="SelectorOption.Value"/> in the field; the list reads its label.</summary>
+    [Parameter]
+    public IReadOnlyList<SelectorOption> Options { get; set; } = [];
+
+    /// <summary>The host's value. Taken into the field whenever it changes.</summary>
+    [Parameter]
+    public string? Value { get; set; }
+
+    /// <summary>Every edit: each keystroke, a pick, and Escape clearing the field.</summary>
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>A value was committed — picked, entered or changed. See
+    /// <see cref="ComboboxCommit"/>.</summary>
+    [Parameter]
+    public EventCallback<ComboboxCommit> OnCommit { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>The field's accessible name where there is no visible label.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    /// <summary>The list's accessible name. Defaults to the field's.</summary>
+    [Parameter]
+    public string? ListAriaLabel { get; set; }
+
+    [Parameter]
+    public string? Placeholder { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>The small inline field, as <see cref="TextField.Compact"/>.</summary>
+    [Parameter]
+    public bool Compact { get; set; }
+
+    /// <summary>The input's id, for a host that sends the focus to it.</summary>
+    [Parameter]
+    public string? Id { get; set; }
+
+    /// <summary>Appended to <c>combobox</c> on the wrapper.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Lands on the wrapper; the list and each option take it as a prefix.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Splatted onto the input — <c>inputmode</c>, for one.</summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool ListShown => _open && Options.Count > 0 && !Disabled;
+
+    private string InputId => string.IsNullOrWhiteSpace(Id) ? _id : Id;
+
+    private string ListId => InputId + "-list";
+
+    private string OptionId(int index) => $"{InputId}-option-{index}";
+
+    private string? ActiveOptionId => ListShown && _activeIndex >= 0 && _activeIndex < Options.Count
+        ? OptionId(_activeIndex)
+        : null;
+
+    private string? ListLabel => ListAriaLabel ?? Label ?? AriaLabel;
+
+    private string ClassValue
+    {
+        get
+        {
+            var open = ListShown ? " combobox--open" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"combobox{open}{extra}";
+        }
+    }
+
+    private string InputClass => Compact
+        ? "field__input field__input--compact combobox__input"
+        : "field__input combobox__input";
+
+    private string OptionClass(int index) => index == _activeIndex
+        ? "combobox__option combobox__option--active"
+        : "combobox__option";
+
+    protected override void OnParametersSet()
+    {
+        if (Value != _hostValue)
+        {
+            _hostValue = Value;
+            var figure = Value ?? string.Empty;
+
+            // An echo of the text already in the field is not a new figure.
+            if (!string.Equals(figure, _text, StringComparison.Ordinal))
+            {
+                _text = figure;
+                _committed = figure;
+                _standing = figure;
+            }
+        }
+
+        if (_activeIndex >= Options.Count) _activeIndex = -1;
+    }
+
+    private Task SetTextAsync(string? value)
+    {
+        _text = value ?? string.Empty;
+        // A typed figure is not the option that was highlighted: Enter now commits
+        // the text, not a suggestion the reader has typed past.
+        _activeIndex = -1;
+        return ValueChanged.InvokeAsync(_text);
+    }
+
+    private void Open()
+    {
+        if (!Disabled) _open = true;
+    }
+
+    /// <summary>A click in the field: the list opens on the option matching the
+    /// field, as Down does, so the figure already there is the one highlighted and
+    /// the next Down walks on from it. Nothing is highlighted when nothing
+    /// matches, and a click on an open list moves nothing.</summary>
+    private void OpenOnCurrent()
+    {
+        if (Disabled || ListShown) return;
+
+        Open();
+        _activeIndex = CurrentIndex();
+    }
+
+    private void Close()
+    {
+        _open = false;
+        _activeIndex = -1;
+    }
+
+    /// <summary>The option whose value is in the field, where a list opened by the
+    /// keyboard starts, or -1.</summary>
+    private int CurrentIndex()
+    {
+        for (var i = 0; i < Options.Count; i++)
+        {
+            if (string.Equals(Options[i].Value, _text.Trim(), StringComparison.OrdinalIgnoreCase)) return i;
+        }
+
+        return -1;
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (Disabled) return;
+
+        var count = Options.Count;
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                if (!ListShown)
+                {
+                    Open();
+                    // Alt+Down shows the list and leaves the cursor in the text.
+                    _activeIndex = e.AltKey || count == 0 ? -1 : Math.Max(CurrentIndex(), 0);
+                }
+                else if (count > 0)
+                {
+                    _activeIndex = (_activeIndex + 1) % count;
+                }
+                break;
+
+            case "ArrowUp":
+                if (!ListShown)
+                {
+                    Open();
+                    var current = CurrentIndex();
+                    _activeIndex = e.AltKey || count == 0 ? -1 : current >= 0 ? current : count - 1;
+                }
+                else if (count > 0)
+                {
+                    _activeIndex = (_activeIndex <= 0 ? count : _activeIndex) - 1;
+                }
+                break;
+
+            case "Enter":
+                if (ListShown && _activeIndex >= 0 && _activeIndex < count)
+                {
+                    await PickAsync(Options[_activeIndex]);
+                }
+                else
+                {
+                    Close();
+                    await CommitAsync(ComboboxCommitReason.Entered);
+                }
+                break;
+
+            case "Escape":
+                if (ListShown)
+                {
+                    Close();
+                }
+                else if (_text.Length > 0)
+                {
+                    _text = string.Empty;
+                    await ValueChanged.InvokeAsync(_text);
+                }
+                break;
+
+            case "Tab":
+                Close();
+                break;
+        }
+    }
+
+    private async Task PickAsync(SelectorOption option)
+    {
+        if (Disabled) return;
+
+        _text = option.Value;
+        Close();
+        await ValueChanged.InvokeAsync(_text);
+        await CommitAsync(ComboboxCommitReason.Picked);
+    }
+
+    private async Task OnChangeAsync(ChangeEventArgs args)
+    {
+        var text = args.Value?.ToString() ?? string.Empty;
+        if (!string.Equals(text, _text, StringComparison.Ordinal))
+        {
+            _text = text;
+            await ValueChanged.InvokeAsync(_text);
+        }
+
+        // The change a browser raises after Enter, or after a pick it saw as an edit,
+        // carries the value already committed.
+        if (string.Equals(text, _committed, StringComparison.Ordinal)) return;
+
+        await CommitAsync(ComboboxCommitReason.Changed);
+    }
+
+    private async Task CommitAsync(ComboboxCommitReason reason)
+    {
+        _committed = _text;
+        var commit = new ComboboxCommit(_text, reason);
+        await OnCommit.InvokeAsync(commit);
+
+        if (!commit.Refused)
+        {
+            _standing = commit.Value;
+            return;
+        }
+
+        _text = _standing;
+        _committed = _standing;
+        // A host bound two-way holds the refused text as its Value; tell it the field
+        // went back, or its next render would hand the refused text in again.
+        if (!string.Equals(Value ?? string.Empty, _standing, StringComparison.Ordinal))
+        {
+            await ValueChanged.InvokeAsync(_standing);
+        }
+    }
+
+    private string? Part(string name) => TestId is null ? null : $"{TestId}-{name}";
+}

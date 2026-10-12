@@ -153,13 +153,15 @@ internal static class TestTasks
         string contentMd = "",
         IReadOnlyList<string>? tags = null,
         IReadOnlyList<string>? repoIds = null,
-        IReadOnlyList<SubItemPayload>? subItems = null) =>
+        IReadOnlyList<SubItemPayload>? subItems = null,
+        int order = 0,
+        DateTimeOffset? createdAt = null) =>
         new(
             id ?? Guid.CreateVersion7(),
             updatedAt,
             deletedAt,
             new TaskPayload(
-                title, contentMd, type, status, priority, 0, null, updatedAt, null, null,
+                title, contentMd, type, status, priority, order, null, createdAt ?? updatedAt, null, null,
                 dueOn, null, null, inMyDayOn, null, null, null, null, null,
                 tags ?? [], repoIds ?? [], [], subItems ?? [], [], []));
 }

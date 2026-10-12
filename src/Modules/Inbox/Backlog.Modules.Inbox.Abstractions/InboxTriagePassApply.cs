@@ -51,11 +51,14 @@ public sealed record InboxTriageDuplicateDecision(
 
 /// <summary>One item moved to the backlog on its own, written to
 /// <paramref name="Repositories"/> first when there are any, as triage's own
-/// Move to backlog does.</summary>
+/// Move to backlog does, and made the <paramref name="EntryType"/> the pass
+/// shows — one of <see cref="DataTransferObjects.InboxTriagePassDto.EntryTypes"/>,
+/// or null for a task.</summary>
 public sealed record InboxTriageRouteDecision(
     string Name,
     Guid ItemId,
-    IReadOnlyList<string> Repositories)
+    IReadOnlyList<string> Repositories,
+    string? EntryType = null)
     : InboxTriageDecision(Name);
 
 /// <summary>One item filed in one of the reader's lists.</summary>
@@ -138,8 +141,8 @@ public sealed record InboxTriagePassOutcome(
 /// look at again, not the pass's to push through.
 /// </para>
 /// <para>
-/// A plan goes as one batch under a fresh plan tag of its own, minted from its
-/// title, so two plans never share an import id and one never clears the
+/// A plan goes as one batch under a fresh plan tag of its own, which the batch
+/// route mints from the plan's title, so two plans never share an import id and one never clears the
 /// other's entries. A batch that refused any member counts as this decision's
 /// failure; the members it did route stay routed and are reported, so they can
 /// be taken back.
@@ -212,16 +215,18 @@ public static class InboxTriagePassApply
 
     private static async Task<Step> PlanAsync(IInboxItems inbox, InboxTriagePlanDecision plan, CancellationToken cancellationToken)
     {
-        var tag = "+" + InboxPlanTag.For(plan.Title, Guid.CreateVersion7());
         IReadOnlyDictionary<Guid, IReadOnlyList<string>>? repositories = plan.Repositories.Count == 0
             ? null
             : plan.ItemIds.Distinct().ToDictionary(id => id, _ => plan.Repositories);
 
+        // The module mints the tag from the title, fresh per batch, as it does
+        // for Make the plan on a triage card: one place turns a title into a tag.
         var result = await inbox.RouteToBacklogAsync(
             plan.ItemIds,
             listId: null,
-            new InboxBatchRouteChoicesDto(PlanTag: tag, Repositories: repositories),
-            cancellationToken).ConfigureAwait(false);
+            repositories is null ? null : new InboxBatchRouteChoicesDto(Repositories: repositories),
+            planTitle: plan.Title,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         if (result.IsFailure) return new Step(null, new Refusal(FirstItem(plan), result.Error, WholePlan: true));
 
@@ -273,7 +278,7 @@ public static class InboxTriagePassApply
             if (assigned.IsFailure) return new Step(null, new Refusal(route.ItemId, assigned.Error));
         }
 
-        var routed = await inbox.RouteToBacklogAsync(route.ItemId, cancellationToken).ConfigureAwait(false);
+        var routed = await inbox.RouteToBacklogAsync(route.ItemId, route.EntryType, cancellationToken).ConfigureAwait(false);
 
         return routed.IsSuccess
             ? new Step(new InboxTriageApplied(route, Routed: routed.Value), null)

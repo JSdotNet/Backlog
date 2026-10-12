@@ -176,20 +176,18 @@
                                 </div>
                             </div>
                             <div class="inbox-pass__card-foot">
-                                <div class="inbox-pass__choices" role="radiogroup" aria-label="What to do with the duplicate">
-                                    @foreach (var option in duplicate.Choices)
-                                    {
-                                        var choice = option;
-                                        var on = duplicate.Choice == choice;
-                                        <AppButton Size="ButtonSize.Small"
-                                                   CssClass="@(on ? "inbox-pass__choice inbox-pass__choice--on" : "inbox-pass__choice")"
-                                                   role="radio"
-                                                   aria-checked="@(on ? "true" : "false")"
-                                                   Disabled="@busy"
-                                                   OnClick="() => duplicate.Choice = choice"
-                                                   TestId="@($"inbox-pass-duplicate-{ChoiceSlug(choice)}")">@ChoiceLabel(duplicate, choice, twin)</AppButton>
-                                    }
-                                </div>
+                                <RadioGroup TValue="InboxPassDuplicateChoice"
+                                            Options="@duplicate.Choices"
+                                            Value="@duplicate.Choice"
+                                            ValueChanged="choice => duplicate.Choice = choice"
+                                            OptionLabel="@(choice => ChoiceLabel(duplicate, choice, twin))"
+                                            OptionTestId="@(choice => $"inbox-pass-duplicate-{ChoiceSlug(choice)}")"
+                                            Disabled="@busy"
+                                            BaseClass="inbox-pass__choices"
+                                            OptionVariantClass="btn--secondary"
+                                            OptionCssClass="inbox-pass__choice"
+                                            CheckedOptionCssClass="inbox-pass__choice inbox-pass__choice--on"
+                                            AriaLabel="What to do with the duplicate" />
                                 @Why(duplicate.Proposal.Reason)
                             </div>
                         </Card>
@@ -415,9 +413,8 @@
             ? $"inbox-pass__repo repo-mark repo-mark--{colour}"
             : "inbox-pass__repo";
 
-    /// <summary>"Inbox · Note · 4d".</summary>
-    private string InboxLabel(InboxItemDto? item) =>
-        item is null ? "Inbox" : $"Inbox · {InboxLabels.Kind(item.KindSlug)} · {State.Age(item.CapturedAt)}";
+    /// <summary>"Inbox · Note · 4d", or the list's name for an item filed in one.</summary>
+    private string InboxLabel(InboxItemDto? item) => item is null ? "Inbox" : State.SideLabel(item);
 
     /// <summary>"Backlog entry · in progress", or the other item's inbox line.</summary>
     private string TargetLabel(InboxTriageDuplicatePairDto pair, InboxItemDto? twin) =>
@@ -433,7 +430,7 @@
     private static string ChoiceLabel(InboxPassDuplicate pair, InboxPassDuplicateChoice choice, InboxItemDto? twin) => choice switch
     {
         InboxPassDuplicateChoice.Merge when pair.Proposal.TargetKind == InboxTriageTargetKind.Task => "Merge into the entry",
-        InboxPassDuplicateChoice.Merge => $"Keep {TargetTitle(pair.Proposal, twin)}, archive this one",
+        InboxPassDuplicateChoice.Merge => $"Keep {TargetTitle(pair.Proposal, twin)}, attach this one",
         InboxPassDuplicateChoice.Archive => "Archive the capture",
         _ => "Keep both",
     };

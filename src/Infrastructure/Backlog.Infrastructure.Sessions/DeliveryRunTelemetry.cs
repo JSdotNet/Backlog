@@ -326,7 +326,7 @@ internal sealed partial class DeliveryRunTelemetry : IDeliveryRunTelemetry
 
         var agent = Text(input, "subagent_type");
 
-        return WithStage(new JsonObject
+        var entry = new JsonObject
         {
             ["kind"] = "agent",
             ["agentName"] = agent ?? "subagent",
@@ -335,8 +335,29 @@ internal sealed partial class DeliveryRunTelemetry : IDeliveryRunTelemetry
             ["status"] = "completed",
             ["durationMs"] = durationMs,
             ["endedAt"] = Stamp(now)
-        }, stage);
+        };
+
+        // The totals the Agent call's own response reports, under the names the
+        // dashboard writes them, so a stage's execution panel can say what each
+        // sub-agent call cost. A response that carries none adds nothing rather
+        // than a zero.
+        var response = hookEvent.TryGetProperty("tool_response", out var answered) && answered.ValueKind is JsonValueKind.Object
+            ? answered
+            : default;
+
+        if (Whole(response, "totalTokens") is { } tokens) entry["totalTokens"] = tokens;
+        if (Whole(response, "totalToolUseCount") is { } calls) entry["totalToolCalls"] = calls;
+
+        return WithStage(entry, stage);
     }
+
+    private static long? Whole(JsonElement element, string name) =>
+        element.ValueKind is JsonValueKind.Object
+        && element.TryGetProperty(name, out var value)
+        && value.ValueKind is JsonValueKind.Number
+        && value.TryGetInt64(out var number)
+            ? number
+            : null;
 
     private static JsonObject WithStage(JsonObject entry, StageRef? stage)
     {
