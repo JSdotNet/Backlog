@@ -110,7 +110,7 @@
                                                   title="@Sentence(row)"
                                                   data-testid="dashboard-roadmap-bar">
                                                 <span class="dashboard-timeline__fill"
-                                                      style="@($"width: {DoneShare(row).ToString(CultureInfo.InvariantCulture)}%")"></span>
+                                                      style="@($"width: {PlanOutlookFormat.DoneShare(row).ToString(CultureInfo.InvariantCulture)}%")"></span>
                                             </span>
                                         }
                                     </li>
@@ -169,8 +169,8 @@
     /// </summary>
     private static string Progress(PlanItemInsight row) =>
         row.Item.TotalEffort == 0
-            ? $"{row.Item.DoneCount} of {row.Item.GatheredCount} entries · {Word(row.Outlook)}"
-            : $"{row.Item.DoneEffort} / {row.Item.TotalEffort} pts · {Word(row.Outlook)}";
+            ? $"{row.Item.DoneCount} of {row.Item.GatheredCount} entries · {PlanOutlookFormat.Word(row.Outlook)}"
+            : $"{row.Item.DoneEffort} / {row.Item.TotalEffort} pts · {PlanOutlookFormat.Word(row.Outlook)}";
 
     /// <summary>
     /// The Monday of every ISO week the window touches, oldest first — the same weeks
@@ -245,26 +245,6 @@
             + (placed.ClippedStart ? " dashboard-timeline__bar--clipped-start" : null)
             + (placed.ClippedEnd ? " dashboard-timeline__bar--clipped-end" : null);
     }
-
-    /// <summary>The share of the bar the done effort fills, as a whole percentage. A
-    /// finished item fills it whatever it was estimated at; an unsized one fills none.</summary>
-    private static int DoneShare(PlanItemInsight row) =>
-        row.Outlook == PlanOutlook.Finished
-            ? 100
-            : row.Item.TotalEffort <= 0
-                ? 0
-                : Math.Clamp((int)Math.Round(100m * row.Item.DoneEffort / row.Item.TotalEffort, MidpointRounding.AwayFromZero), 0, 100);
-
-    private static string Word(PlanOutlook outlook) => outlook switch
-    {
-        PlanOutlook.Finished => "Finished",
-        PlanOutlook.OnTrack => "On track",
-        PlanOutlook.Behind => "Behind",
-        PlanOutlook.Overdue => "Overdue",
-        PlanOutlook.Unsized => "Unsized",
-        PlanOutlook.NoPace => "No pace",
-        _ => "Placed by effort"
-    };
 
     /// <summary>
     /// What the word stands on: the projected end and the pace it was projected at

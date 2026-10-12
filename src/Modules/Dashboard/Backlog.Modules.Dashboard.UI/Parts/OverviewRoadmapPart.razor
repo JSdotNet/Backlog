@@ -1,0 +1,87 @@
+@*
+    The Overview's roadmap against its pace: one row per roadmap item the window
+    shows, its done effort against its planned effort as a bar, and its outlook as a
+    chip — the same items, words and shares the Tasks tab's timeline draws, read from
+    the same insight. The timeline answers when; this answers how far.
+
+    The outlook is a word on a tone, never a tone alone: behind and overdue on the
+    warning tone, finished on the good one, the rest calm.
+
+    Nothing at all while the roadmap is switched off, for the reason the Tasks tab's
+    part gives; an unavailable answer still draws the frame with its reason.
+*@
+@inherits DashboardPartBase<PlanInsight>
+@inject ITaskInsights Insights
+
+@if (Value is not { RoadmapEnabled: false })
+{
+    <PartFrame Title="Roadmap against pace"
+               Note="The roadmap's items whose own window overlaps the selected one. The Tasks tab draws them week by week."
+               Busy="Status == MetricStatusKind.Loading"
+               OnRefresh="RefreshAsync"
+               TestId="dashboard-overview-roadmap">
+        @if (IsReady)
+        {
+            <div class="dashboard-part__stack">
+                <p class="dashboard-overview-roadmap__summary" data-testid="dashboard-overview-roadmap-summary">
+                    Pace <strong>@MetricFormat.Score(Value!.Pace.PointsPerWeek) pts/week</strong>
+                    · @MetricFormat.Compact(Value!.DoneEffort) of @MetricFormat.Compact(Value!.PlannedEffort) pts done
+                </p>
+                <ol class="dashboard-overview-roadmap__list" aria-label="Roadmap items and how each stands">
+                    @foreach (var row in Value!.Items)
+                    {
+                        var share = PlanOutlookFormat.DoneShare(row);
+                        <li @key="row.Item.Id" class="dashboard-overview-roadmap__row" data-testid="dashboard-overview-roadmap-row">
+                            <span class="dashboard-overview-roadmap__name" title="@row.Item.Title">@row.Item.Title</span>
+                            <span class="dashboard-overview-roadmap__effort">@Effort(row)</span>
+                            <span class="@($"dashboard-overview-chip dashboard-overview-chip--{Tone(row.Outlook).Modifier} dashboard-overview-roadmap__chip")"
+                                  data-testid="dashboard-overview-roadmap-chip">@PlanOutlookFormat.Word(row.Outlook)</span>
+                            <span class="dashboard-overview-roadmap__track"
+                                  role="img"
+                                  aria-label="@($"{row.Item.Title}: {Effort(row)}, {PlanOutlookFormat.Word(row.Outlook)}")">
+                                <span class="@FillClass(row.Outlook)"
+                                      style="@($"width: {share.ToString(System.Globalization.CultureInfo.InvariantCulture)}%")"></span>
+                            </span>
+                        </li>
+                    }
+                </ol>
+            </div>
+        }
+        else
+        {
+            <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-overview-roadmap-status" />
+        }
+    </PartFrame>
+}
+
+@code {
+    /// <summary>The done effort against the gathered effort — or, for an item nothing
+    /// it gathered is estimated on, the count of entries, as the timeline says it.</summary>
+    private static string Effort(PlanItemInsight row) =>
+        row.Item.TotalEffort == 0
+            ? $"{row.Item.DoneCount} of {row.Item.GatheredCount} entries"
+            : $"{row.Item.DoneEffort} / {row.Item.TotalEffort} pts";
+
+    private static OverviewChip Tone(PlanOutlook outlook) => new(
+        PlanOutlookFormat.Word(outlook),
+        PlanOutlookFormat.IsLate(outlook)
+            ? OverviewTone.Warning
+            : outlook == PlanOutlook.Finished ? OverviewTone.Good : OverviewTone.Calm);
+
+    private static string FillClass(PlanOutlook outlook) =>
+        "dashboard-overview-roadmap__fill"
+        + (PlanOutlookFormat.IsLate(outlook) ? " dashboard-overview-roadmap__fill--behind" : null)
+        + (outlook == PlanOutlook.Finished ? " dashboard-overview-roadmap__fill--finished" : null);
+
+    protected override Task<InsightResult<PlanInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetPlanAsync(Scope, cancellationToken);
+
+    protected override bool IsEmpty(PlanInsight value) => value.RoadmapEnabled && value.Items.Count == 0;
+
+    protected override string EmptyMessage => "No roadmap item overlaps this window.";
+
+    // Nothing to drop: the roadmap is read afresh on every call.
+    protected override void InvalidateSource()
+    {
+    }
+}

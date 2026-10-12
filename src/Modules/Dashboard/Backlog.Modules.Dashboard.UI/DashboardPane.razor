@@ -61,7 +61,14 @@
     is already the second look a fold was there to defer, so folding inside it again
     would hide half of what the reader just asked to see.
 
-    Overview is empty for now; a later step fills it with the figures across the tabs.
+    The Overview reads across the other tabs: five headline tiles, then a main column —
+    throughput, the roadmap against its pace — and a side column — Needs you, spend by
+    model, hours worked. Every block on it is a part of its own, fetching through the
+    insight its tab already reads, so a block shares that tab's cached read and carries
+    its own loading and unavailable states rather than waiting on the others. Where the
+    pane is narrow the side column wraps under the main one. A Needs-you item links to
+    its tab by moving the selection here, the one place that knows the tabs.
+
     The "Read as brief" link at the end of the strip is rendered hidden until the brief
     view it opens exists.
 
@@ -128,7 +135,8 @@
     @* The library's tab strip: role="tablist", a roving tabindex, and the arrow, Home
        and End keys. Every panel is Eager — see the note at the top of this file. The
        panels keep the test ids the sections had, so a part is found where it was. *@
-    <Tabs @bind-ActiveId="_activeTab"
+    <Tabs @ref="_tabs"
+          @bind-ActiveId="_activeTab"
           AriaLabel="Dashboard sections"
           CssClass="dashboard-tabs"
           StripCssClass="dashboard-tabs__strip"
@@ -143,6 +151,27 @@
         <ChildContent>
             <TabPanel Id="dashboard-overview" Title="Overview" Eager="true"
                       BaseClass="dashboard-tab" TabTestId="dashboard-tab-overview" TestId="dashboard-overview">
+                @* The board's order: the tiles across the top, then the two columns. The
+                   side column is an aside because it answers a second question — what
+                   needs me — beside the first. *@
+                <section class="dashboard-overview__tiles" aria-label="Headline figures" data-testid="dashboard-overview-tiles">
+                    <OverviewPullRequestsTile Scope="_scope" />
+                    <OverviewPointsTile Scope="_scope" />
+                    <OverviewAgentTimeTile Scope="_scope" />
+                    <OverviewSpendTile Scope="_scope" />
+                    <OverviewDriftTile Scope="_scope" />
+                </section>
+                <div class="dashboard-overview__columns" data-testid="dashboard-overview-columns">
+                    <div class="dashboard-overview__main" data-testid="dashboard-overview-main">
+                        <OverviewThroughputPart Scope="_scope" />
+                        <OverviewRoadmapPart Scope="_scope" />
+                    </div>
+                    <aside class="dashboard-overview__side" aria-label="Needs you, spend and hours" data-testid="dashboard-overview-side">
+                        <OverviewNeedsYouPart Scope="_scope" OnOpenTab="OpenTab" />
+                        <OverviewSpendByModelPart Scope="_scope" />
+                        <OverviewHoursPart Scope="_scope" />
+                    </aside>
+                </div>
             </TabPanel>
 
             <TabPanel Id="dashboard-productivity" Title="Productivity" Eager="true"
@@ -343,6 +372,16 @@
         Scope = _scope with { MachineId = string.IsNullOrWhiteSpace(id) ? null : id };
 
     private void CountOpenDriftIssues(int? count) => _openDriftIssues = count;
+
+    private Tabs? _tabs;
+
+    /// <summary>Shows the tab a Needs-you item links to, and takes focus to that tab:
+    /// the link that was pressed is in the Overview panel, which this hides.</summary>
+    private void OpenTab(string tabId)
+    {
+        _activeTab = tabId;
+        _tabs?.FocusTab(tabId);
+    }
 
     private static string DriftIssuesSpoken(int count) =>
         count == 1 ? "1 open drift issue" : $"{count} open drift issues";

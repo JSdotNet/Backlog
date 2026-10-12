@@ -40,6 +40,7 @@ internal static class DashboardTestHost
         services.AddSingleton<ITaskInsights, UnavailableTaskInsights>();
         services.AddSingleton<IHoursWorkedInsights, UnavailableHoursWorkedInsights>();
         services.AddSingleton<IDriftInsights, UnavailableDriftInsights>();
+        services.AddSingleton<IAttentionInsights, NothingReadAttentionInsights>();
 
         // The default week, not this machine's. A grid asserted against whatever hours
         // the person running the tests happens to keep is a grid asserted against
@@ -140,6 +141,17 @@ internal static class DashboardTestHost
             DashboardScope scope,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<DriftInsight>.Unavailable(UnavailableReason));
+    }
+
+    /// <summary>The Needs-you derivation over sources none of which answered: nothing
+    /// qualifies, and every source is skipped with the test's reason - which is what the
+    /// real derivation answers over the unavailable doubles above.</summary>
+    private sealed class NothingReadAttentionInsights : IAttentionInsights
+    {
+        public Task<NeedsYouInsight> GetNeedsYouAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new NeedsYouInsight([], [UnavailableReason]));
     }
 
     private sealed class UnavailableHoursWorkedInsights : IHoursWorkedInsights

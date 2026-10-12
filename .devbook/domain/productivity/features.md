@@ -184,6 +184,7 @@ A delta is left out when there is no honest earlier figure to compare with:
 type: sub-feature
 status: draft
 related: [.devbook/domain/productivity/features.md#six-tabs-and-what-each-answers, .devbook/domain/productivity/features.md#drift-at-a-glance, .devbook/domain/productivity/features.md#whether-each-plan-will-land-in-its-window, .devbook/domain/productivity/features.md#spend-against-a-monthly-budget]
+tests: [unit:dotnet:Backlog.Modules.Dashboard.UnitTests.AttentionInsightsTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardOverviewTests]
 ```
 
 The Overview opens with five headline tiles:
@@ -198,8 +199,32 @@ The spend tile gives each provider its own line, with that provider's spend set
 against that provider's budget. It never adds the providers into one total, for the
 reason [Spend against a monthly budget](#spend-against-a-monthly-budget) gives.
 
-Below the tiles come throughput, the roadmap against its pace, Needs you, spend by
-model, and [hours worked](#hours-worked).
+Each tile carries one chip and, where its figure has weeks behind it, a sparkline. The
+chip shows the delta against the previous window: green when the figure moved the good
+way, amber when it moved the other way. A warning takes the delta's place. The story
+points chip says how many roadmap items are behind pace, and the spend chip says
+whether a provider will pass its budget. The drift chip is red while any drift issue is
+open, and it names the one whose sync failed. Devbook drift issues open has no
+sparkline, for the same reason it has no delta. Spend this month has none either: the
+only spend by day adds the providers together, and the tile never shows a total.
+
+Below the tiles come two columns. The main column holds throughput and the roadmap
+against its pace. The side column holds Needs you, spend by model, and
+[hours worked](#hours-worked). Where the pane is narrow, the side column wraps under
+the main one.
+
+- Throughput draws pull requests merged and issues closed per week, side by side.
+  Under the chart it gives the median time to a first review, the share that came
+  back after review, and the median commits per pull request.
+- The roadmap against its pace is one row per item: its done effort against its
+  planned effort as a bar, and its outlook as a chip.
+- Spend by model is one bar, a segment per model. A month billed in two currencies
+  draws one bar per currency.
+- Hours worked is one bar split into the hours inside and outside office hours, with
+  the hours worked set against the hours planned.
+
+Every block reads its own tab's figures and shows its own loading and unavailable
+state, so a provider that cannot answer leaves the other blocks standing.
 
 ```mermaid
 flowchart LR

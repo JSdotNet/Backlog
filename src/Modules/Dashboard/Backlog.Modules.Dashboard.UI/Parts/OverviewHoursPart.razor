@@ -1,0 +1,56 @@
+@*
+    The Overview's hours worked: the window's hours as one bar split at office hours —
+    inside, then outside — with the hours worked set against the hours planned on the
+    heading line. The Sessions tab's Hours worked part draws the same figures per day or
+    per week; this is their sum.
+
+    Neither the repository chips nor the machine filter reach it, for the reason that
+    part gives: a working stretch is the person's, merged over every machine.
+*@
+@inherits DashboardPartBase<HoursWorkedInsight>
+@inject IHoursWorkedInsights Insights
+
+<PartFrame Title="Hours worked"
+           Note="@($"Your working stretches over {Scope.Weeks} weeks, split at each date's office hours. A day off counts all its work outside. The repository chips and the machine filter do not apply. The Sessions tab draws them per day or per week.")"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-overview-hours">
+    @if (IsReady)
+    {
+        <div class="dashboard-part__stack">
+            <p class="dashboard-overview-hours__summary" data-testid="dashboard-overview-hours-summary">
+                <strong>@DashboardFormat.Hours(Value!.Actual)</strong> of @DashboardFormat.Hours(Value!.Planned) planned
+            </p>
+            <MetricBreakdownBar Parts="@Parts"
+                                FormatValue="DashboardFormat.Hours"
+                                EmptyMessage="No hours worked in this window."
+                                TestId="dashboard-overview-hours-bar" />
+        </div>
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-overview-hours-status" />
+    }
+</PartFrame>
+
+@code {
+    private IReadOnlyList<MetricPart> Parts =>
+    [
+        new("Inside office hours", Math.Round((decimal)Value!.Inside.TotalHours, 2)),
+        new("Outside office hours", Math.Round((decimal)Value!.Outside.TotalHours, 2))
+    ];
+
+    protected override bool FollowsRepository => false;
+
+    protected override Task<InsightResult<HoursWorkedInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetHoursWorkedAsync(Scope, cancellationToken);
+
+    protected override bool IsEmpty(HoursWorkedInsight value) => value.Days.Count == 0;
+
+    protected override string EmptyMessage => "No date in this window to count.";
+
+    // Nothing to drop: the source reads through the activity cache on every call.
+    protected override void InvalidateSource()
+    {
+    }
+}
