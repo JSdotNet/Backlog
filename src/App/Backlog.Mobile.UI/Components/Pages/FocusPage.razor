@@ -43,6 +43,7 @@
               OnComplete="CompleteAsync"
               CaptureHref="@CaptureHref"
               Busy="_busy"
+              Clock="Clock"
               CssClass="focus-page"
               TestId="focus" />
 
@@ -136,20 +137,51 @@
     /// How long is left of the block now, negative once it has ended, and how
     /// much of the block that is. Before the block starts the ring is full. A
     /// block that runs past midnight ends the next day.
+    /// <para>
+    /// The block's start and end are wall-clock times on today's date, turned
+    /// into instants through the phone's own zone before they are subtracted, so
+    /// a block the clocks change inside is as long as it really is: 01:30–03:30
+    /// on the night they go forward is one hour.
+    /// </para>
     /// </summary>
     private (TimeSpan Remaining, double Left) Countdown(AgendaTime time)
     {
-        var now = Clock.GetLocalNow().DateTime;
-        var day = now.Date;
-        var start = day + time.Start.ToTimeSpan();
-        var end = day + time.End.ToTimeSpan();
-        if (end <= start) end = end.AddDays(1);
+        var zone = Clock.LocalTimeZone;
+        var now = Clock.GetUtcNow();
+        var day = TimeZoneInfo.ConvertTime(now, zone).DateTime.Date;
+        var startWall = day + time.Start.ToTimeSpan();
+        var endWall = day + time.End.ToTimeSpan();
+        if (endWall <= startWall) endWall = endWall.AddDays(1);
+
+        var start = Instant(startWall, zone);
+        var end = Instant(endWall, zone);
 
         var remaining = end - now;
         var length = end - start;
         var left = length <= TimeSpan.Zero ? 0 : Math.Clamp(remaining / length, 0, 1);
 
         return (remaining, left);
+    }
+
+    /// <summary>
+    /// The instant a wall-clock time reads in <paramref name="zone"/>. A time
+    /// the clocks skip — 02:30 when they jump from 02:00 to 03:00 — is read on
+    /// the offset before the jump, so it lands as far after it; a time they pass
+    /// twice is its first occurrence.
+    /// </summary>
+    private static DateTimeOffset Instant(DateTime wall, TimeZoneInfo zone)
+    {
+        wall = DateTime.SpecifyKind(wall, DateTimeKind.Unspecified);
+
+        if (zone.IsInvalidTime(wall))
+        {
+            // The offset in force just before the gap: no gap is longer than a day.
+            var before = zone.GetUtcOffset(wall.AddDays(-1));
+            return new DateTimeOffset(wall - before, TimeSpan.Zero);
+        }
+
+        var offset = zone.IsAmbiguousTime(wall) ? zone.GetAmbiguousTimeOffsets(wall).Max() : zone.GetUtcOffset(wall);
+        return new DateTimeOffset(wall, offset);
     }
 
     private Task StepDoneAsync(DayStep step) => EditAsync(() => Edits.SetStepDoneAsync(Id, step.Id, done: true), thenToday: false);
