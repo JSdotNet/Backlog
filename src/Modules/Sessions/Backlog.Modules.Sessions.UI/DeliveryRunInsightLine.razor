@@ -4,16 +4,54 @@
     difference with how often it was entered again (DeliveryRunBaselines). Drawn in the
     same band as the ratio — green at 0.8× or below, highlighted from 1.5× — and absent
     while the run is under way or fewer than five earlier runs were priced.
+
+    Where the host can open Delivery economics, the line is a button that opens it on
+    the run's flow: the line says this run is unusual, and the page says which
+    configurations the flow's phases ran under and what each cost. With no insight
+    there is no line, and so no way in from here.
 *@
 @if (Insight is { } insight)
 {
-    <span class="sessions-run__insight"
-          data-band="@DeliveryRunStageUsual.BandSlug(insight.Usual.Band)"
-          title="@insight.Usual.Title"
-          data-testid="sessions-run-insight">@insight.Text</span>
+    @if (OnOpen.HasDelegate && !string.IsNullOrWhiteSpace(Flow))
+    {
+        <AppButton BaseClass="sessions-run__insight"
+                   Variant="ButtonVariant.None"
+                   CssClass="sessions-run__insight--action"
+                   TestId="sessions-run-insight"
+                   id="@Id"
+                   OnClick="() => OnOpen.InvokeAsync(Flow)"
+                   data-band="@DeliveryRunStageUsual.BandSlug(insight.Usual.Band)"
+                   title="@($"{insight.Usual.Title}\nOpens Delivery economics for {Flow}.")">@insight.Text</AppButton>
+    }
+    else
+    {
+        <span class="sessions-run__insight"
+              data-band="@DeliveryRunStageUsual.BandSlug(insight.Usual.Band)"
+              title="@insight.Usual.Title"
+              data-testid="sessions-run-insight">@insight.Text</span>
+    }
 }
 
 @code {
     [Parameter]
     public DeliveryRunCostInsight? Insight { get; set; }
+
+    /// <summary>The run's flow, which the page opens on.</summary>
+    [Parameter]
+    public string? Flow { get; set; }
+
+    /// <summary>How the host opens Delivery economics on a flow. Without it the line
+    /// is the plain text it has always been.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpen { get; set; }
+
+    /// <summary>The button's id, so the host can put the focus back on it when the
+    /// page it opened is left.</summary>
+    [Parameter]
+    public string? Id { get; set; }
+
+    /// <summary>The id the line's button wears for one run: unique per run file, and
+    /// made of characters an id may hold.</summary>
+    public static string DomId(DeliveryRun run) =>
+        "sessions-run-insight-" + string.Concat($"{run.Dashboard}-{run.Worktree}-{run.Id}".Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '-'));
 }

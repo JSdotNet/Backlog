@@ -68,8 +68,27 @@
     its own that says so.
 
     The ✕ only reports that it was pressed; what that closes is the shell's business.
+
+    Delivery economics is a page inside this takeover rather than a surface of its
+    own: the header's button and a run's insight line switch the pane to it, and its
+    breadcrumb switches back with the list's filters and selection as they were. Not
+    remembered — the pane opens on the list, the way every filter here opens on its
+    first option.
 *@
 
+@if (_economics)
+{
+    <DeliveryEconomicsPage Runs="@EconomicsRuns"
+                           Price="PriceForEconomicsAsync"
+                           Flow="@_economicsFlow"
+                           Loading="@_loading"
+                           ScopeLabel="@(Scoped ? ScopeLabel : null)"
+                           OnBack="CloseEconomics"
+                           OnClose="() => OnClose.InvokeAsync()"
+                           OnRefresh="RefreshAsync" />
+}
+else
+{
 <section @key=@("sessions-pane") class="sessions-panel" id="sessions-pane" aria-labelledby="sessions-title" data-testid="sessions-panel">
     @* The library's section header wearing this pane's own class names, subtitle
        test id included — the capped-list wording is asserted through it. *@
@@ -89,6 +108,12 @@
                Group by moves the same rows around, and it names both numbers the
                moment a filter leaves some of them out. *@
             <Badge BaseClass="sessions-panel__count" Kind="" TestId="sessions-count">@CountLabel</Badge>
+            <AppButton Variant="ButtonVariant.Secondary"
+                       TestId="sessions-open-economics"
+                       id="@OpenEconomicsId"
+                       OnClick="OpenEconomics">
+                Delivery economics
+            </AppButton>
             <IconButton AriaLabel="Close sessions pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
     </SectionHeader>
@@ -268,6 +293,7 @@
         }
     </div>
 </section>
+}
 
 @code {
     /// <summary>
@@ -471,7 +497,7 @@
                     <div class="sessions-runs" data-testid="sessions-runs">
                         @foreach (var run in row.Runs)
                         {
-                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" Costs="@CostsOf(row)?.StagesOf(run)" Comparison="@CostsOf(row)?.ComparisonOf(run)" OnOpenTask="OnOpenTask">
+                            <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" Costs="@CostsOf(row)?.StagesOf(run)" Comparison="@CostsOf(row)?.ComparisonOf(run)" OnOpenTask="OnOpenTask" OnOpenEconomics="OpenEconomicsFrom">
                                 <Usage>
                                     <UsageShareFact Share="@SharesOf(row)?.Of(run)" Usage="@SharesOf(row)?.Usage" Run="true" TestId="sessions-run-share" />
                                 </Usage>
@@ -983,13 +1009,7 @@
 
             foreach (var other in earlier)
             {
-                if (!_earlierCosts.TryGetValue(other, out var pricing))
-                {
-                    pricing = PriceAsync(other);
-                    _earlierCosts[other] = pricing;
-                }
-
-                var otherCosts = await pricing;
+                var otherCosts = await PricingOf(other);
 
                 // A refresh cleared the cache and re-read the runs while this waited;
                 // the comparison it was for is no longer on screen.
@@ -1006,27 +1026,124 @@
         }
     }
 
-    /// <summary>What an earlier run's stages cost, read from the row that holds it.</summary>
-    private async Task<IReadOnlyList<DeliveryRunStageCost>> PriceAsync(DeliveryRun run)
+    /// <summary>A run's pricing, started once per refresh and shared by every comparison
+    /// and by Delivery economics.</summary>
+    private Task<IReadOnlyList<DeliveryRunStageCost>> PricingOf(DeliveryRun run)
     {
-        var owner = _rows.FirstOrDefault(row => row.Runs.Any(candidate => ReferenceEquals(candidate, run)));
-        var sessionId = owner?.Session?.Id ?? run.SessionIds.FirstOrDefault();
-        var ids = run.SessionIds.Count > 0 ? run.SessionIds : sessionId is null ? [] : [sessionId];
-        var requests = new List<ClaudeApiRequest>();
-
-        if (_requestStore is { } store)
+        if (!_earlierCosts.TryGetValue(run, out var pricing))
         {
-            try
-            {
-                foreach (var id in ids.Distinct(StringComparer.Ordinal)) requests.AddRange(await store.ListAsync(id));
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                requests.Clear();
-            }
+            pricing = PriceAsync(run);
+            _earlierCosts[run] = pricing;
         }
 
-        return DeliveryRunCosts.Of(run, requests, _prices, sessionId, owner?.Model);
+        return pricing;
+    }
+
+    /// <summary>The row that holds a run, whose session and model price it.</summary>
+    private SessionRow? OwnerOf(DeliveryRun run) =>
+        _rows.FirstOrDefault(row => row.Runs.Any(candidate => ReferenceEquals(candidate, run)));
+
+    /// <summary>What an earlier run's stages cost, read from the row that holds it.</summary>
+    private Task<IReadOnlyList<DeliveryRunStageCost>> PriceAsync(DeliveryRun run)
+    {
+        var owner = OwnerOf(run);
+        var sessionId = owner?.Session?.Id ?? run.SessionIds.FirstOrDefault();
+
+        return DeliveryRunPricing.PriceAsync(run, sessionId, owner?.Model, _requestStore, _prices);
+    }
+
+    /// <summary>Whether the pane shows Delivery economics instead of the list.</summary>
+    private bool _economics;
+
+    /// <summary>The flow the page was opened on, or null for its own default.</summary>
+    private string? _economicsFlow;
+
+    private IReadOnlyList<DeliveryRun> _economicsRuns = [];
+
+    private IReadOnlyList<SessionRow>? _economicsRowsFor;
+
+    private string? _economicsScopeFor;
+
+    /// <summary>What opened the page, which Back puts the focus on again: the press
+    /// leaves the document with the list, and focus left on the body would send a
+    /// keyboard reader back to the top of the app. The run whose insight line opened
+    /// it, or null for the header's button.</summary>
+    private DeliveryRun? _economicsOpener;
+
+    /// <summary>Whether the list, once drawn again, puts the focus back on the opener.</summary>
+    private bool _focusAfterEconomics;
+
+    private const string OpenEconomicsId = "sessions-open-economics";
+
+    /// <summary>The header's button opens the page on no flow in particular.</summary>
+    private void OpenEconomics()
+    {
+        _economicsFlow = null;
+        _economicsOpener = null;
+        _economics = true;
+    }
+
+    /// <summary>A run's insight line opens it on the run's own flow.</summary>
+    private void OpenEconomicsFrom(DeliveryRun run)
+    {
+        _economicsFlow = string.IsNullOrWhiteSpace(run.SkillId) ? null : run.SkillId;
+        _economicsOpener = run;
+        _economics = true;
+    }
+
+    private void CloseEconomics()
+    {
+        _economics = false;
+        _focusAfterEconomics = true;
+    }
+
+    /// <summary>
+    /// Where Back puts the focus: the insight line that opened the page while the list
+    /// still draws it, else the header's button. A Refresh on the page reads the runs
+    /// again and drops their comparisons, so the line can be gone — or not back yet —
+    /// and focus sent to an id nobody wears would be left on the body.
+    /// </summary>
+    private string FocusTargetAfterEconomics()
+    {
+        if (_economicsOpener is not { } run || Selected is not { } row) return OpenEconomicsId;
+
+        var drawn = row.Runs.Any(candidate => ReferenceEquals(candidate, run))
+                    && CostsOf(row)?.ComparisonOf(run)?.Insight is not null;
+
+        return drawn ? DeliveryRunInsightLine.DomId(run) : OpenEconomicsId;
+    }
+
+    /// <summary>
+    /// The runs the page reads: those of the rows the shell's repository scope admits,
+    /// by the list's own rule, or the whole catalog when nothing is scoped. Kept as one
+    /// list until a reading or the scope moves it, because the page prices again
+    /// whenever it is handed a different one.
+    /// </summary>
+    private IReadOnlyList<DeliveryRun> EconomicsRuns
+    {
+        get
+        {
+            var scope = string.Join('\n', RepositoryScope);
+
+            if (ReferenceEquals(_economicsRowsFor, _rows) && string.Equals(_economicsScopeFor, scope, StringComparison.Ordinal)) return _economicsRuns;
+
+            _economicsRowsFor = _rows;
+            _economicsScopeFor = scope;
+            _economicsRuns = Scoped
+                ? [.. ScopedSessions.SelectMany(row => row.Runs).Distinct<DeliveryRun>(ReferenceEqualityComparer.Instance)]
+                : _runs.Runs;
+
+            return _economicsRuns;
+        }
+    }
+
+    /// <summary>One run priced for Delivery economics: the shared pricing, plus the
+    /// model of the session that owned the run, which a stage run inline ran on.</summary>
+    private async Task<PricedDeliveryRun> PriceForEconomicsAsync(DeliveryRun run)
+    {
+        var costs = await PricingOf(run);
+
+        return new PricedDeliveryRun(run, costs) { OwnerModel = OwnerOf(run)?.Model };
     }
 
     private async Task ReadPricesAsync()
@@ -1305,6 +1422,9 @@
         _focusMissing = false;
         _focusPending = !string.IsNullOrWhiteSpace(FocusSessionId);
 
+        // A task that opens the pane on a session asks for the list.
+        if (_focusPending) _economics = false;
+
         RevealFocused();
     }
 
@@ -1359,6 +1479,28 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // The list is not on screen, so there is no selected row to ask about or
+        // focus; returning to it renders again and asks then.
+        if (_economics) return;
+
+        if (_focusAfterEconomics)
+        {
+            _focusAfterEconomics = false;
+
+            try
+            {
+                await JS.InvokeVoidAsync("backlogFocus", FocusTargetAfterEconomics());
+            }
+            catch (JSDisconnectedException)
+            {
+                // The pane went with its circuit; there is nothing left to focus.
+            }
+            catch (InvalidOperationException)
+            {
+                // A test host with no JavaScript: the list is back either way.
+            }
+        }
+
         AskAboutPullRequests();
         AskAboutCosts();
 

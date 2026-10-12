@@ -118,7 +118,12 @@ public sealed record DeliveryRunCostComparison(
 }
 
 /// <summary>An earlier run with what each of its stages cost.</summary>
-public sealed record PricedDeliveryRun(DeliveryRun Run, IReadOnlyList<DeliveryRunStageCost> Costs);
+public sealed record PricedDeliveryRun(DeliveryRun Run, IReadOnlyList<DeliveryRunStageCost> Costs)
+{
+    /// <summary>The owner session's model, where known — what a stage that ran in the
+    /// owner session ran on (<see cref="DeliveryEconomics.ConfigurationOf"/>).</summary>
+    public string? OwnerModel { get; init; }
+}
 
 /// <summary>
 /// Reads a run's cost against its usual: each stage against the median of that stage
