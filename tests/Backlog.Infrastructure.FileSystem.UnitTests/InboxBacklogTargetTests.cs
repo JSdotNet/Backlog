@@ -130,6 +130,92 @@ public sealed class InboxBacklogTargetTests
         Assert.Equal(0, Assert.Single(tasks.Saves).Order);
     }
 
+    /// <summary>The route's entry type is the metadata line's type word, and
+    /// Tasks reads it back as that type; with none, or one outside the route's
+    /// vocabulary, the entry is a task.</summary>
+    [Theory]
+    [InlineData("prompt", "`prompt` `!draft`", EntryType.Prompt)]
+    [InlineData("test", "`test` `!draft`", EntryType.Test)]
+    [InlineData("task", "`task` `!draft`", EntryType.Task)]
+    [InlineData(null, "`task` `!draft`", EntryType.Task)]
+    [InlineData("idea` `#x", "`task` `!draft`", EntryType.Task)]
+    public async Task The_entry_type_is_the_metadata_lines_type_word(string? entryType, string metadataOpens, EntryType expected)
+    {
+        var tasks = new RecordingTaskItems(existing: 0);
+        var request = new InboxRouteRequestDto(Item, "Write the release notes", "Notes.", null, ["docs"], [], EntryType: entryType);
+
+        await new InboxBacklogTarget(tasks, Known()).CreateTasksAsync(request, TestContext.Current.CancellationToken);
+
+        var raw = Assert.Single(tasks.Saves).RawText;
+        Assert.StartsWith(metadataOpens, raw.Split('\n')[1], StringComparison.Ordinal);
+        var parsed = EntryTextParser.Parse(raw);
+        Assert.Equal(expected, parsed.Type);
+        Assert.Equal(EntryStatus.Draft, parsed.Status);
+        Assert.Equal(["docs"], parsed.Tags);
+        Assert.Empty(parsed.Unreadable ?? []);
+    }
+
+    /// <summary>"Keep one, attach the other": each capture archived as the
+    /// kept item's duplicate is a line of the entry's own prose — its title and
+    /// link — ahead of the notes, on every entry the item becomes.</summary>
+    [Fact]
+    public async Task Attached_captures_are_written_with_their_title_and_link_on_every_entry()
+    {
+        var tasks = new RecordingTaskItems(existing: 0);
+        var request = new InboxRouteRequestDto(Item, "Read the caching article", "Notes.", null, [], ["JSdotNet/Backlog", "JSdotNet/Other"],
+            Attached: [new("Caching article", "https://example.com/caching"), new("Same article\nagain", null)]);
+
+        await new InboxBacklogTarget(tasks, Known()).CreateTasksAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, tasks.Saves.Count);
+        Assert.All(tasks.Saves, save =>
+        {
+            Assert.Equal(
+                ["Attached: Caching article — https://example.com/caching", "Attached: Same article again"],
+                AttachedLines(save.RawText));
+            var parsed = EntryTextParser.Parse(save.RawText);
+            Assert.Equal("Read the caching article", parsed.Title);
+            Assert.Empty(parsed.SubItems);
+            Assert.Empty(parsed.Unreadable ?? []);
+            Assert.EndsWith("Notes.", parsed.Body.Trim(), StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>A capture's title is what arrived, so it may hold a heading, a
+    /// checklist line or a fence; written through Tasks' prose writer it stays
+    /// prose — no sub-item, no fence swallowing what follows — and the item's
+    /// own sub-items are still its own.</summary>
+    [Theory]
+    [InlineData("# x")]
+    [InlineData("- [ ] y")]
+    [InlineData("```")]
+    [InlineData("first\n## A chapter\n- [ ] step\n```")]
+    public void An_attached_title_stays_prose_whatever_it_holds(string hostile)
+    {
+        var request = new InboxRouteRequestDto(Item, "Ship the thing", "Intro.\n\n## Real step\n\nIts note.", null, [], [],
+            Attached: [new(hostile, "https://example.com/x")]);
+
+        var text = InboxBacklogTarget.Compose(request, null);
+        var parsed = EntryTextParser.Parse(text);
+
+        Assert.Equal("Ship the thing", parsed.Title);
+        Assert.Equal(["Real step"], parsed.SubItems.Select(subItem => subItem.Title));
+        Assert.Contains("Attached:", EntryTextParser.GetParentText(text), StringComparison.Ordinal);
+        Assert.Contains("Intro.", EntryTextParser.GetParentText(text), StringComparison.Ordinal);
+        Assert.Empty(parsed.Unreadable ?? []);
+    }
+
+    [Fact]
+    public void Without_attached_captures_no_attached_line_is_written()
+    {
+        var request = new InboxRouteRequestDto(Item, "Ship the thing", "Notes.", null, [], [], Attached: []);
+
+        Assert.DoesNotContain("Attached:", InboxBacklogTarget.Compose(request, null), StringComparison.Ordinal);
+    }
+
+    private static List<string> AttachedLines(string rawText) =>
+        [.. rawText.Split('\n').Where(line => line.StartsWith("Attached:", StringComparison.Ordinal))];
+
     [Fact]
     public async Task A_failure_part_way_names_what_was_already_created()
     {

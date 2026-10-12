@@ -58,8 +58,18 @@ internal sealed record InboxMoveUndoStep(string Label, Guid ItemId, Guid? Previo
 /// <summary>A route or a link. Undone by returning the item to unprocessed —
 /// with <paramref name="DeleteTasks"/> after deleting the entries the route
 /// made, which the backlog refuses once one of them has started — then
-/// deferring it again when it was <paramref name="Deferred"/>.</summary>
-internal sealed record InboxRouteUndoStep(InboxDecisionKind Kind, string Label, Guid ItemId, bool DeleteTasks, InboxDeferral? Deferred = null)
+/// deferring it again when it was <paramref name="Deferred"/>. When the route
+/// wrote the item's repositories just before it went — the pass's Apply, or
+/// triage's Move to backlog with the boxes ticked otherwise —
+/// <paramref name="PreviousRepoIds"/> holds the ones it had before that write,
+/// and they are put back too; null when the route wrote none.</summary>
+internal sealed record InboxRouteUndoStep(
+    InboxDecisionKind Kind,
+    string Label,
+    Guid ItemId,
+    bool DeleteTasks,
+    InboxDeferral? Deferred = null,
+    IReadOnlyList<string>? PreviousRepoIds = null)
     : InboxUndoStep(Kind, Label);
 
 /// <summary>One gesture's decisions over several items — a bulk archive, a bulk

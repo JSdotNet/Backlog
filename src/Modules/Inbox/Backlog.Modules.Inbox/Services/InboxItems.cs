@@ -180,14 +180,18 @@ internal sealed class InboxItems(
     public Task<InboxBatchResultDto> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) =>
         EachAsync(ids, id => delete.Handle(new DeleteItemCommand(id), cancellationToken));
 
-    public Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default) =>
-        routeToBacklog.Handle(new RouteToBacklogCommand(id), cancellationToken);
+    public Task<Result<InboxRoutedDto>> RouteToBacklogAsync(
+        Guid id,
+        string? entryType = null,
+        CancellationToken cancellationToken = default) =>
+        routeToBacklog.Handle(new RouteToBacklogCommand(id, entryType), cancellationToken);
 
     public Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
         IReadOnlyList<Guid> ids,
         Guid? listId = null,
+        string? planTitle = null,
         CancellationToken cancellationToken = default) =>
-        proposeBatch.Handle(new ProposeBatchQuery(ids, listId), cancellationToken);
+        proposeBatch.Handle(new ProposeBatchQuery(ids, listId, planTitle), cancellationToken);
 
     public Task<Result<IReadOnlyList<ProposedDependency>>> InferBatchOrderAsync(
         IReadOnlyList<Guid> ids,
@@ -200,8 +204,9 @@ internal sealed class InboxItems(
         IReadOnlyList<Guid> ids,
         Guid? listId = null,
         InboxBatchRouteChoicesDto? choices = null,
+        string? planTitle = null,
         CancellationToken cancellationToken = default) =>
-        routeBatchToBacklog.Handle(new RouteBatchToBacklogCommand(ids, listId, choices), cancellationToken);
+        routeBatchToBacklog.Handle(new RouteBatchToBacklogCommand(ids, listId, choices, planTitle), cancellationToken);
 
     public Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default) =>
         createPlan.Handle(new CreatePlanCommand(id), cancellationToken);

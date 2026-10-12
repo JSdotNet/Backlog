@@ -1,0 +1,232 @@
+@typeparam TValue
+@*
+    One choice out of several, as a radio group: one stop in the tab order, with
+    the arrow keys moving the selection and the focus through the choices and
+    wrapping at the ends, Home and End jumping to them (the WAI-ARIA radio group
+    pattern). The roving tabindex is the one Tabs keeps — the checked choice is
+    the stop, or the first choice the keyboard can reach when nothing is checked.
+
+    Buttons with role="radio" rather than native radio inputs, because the hosts
+    draw a choice as a chip or a pill with its label inside it, not as a dot
+    beside a label. Every choice is a small library button — `btn`, a variant,
+    `btn--small`, as AppButton composes it — and OptionVariantClass picks the
+    variant (btn--toggle by default), so a host never spells the button out
+    itself. What follows that stem is the host's: BaseClass on the group, and
+    OptionCssClass and CheckedOptionCssClass after the stem on each choice,
+    replace rather than append, for the reason Tabs gives.
+
+    Focus moves with an element reference, as Tabs' does. The browser default of
+    the keys the group takes — the arrows, Home and End, which would also scroll
+    the nearest scroll container — is refused in components.js
+    (RADIO_SWALLOWED_KEYS), at the keydown, on any [role="radio"] in a
+    [role="radiogroup"]: a state-bound @onkeydown:preventDefault is one key late.
+*@
+
+<div class="@ClassValue"
+     role="radiogroup"
+     aria-label="@AriaLabel"
+     aria-disabled="@(Disabled ? "true" : null)"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    @for (var index = 0; index < Options.Count; index++)
+    {
+        var option = Options[index];
+        var slot = index;
+        var on = IsChecked(option);
+        <button type="button"
+                @ref="_elements[slot]"
+                class="@(on ? CheckedOptionClassValue : OptionClassValue)"
+                role="radio"
+                aria-checked="@(on ? "true" : "false")"
+                tabindex="@(slot == TabStop ? 0 : -1)"
+                disabled="@(Disabled || IsOptionDisabled(option))"
+                data-testid="@OptionTestId?.Invoke(option)"
+                @onclick="() => CheckAsync(slot)"
+                @onkeydown="e => OnKeyDownAsync(e, slot)">@RenderOption(option)</button>
+    }
+</div>
+
+@code {
+    private ElementReference[] _elements = [];
+    private int _focusTarget = -1;
+
+    /// <summary>The choices, in the order they are drawn and arrowed through.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TValue> Options { get; set; } = [];
+
+    /// <summary>The checked choice, or one no option equals for none.</summary>
+    [Parameter]
+    public TValue? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<TValue> ValueChanged { get; set; }
+
+    /// <summary>What a choice says. Without it a choice says what it is.</summary>
+    [Parameter]
+    public Func<TValue, string>? OptionLabel { get; set; }
+
+    /// <summary>A choice's whole content, for a host that draws more than words.
+    /// Wins over <see cref="OptionLabel"/>.</summary>
+    [Parameter]
+    public RenderFragment<TValue>? OptionContent { get; set; }
+
+    /// <summary>The test id on each choice.</summary>
+    [Parameter]
+    public Func<TValue, string>? OptionTestId { get; set; }
+
+    /// <summary>A choice that is drawn but cannot be taken; the arrows step over
+    /// it.</summary>
+    [Parameter]
+    public Func<TValue, bool>? OptionDisabled { get; set; }
+
+    /// <summary>Every choice disabled, and no key moves the selection.</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    /// <summary>Replaces <c>radio-group</c> on the group.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "radio-group";
+
+    /// <summary>Appended to <see cref="BaseClass"/>.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The button variant every choice wears inside the button stem —
+    /// <c>btn btn--toggle btn--small</c> by default, <c>btn btn--secondary btn--small</c>
+    /// for a host passing <c>btn--secondary</c>.</summary>
+    [Parameter]
+    public string OptionVariantClass { get; set; } = "btn--toggle";
+
+    /// <summary>Replaces the classes after the button stem on every unchecked
+    /// choice — <c>radio-group__option</c> by default.</summary>
+    [Parameter]
+    public string? OptionCssClass { get; set; }
+
+    /// <summary>Replaces the classes after the button stem on the checked choice —
+    /// <c>btn--pressed radio-group__option radio-group__option--checked</c> by
+    /// default.</summary>
+    [Parameter]
+    public string? CheckedOptionCssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+
+    /// <summary>The small button every choice is, as AppButton composes it:
+    /// <c>btn</c>, the variant, <c>btn--small</c>.</summary>
+    private string OptionStem => string.IsNullOrWhiteSpace(OptionVariantClass)
+        ? "btn btn--small"
+        : $"btn {OptionVariantClass} btn--small";
+
+    private string OptionClassValue => string.IsNullOrWhiteSpace(OptionCssClass)
+        ? $"{OptionStem} radio-group__option"
+        : $"{OptionStem} {OptionCssClass}";
+
+    private string CheckedOptionClassValue => string.IsNullOrWhiteSpace(CheckedOptionCssClass)
+        ? $"{OptionStem} btn--pressed radio-group__option radio-group__option--checked"
+        : $"{OptionStem} {CheckedOptionCssClass}";
+
+    /// <summary>The one choice at <c>tabindex="0"</c>: the checked one when the
+    /// keyboard can reach it, else the first that it can.</summary>
+    private int TabStop
+    {
+        get
+        {
+            var reachable = Reachable();
+            var current = reachable.FindIndex(slot => IsChecked(Options[slot]));
+            return current >= 0 ? reachable[current] : reachable.Count > 0 ? reachable[0] : -1;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_elements.Length != Options.Count) _elements = new ElementReference[Options.Count];
+    }
+
+    /// <summary>Moving the roving tabindex is not moving focus; see Tabs'
+    /// OnAfterRenderAsync for what goes wrong when the ring stays behind.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusTarget < 0) return;
+
+        var target = _focusTarget;
+        _focusTarget = -1;
+
+        if (target >= _elements.Length) return;
+
+        try
+        {
+            await _elements[target].FocusAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private bool IsChecked(TValue option) => EqualityComparer<TValue>.Default.Equals(option, Value!);
+
+    private bool IsOptionDisabled(TValue option) => OptionDisabled?.Invoke(option) ?? false;
+
+    /// <summary>The slots the keyboard can land on, in order.</summary>
+    private List<int> Reachable() => Disabled
+        ? []
+        : [.. Enumerable.Range(0, Options.Count).Where(slot => !IsOptionDisabled(Options[slot]))];
+
+    private RenderFragment RenderOption(TValue option) =>
+        OptionContent is not null
+            ? OptionContent(option)
+            : builder => builder.AddContent(0, OptionLabel is not null ? OptionLabel(option) : option?.ToString());
+
+    private Task CheckAsync(int slot)
+    {
+        if (Disabled || slot >= Options.Count) return Task.CompletedTask;
+
+        var option = Options[slot];
+        if (IsOptionDisabled(option) || IsChecked(option)) return Task.CompletedTask;
+
+        Value = option;
+        StateHasChanged();
+        return ValueChanged.InvokeAsync(option);
+    }
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e, int slot)
+    {
+        var reachable = Reachable();
+        if (reachable.Count == 0) return Task.CompletedTask;
+
+        var current = reachable.IndexOf(slot);
+        if (current < 0) current = 0;
+
+        var target = e.Key switch
+        {
+            "ArrowRight" or "ArrowDown" => (current + 1) % reachable.Count,
+            "ArrowLeft" or "ArrowUp" => (current - 1 + reachable.Count) % reachable.Count,
+            "Home" => 0,
+            "End" => reachable.Count - 1,
+            _ => -1
+        };
+
+        if (target < 0) return Task.CompletedTask;
+
+        _focusTarget = reachable[target];
+
+        // A move that lands where it started still owes the focus a render.
+        if (IsChecked(Options[reachable[target]]))
+        {
+            StateHasChanged();
+            return Task.CompletedTask;
+        }
+
+        return CheckAsync(reachable[target]);
+    }
+}
