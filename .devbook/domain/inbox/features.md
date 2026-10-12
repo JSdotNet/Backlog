@@ -823,7 +823,8 @@ The editor holds a title, a Markdown body that dictation appends to, and
 attached photos and files — the talk note's tools
 (`.devbook/domain/capture/features.md#talk-note`). It has no save button. A
 second after typing stops the note is saved; leaving a field or the editor saves
-at once, and so does picking a file. A new note is created on its first save
+at once, and so do picking a file and the app going to the background, where the
+phone may end it before the second is up. A new note is created on its first save
 with something in it, so an editor opened and left empty makes nothing. The
 line at the top says **Saving...**, then **Saved**, or **Waiting to sync**
 while the outbox still holds the note. A note made or changed on the phone is

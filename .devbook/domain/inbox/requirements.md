@@ -1611,6 +1611,12 @@ The phone SHALL save a note a second after typing stops, with no save button, an
 - **When** the reader presses New note, types a title and a body, and stops typing
 - **Then** the line at the top reads "Saved"
 
+#### Scenario: The app goes to the background before the second is up
+
+- **Given** the reader is typing a note on the phone
+- **When** the app goes to the background less than a second after the last keystroke
+- **Then** the note holds what was typed, and the outbox holds it to send
+
 ### Requirement: A note made on the phone reaches the desktop as a note
 
 ```meta

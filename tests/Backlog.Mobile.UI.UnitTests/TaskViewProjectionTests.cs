@@ -195,6 +195,53 @@ public sealed class TaskViewProjectionTests : IDisposable
     }
 
     /// <summary>
+    /// My Day keeps the desktop's order (features.md#manual-ordering): the hand
+    /// rank first, and among tasks sharing one, the newest first — whatever their
+    /// priority. Day and MyDay keep the same order.
+    /// </summary>
+    [Fact]
+    public async Task My_Day_keeps_the_desktops_manual_order_not_priority()
+    {
+        _service.Append(TestTasks.Task("Ranked second", Now, inMyDayOn: Today, priority: "critical", order: 1));
+        _service.Append(TestTasks.Task("Ranked first, older", Now, inMyDayOn: Today, priority: "low", order: 0, createdAt: Now.AddDays(-2)));
+        _service.Append(TestTasks.Task("Ranked first, newer", Now, inMyDayOn: Today, priority: "low", order: 0, createdAt: Now.AddDays(-1)));
+        _service.Append(TestTasks.Task("Ranked last", Now, inMyDayOn: Today, priority: "high", order: 5));
+
+        await _view.PullAsync(TestContext.Current.CancellationToken);
+
+        string[] expected = ["Ranked first, newer", "Ranked first, older", "Ranked second", "Ranked last"];
+        Assert.Equal(expected, _view.MyDay(Today).Select(row => row.Task.Title));
+        Assert.Equal(expected, _view.Day(Today).Select(row => row.Task.Title));
+    }
+
+    /// <summary>The capture sheet says a task lands in Anytime today: at the end
+    /// of the list, on the phone and — through its rank — on the desktop.</summary>
+    [Fact]
+    public async Task An_added_task_is_ranked_after_every_task_the_phone_holds()
+    {
+        _service.Append(TestTasks.Task("Picked earlier", Now, inMyDayOn: Today, order: 0));
+        _service.Append(TestTasks.Task("Not picked, ranked low", Now, order: 7));
+        _service.Append(TestTasks.Task("Deleted, ranked lowest", Now, order: 40, deletedAt: Now));
+        await _view.PullAsync(TestContext.Current.CancellationToken);
+
+        _service.State = InboxServiceState.Unreachable;
+        var row = await _view.AddAsync("Buy a charger", TestContext.Current.CancellationToken);
+
+        Assert.Equal(8, row.Task.Order);
+        Assert.Equal(["Picked earlier", "Buy a charger"], _view.Day(Today).Select(kept => kept.Task.Title));
+    }
+
+    [Fact]
+    public async Task The_first_task_added_to_an_empty_phone_is_ranked_first()
+    {
+        _service.State = InboxServiceState.Unreachable;
+
+        var row = await _view.AddAsync("Buy a charger", TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, row.Task.Order);
+    }
+
+    /// <summary>
     /// The desktop's agenda time reaches the phone through the task feed: a task
     /// placed at 10:45 for 45 minutes in today's My Day comes out of the pull with
     /// that slot, and one placed by an older build that sent none reads as having

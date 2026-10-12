@@ -30,6 +30,13 @@ public partial class App : Application
 		// nothing due.
 		window.Resumed += (_, _) => _lifecycle.Resume();
 
+		// On the way to the background: the OS may end the app from there without
+		// another word, so an editor holding unsaved words writes them now.
+		// Deactivated comes first (Android's OnPause), Stopped after it; the second
+		// report finds nothing unsaved.
+		window.Deactivated += (_, _) => _lifecycle.Pause();
+		window.Stopped += (_, _) => _lifecycle.Pause();
+
 		return window;
 	}
 }

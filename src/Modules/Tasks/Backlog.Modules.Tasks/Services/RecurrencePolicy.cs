@@ -35,6 +35,11 @@ internal static class RecurrencePolicy
     /// already fired, no My Day stamp and no hand-set block — what was in the way
     /// of last week's occurrence is not known to be in the way of this one.
     /// </para>
+    /// <para>
+    /// The successor's id is not random: it is
+    /// <see cref="OccurrenceSpawning.SuccessorId"/> of the occurrence it follows, so
+    /// every machine that spawns it spawns the same task.
+    /// </para>
     /// </summary>
     public static TaskItem NextOccurrence(TaskItem completed)
     {
@@ -43,7 +48,7 @@ internal static class RecurrencePolicy
             throw new InvalidOperationException("Only an entry that carries a recurrence has a next occurrence.");
 
         var successor = new TaskItem(
-            Guid.NewGuid(),
+            OccurrenceSpawning.SuccessorId(completed.Id),
             completed.Title,
             completed.ContentMd,
             completed.Type,

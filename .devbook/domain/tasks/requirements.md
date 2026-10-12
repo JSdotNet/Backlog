@@ -72,6 +72,33 @@ The system SHALL write a tick or an untick the phone makes on a task in today's 
 - **When** the reader unticks it on the phone and the desktop syncs
 - **Then** the phone shows it under Anytime today again and the desktop shows it open and unticked, with the status the tick left it in
 
+### Requirement: A repeating task ticked on the phone gets one next occurrence
+
+```meta
+type: requirement
+status: draft
+```
+
+The desktop SHALL give a repeating task ticked off on the phone exactly one next occurrence, as its own tick does, however often the tick is pulled and however many desktops pull it.
+
+#### Scenario: Ticking a repeating task off
+
+- **Given** a task in today's My Day that repeats weekly and falls due today
+- **When** the reader ticks it off on the phone and the desktop syncs
+- **Then** the desktop shows it ticked off and holds one new occurrence falling due a week later, which reaches the phone on the desktop's next sync
+
+#### Scenario: Pulling the tick again
+
+- **Given** the desktop has given the phone-ticked repeating task its next occurrence
+- **When** the desktop pulls the same documents again, or a second desktop pulls the tick
+- **Then** each desktop still holds one next occurrence, and both hold the same one
+
+#### Scenario: Unticking after the next occurrence exists
+
+- **Given** the desktop has given the phone-ticked repeating task its next occurrence
+- **When** the reader unticks the task on the phone and the desktop syncs
+- **Then** the desktop shows the task unticked and keeps the next occurrence
+
 ### Requirement: A step ticked on the phone ticks the task's sub-item
 
 ```meta

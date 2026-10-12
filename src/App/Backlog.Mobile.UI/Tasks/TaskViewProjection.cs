@@ -52,17 +52,15 @@ public sealed class TaskViewProjection : IDisposable
     /// lives it, so it is the local calendar and not UTC's.</summary>
     public DateOnly Today => DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
 
-    /// <summary>What is in My Day on <paramref name="today"/>, most urgent first.</summary>
+    /// <summary>What is in My Day on <paramref name="today"/>, in the order My Day
+    /// keeps — see <see cref="InMyDayOrder"/>.</summary>
     public IReadOnlyList<TaskViewRow> MyDay(DateOnly today)
     {
         lock (_rowsLock)
         {
             return
             [
-                .. _rows.Values
-                    .Where(row => row.IsInMyDay(today))
-                    .OrderBy(row => PriorityRank(row.Task.Priority))
-                    .ThenBy(row => row.Task.CreatedAt)
+                .. InMyDayOrder(_rows.Values.Where(row => row.IsInMyDay(today)))
             ];
         }
     }
@@ -81,12 +79,10 @@ public sealed class TaskViewProjection : IDisposable
         {
             return
             [
-                .. _rows.Values
+                .. InMyDayOrder(_rows.Values
                     .Where(row => row.DeletedAt is null
                         && row.Task.InMyDayOn == today
-                        && !string.Equals(row.Task.Status, "archived", StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(row => PriorityRank(row.Task.Priority))
-                    .ThenBy(row => row.Task.CreatedAt)
+                        && !string.Equals(row.Task.Status, "archived", StringComparison.OrdinalIgnoreCase)))
             ];
         }
     }
@@ -160,13 +156,17 @@ public sealed class TaskViewProjection : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
-        var change = NewTask(title.Trim(), _clock.GetUtcNow(), Today);
-        var row = new TaskViewRow(change.Id, change.UpdatedAt, DeletedAt: null, ServerTimestamp: 0, change.Task);
+        TaskViewRow row;
 
         await _gate.WaitAsync(cancellationToken);
 
         try
         {
+            // Ranked under the gate, so two adds — or an add and a pull folding
+            // in — never read the same last rank.
+            var change = NewTask(title.Trim(), _clock.GetUtcNow(), Today, NextOrder());
+            row = new TaskViewRow(change.Id, change.UpdatedAt, DeletedAt: null, ServerTimestamp: 0, change.Task);
+
             await _outbox.EnqueueAsync(TaskOutboxKind.Token, change.Id, TaskOutboxKind.Write(change), cancellationToken);
 
             await _store.SaveAsync([row], cursor: null, cancellationToken);
@@ -247,10 +247,11 @@ public sealed class TaskViewProjection : IDisposable
     /// The task the phone creates: a new version-7 id, the typed title, and the
     /// Tasks module's defaults for a new entry — a <c>task</c>, <c>draft</c>,
     /// <c>medium</c> — picked for <paramref name="today"/>, because adding it here
-    /// is picking it. Everything else is empty: the body, the repositories and the
-    /// schedule are the desktop's to give it.
+    /// is picking it, and ranked <paramref name="order"/>. Everything else is
+    /// empty: the body, the repositories and the schedule are the desktop's to
+    /// give it.
     /// </summary>
-    public static TaskChange NewTask(string title, DateTimeOffset now, DateOnly today)
+    public static TaskChange NewTask(string title, DateTimeOffset now, DateOnly today, int order = 0)
     {
         var payload = new TaskPayload(
             Title: title,
@@ -258,7 +259,7 @@ public sealed class TaskViewProjection : IDisposable
             Type: EnumMap.ToWire(EntryType.Task),
             Status: EnumMap.ToWire(EntryStatus.Draft),
             Priority: EnumMap.ToWire(Priority.Medium),
-            Order: 0,
+            Order: order,
             Area: null,
             CreatedAt: now,
             SourceInboxId: null,
@@ -287,12 +288,39 @@ public sealed class TaskViewProjection : IDisposable
     private static bool IsCursorRejection(string? code) =>
         code is SyncErrorCodes.SyncCursorMalformed or SyncErrorCodes.SyncCursorExpired;
 
-    private static int PriorityRank(string? priority) => priority?.ToLowerInvariant() switch
+    /// <summary>
+    /// The rank a task the phone adds gets: one past the last live task the view
+    /// holds, so it lands at the end of My Day — the capture sheet's "Lands in
+    /// Anytime today" — on the phone and on the desktop alike, which ranks by the
+    /// same number. The first task on an empty phone is ranked 0.
+    /// <para>
+    /// The end of what the phone has pulled: a task the desktop ranked last since
+    /// that pull can share the rank, and the newer of the two then sorts first on
+    /// both sides — the same order everywhere, one place off from the end.
+    /// </para>
+    /// </summary>
+    private int NextOrder()
     {
-        "critical" => 0,
-        "high" => 1,
-        "medium" => 2,
-        "low" => 3,
-        _ => 4
-    };
+        lock (_rowsLock)
+        {
+            var live = _rows.Values.Where(row => row.DeletedAt is null).ToList();
+            return live.Count == 0 ? 0 : live.Max(row => row.Task.Order) + 1;
+        }
+    }
+
+    /// <summary>
+    /// The order My Day keeps, the same on the phone and the desktop
+    /// (.devbook/domain/tasks/features.md#manual-ordering): the hand rank
+    /// (<see cref="TaskPayload.Order"/>) first, and among tasks sharing a rank the
+    /// newest first. The desktop's My Day is its task list narrowed to today's
+    /// pick, and that list is read in this order — <c>ORDER BY sort_order,
+    /// created_at DESC</c> in <c>SqliteTaskRepository.ListAsync</c> — and kept by
+    /// the filter. The id breaks a tie the desktop leaves to the store, so the
+    /// phone's list never reshuffles between pulls.
+    /// </summary>
+    private static IEnumerable<TaskViewRow> InMyDayOrder(IEnumerable<TaskViewRow> rows) =>
+        rows
+            .OrderBy(row => row.Task.Order)
+            .ThenByDescending(row => row.Task.CreatedAt)
+            .ThenByDescending(row => row.Id);
 }
