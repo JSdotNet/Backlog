@@ -22,8 +22,10 @@ namespace Backlog.Modules.Dashboard.Services;
 /// somebody filed against one.
 /// </para>
 /// <para>
-/// The read reaches back to the Monday the first bucket starts on rather than to the
-/// window's own start, so the oldest week is a whole week and not the tail of one.
+/// The buckets start on the Monday of the window's first week rather than on the
+/// window's own start, so the oldest week is a whole week and not the tail of one. The
+/// read reaches further back again, by as many days as that span through today, for the
+/// previous window the effort is compared with.
 /// </para>
 /// <para>
 /// The plan is narrowed the same way with one difference: an item that names no
@@ -44,10 +46,18 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
         var buckets = WeekBuckets.Buckets(from, to);
         if (buckets.Count == 0) return InsightResult<TaskThroughputInsight>.Ready(new([], [], 0));
 
+        // The window before this one: as many days as the figure counts — the first
+        // column's Monday through today — ending the day before that Monday. See
+        // TaskThroughputInsight.PreviousEffort for why both edges sit there. Read in the
+        // same query, because the source is one local read however far back it goes.
+        var firstMonday = DateOnly.FromDateTime(buckets[0].Start.UtcDateTime);
+        var today = DateOnly.FromDateTime(to.UtcDateTime);
+        var previousStart = firstMonday.AddDays(-(today.DayNumber - firstMonday.DayNumber + 1));
+
         IReadOnlyList<CompletedTask> completed;
         try
         {
-            completed = await source.GetCompletedAsync(DateOnly.FromDateTime(buckets[0].Start.UtcDateTime), cancellationToken);
+            completed = await source.GetCompletedAsync(previousStart, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -66,7 +76,14 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
         var keys = buckets.Select(bucket => bucket.Key).ToHashSet(StringComparer.Ordinal);
         var unestimated = inScope.Count(task => task.Effort is null && keys.Contains(WeekBuckets.Of(InstantOf(task)).Key));
 
-        return InsightResult<TaskThroughputInsight>.Ready(new TaskThroughputInsight(counted, effort, unestimated));
+        // The figures above count only what lands in one of the window's buckets, so the
+        // earlier tasks the wider read brought in reach nothing but this sum.
+        var previous = inScope
+            .Where(task => task.CompletedOn >= previousStart && task.CompletedOn < firstMonday)
+            .Sum(task => (decimal)(task.Effort ?? 0));
+
+        return InsightResult<TaskThroughputInsight>.Ready(
+            new TaskThroughputInsight(counted, effort, unestimated) { PreviousEffort = previous });
     }
 
     public async Task<InsightResult<PlanInsight>> GetPlanAsync(
@@ -76,13 +93,15 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
         ArgumentNullException.ThrowIfNull(scope);
 
         var (from, to) = scope.Window(time.GetUtcNow());
+        var windowFrom = DateOnly.FromDateTime(from.UtcDateTime);
+        var windowTo = DateOnly.FromDateTime(to.UtcDateTime);
 
         PlanReading reading;
         try
         {
             reading = await plan.ReadAsync(
-                DateOnly.FromDateTime(from.UtcDateTime),
-                DateOnly.FromDateTime(to.UtcDateTime),
+                windowFrom,
+                windowTo,
                 scope.IsAllRepositories ? [] : scope.Repositories.Aliases,
                 cancellationToken);
         }
@@ -106,7 +125,8 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
             .Select(item => Outlook(item, today, reading.Week))
             .ToList();
 
-        return InsightResult<PlanInsight>.Ready(new PlanInsight(true, reading.Pace, items));
+        return InsightResult<PlanInsight>.Ready(
+            new PlanInsight(true, reading.Pace, items) { WindowFrom = windowFrom, WindowTo = windowTo });
     }
 
     /// <summary>

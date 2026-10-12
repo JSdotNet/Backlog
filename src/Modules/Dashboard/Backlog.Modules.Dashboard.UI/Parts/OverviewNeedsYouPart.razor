@@ -1,0 +1,109 @@
+@*
+    Needs you: what across the tabs needs the person, in rule order — drift, roadmap
+    items behind, providers past budget, rework — each with one line on why and a link
+    to the tab that holds the evidence. The list only points; the tab shows.
+
+    A derivation over the other tabs' insights (IAttentionInsights), never a source of
+    its own, so an item never says what its tab does not show. The derivation always
+    answers — a source it could not read is skipped and its reason kept — so this part
+    is never unavailable; what it can be is a floor. Nothing qualifying reads "Nothing
+    needs you.", and when a source was skipped the reasons follow it, so an empty list
+    over an unread source is not mistaken for an all-clear.
+
+    The link is a button: it moves the pane to another tab rather than navigating, and
+    the pane is the one that knows its tabs.
+*@
+@inherits DashboardPartBase<NeedsYouInsight>
+@inject IAttentionInsights Attention
+
+<PartFrame Title="Needs you"
+           Note="Drift that failed to sync or conflicts, roadmap items behind, providers projected past their budget, and rework above a quarter of what merged. Each item links to the tab that shows it."
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-overview-needs-you">
+    @if (IsReady)
+    {
+        <ul class="dashboard-overview-needs__list" data-testid="dashboard-overview-needs-you-items">
+            @foreach (var (item, index) in Value!.Items.Select((item, index) => (item, index)))
+            {
+                var titleId = $"dashboard-overview-needs-you-title-{index}";
+                <li class="@($"dashboard-overview-needs__item dashboard-overview-needs__item--{Modifier(item.Rule)}")"
+                    data-testid="dashboard-overview-needs-you-item">
+                    <span class="dashboard-overview-needs__dot" aria-hidden="true"></span>
+                    <span class="dashboard-overview-needs__body">
+                        <strong class="dashboard-overview-needs__title" id="@titleId">@item.Title</strong>
+                        <span class="dashboard-overview-needs__detail">@item.Detail</span>
+                        @if (OnOpenTab.HasDelegate)
+                        {
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       CssClass="dashboard-overview-needs__link"
+                                       OnClick="() => OnOpenTab.InvokeAsync(item.TabId)"
+                                       TestId="@($"dashboard-overview-needs-you-open-{item.Tab.ToString().ToLowerInvariant()}")"
+                                       aria-describedby="@titleId">
+                                @($"Open {item.Tab}") <span aria-hidden="true">→</span>
+                            </AppButton>
+                        }
+                    </span>
+                </li>
+            }
+        </ul>
+        @SkippedList(Value!.Skipped)
+    }
+    else if (Status == MetricStatusKind.Empty && Value is not null)
+    {
+        <MetricStatus Kind="MetricStatusKind.Empty" Message="@NeedsYouInsight.NothingNeedsYou" TestId="dashboard-overview-needs-you-empty" />
+        @SkippedList(Value.Skipped)
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-overview-needs-you-status" />
+    }
+</PartFrame>
+
+@code {
+    /// <summary>Raised with the pane's id of the tab an item links to. With nobody
+    /// listening the items draw no link.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenTab { get; set; }
+
+    /// <summary>The tone an item sits on: drift on drift's, the roadmap and the budget on
+    /// the warning one, rework calm — it is a pattern to look at, not a deadline.</summary>
+    private static string Modifier(NeedsYouRule rule) => rule switch
+    {
+        NeedsYouRule.Drift => "drift",
+        NeedsYouRule.RoadmapBehind or NeedsYouRule.PastBudget => "warning",
+        _ => "calm"
+    };
+
+    /// <summary>The derivation always answers, so the result is always ready; an empty
+    /// one is the Empty state, which this part draws as its own sentence.</summary>
+    protected override async Task<InsightResult<NeedsYouInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        InsightResult<NeedsYouInsight>.Ready(await Attention.GetNeedsYouAsync(Scope, cancellationToken));
+
+    protected override bool IsEmpty(NeedsYouInsight value) => value.IsEmpty;
+
+    protected override string EmptyMessage => NeedsYouInsight.NothingNeedsYou;
+
+    // Nothing to drop: every insight it reads keeps its own cache, and refreshing one of
+    // those on its tab is what moves this.
+    protected override void InvalidateSource()
+    {
+    }
+
+    /// <summary>The sources that could not be read, under the list — so it reads as a
+    /// floor rather than an all-clear. Nothing when every source answered.</summary>
+    private static RenderFragment SkippedList(IReadOnlyList<string> reasons) => @<text>
+        @if (reasons.Count > 0)
+        {
+            <div class="dashboard-overview-needs__skipped" data-testid="dashboard-overview-needs-you-skipped">
+                <p class="dashboard-overview-needs__skipped-title">Not checked:</p>
+                <ul>
+                    @foreach (var reason in reasons)
+                    {
+                        <li>@reason</li>
+                    }
+                </ul>
+            </div>
+        }
+    </text>;
+}

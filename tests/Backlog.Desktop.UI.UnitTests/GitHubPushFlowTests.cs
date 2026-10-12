@@ -308,22 +308,24 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.Equal(0, harness.Client.StateReads);
     }
 
-    /// <summary>Done is when an entry's work is waiting to land, and the only
-    /// status the check asks about.</summary>
+    /// <summary>The check asks about an entry's pull request whatever the entry's
+    /// status: a plan item's pull request merges into its plan branch while the
+    /// item stays In progress until the plan lands, and its merge is still owed
+    /// the merged colour.</summary>
     [Fact]
-    public async Task An_entry_not_done_is_not_read_by_the_check()
+    public async Task An_in_progress_entrys_pull_request_is_read_without_a_sync()
     {
         var harness = Build("JSdotNet/Backlog");
 
         var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!in-progress` `repo:backlog`\n");
-        row.PullRequestLinks = [new EntryPullRequestLink("JSdotNet/Backlog", 708)];
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        row.PullRequestLinks = [pr];
         harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
 
         await harness.State.CheckPullRequestsAsync();
 
-        Assert.NotEqual(EntryStatus.Done, row.Status);
-        Assert.Equal(0, harness.Client.StatusReads);
-        Assert.Empty(row.PullRequestStates);
+        Assert.Equal(EntryStatus.InProgress, row.Status);
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
     }
 
     [Fact]

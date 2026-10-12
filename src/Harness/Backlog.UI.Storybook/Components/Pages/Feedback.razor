@@ -132,6 +132,12 @@
         <FlowSteps AriaLabel="Stages of the run" TestId="flow-steps-sample" Steps="@SampleFlow" />
     </Story>
 
+    <Story Name="StageStrip"
+           Description="The compact form of FlowSteps for a list row: one short mark per step in the same five tones and a one-line summary beside it. The marks are an image named by the steps done, each mark's title names its step and status, and the summary says where the flow stands in words."
+           Code="@StageStripCode">
+        <StageStrip Steps="@SampleFlow" Summary="flow-code · Implementation (2 of 5)" TestId="stage-strip-sample" />
+    </Story>
+
     <Story Name="Spinner"
            Description="Three sizes; the label is what a screen reader hears."
            Code="@SpinnerCode">
@@ -295,6 +301,10 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
         new("Verification", FlowStepTone.Skipped, "Skipped"),
         new("Summary", FlowStepTone.Pending, "Pending")
     ];
+
+    private const string StageStripCode = """
+        <StageStrip Steps="@Steps" Summary="flow-code · Implementation (2 of 5)" />
+        """;
 
     private const string FlowStepsCode = """
         <FlowSteps AriaLabel="Stages of the run" Steps="@Steps" />

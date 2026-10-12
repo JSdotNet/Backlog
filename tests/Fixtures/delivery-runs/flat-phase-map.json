@@ -1,0 +1,3839 @@
+{
+  "id": "run-muyjnyzi-9lbbv9",
+  "skillId": "flow-code",
+  "title": "Linked-task connector fixes: repo, target hint, sync errors",
+  "status": "done",
+  "changeKind": "bug-fix",
+  "approval": {
+    "personalValidation": "approved",
+    "decidedAt": "2026-10-07T21:33:37.296Z",
+    "note": "Host create-PR instruction (Create PR, ready for review, base main)."
+  },
+  "startedAt": "2026-10-07T20:12:41.310Z",
+  "updatedAt": "2026-10-07T21:34:36.892Z",
+  "sessionIds": [
+    "c1194308-c5c5-4715-b831-8e4b8664c5d8"
+  ],
+  "stages": [
+    {
+      "name": "Update Base",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": null,
+      "agents": [],
+      "execution": {
+        "mode": "inline"
+      }
+    },
+    {
+      "name": "Scope",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 225883,
+      "agents": [],
+      "execution": {
+        "mode": "delegated",
+        "agent": "architecture:architect",
+        "mcp": [
+          "backlog"
+        ]
+      }
+    },
+    {
+      "name": "Implement",
+      "status": "done",
+      "doneCount": 2,
+      "durationMs": 624300,
+      "agents": [],
+      "execution": {
+        "mode": "delegated",
+        "agent": "csharp-coding:coding",
+        "runs": [
+          {
+            "agent": "csharp-coding:coding",
+            "slice": "C product picker"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Review",
+      "status": "done",
+      "doneCount": 2,
+      "durationMs": 380526,
+      "agents": [],
+      "execution": {
+        "mode": "fork",
+        "agent": "general-purpose",
+        "skill": "phase-review"
+      }
+    },
+    {
+      "name": "Build & Test",
+      "status": "done",
+      "doneCount": 2,
+      "durationMs": 330119,
+      "agents": [],
+      "execution": {
+        "mode": "delegated",
+        "agent": "general-purpose",
+        "skill": "phase-build-test"
+      }
+    },
+    {
+      "name": "Verify",
+      "status": "done",
+      "doneCount": 2,
+      "durationMs": 116211,
+      "agents": [],
+      "execution": {
+        "mode": "delegated",
+        "agent": "qa:qa",
+        "app": "repo:run"
+      }
+    },
+    {
+      "name": "Spec Check",
+      "status": "done",
+      "doneCount": 2,
+      "durationMs": 56295,
+      "agents": [],
+      "execution": {
+        "mode": "delegated",
+        "agent": "general-purpose",
+        "skill": "devbook:verify-change"
+      }
+    },
+    {
+      "name": "Ready",
+      "status": "done",
+      "doneCount": 2,
+      "durationMs": null,
+      "agents": [],
+      "execution": {
+        "mode": "inline"
+      }
+    },
+    {
+      "name": "Personal Validation",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 2376580,
+      "agents": [],
+      "execution": {
+        "mode": "inline"
+      }
+    },
+    {
+      "name": "Create Pull Request",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": 28036,
+      "agents": []
+    },
+    {
+      "name": "Report Back",
+      "status": "skipped",
+      "doneCount": 0,
+      "durationMs": null,
+      "agents": []
+    },
+    {
+      "name": "Summary",
+      "status": "done",
+      "doneCount": 1,
+      "durationMs": null,
+      "agents": []
+    }
+  ],
+  "runContext": {
+    "tracker": "backlog",
+    "layers": [
+      "user overlay"
+    ],
+    "policy": {
+      "qa.ceiling": "full"
+    },
+    "gates": [
+      {
+        "at": "create-pr",
+        "when": "before",
+        "purpose": "approval"
+      }
+    ],
+    "phases": {
+      "phase-update-base": {
+        "mode": "inline",
+        "before": [
+          "devbook:validate"
+        ]
+      },
+      "phase-scope": {
+        "mode": "delegated",
+        "agent": "architecture:architect",
+        "mcp": [
+          "backlog"
+        ]
+      },
+      "phase-implement": {
+        "mode": "delegated",
+        "agent": "csharp-coding:coding"
+      },
+      "phase-review": {
+        "mode": "fork"
+      },
+      "phase-build-test": {
+        "mode": "delegated",
+        "agent": "general-purpose"
+      },
+      "phase-verify": {
+        "mode": "delegated",
+        "agent": "qa:qa",
+        "app": "repo:run (.claude/skills/run-backlog/SKILL.md)"
+      },
+      "phase-spec-check": {
+        "skill": "devbook:verify-change"
+      },
+      "phase-ready": {
+        "mode": "inline"
+      },
+      "phase-personal-validation": {
+        "mode": "inline"
+      },
+      "phase-create-pr": {
+        "mcp": [
+          "backlog"
+        ]
+      },
+      "phase-summary": {
+        "after": [
+          "devbook:update"
+        ]
+      }
+    }
+  },
+  "insights": [
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 3158,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 44887,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 44837,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 43342,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 10955,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 11196,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 11253,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 10592,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 11367,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 8426,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 9252,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 8238,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 11159,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 14003,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 11031,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 12328,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 11730,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 14264,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 12012,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 11829,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 10015,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 13792,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 14449,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 15497,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 11867,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 13472,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 23037,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 24432,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 22377,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 12296,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 12561,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 11587,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Agent",
+      "category": "Agent tasks",
+      "durationMs": 188756,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "agent",
+      "agentName": "architecture:architect",
+      "agentDisplayName": "architecture:architect",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "durationMs": 188756,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 116,
+      "success": true,
+      "stageIndex": 1,
+      "stageName": "Scope"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 354,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 132699,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 132319,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 138867,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 17449,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 17746,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 15612,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 19264,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 18119,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 18861,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 18616,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 18312,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 15436,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 17815,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 21117,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 46798,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 41079,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 15948,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 126,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 156,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 135,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 138,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 493,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 80842,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 30549,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 134,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 125,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 91847,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 92357,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 49500,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 6473,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 121,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 138,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 122,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 2817,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 520,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 41796,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 45345,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 4181,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 142,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 341,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 2478,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 140,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 12693,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 115,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 2080,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 113688,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 1999,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 99446,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 103152,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 55821,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 71026,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 63033,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 41907,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 42325,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 48302,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 53105,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 38468,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 22674,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 20349,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 19665,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 24735,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 34579,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 40251,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 114,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 84442,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 66595,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 2954,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 76159,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 59870,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 35009,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 427,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 42828,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 57924,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 60878,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 58368,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 91391,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 88673,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 73889,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 61033,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 116,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Agent",
+      "category": "Agent tasks",
+      "durationMs": 807521,
+      "success": true,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "agent",
+      "agentName": "csharp-coding:coding",
+      "agentDisplayName": "csharp-coding:coding",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "durationMs": 807521,
+      "stageIndex": 2,
+      "stageName": "Implement"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 125,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 147473,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 107472,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 108323,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 110958,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 27364,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 32619,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 30013,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 24684,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 26152,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 22706,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 23960,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 20636,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 19200,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 17045,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 17810,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 21759,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 22322,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 28214,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 33779,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 32590,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 46796,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 114,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Agent",
+      "category": "Agent tasks",
+      "durationMs": 178711,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "agent",
+      "agentName": "general-purpose",
+      "agentDisplayName": "general-purpose",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "durationMs": 178711,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 90853,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 83448,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 97777,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 119,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 102168,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 318,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 121,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 72238,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 113,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 94914,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 129,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 93206,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 92042,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 117930,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 1712,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 145914,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 141149,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 153292,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 162610,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 110616,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 69392,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 46177,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 20025,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 35513,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 2837,
+      "success": true,
+      "stageIndex": 3,
+      "stageName": "Review"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 5743,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 4,
+      "stageName": "Build & Test"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 2817857,
+      "success": true,
+      "stageIndex": 4,
+      "stageName": "Build & Test"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 2815037,
+      "success": true,
+      "stageIndex": 4,
+      "stageName": "Build & Test"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 2814196,
+      "success": true,
+      "stageIndex": 4,
+      "stageName": "Build & Test"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 2809988,
+      "success": true,
+      "stageIndex": 4,
+      "stageName": "Build & Test"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 2915725,
+      "success": true,
+      "stageIndex": 4,
+      "stageName": "Build & Test"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 3092207,
+      "success": true,
+      "stageIndex": 4,
+      "stageName": "Build & Test"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 2164787,
+      "success": true,
+      "stageIndex": 4,
+      "stageName": "Build & Test"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 2165434,
+      "success": true,
+      "stageIndex": 4,
+      "stageName": "Build & Test"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 351248,
+      "success": true,
+      "stageIndex": 4,
+      "stageName": "Build & Test"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Agent",
+      "category": "Agent tasks",
+      "durationMs": 368612,
+      "success": true,
+      "stageIndex": 4,
+      "stageName": "Build & Test"
+    },
+    {
+      "kind": "agent",
+      "agentName": "general-purpose",
+      "agentDisplayName": "general-purpose",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "durationMs": 368612,
+      "stageIndex": 4,
+      "stageName": "Build & Test"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 128,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 456077,
+      "success": true,
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__list_apphosts",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 339,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 458824,
+      "success": true,
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 463442,
+      "success": true,
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__select_apphost",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 416,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 453134,
+      "success": true,
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 29279,
+      "success": true,
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__list_structured_logs",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 514,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_navigate",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 1969,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_find",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 963,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_navigate",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 499,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_find",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 302,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_click",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 1439,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_snapshot",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 2046,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_take_screenshot",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 422,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_select_option",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 1087,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_snapshot",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 7246,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 46951,
+      "success": true,
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_take_screenshot",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 1170,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_select_option",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 145,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_snapshot",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 4357,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_take_screenshot",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 1883,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_type",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 121,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_click",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 651,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_snapshot",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 6104,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_click",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 1111,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_snapshot",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 3512,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_take_screenshot",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 662,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_navigate",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 172,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_click",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 1396,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_find",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 115,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_take_screenshot",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 1801,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_select_option",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 156,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_type",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 129,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_click",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 651,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_click",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 1756,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_evaluate",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 638,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_find",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 385,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_take_screenshot",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 587,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_navigate",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 619,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_evaluate",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 820,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_run_code_unsafe",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 1109,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_run_code_unsafe",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 3785,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 101016,
+      "success": true,
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 89909,
+      "success": true,
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_run_code_unsafe",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 11042,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_find",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 746,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_run_code_unsafe",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 49917,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__select_apphost",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 1245,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__list_structured_logs",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 145,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__list_structured_logs",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 169,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__list_traces",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 832,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__list_console_logs",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 216,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 138,
+      "success": true,
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Agent",
+      "category": "Agent tasks",
+      "durationMs": 237963,
+      "success": true,
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "agent",
+      "agentName": "qa:qa",
+      "agentDisplayName": "qa:qa",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "durationMs": 237963,
+      "stageIndex": 5,
+      "stageName": "Verify"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 127,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Skill",
+      "category": "Agent tasks",
+      "durationMs": 3453674,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 232450,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 211012,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 156187,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 157507,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 16902,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 17472,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 17462,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 17750,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 15682,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 16648,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 24042,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 25629,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 28998,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 45888,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 113,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Agent",
+      "category": "Agent tasks",
+      "durationMs": 139613,
+      "success": true,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "agent",
+      "agentName": "general-purpose",
+      "agentDisplayName": "general-purpose",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "durationMs": 139613,
+      "stageIndex": 6,
+      "stageName": "Spec Check"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 306,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__set_run_context",
+      "category": "MCP tool",
+      "durationMs": 516,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 904639,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 895941,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 911960,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__spec-manager__lijst_backlogstatussen",
+      "category": "MCP tool",
+      "durationMs": 2765157,
+      "success": true,
+      "mcpServerName": "spec-manager",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__spec-manager__lijst_backlog",
+      "category": "MCP tool",
+      "durationMs": 799,
+      "success": true,
+      "mcpServerName": "spec-manager",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__set_run_context",
+      "category": "MCP tool",
+      "durationMs": 2319,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__ccd_session__spawn_task",
+      "category": "MCP tool",
+      "durationMs": 195,
+      "success": true,
+      "mcpServerName": "ccd_session",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 641416,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 3797,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 646641,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 689597,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 688350,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 676570,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 76963,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 63759,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 72774,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 37715,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 38314,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 21097,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 131,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 67702,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 5143,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 126,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 100464,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 115,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 128040,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 423,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 117,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 217308,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 220595,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 192044,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 170530,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 111,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 158970,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 2322,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 116385,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 92960,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 92522,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 2620,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 142821,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 157932,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 168457,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 163372,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 125,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 179503,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 5292,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 147,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 203053,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 156774,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 116555,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 102697,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 73927,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 64428,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 33725,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 36189,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 37041,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 48225,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 71092,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 75440,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 77410,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 85635,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 114,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 117021,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 114403,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 137,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 114899,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 98402,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 2893,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 117179,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 160191,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 113,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 144583,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 156122,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 126733,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 126599,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 121260,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 100893,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 58936,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 4426,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 143,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Edit",
+      "category": "Edit",
+      "durationMs": 1610,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 2339041,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "PowerShell",
+      "category": "Shell",
+      "durationMs": 2485357,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 6472,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 155,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 390939,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__select_apphost",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 784,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__execute_resource_command",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 2206,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 399163,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__execute_resource_command",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 305,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 400090,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__list_resources",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 353,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_run_code_unsafe",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 2128674,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_run_code_unsafe",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 2133751,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_run_code_unsafe",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 27116,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__playwright__browser_run_code_unsafe",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 30496,
+      "success": true,
+      "mcpServerName": "playwright",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 453159,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__list_structured_logs",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 164,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__list_traces",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 134,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__list_console_logs",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 147,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__aspire__list_structured_logs",
+      "category": "QA (Playwright/Aspire)",
+      "durationMs": 458,
+      "success": true,
+      "mcpServerName": "aspire",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 458964,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 4375,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 124,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 469727,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 120794,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 118402,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 131997,
+      "success": true,
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 3344,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 128,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__set_run_context",
+      "category": "MCP tool",
+      "durationMs": 133,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__set_run_context",
+      "category": "MCP tool",
+      "durationMs": 3306,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 8,
+      "stageName": "Personal Validation"
+    },
+    {
+      "kind": "tool",
+      "toolName": "mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage",
+      "category": "MCP tool",
+      "durationMs": 16852,
+      "success": true,
+      "mcpServerName": "plugin_delivery-surface-backlog_delivery-surface-backlog",
+      "stageIndex": 9,
+      "stageName": "Create Pull Request"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Write",
+      "category": "Edit",
+      "durationMs": 137,
+      "success": true,
+      "stageIndex": 9,
+      "stageName": "Create Pull Request"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 463873,
+      "success": true,
+      "stageIndex": 9,
+      "stageName": "Create Pull Request"
+    },
+    {
+      "kind": "tool",
+      "toolName": "Bash",
+      "category": "Shell",
+      "durationMs": 456318,
+      "success": true,
+      "stageIndex": 9,
+      "stageName": "Create Pull Request"
+    }
+  ],
+  "tokenUsage": {
+    "total": {
+      "modelCalls": 374,
+      "inputTokens": 770,
+      "outputTokens": 53050,
+      "cacheReadTokens": 67901924,
+      "cacheWriteTokens": 2049959,
+      "reasoningTokens": 0
+    },
+    "subAgent": {
+      "modelCalls": 307,
+      "inputTokens": 636,
+      "outputTokens": 5865,
+      "cacheReadTokens": 48435285,
+      "cacheWriteTokens": 1899306,
+      "reasoningTokens": 0
+    },
+    "models": [
+      "claude-opus-5-5"
+    ],
+    "byStage": {
+      "1": {
+        "stageName": "Scope",
+        "total": {
+          "modelCalls": 33,
+          "inputTokens": 66,
+          "outputTokens": 1107,
+          "cacheReadTokens": 2869758,
+          "cacheWriteTokens": 115140,
+          "reasoningTokens": 0
+        },
+        "subAgent": {
+          "modelCalls": 32,
+          "inputTokens": 64,
+          "outputTokens": 539,
+          "cacheReadTokens": 2648375,
+          "cacheWriteTokens": 112474,
+          "reasoningTokens": 0
+        }
+      },
+      "2": {
+        "stageName": "Implement",
+        "total": {
+          "modelCalls": 79,
+          "inputTokens": 158,
+          "outputTokens": 3259,
+          "cacheReadTokens": 13110226,
+          "cacheWriteTokens": 254308,
+          "reasoningTokens": 0
+        },
+        "subAgent": {
+          "modelCalls": 77,
+          "inputTokens": 154,
+          "outputTokens": 1282,
+          "cacheReadTokens": 12640935,
+          "cacheWriteTokens": 247698,
+          "reasoningTokens": 0
+        }
+      },
+      "3": {
+        "stageName": "Review",
+        "total": {
+          "modelCalls": 51,
+          "inputTokens": 108,
+          "outputTokens": 3295,
+          "cacheReadTokens": 9375481,
+          "cacheWriteTokens": 333382,
+          "reasoningTokens": 0
+        },
+        "subAgent": {
+          "modelCalls": 45,
+          "inputTokens": 96,
+          "outputTokens": 1408,
+          "cacheReadTokens": 7887964,
+          "cacheWriteTokens": 323411,
+          "reasoningTokens": 0
+        }
+      },
+      "4": {
+        "stageName": "Build & Test",
+        "total": {
+          "modelCalls": 14,
+          "inputTokens": 28,
+          "outputTokens": 1258,
+          "cacheReadTokens": 1305541,
+          "cacheWriteTokens": 57624,
+          "reasoningTokens": 0
+        },
+        "subAgent": {
+          "modelCalls": 13,
+          "inputTokens": 26,
+          "outputTokens": 338,
+          "cacheReadTokens": 1052686,
+          "cacheWriteTokens": 56737,
+          "reasoningTokens": 0
+        }
+      },
+      "5": {
+        "stageName": "Verify",
+        "total": {
+          "modelCalls": 41,
+          "inputTokens": 82,
+          "outputTokens": 1324,
+          "cacheReadTokens": 3841769,
+          "cacheWriteTokens": 133239,
+          "reasoningTokens": 0
+        },
+        "subAgent": {
+          "modelCalls": 40,
+          "inputTokens": 80,
+          "outputTokens": 953,
+          "cacheReadTokens": 3585492,
+          "cacheWriteTokens": 130990,
+          "reasoningTokens": 0
+        }
+      },
+      "6": {
+        "stageName": "Spec Check",
+        "total": {
+          "modelCalls": 19,
+          "inputTokens": 38,
+          "outputTokens": 378,
+          "cacheReadTokens": 1962601,
+          "cacheWriteTokens": 97198,
+          "reasoningTokens": 0
+        },
+        "subAgent": {
+          "modelCalls": 19,
+          "inputTokens": 38,
+          "outputTokens": 378,
+          "cacheReadTokens": 1962601,
+          "cacheWriteTokens": 97198,
+          "reasoningTokens": 0
+        }
+      },
+      "8": {
+        "stageName": "Personal Validation",
+        "total": {
+          "modelCalls": 122,
+          "inputTokens": 260,
+          "outputTokens": 23349,
+          "cacheReadTokens": 31132714,
+          "cacheWriteTokens": 1024970,
+          "reasoningTokens": 0
+        },
+        "subAgent": {
+          "modelCalls": 81,
+          "inputTokens": 178,
+          "outputTokens": 967,
+          "cacheReadTokens": 18657232,
+          "cacheWriteTokens": 930798,
+          "reasoningTokens": 0
+        }
+      },
+      "9": {
+        "stageName": "Create Pull Request",
+        "total": {
+          "modelCalls": 3,
+          "inputTokens": 6,
+          "outputTokens": 2878,
+          "cacheReadTokens": 1089252,
+          "cacheWriteTokens": 5629,
+          "reasoningTokens": 0
+        }
+      }
+    }
+  }
+}

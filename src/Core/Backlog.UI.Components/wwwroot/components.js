@@ -348,6 +348,119 @@
     };
 
     /*
+        The top layer, for `Modal`.
+
+        A dialog has to cover the window wherever its host renders it, and an
+        inline `position: fixed` backdrop cannot promise that: a pane with
+        `container-type`, a transform or a filter becomes its containing block and
+        stacking context, so the backdrop is clipped to the pane and painted under
+        its neighbour. A `dialog` shown with `showModal()` is lifted into the top
+        layer, which none of those reach, and a dialog opened from a dialog stacks
+        above it in open order.
+
+        The native element is only a carrier, and Escape is not its to act on:
+        `Modal` owns Escape, some dialogs switch it off while they are busy, and a
+        native close behind Blazor's back would leave the component believing it
+        is still open. So the Escape keydown is cancelled on the layer — a
+        cancelled keydown never becomes a close request at all, which a refused
+        `cancel` alone does not promise: Chrome honours that refusal only once per
+        user activation. Cancelled, not stopped: the keydown still bubbles on to
+        Blazor, whose handler is what closes the dialog. The `cancel` refusal
+        stays as the backstop for a close request from anywhere else.
+
+        Modal renders the layer already `open`, so a page whose script never ran
+        still shows the dialog — in place, which beats not at all. `showModal()`
+        throws on an open dialog, so it is closed first and shown again here.
+    */
+    const backlogModalLayers = new Map();
+
+    /*
+        A modal blankets everything below it in the top layer, the toast tray
+        included, however high its z-index. An element marked
+        `data-backlog-top-layer` is lifted back above each modal as it opens: a
+        manual popover, hidden and shown again because only a fresh
+        `showPopover()` moves it to the top. The attribute is added here rather
+        than rendered, because a popover nobody has shown is `display: none`, and
+        a tray must not depend on this script to be seen at all. A browser without
+        popovers keeps the tray where it was. When the last modal closes the
+        element is let down again — popover hidden, attribute removed — so the
+        page places it as it did before any modal opened.
+    */
+    function backlogRaiseTopLayerElements() {
+        document.querySelectorAll('[data-backlog-top-layer]').forEach((element) => {
+            if (typeof element.showPopover !== 'function') return;
+
+            try {
+                if (!element.hasAttribute('popover')) element.setAttribute('popover', 'manual');
+                if (element.matches(':popover-open')) element.hidePopover();
+                element.showPopover();
+            } catch {
+                // A tray torn out mid-call, or one the browser will not promote:
+                // it stays where it was, which is no worse than before.
+            }
+        });
+    }
+
+    function backlogLowerTopLayerElements() {
+        document.querySelectorAll('[data-backlog-top-layer]').forEach((element) => {
+            if (typeof element.hidePopover !== 'function' || !element.hasAttribute('popover')) return;
+
+            try {
+                if (element.matches(':popover-open')) element.hidePopover();
+                element.removeAttribute('popover');
+            } catch {
+                // Torn out mid-call: nothing left to place.
+            }
+        });
+    }
+
+    window.backlogShowModalLayer = (id) => {
+        const layer = document.getElementById(id);
+        if (!(layer instanceof HTMLDialogElement)) return;
+
+        if (!backlogModalLayers.has(id)) {
+            const onKeyDown = (event) => {
+                if (event.key === 'Escape') event.preventDefault();
+            };
+            const onCancel = (event) => event.preventDefault();
+
+            layer.addEventListener('keydown', onKeyDown);
+            layer.addEventListener('cancel', onCancel);
+            backlogModalLayers.set(id, () => {
+                layer.removeEventListener('keydown', onKeyDown);
+                layer.removeEventListener('cancel', onCancel);
+            });
+        }
+
+        if (layer.open) layer.close();
+
+        // A disconnected element, or a browser without the top layer, refuses
+        // showModal(). Open in place then: a dialog drawn where its host is beats
+        // one never drawn at all.
+        try {
+            layer.showModal();
+        } catch {
+            layer.setAttribute('open', '');
+            return;
+        }
+
+        backlogRaiseTopLayerElements();
+    };
+
+    // Tolerates the layer being gone already, which is the usual case: Blazor
+    // removes it in the render that closes the dialog, and removal takes it out of
+    // the top layer on its own.
+    window.backlogCloseModalLayer = (id) => {
+        backlogModalLayers.get(id)?.();
+        backlogModalLayers.delete(id);
+
+        const layer = document.getElementById(id);
+        if (layer instanceof HTMLDialogElement && layer.open) layer.close();
+
+        if (!document.querySelector('.modal-layer:modal')) backlogLowerTopLayerElements();
+    };
+
+    /*
         Whether the focus has landed outside every one of several named regions.
 
         Several rather than one, because "outside" is not always one element's

@@ -24,13 +24,32 @@
     already renders its dialog as a `section` should not have to give that up to
     gain the focus and Escape handling, and the class hooks replace the defaults
     so a host keeps its own naming.
+
+    All of it sits inside a native `dialog` opened with `showModal()`, because a
+    dialog has to cover the window wherever its host renders it. A pane that sets
+    `container-type` — the Inbox does, for its container queries — or a
+    transform or filter becomes the containing block of every `position: fixed`
+    descendant, so an inline backdrop was clipped to the pane and painted under
+    its neighbour. The browser's top layer is out of reach of all of those, and
+    stacks a dialog opened from a dialog above it in open order. The layer is
+    only a carrier: transparent, full-viewport, with a transparent `::backdrop`,
+    so the backdrop below still paints the scrim and takes the clicks. Its native
+    Escape is refused in `components.js`, so the Escape handler here stays the
+    one that decides. It is rendered `open` because a closed `dialog` is
+    `display: none`: without the script the dialog still shows, in place, and
+    the script upgrades it to the top layer. It is named as the dialog inside it
+    is, because assistive technology meets it as a dialog too.
 *@
 
 @if (Open)
 {
-    <div class="@BackdropClassValue" data-testid="@BackdropTestId" role="@BackdropRole" @onclick="BackdropClickedAsync">
-        @DialogFragment
-    </div>
+    <dialog class="modal-layer" id="@LayerId" open
+            aria-labelledby="@(HasTitle ? TitleId : null)"
+            aria-label="@(HasTitle ? null : AriaLabel)">
+        <div class="@BackdropClassValue" data-testid="@BackdropTestId" role="@BackdropRole" @onclick="BackdropClickedAsync">
+            @DialogFragment
+        </div>
+    </dialog>
 }
 
 @code {
@@ -39,6 +58,7 @@
     private bool _holdsFocus;
     private bool _captured;
     private bool _contained;
+    private bool _shown;
 
     [Parameter]
     public bool Open { get; set; }
@@ -125,6 +145,10 @@
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string TitleId => _id + "-title";
+
+    /// <summary>The native <c>dialog</c> carrying the backdrop into the top layer.
+    /// Generated only: a host names the dialog inside it, never the carrier.</summary>
+    private string LayerId => _id + "-layer";
 
     /// <summary>The id the dialog element actually carries. A host that splats its
     /// own <c>id</c> overwrites the generated one, and the containment has to
@@ -226,14 +250,16 @@
             // the document by now, and only the record `components.js` keeps
             // against that id can still say where the focus goes back to.
             await ReleaseContainmentAsync();
+            await CloseLayerAsync();
             await RestoreFocusAsync();
             return;
         }
 
         // Captured before the focus moves, because until it does, `activeElement`
         // is still the control that opened the dialog — and nothing else knows
-        // which one that was.
+        // which one that was. `showModal()` moves it, so it comes after this.
         await CaptureFocusAsync();
+        await ShowLayerAsync();
 
         try
         {
@@ -252,7 +278,56 @@
     public async ValueTask DisposeAsync()
     {
         await ReleaseContainmentAsync();
+        await CloseLayerAsync();
         await RestoreFocusAsync();
+    }
+
+    /// <summary>Puts the layer in the top layer. The layer is already rendered
+    /// <c>open</c>, so a failure here leaves the dialog shown in place rather than
+    /// unseen.</summary>
+    private async Task ShowLayerAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogShowModalLayer", LayerId);
+            _shown = true;
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering: no element to show yet.
+        }
+    }
+
+    /// <summary>The layer usually leaves the document before this runs — Blazor
+    /// removes it in the render that closes the dialog, and removal takes it out
+    /// of the top layer too — so the script tolerates finding nothing. Called
+    /// anyway for a host that tears the component out on a render the browser
+    /// has not applied yet.</summary>
+    private async Task CloseLayerAsync()
+    {
+        if (!_shown) return;
+
+        _shown = false;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogCloseModalLayer", LayerId);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
     private async Task CaptureFocusAsync()

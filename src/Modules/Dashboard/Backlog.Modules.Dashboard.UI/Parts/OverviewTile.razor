@@ -1,0 +1,103 @@
+@*
+    One of the Overview's five headline tiles: a label, the figure, one chip saying
+    which way it moved or what is wrong with it, and the figure's weeks as a sparkline.
+
+    Its own furniture rather than the library's MetricTile, because of the chip. A
+    metric tile's delta knows two directions, better and worse; an Overview chip has a
+    third meaning the board asks for — drift, which is neither a figure going down nor a
+    warning about one — and it carries a status as often as a delta: "2 behind pace",
+    "Will pass budget". The figure, the status and the sparkline are still the metric
+    library's, so a tile here reads like a tile everywhere else.
+
+    The label stays in every state, for the reason MetricTile keeps it: a tile that
+    loses its label loses the only clue as to what could not be shown.
+*@
+
+<article class="dashboard-overview-tile" data-testid="@TestId" aria-labelledby="@LabelId">
+    <p class="dashboard-overview-tile__label" id="@LabelId">@Label</p>
+
+    @if (Status is MetricStatusKind.Ready)
+    {
+        @if (Value is not null)
+        {
+            <p class="dashboard-overview-tile__value">
+                @Value
+                @if (!string.IsNullOrWhiteSpace(Unit))
+                {
+                    <span class="dashboard-overview-tile__unit">@Unit</span>
+                }
+            </p>
+        }
+
+        @ChildContent
+
+        @if (Chip is not null || HasTrend)
+        {
+            <div class="dashboard-overview-tile__foot">
+                @if (Chip is not null)
+                {
+                    <span class="@($"dashboard-overview-chip dashboard-overview-chip--{Chip.Modifier}")"
+                          data-testid="@(TestId is null ? null : TestId + "-chip")">@Chip.Text</span>
+                }
+                @if (HasTrend)
+                {
+                    <MetricSparkline Points="@Points"
+                                     Description="@TrendDescription"
+                                     Height="1.75rem"
+                                     CssClass="dashboard-overview-tile__trend"
+                                     TestId="@(TestId is null ? null : TestId + "-trend")" />
+                }
+            </div>
+        }
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" CssClass="dashboard-overview-tile__status" />
+    }
+</article>
+
+@code {
+    [Parameter]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>Already formatted. Null when the tile's figure is its child content —
+    /// the spend tile's one line per provider.</summary>
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public string? Unit { get; set; }
+
+    [Parameter]
+    public OverviewChip? Chip { get; set; }
+
+    /// <summary>The figure's buckets, oldest first. Fewer than two draws no line,
+    /// because one point is not a trend.</summary>
+    [Parameter]
+    public IReadOnlyList<MetricPoint> Points { get; set; } = [];
+
+    /// <summary>What the sparkline shows, for a screen reader.</summary>
+    [Parameter]
+    public string? TrendDescription { get; set; }
+
+    [Parameter]
+    public MetricStatusKind Status { get; set; } = MetricStatusKind.Ready;
+
+    [Parameter]
+    public string? StatusMessage { get; set; }
+
+    /// <summary>More of the figure, under the value: the spend tile's provider lines.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private bool HasTrend => Points.Count > 1;
+
+    /// <summary>The label's id, which names the tile. From the test id, which is unique
+    /// on the pane; a fresh one per instance otherwise.</summary>
+    private string LabelId => (TestId ?? _fallbackId) + "-label";
+
+    private readonly string _fallbackId = "dashboard-overview-tile-" + Guid.NewGuid().ToString("N");
+}

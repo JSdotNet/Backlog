@@ -315,7 +315,9 @@ kind.
 Holds what the file states: which dashboard wrote it, the worktree key it was filed
 under, the skill, the title, the status word verbatim, the change kind, the
 `Delivery Run Reference`s it names, when it started and was last updated, its stages with their status, duration
-and how many times each was marked done, its token usage in total, for delegated
+and how many times each was marked done, each stage's own record of how it ran, every
+sub-agent call its insights saw in each stage — with that call's time, tokens and tool
+calls where recorded — and how many tool calls each stage made, its token usage in total, for delegated
 agents and per stage with the models seen, the owner session's context gauge with its
 peak, and its tool activity summed by category and by MCP server. It also carries the
 environment its file was read on, stamped by the source the way a session's is: a
@@ -450,9 +452,220 @@ once — including a message written as several lines, which repeats its usage o
 A session first seen mid-way starts at the end of what is written: a gap is lost
 rather than a whole conversation counted as the run's.
 
+**A delegated agent carries what its call reported.** The Agent call's response states
+the tokens the sub-agent moved and the tool calls it made; both are kept on the
+agent's record, under the names the dashboard writes them, and a response that states
+neither adds nothing rather than a zero.
+
 **Best effort, and never the session's problem.** An event that cannot be attributed,
 or a transcript that cannot be read, records nothing and raises nothing: the reporter
 is a hook that must never fail the tool call it reports on.
+
+### Stage Resolution
+
+```meta
+type: domain-service
+related: [.devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran]
+aliases: [DeliveryRunStageResolution, stage execution]
+```
+
+How each stage of a `Delivery Run` ran, read off the run: the stage's own record of how
+it ran, the sub-agents seen in it, and the phase map the run resolved before it ran. It
+is the port of the delivery engine's own run view, so this product and that view say the
+same thing about one run.
+
+**Mode.** Personal Validation is always the gate, whatever the run recorded for it. A
+mode the run recorded wins; `delegated` and `forked` are read as `delegate` and `fork`.
+A stage with no recorded mode that a sub-agent worked in was delegated, and the rest ran
+inline. A mode found that way is inferred, and says so.
+
+**Worker.** The agent that did a delegated stage's work is the bound agent where it ran,
+or the agent behind a `delivery:runner-<effort>` effort runner — the configured agent, or
+`general-purpose` where none is — else the longest-running call. A stage that recorded
+running inline with no agent ran in the owner session, whatever was configured.
+
+**Model and effort.** What the stage recorded running, then the runner's, then the
+configuration's.
+
+**Configured against ran.** The phase map's entry for the stage — under the qualifier it
+ran under, then under any name its title goes by — is what was configured, and where it
+came from: the entry's own origin, else the team default with the overlays the run
+context lists merged over it. A stage is compared on its agent, its model's family and its
+effort, only once it is past pending, and never the gate; an effort only where the run
+recorded what ran. A configured agent that did not resolve is a difference too.
+
+**Inferred.** Where the run records no resolved phases, mode and agent are inferred from
+what was seen, and the stage says so rather than presenting a guess as a record.
+
+**Sub-agent calls.** Each call the insights saw, with its own time, tokens, tool calls and
+outcome; where they saw none, each call the stage's record lists, the owner's own slices
+excepted; then each agent the stage declared that neither shows running. A call under the
+gate is a revise round's.
+
+### Claude API Request Log
+
+```meta
+type: domain-service
+related: [.devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md, .devbook/domain/sessions/features.md#cost-as-claude-code-reports-it, .devbook/domain/sessions/domain.md#delivery-run-telemetry]
+aliases: [ClaudeApiRequest, IClaudeApiRequestStore, ClaudeCodeOtlpLogs, cost receiver]
+```
+
+The model requests Claude Code reported making, as it reported them: one record per
+`claude_code.api_request` event its OpenTelemetry exporter sends to the desktop app at
+`/v1/logs` (local ADR 0024). Each record names the session, the prompt, the sub-agent
+and the skill it ran under, and holds the model, the effort, Claude Code's cost
+estimate in whole micro-dollars, the four token counts and the duration.
+
+**A request is kept once.** The API's `request_id` is its identity. An exporter retries
+a batch it did not see acknowledged, so the same event arriving again is ordinary, and
+the first copy is the one kept. An event without a `request_id` is not kept at all,
+because it could not be told from its own retry.
+
+**Only this event is kept.** Claude Code sends many events — prompts, tool results,
+hook runs, errors — and every one but `claude_code.api_request` is dropped on arrival.
+Of the one kept, the identity attributes Claude Code adds to every event — the
+account, the organization, the e-mail address — are not stored.
+
+**An unknown figure stays unknown.** A field the event did not carry is stored as
+absent, never as zero, which is the rule every measured figure in this context
+follows.
+
+The records are this machine's: they are kept in the app's local database and do not
+replicate. Where `Delivery Run Telemetry` counts tokens from the transcript, this log
+holds the figures Claude Code itself reported, cost among them.
+
+### Cost Attribution
+
+```meta
+type: domain-service
+related: [.devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/domain/sessions/domain.md#stage-resolution, .devbook/domain/sessions/domain.md#model-price-table, .devbook/domain/sessions/features.md#cost-as-claude-code-reports-it, .devbook/domain/sessions/features.md#a-price-table-for-runs-without-telemetry]
+aliases: [DeliveryRunCosts, CostFigure, DeliveryRunStageCost, cost attribution]
+```
+
+Says what a session, each stage of a delivery run and each sub-agent call cost, from
+the `Claude API Request Log` where Claude Code reported it and from the run's own token
+counts at the `Model Price Table` where it did not. A figure is the cost in whole
+micro-dollars and which of the two it came from.
+
+**A session** costs the sum of every request it reported.
+
+**A stage** costs the requests of the run's owner session — each session the run names,
+or the one it was joined to by worktree and time — that fall in the stage's window, from
+its latest start to its completion. A stage still under way has no end yet. Only the main
+loop's requests count by time. A request a sub-agent made — one with an `agent.name`, or
+a `query_source` of `agent:<name>` — counts only when that agent is one of the stage's
+workers, matched the way `Stage Resolution` matches agents: the same name, or one the
+other with a plugin prefix. A worker's request counts inside the stage's window or inside
+that worker's own call, so a sub-agent still running after its stage was marked done is
+still its stage's. A stage re-entered after requested changes is the exception: its
+start is stamped again on every pass, so its window holds the latest pass only, and a
+figure over it would read as the whole stage. Such a stage is estimated instead.
+
+**A sub-agent call** costs its agent's requests between the call's start, its end less
+its duration, and its end, two seconds either way for the two clocks. A call that
+recorded no end claims its agent's requests in the stage only when it is the stage's one
+call of that agent. Two calls of one agent whose times overlap, such as a fan-out, claim
+none either. In both cases the calls could not be told apart, so each is estimated.
+
+**Without a report, an estimate.** A stage no request answers for is priced from its
+token counts: the owner session's share at the stage's model where it ran inline, else
+the owner's, and the sub-agents' share at the one model its calls ran on. Calls on
+several models are each priced at their own. A sub-agent call takes the stage's
+sub-agent tokens in proportion to the tokens it reported. A session with no report is
+its own tokens per model, read from its transcript, plus the sub-agent share of each of
+its runs' stages; a row with no transcript of its own sums its runs' whole stages. An
+estimate is none at all when a part that spent tokens could not be priced, because a
+partial sum would read as the whole. Every estimate is marked as one.
+
+**Neither is no figure.** With no request and no price, there is no cost, never zero.
+
+### Cost Baseline
+
+```meta
+type: domain-service
+related: [.devbook/domain/sessions/domain.md#cost-attribution, .devbook/domain/sessions/features.md#each-stage-against-its-usual-cost]
+aliases: [DeliveryRunBaselines, CostAgainstUsual, CostBand, DeliveryRunCostComparison, DeliveryRunCostInsight, usual cost, cost baseline]
+```
+
+Reads a run's cost against its usual, from the figures `Cost Attribution` gives the run
+and the runs before it. The median is used rather than the mean, because one runaway run
+would otherwise move the baseline for the next thirty.
+
+**The earlier runs** are runs of the same skill id that finished, marked done, and started
+before this one. The latest 30 count, and the run itself never does. A run with no start
+is placed by its last update.
+
+**A stage** is matched to the earlier runs' stages by name. Its figures are its cost, its
+share of what the run's priced stages cost, and its ratio to the median cost of that
+stage in the earlier runs that finished it and priced it. A stage that has not finished
+has no ratio. Neither has a stage that fewer than five of those runs priced.
+
+**The bands** come from the ratio. At 0.8 or below the cost is lower than usual, and
+drawn green. Within 5% of 1 either side it is typical. From 1.5 it is higher than usual,
+and highlighted. Anything between is the plain ratio. A ratio is written to one decimal,
+"2.4×". It gets two where one decimal would round it across a band's edge, so 1.46 is
+"1.46×" rather than "1.5×" without the highlight. It also gets two below 0.1.
+
+**The run** is compared like for like. An earlier run is a sample only when it finished
+and priced every stage this run priced, and its total is the sum of those same stages.
+Summed over whatever each earlier run priced, a run from before per-stage tokens were
+counted would read as a cheap run. The median would sink, and every later run would read
+many times its usual while each of its stages read typical. The run needs at least five
+samples and is compared only once it has left in-progress.
+
+**The insight** names the run's ratio and the stage that explains most of the
+difference. When the run cost more than usual, that is the stage whose cost exceeds its
+own median by the most. When it cost less, it is the stage furthest below its median. A
+typical run names no stage. The stage's re-entries are its done count less one, which
+counts the implement–review loop and every revise round. Review rounds are to join it
+once the run records them.
+
+### Weekly Usage
+
+```meta
+type: domain-service
+related: [.devbook/domain/sessions/domain.md#cost-attribution, .devbook/domain/sessions/domain.md#claude-api-request-log, .devbook/domain/sessions/features.md#share-of-the-week-and-the-weekly-limit]
+aliases: [WeeklyUsage, UsageWeek, WeeklyLimit, UsageShare, share of the week]
+```
+
+Says what part of the week a session or a run makes up, and once a refusal has sized it,
+what part of the weekly limit. Reported cost only: the share is of the week's telemetry
+cost, and a token estimate divided by a reported sum would compare two measurements.
+
+**The week** is the seven days ending at the reset time the latest all-models weekly
+refusal carried, or with none, the latest Fable one. A reset that has passed rolls
+forward a whole week at a time, because the allowance renews on the same beat each week.
+The reset instant belongs to the next week. With no refusal carrying a reset time, the
+week is the seven days up to now. The total is every request reported inside the week up
+to the moment it was read, and a share counts nothing later, so a session still running
+cannot outgrow the total it is divided by.
+
+**A weekly limit** is sized by the most recent refusal of its kind: the cost reported
+from seven days before that refusal's reset time, or before the refusal where it carried
+none, up to the refusal. Fable's limit counts the requests to a Fable model only. A
+refusal with no reported cost before it sizes nothing. The percentage of a limit is
+always an estimate and labelled one, since nothing the product reads states the limit's
+size and requests made on another machine never reach this one.
+
+**A session's share** is its own requests inside the week. **A run's** is the requests
+its stages and their sub-agent calls claim, matched as `Cost Attribution` matches them.
+Nothing reported inside the week is no share, never zero.
+
+### Model Price Table
+
+```meta
+type: value-object
+related: [.devbook/domain/sessions/features.md#a-price-table-for-runs-without-telemetry]
+aliases: [ModelPriceTable, ModelPrice, IModelPriceStore, model prices]
+```
+
+The rates the person entered in Settings, one row per model: input, output, cache read
+and cache write, each in US dollars per million tokens, each optional. Empty until filled
+in. A model a run names finds its row by the same id, then by the same model written
+another way ("Opus 5.5" for `claude-opus-5-5`), then by its family (`opus`); a context
+suffix such as `[1m]` is ignored. An estimate needs a rate for every kind of token
+spent, and has none otherwise. The table is this machine's, kept in the app's local
+database beside the request log, and does not replicate.
 
 ### Delivery Run Reference
 
@@ -511,6 +724,20 @@ placed on the environment the file was read on, and Finished — there is no liv
 evidence for it. A session row's repository is the session's, and where the agent
 recorded none, the tracker item a run of it named: a recorded fact from a second
 source, not the guess from a path the Session Log forbids.
+
+A row also answers four questions the list shows on it, each from whichever side
+recorded the answer and never from a default:
+
+- **Model**: the model the session spent the most output on, else the first model a
+  run of it observed.
+- **Effort**: the reasoning effort the owner session ran at, as the latest stage of a
+  run on the row that ran inline — in the owner session — recorded it in its
+  execution. A delegated stage's effort is its sub-agent's and says nothing about the
+  session. Telemetry, once it is received, is the better source; with neither, the
+  effort is not recorded.
+- **Output**: the session's own output tokens, summed over its models, else its runs'
+  totals.
+- **Duration**: from its start to its last activity, where the start is dated.
 
 ### Delivery Run Catalog
 
@@ -716,28 +943,38 @@ aliases: [AgentSessionGrouping]
 
 Carves a set of `Session Row`s, run-only rows included, into sections, each ordered
 most recently active first, with the sections themselves in a stable order. There are
-three groupings:
+five groupings; the session list offers the first three, When first:
 
-- **None**, the one a reader starts from: one section with no name, holding every
-  row. No rows means no sections at all, not one empty section.
+- **When**, the one a reader starts from: the live rows — Running or Stalled — in a
+  section of their own first, whatever day they started, then the finished ones by
+  the day they were last active on the reader's own clock: earlier today, yesterday,
+  in the past week, older. A bucket with nothing in it is no section.
+- **Repository**: a section per repository, keyed by the one the row shows, ignoring
+  case, and named after the spelling its most recent row carries. Sections sort by
+  name; the rows that name no repository close the list in a section of their own.
 - **Environment**: a section per environment, keyed by the environment's id rather
   than its name. A section's heading is the name its most recent row carries, so a
   renamed machine shows the name it has now. Two machines that share a name are two
   sections, ordered by name, ignoring case, and then by id.
+- **None**: one section with no name, holding every row. No rows means no sections
+  at all, not one empty section.
 - **Agent**: a section per agent, keyed by the agent's name.
 
 Each section carries the key that made it one, so a surface can tell apart two
 sections whose headings match.
 
 A service because grouping spans sessions rather than belonging to any one of them,
-and a pure one: no clock, no I/O, no state. Two properties it guarantees, both of
-which a reader relies on without being told:
+and a pure one: no I/O and no state. When alone reads a clock and a time zone, and
+both are handed in — the moment the list was read, not the moment it is drawn — so a
+press in the filter bar never moves a row from one day into another. Two properties
+it guarantees, both of which a reader relies on without being told:
 
 - **Grouping rearranges and never filters.** Every session in, every session out. A
   count taken before grouping is still correct after it.
-- **Group order does not depend on group size.** Environments sort by name and agents
-  in the order the `Agent` enum declares them, so a section does not move under the
-  reader as sessions come and go.
+- **Group order does not depend on group size.** When's buckets keep their own order,
+  repositories and environments sort by name and agents in the order the `Agent`
+  enum declares them, so a section does not move under the reader as sessions come
+  and go.
 
 Invocation semantics: query/composition-oriented; invoked per view, never stored.
 Which grouping is in force is the reader's choice and is not part of this context's

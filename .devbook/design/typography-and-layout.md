@@ -222,6 +222,19 @@ reduced opacity (~30% less than the raw token) in dark mode.
 
 MUST NOT use arbitrary z-index values (e.g. `9999`); use only the scale.
 
+A modal dialog does not take its place from this scale. The shared `Modal`
+renders inside a native `dialog` opened with `showModal()`, which puts it in the
+browser's top layer, above every z-index in the page. It has to cover the
+window wherever its host renders it, and a z-index cannot promise that: a pane
+that sets `container-type` (the Inbox does, for its container queries), a
+transform or a filter becomes the containing block and stacking context of
+every `position: fixed` descendant, so an inline backdrop was clipped to the
+pane and painted under its neighbour. The top layer is out of reach of all of
+those, so containment on a pane no longer traps a dialog, and a dialog opened
+from a dialog stacks above it in open order. `z-index-modal` is therefore
+superseded by the top layer for `Modal`. The toast tray follows a modal into
+that layer while one is open, per `interaction-guidelines.md#feedback-and-toasts`.
+
 ## Iconography
 
 ```meta

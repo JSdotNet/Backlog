@@ -614,7 +614,15 @@ public enum AgentSessionGrouping
     Environment,
 
     /// <summary>A section per assistant.</summary>
-    Kind
+    Kind,
+
+    /// <summary>The live sessions first, then the finished ones by the day they were
+    /// last active on the reader's clock: earlier today, yesterday, earlier this
+    /// week, older.</summary>
+    When,
+
+    /// <summary>A section per repository, by the one the row shows.</summary>
+    Repository
 }
 
 /// <summary>
@@ -651,9 +659,27 @@ public static class AgentSessionGroups
     /// </summary>
     public static IReadOnlyList<AgentSessionGroup> Of(
         IReadOnlyList<SessionRow> rows,
-        AgentSessionGrouping grouping)
+        AgentSessionGrouping grouping) =>
+        Of(rows, grouping, DateTimeOffset.UtcNow, TimeZoneInfo.Local);
+
+    /// <summary>
+    /// The same sections, against a clock and a time zone — the two things
+    /// <see cref="AgentSessionGrouping.When"/> needs and no other grouping reads.
+    /// <para>
+    /// The day a finished session lands in is the reader's day: "yesterday" means
+    /// the day before the one on the reader's own clock, not UTC's. The clock is the
+    /// moment the list was read rather than the moment it is drawn, so a press in the
+    /// filter bar never moves a row from one day into another.
+    /// </para>
+    /// </summary>
+    public static IReadOnlyList<AgentSessionGroup> Of(
+        IReadOnlyList<SessionRow> rows,
+        AgentSessionGrouping grouping,
+        DateTimeOffset now,
+        TimeZoneInfo zone)
     {
         ArgumentNullException.ThrowIfNull(rows);
+        ArgumentNullException.ThrowIfNull(zone);
 
         var ordered = rows.OrderByDescending(row => row.LastActivityAt).ToList();
 
@@ -684,8 +710,72 @@ public static class AgentSessionGroups
                     .OrderBy(group => group.Key)
                     .Select(group => new AgentSessionGroup(Label(group.Key), [.. group], group.Key.ToString()))
             ],
+            AgentSessionGrouping.When => ByWhen(ordered, now, zone),
+
+            // Keyed case-blind, because an owner/name is: JSdotNet/Backlog and
+            // jsdotnet/backlog are one repository written twice. Named after the
+            // spelling the most recent row carries, as a machine's section is. The
+            // rows that name no repository close the list in a section of their
+            // own — last, because they are the ones a reader is least likely to be
+            // looking for, and kept, because grouping never hides a row.
+            AgentSessionGrouping.Repository =>
+            [
+                .. ordered
+                    .Where(row => row.Repository is not null)
+                    .GroupBy(row => row.Repository!, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => new AgentSessionGroup(group.First().Repository, [.. group], group.First().Repository))
+                    .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase),
+                .. ordered.Any(row => row.Repository is null)
+                    ? [new AgentSessionGroup(NoRepository, [.. ordered.Where(row => row.Repository is null)])]
+                    : Array.Empty<AgentSessionGroup>()
+            ],
             _ => ordered.Count == 0 ? [] : [new AgentSessionGroup(null, ordered)]
         };
+    }
+
+    /// <summary>The heading over the rows that name no repository.</summary>
+    public const string NoRepository = "No repository";
+
+    /// <summary>The When buckets, in the order the list shows them: key and heading.</summary>
+    private static readonly (string Key, string Name)[] WhenBuckets =
+    [
+        ("live", "Live now"),
+        ("today", "Earlier today"),
+        ("yesterday", "Yesterday"),
+        ("week", "Past week"),
+        ("older", "Older")
+    ];
+
+    private static IReadOnlyList<AgentSessionGroup> ByWhen(IReadOnlyList<SessionRow> ordered, DateTimeOffset now, TimeZoneInfo zone)
+    {
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, zone).Date);
+
+        // Live is the session's state and not its day: a session stalled since
+        // yesterday is still the one a reader opening this list is looking for.
+        string Bucket(SessionRow row)
+        {
+            if (AgentSessionViews.IsLive(row.State)) return "live";
+
+            var day = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(row.LastActivityAt, zone).Date);
+            var daysAgo = today.DayNumber - day.DayNumber;
+
+            return daysAgo switch
+            {
+                <= 0 => "today",
+                1 => "yesterday",
+                < 7 => "week",
+                _ => "older"
+            };
+        }
+
+        var byBucket = ordered.ToLookup(Bucket, StringComparer.Ordinal);
+
+        return
+        [
+            .. WhenBuckets
+                .Where(bucket => byBucket[bucket.Key].Any())
+                .Select(bucket => new AgentSessionGroup(bucket.Name, [.. byBucket[bucket.Key]], bucket.Key))
+        ];
     }
 
     /// <summary>What an assistant is called on screen. Here rather than in the

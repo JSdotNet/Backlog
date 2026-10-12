@@ -9,7 +9,17 @@ namespace Backlog.Modules.Dashboard.Abstractions.Services;
 /// thing to a model its bill knows.</param>
 /// <param name="Tokens">Null when the provider reports money but not tokens.</param>
 /// <param name="Cost">The amount as reported, with its currency.</param>
-public sealed record SpendEntry(DateOnly Date, string? Model, long? Tokens, DashboardMoney Cost);
+public sealed record SpendEntry(DateOnly Date, string? Model, long? Tokens, DashboardMoney Cost)
+{
+    /// <summary>The input side of <see cref="Tokens"/> — cache reads and writes included,
+    /// which is what a reader means by input — or null when the provider does not split
+    /// its tokens by direction.</summary>
+    public long? InputTokens { get; init; }
+
+    /// <summary>The output side of <see cref="Tokens"/>, or null when the provider does
+    /// not split its tokens by direction.</summary>
+    public long? OutputTokens { get; init; }
+}
 
 /// <summary>What one provider reported for a window.</summary>
 /// <param name="Entries">One row per day per model.</param>

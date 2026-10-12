@@ -1,0 +1,63 @@
+@*
+    How far a flow got, as one short mark per step and a one-line summary beside
+    it. The compact form of FlowSteps: where FlowSteps draws every step as a node a
+    reader can read, this fits on a list row, so the strip is a picture and the
+    summary is the words.
+
+    Five tones, FlowSteps' own — pending, active, done, blocked, skipped — and the
+    strip is never the only carrier: each mark has its step's name and status in a
+    title, the strip as a whole is an image whose name counts the steps done, and
+    the summary sentence says where the flow stands. Done and blocked differ in
+    lightness as well as hue, so the strip survives greyscale.
+
+    A flow with no steps has no progress to picture, so the marks go and the
+    summary stays alone; with neither there is nothing to draw at all.
+*@
+@if (Steps.Count > 0 || !string.IsNullOrWhiteSpace(Summary))
+{
+    <span class="@ClassValue" data-testid="@TestId">
+        @if (Steps.Count > 0)
+        {
+            <span class="stage-strip__marks" role="img" aria-label="@MarksLabel">
+                @foreach (var step in Steps)
+                {
+                    <span class="stage-strip__mark stage-strip__mark--@ToneSlug(step.Tone)"
+                          title="@($"{step.Title}: {step.Status}")"></span>
+                }
+            </span>
+        }
+        @if (!string.IsNullOrWhiteSpace(Summary))
+        {
+            <span class="stage-strip__summary" title="@Summary">@Summary</span>
+        }
+    </span>
+}
+
+@code {
+    /// <summary>The steps, in the order the flow runs them.</summary>
+    [Parameter]
+    public IReadOnlyList<FlowStep> Steps { get; set; } = [];
+
+    /// <summary>The one line beside the strip, such as "flow-code · Verify (6 of 12)".</summary>
+    [Parameter]
+    public string? Summary { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "stage-strip";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "stage-strip" : $"stage-strip {CssClass}";
+
+    private string MarksLabel
+    {
+        get
+        {
+            var done = Steps.Count(step => step.Tone is FlowStepTone.Done);
+            return $"{done} of {Steps.Count} {(Steps.Count == 1 ? "stage" : "stages")} done";
+        }
+    }
+
+    private static string ToneSlug(FlowStepTone tone) => tone.ToString().ToLowerInvariant();
+}

@@ -170,7 +170,9 @@ internal sealed partial class DesktopHarness
             $"showing {pane}");
     }
 
-    public Task ShowInboxAsync() => ShowPaneAsync("inbox-pane-option", "inbox-pane");
+    /// <summary>Shows the Inbox, which takes the whole screen as a surface of its
+    /// own rather than opening beside the Tasks view.</summary>
+    public Task ShowInboxAsync() => ShowPaneAsync("inbox-pane-option", "inbox-surface");
 
     /// <summary>Shows the Tasks view — a view in the header's view switch, not a
     /// pane any more.</summary>
