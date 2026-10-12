@@ -39,6 +39,16 @@
     [Parameter]
     public bool KeepAlive { get; set; }
 
+    /// <summary>
+    /// Renders the body from the strip's first render, hidden while another tab is
+    /// active - <see cref="KeepAlive"/> without waiting for the first opening. For a
+    /// host whose panels start work of their own when they render, such as a fetch,
+    /// and that wants every panel's work started when the strip appears rather than
+    /// when a reader first opens it.
+    /// </summary>
+    [Parameter]
+    public bool Eager { get; set; }
+
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
@@ -90,7 +100,7 @@
 
         if (active) _opened = true;
 
-        if (active || (KeepAlive && _opened))
+        if (active || Eager || (KeepAlive && _opened))
         {
             builder.AddContent(9, ChildContent);
         }
@@ -132,6 +142,9 @@
     private string? _renderedTitle;
     private string? _renderedId;
     private bool _opened;
+
+    /// <summary>Draws the panel again because the active tab moved.</summary>
+    internal void Redraw() => StateHasChanged();
 
     public void Dispose() => Parent?.Unregister(this);
 }

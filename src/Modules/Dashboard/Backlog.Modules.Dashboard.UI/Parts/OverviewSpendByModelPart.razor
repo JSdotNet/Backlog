@@ -1,0 +1,66 @@
+@*
+    The Overview's spend by model: this month's spend as one bar, a segment per model,
+    largest first, with the legend under it carrying each model's amount and share.
+    The Cost tab's table holds the tokens and the provider of each row.
+
+    One bar per currency. A part-to-whole is only a whole in one currency, and Backlog
+    holds no exchange rate, so a month billed in two currencies draws two bars rather
+    than one that adds them. A row the provider reported no amount for adds nothing.
+*@
+@inherits DashboardPartBase<SpendByModelInsight>
+@inject ICostInsights Costs
+
+<PartFrame Title="Spend by model"
+           Note="Your own usage this month, across every provider. No provider reports spend per repository, so the repository filter does not change it. The Cost tab breaks it down with tokens."
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-overview-spend-model">
+    @if (IsReady)
+    {
+        var currencies = Currencies;
+        @foreach (var currency in currencies)
+        {
+            <MetricBreakdownBar Parts="@currency.Parts"
+                                Label="@(currencies.Count > 1 ? $"In {currency.Code}" : null)"
+                                FormatValue="@(amount => MetricFormat.Money(new MoneyAmount(amount, currency.Code)))"
+                                EmptyMessage="No spend to break down this month."
+                                TestId="@($"dashboard-overview-spend-model-bar-{currency.Code.ToLowerInvariant()}")" />
+        }
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-overview-spend-model-status" />
+    }
+</PartFrame>
+
+@code {
+    private sealed record Currency(string Code, IReadOnlyList<MetricPart> Parts);
+
+    protected override bool FollowsRepository => false;
+
+    protected override bool FollowsWindow => false;
+
+    /// <summary>The rows with an amount above nothing, grouped by currency, the largest currency
+    /// first and each one's models largest first.</summary>
+    private IReadOnlyList<Currency> Currencies =>
+    [
+        .. Value!.Rows
+            .Where(row => row.Cost is { Amount: > 0m })
+            .GroupBy(row => row.Cost!.Currency.ToUpperInvariant())
+            .OrderByDescending(group => group.Sum(row => row.Cost!.Amount))
+            .Select(group => new Currency(
+                group.Key,
+                [.. group
+                    .OrderByDescending(row => row.Cost!.Amount)
+                    .Select(row => new MetricPart(row.Name, row.Cost!.Amount))]))
+    ];
+
+    protected override Task<InsightResult<SpendByModelInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Costs.GetByModelAsync(cancellationToken);
+
+    protected override bool IsEmpty(SpendByModelInsight value) => !value.Rows.Any(row => row.Cost is { Amount: > 0m });
+
+    protected override string EmptyMessage => "No spend to break down this month.";
+
+    protected override void InvalidateSource() => Costs.Invalidate();
+}

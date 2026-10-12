@@ -1,0 +1,41 @@
+@*
+    The brief's Shipping block: pull requests merged in the week, against the week
+    before, from the Productivity tab's headline read — the same cached read the
+    Overview's tile draws — with the issues closed and the first-review wait that week as
+    its supporting sentence.
+
+    A window the listing could not read whole makes every count a floor, and the unit
+    says so, as the tab's note does.
+*@
+@inherits BriefPartBase<ProductivityHeadline>
+@inject IProductivityInsights Insights
+
+@{
+    var reading = IsReady ? Week.Read(Value!.PullRequestsPerWeek) : null;
+}
+<BriefBlock Tag="Shipping"
+            Status="BlockStatus(reading)"
+            StatusMessage="@BlockMessage(reading)"
+            Headline="@(reading is null ? null : WeeklyBriefSentences.Merged((int)reading.Value, (int?)reading.Previous))"
+            Detail="@(reading is null ? null : Detail())"
+            Figure="@(reading is null ? null : MetricFormat.Compact(reading.Value))"
+            Unit="@(IsReady && !Value!.Complete ? "merged, or more" : "merged")"
+            Bars="Points(reading)"
+            Caption="@Caption("Pull requests merged per week", reading)"
+            LinkText="Throughput"
+            OnOpen="Open(TabId)"
+            TestId="dashboard-brief-shipping" />
+
+@code {
+    private const string TabId = "dashboard-productivity";
+
+    private string Detail() =>
+        WeeklyBriefSentences.ShippingDetail(
+            (int)(Week.Read(Value!.IssuesPerWeek)?.Value ?? 0m),
+            Week.Read(Value!.ReviewTurnaroundPerWeek)?.Value);
+
+    protected override Task<InsightResult<ProductivityHeadline>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetHeadlineAsync(Scope, cancellationToken);
+
+    protected override void InvalidateSource() => Insights.Invalidate(Scope);
+}

@@ -571,7 +571,8 @@
               aria-label="Dashboard">
             <DashboardPane OnClose="CloseSurface"
                            RepositoryAliases="@State.SelectedRepositoryAliases"
-                           RepositoryColour="@RepositoryColourFor" />
+                           RepositoryColour="@RepositoryColourFor"
+                           OnOpenSessions="@(SessionsOffered ? EventCallback.Factory.Create(this, ToggleSessions) : default)" />
         </main>
     }
     else if (SessionsVisible)

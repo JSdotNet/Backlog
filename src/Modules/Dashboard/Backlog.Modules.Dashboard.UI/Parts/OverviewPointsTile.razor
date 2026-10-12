@@ -1,0 +1,65 @@
+@*
+    The Overview's story points done, out of those planned.
+
+    Two reads, as the Cost tab's provider cards make two. The points done and their
+    comparison with the window before are the Tasks tab's throughput — counted in whole
+    weeks, the earlier window ending the day before the first week shown — and "of N
+    planned" is the roadmap's planned effort for the same scope and window. The roadmap
+    is the second read and the optional one: switched off or unreadable, the tile still
+    has its points and only loses the "of".
+
+    When a roadmap item in the window is behind, the outlook Needs you lists, the chip
+    says so instead of the delta, on the warning tone; the two never disagree on how
+    many. A tile that showed "up 3" over a plan that is
+    slipping would be answering the question nobody asked.
+*@
+@inherits DashboardPartBase<OverviewPointsTile.Reading>
+@inject ITaskInsights Insights
+
+<OverviewTile Label="Story points done"
+              Value="@(IsReady ? MetricFormat.Compact(Value!.Throughput.Effort) : null)"
+              Unit="@(IsReady ? Unit : null)"
+              Chip="@(IsReady ? Chip : null)"
+              Points="@(IsReady ? [.. Value!.Throughput.EffortPerWeek.Select(point => new MetricPoint(point.Label, point.Value))] : [])"
+              TrendDescription="Story points done per week"
+              Status="Status"
+              StatusMessage="@StatusMessage"
+              TestId="dashboard-overview-tile-points" />
+
+@code {
+    /// <summary>What the tile reads: the throughput, and the roadmap when it answered
+    /// with the roadmap switched on.</summary>
+    public sealed record Reading(TaskThroughputInsight Throughput, PlanInsight? Plan);
+
+    private int Late => Value!.Plan?.Items.Count(row => row.Outlook == PlanOutlook.Behind) ?? 0;
+
+    private string Unit => Value!.Plan is { PlannedEffort: > 0 } plan
+        ? $"of {MetricFormat.Compact(plan.PlannedEffort)} planned"
+        : "pts";
+
+    private OverviewChip? Chip => Late > 0
+        ? new OverviewChip(Late == 1 ? "1 item behind pace" : $"{Late} items behind pace", OverviewTone.Warning)
+        : OverviewChip.FromDelta(DashboardFormat.CountDelta(
+            Value!.Throughput.Effort,
+            Value!.Throughput.PreviousEffort,
+            DashboardFormat.PreviousWeeks(Scope.Weeks)));
+
+    protected override async Task<InsightResult<Reading>> FetchAsync(CancellationToken cancellationToken)
+    {
+        var throughput = await Insights.GetThroughputAsync(Scope, cancellationToken);
+        if (!throughput.HasValue) return InsightResult<Reading>.Unavailable(throughput.Availability.Reason);
+
+        var plan = await Insights.GetPlanAsync(Scope, cancellationToken);
+
+        return InsightResult<Reading>.Ready(new Reading(
+            throughput.Value!,
+            plan.Value is { RoadmapEnabled: true } enabled ? enabled : null));
+    }
+
+    protected override bool IsEmpty(Reading value) => false;
+
+    // Nothing to drop: the tasks and the roadmap are read afresh on every call.
+    protected override void InvalidateSource()
+    {
+    }
+}

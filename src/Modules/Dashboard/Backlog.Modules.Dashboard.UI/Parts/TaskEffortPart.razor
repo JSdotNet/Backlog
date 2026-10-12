@@ -2,6 +2,11 @@
     The story points behind the tasks ticked off each week — the same tasks as the
     count beside it, weighed by their estimates.
 
+    The total sits above the columns as a tile so it can carry the comparison with
+    the window before: as many days as the columns count through today, ending where
+    the first column starts, so no day is counted on both sides and a steady pace
+    reads as unchanged.
+
     An unestimated task adds nothing and is not guessed at; the note says how many
     there were, so a light week can be told apart from a week of unestimated work.
 *@
@@ -15,13 +20,20 @@
            TestId="dashboard-tasks-effort">
     @if (IsReady)
     {
-        <MetricBars Points="@Points"
-                    Label="@($"Story points completed per week, {MetricFormat.Compact(Value!.Effort)} in all")"
-                    BucketHeading="Week"
-                    ValueHeading="Points"
-                    HighlightLast="true"
-                    FormatValue="MetricFormat.Compact"
-                    TestId="dashboard-tasks-effort-bars" />
+        <div class="dashboard-part__stack">
+            <MetricTile Label="Story points done"
+                        Value="@MetricFormat.Compact(Value!.Effort)"
+                        Delta="@DashboardFormat.CountDelta(Value!.Effort, Value!.PreviousEffort, DashboardFormat.PreviousWeeks(Scope.Weeks))"
+                        TestId="dashboard-tasks-effort-done" />
+
+            <MetricBars Points="@Points"
+                        Label="@($"Story points completed per week, {MetricFormat.Compact(Value!.Effort)} in all")"
+                        BucketHeading="Week"
+                        ValueHeading="Points"
+                        HighlightLast="true"
+                        FormatValue="MetricFormat.Compact"
+                        TestId="dashboard-tasks-effort-bars" />
+        </div>
     }
     else
     {

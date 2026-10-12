@@ -36,7 +36,27 @@ public sealed record MonthlySpend(
     DashboardMoney? Allowance,
     DateOnly MonthStart,
     DateOnly Through,
-    bool IsEstimate);
+    bool IsEstimate)
+{
+    /// <summary>
+    /// What the same provider charged over the same days of last month — the first of
+    /// it up to the same day of the month as <see cref="Through"/>, or its last day when
+    /// last month was shorter — or null when there is no like-for-like figure.
+    /// <para>
+    /// The same days rather than the whole of last month, because this month is not
+    /// over: a full month set beside nineteen days of one would read as spend falling
+    /// every month until the last day of it.
+    /// </para>
+    /// <para>
+    /// Null for Copilot, whose billing reports one entry per month rather than one per
+    /// day, so "the first nineteen days of last month" is not something it can say.
+    /// Null as well when last month's read refused or failed, or came back in another
+    /// currency. In each case the tile draws no comparison rather than one against a
+    /// zero, which would read as a provider that cost nothing last month.
+    /// </para>
+    /// </summary>
+    public DashboardMoney? PreviousSpend { get; init; }
+}
 
 /// <summary>Spend this month, per provider. A provider whose source could not
 /// answer is absent from the list rather than present as zero.</summary>
@@ -53,6 +73,27 @@ public sealed record SpendTrendInsight(IReadOnlyList<InsightSeries> ByProvider, 
 {
     public static SpendTrendInsight Empty { get; } = new([], "USD", SpendBucket.Day);
 }
+
+/// <summary>
+/// Spend per ISO week, the providers that report by the day added up — what the weekly
+/// brief's Cost block reads.
+/// </summary>
+/// <remarks>
+/// <para>
+/// One point per ISO week a twelve-week window touches, oldest first, labelled as the
+/// productivity series are (<c>W34</c>), and the last point is the week today falls in,
+/// so a reader takes the week before it for the last finished one. A week nobody spent
+/// in is a zero point rather than a gap.
+/// </para>
+/// <para>
+/// Copilot is not in it. Its billing reports a month as one entry, so it has no week to
+/// put that entry in, and drawing a month as one week's spend would be the worse figure.
+/// </para>
+/// </remarks>
+/// <param name="Weeks">Spend per week, oldest first.</param>
+/// <param name="Currency">The currency every point is in.</param>
+/// <param name="IsEstimate">True when a provider added in calls its figure an estimate.</param>
+public sealed record SpendByWeekInsight(IReadOnlyList<InsightPoint> Weeks, string Currency, bool IsEstimate);
 
 /// <summary>How wide a bucket a spend trend is drawn in.</summary>
 public enum SpendBucket
