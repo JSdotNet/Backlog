@@ -347,10 +347,21 @@ projection of the feed.
   document, not for an entry with that id. A pull that brings back an older
   copy before delivery does not undo the edit, because the edit's stamp is
   later.
-- **A repeating task gets no successor from the phone.** The desktop spawns a
-  repeating task's next occurrence only when its own save ticks it, and the
-  replica merge spawns none. A repeating task ticked on the phone therefore
-  arrives done with no next occurrence. This gap is open.
+- **The desktop gives a phone-ticked repeating task its next occurrence.** The
+  phone never spawns one itself. When the desktop's replica merge writes a
+  pulled copy that ticks off a repeating task it held unticked, it runs
+  Occurrence Spawning, the use case the desktop's own tick runs. The successor
+  is a desktop write, so the next sync pushes it and the phone pulls it. A
+  re-pull of the same document changes nothing, because the merge refuses a
+  version it already holds. A task arriving already ticked, never seen before,
+  spawns nothing.
+- **Two desktops make one successor.** The successor's id is derived from the
+  ticked occurrence's id (`OccurrenceSpawning.SuccessorId`). Two desktops that
+  each see the tick therefore spawn the same task, and the replica keeps one
+  document. A desktop that already holds the successor, live or deleted, spawns
+  nothing. An untick arriving after the spawn leaves the successor in place,
+  as the desktop's own untick does
+  (`.devbook/domain/tasks/domain.md#occurrence-spawning`).
 - **A refused edit stays on the phone.** The service may refuse an edit and
   answer the same way on every retry. The outbox then sets the entry aside, and
   the phone's row keeps the edit until a later write from another device

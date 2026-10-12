@@ -72,6 +72,10 @@ flowchart TD
   about it, which this context documents but does not yet emit — so a consumer
   reads a series today by following `recurrence_source_id` rather than by
   subscribing.
+- A tick made on the phone reaches the desktop through the replica merge, which
+  runs the same spawn when the pulled copy ticks off a task it held unticked.
+  Each occurrence gets one successor, because the successor's id is derived
+  from the occurrence's (`.devbook/domain/tasks/domain.md#occurrence-spawning`).
 - The next due date is calculated from the completed occurrence's `due_on`, not
   from the date it was actually finished, so lateness does not drift a schedule.
 - What resets on the new occurrence: sub-items return to `pending`, and

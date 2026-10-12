@@ -489,6 +489,28 @@ forward, and it is bounded by `Archive and lifecycle` rather than by this policy
 - completed occurrences archive out of default views like any other finished
 task.
 
+Two use cases run it. The desktop's own save runs it when the save ticks the
+task off. The desktop's replica merge runs it when a pulled copy ticks off a
+task the desktop held unticked, which is how a tick made on the phone or on
+another desktop gets its successor. A task that arrives already ticked and was
+never seen before spawns nothing, for the reason a task created ticked spawns
+nothing: it records something done, not an occurrence finishing now.
+
+Each occurrence has at most one successor. The successor's id is derived from
+the id of the occurrence it follows, so every desktop that spawns it spawns the
+same task, and the replica keeps one copy. Occurrence Spawning creates nothing
+when the successor already exists, live or deleted. A re-pull, a second desktop, and an
+untick followed by a second tick therefore all leave the one successor.
+Deleting the successor is how the person stops that repeat, so a later tick
+does not bring it back. A successor spawned before its id was derived carries
+a random id, so an occurrence ticked before that change can still gain a
+second successor if it is unticked and ticked again.
+
+Unticking an occurrence leaves its successor in place, whether the untick is
+made on the desktop or arrives from the phone. This follows from `Completed`:
+unticking clears `completed_on` and changes nothing else, and the successor is
+a separate task with its own lifecycle.
+
 ## StatusChanged
 
 ```meta
