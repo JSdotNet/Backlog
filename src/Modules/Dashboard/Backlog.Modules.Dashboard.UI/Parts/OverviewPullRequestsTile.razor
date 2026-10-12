@@ -1,0 +1,31 @@
+@*
+    The Overview's pull requests merged: the Productivity tab's headline read again —
+    one cached read serves both — with the same comparison against the window before,
+    which is left out while either window's count is a floor.
+
+    A window that could not be read whole makes the count a floor, and the unit says so
+    ("or more"), as the Productivity tab's note does.
+
+    Zero merged is a figure here rather than an empty tile: a quiet window is an answer.
+*@
+@inherits DashboardPartBase<ProductivityHeadline>
+@inject IProductivityInsights Insights
+
+<OverviewTile Label="Pull requests merged"
+              Value="@(IsReady ? MetricFormat.Compact(Value!.PullRequestsMerged) : null)"
+              Unit="@(IsReady && !Value!.Complete ? $"or more, in {Scope.Weeks} weeks" : $"in {Scope.Weeks} weeks")"
+              Chip="@(IsReady ? OverviewChip.FromDelta(DashboardFormat.CountDelta(Value!.PullRequestsMerged, Value!.PreviousPullRequestsMerged, DashboardFormat.PreviousWeeks(Scope.Weeks))) : null)"
+              Points="@(IsReady ? [.. Value!.PullRequestsPerWeek.Select(point => new MetricPoint(point.Label, point.Value))] : [])"
+              TrendDescription="Pull requests merged per week"
+              Status="Status"
+              StatusMessage="@StatusMessage"
+              TestId="dashboard-overview-tile-pulls" />
+
+@code {
+    protected override Task<InsightResult<ProductivityHeadline>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetHeadlineAsync(Scope, cancellationToken);
+
+    protected override bool IsEmpty(ProductivityHeadline value) => false;
+
+    protected override void InvalidateSource() => Insights.Invalidate(Scope);
+}

@@ -247,6 +247,21 @@
         }
     }
 
+    /// <summary>
+    /// Moves focus to the tab <paramref name="id"/> names once it next renders. For a
+    /// host that changes <see cref="ActiveId"/> from a control inside the panel it
+    /// hides: without this the focused control disappears with the panel and focus
+    /// falls to the document. Does nothing for an id no panel carries.
+    /// </summary>
+    public void FocusTab(string id)
+    {
+        var index = _panels.FindIndex(panel => panel.Id == id);
+        if (index < 0) return;
+
+        _focusTarget = index;
+        StateHasChanged();
+    }
+
     private Task ActivateAsync(string id)
     {
         if (string.Equals(ActiveId, id, StringComparison.Ordinal)) return Task.CompletedTask;

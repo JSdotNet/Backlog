@@ -2842,7 +2842,9 @@ public class DashboardPaneTests
         Assert.Empty(pane.FindAll("[data-testid='dashboard-repository-filter']"));
         Assert.Single(pane.FindAll("[data-testid='dashboard-machine-filter'] select"));
         Assert.Equal(2, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
-        Assert.Equal(13, pane.FindAll("[data-testid$='-refresh']").Count);
+        // Thirteen parts across the five section tabs, and the Overview's five framed
+        // blocks - its tiles are figures, not parts, and carry no refresh of their own.
+        Assert.Equal(18, pane.FindAll("[data-testid$='-refresh']").Count);
         // The tabs show and hide what is already there; they arrange nothing. No fold
         // is left on the pane itself — the More folds' parts are shown in their tabs,
         // and the sessions part's own More is inside the figures it would fold, which
@@ -2850,15 +2852,16 @@ public class DashboardPaneTests
         Assert.Equal(6, pane.FindAll("[data-testid='dashboard-tablist'] [role='tab']").Count);
         Assert.Empty(pane.FindAll(".fold__trigger"));
         // The info marks open a caption; they change nothing.
-        Assert.Equal(13, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
+        Assert.Equal(18, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
         Assert.Single(pane.FindAll("[aria-label='Close dashboard']"));
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, one filter select, two window buttons, thirteen refreshes, six
-        // tabs, thirteen info marks. The hidden "Read as brief" link is an anchor, not
+        // One close, one filter select, two window buttons, eighteen refreshes, six
+        // tabs, eighteen info marks. Needs you draws a link per item, and there are none
+        // here. The hidden "Read as brief" link is an anchor, not
         // one of these, and adds nothing to configure.
-        Assert.Equal(1 + 1 + 2 + 13 + 6 + 13, controls.Count);
+        Assert.Equal(1 + 1 + 2 + 18 + 6 + 18, controls.Count);
     }
 
     /// <summary>

@@ -1,0 +1,122 @@
+@*
+    The Overview's spend this month, out of the monthly budget.
+
+    One line per provider, that provider's spend against that provider's budget, and
+    never a total: the providers report on different terms and possibly in different
+    currencies, for the reason the Cost tab gives. Each line carries its own comparison
+    with the same days of last month, where the provider reports by day.
+
+    The chip is the budget's: "Will pass budget" on the warning tone when any provider's
+    month-end projection passes its budget, "Within budget" when every provider that has
+    one stays inside it, and nothing when no provider has a budget to be inside.
+
+    No sparkline. The only spend by day there is adds the providers together, which is
+    the total this tile never draws, and it would leave out Copilot, which reports a
+    month as one entry; a line per provider would need days per provider, which no
+    insight carries.
+
+    Two reads, both derived from one cached read of the month, so neither asks a
+    provider twice. The month is the one that decides the tile; the projection only adds
+    the budgets and the chip.
+*@
+@inherits DashboardPartBase<OverviewSpendTile.Reading>
+@inject ICostInsights Costs
+
+<OverviewTile Label="Spend this month"
+              Chip="@(IsReady ? Chip : null)"
+              Status="Status"
+              StatusMessage="@StatusMessage"
+              TestId="dashboard-overview-tile-spend">
+    @if (IsReady)
+    {
+        <ul class="dashboard-overview-tile__lines">
+            @foreach (var provider in Value!.Month.Providers)
+            {
+                var projection = ProjectionOf(provider);
+                var delta = DashboardFormat.ShareDelta(provider.Spend.Amount, provider.PreviousSpend?.Amount, "same days last month", higherIsBetter: false);
+                <li class="dashboard-overview-tile__line" data-testid="@($"dashboard-overview-tile-spend-{provider.Provider.ToString().ToLowerInvariant()}")">
+                    <span class="dashboard-overview-tile__line-name">@Name(provider.Provider)</span>
+                    <span class="dashboard-overview-tile__line-value">
+                        @Money(provider.Spend)
+                        @if (projection?.Budget is { } budget)
+                        {
+                            <span class="dashboard-overview-tile__unit">of @Money(budget)</span>
+                        }
+                    </span>
+                    @if (delta is not null)
+                    {
+                        <span class="dashboard-overview-tile__line-delta">@($"{MetricFormat.Delta(delta)} vs {delta.ComparedTo}")</span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</OverviewTile>
+
+@code {
+    /// <summary>What the tile reads: the month, and each provider's projection by
+    /// provider, empty when it could not be read.</summary>
+    public sealed record Reading(
+        SpendThisMonthInsight Month,
+        IReadOnlyDictionary<SpendProvider, SpendProjection> Projections);
+
+    protected override bool FollowsRepository => false;
+
+    protected override bool FollowsWindow => false;
+
+    private SpendProjection? ProjectionOf(MonthlySpend provider) =>
+        Value!.Projections.TryGetValue(provider.Provider, out var projection) ? projection : null;
+
+    private OverviewChip? Chip
+    {
+        get
+        {
+            var budgeted = Value!.Month.Providers
+                .Select(ProjectionOf)
+                .Where(projection => projection?.Budget is not null)
+                .ToList();
+
+            if (budgeted.Count == 0) return null;
+
+            var passing = budgeted.Where(projection => projection!.IsProjectedPastBudget).ToList();
+
+            return passing.Count switch
+            {
+                0 => new OverviewChip("Within budget", OverviewTone.Good),
+                1 => new OverviewChip($"{Name(passing[0]!.Provider)} will pass budget", OverviewTone.Warning),
+                _ => new OverviewChip($"{passing.Count} will pass budget", OverviewTone.Warning)
+            };
+        }
+    }
+
+    protected override async Task<InsightResult<Reading>> FetchAsync(CancellationToken cancellationToken)
+    {
+        var month = await Costs.GetThisMonthAsync(cancellationToken);
+        if (!month.HasValue) return InsightResult<Reading>.Unavailable(month.Availability.Reason);
+
+        var projection = await Costs.GetProjectionAsync(cancellationToken);
+
+        return InsightResult<Reading>.Ready(new Reading(
+            month.Value!,
+            projection.HasValue
+                ? projection.Value!.Providers.ToDictionary(one => one.Provider)
+                : new Dictionary<SpendProvider, SpendProjection>()));
+    }
+
+    protected override bool IsEmpty(Reading value) => value.Month.Providers.Count == 0;
+
+    protected override string EmptyMessage => "No assistant reported any spend this month.";
+
+    protected override void InvalidateSource() => Costs.Invalidate();
+
+    private static string Name(SpendProvider provider) => provider switch
+    {
+        SpendProvider.Claude => "Claude",
+        SpendProvider.Copilot => "Copilot",
+        SpendProvider.AzureFoundry => "Azure Foundry",
+        _ => provider.ToString()
+    };
+
+    private static string Money(DashboardMoney money) =>
+        MetricFormat.Money(new MoneyAmount(money.Amount, money.Currency));
+}

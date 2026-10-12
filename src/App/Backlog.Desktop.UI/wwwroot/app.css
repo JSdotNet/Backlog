@@ -5934,6 +5934,318 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The Overview tab (the board's Main): five headline tiles across the top, then a
+   main column - throughput, the roadmap against its pace - and a side column - Needs
+   you, spend by model, hours worked. The columns are a wrapping flex row rather than a
+   media query, for the reason .dashboard-section__split gives: what decides it is the
+   panel's own width. Below room for both the side column wraps under the main one,
+   which at phone width is always. */
+.dashboard-overview__tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.dashboard-overview__columns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.dashboard-overview__main {
+    flex: 999 1 36rem;
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.dashboard-overview__side {
+    flex: 1 1 20rem;
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* A headline tile: the part's card, the figure set large, and the chip and the
+   sparkline sharing the foot. */
+.dashboard-overview-tile {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    min-width: 0;
+}
+
+.dashboard-overview-tile__label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-tile__value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-overview-tile__unit {
+    font-family: var(--font-family-base);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 400;
+}
+
+.dashboard-overview-tile__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin-top: auto;
+    min-width: 0;
+}
+
+.dashboard-overview-tile__trend {
+    flex: 0 1 6rem;
+    min-width: 3rem;
+}
+
+/* The spend tile's figure: one line per provider, never a total. */
+.dashboard-overview-tile__lines {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-overview-tile__line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-overview-tile__line-name {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-tile__line-value {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-overview-tile__line-delta {
+    flex-basis: 100%;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* A chip on the Overview: a soft surface with primary text on it, like every other
+   state chip - the words say what moved or what is wrong, the tone only draws the eye.
+   Calm is the raised surface with secondary text, so it does not compete. */
+.dashboard-overview-chip {
+    display: inline-block;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+}
+
+.dashboard-overview-chip--good { background: var(--color-success); }
+.dashboard-overview-chip--warning { background: var(--color-warning); }
+.dashboard-overview-chip--drift { background: var(--color-error); }
+
+.dashboard-overview-chip--calm {
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+}
+
+/* Under the throughput bars: first review, came back after review, commits per
+   pull request - three figures on one line that wraps. */
+.dashboard-overview-figures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-lg);
+    margin: 0;
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-figures__item {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.dashboard-overview-figures__item > dt {
+    margin: 0;
+}
+
+.dashboard-overview-figures__item > dd {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-overview-figures__note {
+    color: var(--color-text-secondary);
+    font-weight: 400;
+}
+
+/* Roadmap against pace: one row per item - name and effort over the bar, the
+   outlook chip spanning both on the right. */
+.dashboard-overview-roadmap__summary,
+.dashboard-overview-hours__summary {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-roadmap__summary strong,
+.dashboard-overview-hours__summary strong {
+    color: var(--color-text-primary);
+}
+
+.dashboard-overview-roadmap__list {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-overview-roadmap__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-md);
+    min-width: 0;
+}
+
+.dashboard-overview-roadmap__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-overview-roadmap__effort {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+.dashboard-overview-roadmap__chip {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    justify-self: end;
+    white-space: nowrap;
+}
+
+.dashboard-overview-roadmap__track {
+    grid-column: 1 / span 2;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    overflow: hidden;
+}
+
+.dashboard-overview-roadmap__fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-primary);
+}
+
+.dashboard-overview-roadmap__fill--behind { background: var(--color-band-4); }
+.dashboard-overview-roadmap__fill--finished { background: var(--color-success); }
+
+/* Needs you: one card per item on its rule's surface, a dot for the eye and the
+   words for the meaning, the link to its tab under the detail. */
+.dashboard-overview-needs__list {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-overview-needs__item {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    min-width: 0;
+}
+
+.dashboard-overview-needs__item--drift { background: var(--color-error); }
+.dashboard-overview-needs__item--warning { background: var(--color-warning); }
+
+.dashboard-overview-needs__dot {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-top: 0.4rem;
+    border-radius: 50%;
+    background: var(--color-text-disabled);
+}
+
+.dashboard-overview-needs__item--drift .dashboard-overview-needs__dot { background: var(--color-error-text); }
+.dashboard-overview-needs__item--warning .dashboard-overview-needs__dot { background: var(--color-primary); }
+
+.dashboard-overview-needs__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.dashboard-overview-needs__detail {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-needs__link {
+    padding-inline: 0;
+}
+
+.dashboard-overview-needs__skipped {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-needs__skipped-title {
+    margin: 0;
+}
+
+.dashboard-overview-needs__skipped > ul {
+    margin: var(--spacing-2xs) 0 0;
+    padding-left: var(--spacing-md);
+}
+
 /* Rework after review: one grid of churn and sync tiles, the churn by repository
    ranked beside it, stacking where there is no room for both. */
 .dashboard-rework {

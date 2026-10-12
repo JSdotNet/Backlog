@@ -1,0 +1,72 @@
+@*
+    The Overview's throughput: pull requests merged and issues closed per week, side
+    by side — grouped rather than stacked, because a pull request and an issue are not
+    one unit and their sum is a figure nobody measured — and under them the three
+    figures about how the pull requests went: how long a first review took, how many
+    came back after one, and how many commits each carried.
+
+    The Productivity tab's headline, from the same cached read; that tab holds the rest.
+*@
+@inherits DashboardPartBase<ProductivityHeadline>
+@inject IProductivityInsights Insights
+
+<PartFrame Title="Throughput"
+           Note="@Note"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-overview-throughput">
+    @if (IsReady)
+    {
+        <div class="dashboard-part__stack">
+            <MetricStackedBars Series="@Series"
+                               Mode="MetricBarsMode.Grouped"
+                               Label="Pull requests merged and issues closed per week"
+                               NameHeading="Measure"
+                               LegendInteractive="false"
+                               TestId="dashboard-overview-throughput-bars" />
+
+            <dl class="dashboard-overview-figures" data-testid="dashboard-overview-throughput-figures">
+                <div class="dashboard-overview-figures__item">
+                    <dt>First review in</dt>
+                    <dd>@DashboardFormat.Duration(Value!.MedianReviewTurnaround) <span class="dashboard-overview-figures__note">median</span></dd>
+                </div>
+                <div class="dashboard-overview-figures__item">
+                    <dt>Came back after review</dt>
+                    <dd>@MetricFormat.Percent(Value!.ReworkRate)</dd>
+                </div>
+                <div class="dashboard-overview-figures__item">
+                    <dt>Commits per pull request</dt>
+                    <dd>@(Value!.MedianCommitsPerPullRequest is { } median ? MetricFormat.Compact(median) : "—") <span class="dashboard-overview-figures__note">median</span></dd>
+                </div>
+            </dl>
+        </div>
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-overview-throughput-status" />
+    }
+</PartFrame>
+
+@code {
+    /// <summary>Whose work, over how long, and, when the window was not read whole,
+    /// that every figure is a floor, in the Productivity tab's words.</summary>
+    private string Note =>
+        $"Your own work, over {Scope.Weeks} weeks. The Productivity tab holds the volume chart, the scores and rework."
+        + (IsReady && !Value!.Complete ? " Some of this window could not be read, so every figure here is a floor." : null);
+
+    private IReadOnlyList<MetricSeries> Series =>
+    [
+        new("Pull requests merged", [.. Value!.PullRequestsPerWeek.Select(point => new MetricPoint(point.Label, point.Value))]),
+        new("Issues closed", [.. Value!.IssuesPerWeek.Select(point => new MetricPoint(point.Label, point.Value))])
+    ];
+
+    protected override Task<InsightResult<ProductivityHeadline>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetHeadlineAsync(Scope, cancellationToken);
+
+    protected override bool IsEmpty(ProductivityHeadline value) =>
+        value.PullRequestsMerged == 0 && value.IssuesClosed == 0;
+
+    protected override string EmptyMessage => "Nothing merged and nothing closed in this window.";
+
+    protected override void InvalidateSource() => Insights.Invalidate(Scope);
+}
