@@ -264,6 +264,50 @@ public sealed record DeliveryRunStage(string Name, string Status, long? Duration
     /// is.
     /// </summary>
     public string? Execution { get; init; }
+
+    /// <summary>
+    /// Every sub-agent call the run's insights recorded in this stage, one per call and
+    /// in the order they were recorded — where <see cref="Agents"/> counts them per
+    /// agent and model, this keeps each call's own time, tokens and tool calls, which is
+    /// what a stage's execution panel lists. Empty where the file recorded none.
+    /// </summary>
+    public IReadOnlyList<DeliveryRunSubAgentRun> SubAgentRuns { get; init; } = [];
+
+    /// <summary>How many tool calls the run's insights filed under this stage.</summary>
+    public int ToolCalls { get; init; }
+
+    /// <summary>When the stage's latest pass started, where the writer stamped it —
+    /// restamped on every pass, so a stage re-entered after requested changes starts
+    /// again.</summary>
+    public DateTimeOffset? StartedAt { get; init; }
+
+    /// <summary>When the stage's latest pass ended, or null while it is under way or
+    /// where the writer stamped nothing. With <see cref="StartedAt"/> it is the window
+    /// the stage's cost is read over (<see cref="DeliveryRunCosts"/>).</summary>
+    public DateTimeOffset? CompletedAt { get; init; }
+}
+
+/// <summary>
+/// One sub-agent call a stage made, as the run's insights recorded it.
+/// </summary>
+/// <param name="Agent">The agent's name as recorded — a display name where the record
+/// carries one.</param>
+/// <param name="Model">The model it ran on, verbatim, or null where none was recorded.</param>
+/// <param name="DurationMs">How long it ran, where recorded.</param>
+/// <param name="Tokens">The tokens it moved in all, where recorded.</param>
+/// <param name="ToolCalls">The tool calls it made, where recorded.</param>
+/// <param name="Failed">Whether the call did not complete.</param>
+public sealed record DeliveryRunSubAgentRun(
+    string Agent,
+    string? Model,
+    long? DurationMs,
+    long? Tokens,
+    int? ToolCalls,
+    bool Failed)
+{
+    /// <summary>When the call returned, where recorded. With
+    /// <see cref="DurationMs"/> it is the window the call's own cost is read over.</summary>
+    public DateTimeOffset? EndedAt { get; init; }
 }
 
 /// <summary>
@@ -603,6 +647,48 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
 
     /// <summary>Whether the row is a run the list holds no session for.</summary>
     public bool RunOnly => Session is null;
+
+    /// <summary>
+    /// How long the row's work went on: from its start to its last activity, or null
+    /// where nothing dated the start.
+    /// </summary>
+    public TimeSpan? Duration => StartedAt is { } started && LastActivityAt >= started
+        ? LastActivityAt - started
+        : null;
+
+    /// <summary>
+    /// The model the row's work mostly ran on, verbatim, or null where nothing
+    /// recorded one.
+    /// <para>
+    /// The session's own usage first — the model it spent the most output on, since a
+    /// session that called a small model for a few lookups still ran on the large one
+    /// — and otherwise the first model the row's runs observed. Never a default: a
+    /// row with no recorded model says so rather than borrowing the usual one.
+    /// </para>
+    /// </summary>
+    public string? Model =>
+        Session?.ModelUsage is { Count: > 0 } usage
+            ? usage.OrderByDescending(model => model.OutputTokens).First().Model
+            : Runs.SelectMany(run => run.TokenUsage?.Models ?? []).FirstOrDefault(model => !string.IsNullOrWhiteSpace(model));
+
+    /// <summary>
+    /// The output tokens the row's work spent: the session's own, summed over its
+    /// models, or — for a row with none — its runs' totals. Null where neither side
+    /// recorded any, which is never the same as zero.
+    /// </summary>
+    public long? OutputTokens =>
+        Session?.ModelUsage is { Count: > 0 } usage
+            ? usage.Sum(model => model.OutputTokens)
+            : Runs.Any(run => run.TokenUsage is not null)
+                ? Runs.Sum(run => run.TokenUsage?.Total.OutputTokens ?? 0)
+                : null;
+
+    /// <summary>
+    /// The reasoning effort the owner session ran at, as a run on this row recorded
+    /// it, or null where none did — see <see cref="DeliveryRunExecutions.OwnerEffort"/>.
+    /// The most recently updated run that recorded one wins.
+    /// </summary>
+    public string? Effort => Runs.Select(DeliveryRunExecutions.OwnerEffort).FirstOrDefault(effort => effort is not null);
 }
 
 /// <summary>

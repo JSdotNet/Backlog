@@ -30,7 +30,7 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var rows = pane.FindAll(".data-table__row");
+            var rows = pane.FindAll("[data-testid='sessions-row']");
 
             // The two the machine has liveness evidence for, out of four records.
             Assert.Equal(2, rows.Count);
@@ -64,7 +64,7 @@ public sealed class SessionsPaneTests
 
         var pane = context.Render<SessionsPane>();
 
-        pane.WaitForAssertion(() => Assert.Contains("—", pane.Find(".data-table__row").TextContent));
+        pane.WaitForAssertion(() => Assert.Contains("—", pane.Find("[data-testid='sessions-row']").TextContent));
     }
 
     /// <summary>
@@ -99,33 +99,58 @@ public sealed class SessionsPaneTests
         // All first, deliberately: this test is about the grouping, and measuring it
         // through the live view would make it an assertion about the filter instead.
         ShowAll(pane);
-        pane.Find("[data-testid='sessions-group-environment']").Click();
+        GroupBy(pane, "machine");
 
         pane.WaitForAssertion(() =>
         {
             Assert.Equal(
                 ["DEV-LAPTOP", "DEV-TOWER"],
-                pane.FindAll(".data-table__group-name").Select(name => name.TextContent.Trim()));
+                pane.FindAll("[data-testid='sessions-group-name']").Select(name => name.TextContent.Trim()));
 
             Assert.Equal(
-                ["1 session", "3 sessions"],
-                pane.FindAll(".data-table__group-count").Select(count => count.TextContent.Trim()));
+                ["1", "3"],
+                pane.FindAll("[data-testid='sessions-group-size']").Select(count => count.TextContent.Trim()));
+
+            // The bare number on screen, and what it counts in its title.
+            Assert.Equal("3 sessions", pane.FindAll("[data-testid='sessions-group-size']")[1].GetAttribute("title"));
         });
     }
 
+    /// <summary>A section per repository, named as the workspace calls it, and the
+    /// rows that name none in a section of their own, last.</summary>
     [Fact]
-    public void Grouping_by_type_is_a_section_per_assistant()
+    public void Grouping_by_repository_is_a_section_per_repository_with_the_unplaced_last()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters.Add(p => p.RepositoryAlias, AliasFor));
+
+        ShowAll(pane);
+        GroupBy(pane, "repository");
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            ["archify", "backlog", "JSdotNet/Project-Guidelines-MCP", "No repository"],
+            pane.FindAll("[data-testid='sessions-group-name']").Select(name => name.TextContent.Trim())));
+    }
+
+    /// <summary>When puts the live sessions first and the finished ones under the day
+    /// they were last active; the sample's finished ones are long past.</summary>
+    [Fact]
+    public void Grouping_by_when_puts_the_live_sessions_first()
     {
         using var context = Context(Sample);
 
         var pane = context.Render<SessionsPane>();
 
         ShowAll(pane);
-        pane.Find("[data-testid='sessions-group-type']").Click();
 
-        pane.WaitForAssertion(() => Assert.Equal(
-            ["Claude", "Copilot"],
-            pane.FindAll(".data-table__group-name").Select(name => name.TextContent.Trim())));
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                ["Live now", "Older"],
+                pane.FindAll("[data-testid='sessions-group-name']").Select(name => name.TextContent.Trim()));
+            Assert.Equal(["2", "2"], pane.FindAll("[data-testid='sessions-group-size']").Select(count => count.TextContent.Trim()));
+        });
     }
 
     /// <summary>
@@ -140,22 +165,22 @@ public sealed class SessionsPaneTests
         var pane = context.Render<SessionsPane>();
 
         ShowAll(pane);
-        pane.WaitForAssertion(() => Assert.Equal(4, pane.FindAll(".data-table__row").Count));
+        pane.WaitForAssertion(() => Assert.Equal(4, pane.FindAll("[data-testid='sessions-row']").Count));
 
-        foreach (var grouping in new[] { "environment", "type", "none" })
+        foreach (var grouping in new[] { "repository", "machine", "when" })
         {
-            pane.Find($"[data-testid='sessions-group-{grouping}']").Click();
+            GroupBy(pane, grouping);
 
             pane.WaitForAssertion(() =>
             {
-                Assert.Equal(4, pane.FindAll(".data-table__row").Count);
+                Assert.Equal(4, pane.FindAll("[data-testid='sessions-row']").Count);
                 Assert.Equal("4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
             });
         }
     }
 
     [Fact]
-    public void Ungrouped_is_the_shape_the_pane_opens_in()
+    public void When_is_the_grouping_the_pane_opens_in()
     {
         using var context = Context(Sample);
 
@@ -163,8 +188,11 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal("true", pane.Find("[data-testid='sessions-group-none']").GetAttribute("aria-pressed"));
-            Assert.Empty(pane.FindAll(".data-table__group"));
+            Assert.Equal("when", pane.Find("[data-testid='sessions-grouping-filter'] select").GetAttribute("value"));
+            Assert.Equal(
+                ["When", "Repository", "Machine"],
+                pane.FindAll("[data-testid='sessions-grouping-filter'] option").Select(option => option.TextContent.Trim()));
+            Assert.Equal("Live now", Assert.Single(pane.FindAll("[data-testid='sessions-group-name']")).TextContent.Trim());
         });
     }
 
@@ -199,7 +227,7 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var stalled = pane.FindAll(".data-table__row")
+            var stalled = pane.FindAll("[data-testid='sessions-row']")
                 .Single(row => row.TextContent.Contains("JSdotNet/Archify"));
 
             Assert.NotEmpty(stalled.QuerySelectorAll(".badge--integration-stalled"));
@@ -215,7 +243,7 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+            Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count);
             Assert.DoesNotContain("JSdotNet/Project-Guidelines-MCP", pane.Markup);
             Assert.Empty(pane.FindAll(".badge--integration-finished"));
         });
@@ -232,7 +260,7 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(4, pane.FindAll(".data-table__row").Count);
+            Assert.Equal(4, pane.FindAll("[data-testid='sessions-row']").Count);
             Assert.Contains("JSdotNet/Project-Guidelines-MCP", pane.Markup);
             Assert.Equal("false", pane.Find("[data-testid='sessions-view-live']").GetAttribute("aria-pressed"));
         });
@@ -274,7 +302,7 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Empty(pane.FindAll(".data-table__row"));
+            Assert.Empty(pane.FindAll("[data-testid='sessions-row']"));
             Assert.Equal("0 of 1 session", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
         });
     }
@@ -409,7 +437,7 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var row = Assert.Single(pane.FindAll(".data-table__row"));
+            var row = Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
 
             Assert.Contains("JSdotNet/Project-Guidelines-MCP", row.TextContent);
             Assert.Equal("1 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
@@ -433,7 +461,7 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+            Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count);
             Assert.Equal("2 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
         });
 
@@ -441,7 +469,7 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(3, pane.FindAll(".data-table__row").Count);
+            Assert.Equal(3, pane.FindAll("[data-testid='sessions-row']").Count);
             Assert.Equal("3 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
         });
     }
@@ -455,14 +483,14 @@ public sealed class SessionsPaneTests
 
         ShowAll(pane);
         pane.Find("[data-testid='sessions-machine-filter'] select").Change("laptop");
-        pane.WaitForAssertion(() => Assert.Single(pane.FindAll(".data-table__row")));
+        pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='sessions-row']")));
 
         // The empty option's value, which is what a select hands back for it.
         pane.Find("[data-testid='sessions-machine-filter'] select").Change("");
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(4, pane.FindAll(".data-table__row").Count);
+            Assert.Equal(4, pane.FindAll("[data-testid='sessions-row']").Count);
             Assert.Equal("4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
         });
     }
@@ -481,24 +509,24 @@ public sealed class SessionsPaneTests
 
         ShowAll(pane);
         pane.Find("[data-testid='sessions-machine-filter'] select").Change("tower");
-        pane.WaitForAssertion(() => Assert.Equal(3, pane.FindAll(".data-table__row").Count));
+        pane.WaitForAssertion(() => Assert.Equal(3, pane.FindAll("[data-testid='sessions-row']").Count));
 
-        foreach (var grouping in new[] { "environment", "type", "none" })
+        foreach (var grouping in new[] { "repository", "machine", "when" })
         {
-            pane.Find($"[data-testid='sessions-group-{grouping}']").Click();
+            GroupBy(pane, grouping);
 
             pane.WaitForAssertion(() =>
             {
-                Assert.Equal(3, pane.FindAll(".data-table__row").Count);
+                Assert.Equal(3, pane.FindAll("[data-testid='sessions-row']").Count);
                 Assert.Equal("3 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
             });
         }
 
         // And the one section a narrowed list grouped by environment has is the
         // environment it was narrowed to, under the name the option had.
-        pane.Find("[data-testid='sessions-group-environment']").Click();
+        GroupBy(pane, "machine");
         pane.WaitForAssertion(() =>
-            Assert.Equal("DEV-TOWER", Assert.Single(pane.FindAll(".data-table__group-name")).TextContent.Trim()));
+            Assert.Equal("DEV-TOWER", Assert.Single(pane.FindAll("[data-testid='sessions-group-name']")).TextContent.Trim()));
     }
 
     /// <summary>
@@ -519,7 +547,7 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Empty(pane.FindAll(".data-table__row"));
+            Assert.Empty(pane.FindAll("[data-testid='sessions-row']"));
             Assert.Equal("0 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
 
             Assert.Contains("No live sessions on DEV-LAPTOP right now.", pane.Markup);
@@ -565,7 +593,7 @@ public sealed class SessionsPaneTests
 
         ShowAll(pane);
         pane.Find("[data-testid='sessions-machine-filter'] select").Change("laptop");
-        pane.WaitForAssertion(() => Assert.Single(pane.FindAll(".data-table__row")));
+        pane.WaitForAssertion(() => Assert.Single(pane.FindAll("[data-testid='sessions-row']")));
 
         // The laptop's only record has aged past the cap.
         source.Sessions = [Sample[0], Sample[1], Sample[3]];
@@ -574,7 +602,7 @@ public sealed class SessionsPaneTests
         pane.WaitForAssertion(() =>
         {
             AssertAllEnvironments(pane);
-            Assert.Equal(3, pane.FindAll(".data-table__row").Count);
+            Assert.Equal(3, pane.FindAll("[data-testid='sessions-row']").Count);
             Assert.Equal("3 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
             Assert.DoesNotContain("DEV-LAPTOP", pane.Find("[data-testid='sessions-machine-filter']").TextContent);
         });
@@ -596,9 +624,9 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var row = Assert.Single(pane.FindAll(".data-table__row"));
+            Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
 
-            Assert.NotNull(row.QuerySelector("[data-testid='sessions-origin']"));
+            Assert.NotNull(pane.Find("[data-testid='sessions-detail']").QuerySelector("[data-testid='sessions-origin']"));
             Assert.Equal("1 of 2 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
         });
     }
@@ -621,7 +649,7 @@ public sealed class SessionsPaneTests
             var notice = pane.Find("[data-testid='sessions-unreadable']");
 
             Assert.Contains("Copilot", notice.TextContent);
-            Assert.Single(pane.FindAll(".data-table__row"));
+            Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
         });
     }
 
@@ -673,7 +701,7 @@ public sealed class SessionsPaneTests
 
         // What that closes is the shell's business; the pane still shows its rows.
         Assert.Equal(1, closed);
-        Assert.NotEmpty(pane.FindAll(".data-table__row"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='sessions-row']"));
     }
 
     /// <summary>
@@ -734,7 +762,7 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var marked = pane.FindAll(".sessions-table__repository")
+            var marked = pane.FindAll(".sessions-repository")
                 .Where(cell => cell.ClassName?.Contains("repo-mark") == true)
                 .ToList();
 
@@ -763,7 +791,7 @@ public sealed class SessionsPaneTests
         ShowAll(pane);
 
         pane.WaitForAssertion(() => Assert.All(
-            pane.FindAll(".sessions-table__repository"),
+            pane.FindAll(".sessions-repository"),
             cell => Assert.DoesNotContain("repo-mark", cell.ClassName)));
     }
 
@@ -780,7 +808,7 @@ public sealed class SessionsPaneTests
         ShowAll(pane);
 
         pane.WaitForAssertion(() => Assert.All(
-            pane.FindAll(".sessions-table__repository"),
+            pane.FindAll(".sessions-repository"),
             cell => Assert.DoesNotContain("repo-mark", cell.ClassName)));
     }
 
@@ -830,7 +858,8 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var origin = pane.Find(".data-table__row [data-testid='sessions-origin']");
+            var detail = pane.Find("[data-testid='sessions-detail']");
+            var origin = detail.QuerySelector("[data-testid='sessions-origin']")!;
 
             // The machine is named in the text, so it survives greyscale and reads
             // out loud. Nothing about this row's meaning is carried by a tint.
@@ -838,23 +867,10 @@ public sealed class SessionsPaneTests
                 "Recorded on DEV-LAPTOP. Its folder and transcript stay there.",
                 origin.TextContent.Trim());
 
-            // The same secondary line the folder uses, and not the mono family: this
-            // is a sentence rather than a path.
-            Assert.Equal("data-table__detail", origin.GetAttribute("class"));
-
-            // And clamped the way the folder line is. This is the assertion that was
-            // missing when the line shipped with a width cap and no overflow rule: the
-            // sentence ran out of the cell and collided with the Type column, with no
-            // ellipsis and no way to read what had been cut. A machine name is as
-            // unbounded as a path, so the recovery has to be there.
-            var clamp = origin.QuerySelector(".data-table__clamp");
-            Assert.NotNull(clamp);
-            Assert.Contains("sessions-table__origin", clamp!.GetAttribute("class"));
-
-            // The full sentence stays reachable when the visible text is cut short.
-            Assert.Equal(
-                "Recorded on DEV-LAPTOP. Its folder and transcript stay there.",
-                clamp.GetAttribute("title"));
+            // A note in the panel's quiet register, and the reason there is no
+            // working folder among the facts below it.
+            Assert.Equal("sessions-detail__note", origin.GetAttribute("class"));
+            Assert.Null(detail.QuerySelector("[data-testid='sessions-folder']"));
         });
     }
 
@@ -876,11 +892,11 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var row = pane.Find(".data-table__row");
+            var detail = pane.Find("[data-testid='sessions-detail']");
 
-            Assert.Null(row.QuerySelector("[role='alert']"));
-            Assert.Null(row.QuerySelector(".integration-unavailable"));
-            Assert.Null(row.QuerySelector("[data-testid='sessions-origin']")!.GetAttribute("role"));
+            Assert.Null(detail.QuerySelector("[role='alert']"));
+            Assert.Null(detail.QuerySelector(".integration-unavailable"));
+            Assert.Null(detail.QuerySelector("[data-testid='sessions-origin']")!.GetAttribute("role"));
         });
     }
 
@@ -901,12 +917,12 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var titles = pane.FindAll(".sessions-table__title")
+            var titles = pane.FindAll(".sessions-row__title")
                 .ToDictionary(title => title.TextContent.Trim(), title => title.GetAttribute("class"));
 
-            Assert.Equal("sessions-table__title data-table__mono", titles["e7f2b1a0"]);
-            Assert.Equal("sessions-table__title", titles["Rewrite the pairing dialog copy"]);
-            Assert.Equal("sessions-table__title", titles["keen-bose-667825"]);
+            Assert.Equal("sessions-row__title data-table__mono", titles["e7f2b1a0"]);
+            Assert.Equal("sessions-row__title", titles["Rewrite the pairing dialog copy"]);
+            Assert.Equal("sessions-row__title", titles["keen-bose-667825"]);
         });
     }
 
@@ -924,19 +940,15 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var cell = pane.Find(".data-table__row .sessions-table__session");
+            var detail = pane.Find("[data-testid='sessions-detail']");
+            var folder = detail.QuerySelector("[data-testid='sessions-folder']");
 
-            var detail = cell.QuerySelector(".data-table__detail");
-            Assert.NotNull(detail);
-            Assert.Equal("data-table__detail data-table__mono", detail.GetAttribute("class"));
+            Assert.NotNull(folder);
+            Assert.Equal(Sample[0].WorkingFolder, folder.TextContent.Trim());
+            Assert.Contains("data-table__mono", folder.GetAttribute("class"));
 
-            var clamp = detail.QuerySelector(".data-table__clamp");
-            Assert.NotNull(clamp);
-            Assert.Equal(Sample[0].WorkingFolder, clamp.GetAttribute("title"));
-            Assert.Equal(Sample[0].WorkingFolder, clamp.TextContent.Trim());
-
-            Assert.Null(cell.QuerySelector("[data-testid='sessions-origin']"));
-            Assert.Equal("sessions-table__title", cell.QuerySelector("span")!.GetAttribute("class"));
+            Assert.Null(detail.QuerySelector("[data-testid='sessions-origin']"));
+            Assert.Equal("sessions-row__title", pane.Find(".sessions-row__title").GetAttribute("class"));
         });
     }
 
@@ -957,15 +969,16 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var row = pane.Find(".data-table__row");
+            var row = pane.Find("[data-testid='sessions-row']");
+            var detail = pane.Find("[data-testid='sessions-detail']");
 
-            Assert.Equal("—", row.QuerySelector(".sessions-table__repository")!.TextContent.Trim());
-            Assert.Equal("—", row.QuerySelector(".sessions-table__branch")!.TextContent.Trim());
+            Assert.Equal("—", row.QuerySelector(".sessions-repository")!.TextContent.Trim());
+            Assert.Equal("—", detail.QuerySelector("[data-testid='sessions-branch']")!.TextContent.Trim());
 
-            // And the second line is a sentence rather than a third em dash.
+            // And the folder's absence is a sentence rather than a third em dash.
             Assert.Contains(
                 "Recorded on DEV-LAPTOP",
-                row.QuerySelector("[data-testid='sessions-origin']")!.TextContent,
+                detail.QuerySelector("[data-testid='sessions-origin']")!.TextContent,
                 StringComparison.Ordinal);
         });
     }
@@ -975,7 +988,7 @@ public sealed class SessionsPaneTests
     /// last activity, and the type as its mark with the word kept for a screen reader.
     /// </summary>
     [Fact]
-    public void Paired_facts_share_a_cell_with_the_detail_on_the_second_line()
+    public void A_row_says_who_where_on_what_and_the_panel_lists_the_facts()
     {
         using var context = Context([Sample[0]]);
 
@@ -985,23 +998,26 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
+            var row = pane.Find("[data-testid='sessions-row']");
+
+            // The type as its mark, with the word kept for a screen reader.
+            var kind = row.QuerySelector(".sessions-row__kind")!;
+            Assert.Equal("sr-only", kind.QuerySelector("span.sr-only")!.ClassName);
+            Assert.Equal("Claude", kind.GetAttribute("title"));
+
+            Assert.Equal("DEV-TOWER", row.QuerySelector("[data-testid='sessions-machine']")!.TextContent.Trim());
+            Assert.Equal("1 h 57 min", row.QuerySelector("[data-testid='sessions-duration']")!.TextContent.Trim());
+            Assert.Equal("model not recorded", row.QuerySelector("[data-testid='sessions-model']")!.TextContent.Trim());
+            Assert.Empty(row.QuerySelectorAll("[data-testid='sessions-effort']"));
+            Assert.Equal("—", row.QuerySelector("[data-testid='sessions-tokens']")!.TextContent.Trim());
+
+            var detail = pane.Find("[data-testid='sessions-detail']");
+
             Assert.Equal(
-                ["Session", "Type", "Environment", "Repository", "Pull request", "Task", "Last activity", "Tokens", "State"],
-                pane.FindAll(".data-table__table thead th").Select(th => th.TextContent.Trim()));
-
-            var row = pane.Find(".data-table__row");
-            var repository = row.QuerySelector(".sessions-table__repository")!.ParentElement!;
-
-            Assert.NotNull(repository.QuerySelector(".data-table__detail .sessions-table__branch"));
-
-            var activity = row.QuerySelector(".sessions-table__activity")!;
-
-            Assert.NotNull(activity.QuerySelector(".data-table__detail[data-testid='sessions-started']"));
-
-            var kind = row.QuerySelector(".sessions-table__kind")!;
-
-            Assert.Equal("sr-only", kind.QuerySelector("span:not(.badge)")!.ClassName);
-            Assert.False(string.IsNullOrWhiteSpace(kind.GetAttribute("title")));
+                ["Repository", "Machine", "Model", "Effort", "Started", "Duration", "Output", "Branch", "Working folder"],
+                detail.QuerySelectorAll("[data-testid='sessions-facts'] dt").Select(dt => dt.TextContent.Trim()));
+            Assert.Equal("not recorded", detail.QuerySelector("[data-testid='sessions-fact-effort']")!.TextContent.Trim());
+            Assert.Equal("claude/desktop-session-area", detail.QuerySelector("[data-testid='sessions-branch']")!.TextContent.Trim());
         });
     }
 
@@ -1020,21 +1036,21 @@ public sealed class SessionsPaneTests
         var pane = context.Render<SessionsPane>();
 
         ShowAll(pane);
-        pane.Find("[data-testid='sessions-group-environment']").Click();
+        GroupBy(pane, "machine");
 
         pane.WaitForAssertion(() =>
         {
             Assert.Equal(
                 ["DEV-LAPTOP", "DEV-TOWER"],
-                pane.FindAll(".data-table__group-name").Select(name => name.TextContent.Trim()));
+                pane.FindAll("[data-testid='sessions-group-name']").Select(name => name.TextContent.Trim()));
 
             Assert.Equal(
-                ["1 session", "1 session"],
-                pane.FindAll(".data-table__group-count").Select(count => count.TextContent.Trim()));
+                ["1", "1"],
+                pane.FindAll("[data-testid='sessions-group-size']").Select(count => count.TextContent.Trim()));
 
-            // The origin line is still on the replicated row inside its section: the
-            // heading names the machine for the group, and the row still has to
-            // account for itself when the grouping is off again.
+            // The origin line is still in the panel for the replicated row, the first
+            // drawn: the heading names the machine for the group, and the row still
+            // has to account for itself when the grouping changes again.
             Assert.Single(pane.FindAll("[data-testid='sessions-origin']"));
         });
     }
@@ -1056,16 +1072,16 @@ public sealed class SessionsPaneTests
         var pane = context.Render<SessionsPane>();
 
         ShowAll(pane);
-        pane.Find("[data-testid='sessions-group-environment']").Click();
+        GroupBy(pane, "machine");
 
         pane.WaitForAssertion(() =>
         {
             Assert.Equal(
                 ["DEV-TOWER", "DEV-TOWER"],
-                pane.FindAll(".data-table__group-name").Select(name => name.TextContent.Trim()));
+                pane.FindAll("[data-testid='sessions-group-name']").Select(name => name.TextContent.Trim()));
 
-            Assert.Equal(2, pane.FindAll("tbody").Count);
-            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+            Assert.Equal(2, pane.FindAll("[data-testid='sessions-group']").Count);
+            Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count);
         });
     }
 
@@ -1100,7 +1116,7 @@ public sealed class SessionsPaneTests
         {
             string[] expected = ["https://github.com/JSdotNet/Backlog/pull/587", "https://github.com/JSdotNet/Backlog/pull/590"];
 
-            var column = pane.FindAll(".data-table__row [data-testid='sessions-pull-request']");
+            var column = pane.FindAll("[data-testid='sessions-detail'] [data-testid='sessions-pull-request-card'] [data-testid='sessions-pull-request']");
 
             Assert.Equal(expected, column.Select(link => link.GetAttribute("href")));
             Assert.Contains("PR #590", column[1].TextContent);
@@ -1144,7 +1160,7 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+            Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count);
             Assert.Empty(pane.FindAll("[data-testid='sessions-pull-requests']"));
             Assert.Empty(pane.FindAll("[data-testid='sessions-task']"));
         });
@@ -1175,7 +1191,9 @@ public sealed class SessionsPaneTests
             var cells = pane.FindAll("[data-testid='sessions-tokens']");
             Assert.Equal(2, cells.Count);
 
-            Assert.Equal("1,000 out · 30 in", cells[0].TextContent.Trim());
+            // Output on the row, output and input in the panel's facts.
+            Assert.Equal("1,000 out", cells[0].TextContent.Trim());
+            Assert.Equal("1,000 out · 30 in", pane.Find("[data-testid='sessions-fact-output']").TextContent.Trim());
 
             var title = cells[0].GetAttribute("title")!;
             Assert.Contains("claude-opus-5-5: 900 out · 20 in · 7,000 cache read · 50 cache write", title);
@@ -1231,18 +1249,41 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var rows = pane.FindAll(".data-table__row");
+            var detail = pane.Find("[data-testid='sessions-detail']");
             var line = Assert.Single(pane.FindAll("[data-testid='sessions-recorded']"));
 
             Assert.Equal(
                 "From this PC's session record — the transcript is gone, so this is what the last reading kept.",
                 line.TextContent.Trim());
-            Assert.Equal("data-table__detail", line.GetAttribute("class"));
-            Assert.Contains("sessions-table__origin", line.QuerySelector(".data-table__clamp")!.GetAttribute("class"));
+            Assert.Equal("sessions-detail__note", line.GetAttribute("class"));
 
-            Assert.Contains(@"D:\Repos\Backlog\.claude\worktrees\keen-bose-667825", rows[0].TextContent);
-            Assert.Empty(rows[1].QuerySelectorAll("[data-testid='sessions-recorded']"));
+            Assert.Equal(@"D:\Repos\Backlog\.claude\worktrees\keen-bose-667825", detail.QuerySelector("[data-testid='sessions-folder']")!.TextContent.Trim());
         });
+
+        // The other row is a local one, and says nothing of the kind.
+        SessionsPaneTests.Pick(pane, $"Copilot/{Sample[3].Id}");
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='sessions-recorded']"));
+        });
+    }
+
+    /// <summary>Chooses a grouping in the Group by select, by its value.</summary>
+    internal static void GroupBy(IRenderedComponent<SessionsPane> pane, string grouping)
+    {
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-grouping-filter'] select")));
+        pane.Find("[data-testid='sessions-grouping-filter'] select").Change(grouping);
+    }
+
+    /// <summary>Shows one row in the detail panel by pressing it, by its row key.</summary>
+    internal static AngleSharp.Dom.IElement Pick(IRenderedComponent<SessionsPane> pane, string key)
+    {
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll($"[data-testid='sessions-row'][data-row-key='{key}']")));
+        pane.Find($"[data-testid='sessions-row'][data-row-key='{key}']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(key, pane.Find("[data-testid='sessions-detail']").GetAttribute("data-row-key")));
+
+        return pane.Find("[data-testid='sessions-detail']");
     }
 
     /// <summary>
@@ -1294,7 +1335,7 @@ public sealed class SessionsPaneTests
             // was not placed in a clone; the two other Copilot rows are elsewhere.
             Assert.Equal("2 of 5 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
 
-            var rows = pane.FindAll(".data-table__row");
+            var rows = pane.FindAll("[data-testid='sessions-row']");
             Assert.Equal(2, rows.Count);
             Assert.DoesNotContain(rows, row => row.TextContent.Contains("keen-bose-667825", StringComparison.Ordinal));
 
@@ -1327,12 +1368,13 @@ public sealed class SessionsPaneTests
             // Live: the running Claude row is now in scope.
             Assert.Equal("1 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
 
-            var row = Assert.Single(pane.FindAll(".data-table__row"));
+            var row = Assert.Single(pane.FindAll("[data-testid='sessions-row']"));
             Assert.Contains("keen-bose-667825", row.TextContent, StringComparison.Ordinal);
 
-            var cell = row.QuerySelector(".sessions-table__repository")!;
-            Assert.Equal("JSdotNet/Backlog", cell.TextContent.Trim());
-            Assert.Contains("sessions-table__repository--resolved", cell.ClassName, StringComparison.Ordinal);
+            // Named as the workspace calls it; the full owner/name is in the title.
+            var cell = row.QuerySelector(".sessions-repository")!;
+            Assert.Equal("backlog", cell.TextContent.Trim());
+            Assert.Contains("sessions-repository--resolved", cell.ClassName, StringComparison.Ordinal);
             Assert.Contains("The agent recorded no repository", cell.GetAttribute("title"), StringComparison.Ordinal);
         });
 
@@ -1362,9 +1404,9 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var cell = pane.Find(".sessions-table__repository");
-            Assert.Equal("JSdotNet/Archify", cell.TextContent.Trim());
-            Assert.DoesNotContain("sessions-table__repository--resolved", cell.ClassName, StringComparison.Ordinal);
+            var cell = pane.Find(".sessions-repository");
+            Assert.Equal("archify", cell.TextContent.Trim());
+            Assert.DoesNotContain("sessions-repository--resolved", cell.ClassName, StringComparison.Ordinal);
             Assert.Equal("JSdotNet/Archify", cell.GetAttribute("title"));
         });
 
@@ -1529,12 +1571,16 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            var row = pane.Find("[data-testid='sessions-focused-row']");
+            var row = pane.Find("[data-testid='sessions-row'][data-focused='true']");
 
             Assert.Contains("JSdotNet/Backlog", row.TextContent);
-            Assert.Contains("sessions-table__row--focused", row.ClassName);
-            Assert.Equal("-1", row.GetAttribute("tabindex"));
-            Assert.Single(pane.FindAll(".sessions-table__row--focused"));
+            Assert.Contains("sessions-row--focused", row.ClassName);
+            Assert.Equal("true", row.GetAttribute("aria-current"));
+            Assert.Single(pane.FindAll(".sessions-row--focused"));
+
+            // And it is the row the panel shows.
+            Assert.Equal("true", row.GetAttribute("aria-pressed"));
+            Assert.Equal("Copilot/0012e2c7", pane.Find("[data-testid='sessions-detail']").GetAttribute("data-row-key"));
 
             var call = Assert.Single(focus.Invocations);
             Assert.Equal(row.Id, call.Arguments[0]);
@@ -1554,7 +1600,7 @@ public sealed class SessionsPaneTests
         pane.WaitForAssertion(() =>
         {
             Assert.Contains("no record of session not-here", pane.Find("[data-testid='sessions-focus-missing']").TextContent);
-            Assert.Empty(pane.FindAll(".sessions-table__row--focused"));
+            Assert.Empty(pane.FindAll(".sessions-row--focused"));
         });
     }
 
@@ -1569,8 +1615,8 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
-            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
-            Assert.Empty(pane.FindAll(".sessions-table__row--focused"));
+            Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count);
+            Assert.Empty(pane.FindAll(".sessions-row--focused"));
             Assert.Empty(pane.FindAll("[data-testid='sessions-focus-missing']"));
         });
     }

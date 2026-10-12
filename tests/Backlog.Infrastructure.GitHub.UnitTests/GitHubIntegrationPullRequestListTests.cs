@@ -92,7 +92,7 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
             TestContext.Current.CancellationToken);
 
         Assert.Single(listing.PullRequests);
-        Assert.Equal(1, transport.CallsTo("graphql"));
+        Assert.Single(transport.Bodies, body => body!.Contains("pullRequests(states: OPEN", StringComparison.Ordinal));
     }
 
     /// <summary>The recently merged list is ordered by when each was merged, across
@@ -273,6 +273,104 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
         Assert.Contains("doesn't have permission to push to branches in JSdotNet/Backlog", refused.Message, StringComparison.Ordinal);
     }
 
+    // --- Re-run failed --------------------------------------------------------
+
+    private static readonly GitHubOpenPullRequest Failing = Pull with
+    {
+        IsDraft = false,
+        Checks = GitHubCheckState.Failing,
+        HeadChecks =
+        [
+            new GitHubCheck("build", GitHubCheckState.Failing, TimeSpan.FromMinutes(3), null, 101),
+            new GitHubCheck("lint", GitHubCheckState.Failing, TimeSpan.FromMinutes(1), null, 101),
+            new GitHubCheck("e2e", GitHubCheckState.Failing, TimeSpan.FromMinutes(9), null, 202),
+            new GitHubCheck("docs", GitHubCheckState.Passing, TimeSpan.FromMinutes(1), null, 303),
+            new GitHubCheck("ci/external", GitHubCheckState.Failing, null, null, null)
+        ]
+    };
+
+    /// <summary>Every failed GitHub Actions run once, however many of its checks
+    /// failed; a passing run and another service's check are left alone.</summary>
+    [Fact]
+    public async Task Re_running_failed_checks_reruns_each_failed_actions_run_once()
+    {
+        var transport = new RoutingTransport().Returns(HttpMethod.Post, "rerun-failed-jobs", "{}");
+
+        await Integration(transport).RerunFailedChecksAsync(Failing, TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            ["repos/JSdotNet/Backlog/actions/runs/101/rerun-failed-jobs", "repos/JSdotNet/Backlog/actions/runs/202/rerun-failed-jobs"],
+            transport.Paths);
+    }
+
+    [Fact]
+    public async Task Re_running_with_no_failed_actions_run_asks_github_nothing()
+    {
+        var transport = new RoutingTransport();
+        var external = Failing with { HeadChecks = [new GitHubCheck("ci/external", GitHubCheckState.Failing, null, null, null)] };
+
+        var refused = await Assert.ThrowsAsync<GitHubException>(() =>
+            Integration(transport).RerunFailedChecksAsync(external, TestContext.Current.CancellationToken));
+
+        Assert.Empty(transport.Paths);
+        Assert.Contains("none of them is a GitHub Actions run", refused.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The runs are independent: one GitHub refuses does not stop the next
+    /// from being asked, and the refusal says how many went through.</summary>
+    [Fact]
+    public async Task A_refused_run_does_not_stop_the_others_and_says_how_many_started()
+    {
+        var transport = new RoutingTransport()
+            .Refuses("runs/101/", "Something new GitHub started saying")
+            .Returns(HttpMethod.Post, "runs/202/", "{}");
+
+        var refused = await Assert.ThrowsAsync<GitHubException>(() =>
+            Integration(transport).RerunFailedChecksAsync(Failing, TestContext.Current.CancellationToken));
+
+        Assert.Equal(2, transport.CallsTo("rerun-failed-jobs"));
+        Assert.Equal(
+            "Couldn't re-run the failed checks of JSdotNet/Backlog#712: Something new GitHub started saying 1 of the 2 workflow runs did start again.",
+            refused.Message);
+    }
+
+    [Fact]
+    public async Task A_run_still_going_says_to_wait_rather_than_that_permission_is_missing()
+    {
+        var transport = new RoutingTransport().Refuses(HttpMethod.Post, "rerun-failed-jobs", System.Net.HttpStatusCode.Forbidden, "This workflow is already running");
+        var one = Failing with { HeadChecks = [new GitHubCheck("build", GitHubCheckState.Failing, null, null, 101)] };
+
+        var refused = await Assert.ThrowsAsync<GitHubException>(() =>
+            Integration(transport).RerunFailedChecksAsync(one, TestContext.Current.CancellationToken));
+
+        Assert.StartsWith("Couldn't re-run the failed checks of JSdotNet/Backlog#712: a workflow run is still going", refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_run_too_old_to_retry_says_so_rather_than_that_permission_is_missing()
+    {
+        var transport = new RoutingTransport().Refuses(HttpMethod.Post, "rerun-failed-jobs", System.Net.HttpStatusCode.Forbidden, "Unable to retry this workflow run because it was created over 30 days ago");
+        var one = Failing with { HeadChecks = [new GitHubCheck("build", GitHubCheckState.Failing, null, null, 101)] };
+
+        var refused = await Assert.ThrowsAsync<GitHubException>(() =>
+            Integration(transport).RerunFailedChecksAsync(one, TestContext.Current.CancellationToken));
+
+        Assert.Contains("within 30 days", refused.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("permission", refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_permission_refusal_of_a_rerun_names_re_running_workflows()
+    {
+        var transport = new RoutingTransport().Refuses(HttpMethod.Post, "rerun-failed-jobs", System.Net.HttpStatusCode.Forbidden, "Resource not accessible by integration");
+        var one = Failing with { HeadChecks = [new GitHubCheck("build", GitHubCheckState.Failing, null, null, 101)] };
+
+        var refused = await Assert.ThrowsAsync<GitHubException>(() =>
+            Integration(transport).RerunFailedChecksAsync(one, TestContext.Current.CancellationToken));
+
+        Assert.Contains("doesn't have permission to re-run workflows in JSdotNet/Backlog", refused.Message, StringComparison.Ordinal);
+    }
+
     // --- Helpers --------------------------------------------------------------
 
     private static string List(params string[] nodes) => $$"""
@@ -304,7 +402,7 @@ public sealed class GitHubIntegrationPullRequestListTests : IDisposable
             [new PullRequestPin("JSdotNet/Backlog", 1), new PullRequestPin("JSdotNet/Archify", 2), new PullRequestPin("jsdotnet/backlog", 3)],
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(2, transport.Paths.Count);
+        Assert.Equal(2, transport.Bodies.Count(body => body!.Contains("pullRequest(number:", StringComparison.Ordinal)));
         Assert.Equal([3, 2, 1], listing.PullRequests.Select(pull => pull.Number));
         Assert.Equal([GitHubItemState.Merged, GitHubItemState.Closed, GitHubItemState.Open], listing.PullRequests.Select(pull => pull.State));
         Assert.Empty(listing.Failures);

@@ -91,6 +91,48 @@ public sealed class DeliveryRunTelemetryTests : IDisposable
     }
 
     [Fact]
+    public async Task A_delegated_agent_carries_the_totals_its_response_reported()
+    {
+        var runId = await StartRunAsync(stageInProgress: 0);
+        var telemetry = Telemetry();
+        var response = new JsonObject
+        {
+            ["tool_response"] = new JsonObject { ["status"] = "completed", ["totalTokens"] = 52_000, ["totalToolUseCount"] = 33 }
+        };
+
+        await telemetry.RecordAsync(Event("PreToolUse", tool: "Agent"), Ct);
+        await telemetry.RecordAsync(Event("PostToolUse", tool: "Agent", input: new JsonObject { ["subagent_type"] = "qa:qa" }, extra: response), Ct);
+
+        var agent = ((JsonArray)Document(runId)["insights"]!).OfType<JsonObject>().Single(entry => entry["kind"]!.GetValue<string>() == "agent");
+
+        Assert.Equal(52_000, agent["totalTokens"]!.GetValue<long>());
+        Assert.Equal(33, agent["totalToolCalls"]!.GetValue<int>());
+
+        // And the reader hands them to the stage, one call per entry.
+        var run = await ReadAsync(runId);
+        var call = Assert.Single(run.Stages[0].SubAgentRuns);
+        Assert.Equal("qa:qa", call.Agent);
+        Assert.Equal(52_000, call.Tokens);
+        Assert.Equal(33, call.ToolCalls);
+        Assert.False(call.Failed);
+    }
+
+    [Fact]
+    public async Task A_delegated_agent_without_totals_records_none()
+    {
+        var runId = await StartRunAsync(stageInProgress: 0);
+        var telemetry = Telemetry();
+
+        await telemetry.RecordAsync(Event("PreToolUse", tool: "Agent"), Ct);
+        await telemetry.RecordAsync(Event("PostToolUse", tool: "Agent", input: new JsonObject { ["subagent_type"] = "Explore" }), Ct);
+
+        var agent = ((JsonArray)Document(runId)["insights"]!).OfType<JsonObject>().Single(entry => entry["kind"]!.GetValue<string>() == "agent");
+
+        Assert.False(agent.ContainsKey("totalTokens"));
+        Assert.False(agent.ContainsKey("totalToolCalls"));
+    }
+
+    [Fact]
     public async Task Tokens_are_folded_from_the_transcripts_once_per_message()
     {
         var runId = await StartRunAsync(stageInProgress: 1);
