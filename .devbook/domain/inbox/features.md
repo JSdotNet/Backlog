@@ -247,10 +247,11 @@ From the top down the screen holds:
 
 - **Progress.** **Back to the list** (**Esc**), a bar, and beside it the line
   "n of total · m decided this session": where the item stands among the rows
-  the slice held when triage began, and how many decisions the reader has taken
-  since the app opened. The bar fills with the rows decided since triage began.
-  An item that arrives during triage is counted after those rows. Previous
-  (**k**) and **Skip** (**j**) step without deciding.
+  of the slice still open when triage first saw them, and how many decisions
+  the reader has taken since the app opened. A row already moved to the backlog
+  is stepped over and not counted. The bar fills with the rows decided since
+  triage began. An item that arrives during triage is counted after those rows.
+  Previous (**k**) and **Skip** (**j**) step without deciding.
 - **The item**: its kind, its source, when it was captured, its title, notes and
   tags; the tags are the field **g** goes to.
 - **AI cards**, up to two, numbered **1** and **2** — see [AI triage
@@ -307,7 +308,13 @@ and when, is settled in
   belong with this one, with the reason. Its main act, **Make the plan**, opens
   the [batch](#route-a-batch-to-tasks) panel on the item and those captures;
   **Add to an existing plan…** is shown disabled until the Inbox can list the
-  backlog's plans; **Dismiss** turns the card down.
+  backlog's plans; **Dismiss** turns the card down. Add to an existing plan is
+  planned, not yet built: Tasks will list its plans to the Inbox through a port,
+  and picking one tags the item and those captures with that plan's `+tag`.
+
+The model is asked once per item per app session. **Ask again**, in the AI
+section, asks it again for the item shown, and its answer replaces the cards;
+it is planned, not yet built.
 
 A card shown is numbered **1**, or **2** when both are, and is taken with its
 number key, as a suggestion is. The rule-based suggestions are numbered after
