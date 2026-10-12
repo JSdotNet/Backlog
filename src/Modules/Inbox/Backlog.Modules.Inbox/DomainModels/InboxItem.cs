@@ -18,7 +18,8 @@ namespace Backlog.Modules.Inbox.DomainModels;
 /// replica has not yet been told this desktop dealt with it. Both are sync
 /// bookkeeping that happens to be cheapest to keep on the item, because the
 /// events that set the flag — archive, route — are the item's own; nothing
-/// outside the outbox reads either.
+/// outside the outbox reads either. <see cref="RestoredAt"/> is the third: when
+/// the reader took such a decision back, which only the intake reads.
 /// </para>
 /// </summary>
 public sealed class InboxItem
@@ -171,6 +172,19 @@ public sealed class InboxItem
     /// <summary>True between this desktop deciding about a replica-backed item
     /// and the tombstone for it being accepted by the replica.</summary>
     public bool ReplicaAckPending { get; private set; }
+
+    /// <summary>
+    /// When the reader last took a decision back — <see cref="Restore"/> or
+    /// <see cref="ReturnFromBacklog"/> — on the handler's clock, or null for an
+    /// item never reopened. Sync bookkeeping, as <see cref="ReplicaAckPending"/>
+    /// is: an acknowledgement already sent cannot be called back, and the
+    /// replica keeps that tombstone, so a later pull may deliver it here again.
+    /// <see cref="IsRestoredSince"/> is how the intake tells that echo from a
+    /// dismissal made since. Kept apart from <see cref="UpdatedAt"/>, which
+    /// tagging or filing restamps, and which would then hide a phone dismissal
+    /// made in between.
+    /// </summary>
+    public DateTimeOffset? RestoredAt { get; private set; }
 
     /// <summary>When this item last changed. Restamped by every mutator; not
     /// synced, so the stamp is bookkeeping rather than a tie-break.</summary>
@@ -623,9 +637,11 @@ public sealed class InboxItem
     /// <para>
     /// An acknowledgement still waiting in the outbox is withdrawn: the capture
     /// is open again and the replica may keep it. One already sent cannot be
-    /// called back: the replica has dropped the capture, and a tombstone echo
-    /// still on its way may archive this item again on the next pull — a
-    /// window of one sync cycle, accepted for an undo taken seconds later.
+    /// called back: the replica keeps the tombstone, and a pull — the next one,
+    /// or a full replay of the feed long after — delivers it here again. So the
+    /// reopening is stamped (<see cref="RestoredAt"/>), and the intake leaves the
+    /// item open for a tombstone stamped at or before it; see
+    /// <see cref="IsRestoredSince"/>.
     /// </para>
     /// </summary>
     public void Restore(DateTimeOffset now)
@@ -638,6 +654,7 @@ public sealed class InboxItem
         DuplicateOf = null;
         DuplicateOfTask = false;
         ReplicaAckPending = false;
+        RestoredAt = now;
 
         // An archived note owed the phone its tombstone; restored, it goes back
         // out live, stamped after that tombstone so the replica takes it.
@@ -654,7 +671,8 @@ public sealed class InboxItem
     /// unprocessed again. Whether the entries the route made are deleted is the
     /// handler's to settle with the backlog first — the aggregate cannot see
     /// them. The outbox acknowledgement is withdrawn as <see cref="Restore"/>
-    /// withdraws it.
+    /// withdraws it, and the reopening is stamped for the same reason: the
+    /// routed tombstone, once sent, comes back on a later pull.
     /// </summary>
     public void ReturnFromBacklog(DateTimeOffset now)
     {
@@ -664,8 +682,27 @@ public sealed class InboxItem
         Status = InboxStatus.Unprocessed;
         DeferredUntil = null;
         ReplicaAckPending = false;
+        RestoredAt = now;
         Touch(now);
     }
+
+    /// <summary>
+    /// Whether the reader reopened the item at or after
+    /// <paramref name="withdrawnAt"/> — a tombstone stamped then is the decision
+    /// the reader took back, not news, and must not close the item again. A
+    /// tombstone stamped after the reopening is a dismissal made since, by the
+    /// phone or another desktop, and this answers false for it, as it does for
+    /// an item never reopened.
+    /// <para>
+    /// The two stamps come from different clocks when the tombstone is not this
+    /// desktop's own: a phone's dismissal carries the stamp it was pushed with.
+    /// One stamped at or before the reopening, though made after it, is ignored
+    /// here — which only clock skew wider than the gap between the two acts can
+    /// produce, and which is accepted rather than an undo that does not hold.
+    /// </para>
+    /// </summary>
+    public bool IsRestoredSince(DateTimeOffset withdrawnAt) =>
+        RestoredAt is { } restored && withdrawnAt <= restored;
 
     // --- Notes ----------------------------------------------------------------
 
@@ -821,7 +858,8 @@ public sealed class InboxItem
         Guid? duplicateOf = null,
         bool duplicateOfTask = false,
         DateTimeOffset? editedAt = null,
-        bool notePushPending = false)
+        bool notePushPending = false,
+        DateTimeOffset? restoredAt = null)
     {
         Status = status;
         DuplicateOf = duplicateOf;
@@ -835,6 +873,10 @@ public sealed class InboxItem
         // is the nearest thing to when its text last changed.
         EditedAt = editedAt ?? updatedAt;
         NotePushPending = notePushPending;
+
+        // A row written before the stamp existed was never reopened as far as
+        // anything here can tell, which is what null says.
+        RestoredAt = restoredAt;
     }
 
     // --- Internals ----------------------------------------------------------

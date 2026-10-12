@@ -75,6 +75,37 @@ public sealed class UndoDecisionTests
         Assert.False(item.ReplicaAckPending);
     }
 
+    /// <summary>An acknowledgement already sent cannot be withdrawn, so the item
+    /// records when it was reopened, on the handler's clock: the intake reads the
+    /// tombstone's echo against that instant.</summary>
+    [Fact]
+    public async Task Restoring_records_when_the_item_was_reopened()
+    {
+        var store = new InMemoryInboxStore();
+        var item = Items.FromPhone();
+        item.Archive(Items.Noon);
+        item.MarkReplicaAcknowledged();
+        store.Seed(item);
+
+        await Restore(store, item.Id);
+
+        Assert.Equal(Undone, item.RestoredAt);
+    }
+
+    [Fact]
+    public async Task Returning_records_when_the_item_was_reopened()
+    {
+        var store = new InMemoryInboxStore();
+        var item = Items.FromPhone();
+        item.RouteToBacklog([Guid.CreateVersion7()], [], Items.Noon);
+        item.MarkReplicaAcknowledged();
+        store.Seed(item);
+
+        await Return(store, new FakeBacklogTarget(), item.Id, deleteTasks: true);
+
+        Assert.Equal(Undone, item.RestoredAt);
+    }
+
     [Fact]
     public async Task Restoring_an_item_that_is_not_archived_is_refused_and_writes_nothing()
     {

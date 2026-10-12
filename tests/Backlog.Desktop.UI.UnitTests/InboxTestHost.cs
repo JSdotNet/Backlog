@@ -504,6 +504,8 @@ internal sealed class FakeInboxItems : IInboxItems
 
     public Task<Result> DeferAsync(Guid id, DateOnly? until, CancellationToken cancellationToken = default)
     {
+        if (DeferThrows is { } thrown) throw thrown;
+
         if (Find(id) is { } item && (item.Routing is not null || item.Status == InboxStatus.Archived))
         {
             return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Cannot defer a closed item.")));
@@ -533,9 +535,25 @@ internal sealed class FakeInboxItems : IInboxItems
     /// <summary>The items <see cref="RefuseReturn"/> applies to; empty means every one.</summary>
     public HashSet<Guid> RefuseReturnOf { get; } = [];
 
+    /// <summary>Thrown by both of the undo's ways back instead of answering —
+    /// the store failing, which is not a refusal.</summary>
+    public Exception? UndoThrows { get; set; }
+
+    /// <summary>The items <see cref="UndoThrows"/> applies to; empty means every one.</summary>
+    public HashSet<Guid> UndoThrowsOf { get; } = [];
+
+    /// <summary>Thrown by <see cref="DeferAsync"/> instead of answering.</summary>
+    public Exception? DeferThrows { get; set; }
+
+    private void ThrowIfUndoFails(Guid id)
+    {
+        if (UndoThrows is { } thrown && (UndoThrowsOf.Count == 0 || UndoThrowsOf.Contains(id))) throw thrown;
+    }
+
     public Task<Result> RestoreAsync(Guid id, CancellationToken cancellationToken = default)
     {
         Undos.Add(("restore", id));
+        ThrowIfUndoFails(id);
 
         if (Find(id) is { Status: not InboxStatus.Archived })
         {
@@ -553,6 +571,7 @@ internal sealed class FakeInboxItems : IInboxItems
     public Task<Result> ReturnToInboxAsync(Guid id, bool deleteTasks, CancellationToken cancellationToken = default)
     {
         Undos.Add((deleteTasks ? "return" : "unlink", id));
+        ThrowIfUndoFails(id);
 
         if (Find(id) is { Routing: null })
         {

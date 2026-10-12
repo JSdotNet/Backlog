@@ -350,6 +350,172 @@ public sealed class InboxUndoTests : IDisposable
         Assert.Equal("Can't undo — Started already has started. The rest was undone.", toast.Message);
     }
 
+    /// <summary>A way back that throws is the store failing, not the module
+    /// refusing: the decision still stands, so it stays counted and stays on the
+    /// history for the next U to try again, and the failure is the undo's toast
+    /// rather than an exception out of the key.</summary>
+    [Fact]
+    public async Task An_undo_whose_way_back_throws_keeps_the_decision_says_so_and_the_next_U_retries_it()
+    {
+        var (inbox, state, toasts) = Build();
+        var item = inbox.Seed("Call the dentist");
+        await Open(state, item.Id);
+        await state.ArchiveAsync();
+        inbox.UndoThrows = new IOException("The database is locked.");
+
+        Assert.False(await state.UndoLatestAsync());
+
+        var toast = toasts.Visible.Last(message => message.TestId == InboxDesktopState.UndoResultTestId);
+        Assert.Equal(ToastSeverity.Error, toast.Severity);
+        Assert.Equal("Couldn't undo archive — try again.", toast.Message);
+        Assert.Equal(InboxStatus.Archived, inbox.Find(item.Id)!.Status);
+        Assert.Equal(1, state.DecisionCount(InboxDecisionKind.Archive));
+        Assert.Equal(item.Id, Assert.IsType<InboxRestoreUndoStep>(state.UndoHistory.Latest).ItemId);
+        Assert.False(state.UndoRunning);
+
+        inbox.UndoThrows = null;
+
+        Assert.True(await state.UndoLatestAsync());
+        Assert.Equal(InboxStatus.Unprocessed, inbox.Find(item.Id)!.Status);
+        Assert.Equal(0, state.DecisionCount(InboxDecisionKind.Archive));
+        Assert.False(state.CanUndo);
+    }
+
+    /// <summary>In a group, what landed is taken off the tally and what threw
+    /// stays on the history on its own, so the next U retries only that.</summary>
+    [Fact]
+    public async Task A_bulk_undo_whose_second_way_back_throws_takes_back_the_first_and_keeps_the_second()
+    {
+        var (inbox, state, toasts) = Build();
+        var a = inbox.Seed("A", capturedAt: inbox.Now.AddMinutes(2));
+        var b = inbox.Seed("B", capturedAt: inbox.Now.AddMinutes(1));
+        await state.ReloadAsync();
+        state.TogglePicked(a.Id, true, range: false);
+        state.TogglePicked(b.Id, true, range: false);
+        await state.BulkArchiveAsync();
+        var group = Assert.IsType<InboxGroupUndoStep>(state.UndoHistory.Latest);
+        var first = Assert.IsType<InboxRestoreUndoStep>(group.Steps[0]).ItemId;
+        var second = Assert.IsType<InboxRestoreUndoStep>(group.Steps[1]).ItemId;
+        inbox.UndoThrows = new IOException("The database is locked.");
+        inbox.UndoThrowsOf.Add(second);
+
+        Assert.True(await state.UndoLatestAsync());
+
+        Assert.Equal(InboxStatus.Unprocessed, inbox.Find(first)!.Status);
+        Assert.Equal(InboxStatus.Archived, inbox.Find(second)!.Status);
+        // Reloaded: the state reads what the store holds.
+        Assert.Equal(InboxStatus.Unprocessed, state.Items.Single(item => item.Id == first).Status);
+        Assert.Equal(1, state.DecisionCount(InboxDecisionKind.Archive));
+        Assert.Equal(second, Assert.IsType<InboxRestoreUndoStep>(state.UndoHistory.Latest).ItemId);
+        var toast = toasts.Visible.Last(message => message.TestId == InboxDesktopState.UndoResultTestId);
+        Assert.Equal(ToastSeverity.Error, toast.Severity);
+        Assert.Equal($"Couldn't undo {group.Label.ToLowerInvariant()} — try again. The rest was undone.", toast.Message);
+
+        inbox.UndoThrows = null;
+
+        Assert.True(await state.UndoLatestAsync());
+        Assert.Equal(InboxStatus.Unprocessed, inbox.Find(second)!.Status);
+        Assert.Equal(0, state.DecisionCount(InboxDecisionKind.Archive));
+        Assert.False(state.CanUndo);
+    }
+
+    /// <summary>A route whose way back throws is kept like an archive's: the item
+    /// stays routed, the step stays on top, and the failure is the undo's toast.</summary>
+    [Fact]
+    public async Task A_route_whose_way_back_throws_keeps_the_step_and_says_so()
+    {
+        var (inbox, state, toasts) = Build();
+        var item = inbox.Seed("Fix the scroll jump");
+        await Open(state, item.Id);
+        await state.RouteToBacklogAsync();
+        var step = Assert.IsType<InboxRouteUndoStep>(state.UndoHistory.Latest);
+        inbox.UndoThrows = new IOException("The database is locked.");
+
+        Assert.False(await state.UndoLatestAsync());
+
+        Assert.Equal([("return", item.Id)], inbox.Undos);
+        Assert.NotNull(inbox.Find(item.Id)!.Routing);
+        Assert.Same(step, state.UndoHistory.Latest);
+        Assert.Equal(1, state.DecisionCount(InboxDecisionKind.MoveToBacklog));
+        var toast = toasts.Visible.Last(message => message.TestId == InboxDesktopState.UndoResultTestId);
+        Assert.Equal(ToastSeverity.Error, toast.Severity);
+        Assert.Equal($"Couldn't undo {step.Label.ToLowerInvariant()} — try again.", toast.Message);
+    }
+
+    /// <summary>One gesture, three outcomes: one member lands, one is refused and
+    /// one throws. The toast carries the refusal's reason and the failure, and
+    /// does not claim the rest was undone while the refused item is still
+    /// routed. Only the member that threw stays on the history.</summary>
+    [Fact]
+    public async Task A_bulk_undo_with_a_refusal_and_a_throw_says_both_and_keeps_only_the_throw()
+    {
+        var (inbox, state, toasts) = Build();
+        var a = inbox.Seed("A", capturedAt: inbox.Now.AddMinutes(3));
+        var b = inbox.Seed("B", capturedAt: inbox.Now.AddMinutes(2));
+        var c = inbox.Seed("C", capturedAt: inbox.Now.AddMinutes(1));
+        await state.ReloadAsync();
+        foreach (var id in new[] { a.Id, b.Id, c.Id }) state.TogglePicked(id, true, range: false);
+        await state.BulkRouteToBacklogAsync();
+        var group = Assert.IsType<InboxGroupUndoStep>(state.UndoHistory.Latest);
+        var members = group.Steps.Select(step => Assert.IsType<InboxRouteUndoStep>(step).ItemId).ToList();
+        var (refused, thrown, landed) = (members[0], members[1], members[2]);
+        var refusedTitle = inbox.Find(refused)!.Title;
+        inbox.RefuseReturn = InboxErrors.UndoTaskStarted(refusedTitle);
+        inbox.RefuseReturnOf.Add(refused);
+        inbox.UndoThrows = new IOException("The database is locked.");
+        inbox.UndoThrowsOf.Add(thrown);
+
+        Assert.True(await state.UndoLatestAsync());
+
+        Assert.NotNull(inbox.Find(refused)!.Routing);
+        Assert.NotNull(inbox.Find(thrown)!.Routing);
+        Assert.Null(inbox.Find(landed)!.Routing);
+        Assert.Equal(2, state.DecisionCount(InboxDecisionKind.MoveToBacklog));
+        Assert.Equal(thrown, Assert.IsType<InboxRouteUndoStep>(state.UndoHistory.Latest).ItemId);
+        var toast = toasts.Visible.Last(message => message.TestId == InboxDesktopState.UndoResultTestId);
+        Assert.Equal(ToastSeverity.Error, toast.Severity);
+        Assert.Equal(
+            $"Can't undo — {refusedTitle} has started. Couldn't undo {group.Label.ToLowerInvariant()} — try again. 1 of 3 was undone.",
+            toast.Message);
+        Assert.DoesNotContain("The rest was undone", toast.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The deferral put back after a restore runs once the decision is
+    /// already taken back; one that throws is said, and the undo still counts.</summary>
+    [Fact]
+    public async Task A_deferral_that_throws_going_back_on_still_counts_the_undo_as_done()
+    {
+        var (inbox, state, toasts) = Build();
+        var item = inbox.Seed("Read the design doc", status: InboxStatus.Deferred, deferredUntil: new DateOnly(2026, 10, 1));
+        await state.ReloadAsync();
+        state.SelectSlice(InboxDesktopState.DeferredSliceId);
+        state.SelectItem(item.Id);
+        await state.ArchiveAsync();
+        inbox.DeferThrows = new IOException("The database is locked.");
+
+        Assert.True(await state.UndoLatestAsync());
+
+        Assert.Equal(InboxStatus.Unprocessed, inbox.Find(item.Id)!.Status);
+        Assert.Equal(0, state.DecisionCount(InboxDecisionKind.Archive));
+        Assert.False(state.CanUndo);
+        var deferral = Assert.Single(toasts.Visible, message => message.Severity == ToastSeverity.Error && message.TestId != InboxDesktopState.UndoResultTestId);
+        Assert.StartsWith("Couldn't", deferral.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_step_put_back_on_the_history_is_not_counted_again()
+    {
+        var history = new InboxUndoHistory();
+        var step = new InboxRestoreUndoStep(InboxDecisionKind.Archive, "Archive", Guid.NewGuid());
+        history.Record(step);
+
+        Assert.Same(step, history.TakeLatest());
+        history.PutBack(step);
+
+        Assert.Same(step, history.Latest);
+        Assert.Equal(1, history.CountOf(InboxDecisionKind.Archive));
+    }
+
     [Fact]
     public async Task A_deferral_whose_date_moved_is_not_counted_twice()
     {

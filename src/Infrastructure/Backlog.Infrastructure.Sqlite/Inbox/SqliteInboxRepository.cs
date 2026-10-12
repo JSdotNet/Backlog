@@ -47,7 +47,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         "id, title, body_md, source_url, captured_at, received_at, status, deferred_until, kind, " +
         "channel, person, tags, repo_ids, list_id, routing_domain, routing_repo_ids, routing_task_ids, " +
         "routed_at, replica_backed, replica_ack_pending, updated_at, dismissed_suggestions, duplicate_of, duplicate_of_task, " +
-        "edited_at, note_push_pending";
+        "edited_at, note_push_pending, restored_at";
 
     private const string AttachmentColumns =
         "item_id, attachment_id, name, content_type, size_bytes, sha256, local_path, downloaded_at, last_error, sort_order";
@@ -99,7 +99,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 $id, $title, $body_md, $source_url, $captured_at, $received_at, $status, $deferred_until, $kind,
                 $channel, $person, $tags, $repo_ids, $list_id, $routing_domain, $routing_repo_ids, $routing_task_ids,
                 $routed_at, $replica_backed, $replica_ack_pending, $updated_at, $dismissed_suggestions, $duplicate_of,
-                $duplicate_of_task, $edited_at, $note_push_pending)
+                $duplicate_of_task, $edited_at, $note_push_pending, $restored_at)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 body_md = excluded.body_md,
@@ -125,7 +125,8 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 duplicate_of = excluded.duplicate_of,
                 duplicate_of_task = excluded.duplicate_of_task,
                 edited_at = excluded.edited_at,
-                note_push_pending = excluded.note_push_pending;
+                note_push_pending = excluded.note_push_pending,
+                restored_at = excluded.restored_at;
             """;
 
         command.Parameters.AddWithValue("$id", item.Id.ToString());
@@ -158,6 +159,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         command.Parameters.AddWithValue("$duplicate_of_task", item.DuplicateOfTask ? 1 : 0);
         command.Parameters.AddWithValue("$edited_at", WriteInstant(item.EditedAt));
         command.Parameters.AddWithValue("$note_push_pending", item.NotePushPending ? 1 : 0);
+        command.Parameters.AddWithValue("$restored_at", Nullable(item.RestoredAt is { } restored ? WriteInstant(restored) : null));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
@@ -674,6 +676,10 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         // A note this desktop changed and has not pushed yet (InboxItem.NotePushPending).
         await EnsureColumnAsync(connection, "inbox_items", "note_push_pending", "INTEGER NOT NULL DEFAULT 0", cancellationToken)
             .ConfigureAwait(false);
+        // When the reader last took a decision back (InboxItem.RestoredAt). Null
+        // on a row written before it, which reads as never reopened.
+        await EnsureColumnAsync(connection, "inbox_items", "restored_at", "TEXT NULL", cancellationToken)
+            .ConfigureAwait(false);
         // Which kind of item a deleted capture was, so its tombstone goes out as
         // the document the phone holds it as. Null on a row written before it:
         // every such row was a plain capture.
@@ -729,7 +735,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         public const int Tags = 11, RepoIds = 12, ListId = 13;
         public const int RoutingDomain = 14, RoutingRepoIds = 15, RoutingTaskIds = 16, RoutedAt = 17;
         public const int ReplicaBacked = 18, ReplicaAckPending = 19, UpdatedAt = 20, DismissedSuggestions = 21;
-        public const int DuplicateOf = 22, DuplicateOfTask = 23, EditedAt = 24, NotePushPending = 25;
+        public const int DuplicateOf = 22, DuplicateOfTask = 23, EditedAt = 24, NotePushPending = 25, RestoredAt = 26;
 
         public const int ListName = 1, ListGroupId = 2, ListOrder = 3, ListCreatedAt = 4, ListUpdatedAt = 5;
         public const int GroupName = 1, GroupOrder = 2, GroupCreatedAt = 3, GroupUpdatedAt = 4;
@@ -791,7 +797,8 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             ParseGuid(Text(row, Col.DuplicateOf)),
             row.GetInt32(Col.DuplicateOfTask) != 0,
             Text(row, Col.EditedAt) is { } editedAt ? ParseInstant(editedAt) : null,
-            row.GetInt32(Col.NotePushPending) != 0);
+            row.GetInt32(Col.NotePushPending) != 0,
+            Text(row, Col.RestoredAt) is { } restoredAt ? ParseInstant(restoredAt) : null);
 
         return item;
     }
