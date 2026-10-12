@@ -25,7 +25,7 @@ related: [.devbook/domain/inbox/features.md#incoming-queue, .devbook/domain/inbo
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Enter_in_the_field_files_the_title_and_empties_the_field, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Enter_on_a_blank_field_files_nothing]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Enter_in_the_field_files_the_title_and_empties_the_field, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Enter_on_a_blank_field_files_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageNavigationTests.A_capture_while_triaging_a_list_leaves_the_slice_the_item_and_the_count_alone]
 ```
 
 The system SHALL file the text in the header's capture field as the title of a new unfiled item when the reader presses Enter, and empty the field.
@@ -35,6 +35,12 @@ The system SHALL file the text in the header's capture field as the title of a n
 - **Given** the Inbox pane is open
 - **When** the reader types "Ask about the Cosmos emulator" in the capture field and presses Enter
 - **Then** an item titled "Ask about the Cosmos emulator" lands in the queue with no notes, and the field is empty
+
+#### Scenario: A thought typed while triaging a list
+
+- **Given** triage is running on the list "Reading" and shows its second item of three
+- **When** the reader types "A thought on the way" in the capture field and presses Enter
+- **Then** the item lands unfiled in the queue, and triage stays on "Reading" at "2 of 3"
 
 ### Requirement: Shift+Enter opens the notes editor
 
@@ -325,16 +331,28 @@ The system SHALL decide the chosen item by a triage key through the same act its
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Components_js_decides_at_the_keydown_that_a_key_in_a_field_or_with_a_modifier_types, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.The_pane_registers_for_shortcuts_and_no_inbox_markup_arms_a_server_side_prevent_default]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Components_js_decides_at_the_keydown_that_a_key_in_a_field_or_with_a_modifier_types, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.The_pane_registers_for_shortcuts_and_no_inbox_markup_arms_a_server_side_prevent_default, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Components_js_does_not_count_a_checkbox_or_a_radio_button_as_typing, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Components_js_hands_a_key_pressed_on_the_body_to_the_pane_on_screen]
 ```
 
-The system SHALL treat a letter pressed in a text field, inside a dialog, with Ctrl, Alt or Meta held, or while the focus is outside the Inbox pane as that place's key and not as a shortcut.
+The system SHALL treat a letter pressed in a text field, inside a dialog, with Ctrl, Alt or Meta held, or while the focus is on an element outside the Inbox pane as that place's key and not as a shortcut, and a letter pressed with the focus on nothing as the Inbox's shortcut while the Inbox is on screen.
 
 #### Scenario: Typing a tag
 
 - **Given** the reader is typing in the tag field
 - **When** they type "a"
 - **Then** the letter appears in the field and nothing is archived
+
+#### Scenario: A letter on a repository box
+
+- **Given** triage shows an item and the focus is on a box under Move to backlog in
+- **When** the reader presses r
+- **Then** the item moves to the backlog
+
+#### Scenario: After the focused button went away
+
+- **Given** the reader archived an item with its button and the focus fell to the page
+- **When** they press j
+- **Then** the next row is chosen
 
 ### Requirement: Triage moves on after each decision
 
@@ -407,16 +425,22 @@ The system SHALL start triage mode on t, move the focus to the chosen item's tag
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_header_counts_the_session_against_the_rows_triage_began_with_and_k_and_j_step, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_bar_fills_with_the_rows_decided_since_triage_began_not_the_session_count]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_header_counts_the_session_against_the_rows_triage_began_with_and_k_and_j_step, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageModeTests.The_bar_fills_with_the_rows_decided_since_triage_began_not_the_session_count, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxTriageNavigationTests.A_capture_while_triaging_the_inbox_is_counted_and_the_reader_stays_on_their_item]
 ```
 
-The system SHALL show over triage mode a progress bar and the line "n of total · m decided this session", where total is the number of items in the slice when triage began, n the place of the item shown among them, and m the decisions taken since the app opened.
+The system SHALL show over triage mode a progress bar and the line "n of total · m decided this session", where total is the number of items in the slice when triage began plus any that arrived in it since, n the place of the item shown among them, and m the decisions taken since the app opened.
 
 #### Scenario: Halfway through
 
 - **Given** triage began on a slice of 23 items and the reader has decided 11 of them
 - **When** the twelfth item is shown
 - **Then** the line reads "12 of 23 · 11 decided this session" and the bar is a little short of half full
+
+#### Scenario: A thought captured mid-session
+
+- **Given** triage began on three unfiled items and the second is shown
+- **When** the reader files a capture from the header
+- **Then** the line reads "2 of 4", and the capture is the fourth item triage shows
 
 ### Requirement: AI cards come first and the suggestions are numbered after them
 

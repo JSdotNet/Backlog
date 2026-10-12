@@ -384,18 +384,60 @@ public sealed class InboxKeyboardTriageTests
     [Fact]
     public void Components_js_decides_at_the_keydown_that_a_key_in_a_field_or_with_a_modifier_types()
     {
-        var script = File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.js"));
-        var start = script.IndexOf("window.backlogPaneShortcuts", StringComparison.Ordinal);
-        Assert.True(start >= 0, "components.js no longer registers pane shortcuts.");
+        var listener = ShortcutListener();
 
-        var listener = script[script.LastIndexOf("const TYPING_TARGETS", start, StringComparison.Ordinal)..];
-        listener = listener[..listener.IndexOf("});", listener.IndexOf("'OnShortcutAsync'", StringComparison.Ordinal), StringComparison.Ordinal)];
-
-        Assert.Contains("input, textarea, select, [contenteditable]", listener, StringComparison.Ordinal);
+        Assert.Contains("textarea, select, [contenteditable]", listener, StringComparison.Ordinal);
         Assert.Contains("[role=\"dialog\"]", listener, StringComparison.Ordinal);
         Assert.Contains("event.ctrlKey || event.altKey || event.metaKey || event.isComposing", listener, StringComparison.Ordinal);
         Assert.Contains("[aria-modal=\"true\"]", listener, StringComparison.Ordinal);
         Assert.Contains("event.preventDefault()", listener, StringComparison.Ordinal);
+    }
+
+    /// <summary>A checkbox or a radio button takes Space, not letters: R, L, D
+    /// and the rest pressed on triage's "Move to backlog in" boxes are the
+    /// pane's keys, and Space — not a pane key — still ticks the box.</summary>
+    [Fact]
+    public void Components_js_does_not_count_a_checkbox_or_a_radio_button_as_typing()
+    {
+        var listener = ShortcutListener();
+
+        Assert.Contains("const TYPING_TARGETS = 'input:not([type=\"checkbox\"]):not([type=\"radio\"]), textarea", listener, StringComparison.Ordinal);
+        Assert.DoesNotContain("' '", ShortcutKeys(listener), StringComparison.Ordinal);
+    }
+
+    /// <summary>With focus on the body — a decision removed the button that
+    /// had it, the pane re-mounted, the page reloaded — a key goes to the pane
+    /// the reader last pressed or focused in, and with none remembered to the
+    /// registered pane that is on screen: the Inbox has the screen to itself.</summary>
+    [Fact]
+    public void Components_js_hands_a_key_pressed_on_the_body_to_the_pane_on_screen()
+    {
+        var listener = ShortcutListener();
+
+        Assert.Contains("const onScreen = (paneId)", listener, StringComparison.Ordinal);
+        Assert.Contains("getClientRects().length > 0", listener, StringComparison.Ordinal);
+        Assert.Contains("if (lastShortcutPane && onScreen(lastShortcutPane)) return lastShortcutPane;", listener, StringComparison.Ordinal);
+        Assert.Contains("for (const paneId of shortcutPanes.keys()) if (onScreen(paneId)) return paneId;", listener, StringComparison.Ordinal);
+        Assert.Contains("!active || active === document.body", listener, StringComparison.Ordinal);
+        Assert.DoesNotContain("share the screen with the Tasks", listener, StringComparison.Ordinal);
+    }
+
+    /// <summary>The pane-shortcut block of components.js, from its comment to the
+    /// end of the keydown listener that calls the pane.</summary>
+    private static string ShortcutListener()
+    {
+        var script = File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.js"));
+        var start = script.IndexOf("window.backlogPaneShortcuts", StringComparison.Ordinal);
+        Assert.True(start >= 0, "components.js no longer registers pane shortcuts.");
+
+        var listener = script[script.LastIndexOf("// Single-letter shortcuts over a pane", start, StringComparison.Ordinal)..];
+        return listener[..listener.IndexOf("});", listener.IndexOf("'OnShortcutAsync'", StringComparison.Ordinal), StringComparison.Ordinal)];
+    }
+
+    private static string ShortcutKeys(string listener)
+    {
+        var keys = listener[listener.IndexOf("const SHORTCUT_PANE_KEYS", StringComparison.Ordinal)..];
+        return keys[..keys.IndexOf(';', StringComparison.Ordinal)];
     }
 
     // --- Helpers ------------------------------------------------------------

@@ -1820,17 +1820,23 @@
     // modifier is held (Ctrl+A and friends belong to the platform), while an IME
     // is composing, and when the focus is somewhere outside the pane: a key
     // pressed while another pane or the side menu of the shell holds the focus is
-    // that region's. The body counts as the pane's only when the pane was the
-    // last place the reader pressed or focused — a decision that removes the
-    // focused button leaves the focus on the body, and the next key is still
-    // meant for the pane; but the Inbox can share the screen with the Tasks list,
-    // and an `a` meant for nothing there must not archive an inbox item.
+    // that region's. A checkbox or a radio button is not a field: it takes Space,
+    // which is no pane's key, and a letter pressed on one — R on triage's "Move to
+    // backlog in" boxes — is still the pane's.
+    //
+    // A key pressed with the focus on the body has no element to say whose it
+    // is, and the focus lands there often: a decision removes the button that
+    // had it, the pane re-mounts, the page reloads. It goes to the pane the
+    // reader last pressed or focused in while that pane is still on screen, and
+    // otherwise to the registered pane that is on screen. The Inbox, the one
+    // pane registered today, is a full-screen surface: when it is on screen
+    // nothing else is, so there is no other region the key could have been for.
     //
     // Escape is passed on without its default refused: it has none worth
     // stopping, and a pane handler may still want to hear it bubble.
     const shortcutPanes = new Map();
     const SHORTCUT_PANE_KEYS = new Set(['j', 'k', 'a', 'd', 'l', 'r', 'g', 't', 'x', 'u', 'U', '?', 'Escape']);
-    const TYPING_TARGETS = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"]';
+    const TYPING_TARGETS = 'input:not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"]';
     let lastShortcutPane = null;
 
     window.backlogPaneShortcuts = {
@@ -1853,6 +1859,19 @@
     document.addEventListener('focusin', rememberShortcutPane, true);
     document.addEventListener('pointerdown', rememberShortcutPane, true);
 
+    const onScreen = (paneId) => {
+        const pane = shortcutPanes.has(paneId) ? document.getElementById(paneId) : null;
+        return !!pane && pane.getClientRects().length > 0;
+    };
+
+    // Whose a key pressed on the body is; see above. Null when no registered
+    // pane is on screen.
+    const shortcutPaneForBody = () => {
+        if (lastShortcutPane && onScreen(lastShortcutPane)) return lastShortcutPane;
+        for (const paneId of shortcutPanes.keys()) if (onScreen(paneId)) return paneId;
+        return null;
+    };
+
     document.addEventListener('keydown', (event) => {
         if (shortcutPanes.size === 0 || !SHORTCUT_PANE_KEYS.has(event.key)) return;
         if (event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
@@ -1862,18 +1881,13 @@
         if (document.querySelector('[aria-modal="true"]')) return;
 
         const active = document.activeElement;
-        for (const [paneId, dotNetRef] of shortcutPanes) {
-            const pane = document.getElementById(paneId);
-            if (!pane || pane.getClientRects().length === 0) continue;
-            const inPane = active && active !== document.body
-                ? pane.contains(active)
-                : lastShortcutPane === paneId;
-            if (!inPane) continue;
+        const paneId = !active || active === document.body || active === document.documentElement
+            ? shortcutPaneForBody()
+            : [...shortcutPanes.keys()].find(id => onScreen(id) && document.getElementById(id).contains(active));
+        if (!paneId) return;
 
-            if (event.key !== 'Escape') event.preventDefault();
-            dotNetRef.invokeMethodAsync('OnShortcutAsync', event.key).catch(() => { });
-            return;
-        }
+        if (event.key !== 'Escape') event.preventDefault();
+        shortcutPanes.get(paneId).invokeMethodAsync('OnShortcutAsync', event.key).catch(() => { });
     });
 
     // The picker's open list is positioned under its control and is as tall as

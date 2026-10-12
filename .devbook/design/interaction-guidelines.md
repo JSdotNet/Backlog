@@ -449,7 +449,7 @@ as its kind:
 | A switched-off view falls back | A view whose flag goes off MUST show Tasks in its place, and MUST come back when the flag does. |
 | The filter bar is the task views' | The Tasks filter bar MUST show on the Tasks, Board and Calendar views — the same filtered rows read three ways — and on no other screen. The Board adds its **Columns** choice first on the bar, a select with no visible word beside it — the grouping it shows says what the columns are — named `Columns` to assistive technology and in its tooltip. The Roadmap view carries its own Planning heading row instead, and In progress carries its own choices. |
 | A control acts on what is on screen | A header control whose target is off screen MUST NOT render: the GitHub check only beside a task view, Ask AI only with an area to ask about. The view switch, the side-pane toggles, the takeover groups and the identity region stay on every screen, since they are the way to everything else. |
-| The shell reopens where it was left | The main view, the open side pane and any open takeover or the Inbox MUST be restored on a fresh shell instance, including after Settings and back. |
+| The shell reopens where it was left | The main view, the open side pane and any open takeover or the Inbox MUST be restored on a fresh shell instance, including after Settings and back. A restored takeover or Inbox takes the focus as it does when its option opens it, the Inbox inside its own pane so its keys work without a click. |
 
 Review surface: storybook → *App shell* → **Desktop header navigation**.
 
